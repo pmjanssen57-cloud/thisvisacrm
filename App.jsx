@@ -77,7 +77,7 @@ export default function App() {
         return;
       }
       const body = await readJsonResponse(response);
-      if (!response.ok) throw new Error(body.error || 'Unable to load CRM data');
+      if (!response.ok) throw new Error(formatApiError(body, 'Unable to load CRM data'));
       setData(normaliseData(body));
       setAuthRequired(false);
       if (!selectedClientId && body.clients?.[0]?.id) setSelectedClientId(body.clients[0].id);
@@ -107,7 +107,7 @@ export default function App() {
         throw new Error('Access code was not accepted.');
       }
       const body = await readJsonResponse(response);
-      if (!response.ok) throw new Error(body.error || 'CRM save failed');
+      if (!response.ok) throw new Error(formatApiError(body, 'CRM save failed'));
       setData(normaliseData(body));
       return body;
     } catch (err) {
@@ -645,6 +645,12 @@ function DeadlineBadge({ diff }) {
   if (diff === null) return null;
   const className = diff < 0 ? 'badge overdue' : diff <= 7 ? 'badge soon' : 'badge';
   return <b className={className}>{diff < 0 ? `${Math.abs(diff)}d overdue` : diff === 0 ? 'Today' : `${diff}d`}</b>;
+}
+
+function formatApiError(body, fallback) {
+  if (!body) return fallback;
+  if (body.detail) return `${body.error || fallback}: ${body.detail}`;
+  return body.error || fallback;
 }
 
 function normaliseData(body) {
