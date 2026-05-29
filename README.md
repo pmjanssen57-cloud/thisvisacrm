@@ -1,4 +1,4 @@
-# Turner Hopkins CRM - Netlify Database v0.4.6
+# Turner Hopkins CRM - Netlify Database v0.5.4
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
@@ -31,3 +31,10 @@ If any of these returns HTML or plain text, check Netlify > Deploys > latest dep
 
 ## v0.4.9 database runtime note
 This version passes the Netlify Database connection string explicitly when `NETLIFY_DB_URL`, `NETLIFY_DATABASE_URL`, or `DATABASE_URL` is present. This helps when Netlify Functions run in Lambda compatibility mode and the automatic database environment is not injected into `getDatabase()`.
+
+
+## v0.5.4
+
+- Removed the user-facing Matter name field.
+- Added a Case strategy field for the client master summary, key issues, risks, evidence gaps and case approach.
+- Adds/updates the `case_strategy` database column automatically on first Function run after deploy.

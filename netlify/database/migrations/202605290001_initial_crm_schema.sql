@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS clients (
   nationality TEXT,
   location TEXT,
   matter_name TEXT,
+  case_strategy TEXT,
   case_type TEXT NOT NULL,
   primary_adviser_id UUID REFERENCES advisers(id) ON DELETE SET NULL,
   backup_adviser_id UUID REFERENCES advisers(id) ON DELETE SET NULL,
@@ -66,6 +67,7 @@ CREATE TABLE IF NOT EXISTS billing_milestones (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS case_strategy TEXT;
 CREATE INDEX IF NOT EXISTS idx_clients_case_type ON clients(case_type);
 CREATE INDEX IF NOT EXISTS idx_clients_primary_adviser ON clients(primary_adviser_id);
 CREATE INDEX IF NOT EXISTS idx_client_deadlines_date ON client_deadlines(deadline_date);

@@ -52,6 +52,32 @@ const emptyData = {
   securityMode: 'unknown',
 };
 
+function makeBlankClient(data) {
+  const adviserId = data.advisers[0]?.id || '';
+  return {
+    id: `temp-${Date.now()}`,
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    nationality: '',
+    location: '',
+    matterName: '',
+    caseStrategy: '',
+    caseType: data.caseTypes[0] || DEFAULT_CASE_TYPES[0],
+    primaryAdviserId: adviserId,
+    backupAdviserId: data.advisers[1]?.id || adviserId,
+    priority: 'Normal',
+    clientStatus: 'Active',
+    nextAction: '',
+    nextActionDue: '',
+    notes: '',
+    stages: buildStagePlan(data.stageTemplates),
+    deadlines: [],
+    billing: [],
+  };
+}
+
 export default function App() {
   const [data, setData] = useState(emptyData);
   const [tab, setTab] = useState('dashboard');
@@ -135,9 +161,20 @@ export default function App() {
     if (body.clients?.[0]?.id) setSelectedClientId(body.clients[0].id);
   }
 
-  async function saveClient(client) {
+  async function saveClient(client, options = {}) {
+    const wasNewClient = String(client.id || '').startsWith('temp-');
     const body = await callApi('saveClient', { client });
-    if (body.client?.id) setSelectedClientId(body.client.id);
+    if (body.client?.id) {
+      if (wasNewClient && options.resetNewClientForm) {
+        const blankClient = makeBlankClient({ ...data, clients: body.clients || data.clients });
+        setData((current) => ({ ...current, clients: [blankClient, ...(body.clients || current.clients)] }));
+        setSelectedClientId(blankClient.id);
+        setTab('clients');
+      } else {
+        setSelectedClientId(body.client.id);
+      }
+    }
+    return body;
   }
 
   async function saveAdviser(adviser) {
@@ -151,28 +188,7 @@ export default function App() {
   }
 
   function addClient() {
-    const adviserId = data.advisers[0]?.id || '';
-    const newClient = {
-      id: `temp-${Date.now()}`,
-      firstName: '',
-      lastName: 'New client',
-      email: '',
-      phone: '',
-      nationality: '',
-      location: '',
-      matterName: 'New matter',
-      caseType: data.caseTypes[0] || DEFAULT_CASE_TYPES[0],
-      primaryAdviserId: adviserId,
-      backupAdviserId: data.advisers[1]?.id || adviserId,
-      priority: 'Normal',
-      clientStatus: 'Active',
-      nextAction: '',
-      nextActionDue: '',
-      notes: '',
-      stages: buildStagePlan(data.stageTemplates),
-      deadlines: [],
-      billing: [],
-    };
+    const newClient = makeBlankClient(data);
     setData((current) => ({ ...current, clients: [newClient, ...current.clients] }));
     setSelectedClientId(newClient.id);
     setTab('clients');
@@ -206,7 +222,7 @@ export default function App() {
   const filteredClients = useMemo(() => {
     const q = clientQuery.trim().toLowerCase();
     return scopedClients.filter((client) => {
-      const matchesQuery = !q || [client.firstName, client.lastName, client.email, client.matterName, client.caseType, client.nationality]
+      const matchesQuery = !q || [client.firstName, client.lastName, client.email, client.caseType, client.nationality, client.caseStrategy]
         .join(' ')
         .toLowerCase()
         .includes(q);
@@ -293,7 +309,7 @@ export default function App() {
             </nav>
 
             {tab === 'dashboard' && (
-              <Dashboard clients={scopedClients} activeClients={activeClients} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} deadlineRows={deadlineRows} stageTemplates={data.stageTemplates} setTab={setTab} setSelectedClientId={setSelectedClientId} />
+              <Dashboard clients={scopedClients} activeClients={activeClients} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} deadlineRows={deadlineRows} taskRows={taskRows} stageTemplates={data.stageTemplates} setTab={setTab} setSelectedClientId={setSelectedClientId} />
             )}
 
             {tab === 'tasks' && (
@@ -369,7 +385,7 @@ function ViewToolbar({ advisers, dashboardAdviserFilter, setDashboardAdviserFilt
         </label>
         <form className="global-search" onSubmit={submitSearch}>
           <Search size={16} />
-          <input value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} placeholder="Search clients, matter, email, nationality..." />
+          <input value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} placeholder="Search clients, case type, email, nationality, strategy..." />
           <button className="btn dark" type="submit">Search</button>
         </form>
         <div className="view-result">
@@ -397,7 +413,7 @@ function AccessScreen({ pendingCode, setPendingCode, submitAccessCode, error }) 
   );
 }
 
-function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, deadlineRows, stageTemplates, setTab, setSelectedClientId }) {
+function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, deadlineRows, taskRows, stageTemplates, setTab, setSelectedClientId }) {
   const pendingInvoices = clients.flatMap((client) => client.billing || []).filter((item) => item.status !== 'Paid');
   const overdueRows = deadlineRows.filter((row) => dateDiff(row.date) < 0);
   const next14 = deadlineRows.filter((row) => dateDiff(row.date) >= 0 && dateDiff(row.date) <= 14);
@@ -421,6 +437,8 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
         <MetricCard label="Overdue items" value={overdueRows.length} note="Needs attention" icon={AlertTriangle} warning />
         <MetricCard label="Pending billing" value={formatCurrency(pendingInvoices.reduce((sum, item) => sum + Number(item.amount || 0), 0))} note="Draft, scheduled or invoiced" icon={CreditCard} />
       </div>
+
+      <QuickTaskPanel taskRows={taskRows} advisers={advisers} setTab={setTab} setSelectedClientId={setSelectedClientId} />
 
       <div className="dashboard-grid">
         <section className="panel wide-panel">
@@ -472,6 +490,106 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
       </section>
     </div>
   );
+
+}
+
+function QuickTaskPanel({ taskRows, advisers, setTab, setSelectedClientId }) {
+  const immediateTasks = useMemo(() => taskRows
+    .filter((row) => row.diff <= 7)
+    .sort((a, b) => compareTasks(a, b, 'priority'))
+    .slice(0, 6), [taskRows]);
+
+  const counts = taskRows.reduce((acc, row) => {
+    if (row.diff < 0) acc.overdue += 1;
+    if (row.diff === 0) acc.today += 1;
+    if (row.diff >= 0 && row.diff <= 7) acc.next7 += 1;
+    return acc;
+  }, { overdue: 0, today: 0, next7: 0 });
+
+  return (
+    <section className="panel quick-task-panel">
+      <div className="quick-task-head">
+        <div>
+          <h2>Quick task panel</h2>
+          <p className="muted">Immediate work only: overdue, due today, or due in the next 7 days for the current view.</p>
+        </div>
+        <div className="quick-task-counts">
+          <span><b>{counts.overdue}</b> overdue</span>
+          <span><b>{counts.today}</b> today</span>
+          <span><b>{counts.next7}</b> next 7 days</span>
+        </div>
+        <button className="btn dark" type="button" onClick={() => setTab('tasks')}><ListChecks size={16} />Full task list</button>
+      </div>
+
+      <div className="quick-task-list">
+        {immediateTasks.map((row) => {
+          const adviser = advisers.find((item) => item.id === row.client.primaryAdviserId);
+          return (
+            <button className={`quick-task ${taskStatusKey(row)}`} key={row.id} onClick={() => { setSelectedClientId(row.client.id); setTab('clients'); }}>
+              <DeadlineBadge diff={row.diff} />
+              <span>
+                <strong>{row.client.firstName} {row.client.lastName}</strong>
+                <small>{row.type} · {row.date}</small>
+                <small>{adviser?.name || 'Unassigned'} · {row.client.caseType}</small>
+              </span>
+              <ChevronRight size={16} />
+            </button>
+          );
+        })}
+        {!immediateTasks.length && <div className="quick-task-empty"><CheckCircle2 size={20} /><span>No immediate tasks in this view.</span></div>}
+      </div>
+    </section>
+  );
+}
+
+function ProgressMap({ client }) {
+  const stages = client.stages || [];
+  const applied = appliedStages(client);
+  const completed = completedStages(client);
+  const nextStage = applied.find((stage) => !stage.completed) || null;
+
+  function stageStatus(stage) {
+    if (!stage.applied) return 'skipped';
+    if (stage.completed) return 'completed';
+    if (nextStage?.id === stage.id) return 'current';
+    return 'upcoming';
+  }
+
+  return (
+    <section className="progress-map">
+      <div className="progress-map-header">
+        <div>
+          <h2>Client progress map</h2>
+          <p className="muted">Applied stages drive the progress percentage. Optional stages that are not relevant are shown as skipped and do not affect progress.</p>
+        </div>
+        <div className="progress-map-stats">
+          <span><b>{applied.length}</b> applied</span>
+          <span><b>{completed.length}</b> completed</span>
+          <span><b>{progressPercent(client)}%</b> progress</span>
+        </div>
+      </div>
+
+      <div className="progress-map-track">
+        {stages.map((stage, index) => {
+          const status = stageStatus(stage);
+          return (
+            <div className={`progress-step ${status}`} key={stage.id}>
+              <div className="progress-step-marker"><span>{status === 'completed' ? '✓' : index + 1}</span></div>
+              <div className="progress-step-copy">
+                <strong>{stage.label}</strong>
+                <small>{status === 'current' ? 'Current / next stage' : status === 'completed' ? (stage.completedDate ? `Completed ${stage.completedDate}` : 'Completed') : status === 'skipped' ? 'Not applied to this matter' : 'Upcoming'}</small>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="progress-map-current">
+        <Clock size={16} />
+        <span>{nextStage ? `Next stage: ${nextStage.label}` : 'All selected stages are complete.'}</span>
+      </div>
+    </section>
+  );
 }
 
 function ClientsWorkspace(props) {
@@ -486,7 +604,7 @@ function ClientsWorkspace(props) {
         <div className="client-list">
           {clients.map((client) => (
             <button className={`client-card ${selectedClient.id === client.id ? 'active' : ''}`} key={client.id} onClick={() => setSelectedClientId(client.id)}>
-              <span><strong>{client.firstName} {client.lastName}</strong><small>{client.matterName}</small><small>{client.caseType}</small></span>
+              <span><strong>{[client.firstName, client.lastName].filter(Boolean).join(' ') || 'New client'}</strong><small>{client.caseType}</small><small>{client.caseStrategy ? 'Strategy added' : 'No case strategy yet'}</small></span>
               <ChevronRight size={16} />
               <ProgressBar value={progressPercent(client)} />
             </button>
@@ -550,20 +668,32 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, saveClient, 
     setDraft((current) => ({ ...current, billing: current.billing.filter((item) => item.id !== id) }));
   }
 
+  async function handleSaveClient() {
+    const isNewClient = String(draft.id || '').startsWith('temp-');
+    await saveClient(draft, { resetNewClientForm: isNewClient });
+    if (isNewClient) {
+      window.alert('Client record saved. A blank new client form is ready for the next entry.');
+    } else {
+      window.alert('Client record saved.');
+    }
+  }
+
   return (
     <div>
       <div className="detail-header">
         <div>
           <h1>{draft.firstName || 'New'} {draft.lastName || 'client'}</h1>
-          <p>{draft.matterName} · {draft.caseType}</p>
+          <p>{draft.caseType}</p>
         </div>
         <div className="button-row">
           <button className="btn danger" onClick={() => deleteClient(draft.id)} disabled={saving || String(draft.id).startsWith('temp-')}><Trash2 size={16} />Delete</button>
-          <button className="btn dark" onClick={() => saveClient(draft)} disabled={saving}><Save size={16} />Save client</button>
+          <button className="btn dark" onClick={handleSaveClient} disabled={saving}><Save size={16} />Save client</button>
         </div>
       </div>
 
       <div className="progress-card"><span>{currentStageLabel(draft)}</span><b>{progressPercent(draft)}%</b><ProgressBar value={progressPercent(draft)} /></div>
+
+      <ProgressMap client={draft} />
 
       <div className="form-grid">
         <Field label="First name" value={draft.firstName} onChange={(v) => setField('firstName', v)} />
@@ -572,7 +702,6 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, saveClient, 
         <Field label="Phone" value={draft.phone} onChange={(v) => setField('phone', v)} />
         <Field label="Nationality" value={draft.nationality} onChange={(v) => setField('nationality', v)} />
         <Field label="Location" value={draft.location} onChange={(v) => setField('location', v)} />
-        <Field label="Matter name" value={draft.matterName} onChange={(v) => setField('matterName', v)} />
         <SelectField label="Case type / application type" value={draft.caseType} onChange={(v) => setField('caseType', v)} options={caseTypes} />
         <SelectField label="Primary adviser" value={draft.primaryAdviserId} onChange={(v) => setField('primaryAdviserId', v)} options={advisers.map((a) => ({ label: a.name, value: a.id }))} />
         <SelectField label="Backup adviser" value={draft.backupAdviserId} onChange={(v) => setField('backupAdviserId', v)} options={advisers.map((a) => ({ label: a.name, value: a.id }))} />
@@ -580,6 +709,12 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, saveClient, 
         <SelectField label="Client status" value={draft.clientStatus} onChange={(v) => setField('clientStatus', v)} options={['Active', 'Waiting on client', 'Waiting on INZ', 'On hold', 'Closed']} />
         <DateField label="Next action due" value={draft.nextActionDue} onChange={(v) => setField('nextActionDue', v)} />
       </div>
+
+      <section className="sub-panel strategy-panel">
+        <h2>Case strategy</h2>
+        <p className="muted">Use this as the master case summary: key issues, strategy, risks, evidence gaps and agreed approach.</p>
+        <TextArea label="Case strategy / key issues" value={draft.caseStrategy} onChange={(v) => setField('caseStrategy', v)} rows={8} />
+      </section>
 
       <div className="form-grid two">
         <TextArea label="Next action" value={draft.nextAction} onChange={(v) => setField('nextAction', v)} />
@@ -649,7 +784,7 @@ function TasksDashboard({ taskRows, advisers, dashboardAdviserFilter, setTab, se
     return taskRows
       .filter((row) => statusFilter === 'all' || taskStatusKey(row) === statusFilter || (statusFilter === 'next-30' && row.diff >= 0 && row.diff <= 30))
       .filter((row) => typeFilter === 'all' || row.type === typeFilter)
-      .filter((row) => !q || [row.client.firstName, row.client.lastName, row.client.matterName, row.client.caseType, row.type, row.note].join(' ').toLowerCase().includes(q))
+      .filter((row) => !q || [row.client.firstName, row.client.lastName, row.client.caseType, row.client.caseStrategy, row.type, row.note].join(' ').toLowerCase().includes(q))
       .sort((a, b) => compareTasks(a, b, sortMode));
   }, [taskRows, statusFilter, typeFilter, taskSearch, sortMode]);
 
@@ -722,7 +857,7 @@ function TasksDashboard({ taskRows, advisers, dashboardAdviserFilter, setTab, se
             return (
               <div className={`task-line ${taskStatusKey(row)}`} key={row.id}>
                 <span><DeadlineBadge diff={row.diff} /></span>
-                <span><strong>{row.client.firstName} {row.client.lastName}</strong><small>{row.client.matterName}</small><small>{row.client.caseType}</small></span>
+                <span><strong>{row.client.firstName} {row.client.lastName}</strong><small>{row.client.caseType}</small><small>{row.client.caseStrategy ? 'Strategy added' : 'No case strategy yet'}</small></span>
                 <span><strong>{row.type}</strong><small>{row.date}</small></span>
                 <span>{adviser?.name || 'Unassigned'}</span>
                 <span>{row.note || '—'}</span>
@@ -826,8 +961,8 @@ function SelectField({ label, value, onChange, options }) {
   return <label className="field"><span>{label}</span><select value={value || ''} onChange={(event) => onChange(event.target.value)}>{normalised.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>;
 }
 
-function TextArea({ label, value, onChange }) {
-  return <label className="field"><span>{label}</span><textarea rows="4" value={value || ''} onChange={(event) => onChange(event.target.value)} /></label>;
+function TextArea({ label, value, onChange, rows = 4 }) {
+  return <label className="field"><span>{label}</span><textarea rows={rows} value={value || ''} onChange={(event) => onChange(event.target.value)} /></label>;
 }
 
 function ProgressBar({ value }) {
