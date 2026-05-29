@@ -27,3 +27,7 @@ After deployment, test these URLs first:
 - `/.netlify/functions/crm` should return either an unauthorised JSON message or CRM JSON.
 
 If any of these returns HTML or plain text, check Netlify > Deploys > latest deploy > Functions logs.
+
+
+## v0.4.9 database runtime note
+This version passes the Netlify Database connection string explicitly when `NETLIFY_DB_URL`, `NETLIFY_DATABASE_URL`, or `DATABASE_URL` is present. This helps when Netlify Functions run in Lambda compatibility mode and the automatic database environment is not injected into `getDatabase()`.

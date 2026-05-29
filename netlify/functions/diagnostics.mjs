@@ -2,7 +2,8 @@ import { getDatabase } from '@netlify/database';
 
 export const handler = async () => {
   try {
-    const db = getDatabase();
+    const connectionString = process.env.NETLIFY_DB_URL || process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL;
+    const db = connectionString ? getDatabase({ connectionString }) : getDatabase();
     await db.sql`CREATE EXTENSION IF NOT EXISTS pgcrypto`;
     await db.sql`CREATE TABLE IF NOT EXISTS crm_diagnostics_probe (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), checked_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
     const nowRows = await db.sql`SELECT NOW() AS now`;

@@ -96,8 +96,13 @@ function extractBearer(value) {
 }
 
 function db() {
+  const connectionString = process.env.NETLIFY_DB_URL || process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL;
+  if (connectionString) {
+    return getDatabase({ connectionString });
+  }
   return getDatabase();
 }
+
 
 async function ensureSchema() {
   const database = db();
