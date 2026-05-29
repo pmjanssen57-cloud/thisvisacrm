@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, CalendarDays, CheckCircle2, ChevronRight, Clock, CreditCard, Database, LayoutDashboard, LockKeyhole, Plus, RefreshCw, Save, Search, Trash2, UserRound, UsersRound, X } from 'lucide-react';
+import { AlertTriangle, ArrowUpDown, CalendarDays, CheckCircle2, ChevronRight, Clock, CreditCard, Database, LayoutDashboard, ListChecks, LockKeyhole, Plus, RefreshCw, Save, Search, Trash2, UserRound, UsersRound, X } from 'lucide-react';
 
 const BRAND = {
   ink: '#003736',
@@ -219,12 +219,14 @@ export default function App() {
   const deadlineRows = useMemo(() => {
     return scopedClients
       .flatMap((client) => [
-        ...(client.deadlines || []).map((deadline) => ({ client, type: deadline.type, date: deadline.date, note: deadline.note })),
-        client.nextActionDue ? { client, type: 'Next Action Date', date: client.nextActionDue, note: client.nextAction } : null,
+        ...(client.deadlines || []).map((deadline) => ({ client, type: deadline.type, date: deadline.date, note: deadline.note, source: 'deadline' })),
+        client.nextActionDue ? { client, type: 'Next Action Date', date: client.nextActionDue, note: client.nextAction, source: 'next-action' } : null,
       ].filter(Boolean))
       .filter((row) => row.date)
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [scopedClients]);
+
+  const taskRows = useMemo(() => buildTaskRows(scopedClients), [scopedClients]);
 
   const billingRows = useMemo(() => {
     return scopedClients.flatMap((client) => (client.billing || []).map((item) => ({ ...item, client }))).sort((a, b) => (a.dueDate || '9999').localeCompare(b.dueDate || '9999'));
@@ -284,6 +286,7 @@ export default function App() {
             />
             <nav className="tabs">
               <TabButton active={tab === 'dashboard'} onClick={() => setTab('dashboard')} icon={LayoutDashboard} label="Dashboard" />
+              <TabButton active={tab === 'tasks'} onClick={() => setTab('tasks')} icon={ListChecks} label="Tasks" />
               <TabButton active={tab === 'clients'} onClick={() => setTab('clients')} icon={UsersRound} label="Clients" />
               <TabButton active={tab === 'billing'} onClick={() => setTab('billing')} icon={CreditCard} label="Billing" />
               <TabButton active={tab === 'advisers'} onClick={() => setTab('advisers')} icon={UsersRound} label="Advisers" />
@@ -291,6 +294,10 @@ export default function App() {
 
             {tab === 'dashboard' && (
               <Dashboard clients={scopedClients} activeClients={activeClients} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} deadlineRows={deadlineRows} stageTemplates={data.stageTemplates} setTab={setTab} setSelectedClientId={setSelectedClientId} />
+            )}
+
+            {tab === 'tasks' && (
+              <TasksDashboard taskRows={taskRows} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} setTab={setTab} setSelectedClientId={setSelectedClientId} />
             )}
 
             {tab === 'clients' && selectedClient && (
@@ -628,6 +635,108 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, saveClient, 
   );
 }
 
+function TasksDashboard({ taskRows, advisers, dashboardAdviserFilter, setTab, setSelectedClientId }) {
+  const [sortMode, setSortMode] = useState('priority');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [taskSearch, setTaskSearch] = useState('');
+
+  const scopeLabel = dashboardAdviserFilter === 'all' ? 'All advisers' : advisers.find((adviser) => adviser.id === dashboardAdviserFilter)?.name || 'Selected adviser';
+  const types = useMemo(() => Array.from(new Set(taskRows.map((row) => row.type))).sort(), [taskRows]);
+
+  const visibleTasks = useMemo(() => {
+    const q = taskSearch.trim().toLowerCase();
+    return taskRows
+      .filter((row) => statusFilter === 'all' || taskStatusKey(row) === statusFilter || (statusFilter === 'next-30' && row.diff >= 0 && row.diff <= 30))
+      .filter((row) => typeFilter === 'all' || row.type === typeFilter)
+      .filter((row) => !q || [row.client.firstName, row.client.lastName, row.client.matterName, row.client.caseType, row.type, row.note].join(' ').toLowerCase().includes(q))
+      .sort((a, b) => compareTasks(a, b, sortMode));
+  }, [taskRows, statusFilter, typeFilter, taskSearch, sortMode]);
+
+  const counts = taskRows.reduce((acc, row) => {
+    acc.total += 1;
+    if (row.diff < 0) acc.overdue += 1;
+    if (row.diff === 0) acc.today += 1;
+    if (row.diff >= 0 && row.diff <= 7) acc.next7 += 1;
+    if (row.diff >= 0 && row.diff <= 30) acc.next30 += 1;
+    return acc;
+  }, { total: 0, overdue: 0, today: 0, next7: 0, next30: 0 });
+
+  return (
+    <div className="stack">
+      <section className="panel dashboard-heading">
+        <div>
+          <h2>Task list</h2>
+          <p className="muted">Deadlines, expiry dates and next-action dates for the current adviser view: {scopeLabel}.</p>
+        </div>
+        <span>{visibleTasks.length} task{visibleTasks.length === 1 ? '' : 's'} shown</span>
+      </section>
+
+      <div className="metric-grid four">
+        <MetricCard label="Total tasks" value={counts.total} note="All dates in this adviser view" icon={ListChecks} />
+        <MetricCard label="Overdue" value={counts.overdue} note="Past due dates" icon={AlertTriangle} warning />
+        <MetricCard label="Due today" value={counts.today} note="Needs action now" icon={Clock} />
+        <MetricCard label="Next 7 days" value={counts.next7} note="Coming up shortly" icon={CalendarDays} />
+      </div>
+
+      <section className="panel">
+        <div className="task-toolbar">
+          <label>
+            <span>Sort</span>
+            <select value={sortMode} onChange={(event) => setSortMode(event.target.value)}>
+              <option value="priority">Priority order</option>
+              <option value="date-asc">Date: earliest first</option>
+              <option value="date-desc">Date: latest first</option>
+              <option value="client">Client A-Z</option>
+              <option value="type">Deadline type</option>
+            </select>
+          </label>
+          <label>
+            <span>Status</span>
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+              <option value="all">All statuses</option>
+              <option value="overdue">Overdue</option>
+              <option value="today">Due today</option>
+              <option value="next-7">Next 7 days</option>
+              <option value="next-30">Next 30 days</option>
+              <option value="future">Future</option>
+            </select>
+          </label>
+          <label>
+            <span>Type</span>
+            <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
+              <option value="all">All deadline types</option>
+              {types.map((type) => <option key={type} value={type}>{type}</option>)}
+            </select>
+          </label>
+          <label className="task-search">
+            <span>Search tasks</span>
+            <div><Search size={16} /><input value={taskSearch} onChange={(event) => setTaskSearch(event.target.value)} placeholder="Client, matter, note or type" /></div>
+          </label>
+        </div>
+
+        <div className="task-table">
+          <div className="task-head"><span>Preference</span><span>Client</span><span>Task / date</span><span>Adviser</span><span>Note</span><span></span></div>
+          {visibleTasks.map((row) => {
+            const adviser = advisers.find((item) => item.id === row.client.primaryAdviserId);
+            return (
+              <div className={`task-line ${taskStatusKey(row)}`} key={row.id}>
+                <span><DeadlineBadge diff={row.diff} /></span>
+                <span><strong>{row.client.firstName} {row.client.lastName}</strong><small>{row.client.matterName}</small><small>{row.client.caseType}</small></span>
+                <span><strong>{row.type}</strong><small>{row.date}</small></span>
+                <span>{adviser?.name || 'Unassigned'}</span>
+                <span>{row.note || '—'}</span>
+                <button className="btn ghost" onClick={() => { setSelectedClientId(row.client.id); setTab('clients'); }}>Open</button>
+              </div>
+            );
+          })}
+          {!visibleTasks.length && <p className="muted center">No tasks match the selected filters.</p>}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function BillingDashboard({ billingRows, advisers, adviserFilter, setAdviserFilter, dashboardAdviserFilter, setTab, setSelectedClientId }) {
   const visibleRows = billingRows.filter((row) => adviserFilter === 'all' || row.client.primaryAdviserId === adviserFilter || row.client.backupAdviserId === adviserFilter);
   const scopeLabel = dashboardAdviserFilter === 'all' ? 'All advisers' : advisers.find((adviser) => adviser.id === dashboardAdviserFilter)?.name || 'Selected adviser';
@@ -802,6 +911,59 @@ async function readJsonResponse(response) {
 
 function authHeaders(code) {
   return code ? { 'x-crm-token': code } : {};
+}
+
+function buildTaskRows(clients) {
+  return clients
+    .flatMap((client) => [
+      ...(client.deadlines || []).map((deadline) => ({
+        id: `${client.id}-${deadline.id}`,
+        client,
+        type: deadline.type,
+        date: deadline.date,
+        note: deadline.note || '',
+        source: 'deadline',
+        diff: dateDiff(deadline.date),
+      })),
+      client.nextActionDue ? {
+        id: `${client.id}-next-action`,
+        client,
+        type: 'Next Action Date',
+        date: client.nextActionDue,
+        note: client.nextAction || '',
+        source: 'next-action',
+        diff: dateDiff(client.nextActionDue),
+      } : null,
+    ].filter(Boolean))
+    .filter((row) => row.date)
+    .sort((a, b) => compareTasks(a, b, 'priority'));
+}
+
+function taskStatusKey(row) {
+  if (row.diff < 0) return 'overdue';
+  if (row.diff === 0) return 'today';
+  if (row.diff <= 7) return 'next-7';
+  return 'future';
+}
+
+function taskPriority(row) {
+  if (row.diff < 0) return 0;
+  if (row.diff === 0) return 1;
+  if (row.diff <= 7) return 2;
+  if (row.diff <= 30) return 3;
+  return 4;
+}
+
+function clientName(client) {
+  return `${client.lastName || ''} ${client.firstName || ''}`.trim().toLowerCase();
+}
+
+function compareTasks(a, b, sortMode) {
+  if (sortMode === 'date-asc') return a.date.localeCompare(b.date) || clientName(a.client).localeCompare(clientName(b.client));
+  if (sortMode === 'date-desc') return b.date.localeCompare(a.date) || clientName(a.client).localeCompare(clientName(b.client));
+  if (sortMode === 'client') return clientName(a.client).localeCompare(clientName(b.client)) || a.date.localeCompare(b.date);
+  if (sortMode === 'type') return a.type.localeCompare(b.type) || a.date.localeCompare(b.date);
+  return taskPriority(a) - taskPriority(b) || a.date.localeCompare(b.date) || clientName(a.client).localeCompare(clientName(b.client));
 }
 
 function matchesAdviserScope(client, adviserId) {

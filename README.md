@@ -31,3 +31,7 @@ If any of these returns HTML or plain text, check Netlify > Deploys > latest dep
 
 ## v0.4.9 database runtime note
 This version passes the Netlify Database connection string explicitly when `NETLIFY_DB_URL`, `NETLIFY_DATABASE_URL`, or `DATABASE_URL` is present. This helps when Netlify Functions run in Lambda compatibility mode and the automatic database environment is not injected into `getDatabase()`.
+
+
+## v0.5.1 update
+Adds a Tasks tab showing all client deadlines, expiry dates and next-action dates within the current adviser view, with sort, status, type and search filters.

@@ -68,7 +68,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .tabs {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 8px;
   background: #fff;
   border: 1px solid var(--line);
@@ -370,4 +370,71 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 @media (max-width: 1050px) {
   .view-toolbar, .view-controls { grid-template-columns: 1fr; }
   .dashboard-heading { align-items: flex-start; flex-direction: column; }
+}
+
+
+.task-toolbar {
+  display: grid;
+  grid-template-columns: 190px 170px 230px minmax(260px, 1fr);
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+.task-toolbar label span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.task-toolbar select, .task-search div {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  min-height: 43px;
+  width: 100%;
+  outline: none;
+}
+.task-toolbar select { padding: 10px 12px; }
+.task-search div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+}
+.task-search svg { color: var(--muted); flex: 0 0 auto; }
+.task-search input { border: 0; outline: 0; width: 100%; min-width: 0; padding: 10px 0; }
+.task-table {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  overflow: hidden;
+}
+.task-head, .task-line {
+  display: grid;
+  grid-template-columns: 120px 1.25fr 1fr 0.85fr 1.25fr 90px;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+}
+.task-head {
+  background: #f8fafc;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.task-line { border-top: 1px solid #eef2f7; }
+.task-line strong { color: var(--ink); }
+.task-line small { display: block; color: var(--muted); margin-top: 3px; }
+.task-line.overdue { background: #fffbeb; }
+.task-line.today { background: #f0fdf4; }
+.task-line .btn { justify-content: center; padding: 8px 10px; border-radius: 12px; }
+
+@media (max-width: 1050px) {
+  .task-toolbar, .task-head, .task-line { grid-template-columns: 1fr; }
+  .task-head { display: none; }
+  .task-line { align-items: start; }
 }
