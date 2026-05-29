@@ -1,23 +1,11 @@
-Upload the CONTENTS of this folder to the GitHub repo root. Do not upload the outer folder.
+Upload these project contents to the GitHub repo root, preserving folders.
 
-Required root files:
-- package.json
-- index.html
-- main.jsx
-- App.jsx
-- styles.css
-- netlify.toml
-- .nvmrc
-- .node-version
-- public/
-- netlify/
+Must remain as folders:
+- netlify/functions
+- netlify/database/migrations
+- public
 
-Required Netlify Functions:
-- netlify/functions/ping.mjs
-- netlify/functions/diagnostics.mjs
-- netlify/functions/crm.mjs
-
-After deploying, test:
-- /.netlify/functions/ping
-- /.netlify/functions/diagnostics
-- /.netlify/functions/crm
+Important:
+- Do not upload node_modules.
+- Do not upload package-lock.json from an older package.
+- Keep .npmrc in the repo root so Netlify uses the public npm registry.
