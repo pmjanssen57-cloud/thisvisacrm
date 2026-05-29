@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, CalendarDays, CheckCircle2, ChevronRight, Clock, CreditCard, Database, LayoutDashboard, LockKeyhole, Plus, RefreshCw, Save, Search, Trash2, UsersRound } from 'lucide-react';
+import { AlertTriangle, CalendarDays, CheckCircle2, ChevronRight, Clock, CreditCard, Database, LayoutDashboard, LockKeyhole, Plus, RefreshCw, Save, Search, Trash2, UserRound, UsersRound, X } from 'lucide-react';
 
 const BRAND = {
   ink: '#003736',
@@ -59,6 +59,7 @@ export default function App() {
   const [clientQuery, setClientQuery] = useState('');
   const [adviserFilter, setAdviserFilter] = useState('all');
   const [caseTypeFilter, setCaseTypeFilter] = useState('all');
+  const [dashboardAdviserFilter, setDashboardAdviserFilter] = useState(() => localStorage.getItem('this_crm_dashboard_adviser_filter') || 'all');
   const [accessCode, setAccessCode] = useState(() => localStorage.getItem('this_crm_access_code') || '');
   const [pendingCode, setPendingCode] = useState('');
   const [authRequired, setAuthRequired] = useState(false);
@@ -92,6 +93,10 @@ export default function App() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem('this_crm_dashboard_adviser_filter', dashboardAdviserFilter);
+  }, [dashboardAdviserFilter]);
 
   async function callApi(action, payload = {}) {
     setSaving(true);
@@ -187,12 +192,20 @@ export default function App() {
     setTab('advisers');
   }
 
-  const activeClients = data.clients.filter((client) => client.clientStatus !== 'Closed');
+  const scopedClients = useMemo(() => data.clients.filter((client) => matchesAdviserScope(client, dashboardAdviserFilter)), [data.clients, dashboardAdviserFilter]);
+  const activeClients = scopedClients.filter((client) => client.clientStatus !== 'Closed');
   const selectedClient = data.clients.find((client) => client.id === selectedClientId) || data.clients[0] || null;
+
+  useEffect(() => {
+    if (!selectedClientId || !scopedClients.length) return;
+    if (!scopedClients.some((client) => client.id === selectedClientId)) {
+      setSelectedClientId(scopedClients[0].id);
+    }
+  }, [selectedClientId, scopedClients]);
 
   const filteredClients = useMemo(() => {
     const q = clientQuery.trim().toLowerCase();
-    return data.clients.filter((client) => {
+    return scopedClients.filter((client) => {
       const matchesQuery = !q || [client.firstName, client.lastName, client.email, client.matterName, client.caseType, client.nationality]
         .join(' ')
         .toLowerCase()
@@ -201,21 +214,21 @@ export default function App() {
       const matchesCaseType = caseTypeFilter === 'all' || client.caseType === caseTypeFilter;
       return matchesQuery && matchesAdviser && matchesCaseType;
     });
-  }, [data.clients, clientQuery, adviserFilter, caseTypeFilter]);
+  }, [scopedClients, clientQuery, adviserFilter, caseTypeFilter]);
 
   const deadlineRows = useMemo(() => {
-    return data.clients
+    return scopedClients
       .flatMap((client) => [
         ...(client.deadlines || []).map((deadline) => ({ client, type: deadline.type, date: deadline.date, note: deadline.note })),
         client.nextActionDue ? { client, type: 'Next Action Date', date: client.nextActionDue, note: client.nextAction } : null,
       ].filter(Boolean))
       .filter((row) => row.date)
       .sort((a, b) => a.date.localeCompare(b.date));
-  }, [data.clients]);
+  }, [scopedClients]);
 
   const billingRows = useMemo(() => {
-    return data.clients.flatMap((client) => (client.billing || []).map((item) => ({ ...item, client }))).sort((a, b) => (a.dueDate || '9999').localeCompare(b.dueDate || '9999'));
-  }, [data.clients]);
+    return scopedClients.flatMap((client) => (client.billing || []).map((item) => ({ ...item, client }))).sort((a, b) => (a.dueDate || '9999').localeCompare(b.dueDate || '9999'));
+  }, [scopedClients]);
 
   if (authRequired) {
     return <AccessScreen pendingCode={pendingCode} setPendingCode={setPendingCode} submitAccessCode={submitAccessCode} error={error} />;
@@ -258,6 +271,17 @@ export default function App() {
 
         {(data.clients.length > 0 || data.advisers.length > 0) && (
           <>
+            <ViewToolbar
+              advisers={data.advisers}
+              dashboardAdviserFilter={dashboardAdviserFilter}
+              setDashboardAdviserFilter={setDashboardAdviserFilter}
+              clientQuery={clientQuery}
+              setClientQuery={setClientQuery}
+              matchingClientCount={filteredClients.length}
+              setTab={setTab}
+              setAdviserFilter={setAdviserFilter}
+              setCaseTypeFilter={setCaseTypeFilter}
+            />
             <nav className="tabs">
               <TabButton active={tab === 'dashboard'} onClick={() => setTab('dashboard')} icon={LayoutDashboard} label="Dashboard" />
               <TabButton active={tab === 'clients'} onClick={() => setTab('clients')} icon={UsersRound} label="Clients" />
@@ -266,7 +290,7 @@ export default function App() {
             </nav>
 
             {tab === 'dashboard' && (
-              <Dashboard clients={data.clients} activeClients={activeClients} advisers={data.advisers} deadlineRows={deadlineRows} stageTemplates={data.stageTemplates} setTab={setTab} setSelectedClientId={setSelectedClientId} />
+              <Dashboard clients={scopedClients} activeClients={activeClients} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} deadlineRows={deadlineRows} stageTemplates={data.stageTemplates} setTab={setTab} setSelectedClientId={setSelectedClientId} />
             )}
 
             {tab === 'clients' && selectedClient && (
@@ -290,7 +314,7 @@ export default function App() {
             )}
 
             {tab === 'billing' && (
-              <BillingDashboard billingRows={billingRows} advisers={data.advisers} adviserFilter={adviserFilter} setAdviserFilter={setAdviserFilter} setTab={setTab} setSelectedClientId={setSelectedClientId} />
+              <BillingDashboard billingRows={billingRows} advisers={data.advisers} adviserFilter={adviserFilter} setAdviserFilter={setAdviserFilter} dashboardAdviserFilter={dashboardAdviserFilter} setTab={setTab} setSelectedClientId={setSelectedClientId} />
             )}
 
             {tab === 'advisers' && (
@@ -300,6 +324,54 @@ export default function App() {
         )}
       </main>
     </div>
+  );
+}
+
+function ViewToolbar({ advisers, dashboardAdviserFilter, setDashboardAdviserFilter, clientQuery, setClientQuery, matchingClientCount, setTab, setAdviserFilter, setCaseTypeFilter }) {
+  const selectedAdviser = advisers.find((adviser) => adviser.id === dashboardAdviserFilter);
+  const viewLabel = selectedAdviser ? `${selectedAdviser.name}'s matters` : 'All advisers';
+
+  function submitSearch(event) {
+    event.preventDefault();
+    setTab('clients');
+  }
+
+  function clearView() {
+    setDashboardAdviserFilter('all');
+    setAdviserFilter('all');
+    setCaseTypeFilter('all');
+    setClientQuery('');
+  }
+
+  return (
+    <section className="view-toolbar">
+      <div className="view-copy">
+        <UserRound size={18} />
+        <div>
+          <strong>Current view: {viewLabel}</strong>
+          <span>Use this to switch between whole-practice reporting and an individual adviser view.</span>
+        </div>
+      </div>
+      <div className="view-controls">
+        <label>
+          <span>Dashboard view</span>
+          <select value={dashboardAdviserFilter} onChange={(event) => setDashboardAdviserFilter(event.target.value)}>
+            <option value="all">All advisers</option>
+            {advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}
+          </select>
+        </label>
+        <form className="global-search" onSubmit={submitSearch}>
+          <Search size={16} />
+          <input value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} placeholder="Search clients, matter, email, nationality..." />
+          <button className="btn dark" type="submit">Search</button>
+        </form>
+        <div className="view-result">
+          <strong>{matchingClientCount}</strong>
+          <span>matching client{matchingClientCount === 1 ? '' : 's'}</span>
+        </div>
+        <button className="btn ghost" type="button" onClick={clearView}><X size={16} />Clear</button>
+      </div>
+    </section>
   );
 }
 
@@ -318,13 +390,24 @@ function AccessScreen({ pendingCode, setPendingCode, submitAccessCode, error }) 
   );
 }
 
-function Dashboard({ clients, activeClients, advisers, deadlineRows, stageTemplates, setTab, setSelectedClientId }) {
+function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, deadlineRows, stageTemplates, setTab, setSelectedClientId }) {
   const pendingInvoices = clients.flatMap((client) => client.billing || []).filter((item) => item.status !== 'Paid');
   const overdueRows = deadlineRows.filter((row) => dateDiff(row.date) < 0);
   const next14 = deadlineRows.filter((row) => dateDiff(row.date) >= 0 && dateDiff(row.date) <= 14);
 
+  const visibleAdvisers = dashboardAdviserFilter === 'all' ? advisers : advisers.filter((adviser) => adviser.id === dashboardAdviserFilter);
+  const viewTitle = dashboardAdviserFilter === 'all' ? 'Whole-practice dashboard' : `${advisers.find((adviser) => adviser.id === dashboardAdviserFilter)?.name || 'Adviser'} dashboard`;
+
+
   return (
     <div className="stack">
+      <section className="panel dashboard-heading">
+        <div>
+          <h2>{viewTitle}</h2>
+          <p className="muted">Dashboard metrics, deadlines and billing are filtered to the selected adviser view.</p>
+        </div>
+        <span>{clients.length} client{clients.length === 1 ? '' : 's'} in view</span>
+      </section>
       <div className="metric-grid">
         <MetricCard label="Active clients" value={activeClients.length} note="Open matters" icon={UsersRound} />
         <MetricCard label="Deadlines next 14 days" value={next14.length} note="Expiry, PPI, filing and actions" icon={CalendarDays} />
@@ -337,7 +420,7 @@ function Dashboard({ clients, activeClients, advisers, deadlineRows, stageTempla
           <h2>Adviser workload</h2>
           <p className="muted">Active client numbers and selected-stage progress.</p>
           <div className="adviser-cards">
-            {advisers.map((adviser) => {
+            {visibleAdvisers.map((adviser) => {
               const assigned = activeClients.filter((client) => client.primaryAdviserId === adviser.id);
               const backup = activeClients.filter((client) => client.backupAdviserId === adviser.id);
               const average = assigned.length ? Math.round(assigned.reduce((sum, client) => sum + progressPercent(client), 0) / assigned.length) : 0;
@@ -545,8 +628,9 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, saveClient, 
   );
 }
 
-function BillingDashboard({ billingRows, advisers, adviserFilter, setAdviserFilter, setTab, setSelectedClientId }) {
+function BillingDashboard({ billingRows, advisers, adviserFilter, setAdviserFilter, dashboardAdviserFilter, setTab, setSelectedClientId }) {
   const visibleRows = billingRows.filter((row) => adviserFilter === 'all' || row.client.primaryAdviserId === adviserFilter || row.client.backupAdviserId === adviserFilter);
+  const scopeLabel = dashboardAdviserFilter === 'all' ? 'All advisers' : advisers.find((adviser) => adviser.id === dashboardAdviserFilter)?.name || 'Selected adviser';
   const totals = visibleRows.reduce((acc, item) => {
     acc.total += Number(item.amount || 0);
     if (item.status === 'Paid') acc.paid += Number(item.amount || 0);
@@ -562,7 +646,7 @@ function BillingDashboard({ billingRows, advisers, adviserFilter, setAdviserFilt
         <MetricCard label="Pending" value={formatCurrency(totals.pending)} note="Draft, scheduled, invoiced or overdue" icon={Clock} />
       </div>
       <section className="panel">
-        <div className="sub-panel-head"><div><h2>Adviser billing view</h2><p className="muted">Review billing milestones by client and adviser.</p></div><select value={adviserFilter} onChange={(event) => setAdviserFilter(event.target.value)}><option value="all">All advisers</option>{advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}</select></div>
+        <div className="sub-panel-head"><div><h2>Adviser billing view</h2><p className="muted">Review billing milestones by client and adviser. Current scope: {scopeLabel}.</p></div><select value={adviserFilter} onChange={(event) => setAdviserFilter(event.target.value)}><option value="all">All advisers</option>{advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}</select></div>
         <div className="billing-table">
           <div className="billing-head"><span>Client</span><span>Milestone</span><span>Due</span><span>Amount</span><span>Status</span><span>Invoice</span></div>
           {visibleRows.map((row) => (
@@ -718,6 +802,10 @@ async function readJsonResponse(response) {
 
 function authHeaders(code) {
   return code ? { 'x-crm-token': code } : {};
+}
+
+function matchesAdviserScope(client, adviserId) {
+  return adviserId === 'all' || client.primaryAdviserId === adviserId || client.backupAdviserId === adviserId;
 }
 
 function dateDiff(date) {

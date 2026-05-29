@@ -286,3 +286,88 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   .stage-row, .editable-row, .editable-row.billing-row, .billing-head, .billing-line { grid-template-columns: 1fr; }
   .detail-header, .sub-panel-head { flex-direction: column; }
 }
+
+.view-toolbar {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.9fr) minmax(0, 1.8fr);
+  gap: 16px;
+  align-items: stretch;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 16px;
+  margin-bottom: 22px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+.view-copy {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  min-width: 0;
+}
+.view-copy svg { color: var(--ink); margin-top: 2px; flex: 0 0 auto; }
+.view-copy strong { display: block; color: var(--ink); }
+.view-copy span { display: block; color: var(--muted); font-size: 13px; margin-top: 3px; }
+.view-controls {
+  display: grid;
+  grid-template-columns: 220px minmax(260px, 1fr) 120px auto;
+  gap: 10px;
+  align-items: end;
+}
+.view-controls label span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.view-controls select, .global-search {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+  min-height: 43px;
+}
+.view-controls select { width: 100%; padding: 10px 12px; outline: none; }
+.global-search {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 5px 4px 12px;
+}
+.global-search svg { color: var(--muted); }
+.global-search input { border: 0; outline: 0; padding: 8px 0; min-width: 0; }
+.global-search .btn { padding: 8px 12px; border-radius: 13px; }
+.view-result {
+  border: 1px solid var(--line);
+  background: var(--pale);
+  border-radius: 16px;
+  min-height: 43px;
+  padding: 8px 12px;
+  display: grid;
+  align-content: center;
+}
+.view-result strong { color: var(--ink); line-height: 1; }
+.view-result span { color: var(--muted); font-size: 12px; }
+.dashboard-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+}
+.dashboard-heading span {
+  color: var(--ink);
+  background: var(--pale);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+@media (max-width: 1050px) {
+  .view-toolbar, .view-controls { grid-template-columns: 1fr; }
+  .dashboard-heading { align-items: flex-start; flex-direction: column; }
+}
