@@ -1276,22 +1276,22 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, saveClient, 
             const linkedStage = (draft.stages || []).find((stage) => stage.id === item.stageKey);
             const linkedStageDue = item.triggerType === 'Milestone' && linkedStage?.completed ? linkedStage.completedDate : '';
             return (
-            <div className={`editable-row billing-row ${item.status === 'Overdue' ? 'overdue-soft' : ''}`} key={item.id}>
-              <input value={item.milestone || ''} onChange={(event) => updateBilling(item.id, { milestone: event.target.value })} placeholder="Billing item / description" />
-              <select value={item.triggerType || 'Date'} onChange={(event) => updateBilling(item.id, { triggerType: event.target.value, stageKey: event.target.value === 'Date' ? '' : item.stageKey })}>{BILLING_TRIGGER_TYPES.map((type) => <option key={type}>{type}</option>)}</select>
+            <div className={`billing-edit-card ${item.status === 'Overdue' ? 'overdue-soft' : ''}`} key={item.id}>
+              <label className="billing-field billing-description-field"><span>Billing item / description</span><input value={item.milestone || ''} onChange={(event) => updateBilling(item.id, { milestone: event.target.value })} placeholder="e.g. Lodgement fee, professional fee, balance invoice" /></label>
+              <label className="billing-field"><span>Billing based on</span><select value={item.triggerType || 'Date'} onChange={(event) => updateBilling(item.id, { triggerType: event.target.value, stageKey: event.target.value === 'Date' ? '' : item.stageKey })}><option value="Date">Date</option><option value="Milestone">Matter stage / milestone</option></select></label>
               {item.triggerType === 'Milestone' ? (
-                <select value={item.stageKey || ''} onChange={(event) => updateBilling(item.id, { stageKey: event.target.value })}>
+                <label className="billing-field billing-stage-field"><span>Linked matter stage</span><select value={item.stageKey || ''} onChange={(event) => updateBilling(item.id, { stageKey: event.target.value })}>
                   <option value="">Select linked stage</option>
                   {(draft.stages || []).filter((stage) => stage.applied).map((stage) => <option key={stage.id} value={stage.id}>{stage.label}</option>)}
-                </select>
+                </select></label>
               ) : (
-                <input type="date" value={item.dueDate || ''} onChange={(event) => updateBilling(item.id, { dueDate: event.target.value })} />
+                <label className="billing-field"><span>Billing date</span><input type="date" value={item.dueDate || ''} onChange={(event) => updateBilling(item.id, { dueDate: event.target.value })} /></label>
               )}
-              <input type="number" value={item.amount || 0} onChange={(event) => updateBilling(item.id, { amount: event.target.value })} />
-              <select value={item.status || 'WIP'} onChange={(event) => updateBilling(item.id, { status: event.target.value })}>{BILLING_STATUSES.map((status) => <option key={status}>{status}</option>)}</select>
-              <input value={item.invoiceNo || ''} onChange={(event) => updateBilling(item.id, { invoiceNo: event.target.value })} placeholder="Invoice no." />
-              <button className="icon-btn" onClick={() => removeBilling(item.id)}><Trash2 size={16} /></button>
-              {item.triggerType === 'Milestone' && <small className="billing-hint">{linkedStage ? (linkedStageDue ? `Due when ${linkedStage.label} completed: ${linkedStageDue}` : `Will become due when ${linkedStage.label} is completed.`) : 'Select a client stage to link this bill.'}</small>}
+              <label className="billing-field"><span>Amount</span><input type="number" value={item.amount || 0} onChange={(event) => updateBilling(item.id, { amount: event.target.value })} /></label>
+              <label className="billing-field"><span>Status</span><select value={item.status || 'WIP'} onChange={(event) => updateBilling(item.id, { status: event.target.value })}>{BILLING_STATUSES.map((status) => <option key={status}>{status}</option>)}</select></label>
+              <label className="billing-field"><span>Invoice no.</span><input value={item.invoiceNo || ''} onChange={(event) => updateBilling(item.id, { invoiceNo: event.target.value })} placeholder="Invoice no." /></label>
+              <button className="icon-btn billing-remove-btn" type="button" onClick={() => removeBilling(item.id)} aria-label="Remove billing item"><Trash2 size={16} /></button>
+              <small className="billing-hint">{item.triggerType === 'Milestone' ? (linkedStage ? (linkedStageDue ? `Billing is now due because ${linkedStage.label} was completed on ${linkedStageDue}.` : `This billing item will become due when ${linkedStage.label} is marked completed.`) : 'Choose Matter stage / milestone, then select the linked client stage that triggers this bill.') : 'This billing item will appear in period billing reports based on the billing date.'}</small>
             </div>
           );})}
           {!draft.billing?.length && <p className="muted center">No billing milestones added yet.</p>}

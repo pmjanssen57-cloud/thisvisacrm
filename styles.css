@@ -958,3 +958,59 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 @media (max-width: 760px) {
   .billing-toolbar, .billing-head-wide, .billing-line-wide { grid-template-columns: 1fr; }
 }
+
+.billing-edit-card {
+  display: grid;
+  grid-template-columns: minmax(230px, 1.35fr) 190px minmax(230px, 1.25fr) 130px;
+  gap: 12px;
+  align-items: end;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 14px;
+  background: #fff;
+}
+.billing-edit-card.overdue-soft { background: #fff1f2; }
+.billing-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.billing-field span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.billing-field input,
+.billing-field select {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  padding: 10px 12px;
+  outline: none;
+  width: 100%;
+  min-height: 44px;
+}
+.billing-description-field { grid-column: span 2; }
+.billing-stage-field { grid-column: span 2; }
+.billing-remove-btn {
+  align-self: end;
+  justify-self: start;
+  min-height: 44px;
+  width: 44px;
+}
+.billing-edit-card .billing-hint {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: -2px;
+}
+@media (max-width: 1180px) {
+  .billing-edit-card { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .billing-description-field, .billing-stage-field { grid-column: span 1; }
+}
+@media (max-width: 760px) {
+  .billing-edit-card { grid-template-columns: 1fr; }
+}
