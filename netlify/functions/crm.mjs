@@ -130,6 +130,7 @@ async function ensureSchema() {
       nationality TEXT,
       date_of_birth DATE,
       location TEXT,
+      sharepoint_folder_url TEXT,
       matter_name TEXT,
       case_strategy TEXT,
       case_type TEXT NOT NULL,
@@ -184,6 +185,7 @@ async function ensureSchema() {
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS case_strategy TEXT`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS date_of_birth DATE`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS family_members JSONB NOT NULL DEFAULT '[]'::jsonb`;
+  await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS sharepoint_folder_url TEXT`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_clients_case_type ON clients(case_type)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_clients_primary_adviser ON clients(primary_adviser_id)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_client_deadlines_date ON client_deadlines(deadline_date)`;
@@ -195,7 +197,7 @@ async function readCrmData() {
   const database = db();
   const [advisers, clients, stages, deadlines, billing] = await Promise.all([
     database.sql`SELECT id, name, role, email, phone, licence, active FROM advisers ORDER BY name ASC`,
-    database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, notes, family_members FROM clients ORDER BY updated_at DESC`,
+    database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, notes, family_members FROM clients ORDER BY updated_at DESC`,
     database.sql`SELECT id, client_id, stage_key, stage_label, mandatory, applied, completed, completed_date, sort_order FROM client_stages ORDER BY sort_order ASC`,
     database.sql`SELECT id, client_id, deadline_type, deadline_date, note FROM client_deadlines ORDER BY deadline_date ASC NULLS LAST`,
     database.sql`SELECT id, client_id, milestone, due_date, amount, status, invoice_no FROM billing_milestones ORDER BY due_date ASC NULLS LAST`,
@@ -245,6 +247,7 @@ function mapClientFromDb(row, stages, deadlines, billing) {
     nationality: row.nationality || '',
     dateOfBirth: toDateOnly(row.date_of_birth),
     location: row.location || '',
+    sharepointFolderUrl: row.sharepoint_folder_url || '',
     matterName: row.matter_name || '',
     caseStrategy: row.case_strategy || '',
     caseType: row.case_type || CASE_TYPES[0],
@@ -319,18 +322,18 @@ async function saveClient(input = {}) {
     if (clientId) {
       await poolClient.query(
         `UPDATE clients
-         SET first_name = $1, last_name = $2, email = $3, phone = $4, nationality = $5, date_of_birth = $6, location = $7,
-             matter_name = $8, case_strategy = $9, case_type = $10, primary_adviser_id = $11, backup_adviser_id = $12,
-             priority = $13, client_status = $14, next_action = $15, next_action_due = $16, notes = $17, family_members = $18::jsonb, updated_at = NOW()
-         WHERE id = $19`,
-        [client.firstName, client.lastName || 'Unnamed client', client.email, client.phone, client.nationality, nullableDate(client.dateOfBirth), client.location, client.matterName, client.caseStrategy, client.caseType, nullableUuid(client.primaryAdviserId), nullableUuid(client.backupAdviserId), client.priority, client.clientStatus, client.nextAction, nullableDate(client.nextActionDue), client.notes, JSON.stringify(client.familyMembers || []), clientId]
+         SET first_name = $1, last_name = $2, email = $3, phone = $4, nationality = $5, date_of_birth = $6, location = $7, sharepoint_folder_url = $8,
+             matter_name = $9, case_strategy = $10, case_type = $11, primary_adviser_id = $12, backup_adviser_id = $13,
+             priority = $14, client_status = $15, next_action = $16, next_action_due = $17, notes = $18, family_members = $19::jsonb, updated_at = NOW()
+         WHERE id = $20`,
+        [client.firstName, client.lastName || 'Unnamed client', client.email, client.phone, client.nationality, nullableDate(client.dateOfBirth), client.location, client.sharepointFolderUrl, client.matterName, client.caseStrategy, client.caseType, nullableUuid(client.primaryAdviserId), nullableUuid(client.backupAdviserId), client.priority, client.clientStatus, client.nextAction, nullableDate(client.nextActionDue), client.notes, JSON.stringify(client.familyMembers || []), clientId]
       );
     } else {
       const result = await poolClient.query(
-        `INSERT INTO clients (first_name, last_name, email, phone, nationality, date_of_birth, location, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, notes, family_members)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18::jsonb)
+        `INSERT INTO clients (first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, notes, family_members)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19::jsonb)
          RETURNING id`,
-        [client.firstName, client.lastName || 'Unnamed client', client.email, client.phone, client.nationality, nullableDate(client.dateOfBirth), client.location, client.matterName, client.caseStrategy, client.caseType, nullableUuid(client.primaryAdviserId), nullableUuid(client.backupAdviserId), client.priority, client.clientStatus, client.nextAction, nullableDate(client.nextActionDue), client.notes, JSON.stringify(client.familyMembers || [])]
+        [client.firstName, client.lastName || 'Unnamed client', client.email, client.phone, client.nationality, nullableDate(client.dateOfBirth), client.location, client.sharepointFolderUrl, client.matterName, client.caseStrategy, client.caseType, nullableUuid(client.primaryAdviserId), nullableUuid(client.backupAdviserId), client.priority, client.clientStatus, client.nextAction, nullableDate(client.nextActionDue), client.notes, JSON.stringify(client.familyMembers || [])]
       );
       clientId = result.rows[0].id;
     }
@@ -432,10 +435,10 @@ async function insertAdviser(client, values) {
 
 async function insertSeedClient(poolClient, seed) {
   const result = await poolClient.query(
-    `INSERT INTO clients (first_name, last_name, email, phone, nationality, date_of_birth, location, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, notes, family_members)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18::jsonb)
+    `INSERT INTO clients (first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, notes, family_members)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19::jsonb)
      RETURNING id`,
-    [seed.firstName, seed.lastName, seed.email, seed.phone, seed.nationality, nullableDate(seed.dateOfBirth), seed.location, seed.matterName || '', seed.caseStrategy || '', seed.caseType, seed.primaryAdviserId, seed.backupAdviserId, seed.priority, seed.clientStatus, seed.nextAction, seed.nextActionDue, seed.notes, JSON.stringify(seed.familyMembers || [])]
+    [seed.firstName, seed.lastName, seed.email, seed.phone, seed.nationality, nullableDate(seed.dateOfBirth), seed.location, seed.sharepointFolderUrl || '', seed.matterName || '', seed.caseStrategy || '', seed.caseType, seed.primaryAdviserId, seed.backupAdviserId, seed.priority, seed.clientStatus, seed.nextAction, seed.nextActionDue, seed.notes, JSON.stringify(seed.familyMembers || [])]
   );
   const clientId = result.rows[0].id;
   const stages = normaliseStages(buildStages(seed.appliedStageIds, seed.completedStageIds));
@@ -464,6 +467,7 @@ function normaliseClientInput(input) {
     nationality: input.nationality || '',
     dateOfBirth: input.dateOfBirth || '',
     location: input.location || '',
+    sharepointFolderUrl: input.sharepointFolderUrl || '',
     matterName: input.matterName || '',
     caseStrategy: input.caseStrategy || '',
     caseType: CASE_TYPES.includes(input.caseType) ? input.caseType : CASE_TYPES[0],

@@ -816,3 +816,26 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 @media (max-width: 760px) {
   .support-fab { right: 14px; bottom: 14px; }
 }
+
+.sharepoint-link-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: end;
+}
+.sharepoint-field { margin: 0; }
+.sharepoint-actions { justify-content: flex-end; padding-bottom: 1px; }
+.field-warning {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+  font-size: 13px;
+  font-weight: 700;
+}
+@media (max-width: 760px) {
+  .sharepoint-link-row { grid-template-columns: 1fr; }
+  .sharepoint-actions { justify-content: flex-start; padding-bottom: 0; }
+}

@@ -66,3 +66,7 @@ This package restores the original initial CRM schema migration and adds the cas
 ## v0.5.9
 
 Fixes the floating Help button so it opens the support drawer correctly.
+
+## v0.6.0 update
+
+Adds a client SharePoint folder URL field, plus Open folder and Copy link actions. This creates a new migration: `202605300003_add_sharepoint_folder_url.sql`.

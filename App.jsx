@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowUpDown, CalendarDays, CheckCircle2, ChevronRight, Clock, CreditCard, Database, HelpCircle, LayoutDashboard, ListChecks, LockKeyhole, Plus, RefreshCw, Save, Search, Trash2, UserRound, UsersRound, X } from 'lucide-react';
+import { AlertTriangle, ArrowUpDown, CalendarDays, CheckCircle2, ChevronRight, Clock, Copy, CreditCard, Database, ExternalLink, HelpCircle, LayoutDashboard, Link2, ListChecks, LockKeyhole, Plus, RefreshCw, Save, Search, Trash2, UserRound, UsersRound, X } from 'lucide-react';
 
 const BRAND = {
   ink: '#003736',
@@ -333,6 +333,7 @@ function makeBlankClient(data) {
     nationality: '',
     dateOfBirth: '',
     location: '',
+    sharepointFolderUrl: '',
     matterName: '',
     caseStrategy: '',
     caseType: '',
@@ -495,7 +496,7 @@ export default function App() {
   const filteredClients = useMemo(() => {
     const q = clientQuery.trim().toLowerCase();
     return scopedClients.filter((client) => {
-      const matchesQuery = !q || [client.firstName, client.lastName, client.email, client.caseType, client.nationality, client.location, client.caseStrategy, (client.familyMembers || []).map((member) => `${member.name || ''} ${member.nationality || ''}`).join(' ')]
+      const matchesQuery = !q || [client.firstName, client.lastName, client.email, client.caseType, client.nationality, client.location, client.sharepointFolderUrl, client.caseStrategy, (client.familyMembers || []).map((member) => `${member.name || ''} ${member.nationality || ''}`).join(' ')]
         .join(' ')
         .toLowerCase()
         .includes(q);
@@ -903,7 +904,7 @@ function AdviserClientWorkloadList({ clients, advisers, taskRows, setTab, setSel
   })
     .filter((row) => {
       const q = clientFilter.trim().toLowerCase();
-      const text = [row.client.firstName, row.client.lastName, row.client.email, row.client.caseType, row.client.nationality, row.client.caseStrategy, row.primary?.name, row.backup?.name].join(' ').toLowerCase();
+      const text = [row.client.firstName, row.client.lastName, row.client.email, row.client.caseType, row.client.nationality, row.client.sharepointFolderUrl, row.client.caseStrategy, row.primary?.name, row.backup?.name].join(' ').toLowerCase();
       const matchesClient = !q || text.includes(q);
       const matchesStage = stageFilter === 'all' || row.currentStage === stageFilter;
       const matchesCase = caseTypeFilter === 'all' || row.client.caseType === caseTypeFilter;
@@ -1014,7 +1015,7 @@ function ClientsWorkspace(props) {
         <div className="client-list">
           {clients.map((client) => (
             <button className={`client-card ${selectedClient.id === client.id ? 'active' : ''}`} key={client.id} onClick={() => setSelectedClientId(client.id)}>
-              <span><strong>{[client.firstName, client.lastName].filter(Boolean).join(' ') || 'New client'}</strong><small>{client.caseType}</small><small>{client.caseStrategy ? 'Strategy added' : 'No case strategy yet'}</small></span>
+              <span><strong>{[client.firstName, client.lastName].filter(Boolean).join(' ') || 'New client'}</strong><small>{client.caseType}</small><small>{client.caseStrategy ? 'Strategy added' : 'No case strategy yet'}</small><small>{client.sharepointFolderUrl ? 'SharePoint linked' : 'No SharePoint link'}</small></span>
               <ChevronRight size={16} />
               <ProgressBar value={progressPercent(client)} />
             </button>
@@ -1141,6 +1142,8 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, saveClient, 
         <SelectField label="Priority" value={draft.priority} onChange={(v) => setField('priority', v)} options={['Normal', 'High', 'Urgent']} />
         <SelectField label="Client status" value={draft.clientStatus} onChange={(v) => setField('clientStatus', v)} options={['Active', 'Waiting on client', 'Waiting on INZ', 'On hold', 'Closed']} />
       </div>
+
+      <SharePointFolderPanel value={draft.sharepointFolderUrl} onChange={(v) => setField('sharepointFolderUrl', v)} />
 
       <section className="sub-panel strategy-panel">
         <h2>Case strategy</h2>
@@ -1415,6 +1418,51 @@ function DateWithAgeField({ label, value, onChange }) {
   );
 }
 
+
+function SharePointFolderPanel({ value, onChange }) {
+  const link = normaliseExternalUrl(value);
+  const hasValue = Boolean(String(value || '').trim());
+  const looksSharePoint = isSharePointLike(value);
+
+  async function copyLink() {
+    if (!hasValue) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      window.alert('SharePoint folder link copied.');
+    } catch {
+      window.prompt('Copy SharePoint folder link:', value);
+    }
+  }
+
+  function openLink() {
+    if (!link) return;
+    window.open(link, '_blank', 'noopener,noreferrer');
+  }
+
+  return (
+    <section className="sub-panel sharepoint-panel">
+      <div className="sub-panel-head">
+        <div>
+          <h2>SharePoint folder</h2>
+          <p className="muted">Store the client's SharePoint or OneDrive folder URL so advisers can jump directly to the file location.</p>
+        </div>
+        <Link2 size={20} />
+      </div>
+      <div className="sharepoint-link-row">
+        <label className="field sharepoint-field">
+          <span>Client SharePoint folder URL</span>
+          <input value={value || ''} onChange={(event) => onChange(event.target.value)} placeholder="Paste the SharePoint folder link" />
+        </label>
+        <div className="button-row sharepoint-actions">
+          <button className="btn" onClick={openLink} disabled={!link}><ExternalLink size={16} />Open folder</button>
+          <button className="btn" onClick={copyLink} disabled={!hasValue}><Copy size={16} />Copy link</button>
+        </div>
+      </div>
+      {hasValue && !looksSharePoint && <p className="field-warning">This does not look like a SharePoint or OneDrive link. It will still save, but the Open button only works for normal web URLs.</p>}
+    </section>
+  );
+}
+
 function FamilyDetails({ members, addFamilyMember, updateFamilyMember, removeFamilyMember }) {
   const spousePartner = members.filter((member) => member.relationship === 'Spouse/Partner');
   const children = members.filter((member) => member.relationship === 'Child');
@@ -1479,6 +1527,32 @@ function DeadlineBadge({ diff }) {
   return <b className={className}>{diff < 0 ? `${Math.abs(diff)}d overdue` : diff === 0 ? 'Today' : `${diff}d`}</b>;
 }
 
+
+function normaliseExternalUrl(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const withProtocol = /^https?:\/\//i.test(raw) ? raw : raw.startsWith('www.') ? `https://${raw}` : '';
+  if (!withProtocol) return '';
+  try {
+    const url = new URL(withProtocol);
+    if (!['http:', 'https:'].includes(url.protocol)) return '';
+    return url.toString();
+  } catch {
+    return '';
+  }
+}
+
+function isSharePointLike(value) {
+  const link = normaliseExternalUrl(value);
+  if (!link) return false;
+  try {
+    const host = new URL(link).hostname.toLowerCase();
+    return host.includes('sharepoint.com') || host.includes('onedrive.live.com') || host.includes('office.com');
+  } catch {
+    return false;
+  }
+}
+
 function formatApiError(body, fallback) {
   if (!body) return fallback;
   if (body.detail) return `${body.error || fallback}: ${body.detail}`;
@@ -1488,7 +1562,7 @@ function formatApiError(body, fallback) {
 function normaliseData(body) {
   return {
     advisers: body.advisers || [],
-    clients: (body.clients || []).map((client) => ({ ...client, dateOfBirth: client.dateOfBirth || '', familyMembers: Array.isArray(client.familyMembers) ? client.familyMembers.map((member) => ({ ...member, nationality: member.nationality || '' })) : [], stages: normaliseStages(client.stages, body.stageTemplates || DEFAULT_STAGE_TEMPLATES) })),
+    clients: (body.clients || []).map((client) => ({ ...client, sharepointFolderUrl: client.sharepointFolderUrl || '', dateOfBirth: client.dateOfBirth || '', familyMembers: Array.isArray(client.familyMembers) ? client.familyMembers.map((member) => ({ ...member, nationality: member.nationality || '' })) : [], stages: normaliseStages(client.stages, body.stageTemplates || DEFAULT_STAGE_TEMPLATES) })),
     caseTypes: body.caseTypes || DEFAULT_CASE_TYPES,
     deadlineTypes: body.deadlineTypes || DEFAULT_DEADLINE_TYPES,
     stageTemplates: body.stageTemplates || DEFAULT_STAGE_TEMPLATES,
