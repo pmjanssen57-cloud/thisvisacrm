@@ -393,14 +393,14 @@ async function seedSampleData() {
     const nadia = await insertAdviser(poolClient, ['Nadia', 'Licensed Immigration Adviser', '', '', '', true]);
 
     await insertSeedClient(poolClient, {
-      firstName: 'Aroha', lastName: 'Singh', email: 'aroha@example.com', phone: '+64 21 000 000', nationality: 'India', dateOfBirth: '1988-04-14', location: 'Auckland', familyMembers: [{ relationship: 'Spouse/Partner', name: 'Ravi Singh', dateOfBirth: '1986-09-03' }, { relationship: 'Child', name: 'Maya Singh', dateOfBirth: '2017-02-20' }], matterName: '', caseStrategy: 'AEWV renewal strategy: confirm employer accreditation and job details, check current visa expiry, gather updated employment and identity documents, and file before the agreed deadline.', caseType: 'AEWV Only', primaryAdviserId: paul, backupAdviserId: sejoo, priority: 'High', clientStatus: 'Active', nextAction: 'Draft application and send document gaps to client.', nextActionDue: daysFromNow(2), notes: 'Employer has provided supplementary information. Check INZ form version before filing.',
+      firstName: 'Aroha', lastName: 'Singh', email: 'aroha@example.com', phone: '+64 21 000 000', nationality: 'India', dateOfBirth: '1988-04-14', location: 'Auckland', familyMembers: [{ relationship: 'Spouse/Partner', name: 'Ravi Singh', nationality: 'India', dateOfBirth: '1986-09-03' }, { relationship: 'Child', name: 'Maya Singh', nationality: 'India', dateOfBirth: '2017-02-20' }], matterName: '', caseStrategy: 'AEWV renewal strategy: confirm employer accreditation and job details, check current visa expiry, gather updated employment and identity documents, and file before the agreed deadline.', caseType: 'AEWV Only', primaryAdviserId: paul, backupAdviserId: sejoo, priority: 'High', clientStatus: 'Active', nextAction: 'Draft application and send document gaps to client.', nextActionDue: daysFromNow(2), notes: 'Employer has provided supplementary information. Check INZ form version before filing.',
       appliedStageIds: ['instructions-sent', 'documentation-gathering', 'work-visa-lodged'], completedStageIds: ['instructions-sent', 'documentation-gathering'],
       deadlines: [{ type: 'Visa Expiry Date', date: daysFromNow(42), note: 'Current AEWV expires.' }, { type: 'Filing Deadline Date', date: daysFromNow(9), note: 'Target filing date.' }, { type: 'Medical Expiry Date', date: daysFromNow(80), note: 'Check if new medical required.' }],
       billing: [{ milestone: 'Deposit', dueDate: daysFromNow(-8), amount: 1200, status: 'Paid', invoiceNo: 'INV-1042' }, { milestone: 'Filing milestone', dueDate: daysFromNow(9), amount: 1800, status: 'Scheduled', invoiceNo: '' }],
     });
 
     await insertSeedClient(poolClient, {
-      firstName: 'Megan', lastName: 'Blake', email: 'megan@example.com', phone: '+64 27 000 000', nationality: 'United Kingdom', dateOfBirth: '1991-11-06', location: 'Christchurch', familyMembers: [{ relationship: 'Spouse/Partner', name: 'Daniel Blake', dateOfBirth: '1989-03-18' }], matterName: '', caseStrategy: 'Partnership strategy: assess relationship evidence, identify any gaps in living-together or financial evidence, prepare temporary pathway first if needed, then progress residence.', caseType: 'Partner Residence', primaryAdviserId: sejoo, backupAdviserId: paul, priority: 'Normal', clientStatus: 'Active', nextAction: 'Review relationship evidence checklist.', nextActionDue: daysFromNow(7), notes: 'Client needs plain-English explanation of evidence gaps.',
+      firstName: 'Megan', lastName: 'Blake', email: 'megan@example.com', phone: '+64 27 000 000', nationality: 'United Kingdom', dateOfBirth: '1991-11-06', location: 'Christchurch', familyMembers: [{ relationship: 'Spouse/Partner', name: 'Daniel Blake', nationality: 'New Zealand', dateOfBirth: '1989-03-18' }], matterName: '', caseStrategy: 'Partnership strategy: assess relationship evidence, identify any gaps in living-together or financial evidence, prepare temporary pathway first if needed, then progress residence.', caseType: 'Partner Residence', primaryAdviserId: sejoo, backupAdviserId: paul, priority: 'Normal', clientStatus: 'Active', nextAction: 'Review relationship evidence checklist.', nextActionDue: daysFromNow(7), notes: 'Client needs plain-English explanation of evidence gaps.',
       appliedStageIds: ['instructions-sent', 'documentation-gathering', 'family-temporary-visas-lodged', 'residence-lodged', 'residence-approved-finalised'], completedStageIds: ['instructions-sent'],
       deadlines: [{ type: 'Police Clearance Expiry Date', date: daysFromNow(63), note: 'UK police certificate.' }, { type: 'Filing Deadline Date', date: daysFromNow(28), note: 'Temporary visa first.' }],
       billing: [{ milestone: 'Deposit', dueDate: daysFromNow(-2), amount: 950, status: 'Paid', invoiceNo: 'INV-1044' }, { milestone: 'Drafting', dueDate: daysFromNow(14), amount: 950, status: 'Scheduled', invoiceNo: '' }],
@@ -490,9 +490,10 @@ function normaliseFamilyMembers(inputMembers = []) {
       id: member.id || `member-${index}-${Date.now()}`,
       relationship: member.relationship === 'Spouse/Partner' ? 'Spouse/Partner' : 'Child',
       name: String(member.name || '').trim(),
+      nationality: String(member.nationality || '').trim(),
       dateOfBirth: nullableDate(member.dateOfBirth) || '',
     }))
-    .filter((member) => member.name || member.dateOfBirth);
+    .filter((member) => member.name || member.nationality || member.dateOfBirth);
 }
 
 function parseFamilyMembers(value) {

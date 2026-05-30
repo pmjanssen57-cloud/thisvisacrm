@@ -270,7 +270,6 @@ const emptyData = {
 };
 
 function makeBlankClient(data) {
-  const adviserId = data.advisers[0]?.id || '';
   return {
     id: `temp-${Date.now()}`,
     firstName: '',
@@ -282,9 +281,9 @@ function makeBlankClient(data) {
     location: '',
     matterName: '',
     caseStrategy: '',
-    caseType: data.caseTypes[0] || DEFAULT_CASE_TYPES[0],
-    primaryAdviserId: adviserId,
-    backupAdviserId: data.advisers[1]?.id || adviserId,
+    caseType: '',
+    primaryAdviserId: '',
+    backupAdviserId: '',
     priority: 'Normal',
     clientStatus: 'Active',
     nextAction: '',
@@ -441,7 +440,7 @@ export default function App() {
   const filteredClients = useMemo(() => {
     const q = clientQuery.trim().toLowerCase();
     return scopedClients.filter((client) => {
-      const matchesQuery = !q || [client.firstName, client.lastName, client.email, client.caseType, client.nationality, client.location, client.caseStrategy, (client.familyMembers || []).map((member) => member.name).join(' ')]
+      const matchesQuery = !q || [client.firstName, client.lastName, client.email, client.caseType, client.nationality, client.location, client.caseStrategy, (client.familyMembers || []).map((member) => `${member.name || ''} ${member.nationality || ''}`).join(' ')]
         .join(' ')
         .toLowerCase()
         .includes(q);
@@ -657,6 +656,8 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
         <MetricCard label="Pending billing" value={formatCurrency(pendingInvoices.reduce((sum, item) => sum + Number(item.amount || 0), 0))} note="Draft, scheduled or invoiced" icon={CreditCard} />
       </div>
 
+      <DailyBringUpPanel taskRows={taskRows} advisers={advisers} setTab={setTab} setSelectedClientId={setSelectedClientId} />
+
       <QuickTaskPanel taskRows={taskRows} advisers={advisers} setTab={setTab} setSelectedClientId={setSelectedClientId} />
 
       <div className="dashboard-grid">
@@ -680,6 +681,7 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
               );
             })}
           </div>
+          <AdviserClientWorkloadList clients={activeClients} advisers={advisers} taskRows={taskRows} setTab={setTab} setSelectedClientId={setSelectedClientId} />
         </section>
 
         <section className="panel">
@@ -695,21 +697,45 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
           </div>
         </section>
       </div>
-
-      <section className="panel">
-        <h2>Stage usage overview</h2>
-        <p className="muted">Completed versus applied stages across active matters.</p>
-        <div className="stage-summary-grid">
-          {stageTemplates.map((stage) => {
-            const applied = activeClients.filter((client) => appliedStages(client).some((s) => s.id === stage.id)).length;
-            const completed = activeClients.filter((client) => completedStages(client).some((s) => s.id === stage.id)).length;
-            return <div className="stage-summary" key={stage.id}><span>{stage.label}</span><strong>{completed}/{applied}</strong><small>completed / applied</small></div>;
-          })}
-        </div>
-      </section>
     </div>
   );
 
+}
+
+function DailyBringUpPanel({ taskRows, advisers, setTab, setSelectedClientId }) {
+  const todayActions = useMemo(() => taskRows
+    .filter((row) => row.source === 'next-action' && row.diff === 0)
+    .sort((a, b) => clientName(a.client).localeCompare(clientName(b.client))), [taskRows]);
+
+  return (
+    <section className="panel daily-bringup-panel">
+      <div className="quick-task-head">
+        <div>
+          <h2>Today’s bring-up list</h2>
+          <p className="muted">Next-action tasks due today for the current adviser view. Use this like the daily file bring-up list.</p>
+        </div>
+        <div className="quick-task-counts"><span><b>{todayActions.length}</b> due today</span></div>
+        <button className="btn dark" type="button" onClick={() => setTab('tasks')}><ListChecks size={16} />Full task list</button>
+      </div>
+      <div className="quick-task-list daily-bringup-list">
+        {todayActions.map((row) => {
+          const adviser = advisers.find((item) => item.id === row.client.primaryAdviserId);
+          return (
+            <button className="quick-task today" key={row.id} onClick={() => { setSelectedClientId(row.client.id); setTab('clients'); }}>
+              <DeadlineBadge diff={row.diff} />
+              <span>
+                <strong>{row.client.firstName} {row.client.lastName}</strong>
+                <small>{row.note || 'No next action text entered'}</small>
+                <small>{adviser?.name || 'Unassigned'} · {row.client.caseType || 'No case type selected'}</small>
+              </span>
+              <ChevronRight size={16} />
+            </button>
+          );
+        })}
+        {!todayActions.length && <div className="quick-task-empty"><CheckCircle2 size={20} /><span>No next-action tasks due today in this view.</span></div>}
+      </div>
+    </section>
+  );
 }
 
 function QuickTaskPanel({ taskRows, advisers, setTab, setSelectedClientId }) {
@@ -749,7 +775,7 @@ function QuickTaskPanel({ taskRows, advisers, setTab, setSelectedClientId }) {
               <span>
                 <strong>{row.client.firstName} {row.client.lastName}</strong>
                 <small>{row.type} · {row.date}</small>
-                <small>{adviser?.name || 'Unassigned'} · {row.client.caseType}</small>
+                <small>{adviser?.name || 'Unassigned'} · {row.client.caseType || 'No case type selected'}</small>
               </span>
               <ChevronRight size={16} />
             </button>
@@ -758,6 +784,73 @@ function QuickTaskPanel({ taskRows, advisers, setTab, setSelectedClientId }) {
         {!immediateTasks.length && <div className="quick-task-empty"><CheckCircle2 size={20} /><span>No immediate tasks in this view.</span></div>}
       </div>
     </section>
+  );
+}
+
+function AdviserClientWorkloadList({ clients, advisers, taskRows, setTab, setSelectedClientId }) {
+  const [clientFilter, setClientFilter] = useState('');
+  const [stageFilter, setStageFilter] = useState('all');
+  const [caseTypeFilter, setCaseTypeFilter] = useState('all');
+  const [adviserFilter, setAdviserFilter] = useState('all');
+  const [taskFilter, setTaskFilter] = useState('all');
+
+  const stages = useMemo(() => Array.from(new Set(clients.map(currentStageLabel))).sort(), [clients]);
+  const caseTypes = useMemo(() => Array.from(new Set(clients.map((client) => client.caseType).filter(Boolean))).sort(), [clients]);
+
+  const rows = useMemo(() => clients.map((client) => {
+    const nextTask = nextTaskForClient(client, taskRows);
+    const primary = advisers.find((adviser) => adviser.id === client.primaryAdviserId);
+    const backup = advisers.find((adviser) => adviser.id === client.backupAdviserId);
+    return { client, nextTask, primary, backup, currentStage: currentStageLabel(client) };
+  })
+    .filter((row) => {
+      const q = clientFilter.trim().toLowerCase();
+      const text = [row.client.firstName, row.client.lastName, row.client.email, row.client.caseType, row.client.nationality, row.client.caseStrategy, row.primary?.name, row.backup?.name].join(' ').toLowerCase();
+      const matchesClient = !q || text.includes(q);
+      const matchesStage = stageFilter === 'all' || row.currentStage === stageFilter;
+      const matchesCase = caseTypeFilter === 'all' || row.client.caseType === caseTypeFilter;
+      const matchesAdviser = adviserFilter === 'all' || row.client.primaryAdviserId === adviserFilter || row.client.backupAdviserId === adviserFilter;
+      const status = row.nextTask ? taskStatusKey(row.nextTask) : 'none';
+      const matchesTask = taskFilter === 'all' || status === taskFilter || (taskFilter === 'next-30' && row.nextTask?.diff >= 0 && row.nextTask?.diff <= 30) || (taskFilter === 'none' && !row.nextTask);
+      return matchesClient && matchesStage && matchesCase && matchesAdviser && matchesTask;
+    })
+    .sort((a, b) => {
+      const aDate = a.nextTask?.date || '9999-12-31';
+      const bDate = b.nextTask?.date || '9999-12-31';
+      return aDate.localeCompare(bDate) || clientName(a.client).localeCompare(clientName(b.client));
+    }), [clients, advisers, taskRows, clientFilter, stageFilter, caseTypeFilter, adviserFilter, taskFilter]);
+
+  return (
+    <div className="workload-client-panel">
+      <div className="sub-panel-head">
+        <div>
+          <h3>Client workload list</h3>
+          <p className="muted">Ordered by the next action date or next critical deadline date, whichever comes first.</p>
+        </div>
+        <span className="workload-count">{rows.length} client{rows.length === 1 ? '' : 's'}</span>
+      </div>
+      <div className="workload-filters">
+        <label><span>Client</span><input value={clientFilter} onChange={(event) => setClientFilter(event.target.value)} placeholder="Search client, email, strategy" /></label>
+        <label><span>Stage</span><select value={stageFilter} onChange={(event) => setStageFilter(event.target.value)}><option value="all">All stages</option>{stages.map((stage) => <option key={stage} value={stage}>{stage}</option>)}</select></label>
+        <label><span>Case type</span><select value={caseTypeFilter} onChange={(event) => setCaseTypeFilter(event.target.value)}><option value="all">All case types</option>{caseTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
+        <label><span>Adviser</span><select value={adviserFilter} onChange={(event) => setAdviserFilter(event.target.value)}><option value="all">All advisers in view</option>{advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}</select></label>
+        <label><span>Next date</span><select value={taskFilter} onChange={(event) => setTaskFilter(event.target.value)}><option value="all">All</option><option value="overdue">Overdue</option><option value="today">Due today</option><option value="next-7">Next 7 days</option><option value="next-30">Next 30 days</option><option value="future">Future</option><option value="none">No date</option></select></label>
+      </div>
+      <div className="workload-table">
+        <div className="workload-head"><span>Client</span><span>Case type</span><span>Current stage</span><span>Next date</span><span>Adviser</span><span></span></div>
+        {rows.map((row) => (
+          <div className="workload-line" key={row.client.id}>
+            <span><strong>{row.client.firstName} {row.client.lastName}</strong><small>{row.client.email || 'No email'} · {row.client.clientStatus}</small></span>
+            <span>{row.client.caseType || '—'}</span>
+            <span><strong>{row.currentStage}</strong><small>{progressPercent(row.client)}% complete</small></span>
+            <span>{row.nextTask ? <><DeadlineBadge diff={row.nextTask.diff} /><small>{row.nextTask.type} · {row.nextTask.date}</small></> : <small>No action/deadline date</small>}</span>
+            <span><strong>{row.primary?.name || 'Unassigned'}</strong><small>{row.backup?.name ? `Backup: ${row.backup.name}` : 'No backup'}</small></span>
+            <button className="btn ghost" onClick={() => { setSelectedClientId(row.client.id); setTab('clients'); }}>Open</button>
+          </div>
+        ))}
+        {!rows.length && <p className="muted center">No clients match the selected workload filters.</p>}
+      </div>
+    </div>
   );
 }
 
@@ -891,7 +984,7 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, saveClient, 
   function addFamilyMember(relationship) {
     setDraft((current) => ({
       ...current,
-      familyMembers: [...(current.familyMembers || []), { id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, relationship, name: '', dateOfBirth: '' }],
+      familyMembers: [...(current.familyMembers || []), { id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, relationship, name: '', nationality: '', dateOfBirth: '' }],
     }));
   }
 
@@ -944,9 +1037,9 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, saveClient, 
         <LookupField label="Citizenship" value={draft.nationality} onChange={(v) => setField('nationality', v)} options={COUNTRY_OPTIONS} listId="citizenship-options" placeholder="Start typing a country of citizenship" />
         <DateWithAgeField label="Date of birth" value={draft.dateOfBirth} onChange={(v) => setField('dateOfBirth', v)} />
         <LookupField label="Current address" value={draft.location} onChange={(v) => setField('location', v)} options={ADDRESS_LOOKUP_EXAMPLES} listId="address-options" placeholder="Start typing the current address" />
-        <SelectField label="Case type / application type" value={draft.caseType} onChange={(v) => setField('caseType', v)} options={caseTypes} />
-        <SelectField label="Primary adviser" value={draft.primaryAdviserId} onChange={(v) => setField('primaryAdviserId', v)} options={advisers.map((a) => ({ label: a.name, value: a.id }))} />
-        <SelectField label="Backup adviser" value={draft.backupAdviserId} onChange={(v) => setField('backupAdviserId', v)} options={advisers.map((a) => ({ label: a.name, value: a.id }))} />
+        <SelectField label="Case type / application type" value={draft.caseType} onChange={(v) => setField('caseType', v)} options={caseTypes} placeholder="Select case type" />
+        <SelectField label="Primary adviser" value={draft.primaryAdviserId} onChange={(v) => setField('primaryAdviserId', v)} options={advisers.map((a) => ({ label: a.name, value: a.id }))} placeholder="Select primary adviser" />
+        <SelectField label="Backup adviser" value={draft.backupAdviserId} onChange={(v) => setField('backupAdviserId', v)} options={advisers.map((a) => ({ label: a.name, value: a.id }))} placeholder="Select backup adviser" />
         <SelectField label="Priority" value={draft.priority} onChange={(v) => setField('priority', v)} options={['Normal', 'High', 'Urgent']} />
         <SelectField label="Client status" value={draft.clientStatus} onChange={(v) => setField('clientStatus', v)} options={['Active', 'Waiting on client', 'Waiting on INZ', 'On hold', 'Closed']} />
       </div>
@@ -1232,13 +1325,14 @@ function FamilyDetails({ members, addFamilyMember, updateFamilyMember, removeFam
       <div className="sub-panel-head">
         <div>
           <h2>Family details</h2>
-          <p className="muted">Add spouse/partner and children details where relevant. Ages calculate from the dates of birth.</p>
+          <p className="muted">Add spouse/partner and children details where relevant. Citizenship and ages are captured for each family member.</p>
         </div>
         <div className="button-row">
           <button className="btn" onClick={() => addFamilyMember('Spouse/Partner')}><Plus size={16} />Spouse/partner</button>
           <button className="btn" onClick={() => addFamilyMember('Child')}><Plus size={16} />Child</button>
         </div>
       </div>
+      <datalist id="family-citizenship-options">{COUNTRY_OPTIONS.map((country) => <option key={country} value={country} />)}</datalist>
       <div className="table-like">
         {members.map((member) => (
           <div className="editable-row family-row" key={member.id}>
@@ -1247,6 +1341,7 @@ function FamilyDetails({ members, addFamilyMember, updateFamilyMember, removeFam
               <option>Child</option>
             </select>
             <input value={member.name || ''} onChange={(event) => updateFamilyMember(member.id, { name: event.target.value })} placeholder="Full name" />
+            <input value={member.nationality || ''} list="family-citizenship-options" onChange={(event) => updateFamilyMember(member.id, { nationality: event.target.value })} placeholder="Citizenship" />
             <input type="date" value={member.dateOfBirth || ''} onChange={(event) => updateFamilyMember(member.id, { dateOfBirth: event.target.value })} />
             <strong className="age-pill">{calculateAge(member.dateOfBirth) === null ? 'Age -' : `${calculateAge(member.dateOfBirth)} yrs`}</strong>
             <button className="icon-btn" onClick={() => removeFamilyMember(member.id)}><Trash2 size={16} /></button>
@@ -1267,9 +1362,9 @@ function DateField({ label, value, onChange }) {
   return <label className="field"><span>{label}</span><input type="date" value={value || ''} onChange={(event) => onChange(event.target.value)} /></label>;
 }
 
-function SelectField({ label, value, onChange, options }) {
+function SelectField({ label, value, onChange, options, placeholder = 'Select...' }) {
   const normalised = options.map((option) => typeof option === 'string' ? { label: option, value: option } : option);
-  return <label className="field"><span>{label}</span><select value={value || ''} onChange={(event) => onChange(event.target.value)}>{normalised.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>;
+  return <label className="field"><span>{label}</span><select value={value || ''} onChange={(event) => onChange(event.target.value)}><option value="">{placeholder}</option>{normalised.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>;
 }
 
 function TextArea({ label, value, onChange, rows = 4 }) {
@@ -1295,7 +1390,7 @@ function formatApiError(body, fallback) {
 function normaliseData(body) {
   return {
     advisers: body.advisers || [],
-    clients: (body.clients || []).map((client) => ({ ...client, dateOfBirth: client.dateOfBirth || '', familyMembers: Array.isArray(client.familyMembers) ? client.familyMembers : [], stages: normaliseStages(client.stages, body.stageTemplates || DEFAULT_STAGE_TEMPLATES) })),
+    clients: (body.clients || []).map((client) => ({ ...client, dateOfBirth: client.dateOfBirth || '', familyMembers: Array.isArray(client.familyMembers) ? client.familyMembers.map((member) => ({ ...member, nationality: member.nationality || '' })) : [], stages: normaliseStages(client.stages, body.stageTemplates || DEFAULT_STAGE_TEMPLATES) })),
     caseTypes: body.caseTypes || DEFAULT_CASE_TYPES,
     deadlineTypes: body.deadlineTypes || DEFAULT_DEADLINE_TYPES,
     stageTemplates: body.stageTemplates || DEFAULT_STAGE_TEMPLATES,
@@ -1395,6 +1490,12 @@ function buildTaskRows(clients) {
     ].filter(Boolean))
     .filter((row) => row.date)
     .sort((a, b) => compareTasks(a, b, 'priority'));
+}
+
+function nextTaskForClient(client, taskRows) {
+  return taskRows
+    .filter((row) => row.client.id === client.id)
+    .sort((a, b) => a.date.localeCompare(b.date) || taskPriority(a) - taskPriority(b))[0] || null;
 }
 
 function taskStatusKey(row) {

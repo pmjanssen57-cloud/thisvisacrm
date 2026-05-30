@@ -45,7 +45,7 @@ This version passes the Netlify Database connection string explicitly when `NETL
 This package restores the original initial CRM schema migration and adds the case_strategy column through a new migration file. Do not edit already-applied migration files; add a new migration for future schema changes.
 
 
-## v0.5.6 changes
+## v0.5.7 changes
 
 - Changed the visible nationality field to Citizenship with a country lookup list.
 - Added applicant date of birth with automatic age display.
@@ -53,3 +53,11 @@ This package restores the original initial CRM schema migration and adds the cas
 - Added spouse/partner and children details with dates of birth and calculated ages.
 - Moved next action into a clearer task section with a task due date that feeds the dashboard and task lists.
 - Added a separate database migration for date of birth and family members.
+
+
+## v0.5.7 update
+- Added spouse/partner and child citizenship fields.
+- New client forms now start with blank case/adviser selections.
+- Removed the Stage Usage Overview from the dashboard.
+- Added a daily bring-up panel for next actions due today.
+- Added a filterable adviser client workload list ordered by the next action or next critical deadline.
