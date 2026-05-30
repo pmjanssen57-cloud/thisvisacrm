@@ -72,6 +72,16 @@ export const handler = async (event) => {
       return json({ adviser, ...(await readCrmData()) });
     }
 
+    if (action === 'savePersonalTask') {
+      const personalTask = await savePersonalTask(body.task);
+      return json({ personalTask, ...(await readCrmData()) });
+    }
+
+    if (action === 'deletePersonalTask') {
+      await deletePersonalTask(body.taskId);
+      return json(await readCrmData());
+    }
+
     if (action === 'saveClient') {
       const client = await saveClient(body.client);
       return json({ client, ...(await readCrmData()) });
@@ -193,6 +203,19 @@ async function ensureSchema() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+  await database.sql`
+    CREATE TABLE IF NOT EXISTS personal_tasks (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      adviser_id UUID REFERENCES advisers(id) ON DELETE SET NULL,
+      client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
+      title TEXT NOT NULL,
+      due_date DATE,
+      status TEXT NOT NULL DEFAULT 'Open',
+      note TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS case_strategy TEXT`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS date_of_birth DATE`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS family_members JSONB NOT NULL DEFAULT '[]'::jsonb`;
@@ -205,22 +228,26 @@ async function ensureSchema() {
   await database.sql`CREATE INDEX IF NOT EXISTS idx_clients_primary_adviser ON clients(primary_adviser_id)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_client_deadlines_date ON client_deadlines(deadline_date)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_billing_milestones_due_date ON billing_milestones(due_date)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_personal_tasks_due_date ON personal_tasks(due_date)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_personal_tasks_adviser ON personal_tasks(adviser_id)`;
 }
 
 
 async function readCrmData() {
   const database = db();
-  const [advisers, clients, stages, deadlines, billing] = await Promise.all([
+  const [advisers, clients, stages, deadlines, billing, personalTasks] = await Promise.all([
     database.sql`SELECT id, name, role, email, phone, licence, active FROM advisers ORDER BY name ASC`,
     database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, notes, family_members FROM clients ORDER BY updated_at DESC`,
     database.sql`SELECT id, client_id, stage_key, stage_label, mandatory, applied, completed, completed_date, sort_order FROM client_stages ORDER BY sort_order ASC`,
     database.sql`SELECT id, client_id, deadline_type, deadline_date, note FROM client_deadlines ORDER BY deadline_date ASC NULLS LAST`,
     database.sql`SELECT id, client_id, milestone, due_date, amount, status, invoice_no, billing_trigger_type, billing_stage_key FROM billing_milestones ORDER BY due_date ASC NULLS LAST`,
+    database.sql`SELECT id, adviser_id, client_id, title, due_date, status, note FROM personal_tasks ORDER BY due_date ASC NULLS LAST, created_at DESC`,
   ]);
 
   return {
     advisers: advisers.map(mapAdviserFromDb),
     clients: clients.map((client) => mapClientFromDb(client, stages, deadlines, billing)),
+    personalTasks: personalTasks.map(mapPersonalTaskFromDb),
     caseTypes: CASE_TYPES,
     deadlineTypes: DEADLINE_TYPES,
     stageTemplates: STAGE_TEMPLATES,
@@ -236,6 +263,18 @@ function mapAdviserFromDb(row) {
     phone: row.phone || '',
     licence: row.licence || '',
     active: Boolean(row.active),
+  };
+}
+
+function mapPersonalTaskFromDb(row) {
+  return {
+    id: row.id,
+    adviserId: row.adviser_id || '',
+    clientId: row.client_id || '',
+    title: row.title || '',
+    dueDate: toDateOnly(row.due_date),
+    status: row.status === 'Completed' ? 'Completed' : 'Open',
+    note: row.note || '',
   };
 }
 
@@ -394,6 +433,40 @@ async function saveClient(input = {}) {
   }
 }
 
+async function savePersonalTask(input = {}) {
+  const database = db();
+  const task = normalisePersonalTaskInput(input);
+  const id = isUuid(task.id) ? task.id : null;
+
+  if (id) {
+    const rows = await database.sql`
+      UPDATE personal_tasks
+      SET adviser_id = ${nullableUuid(task.adviserId)},
+          client_id = ${nullableUuid(task.clientId)},
+          title = ${task.title || 'Untitled task'},
+          due_date = ${nullableDate(task.dueDate)},
+          status = ${normalisePersonalTaskStatus(task.status)},
+          note = ${task.note || ''},
+          updated_at = NOW()
+      WHERE id = ${id}
+      RETURNING id, adviser_id, client_id, title, due_date, status, note
+    `;
+    return mapPersonalTaskFromDb(rows[0]);
+  }
+
+  const rows = await database.sql`
+    INSERT INTO personal_tasks (adviser_id, client_id, title, due_date, status, note)
+    VALUES (${nullableUuid(task.adviserId)}, ${nullableUuid(task.clientId)}, ${task.title || 'Untitled task'}, ${nullableDate(task.dueDate)}, ${normalisePersonalTaskStatus(task.status)}, ${task.note || ''})
+    RETURNING id, adviser_id, client_id, title, due_date, status, note
+  `;
+  return mapPersonalTaskFromDb(rows[0]);
+}
+
+async function deletePersonalTask(taskId) {
+  if (!isUuid(taskId)) return;
+  await db().sql`DELETE FROM personal_tasks WHERE id = ${taskId}`;
+}
+
 async function deleteClient(clientId) {
   if (!isUuid(clientId)) return;
   await db().sql`DELETE FROM clients WHERE id = ${clientId}`;
@@ -484,6 +557,22 @@ function normaliseBillingStatus(status) {
 
 function normaliseBillingTriggerType(value) {
   return String(value || '').trim() === 'Milestone' ? 'Milestone' : 'Date';
+}
+
+function normalisePersonalTaskStatus(value) {
+  return String(value || '').trim() === 'Completed' ? 'Completed' : 'Open';
+}
+
+function normalisePersonalTaskInput(input = {}) {
+  return {
+    id: input.id,
+    adviserId: input.adviserId || '',
+    clientId: input.clientId || '',
+    title: String(input.title || '').trim(),
+    dueDate: nullableDate(input.dueDate) || '',
+    status: normalisePersonalTaskStatus(input.status),
+    note: String(input.note || '').trim(),
+  };
 }
 
 function normaliseBillingItems(inputItems = []) {

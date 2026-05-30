@@ -96,3 +96,7 @@ Adds a client SharePoint folder URL field, plus Open folder and Copy link action
 - Custom stages now appear in the progress map and can be used as milestone triggers for billing items.
 - Legacy stage keys are mapped to the new stage names automatically on load.
 
+
+## v0.6.7 - Personal adviser tasks
+
+Adds adviser-specific personal tasks. These can be linked to a client or used as general internal tasks. Personal tasks appear in the Tasks tab, Today's bring-up list, and Quick task panel based on the current adviser view. A new database migration creates the `personal_tasks` table.

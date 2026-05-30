@@ -961,13 +961,14 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .billing-edit-card {
   display: grid;
-  grid-template-columns: minmax(230px, 1.35fr) 190px minmax(230px, 1.25fr) 130px;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 12px;
   align-items: end;
   border: 1px solid var(--line);
   border-radius: 20px;
   padding: 14px;
   background: #fff;
+  overflow: hidden;
 }
 .billing-edit-card.overdue-soft { background: #fff1f2; }
 .billing-field {
@@ -991,13 +992,20 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   padding: 10px 12px;
   outline: none;
   width: 100%;
+  min-width: 0;
   min-height: 44px;
 }
-.billing-description-field { grid-column: span 2; }
-.billing-stage-field { grid-column: span 2; }
+.billing-description-field { grid-column: span 5; }
+.billing-trigger-field { grid-column: span 4; }
+.billing-date-field,
+.billing-stage-field { grid-column: span 3; }
+.billing-amount-field { grid-column: span 3; }
+.billing-status-field { grid-column: span 3; }
+.billing-invoice-field { grid-column: span 5; }
 .billing-remove-btn {
+  grid-column: span 1;
   align-self: end;
-  justify-self: start;
+  justify-self: end;
   min-height: 44px;
   width: 44px;
 }
@@ -1007,10 +1015,109 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   font-size: 12px;
   margin-top: -2px;
 }
-@media (max-width: 1180px) {
-  .billing-edit-card { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .billing-description-field, .billing-stage-field { grid-column: span 1; }
+@media (max-width: 1050px) {
+  .billing-description-field { grid-column: span 12; }
+  .billing-trigger-field,
+  .billing-date-field,
+  .billing-stage-field { grid-column: span 6; }
+  .billing-amount-field,
+  .billing-status-field { grid-column: span 4; }
+  .billing-invoice-field { grid-column: span 7; }
+  .billing-remove-btn { grid-column: span 1; }
 }
 @media (max-width: 760px) {
   .billing-edit-card { grid-template-columns: 1fr; }
+  .billing-description-field,
+  .billing-trigger-field,
+  .billing-date-field,
+  .billing-stage-field,
+  .billing-amount-field,
+  .billing-status-field,
+  .billing-invoice-field,
+  .billing-remove-btn { grid-column: 1 / -1; }
+  .billing-remove-btn { justify-self: start; }
+}
+
+/* v0.6.7: personal adviser tasks */
+.personal-task-panel {
+  border-color: var(--line);
+}
+.compact-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-weight: 800;
+  white-space: nowrap;
+}
+.personal-task-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.35fr) minmax(160px, 0.8fr) minmax(180px, 1fr) 150px minmax(220px, 1.2fr) auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--pale);
+}
+.personal-task-form label,
+.personal-task-row label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.personal-task-form label span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.personal-task-form input,
+.personal-task-form select,
+.personal-task-row input,
+.personal-task-row select {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  padding: 10px 12px;
+  min-height: 43px;
+  outline: none;
+  width: 100%;
+  min-width: 0;
+}
+.personal-task-list {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  overflow: hidden;
+  background: #fff;
+}
+.personal-task-row {
+  display: grid;
+  grid-template-columns: 110px 1.35fr 1fr 160px 150px 52px;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border-top: 1px solid #eef2f7;
+}
+.personal-task-row:first-child { border-top: 0; }
+.personal-task-row strong { color: var(--ink); }
+.personal-task-row small { display: block; color: var(--muted); margin-top: 3px; }
+.personal-task-row.overdue { background: #fffbeb; }
+.personal-task-row.today { background: #f0fdf4; }
+.personal-task-row.completed { background: #f8fafc; opacity: 0.72; }
+.personal-task-row.completed strong { text-decoration: line-through; }
+.quick-task:disabled {
+  cursor: default;
+  opacity: 0.9;
+}
+@media (max-width: 1180px) {
+  .personal-task-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .personal-task-form .btn { justify-content: center; }
+  .personal-task-row { grid-template-columns: 1fr 1fr; align-items: start; }
+}
+@media (max-width: 760px) {
+  .personal-task-form, .personal-task-row { grid-template-columns: 1fr; }
 }

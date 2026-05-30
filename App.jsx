@@ -61,7 +61,7 @@ const SUPPORT_CONTENT = {
     summary: 'The dashboard is the daily operational view. It shows the current adviser workload, urgent bring-up items, active clients, deadlines and billing pressure points based on the selected adviser view.',
     sections: [
       { heading: 'Current view', text: 'Use the Current view selector above the tabs to switch between all advisers and one adviser. The dashboard, task counts, billing figures and workload lists update to match that view.' },
-      { heading: "Today's bring-up list", text: 'This panel highlights next-action tasks due today. Treat it as the morning file bring-up list: review the task, open the client, complete or update the next action, then save the client.' },
+      { heading: "Today's bring-up list", text: 'This panel highlights next-action, billing and personal tasks due today. Treat it as the morning file bring-up list: review the task, open the client where relevant, complete or update the task, then save.' },
       { heading: 'Client workload list', text: 'The workload list shows clients for the selected adviser view, their current stage, primary/backup adviser and earliest upcoming action or deadline. Use the column filters to narrow the list.' },
     ],
     tips: ['Set the adviser view first before reviewing workload.', 'Use next-action dates consistently so the bring-up list stays reliable.', 'Use the client search field to jump from dashboard review to the client record.'],
@@ -332,6 +332,7 @@ const emptyData = {
   caseTypes: DEFAULT_CASE_TYPES,
   deadlineTypes: DEFAULT_DEADLINE_TYPES,
   stageTemplates: DEFAULT_STAGE_TEMPLATES,
+  personalTasks: [],
   securityMode: 'unknown',
 };
 
@@ -467,6 +468,15 @@ export default function App() {
     await callApi('saveAdviser', { adviser });
   }
 
+  async function savePersonalTask(task) {
+    await callApi('savePersonalTask', { task });
+  }
+
+  async function deletePersonalTask(taskId) {
+    if (!window.confirm('Delete this personal task?')) return;
+    await callApi('deletePersonalTask', { taskId });
+  }
+
   async function deleteClient(clientId) {
     if (!window.confirm('Delete this client and all linked stages, deadlines and billing records?')) return;
     const body = await callApi('deleteClient', { clientId });
@@ -495,6 +505,7 @@ export default function App() {
   }
 
   const scopedClients = useMemo(() => data.clients.filter((client) => matchesAdviserScope(client, dashboardAdviserFilter)), [data.clients, dashboardAdviserFilter]);
+  const scopedPersonalTasks = useMemo(() => data.personalTasks.filter((task) => matchesPersonalTaskScope(task, dashboardAdviserFilter)), [data.personalTasks, dashboardAdviserFilter]);
   const activeClients = scopedClients.filter((client) => client.clientStatus !== 'Closed');
   const selectedClient = data.clients.find((client) => client.id === selectedClientId) || data.clients[0] || null;
 
@@ -528,7 +539,7 @@ export default function App() {
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [scopedClients]);
 
-  const taskRows = useMemo(() => buildTaskRows(scopedClients), [scopedClients]);
+  const taskRows = useMemo(() => buildTaskRows(scopedClients, scopedPersonalTasks, data.clients), [scopedClients, scopedPersonalTasks, data.clients]);
 
   const billingRows = useMemo(() => {
     return scopedClients
@@ -602,7 +613,7 @@ export default function App() {
             )}
 
             {tab === 'tasks' && (
-              <TasksDashboard taskRows={taskRows} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} setTab={setTab} setSelectedClientId={setSelectedClientId} />
+              <TasksDashboard taskRows={taskRows} personalTasks={scopedPersonalTasks} allClients={data.clients} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} savePersonalTask={savePersonalTask} deletePersonalTask={deletePersonalTask} saving={saving} setTab={setTab} setSelectedClientId={setSelectedClientId} />
             )}
 
             {tab === 'clients' && selectedClient && (
@@ -817,35 +828,41 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
 
 function DailyBringUpPanel({ taskRows, advisers, setTab, setSelectedClientId }) {
   const todayActions = useMemo(() => taskRows
-    .filter((row) => (row.source === 'next-action' || row.source === 'billing') && row.diff === 0)
-    .sort((a, b) => clientName(a.client).localeCompare(clientName(b.client))), [taskRows]);
+    .filter((row) => (row.source === 'next-action' || row.source === 'billing' || row.source === 'personal-task') && row.diff === 0)
+    .sort((a, b) => taskDisplayName(a).localeCompare(taskDisplayName(b))), [taskRows]);
+
+  function openTask(row) {
+    if (!row.client) return;
+    setSelectedClientId(row.client.id);
+    setTab('clients');
+  }
 
   return (
     <section className="panel daily-bringup-panel">
       <div className="quick-task-head">
         <div>
           <h2>Today’s bring-up list</h2>
-          <p className="muted">Next-action and billing tasks due today for the current adviser view. Use this like the daily file bring-up list.</p>
+          <p className="muted">Next-action, billing and personal tasks due today for the current adviser view. Use this like the daily file bring-up list.</p>
         </div>
         <div className="quick-task-counts"><span><b>{todayActions.length}</b> due today</span></div>
         <button className="btn dark" type="button" onClick={() => setTab('tasks')}><ListChecks size={16} />Full task list</button>
       </div>
       <div className="quick-task-list daily-bringup-list">
         {todayActions.map((row) => {
-          const adviser = advisers.find((item) => item.id === row.client.primaryAdviserId);
+          const adviserName = taskAdviserName(row, advisers);
           return (
-            <button className="quick-task today" key={row.id} onClick={() => { setSelectedClientId(row.client.id); setTab('clients'); }}>
+            <button className="quick-task today" key={row.id} onClick={() => openTask(row)} disabled={!row.client}>
               <DeadlineBadge diff={row.diff} />
               <span>
-                <strong>{row.client.firstName} {row.client.lastName}</strong>
-                <small>{row.note || 'No next action text entered'}</small>
-                <small>{adviser?.name || 'Unassigned'} · {row.client.caseType || 'No case type selected'}</small>
+                <strong>{taskDisplayName(row)}</strong>
+                <small>{row.note || row.type}</small>
+                <small>{adviserName} · {taskContextLabel(row)}</small>
               </span>
-              <ChevronRight size={16} />
+              {row.client ? <ChevronRight size={16} /> : <ListChecks size={16} />}
             </button>
           );
         })}
-        {!todayActions.length && <div className="quick-task-empty"><CheckCircle2 size={20} /><span>No next-action tasks due today in this view.</span></div>}
+        {!todayActions.length && <div className="quick-task-empty"><CheckCircle2 size={20} /><span>No next-action, billing or personal tasks due today in this view.</span></div>}
       </div>
     </section>
   );
@@ -864,6 +881,12 @@ function QuickTaskPanel({ taskRows, advisers, setTab, setSelectedClientId }) {
     return acc;
   }, { overdue: 0, today: 0, next7: 0 });
 
+  function openTask(row) {
+    if (!row.client) return;
+    setSelectedClientId(row.client.id);
+    setTab('clients');
+  }
+
   return (
     <section className="panel quick-task-panel">
       <div className="quick-task-head">
@@ -881,16 +904,16 @@ function QuickTaskPanel({ taskRows, advisers, setTab, setSelectedClientId }) {
 
       <div className="quick-task-list">
         {immediateTasks.map((row) => {
-          const adviser = advisers.find((item) => item.id === row.client.primaryAdviserId);
+          const adviserName = taskAdviserName(row, advisers);
           return (
-            <button className={`quick-task ${taskStatusKey(row)}`} key={row.id} onClick={() => { setSelectedClientId(row.client.id); setTab('clients'); }}>
+            <button className={`quick-task ${taskStatusKey(row)}`} key={row.id} onClick={() => openTask(row)} disabled={!row.client}>
               <DeadlineBadge diff={row.diff} />
               <span>
-                <strong>{row.client.firstName} {row.client.lastName}</strong>
+                <strong>{taskDisplayName(row)}</strong>
                 <small>{row.type} · {row.date}</small>
-                <small>{adviser?.name || 'Unassigned'} · {row.client.caseType || 'No case type selected'}</small>
+                <small>{adviserName} · {taskContextLabel(row)}</small>
               </span>
-              <ChevronRight size={16} />
+              {row.client ? <ChevronRight size={16} /> : <ListChecks size={16} />}
             </button>
           );
         })}
@@ -1278,18 +1301,18 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, saveClient, 
             return (
             <div className={`billing-edit-card ${item.status === 'Overdue' ? 'overdue-soft' : ''}`} key={item.id}>
               <label className="billing-field billing-description-field"><span>Billing item / description</span><input value={item.milestone || ''} onChange={(event) => updateBilling(item.id, { milestone: event.target.value })} placeholder="e.g. Lodgement fee, professional fee, balance invoice" /></label>
-              <label className="billing-field"><span>Billing based on</span><select value={item.triggerType || 'Date'} onChange={(event) => updateBilling(item.id, { triggerType: event.target.value, stageKey: event.target.value === 'Date' ? '' : item.stageKey })}><option value="Date">Date</option><option value="Milestone">Matter stage / milestone</option></select></label>
+              <label className="billing-field billing-trigger-field"><span>Billing based on</span><select value={item.triggerType || 'Date'} onChange={(event) => updateBilling(item.id, { triggerType: event.target.value, stageKey: event.target.value === 'Date' ? '' : item.stageKey })}><option value="Date">Date</option><option value="Milestone">Matter stage / milestone</option></select></label>
               {item.triggerType === 'Milestone' ? (
                 <label className="billing-field billing-stage-field"><span>Linked matter stage</span><select value={item.stageKey || ''} onChange={(event) => updateBilling(item.id, { stageKey: event.target.value })}>
                   <option value="">Select linked stage</option>
                   {(draft.stages || []).filter((stage) => stage.applied).map((stage) => <option key={stage.id} value={stage.id}>{stage.label}</option>)}
                 </select></label>
               ) : (
-                <label className="billing-field"><span>Billing date</span><input type="date" value={item.dueDate || ''} onChange={(event) => updateBilling(item.id, { dueDate: event.target.value })} /></label>
+                <label className="billing-field billing-date-field"><span>Billing date</span><input type="date" value={item.dueDate || ''} onChange={(event) => updateBilling(item.id, { dueDate: event.target.value })} /></label>
               )}
-              <label className="billing-field"><span>Amount</span><input type="number" value={item.amount || 0} onChange={(event) => updateBilling(item.id, { amount: event.target.value })} /></label>
-              <label className="billing-field"><span>Status</span><select value={item.status || 'WIP'} onChange={(event) => updateBilling(item.id, { status: event.target.value })}>{BILLING_STATUSES.map((status) => <option key={status}>{status}</option>)}</select></label>
-              <label className="billing-field"><span>Invoice no.</span><input value={item.invoiceNo || ''} onChange={(event) => updateBilling(item.id, { invoiceNo: event.target.value })} placeholder="Invoice no." /></label>
+              <label className="billing-field billing-amount-field"><span>Amount</span><input type="number" value={item.amount || 0} onChange={(event) => updateBilling(item.id, { amount: event.target.value })} /></label>
+              <label className="billing-field billing-status-field"><span>Status</span><select value={item.status || 'WIP'} onChange={(event) => updateBilling(item.id, { status: event.target.value })}>{BILLING_STATUSES.map((status) => <option key={status}>{status}</option>)}</select></label>
+              <label className="billing-field billing-invoice-field"><span>Invoice no.</span><input value={item.invoiceNo || ''} onChange={(event) => updateBilling(item.id, { invoiceNo: event.target.value })} placeholder="Invoice no." /></label>
               <button className="icon-btn billing-remove-btn" type="button" onClick={() => removeBilling(item.id)} aria-label="Remove billing item"><Trash2 size={16} /></button>
               <small className="billing-hint">{item.triggerType === 'Milestone' ? (linkedStage ? (linkedStageDue ? `Billing is now due because ${linkedStage.label} was completed on ${linkedStageDue}.` : `This billing item will become due when ${linkedStage.label} is marked completed.`) : 'Choose Matter stage / milestone, then select the linked client stage that triggers this bill.') : 'This billing item will appear in period billing reports based on the billing date.'}</small>
             </div>
@@ -1303,7 +1326,7 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, saveClient, 
   );
 }
 
-function TasksDashboard({ taskRows, advisers, dashboardAdviserFilter, setTab, setSelectedClientId }) {
+function TasksDashboard({ taskRows, personalTasks, allClients, advisers, dashboardAdviserFilter, savePersonalTask, deletePersonalTask, saving, setTab, setSelectedClientId }) {
   const [sortMode, setSortMode] = useState('priority');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -1317,7 +1340,7 @@ function TasksDashboard({ taskRows, advisers, dashboardAdviserFilter, setTab, se
     return taskRows
       .filter((row) => statusFilter === 'all' || taskStatusKey(row) === statusFilter || (statusFilter === 'next-30' && row.diff >= 0 && row.diff <= 30))
       .filter((row) => typeFilter === 'all' || row.type === typeFilter)
-      .filter((row) => !q || [row.client.firstName, row.client.lastName, row.client.caseType, row.client.caseStrategy, row.type, row.note].join(' ').toLowerCase().includes(q))
+      .filter((row) => !q || taskSearchText(row).includes(q))
       .sort((a, b) => compareTasks(a, b, sortMode));
   }, [taskRows, statusFilter, typeFilter, taskSearch, sortMode]);
 
@@ -1327,25 +1350,34 @@ function TasksDashboard({ taskRows, advisers, dashboardAdviserFilter, setTab, se
     if (row.diff === 0) acc.today += 1;
     if (row.diff >= 0 && row.diff <= 7) acc.next7 += 1;
     if (row.diff >= 0 && row.diff <= 30) acc.next30 += 1;
+    if (row.source === 'personal-task') acc.personal += 1;
     return acc;
-  }, { total: 0, overdue: 0, today: 0, next7: 0, next30: 0 });
+  }, { total: 0, overdue: 0, today: 0, next7: 0, next30: 0, personal: 0 });
+
+  function openTask(row) {
+    if (!row.client) return;
+    setSelectedClientId(row.client.id);
+    setTab('clients');
+  }
 
   return (
     <div className="stack">
       <section className="panel dashboard-heading">
         <div>
           <h2>Task list</h2>
-          <p className="muted">Deadlines, expiry dates and next-action dates for the current adviser view: {scopeLabel}.</p>
+          <p className="muted">Deadlines, expiry dates, next-action dates, billing tasks and personal adviser tasks for the current view: {scopeLabel}.</p>
         </div>
         <span>{visibleTasks.length} task{visibleTasks.length === 1 ? '' : 's'} shown</span>
       </section>
 
       <div className="metric-grid four">
-        <MetricCard label="Total tasks" value={counts.total} note="All dates in this adviser view" icon={ListChecks} />
+        <MetricCard label="Total tasks" value={counts.total} note="All dated active tasks in this view" icon={ListChecks} />
         <MetricCard label="Overdue" value={counts.overdue} note="Past due dates" icon={AlertTriangle} warning />
         <MetricCard label="Due today" value={counts.today} note="Needs action now" icon={Clock} />
-        <MetricCard label="Next 7 days" value={counts.next7} note="Coming up shortly" icon={CalendarDays} />
+        <MetricCard label="Personal tasks" value={counts.personal} note="Adviser-created active tasks" icon={UserRound} />
       </div>
+
+      <PersonalTasksPanel personalTasks={personalTasks} allClients={allClients} advisers={advisers} dashboardAdviserFilter={dashboardAdviserFilter} savePersonalTask={savePersonalTask} deletePersonalTask={deletePersonalTask} saving={saving} />
 
       <section className="panel">
         <div className="task-toolbar">
@@ -1373,28 +1405,27 @@ function TasksDashboard({ taskRows, advisers, dashboardAdviserFilter, setTab, se
           <label>
             <span>Type</span>
             <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
-              <option value="all">All deadline types</option>
+              <option value="all">All task types</option>
               {types.map((type) => <option key={type} value={type}>{type}</option>)}
             </select>
           </label>
           <label className="task-search">
             <span>Search tasks</span>
-            <div><Search size={16} /><input value={taskSearch} onChange={(event) => setTaskSearch(event.target.value)} placeholder="Client, matter, note or type" /></div>
+            <div><Search size={16} /><input value={taskSearch} onChange={(event) => setTaskSearch(event.target.value)} placeholder="Client, adviser, task, note or type" /></div>
           </label>
         </div>
 
         <div className="task-table">
-          <div className="task-head"><span>Preference</span><span>Client</span><span>Task / date</span><span>Adviser</span><span>Note</span><span></span></div>
+          <div className="task-head"><span>Preference</span><span>Client / task</span><span>Task / date</span><span>Adviser</span><span>Note</span><span></span></div>
           {visibleTasks.map((row) => {
-            const adviser = advisers.find((item) => item.id === row.client.primaryAdviserId);
             return (
               <div className={`task-line ${taskStatusKey(row)}`} key={row.id}>
                 <span><DeadlineBadge diff={row.diff} /></span>
-                <span><strong>{row.client.firstName} {row.client.lastName}</strong><small>{row.client.caseType}</small><small>{row.client.caseStrategy ? 'Strategy added' : 'No case strategy yet'}</small></span>
+                <span><strong>{taskDisplayName(row)}</strong><small>{taskContextLabel(row)}</small><small>{row.client?.caseStrategy ? 'Strategy added' : row.source === 'personal-task' ? 'Personal adviser task' : 'No case strategy yet'}</small></span>
                 <span><strong>{row.type}</strong><small>{row.date}</small></span>
-                <span>{adviser?.name || 'Unassigned'}</span>
+                <span>{taskAdviserName(row, advisers)}</span>
                 <span>{row.note || '—'}</span>
-                <button className="btn ghost" onClick={() => { setSelectedClientId(row.client.id); setTab('clients'); }}>Open</button>
+                <button className="btn ghost" disabled={!row.client} onClick={() => openTask(row)}>{row.client ? 'Open' : 'Personal'}</button>
               </div>
             );
           })}
@@ -1402,6 +1433,72 @@ function TasksDashboard({ taskRows, advisers, dashboardAdviserFilter, setTab, se
         </div>
       </section>
     </div>
+  );
+}
+
+function PersonalTasksPanel({ personalTasks, allClients, advisers, dashboardAdviserFilter, savePersonalTask, deletePersonalTask, saving }) {
+  const defaultAdviserId = dashboardAdviserFilter !== 'all' ? dashboardAdviserFilter : advisers[0]?.id || '';
+  const [draft, setDraft] = useState(() => makeBlankPersonalTask(defaultAdviserId));
+  const [showCompleted, setShowCompleted] = useState(false);
+
+  useEffect(() => {
+    setDraft((current) => current.adviserId ? current : makeBlankPersonalTask(defaultAdviserId));
+  }, [defaultAdviserId]);
+
+  const visiblePersonalTasks = useMemo(() => personalTasks
+    .filter((task) => showCompleted || task.status !== 'Completed')
+    .sort((a, b) => (a.dueDate || '9999-12-31').localeCompare(b.dueDate || '9999-12-31')),
+    [personalTasks, showCompleted]);
+
+  async function submit(event) {
+    event.preventDefault();
+    if (!draft.title.trim()) return window.alert('Enter a task title first.');
+    await savePersonalTask(draft);
+    setDraft(makeBlankPersonalTask(defaultAdviserId));
+  }
+
+  async function quickUpdate(task, patch) {
+    await savePersonalTask({ ...task, ...patch });
+  }
+
+  return (
+    <section className="panel personal-task-panel">
+      <div className="sub-panel-head">
+        <div>
+          <h2>Personal adviser tasks</h2>
+          <p className="muted">Create adviser-specific tasks. Link them to a client where useful, or leave them unlinked for general internal work.</p>
+        </div>
+        <label className="compact-check"><input type="checkbox" checked={showCompleted} onChange={(event) => setShowCompleted(event.target.checked)} />Show completed</label>
+      </div>
+
+      <form className="personal-task-form" onSubmit={submit}>
+        <label><span>Task</span><input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} placeholder="e.g. Call client, review file, follow up INZ" /></label>
+        <label><span>Adviser</span><select value={draft.adviserId} onChange={(event) => setDraft((current) => ({ ...current, adviserId: event.target.value }))}><option value="">Unassigned</option>{advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}</select></label>
+        <label><span>Linked client</span><select value={draft.clientId} onChange={(event) => setDraft((current) => ({ ...current, clientId: event.target.value }))}><option value="">No linked client</option>{allClients.map((client) => <option key={client.id} value={client.id}>{client.firstName} {client.lastName}</option>)}</select></label>
+        <label><span>Due date</span><input type="date" value={draft.dueDate} onChange={(event) => setDraft((current) => ({ ...current, dueDate: event.target.value }))} /></label>
+        <label className="personal-task-note"><span>Note</span><input value={draft.note} onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))} placeholder="Optional detail" /></label>
+        <button className="btn dark" type="submit" disabled={saving}><Plus size={16} />Add task</button>
+      </form>
+
+      <div className="personal-task-list">
+        {visiblePersonalTasks.map((task) => {
+          const adviser = advisers.find((item) => item.id === task.adviserId);
+          const client = allClients.find((item) => item.id === task.clientId);
+          const diff = dateDiff(task.dueDate);
+          return (
+            <div className={`personal-task-row ${task.status === 'Completed' ? 'completed' : taskStatusKey({ diff })}`} key={task.id}>
+              <span><DeadlineBadge diff={diff} /></span>
+              <span><strong>{task.title}</strong><small>{task.note || 'No note'}</small></span>
+              <span>{adviser?.name || 'Unassigned'}<small>{client ? `${client.firstName} ${client.lastName}` : 'No linked client'}</small></span>
+              <span><input type="date" value={task.dueDate || ''} onChange={(event) => quickUpdate(task, { dueDate: event.target.value })} /></span>
+              <span><select value={task.status || 'Open'} onChange={(event) => quickUpdate(task, { status: event.target.value })}><option>Open</option><option>Completed</option></select></span>
+              <button className="icon-btn" type="button" onClick={() => deletePersonalTask(task.id)} aria-label="Delete personal task"><Trash2 size={16} /></button>
+            </div>
+          );
+        })}
+        {!visiblePersonalTasks.length && <p className="muted center">No personal tasks in this adviser view.</p>}
+      </div>
+    </section>
   );
 }
 
@@ -1750,9 +1847,35 @@ function normaliseData(body) {
     caseTypes: body.caseTypes || DEFAULT_CASE_TYPES,
     deadlineTypes: body.deadlineTypes || DEFAULT_DEADLINE_TYPES,
     stageTemplates: body.stageTemplates || DEFAULT_STAGE_TEMPLATES,
+    personalTasks: (body.personalTasks || []).map(normalisePersonalTask),
     securityMode: body.securityMode || 'unknown',
   };
 }
+
+function makeBlankPersonalTask(adviserId = '') {
+  return {
+    id: `temp-task-${Date.now()}`,
+    adviserId: adviserId || '',
+    clientId: '',
+    title: '',
+    dueDate: todayIso(),
+    status: 'Open',
+    note: '',
+  };
+}
+
+function normalisePersonalTask(task = {}) {
+  return {
+    id: task.id || `temp-task-${Date.now()}`,
+    adviserId: task.adviserId || '',
+    clientId: task.clientId || '',
+    title: task.title || '',
+    dueDate: task.dueDate || '',
+    status: task.status === 'Completed' ? 'Completed' : 'Open',
+    note: task.note || '',
+  };
+}
+
 
 function normaliseStageKey(value) {
   const key = String(value || '').trim();
@@ -1984,8 +2107,8 @@ function calculateAge(dateValue) {
   return age >= 0 && age < 130 ? age : null;
 }
 
-function buildTaskRows(clients) {
-  return clients
+function buildTaskRows(clients, personalTasks = [], allClients = []) {
+  const clientRows = clients
     .flatMap((client) => [
       ...(client.deadlines || []).map((deadline) => ({
         id: `${client.id}-${deadline.id}`,
@@ -2006,14 +2129,33 @@ function buildTaskRows(clients) {
         diff: dateDiff(client.nextActionDue),
       } : null,
       ...(client.billing || []).map((item) => billingTaskForClient(client, item)),
-    ].filter(Boolean))
+    ].filter(Boolean));
+
+  const personalRows = (personalTasks || [])
+    .filter((task) => task.status !== 'Completed')
+    .map((task) => {
+      const linkedClient = allClients.find((client) => client.id === task.clientId) || null;
+      return {
+        id: `personal-${task.id}`,
+        client: linkedClient,
+        personalTask: task,
+        adviserId: task.adviserId,
+        type: 'Personal Task',
+        date: task.dueDate,
+        note: task.note || task.title || '',
+        source: 'personal-task',
+        diff: dateDiff(task.dueDate),
+      };
+    });
+
+  return [...clientRows, ...personalRows]
     .filter((row) => row.date)
     .sort((a, b) => compareTasks(a, b, 'priority'));
 }
 
 function nextTaskForClient(client, taskRows) {
   return taskRows
-    .filter((row) => row.client.id === client.id)
+    .filter((row) => row.client?.id === client.id)
     .sort((a, b) => a.date.localeCompare(b.date) || taskPriority(a) - taskPriority(b))[0] || null;
 }
 
@@ -2033,15 +2175,46 @@ function taskPriority(row) {
 }
 
 function clientName(client) {
+  if (!client) return '';
   return `${client.lastName || ''} ${client.firstName || ''}`.trim().toLowerCase();
 }
 
 function compareTasks(a, b, sortMode) {
-  if (sortMode === 'date-asc') return a.date.localeCompare(b.date) || clientName(a.client).localeCompare(clientName(b.client));
-  if (sortMode === 'date-desc') return b.date.localeCompare(a.date) || clientName(a.client).localeCompare(clientName(b.client));
-  if (sortMode === 'client') return clientName(a.client).localeCompare(clientName(b.client)) || a.date.localeCompare(b.date);
+  const aName = taskDisplayName(a).toLowerCase();
+  const bName = taskDisplayName(b).toLowerCase();
+  if (sortMode === 'date-asc') return a.date.localeCompare(b.date) || aName.localeCompare(bName);
+  if (sortMode === 'date-desc') return b.date.localeCompare(a.date) || aName.localeCompare(bName);
+  if (sortMode === 'client') return aName.localeCompare(bName) || a.date.localeCompare(b.date);
   if (sortMode === 'type') return a.type.localeCompare(b.type) || a.date.localeCompare(b.date);
-  return taskPriority(a) - taskPriority(b) || a.date.localeCompare(b.date) || clientName(a.client).localeCompare(clientName(b.client));
+  return taskPriority(a) - taskPriority(b) || a.date.localeCompare(b.date) || aName.localeCompare(bName);
+}
+
+function taskDisplayName(row) {
+  if (row.client) return `${row.client.firstName || ''} ${row.client.lastName || ''}`.trim() || 'Linked client';
+  return row.personalTask?.title || 'Personal task';
+}
+
+function taskContextLabel(row) {
+  if (row.client) return row.client.caseType || 'Linked client';
+  if (row.source === 'personal-task') return 'No linked client';
+  return 'Task';
+}
+
+function taskAdviserName(row, advisers = []) {
+  const adviserId = row.adviserId || row.client?.primaryAdviserId || row.personalTask?.adviserId;
+  return advisers.find((adviser) => adviser.id === adviserId)?.name || 'Unassigned';
+}
+
+function taskSearchText(row) {
+  return [
+    row.type, row.note, row.date,
+    row.client?.firstName, row.client?.lastName, row.client?.email, row.client?.caseType, row.client?.caseStrategy,
+    row.personalTask?.title, row.personalTask?.note
+  ].join(' ').toLowerCase();
+}
+
+function matchesPersonalTaskScope(task, adviserId) {
+  return adviserId === 'all' || task.adviserId === adviserId;
 }
 
 function matchesAdviserScope(client, adviserId) {
