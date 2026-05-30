@@ -696,3 +696,123 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   .workload-head { display: none; }
   .workload-line { align-items: start; }
 }
+
+.support-fab {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 45;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  background: var(--ink);
+  color: #fff;
+  border-radius: 999px;
+  padding: 12px 16px;
+  font-weight: 850;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18);
+}
+.support-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(15, 23, 42, 0.26);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+.support-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+.support-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 60;
+  width: min(440px, 92vw);
+  height: 100vh;
+  overflow-y: auto;
+  background: #fff;
+  border-left: 1px solid var(--line);
+  box-shadow: -18px 0 48px rgba(15, 23, 42, 0.18);
+  transform: translateX(104%);
+  transition: transform 200ms ease;
+  padding: 22px;
+}
+.support-drawer.open { transform: translateX(0); }
+.support-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+}
+.support-head span {
+  display: block;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 12px;
+  font-weight: 850;
+  margin-bottom: 5px;
+}
+.support-head h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 24px;
+}
+.support-summary {
+  color: var(--text);
+  line-height: 1.55;
+  margin: 0 0 18px;
+}
+.support-section-list {
+  display: grid;
+  gap: 12px;
+}
+.support-section {
+  border: 1px solid var(--line);
+  background: var(--pale);
+  border-radius: 18px;
+  padding: 14px;
+}
+.support-section h3, .support-tips h3 {
+  margin: 0 0 7px;
+  color: var(--ink);
+  font-size: 15px;
+}
+.support-section p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+  font-size: 14px;
+}
+.support-tips {
+  margin-top: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 14px;
+}
+.support-tips ul {
+  margin: 0;
+  padding-left: 19px;
+  color: var(--muted);
+  line-height: 1.55;
+  font-size: 14px;
+}
+.support-note {
+  margin-top: 16px;
+  border-radius: 16px;
+  background: #f8fafc;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+  padding: 12px;
+}
+@media (max-width: 760px) {
+  .support-fab { right: 14px; bottom: 14px; }
+}

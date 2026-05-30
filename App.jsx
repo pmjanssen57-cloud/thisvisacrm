@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowUpDown, CalendarDays, CheckCircle2, ChevronRight, Clock, CreditCard, Database, LayoutDashboard, ListChecks, LockKeyhole, Plus, RefreshCw, Save, Search, Trash2, UserRound, UsersRound, X } from 'lucide-react';
+import { AlertTriangle, ArrowUpDown, CalendarDays, CheckCircle2, ChevronRight, Clock, CreditCard, Database, HelpCircle, LayoutDashboard, ListChecks, LockKeyhole, Plus, RefreshCw, Save, Search, Trash2, UserRound, UsersRound, X } from 'lucide-react';
 
 const BRAND = {
   ink: '#003736',
@@ -42,6 +42,60 @@ const DEFAULT_DEADLINE_TYPES = [
   'PPI Response Date',
   'Filing Deadline Date',
 ];
+
+const SUPPORT_CONTENT = {
+  dashboard: {
+    title: 'Dashboard help',
+    summary: 'The dashboard is the daily operational view. It shows the current adviser workload, urgent bring-up items, active clients, deadlines and billing pressure points based on the selected adviser view.',
+    sections: [
+      { heading: 'Current view', text: 'Use the Current view selector above the tabs to switch between all advisers and one adviser. The dashboard, task counts, billing figures and workload lists update to match that view.' },
+      { heading: "Today's bring-up list", text: 'This panel highlights next-action tasks due today. Treat it as the morning file bring-up list: review the task, open the client, complete or update the next action, then save the client.' },
+      { heading: 'Client workload list', text: 'The workload list shows clients for the selected adviser view, their current stage, primary/backup adviser and earliest upcoming action or deadline. Use the column filters to narrow the list.' },
+    ],
+    tips: ['Set the adviser view first before reviewing workload.', 'Use next-action dates consistently so the bring-up list stays reliable.', 'Use the client search field to jump from dashboard review to the client record.'],
+  },
+  tasks: {
+    title: 'Tasks help',
+    summary: 'The Tasks page is the full deadline and expiry register. It combines next actions, visa expiry dates, medical and police certificate expiry dates, PPI response dates and filing deadlines.',
+    sections: [
+      { heading: 'Sorting', text: 'Use the sort control to order the list by priority, earliest date, latest date, client name or deadline type.' },
+      { heading: 'Filtering', text: 'Filter by status or deadline type to focus on overdue items, tasks due today, tasks due soon or one specific kind of expiry.' },
+      { heading: 'Opening a client', text: 'Click a task row to open the related client. Update the deadline, next action or stage from the client record.' },
+    ],
+    tips: ['Use the dashboard for immediate daily work and the Tasks tab for a wider deadline review.', 'Dates without notes are still useful, but notes make handover easier.'],
+  },
+  clients: {
+    title: 'Clients help',
+    summary: 'The Clients page is where adviser users create, update and review the master client record, including personal details, family details, case type, case strategy, stages, deadlines and billing milestones.',
+    sections: [
+      { heading: 'Creating a client', text: 'Click Client in the top bar, complete the blank record, then save. New-client saves confirm and open a fresh blank form so it is clear the record has been created.' },
+      { heading: 'Case strategy', text: 'Use the Case strategy field as the master case summary. Record the agreed approach, key immigration issues, evidence gaps, risks and next strategic steps.' },
+      { heading: 'Progress map', text: 'The progress map shows mandatory and optional stages. Select only the stages that apply to the client. Skipped stages are shown muted and do not affect progress percentage.' },
+      { heading: 'Deadlines and next action', text: 'Add expiry and filing dates in the deadlines section. Use Next action and Task due date for internal adviser tasks that should appear on the dashboard and task lists.' },
+    ],
+    tips: ['Keep the case strategy client-specific and practical.', 'Use the citizenship and address fields consistently because they are searchable.', 'Add family members where their details are relevant to the matter.'],
+  },
+  billing: {
+    title: 'Billing help',
+    summary: 'The Billing page shows billing milestones for the selected adviser view. It is a lightweight billing schedule, not a replacement for the accounting system.',
+    sections: [
+      { heading: 'Milestones', text: 'Add billing milestones from the client record. Each milestone can track a due date, amount, status and invoice number.' },
+      { heading: 'Adviser filtering', text: 'The billing dashboard follows the selected adviser view and can also be filtered within the page.' },
+      { heading: 'Using status', text: 'Use Draft, Scheduled, Invoiced, Paid and Overdue consistently so the dashboard figures remain useful.' },
+    ],
+    tips: ['Use invoice numbers once the actual invoice has been raised.', 'Billing notes should stay factual and operational.'],
+  },
+  advisers: {
+    title: 'Advisers help',
+    summary: 'The Advisers page stores adviser profile details used for client allocation, workload reporting and filtering throughout the CRM.',
+    sections: [
+      { heading: 'Adviser profiles', text: 'Keep adviser names and emails accurate. These records drive primary and backup adviser assignments.' },
+      { heading: 'Active status', text: 'Use inactive status for advisers who should remain in historical records but should not usually receive new clients.' },
+      { heading: 'Future login mapping', text: 'When individual logins are added, adviser email addresses can be used to match a logged-in user to their adviser profile.' },
+    ],
+    tips: ['Review adviser profiles before moving to individual logins.', 'Avoid deleting advisers if they are linked to historical client records.'],
+  },
+};
 
 const COUNTRY_OPTIONS = [
   "Afghanistan",,
@@ -310,6 +364,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [supportOpen, setSupportOpen] = useState(false);
 
   async function load(code = accessCode) {
     setLoading(true);
@@ -481,6 +536,7 @@ export default function App() {
           </div>
         </div>
         <div className="top-actions">
+          <button className="btn ghost" onClick={() => setSupportOpen(true)}><HelpCircle size={16} />Help</button>
           <button className="btn ghost" onClick={() => load()} disabled={loading}><RefreshCw size={16} />Refresh</button>
           <button className="btn dark" onClick={addClient}><Plus size={16} />Client</button>
           <button className="btn" onClick={addAdviser}><Plus size={16} />Adviser</button>
@@ -564,7 +620,49 @@ export default function App() {
           </>
         )}
       </main>
+      <SupportDrawer open={supportOpen} onClose={() => setSupportOpen(false)} tab={tab} />
     </div>
+  );
+}
+
+
+function SupportDrawer({ open, onClose, tab }) {
+  const content = SUPPORT_CONTENT[tab] || SUPPORT_CONTENT.dashboard;
+
+  return (
+    <>
+      <button className="support-fab" type="button" onClick={onClose} style={{ display: open ? 'none' : undefined }} aria-label="Open page help">
+        <HelpCircle size={18} /> Help
+      </button>
+      <div className={`support-overlay ${open ? 'open' : ''}`} onClick={onClose} />
+      <aside className={`support-drawer ${open ? 'open' : ''}`} aria-hidden={!open}>
+        <div className="support-head">
+          <div>
+            <span>Page support</span>
+            <h2>{content.title}</h2>
+          </div>
+          <button className="icon-btn" type="button" onClick={onClose} aria-label="Close page help"><X size={18} /></button>
+        </div>
+        <p className="support-summary">{content.summary}</p>
+        <div className="support-section-list">
+          {content.sections.map((section) => (
+            <section key={section.heading} className="support-section">
+              <h3>{section.heading}</h3>
+              <p>{section.text}</p>
+            </section>
+          ))}
+        </div>
+        <div className="support-tips">
+          <h3>Practical tips</h3>
+          <ul>
+            {content.tips.map((tip) => <li key={tip}>{tip}</li>)}
+          </ul>
+        </div>
+        <div className="support-note">
+          This help content is maintained inside the app, so it can be updated as new CRM screens and workflows are added.
+        </div>
+      </aside>
+    </>
   );
 }
 
