@@ -52,6 +52,9 @@ const DEFAULT_DEADLINE_TYPES = [
   'Filing Deadline Date',
 ];
 
+const BILLING_STATUSES = ['WIP', 'Invoiced', 'Overdue'];
+const BILLING_TRIGGER_TYPES = ['Date', 'Milestone'];
+
 const SUPPORT_CONTENT = {
   dashboard: {
     title: 'Dashboard help',
@@ -90,7 +93,7 @@ const SUPPORT_CONTENT = {
     sections: [
       { heading: 'Milestones', text: 'Add billing milestones from the client record. Each billing item can be linked to a date or to a client stage. Status is WIP, Invoiced or Overdue.' },
       { heading: 'Adviser filtering', text: 'The billing dashboard follows the selected adviser view and can also be filtered by month/period, status, adviser and search terms.' },
-      { heading: 'Using status', text: 'Use Draft, Scheduled, Invoiced, Paid and Overdue consistently so the dashboard figures remain useful.' },
+      { heading: 'Using status', text: 'Use WIP, Invoiced and Overdue consistently so the dashboard figures remain useful.' },
     ],
     tips: ['Use invoice numbers once the actual invoice has been raised.', 'Billing notes should stay factual and operational.'],
   },
