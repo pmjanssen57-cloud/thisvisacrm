@@ -620,18 +620,18 @@ export default function App() {
           </>
         )}
       </main>
-      <SupportDrawer open={supportOpen} onClose={() => setSupportOpen(false)} tab={tab} />
+      <SupportDrawer open={supportOpen} onOpen={() => setSupportOpen(true)} onClose={() => setSupportOpen(false)} tab={tab} />
     </div>
   );
 }
 
 
-function SupportDrawer({ open, onClose, tab }) {
+function SupportDrawer({ open, onOpen, onClose, tab }) {
   const content = SUPPORT_CONTENT[tab] || SUPPORT_CONTENT.dashboard;
 
   return (
     <>
-      <button className="support-fab" type="button" onClick={onClose} style={{ display: open ? 'none' : undefined }} aria-label="Open page help">
+      <button className="support-fab" type="button" onClick={onOpen} style={{ display: open ? 'none' : undefined }} aria-label="Open page help">
         <HelpCircle size={18} /> Help
       </button>
       <div className={`support-overlay ${open ? 'open' : ''}`} onClick={onClose} />

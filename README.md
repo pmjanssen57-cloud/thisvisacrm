@@ -61,3 +61,8 @@ This package restores the original initial CRM schema migration and adds the cas
 - Removed the Stage Usage Overview from the dashboard.
 - Added a daily bring-up panel for next actions due today.
 - Added a filterable adviser client workload list ordered by the next action or next critical deadline.
+
+
+## v0.5.9
+
+Fixes the floating Help button so it opens the support drawer correctly.
