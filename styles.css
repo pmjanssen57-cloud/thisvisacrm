@@ -839,3 +839,72 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   .sharepoint-link-row { grid-template-columns: 1fr; }
   .sharepoint-actions { justify-content: flex-start; padding-bottom: 0; }
 }
+
+/* v0.6.1 dashboard SharePoint and collapsible client record refinements */
+.workload-head, .workload-line {
+  grid-template-columns: 1.25fr 0.95fr 1.05fr 1fr 1.05fr 86px 76px;
+}
+.workload-scroll {
+  max-height: 760px;
+  overflow-y: auto;
+}
+.folder-btn {
+  min-width: 76px;
+  gap: 6px;
+}
+.folder-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.client-summary-panel {
+  border: 1px solid var(--line);
+  background: var(--pale);
+  border-radius: 22px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.summary-status-pill {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+.summary-grid {
+  margin-top: 14px;
+}
+.summary-action-grid {
+  margin-top: 14px;
+  align-items: start;
+}
+.summary-sharepoint-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: end;
+  margin-top: 14px;
+}
+.client-record-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 18px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+.client-record-toggle span {
+  color: var(--muted);
+  font-size: 13px;
+}
+@media (max-width: 1050px) {
+  .workload-scroll { max-height: 720px; }
+}
+@media (max-width: 760px) {
+  .summary-sharepoint-row { grid-template-columns: 1fr; }
+}

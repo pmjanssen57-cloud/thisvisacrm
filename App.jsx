@@ -936,18 +936,23 @@ function AdviserClientWorkloadList({ clients, advisers, taskRows, setTab, setSel
         <label><span>Next date</span><select value={taskFilter} onChange={(event) => setTaskFilter(event.target.value)}><option value="all">All</option><option value="overdue">Overdue</option><option value="today">Due today</option><option value="next-7">Next 7 days</option><option value="next-30">Next 30 days</option><option value="future">Future</option><option value="none">No date</option></select></label>
       </div>
       <div className="workload-table">
-        <div className="workload-head"><span>Client</span><span>Case type</span><span>Current stage</span><span>Next date</span><span>Adviser</span><span></span></div>
-        {rows.map((row) => (
+        <div className="workload-head"><span>Client</span><span>Case type</span><span>Current stage</span><span>Next date</span><span>Adviser</span><span>Folder</span><span></span></div>
+        <div className="workload-scroll">
+        {rows.map((row) => {
+          const folderLink = normaliseExternalUrl(row.client.sharepointFolderUrl);
+          return (
           <div className="workload-line" key={row.client.id}>
             <span><strong>{row.client.firstName} {row.client.lastName}</strong><small>{row.client.email || 'No email'} · {row.client.clientStatus}</small></span>
             <span>{row.client.caseType || '—'}</span>
             <span><strong>{row.currentStage}</strong><small>{progressPercent(row.client)}% complete</small></span>
             <span>{row.nextTask ? <><DeadlineBadge diff={row.nextTask.diff} /><small>{row.nextTask.type} · {row.nextTask.date}</small></> : <small>No action/deadline date</small>}</span>
             <span><strong>{row.primary?.name || 'Unassigned'}</strong><small>{row.backup?.name ? `Backup: ${row.backup.name}` : 'No backup'}</small></span>
-            <button className="btn ghost" onClick={() => { setSelectedClientId(row.client.id); setTab('clients'); }}>Open</button>
+            <span><button className="btn ghost folder-btn" type="button" disabled={!folderLink} onClick={() => window.open(folderLink, '_blank', 'noopener,noreferrer')}><ExternalLink size={14} />Folder</button></span>
+            <button className="btn ghost" type="button" onClick={() => { setSelectedClientId(row.client.id); setTab('clients'); }}>Open</button>
           </div>
-        ))}
+        );})}
         {!rows.length && <p className="muted center">No clients match the selected workload filters.</p>}
+        </div>
       </div>
     </div>
   );
@@ -1031,7 +1036,11 @@ function ClientsWorkspace(props) {
 
 function ClientEditor({ client, advisers, caseTypes, deadlineTypes, saveClient, deleteClient, saving }) {
   const [draft, setDraft] = useState(client);
-  useEffect(() => setDraft(client), [client]);
+  const [showFullRecord, setShowFullRecord] = useState(false);
+  useEffect(() => {
+    setDraft(client);
+    setShowFullRecord(false);
+  }, [client]);
 
   function setField(field, value) {
     setDraft((current) => ({ ...current, [field]: value }));
@@ -1116,7 +1125,7 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, saveClient, 
       <div className="detail-header">
         <div>
           <h1>{draft.firstName || 'New'} {draft.lastName || 'client'}</h1>
-          <p>{draft.caseType}</p>
+          <p>{draft.caseType || 'No case type selected'}</p>
         </div>
         <div className="button-row">
           <button className="btn danger" onClick={() => deleteClient(draft.id)} disabled={saving || String(draft.id).startsWith('temp-')}><Trash2 size={16} />Delete</button>
@@ -1124,26 +1133,30 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, saveClient, 
         </div>
       </div>
 
+      <ClientSummaryPanel draft={draft} setField={setField} />
+
+      <div className="client-record-toggle">
+        <button className="btn" type="button" onClick={() => setShowFullRecord((value) => !value)}>{showFullRecord ? 'Hide full client record' : 'Show full client record'}</button>
+        <span>{showFullRecord ? 'Full editable file details are shown below.' : 'Open the full record to edit strategy, stages, deadlines, family details and billing.'}</span>
+      </div>
+
+      {showFullRecord && (
+        <>
       <div className="progress-card"><span>{currentStageLabel(draft)}</span><b>{progressPercent(draft)}%</b><ProgressBar value={progressPercent(draft)} /></div>
 
       <ProgressMap client={draft} />
 
       <div className="form-grid">
-        <Field label="First name" value={draft.firstName} onChange={(v) => setField('firstName', v)} />
-        <Field label="Last name" value={draft.lastName} onChange={(v) => setField('lastName', v)} />
         <Field label="Email" value={draft.email} onChange={(v) => setField('email', v)} />
         <Field label="Phone" value={draft.phone} onChange={(v) => setField('phone', v)} />
         <LookupField label="Citizenship" value={draft.nationality} onChange={(v) => setField('nationality', v)} options={COUNTRY_OPTIONS} listId="citizenship-options" placeholder="Start typing a country of citizenship" />
-        <DateWithAgeField label="Date of birth" value={draft.dateOfBirth} onChange={(v) => setField('dateOfBirth', v)} />
         <LookupField label="Current address" value={draft.location} onChange={(v) => setField('location', v)} options={ADDRESS_LOOKUP_EXAMPLES} listId="address-options" placeholder="Start typing the current address" />
         <SelectField label="Case type / application type" value={draft.caseType} onChange={(v) => setField('caseType', v)} options={caseTypes} placeholder="Select case type" />
         <SelectField label="Primary adviser" value={draft.primaryAdviserId} onChange={(v) => setField('primaryAdviserId', v)} options={advisers.map((a) => ({ label: a.name, value: a.id }))} placeholder="Select primary adviser" />
         <SelectField label="Backup adviser" value={draft.backupAdviserId} onChange={(v) => setField('backupAdviserId', v)} options={advisers.map((a) => ({ label: a.name, value: a.id }))} placeholder="Select backup adviser" />
         <SelectField label="Priority" value={draft.priority} onChange={(v) => setField('priority', v)} options={['Normal', 'High', 'Urgent']} />
-        <SelectField label="Client status" value={draft.clientStatus} onChange={(v) => setField('clientStatus', v)} options={['Active', 'Waiting on client', 'Waiting on INZ', 'On hold', 'Closed']} />
       </div>
 
-      <SharePointFolderPanel value={draft.sharepointFolderUrl} onChange={(v) => setField('sharepointFolderUrl', v)} />
 
       <section className="sub-panel strategy-panel">
         <h2>Case strategy</h2>
@@ -1151,15 +1164,6 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, saveClient, 
         <TextArea label="Case strategy / key issues" value={draft.caseStrategy} onChange={(v) => setField('caseStrategy', v)} rows={8} />
       </section>
 
-      <section className="sub-panel">
-        <div className="sub-panel-head">
-          <div><h2>Next action / task</h2><p className="muted">Add the next action and due date. This appears automatically on the dashboard and task lists.</p></div>
-        </div>
-        <div className="form-grid two">
-          <TextArea label="Next action" value={draft.nextAction} onChange={(v) => setField('nextAction', v)} />
-          <DateField label="Task due date" value={draft.nextActionDue} onChange={(v) => setField('nextActionDue', v)} />
-        </div>
-      </section>
 
       <FamilyDetails members={draft.familyMembers || []} addFamilyMember={addFamilyMember} updateFamilyMember={updateFamilyMember} removeFamilyMember={removeFamilyMember} />
 
@@ -1212,6 +1216,8 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, saveClient, 
           {!draft.billing?.length && <p className="muted center">No billing milestones added yet.</p>}
         </div>
       </section>
+        </>
+      )}
     </div>
   );
 }
@@ -1418,6 +1424,61 @@ function DateWithAgeField({ label, value, onChange }) {
   );
 }
 
+
+
+function ClientSummaryPanel({ draft, setField }) {
+  const link = normaliseExternalUrl(draft.sharepointFolderUrl);
+  const hasValue = Boolean(String(draft.sharepointFolderUrl || '').trim());
+  const looksSharePoint = isSharePointLike(draft.sharepointFolderUrl);
+
+  async function copyLink() {
+    if (!hasValue) return;
+    try {
+      await navigator.clipboard.writeText(draft.sharepointFolderUrl);
+      window.alert('SharePoint folder link copied.');
+    } catch {
+      window.prompt('Copy SharePoint folder link:', draft.sharepointFolderUrl);
+    }
+  }
+
+  function openLink() {
+    if (!link) return;
+    window.open(link, '_blank', 'noopener,noreferrer');
+  }
+
+  return (
+    <section className="client-summary-panel">
+      <div className="sub-panel-head">
+        <div>
+          <h2>Client quick view</h2>
+          <p className="muted">Core details and bring-up fields. Use the full record below for strategy, stages, deadlines, family details and billing.</p>
+        </div>
+        <span className="summary-status-pill">{draft.clientStatus || 'No status'}</span>
+      </div>
+      <div className="form-grid summary-grid">
+        <Field label="First name" value={draft.firstName} onChange={(v) => setField('firstName', v)} />
+        <Field label="Last name" value={draft.lastName} onChange={(v) => setField('lastName', v)} />
+        <DateWithAgeField label="Date of birth" value={draft.dateOfBirth} onChange={(v) => setField('dateOfBirth', v)} />
+        <SelectField label="Current status" value={draft.clientStatus} onChange={(v) => setField('clientStatus', v)} options={['Active', 'Waiting on client', 'Waiting on INZ', 'On hold', 'Closed']} />
+      </div>
+      <div className="form-grid two summary-action-grid">
+        <TextArea label="Next action" value={draft.nextAction} onChange={(v) => setField('nextAction', v)} rows={3} />
+        <DateField label="Next action date" value={draft.nextActionDue} onChange={(v) => setField('nextActionDue', v)} />
+      </div>
+      <div className="summary-sharepoint-row">
+        <label className="field sharepoint-field">
+          <span>SharePoint folder link</span>
+          <input value={draft.sharepointFolderUrl || ''} onChange={(event) => setField('sharepointFolderUrl', event.target.value)} placeholder="Paste the SharePoint folder link" />
+        </label>
+        <div className="button-row sharepoint-actions">
+          <button className="btn" type="button" onClick={openLink} disabled={!link}><ExternalLink size={16} />Open folder</button>
+          <button className="btn" type="button" onClick={copyLink} disabled={!hasValue}><Copy size={16} />Copy link</button>
+        </div>
+      </div>
+      {hasValue && !looksSharePoint && <p className="field-warning">This does not look like a SharePoint or OneDrive link. It will still save, but the Open button only works for normal web URLs.</p>}
+    </section>
+  );
+}
 
 function SharePointFolderPanel({ value, onChange }) {
   const link = normaliseExternalUrl(value);

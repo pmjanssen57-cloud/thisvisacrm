@@ -70,3 +70,10 @@ Fixes the floating Help button so it opens the support drawer correctly.
 ## v0.6.0 update
 
 Adds a client SharePoint folder URL field, plus Open folder and Copy link actions. This creates a new migration: `202605300003_add_sharepoint_folder_url.sql`.
+
+
+## v0.6.1
+
+- Added SharePoint folder button to the dashboard client workload list.
+- Workload list now shows up to around ten rows before scrolling.
+- Added a collapsible client detail view with a quick-view panel for name, DOB, status, next action and SharePoint folder link.
