@@ -233,6 +233,12 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 }
 .editable-row.billing-row { grid-template-columns: minmax(180px, 1.3fr) 150px 120px 130px 130px 44px; }
 
+.date-age-field { display: grid; grid-template-columns: minmax(0, 1fr) 92px; gap: 10px; align-items: center; }
+.date-age-field strong, .age-pill { border: 1px solid var(--line); border-radius: 999px; background: var(--pale); color: var(--ink); padding: 10px 12px; text-align: center; font-size: 13px; white-space: nowrap; }
+.editable-row.family-row { grid-template-columns: 160px minmax(180px, 1.2fr) 160px 90px 44px; }
+.family-summary { margin: 12px 0 0; }
+
+
 .billing-table { margin-top: 16px; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
 .billing-head, .billing-line { display: grid; grid-template-columns: 1.3fr 1.3fr 0.8fr 0.8fr 0.8fr 0.8fr; gap: 12px; align-items: center; padding: 12px 14px; }
 .billing-head { background: #f8fafc; color: var(--muted); font-size: 12px; font-weight: 850; text-transform: uppercase; letter-spacing: 0.04em; }
@@ -283,7 +289,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   .layout { padding: 14px; }
   .tabs { grid-template-columns: repeat(2, 1fr); }
   .metric-grid.three, .metric-grid, .adviser-cards, .stage-summary-grid, .form-grid { grid-template-columns: 1fr; }
-  .stage-row, .editable-row, .editable-row.billing-row, .billing-head, .billing-line { grid-template-columns: 1fr; }
+  .stage-row, .editable-row, .editable-row.billing-row, .editable-row.family-row, .billing-head, .billing-line { grid-template-columns: 1fr; }
   .detail-header, .sub-panel-head { flex-direction: column; }
 }
 

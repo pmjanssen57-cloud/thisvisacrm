@@ -43,6 +43,223 @@ const DEFAULT_DEADLINE_TYPES = [
   'Filing Deadline Date',
 ];
 
+const COUNTRY_OPTIONS = [
+  "Afghanistan",,
+  "Albania",,
+  "Algeria",,
+  "Andorra",,
+  "Angola",,
+  "Antigua and Barbuda",,
+  "Argentina",,
+  "Armenia",,
+  "Australia",,
+  "Austria",,
+  "Azerbaijan",,
+  "Bahamas",,
+  "Bahrain",,
+  "Bangladesh",,
+  "Barbados",,
+  "Belarus",,
+  "Belgium",,
+  "Belize",,
+  "Benin",,
+  "Bhutan",,
+  "Bolivia",,
+  "Bosnia and Herzegovina",,
+  "Botswana",,
+  "Brazil",,
+  "Brunei",,
+  "Bulgaria",,
+  "Burkina Faso",,
+  "Burundi",,
+  "Cambodia",,
+  "Cameroon",,
+  "Canada",,
+  "Cape Verde",,
+  "Central African Republic",,
+  "Chad",,
+  "Chile",,
+  "China",,
+  "Colombia",,
+  "Comoros",,
+  "Congo",,
+  "Costa Rica",,
+  "Croatia",,
+  "Cuba",,
+  "Cyprus",,
+  "Czech Republic",,
+  "Democratic Republic of the Congo",,
+  "Denmark",,
+  "Djibouti",,
+  "Dominica",,
+  "Dominican Republic",,
+  "Ecuador",,
+  "Egypt",,
+  "El Salvador",,
+  "Equatorial Guinea",,
+  "Eritrea",,
+  "Estonia",,
+  "Eswatini",,
+  "Ethiopia",,
+  "Fiji",,
+  "Finland",,
+  "France",,
+  "Gabon",,
+  "Gambia",,
+  "Georgia",,
+  "Germany",,
+  "Ghana",,
+  "Greece",,
+  "Grenada",,
+  "Guatemala",,
+  "Guinea",,
+  "Guinea-Bissau",,
+  "Guyana",,
+  "Haiti",,
+  "Honduras",,
+  "Hungary",,
+  "Iceland",,
+  "India",,
+  "Indonesia",,
+  "Iran",,
+  "Iraq",,
+  "Ireland",,
+  "Israel",,
+  "Italy",,
+  "Jamaica",,
+  "Japan",,
+  "Jordan",,
+  "Kazakhstan",,
+  "Kenya",,
+  "Kiribati",,
+  "Kuwait",,
+  "Kyrgyzstan",,
+  "Laos",,
+  "Latvia",,
+  "Lebanon",,
+  "Lesotho",,
+  "Liberia",,
+  "Libya",,
+  "Liechtenstein",,
+  "Lithuania",,
+  "Luxembourg",,
+  "Madagascar",,
+  "Malawi",,
+  "Malaysia",,
+  "Maldives",,
+  "Mali",,
+  "Malta",,
+  "Marshall Islands",,
+  "Mauritania",,
+  "Mauritius",,
+  "Mexico",,
+  "Micronesia",,
+  "Moldova",,
+  "Monaco",,
+  "Mongolia",,
+  "Montenegro",,
+  "Morocco",,
+  "Mozambique",,
+  "Myanmar",,
+  "Namibia",,
+  "Nauru",,
+  "Nepal",,
+  "Netherlands",,
+  "New Zealand",,
+  "Nicaragua",,
+  "Niger",,
+  "Nigeria",,
+  "North Korea",,
+  "North Macedonia",,
+  "Norway",,
+  "Oman",,
+  "Pakistan",,
+  "Palau",,
+  "Palestine",,
+  "Panama",,
+  "Papua New Guinea",,
+  "Paraguay",,
+  "Peru",,
+  "Philippines",,
+  "Poland",,
+  "Portugal",,
+  "Qatar",,
+  "Romania",,
+  "Russia",,
+  "Rwanda",,
+  "Saint Kitts and Nevis",,
+  "Saint Lucia",,
+  "Saint Vincent and the Grenadines",,
+  "Samoa",,
+  "San Marino",,
+  "Sao Tome and Principe",,
+  "Saudi Arabia",,
+  "Senegal",,
+  "Serbia",,
+  "Seychelles",,
+  "Sierra Leone",,
+  "Singapore",,
+  "Slovakia",,
+  "Slovenia",,
+  "Solomon Islands",,
+  "Somalia",,
+  "South Africa",,
+  "South Korea",,
+  "South Sudan",,
+  "Spain",,
+  "Sri Lanka",,
+  "Sudan",,
+  "Suriname",,
+  "Sweden",,
+  "Switzerland",,
+  "Syria",,
+  "Taiwan",,
+  "Tajikistan",,
+  "Tanzania",,
+  "Thailand",,
+  "Timor-Leste",,
+  "Togo",,
+  "Tonga",,
+  "Trinidad and Tobago",,
+  "Tunisia",,
+  "Turkey",,
+  "Turkmenistan",,
+  "Tuvalu",,
+  "Uganda",,
+  "Ukraine",,
+  "United Arab Emirates",,
+  "United Kingdom",,
+  "United States",,
+  "Uruguay",,
+  "Uzbekistan",,
+  "Vanuatu",,
+  "Vatican City",,
+  "Venezuela",,
+  "Vietnam",,
+  "Yemen",,
+  "Zambia",,
+  "Zimbabwe",
+];
+
+const ADDRESS_LOOKUP_EXAMPLES = [
+  'Auckland, New Zealand',
+  'Wellington, New Zealand',
+  'Christchurch, New Zealand',
+  'Hamilton, New Zealand',
+  'Tauranga, New Zealand',
+  'Dunedin, New Zealand',
+  'Queenstown, New Zealand',
+  'Nelson, New Zealand',
+  'Napier, New Zealand',
+  'New Plymouth, New Zealand',
+  'Palmerston North, New Zealand',
+  'Rotorua, New Zealand',
+  'Invercargill, New Zealand',
+  'Whangarei, New Zealand',
+  'Overseas address'
+];
+
+
 const emptyData = {
   advisers: [],
   clients: [],
@@ -61,6 +278,7 @@ function makeBlankClient(data) {
     email: '',
     phone: '',
     nationality: '',
+    dateOfBirth: '',
     location: '',
     matterName: '',
     caseStrategy: '',
@@ -73,6 +291,7 @@ function makeBlankClient(data) {
     nextActionDue: '',
     notes: '',
     stages: buildStagePlan(data.stageTemplates),
+    familyMembers: [],
     deadlines: [],
     billing: [],
   };
@@ -222,7 +441,7 @@ export default function App() {
   const filteredClients = useMemo(() => {
     const q = clientQuery.trim().toLowerCase();
     return scopedClients.filter((client) => {
-      const matchesQuery = !q || [client.firstName, client.lastName, client.email, client.caseType, client.nationality, client.caseStrategy]
+      const matchesQuery = !q || [client.firstName, client.lastName, client.email, client.caseType, client.nationality, client.location, client.caseStrategy, (client.familyMembers || []).map((member) => member.name).join(' ')]
         .join(' ')
         .toLowerCase()
         .includes(q);
@@ -385,7 +604,7 @@ function ViewToolbar({ advisers, dashboardAdviserFilter, setDashboardAdviserFilt
         </label>
         <form className="global-search" onSubmit={submitSearch}>
           <Search size={16} />
-          <input value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} placeholder="Search clients, case type, email, nationality, strategy..." />
+          <input value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} placeholder="Search clients, citizenship, address, case type, strategy..." />
           <button className="btn dark" type="submit">Search</button>
         </form>
         <div className="view-result">
@@ -668,6 +887,28 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, saveClient, 
     setDraft((current) => ({ ...current, billing: current.billing.filter((item) => item.id !== id) }));
   }
 
+
+  function addFamilyMember(relationship) {
+    setDraft((current) => ({
+      ...current,
+      familyMembers: [...(current.familyMembers || []), { id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, relationship, name: '', dateOfBirth: '' }],
+    }));
+  }
+
+  function updateFamilyMember(id, patch) {
+    setDraft((current) => ({
+      ...current,
+      familyMembers: (current.familyMembers || []).map((member) => member.id === id ? { ...member, ...patch } : member),
+    }));
+  }
+
+  function removeFamilyMember(id) {
+    setDraft((current) => ({
+      ...current,
+      familyMembers: (current.familyMembers || []).filter((member) => member.id !== id),
+    }));
+  }
+
   async function handleSaveClient() {
     const isNewClient = String(draft.id || '').startsWith('temp-');
     await saveClient(draft, { resetNewClientForm: isNewClient });
@@ -700,14 +941,14 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, saveClient, 
         <Field label="Last name" value={draft.lastName} onChange={(v) => setField('lastName', v)} />
         <Field label="Email" value={draft.email} onChange={(v) => setField('email', v)} />
         <Field label="Phone" value={draft.phone} onChange={(v) => setField('phone', v)} />
-        <Field label="Nationality" value={draft.nationality} onChange={(v) => setField('nationality', v)} />
-        <Field label="Location" value={draft.location} onChange={(v) => setField('location', v)} />
+        <LookupField label="Citizenship" value={draft.nationality} onChange={(v) => setField('nationality', v)} options={COUNTRY_OPTIONS} listId="citizenship-options" placeholder="Start typing a country of citizenship" />
+        <DateWithAgeField label="Date of birth" value={draft.dateOfBirth} onChange={(v) => setField('dateOfBirth', v)} />
+        <LookupField label="Current address" value={draft.location} onChange={(v) => setField('location', v)} options={ADDRESS_LOOKUP_EXAMPLES} listId="address-options" placeholder="Start typing the current address" />
         <SelectField label="Case type / application type" value={draft.caseType} onChange={(v) => setField('caseType', v)} options={caseTypes} />
         <SelectField label="Primary adviser" value={draft.primaryAdviserId} onChange={(v) => setField('primaryAdviserId', v)} options={advisers.map((a) => ({ label: a.name, value: a.id }))} />
         <SelectField label="Backup adviser" value={draft.backupAdviserId} onChange={(v) => setField('backupAdviserId', v)} options={advisers.map((a) => ({ label: a.name, value: a.id }))} />
         <SelectField label="Priority" value={draft.priority} onChange={(v) => setField('priority', v)} options={['Normal', 'High', 'Urgent']} />
         <SelectField label="Client status" value={draft.clientStatus} onChange={(v) => setField('clientStatus', v)} options={['Active', 'Waiting on client', 'Waiting on INZ', 'On hold', 'Closed']} />
-        <DateField label="Next action due" value={draft.nextActionDue} onChange={(v) => setField('nextActionDue', v)} />
       </div>
 
       <section className="sub-panel strategy-panel">
@@ -716,8 +957,19 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, saveClient, 
         <TextArea label="Case strategy / key issues" value={draft.caseStrategy} onChange={(v) => setField('caseStrategy', v)} rows={8} />
       </section>
 
+      <section className="sub-panel">
+        <div className="sub-panel-head">
+          <div><h2>Next action / task</h2><p className="muted">Add the next action and due date. This appears automatically on the dashboard and task lists.</p></div>
+        </div>
+        <div className="form-grid two">
+          <TextArea label="Next action" value={draft.nextAction} onChange={(v) => setField('nextAction', v)} />
+          <DateField label="Task due date" value={draft.nextActionDue} onChange={(v) => setField('nextActionDue', v)} />
+        </div>
+      </section>
+
+      <FamilyDetails members={draft.familyMembers || []} addFamilyMember={addFamilyMember} updateFamilyMember={updateFamilyMember} removeFamilyMember={removeFamilyMember} />
+
       <div className="form-grid two">
-        <TextArea label="Next action" value={draft.nextAction} onChange={(v) => setField('nextAction', v)} />
         <TextArea label="Notes" value={draft.notes} onChange={(v) => setField('notes', v)} />
       </div>
 
@@ -948,6 +1200,65 @@ function TabButton({ active, onClick, icon: Icon, label }) {
   return <button className={`tab ${active ? 'active' : ''}`} onClick={onClick}><Icon size={17} />{label}</button>;
 }
 
+
+function LookupField({ label, value, onChange, options, listId, placeholder }) {
+  return (
+    <label className="field">
+      <span>{label}</span>
+      <input value={value || ''} list={listId} placeholder={placeholder || ''} onChange={(event) => onChange(event.target.value)} />
+      <datalist id={listId}>{options.map((option) => <option key={option} value={option} />)}</datalist>
+    </label>
+  );
+}
+
+function DateWithAgeField({ label, value, onChange }) {
+  const age = calculateAge(value);
+  return (
+    <label className="field">
+      <span>{label}</span>
+      <div className="date-age-field">
+        <input type="date" value={value || ''} onChange={(event) => onChange(event.target.value)} />
+        <strong>{age === null ? 'Age -' : `${age} yrs`}</strong>
+      </div>
+    </label>
+  );
+}
+
+function FamilyDetails({ members, addFamilyMember, updateFamilyMember, removeFamilyMember }) {
+  const spousePartner = members.filter((member) => member.relationship === 'Spouse/Partner');
+  const children = members.filter((member) => member.relationship === 'Child');
+  return (
+    <section className="sub-panel">
+      <div className="sub-panel-head">
+        <div>
+          <h2>Family details</h2>
+          <p className="muted">Add spouse/partner and children details where relevant. Ages calculate from the dates of birth.</p>
+        </div>
+        <div className="button-row">
+          <button className="btn" onClick={() => addFamilyMember('Spouse/Partner')}><Plus size={16} />Spouse/partner</button>
+          <button className="btn" onClick={() => addFamilyMember('Child')}><Plus size={16} />Child</button>
+        </div>
+      </div>
+      <div className="table-like">
+        {members.map((member) => (
+          <div className="editable-row family-row" key={member.id}>
+            <select value={member.relationship || 'Child'} onChange={(event) => updateFamilyMember(member.id, { relationship: event.target.value })}>
+              <option>Spouse/Partner</option>
+              <option>Child</option>
+            </select>
+            <input value={member.name || ''} onChange={(event) => updateFamilyMember(member.id, { name: event.target.value })} placeholder="Full name" />
+            <input type="date" value={member.dateOfBirth || ''} onChange={(event) => updateFamilyMember(member.id, { dateOfBirth: event.target.value })} />
+            <strong className="age-pill">{calculateAge(member.dateOfBirth) === null ? 'Age -' : `${calculateAge(member.dateOfBirth)} yrs`}</strong>
+            <button className="icon-btn" onClick={() => removeFamilyMember(member.id)}><Trash2 size={16} /></button>
+          </div>
+        ))}
+        {!members.length && <p className="muted center">No spouse/partner or children added yet.</p>}
+      </div>
+      {!!members.length && <p className="muted family-summary">{spousePartner.length} spouse/partner record{spousePartner.length === 1 ? '' : 's'} · {children.length} child record{children.length === 1 ? '' : 's'}</p>}
+    </section>
+  );
+}
+
 function Field({ label, value, onChange }) {
   return <label className="field"><span>{label}</span><input value={value || ''} onChange={(event) => onChange(event.target.value)} /></label>;
 }
@@ -984,7 +1295,7 @@ function formatApiError(body, fallback) {
 function normaliseData(body) {
   return {
     advisers: body.advisers || [],
-    clients: (body.clients || []).map((client) => ({ ...client, stages: normaliseStages(client.stages, body.stageTemplates || DEFAULT_STAGE_TEMPLATES) })),
+    clients: (body.clients || []).map((client) => ({ ...client, dateOfBirth: client.dateOfBirth || '', familyMembers: Array.isArray(client.familyMembers) ? client.familyMembers : [], stages: normaliseStages(client.stages, body.stageTemplates || DEFAULT_STAGE_TEMPLATES) })),
     caseTypes: body.caseTypes || DEFAULT_CASE_TYPES,
     deadlineTypes: body.deadlineTypes || DEFAULT_DEADLINE_TYPES,
     stageTemplates: body.stageTemplates || DEFAULT_STAGE_TEMPLATES,
@@ -1046,6 +1357,18 @@ async function readJsonResponse(response) {
 
 function authHeaders(code) {
   return code ? { 'x-crm-token': code } : {};
+}
+
+
+function calculateAge(dateValue) {
+  if (!dateValue) return null;
+  const dob = new Date(`${dateValue}T00:00:00`);
+  if (Number.isNaN(dob.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const monthDiff = today.getMonth() - dob.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) age -= 1;
+  return age >= 0 && age < 130 ? age : null;
 }
 
 function buildTaskRows(clients) {

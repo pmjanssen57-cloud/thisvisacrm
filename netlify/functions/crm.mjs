@@ -128,6 +128,7 @@ async function ensureSchema() {
       email TEXT,
       phone TEXT,
       nationality TEXT,
+      date_of_birth DATE,
       location TEXT,
       matter_name TEXT,
       case_strategy TEXT,
@@ -139,6 +140,7 @@ async function ensureSchema() {
       next_action TEXT,
       next_action_due DATE,
       notes TEXT,
+      family_members JSONB NOT NULL DEFAULT '[]'::jsonb,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
@@ -180,6 +182,8 @@ async function ensureSchema() {
     )
   `;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS case_strategy TEXT`;
+  await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS date_of_birth DATE`;
+  await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS family_members JSONB NOT NULL DEFAULT '[]'::jsonb`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_clients_case_type ON clients(case_type)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_clients_primary_adviser ON clients(primary_adviser_id)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_client_deadlines_date ON client_deadlines(deadline_date)`;
@@ -191,7 +195,7 @@ async function readCrmData() {
   const database = db();
   const [advisers, clients, stages, deadlines, billing] = await Promise.all([
     database.sql`SELECT id, name, role, email, phone, licence, active FROM advisers ORDER BY name ASC`,
-    database.sql`SELECT id, first_name, last_name, email, phone, nationality, location, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, notes FROM clients ORDER BY updated_at DESC`,
+    database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, notes, family_members FROM clients ORDER BY updated_at DESC`,
     database.sql`SELECT id, client_id, stage_key, stage_label, mandatory, applied, completed, completed_date, sort_order FROM client_stages ORDER BY sort_order ASC`,
     database.sql`SELECT id, client_id, deadline_type, deadline_date, note FROM client_deadlines ORDER BY deadline_date ASC NULLS LAST`,
     database.sql`SELECT id, client_id, milestone, due_date, amount, status, invoice_no FROM billing_milestones ORDER BY due_date ASC NULLS LAST`,
@@ -239,6 +243,7 @@ function mapClientFromDb(row, stages, deadlines, billing) {
     email: row.email || '',
     phone: row.phone || '',
     nationality: row.nationality || '',
+    dateOfBirth: toDateOnly(row.date_of_birth),
     location: row.location || '',
     matterName: row.matter_name || '',
     caseStrategy: row.case_strategy || '',
@@ -250,6 +255,7 @@ function mapClientFromDb(row, stages, deadlines, billing) {
     nextAction: row.next_action || '',
     nextActionDue: toDateOnly(row.next_action_due),
     notes: row.notes || '',
+    familyMembers: parseFamilyMembers(row.family_members),
     stages: normaliseStages(clientStages),
     deadlines: deadlines
       .filter((deadline) => deadline.client_id === row.id)
@@ -313,18 +319,18 @@ async function saveClient(input = {}) {
     if (clientId) {
       await poolClient.query(
         `UPDATE clients
-         SET first_name = $1, last_name = $2, email = $3, phone = $4, nationality = $5, location = $6,
-             matter_name = $7, case_strategy = $8, case_type = $9, primary_adviser_id = $10, backup_adviser_id = $11,
-             priority = $12, client_status = $13, next_action = $14, next_action_due = $15, notes = $16, updated_at = NOW()
-         WHERE id = $17`,
-        [client.firstName, client.lastName || 'Unnamed client', client.email, client.phone, client.nationality, client.location, client.matterName, client.caseStrategy, client.caseType, nullableUuid(client.primaryAdviserId), nullableUuid(client.backupAdviserId), client.priority, client.clientStatus, client.nextAction, nullableDate(client.nextActionDue), client.notes, clientId]
+         SET first_name = $1, last_name = $2, email = $3, phone = $4, nationality = $5, date_of_birth = $6, location = $7,
+             matter_name = $8, case_strategy = $9, case_type = $10, primary_adviser_id = $11, backup_adviser_id = $12,
+             priority = $13, client_status = $14, next_action = $15, next_action_due = $16, notes = $17, family_members = $18::jsonb, updated_at = NOW()
+         WHERE id = $19`,
+        [client.firstName, client.lastName || 'Unnamed client', client.email, client.phone, client.nationality, nullableDate(client.dateOfBirth), client.location, client.matterName, client.caseStrategy, client.caseType, nullableUuid(client.primaryAdviserId), nullableUuid(client.backupAdviserId), client.priority, client.clientStatus, client.nextAction, nullableDate(client.nextActionDue), client.notes, JSON.stringify(client.familyMembers || []), clientId]
       );
     } else {
       const result = await poolClient.query(
-        `INSERT INTO clients (first_name, last_name, email, phone, nationality, location, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, notes)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        `INSERT INTO clients (first_name, last_name, email, phone, nationality, date_of_birth, location, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, notes, family_members)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18::jsonb)
          RETURNING id`,
-        [client.firstName, client.lastName || 'Unnamed client', client.email, client.phone, client.nationality, client.location, client.matterName, client.caseStrategy, client.caseType, nullableUuid(client.primaryAdviserId), nullableUuid(client.backupAdviserId), client.priority, client.clientStatus, client.nextAction, nullableDate(client.nextActionDue), client.notes]
+        [client.firstName, client.lastName || 'Unnamed client', client.email, client.phone, client.nationality, nullableDate(client.dateOfBirth), client.location, client.matterName, client.caseStrategy, client.caseType, nullableUuid(client.primaryAdviserId), nullableUuid(client.backupAdviserId), client.priority, client.clientStatus, client.nextAction, nullableDate(client.nextActionDue), client.notes, JSON.stringify(client.familyMembers || [])]
       );
       clientId = result.rows[0].id;
     }
@@ -387,21 +393,21 @@ async function seedSampleData() {
     const nadia = await insertAdviser(poolClient, ['Nadia', 'Licensed Immigration Adviser', '', '', '', true]);
 
     await insertSeedClient(poolClient, {
-      firstName: 'Aroha', lastName: 'Singh', email: 'aroha@example.com', phone: '+64 21 000 000', nationality: 'India', location: 'Auckland', matterName: '', caseStrategy: 'AEWV renewal strategy: confirm employer accreditation and job details, check current visa expiry, gather updated employment and identity documents, and file before the agreed deadline.', caseType: 'AEWV Only', primaryAdviserId: paul, backupAdviserId: sejoo, priority: 'High', clientStatus: 'Active', nextAction: 'Draft application and send document gaps to client.', nextActionDue: daysFromNow(2), notes: 'Employer has provided supplementary information. Check INZ form version before filing.',
+      firstName: 'Aroha', lastName: 'Singh', email: 'aroha@example.com', phone: '+64 21 000 000', nationality: 'India', dateOfBirth: '1988-04-14', location: 'Auckland', familyMembers: [{ relationship: 'Spouse/Partner', name: 'Ravi Singh', dateOfBirth: '1986-09-03' }, { relationship: 'Child', name: 'Maya Singh', dateOfBirth: '2017-02-20' }], matterName: '', caseStrategy: 'AEWV renewal strategy: confirm employer accreditation and job details, check current visa expiry, gather updated employment and identity documents, and file before the agreed deadline.', caseType: 'AEWV Only', primaryAdviserId: paul, backupAdviserId: sejoo, priority: 'High', clientStatus: 'Active', nextAction: 'Draft application and send document gaps to client.', nextActionDue: daysFromNow(2), notes: 'Employer has provided supplementary information. Check INZ form version before filing.',
       appliedStageIds: ['instructions-sent', 'documentation-gathering', 'work-visa-lodged'], completedStageIds: ['instructions-sent', 'documentation-gathering'],
       deadlines: [{ type: 'Visa Expiry Date', date: daysFromNow(42), note: 'Current AEWV expires.' }, { type: 'Filing Deadline Date', date: daysFromNow(9), note: 'Target filing date.' }, { type: 'Medical Expiry Date', date: daysFromNow(80), note: 'Check if new medical required.' }],
       billing: [{ milestone: 'Deposit', dueDate: daysFromNow(-8), amount: 1200, status: 'Paid', invoiceNo: 'INV-1042' }, { milestone: 'Filing milestone', dueDate: daysFromNow(9), amount: 1800, status: 'Scheduled', invoiceNo: '' }],
     });
 
     await insertSeedClient(poolClient, {
-      firstName: 'Megan', lastName: 'Blake', email: 'megan@example.com', phone: '+64 27 000 000', nationality: 'United Kingdom', location: 'Christchurch', matterName: '', caseStrategy: 'Partnership strategy: assess relationship evidence, identify any gaps in living-together or financial evidence, prepare temporary pathway first if needed, then progress residence.', caseType: 'Partner Residence', primaryAdviserId: sejoo, backupAdviserId: paul, priority: 'Normal', clientStatus: 'Active', nextAction: 'Review relationship evidence checklist.', nextActionDue: daysFromNow(7), notes: 'Client needs plain-English explanation of evidence gaps.',
+      firstName: 'Megan', lastName: 'Blake', email: 'megan@example.com', phone: '+64 27 000 000', nationality: 'United Kingdom', dateOfBirth: '1991-11-06', location: 'Christchurch', familyMembers: [{ relationship: 'Spouse/Partner', name: 'Daniel Blake', dateOfBirth: '1989-03-18' }], matterName: '', caseStrategy: 'Partnership strategy: assess relationship evidence, identify any gaps in living-together or financial evidence, prepare temporary pathway first if needed, then progress residence.', caseType: 'Partner Residence', primaryAdviserId: sejoo, backupAdviserId: paul, priority: 'Normal', clientStatus: 'Active', nextAction: 'Review relationship evidence checklist.', nextActionDue: daysFromNow(7), notes: 'Client needs plain-English explanation of evidence gaps.',
       appliedStageIds: ['instructions-sent', 'documentation-gathering', 'family-temporary-visas-lodged', 'residence-lodged', 'residence-approved-finalised'], completedStageIds: ['instructions-sent'],
       deadlines: [{ type: 'Police Clearance Expiry Date', date: daysFromNow(63), note: 'UK police certificate.' }, { type: 'Filing Deadline Date', date: daysFromNow(28), note: 'Temporary visa first.' }],
       billing: [{ milestone: 'Deposit', dueDate: daysFromNow(-2), amount: 950, status: 'Paid', invoiceNo: 'INV-1044' }, { milestone: 'Drafting', dueDate: daysFromNow(14), amount: 950, status: 'Scheduled', invoiceNo: '' }],
     });
 
     await insertSeedClient(poolClient, {
-      firstName: 'Johan', lastName: 'van der Merwe', email: 'johan@example.com', phone: '+64 22 000 000', nationality: 'South Africa', location: 'Tauranga', matterName: '', caseStrategy: 'SMC strategy: confirm points position, skilled employment evidence and occupational fit before deciding whether to proceed under the points pathway.', caseType: 'SMC Residence - Points', primaryAdviserId: nadia, backupAdviserId: paul, priority: 'Normal', clientStatus: 'Active', nextAction: 'Confirm points assessment and employment documentation.', nextActionDue: daysFromNow(5), notes: 'Initial advice call completed. Awaiting employment agreement and role description.',
+      firstName: 'Johan', lastName: 'van der Merwe', email: 'johan@example.com', phone: '+64 22 000 000', nationality: 'South Africa', dateOfBirth: '1983-07-22', location: 'Tauranga', familyMembers: [], matterName: '', caseStrategy: 'SMC strategy: confirm points position, skilled employment evidence and occupational fit before deciding whether to proceed under the points pathway.', caseType: 'SMC Residence - Points', primaryAdviserId: nadia, backupAdviserId: paul, priority: 'Normal', clientStatus: 'Active', nextAction: 'Confirm points assessment and employment documentation.', nextActionDue: daysFromNow(5), notes: 'Initial advice call completed. Awaiting employment agreement and role description.',
       appliedStageIds: ['instructions-sent', 'documentation-gathering', 'residence-lodged', 'residence-approved-finalised'], completedStageIds: ['instructions-sent'],
       deadlines: [{ type: 'Filing Deadline Date', date: daysFromNow(45), note: 'Subject to document readiness.' }, { type: 'Police Clearance Expiry Date', date: daysFromNow(100), note: 'South African police clearance.' }],
       billing: [{ milestone: 'Eligibility advice', dueDate: daysFromNow(3), amount: 750, status: 'Draft', invoiceNo: '' }],
@@ -426,10 +432,10 @@ async function insertAdviser(client, values) {
 
 async function insertSeedClient(poolClient, seed) {
   const result = await poolClient.query(
-    `INSERT INTO clients (first_name, last_name, email, phone, nationality, location, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, notes)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+    `INSERT INTO clients (first_name, last_name, email, phone, nationality, date_of_birth, location, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, notes, family_members)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18::jsonb)
      RETURNING id`,
-    [seed.firstName, seed.lastName, seed.email, seed.phone, seed.nationality, seed.location, seed.matterName || '', seed.caseStrategy || '', seed.caseType, seed.primaryAdviserId, seed.backupAdviserId, seed.priority, seed.clientStatus, seed.nextAction, seed.nextActionDue, seed.notes]
+    [seed.firstName, seed.lastName, seed.email, seed.phone, seed.nationality, nullableDate(seed.dateOfBirth), seed.location, seed.matterName || '', seed.caseStrategy || '', seed.caseType, seed.primaryAdviserId, seed.backupAdviserId, seed.priority, seed.clientStatus, seed.nextAction, seed.nextActionDue, seed.notes, JSON.stringify(seed.familyMembers || [])]
   );
   const clientId = result.rows[0].id;
   const stages = normaliseStages(buildStages(seed.appliedStageIds, seed.completedStageIds));
@@ -456,6 +462,7 @@ function normaliseClientInput(input) {
     email: input.email || '',
     phone: input.phone || '',
     nationality: input.nationality || '',
+    dateOfBirth: input.dateOfBirth || '',
     location: input.location || '',
     matterName: input.matterName || '',
     caseStrategy: input.caseStrategy || '',
@@ -470,8 +477,32 @@ function normaliseClientInput(input) {
     stages: normaliseStages(input.stages || []),
     deadlines: Array.isArray(input.deadlines) ? input.deadlines : [],
     billing: Array.isArray(input.billing) ? input.billing : [],
+    familyMembers: normaliseFamilyMembers(input.familyMembers),
   };
   return client;
+}
+
+
+function normaliseFamilyMembers(inputMembers = []) {
+  if (!Array.isArray(inputMembers)) return [];
+  return inputMembers
+    .map((member, index) => ({
+      id: member.id || `member-${index}-${Date.now()}`,
+      relationship: member.relationship === 'Spouse/Partner' ? 'Spouse/Partner' : 'Child',
+      name: String(member.name || '').trim(),
+      dateOfBirth: nullableDate(member.dateOfBirth) || '',
+    }))
+    .filter((member) => member.name || member.dateOfBirth);
+}
+
+function parseFamilyMembers(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return normaliseFamilyMembers(value);
+  try {
+    return normaliseFamilyMembers(JSON.parse(value));
+  } catch {
+    return [];
+  }
 }
 
 function buildStages(appliedIds = [], completedIds = []) {
