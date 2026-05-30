@@ -1,15 +1,24 @@
 import { getDatabase } from '@netlify/database';
 
 const STAGE_TEMPLATES = [
-  { id: 'instructions-sent', label: 'Instructions Sent', mandatory: true, sortOrder: 1 },
+  { id: 'instruction-sent', label: 'Instruction Sent', mandatory: true, sortOrder: 1 },
   { id: 'documentation-gathering', label: 'Documentation Gathering', mandatory: true, sortOrder: 2 },
-  { id: 'visitor-visa-lodged', label: 'Visitor Visa Lodged', mandatory: false, sortOrder: 3 },
-  { id: 'work-visa-lodged', label: 'Work Visa Lodged', mandatory: false, sortOrder: 4 },
-  { id: 'family-temporary-visas-lodged', label: 'Family Temporary Visas Lodged', mandatory: false, sortOrder: 5 },
-  { id: 'residence-lodged', label: 'Residence Lodged', mandatory: false, sortOrder: 6 },
-  { id: 'residence-approved-finalised', label: 'Residence Approved and Case Finalised', mandatory: false, sortOrder: 7 },
+  { id: 'iqa-ready', label: 'IQA Ready', mandatory: false, sortOrder: 3 },
+  { id: 'visitor-visa-ready', label: 'Visitor Visa Ready', mandatory: false, sortOrder: 4 },
+  { id: 'work-visa-ready', label: 'Work Visa Ready', mandatory: false, sortOrder: 5 },
+  { id: 'family-temporary-visas-ready', label: 'Family Temporary Visas Ready', mandatory: false, sortOrder: 6 },
+  { id: 'residence-ready', label: 'Residence Ready', mandatory: false, sortOrder: 7 },
+  { id: 'residence-approved', label: 'Residence Approved', mandatory: false, sortOrder: 8 },
 ];
 
+const STAGE_KEY_ALIASES = {
+  'instructions-sent': 'instruction-sent',
+  'visitor-visa-lodged': 'visitor-visa-ready',
+  'work-visa-lodged': 'work-visa-ready',
+  'family-temporary-visas-lodged': 'family-temporary-visas-ready',
+  'residence-lodged': 'residence-ready',
+  'residence-approved-finalised': 'residence-approved',
+};
 const CASE_TYPES = [
   'SMC Residence - Green List',
   'SMC Residence - Points',
@@ -177,8 +186,10 @@ async function ensureSchema() {
       milestone TEXT NOT NULL,
       due_date DATE,
       amount NUMERIC(12,2) NOT NULL DEFAULT 0,
-      status TEXT NOT NULL DEFAULT 'Draft',
+      status TEXT NOT NULL DEFAULT 'WIP',
       invoice_no TEXT,
+      billing_trigger_type TEXT NOT NULL DEFAULT 'Date',
+      billing_stage_key TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
@@ -186,6 +197,10 @@ async function ensureSchema() {
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS date_of_birth DATE`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS family_members JSONB NOT NULL DEFAULT '[]'::jsonb`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS sharepoint_folder_url TEXT`;
+  await database.sql`ALTER TABLE billing_milestones ADD COLUMN IF NOT EXISTS billing_trigger_type TEXT NOT NULL DEFAULT 'Date'`;
+  await database.sql`ALTER TABLE billing_milestones ADD COLUMN IF NOT EXISTS billing_stage_key TEXT`;
+  await database.sql`UPDATE billing_milestones SET status = 'WIP' WHERE status IN ('Draft', 'Scheduled')`;
+  await database.sql`UPDATE billing_milestones SET status = 'Invoiced' WHERE status = 'Paid'`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_clients_case_type ON clients(case_type)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_clients_primary_adviser ON clients(primary_adviser_id)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_client_deadlines_date ON client_deadlines(deadline_date)`;
@@ -200,7 +215,7 @@ async function readCrmData() {
     database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, notes, family_members FROM clients ORDER BY updated_at DESC`,
     database.sql`SELECT id, client_id, stage_key, stage_label, mandatory, applied, completed, completed_date, sort_order FROM client_stages ORDER BY sort_order ASC`,
     database.sql`SELECT id, client_id, deadline_type, deadline_date, note FROM client_deadlines ORDER BY deadline_date ASC NULLS LAST`,
-    database.sql`SELECT id, client_id, milestone, due_date, amount, status, invoice_no FROM billing_milestones ORDER BY due_date ASC NULLS LAST`,
+    database.sql`SELECT id, client_id, milestone, due_date, amount, status, invoice_no, billing_trigger_type, billing_stage_key FROM billing_milestones ORDER BY due_date ASC NULLS LAST`,
   ]);
 
   return {
@@ -275,8 +290,10 @@ function mapClientFromDb(row, stages, deadlines, billing) {
         milestone: item.milestone || '',
         dueDate: toDateOnly(item.due_date),
         amount: Number(item.amount || 0),
-        status: item.status || 'Draft',
+        status: normaliseBillingStatus(item.status),
         invoiceNo: item.invoice_no || '',
+        triggerType: normaliseBillingTriggerType(item.billing_trigger_type),
+        stageKey: normaliseStageKey(item.billing_stage_key || ''),
       })),
   };
 }
@@ -361,9 +378,9 @@ async function saveClient(input = {}) {
     for (const item of client.billing) {
       if (!item.milestone) continue;
       await poolClient.query(
-        `INSERT INTO billing_milestones (client_id, milestone, due_date, amount, status, invoice_no)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [clientId, item.milestone, nullableDate(item.dueDate), Number(item.amount || 0), item.status || 'Draft', item.invoiceNo || '']
+        `INSERT INTO billing_milestones (client_id, milestone, due_date, amount, status, invoice_no, billing_trigger_type, billing_stage_key)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [clientId, item.milestone, nullableDate(item.dueDate), Number(item.amount || 0), normaliseBillingStatus(item.status), item.invoiceNo || '', normaliseBillingTriggerType(item.triggerType), item.stageKey || null]
       );
     }
 
@@ -397,23 +414,23 @@ async function seedSampleData() {
 
     await insertSeedClient(poolClient, {
       firstName: 'Aroha', lastName: 'Singh', email: 'aroha@example.com', phone: '+64 21 000 000', nationality: 'India', dateOfBirth: '1988-04-14', location: 'Auckland', familyMembers: [{ relationship: 'Spouse/Partner', name: 'Ravi Singh', nationality: 'India', dateOfBirth: '1986-09-03' }, { relationship: 'Child', name: 'Maya Singh', nationality: 'India', dateOfBirth: '2017-02-20' }], matterName: '', caseStrategy: 'AEWV renewal strategy: confirm employer accreditation and job details, check current visa expiry, gather updated employment and identity documents, and file before the agreed deadline.', caseType: 'AEWV Only', primaryAdviserId: paul, backupAdviserId: sejoo, priority: 'High', clientStatus: 'Active', nextAction: 'Draft application and send document gaps to client.', nextActionDue: daysFromNow(2), notes: 'Employer has provided supplementary information. Check INZ form version before filing.',
-      appliedStageIds: ['instructions-sent', 'documentation-gathering', 'work-visa-lodged'], completedStageIds: ['instructions-sent', 'documentation-gathering'],
+      appliedStageIds: ['instruction-sent', 'documentation-gathering', 'work-visa-ready'], completedStageIds: ['instruction-sent', 'documentation-gathering'],
       deadlines: [{ type: 'Visa Expiry Date', date: daysFromNow(42), note: 'Current AEWV expires.' }, { type: 'Filing Deadline Date', date: daysFromNow(9), note: 'Target filing date.' }, { type: 'Medical Expiry Date', date: daysFromNow(80), note: 'Check if new medical required.' }],
-      billing: [{ milestone: 'Deposit', dueDate: daysFromNow(-8), amount: 1200, status: 'Paid', invoiceNo: 'INV-1042' }, { milestone: 'Filing milestone', dueDate: daysFromNow(9), amount: 1800, status: 'Scheduled', invoiceNo: '' }],
+      billing: [{ milestone: 'Deposit', dueDate: daysFromNow(-8), amount: 1200, status: 'Invoiced', invoiceNo: 'INV-1042', triggerType: 'Date' }, { milestone: 'Work visa ready billing', dueDate: '', amount: 1800, status: 'WIP', invoiceNo: '', triggerType: 'Milestone', stageKey: 'work-visa-ready' }],
     });
 
     await insertSeedClient(poolClient, {
       firstName: 'Megan', lastName: 'Blake', email: 'megan@example.com', phone: '+64 27 000 000', nationality: 'United Kingdom', dateOfBirth: '1991-11-06', location: 'Christchurch', familyMembers: [{ relationship: 'Spouse/Partner', name: 'Daniel Blake', nationality: 'New Zealand', dateOfBirth: '1989-03-18' }], matterName: '', caseStrategy: 'Partnership strategy: assess relationship evidence, identify any gaps in living-together or financial evidence, prepare temporary pathway first if needed, then progress residence.', caseType: 'Partner Residence', primaryAdviserId: sejoo, backupAdviserId: paul, priority: 'Normal', clientStatus: 'Active', nextAction: 'Review relationship evidence checklist.', nextActionDue: daysFromNow(7), notes: 'Client needs plain-English explanation of evidence gaps.',
-      appliedStageIds: ['instructions-sent', 'documentation-gathering', 'family-temporary-visas-lodged', 'residence-lodged', 'residence-approved-finalised'], completedStageIds: ['instructions-sent'],
+      appliedStageIds: ['instruction-sent', 'documentation-gathering', 'family-temporary-visas-ready', 'residence-ready', 'residence-approved'], completedStageIds: ['instruction-sent'],
       deadlines: [{ type: 'Police Clearance Expiry Date', date: daysFromNow(63), note: 'UK police certificate.' }, { type: 'Filing Deadline Date', date: daysFromNow(28), note: 'Temporary visa first.' }],
-      billing: [{ milestone: 'Deposit', dueDate: daysFromNow(-2), amount: 950, status: 'Paid', invoiceNo: 'INV-1044' }, { milestone: 'Drafting', dueDate: daysFromNow(14), amount: 950, status: 'Scheduled', invoiceNo: '' }],
+      billing: [{ milestone: 'Deposit', dueDate: daysFromNow(-2), amount: 950, status: 'Invoiced', invoiceNo: 'INV-1044', triggerType: 'Date' }, { milestone: 'Residence ready billing', dueDate: '', amount: 950, status: 'WIP', invoiceNo: '', triggerType: 'Milestone', stageKey: 'residence-ready' }],
     });
 
     await insertSeedClient(poolClient, {
       firstName: 'Johan', lastName: 'van der Merwe', email: 'johan@example.com', phone: '+64 22 000 000', nationality: 'South Africa', dateOfBirth: '1983-07-22', location: 'Tauranga', familyMembers: [], matterName: '', caseStrategy: 'SMC strategy: confirm points position, skilled employment evidence and occupational fit before deciding whether to proceed under the points pathway.', caseType: 'SMC Residence - Points', primaryAdviserId: nadia, backupAdviserId: paul, priority: 'Normal', clientStatus: 'Active', nextAction: 'Confirm points assessment and employment documentation.', nextActionDue: daysFromNow(5), notes: 'Initial advice call completed. Awaiting employment agreement and role description.',
-      appliedStageIds: ['instructions-sent', 'documentation-gathering', 'residence-lodged', 'residence-approved-finalised'], completedStageIds: ['instructions-sent'],
+      appliedStageIds: ['instruction-sent', 'documentation-gathering', 'residence-ready', 'residence-approved'], completedStageIds: ['instruction-sent'],
       deadlines: [{ type: 'Filing Deadline Date', date: daysFromNow(45), note: 'Subject to document readiness.' }, { type: 'Police Clearance Expiry Date', date: daysFromNow(100), note: 'South African police clearance.' }],
-      billing: [{ milestone: 'Eligibility advice', dueDate: daysFromNow(3), amount: 750, status: 'Draft', invoiceNo: '' }],
+      billing: [{ milestone: 'Eligibility advice', dueDate: daysFromNow(3), amount: 750, status: 'WIP', invoiceNo: '', triggerType: 'Date' }],
     });
 
     await poolClient.query('COMMIT');
@@ -453,8 +470,34 @@ async function insertSeedClient(poolClient, seed) {
     await poolClient.query(`INSERT INTO client_deadlines (client_id, deadline_type, deadline_date, note) VALUES ($1, $2, $3, $4)`, [clientId, deadline.type, deadline.date, deadline.note || '']);
   }
   for (const item of seed.billing || []) {
-    await poolClient.query(`INSERT INTO billing_milestones (client_id, milestone, due_date, amount, status, invoice_no) VALUES ($1, $2, $3, $4, $5, $6)`, [clientId, item.milestone, item.dueDate, item.amount, item.status, item.invoiceNo || '']);
+    await poolClient.query(`INSERT INTO billing_milestones (client_id, milestone, due_date, amount, status, invoice_no, billing_trigger_type, billing_stage_key) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, [clientId, item.milestone, item.dueDate || null, item.amount, normaliseBillingStatus(item.status), item.invoiceNo || '', normaliseBillingTriggerType(item.triggerType), item.stageKey || null]);
   }
+}
+
+
+function normaliseBillingStatus(status) {
+  const value = String(status || '').trim();
+  if (value === 'Overdue') return 'Overdue';
+  if (value === 'Invoiced' || value === 'Paid') return 'Invoiced';
+  return 'WIP';
+}
+
+function normaliseBillingTriggerType(value) {
+  return String(value || '').trim() === 'Milestone' ? 'Milestone' : 'Date';
+}
+
+function normaliseBillingItems(inputItems = []) {
+  if (!Array.isArray(inputItems)) return [];
+  return inputItems.map((item) => ({
+    id: item.id,
+    milestone: String(item.milestone || '').trim(),
+    dueDate: nullableDate(item.dueDate) || '',
+    amount: Number(item.amount || 0),
+    status: normaliseBillingStatus(item.status),
+    invoiceNo: String(item.invoiceNo || '').trim(),
+    triggerType: normaliseBillingTriggerType(item.triggerType),
+    stageKey: normaliseStageKey(String(item.stageKey || '').trim()),
+  })).filter((item) => item.milestone || item.dueDate || item.amount || item.invoiceNo || item.stageKey);
 }
 
 function normaliseClientInput(input) {
@@ -480,7 +523,7 @@ function normaliseClientInput(input) {
     notes: input.notes || '',
     stages: normaliseStages(input.stages || []),
     deadlines: Array.isArray(input.deadlines) ? input.deadlines : [],
-    billing: Array.isArray(input.billing) ? input.billing : [],
+    billing: normaliseBillingItems(input.billing),
     familyMembers: normaliseFamilyMembers(input.familyMembers),
   };
   return client;
@@ -510,11 +553,25 @@ function parseFamilyMembers(value) {
   }
 }
 
+function normaliseStageKey(value) {
+  const key = String(value || '').trim();
+  return STAGE_KEY_ALIASES[key] || key;
+}
+
+function sortStages(stages = []) {
+  return [...(stages || [])].sort((a, b) => Number(a.sortOrder || 999) - Number(b.sortOrder || 999));
+}
+
+function reindexStages(stages = []) {
+  return (stages || []).map((stage, index) => ({ ...stage, sortOrder: index + 1 }));
+}
+
 function buildStages(appliedIds = [], completedIds = []) {
-  const applied = new Set([...appliedIds, ...STAGE_TEMPLATES.filter((stage) => stage.mandatory).map((stage) => stage.id)]);
-  const completed = new Set(completedIds);
+  const applied = new Set([...appliedIds.map(normaliseStageKey), ...STAGE_TEMPLATES.filter((stage) => stage.mandatory).map((stage) => stage.id)]);
+  const completed = new Set(completedIds.map(normaliseStageKey));
   return STAGE_TEMPLATES.map((stage) => ({
     ...stage,
+    custom: false,
     applied: stage.mandatory || applied.has(stage.id),
     completed: completed.has(stage.id),
     completedDate: completed.has(stage.id) ? daysFromNow(0) : '',
@@ -522,19 +579,42 @@ function buildStages(appliedIds = [], completedIds = []) {
 }
 
 function normaliseStages(inputStages = []) {
-  return STAGE_TEMPLATES.map((template) => {
-    const existing = inputStages.find((stage) => stage.id === template.id || stage.stageKey === template.id) || {};
+  const input = Array.isArray(inputStages) ? inputStages : [];
+  const templateKeys = new Set(STAGE_TEMPLATES.map((stage) => stage.id));
+  const templateRows = STAGE_TEMPLATES.map((template) => {
+    const existing = input.find((stage) => normaliseStageKey(stage.id || stage.stageKey) === template.id) || {};
     const applied = template.mandatory || Boolean(existing.applied);
     return {
       id: template.id,
-      label: existing.label || template.label,
+      label: template.label,
       mandatory: template.mandatory,
+      custom: false,
       applied,
       completed: applied ? Boolean(existing.completed) : false,
       completedDate: applied && existing.completed ? (existing.completedDate || daysFromNow(0)) : '',
-      sortOrder: template.sortOrder,
+      sortOrder: Number.isFinite(Number(existing.sortOrder)) ? Number(existing.sortOrder) : template.sortOrder,
     };
   });
+  const customRows = input
+    .filter((stage) => {
+      const key = normaliseStageKey(stage.id || stage.stageKey);
+      return key && !templateKeys.has(key);
+    })
+    .map((stage, index) => {
+      const applied = stage.applied !== false;
+      return {
+        id: String(stage.id || stage.stageKey || `custom-stage-${index + 1}`).trim(),
+        label: String(stage.label || stage.stageLabel || 'Custom stage').trim(),
+        mandatory: false,
+        custom: true,
+        applied,
+        completed: applied ? Boolean(stage.completed) : false,
+        completedDate: applied && stage.completed ? (stage.completedDate || daysFromNow(0)) : '',
+        sortOrder: Number.isFinite(Number(stage.sortOrder)) ? Number(stage.sortOrder) : STAGE_TEMPLATES.length + index + 1,
+      };
+    })
+    .filter((stage) => stage.label);
+  return reindexStages(sortStages([...templateRows, ...customRows]));
 }
 
 function isUuid(value) {

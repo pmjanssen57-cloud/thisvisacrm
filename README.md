@@ -77,3 +77,22 @@ Adds a client SharePoint folder URL field, plus Open folder and Copy link action
 - Added SharePoint folder button to the dashboard client workload list.
 - Workload list now shows up to around ten rows before scrolling.
 - Added a collapsible client detail view with a quick-view panel for name, DOB, status, next action and SharePoint folder link.
+
+## v0.6.2
+
+- Updated billing statuses to WIP, Invoiced and Overdue.
+- Added month, 3-month, 6-month and year billing views.
+- Added billing status, adviser and search filters.
+- Marks overdue billing rows with a soft red background.
+- Added date-based and milestone-based billing triggers.
+- Milestone billing becomes due when the linked client stage is completed and appears in the task lists while it is WIP.
+- Adds migration `202605300004_add_billing_triggers.sql`.
+
+## v0.6.3 changes
+
+- Updated the default matter stages to: Instruction Sent, Documentation Gathering, IQA Ready, Visitor Visa Ready, Work Visa Ready, Family Temporary Visas Ready, Residence Ready, and Residence Approved.
+- Added client-specific custom matter stages.
+- Added stage reordering controls before saving the client record.
+- Custom stages now appear in the progress map and can be used as milestone triggers for billing items.
+- Legacy stage keys are mapped to the new stage names automatically on load.
+

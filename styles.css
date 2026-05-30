@@ -174,7 +174,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .stage-summary strong { display: block; color: var(--ink); font-size: 26px; margin: 8px 0 2px; }
 
 .workspace-grid { display: grid; grid-template-columns: 390px minmax(0, 1fr); gap: 20px; align-items: start; }
-.list-panel select, .sub-panel-head select, .field select, .field input, .field textarea, .search-box, .editable-row input, .editable-row select, .stage-row input[type="date"], .access-card input {
+.list-panel select, .sub-panel-head select, .field select, .field input, .field textarea, .search-box, .editable-row input, .editable-row select, .stage-row input[type="date"], .stage-add-row input, .stage-label-input, .access-card input {
   border: 1px solid var(--line);
   border-radius: 14px;
   background: #fff;
@@ -212,18 +212,23 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .sub-panel { border: 1px solid var(--line); border-radius: 22px; padding: 16px; margin-top: 22px; background: #fff; }
 .sub-panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
 .stage-list { display: grid; gap: 10px; margin-top: 14px; }
+.stage-add-row { display: grid; grid-template-columns: minmax(240px, 1fr) auto; gap: 10px; margin-top: 14px; }
+.stage-add-row input, .stage-label-input { border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; font: inherit; background: #fff; color: var(--ink); }
 .stage-row {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) 160px 190px;
+  grid-template-columns: 76px minmax(260px, 1fr) 160px 190px 44px;
   gap: 12px;
   align-items: center;
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 12px;
 }
-.stage-row label { display: flex; align-items: center; gap: 9px; color: var(--muted); }
-.stage-row label:first-child { align-items: flex-start; color: var(--ink); }
+.stage-row.custom-stage { background: #fbfffd; }
+.stage-row label, .stage-name-cell { display: flex; align-items: center; gap: 9px; color: var(--muted); }
+.stage-name-cell { align-items: flex-start; color: var(--ink); }
 .stage-row small { display: block; color: var(--muted); margin-top: 3px; }
+.stage-order-controls { display: flex; gap: 6px; }
+.stage-label-input { width: 100%; padding: 8px 10px; font-weight: 800; }
 .table-like { display: grid; gap: 10px; }
 .editable-row {
   display: grid;
@@ -231,7 +236,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   gap: 10px;
   align-items: center;
 }
-.editable-row.billing-row { grid-template-columns: minmax(180px, 1.3fr) 150px 120px 130px 130px 44px; }
+.editable-row.billing-row { grid-template-columns: minmax(180px, 1.4fr) 130px minmax(170px, 1.2fr) 115px 125px 130px 44px; }
 
 .date-age-field { display: grid; grid-template-columns: minmax(0, 1fr) 92px; gap: 10px; align-items: center; }
 .date-age-field strong, .age-pill { border: 1px solid var(--line); border-radius: 999px; background: var(--pale); color: var(--ink); padding: 10px 12px; text-align: center; font-size: 13px; white-space: nowrap; }
@@ -289,7 +294,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   .layout { padding: 14px; }
   .tabs { grid-template-columns: repeat(2, 1fr); }
   .metric-grid.three, .metric-grid, .adviser-cards, .stage-summary-grid, .form-grid { grid-template-columns: 1fr; }
-  .stage-row, .editable-row, .editable-row.billing-row, .editable-row.family-row, .billing-head, .billing-line { grid-template-columns: 1fr; }
+  .stage-add-row, .stage-row, .editable-row, .editable-row.billing-row, .editable-row.family-row, .billing-head, .billing-line { grid-template-columns: 1fr; }
   .detail-header, .sub-panel-head { flex-direction: column; }
 }
 
@@ -907,4 +912,49 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 }
 @media (max-width: 760px) {
   .summary-sharepoint-row { grid-template-columns: 1fr; }
+}
+
+
+.billing-row .billing-hint {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: -4px;
+}
+.billing-toolbar {
+  grid-template-columns: 150px 150px 150px 190px minmax(240px, 1fr);
+}
+.billing-head-wide, .billing-line-wide {
+  grid-template-columns: 1.25fr 1.25fr 1.1fr 0.75fr 0.75fr 0.75fr 90px;
+}
+.billing-line button small,
+.billing-line span small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  margin-top: 3px;
+}
+.overdue-soft {
+  background: #fff1f2;
+}
+.billing-line.overdue-soft {
+  border-top-color: #fecdd3;
+}
+.billing-status {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 900;
+}
+.billing-status.wip { background: #ecfdf5; color: #065f46; }
+.billing-status.invoiced { background: #eef2ff; color: #3730a3; }
+.billing-status.overdue { background: #fee2e2; color: #991b1b; }
+@media (max-width: 1050px) {
+  .billing-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .billing-toolbar, .billing-head-wide, .billing-line-wide { grid-template-columns: 1fr; }
 }
