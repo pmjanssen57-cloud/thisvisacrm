@@ -81,13 +81,23 @@ const SUPPORT_CONTENT = {
   },
   tasks: {
     title: 'Tasks help',
-    summary: 'The Tasks page is the full deadline and expiry register. It combines next actions, visa expiry dates, medical and police certificate expiry dates, document checklist expiry dates, PPI response dates, filing deadlines, billing tasks and personal adviser tasks.',
+    summary: 'The Tasks page is the full deadline and expiry register. It combines next actions, calendar appointments, visa expiry dates, medical and police certificate expiry dates, document checklist expiry dates, PPI response dates, filing deadlines, billing tasks and personal adviser tasks.',
     sections: [
       { heading: 'Sorting', text: 'Use the sort control to order the list by priority, earliest date, latest date, client name or deadline type.' },
       { heading: 'Filtering', text: 'Filter by status or deadline type to focus on overdue items, tasks due today, tasks due soon or one specific kind of expiry.' },
-      { heading: 'Opening a client', text: 'Click a task row to open the related client. Update the deadline, next action, document checklist item, billing item or stage from the client record.' },
+      { heading: 'Opening a client', text: 'Click a task row to open the related client. Update the deadline, next action, calendar appointment, document checklist item, billing item or stage from the relevant screen.' },
     ],
     tips: ['Use the dashboard for immediate daily work and the Tasks tab for a wider deadline review.', 'Dates without notes are still useful, but notes make handover easier.'],
+  },
+  calendar: {
+    title: 'Calendar help',
+    summary: 'The Calendar page records appointments and internal diary items. Calendar entries can be linked to clients and advisers, and open entries appear in the Tasks page as dated work items.',
+    sections: [
+      { heading: 'Views', text: 'Use Current month for the immediate diary, Current + 2 months for a forward-planning window, or Search month to jump to a specific month.' },
+      { heading: 'Booking appointments', text: 'Click Book appointment, select the client and adviser where relevant, add the date, time, title, location and notes, then save. Linked appointments become task-style entries until marked completed.' },
+      { heading: 'Task mapping', text: 'Open calendar entries are included in dashboard bring-up lists and the Tasks page. Mark an appointment completed once it no longer needs to appear as an active task.' },
+    ],
+    tips: ['Link the appointment to a client whenever possible.', 'Keep notes concise and operational.', 'Use completed status once the appointment has been dealt with.'],
   },
   clients: {
     title: 'Clients help',
@@ -347,6 +357,7 @@ const emptyData = {
   deadlineTypes: DEFAULT_DEADLINE_TYPES,
   stageTemplates: DEFAULT_STAGE_TEMPLATES,
   personalTasks: [],
+  calendarEntries: [],
   securityMode: 'unknown',
 };
 
@@ -370,6 +381,7 @@ function makeBlankClient(data) {
     clientStatus: 'Active',
     nextAction: '',
     nextActionDue: '',
+    nextActionLog: [],
     notes: '',
     stages: buildStagePlan(data.stageTemplates),
     familyMembers: [],
@@ -523,6 +535,15 @@ export default function App() {
     await callApi('deletePersonalTask', { taskId });
   }
 
+  async function saveCalendarEntry(entry) {
+    await callApi('saveCalendarEntry', { entry });
+  }
+
+  async function deleteCalendarEntry(entryId) {
+    if (!window.confirm('Delete this calendar entry?')) return;
+    await callApi('deleteCalendarEntry', { entryId });
+  }
+
   async function deleteClient(clientId) {
     if (!window.confirm('Delete this client and all linked stages, deadlines and billing records?')) return;
     const body = await callApi('deleteClient', { clientId });
@@ -556,6 +577,7 @@ export default function App() {
 
   const scopedClients = useMemo(() => data.clients.filter((client) => matchesAdviserScope(client, dashboardAdviserFilter)), [data.clients, dashboardAdviserFilter]);
   const scopedPersonalTasks = useMemo(() => data.personalTasks.filter((task) => matchesPersonalTaskScope(task, dashboardAdviserFilter)), [data.personalTasks, dashboardAdviserFilter]);
+  const scopedCalendarEntries = useMemo(() => data.calendarEntries.filter((entry) => matchesCalendarEntryScope(entry, dashboardAdviserFilter, data.clients)), [data.calendarEntries, dashboardAdviserFilter, data.clients]);
   const activeClients = scopedClients.filter((client) => client.clientStatus !== 'Closed');
   const selectedClient = data.clients.find((client) => client.id === selectedClientId) || data.clients[0] || null;
 
@@ -580,17 +602,19 @@ export default function App() {
   }, [scopedClients, clientQuery, adviserFilter, caseTypeFilter]);
 
   const deadlineRows = useMemo(() => {
-    return scopedClients
-      .flatMap((client) => [
+    return [
+      ...scopedClients.flatMap((client) => [
         ...(client.deadlines || []).map((deadline) => ({ client, type: deadline.type, date: deadline.date, note: deadline.note, source: 'deadline' })),
         ...documentExpiryRowsForClient(client),
         client.nextActionDue ? { client, type: 'Next Action Date', date: client.nextActionDue, note: client.nextAction, source: 'next-action' } : null,
-      ].filter(Boolean))
+      ].filter(Boolean)),
+      ...calendarDeadlineRows(scopedCalendarEntries, data.clients),
+    ]
       .filter((row) => row.date)
       .sort((a, b) => a.date.localeCompare(b.date));
-  }, [scopedClients]);
+  }, [scopedClients, scopedCalendarEntries, data.clients]);
 
-  const taskRows = useMemo(() => buildTaskRows(scopedClients, scopedPersonalTasks, data.clients), [scopedClients, scopedPersonalTasks, data.clients]);
+  const taskRows = useMemo(() => buildTaskRows(scopedClients, scopedPersonalTasks, data.clients, scopedCalendarEntries), [scopedClients, scopedPersonalTasks, data.clients, scopedCalendarEntries]);
 
   const billingRows = useMemo(() => {
     return scopedClients
@@ -654,6 +678,7 @@ export default function App() {
             <nav className="tabs">
               <TabButton active={tab === 'dashboard'} onClick={() => switchTab('dashboard')} icon={LayoutDashboard} label="Dashboard" />
               <TabButton active={tab === 'tasks'} onClick={() => switchTab('tasks')} icon={ListChecks} label="Tasks" />
+              <TabButton active={tab === 'calendar'} onClick={() => switchTab('calendar')} icon={CalendarDays} label="Calendar" />
               <TabButton active={tab === 'clients'} onClick={() => switchTab('clients')} icon={UsersRound} label="Clients" />
               <TabButton active={tab === 'billing'} onClick={() => switchTab('billing')} icon={CreditCard} label="Billing" />
               <TabButton active={tab === 'advisers'} onClick={() => switchTab('advisers')} icon={UsersRound} label="Advisers" />
@@ -665,6 +690,10 @@ export default function App() {
 
             {tab === 'tasks' && (
               <TasksDashboard taskRows={taskRows} personalTasks={scopedPersonalTasks} allClients={data.clients} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} savePersonalTask={savePersonalTask} deletePersonalTask={deletePersonalTask} saving={saving} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} />
+            )}
+
+            {tab === 'calendar' && (
+              <CalendarWorkspace entries={scopedCalendarEntries} allEntries={data.calendarEntries} clients={data.clients} scopedClients={scopedClients} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} saveCalendarEntry={saveCalendarEntry} deleteCalendarEntry={deleteCalendarEntry} saving={saving} openClientRecord={openClientRecord} />
             )}
 
             {tab === 'clients' && selectedClient && (
@@ -908,7 +937,7 @@ function ClientsWithoutNextActionPanel({ clients, openClientRecord }) {
 
 function DailyBringUpPanel({ taskRows, advisers, setTab, setSelectedClientId, openClientRecord }) {
   const todayActions = useMemo(() => taskRows
-    .filter((row) => ['next-action', 'billing', 'personal-task', 'document-expiry'].includes(row.source) && row.diff === 0)
+    .filter((row) => ['next-action', 'billing', 'personal-task', 'document-expiry', 'calendar-entry'].includes(row.source) && row.diff === 0)
     .sort((a, b) => taskDisplayName(a).localeCompare(taskDisplayName(b))), [taskRows]);
 
   function openTask(row) {
@@ -923,7 +952,7 @@ function DailyBringUpPanel({ taskRows, advisers, setTab, setSelectedClientId, op
       <div className="quick-task-head">
         <div>
           <h2>Today’s bring-up list</h2>
-          <p className="muted">Next-action, document-expiry, billing and personal tasks due today for the current adviser view. Use this like the daily file bring-up list.</p>
+          <p className="muted">Next-action, calendar, document-expiry, billing and personal tasks due today for the current adviser view. Use this like the daily file bring-up list.</p>
         </div>
         <div className="quick-task-counts"><span><b>{todayActions.length}</b> due today</span></div>
         <button className="btn dark" type="button" onClick={() => setTab('tasks')}><ListChecks size={16} />Full task list</button>
@@ -943,7 +972,7 @@ function DailyBringUpPanel({ taskRows, advisers, setTab, setSelectedClientId, op
             </button>
           );
         })}
-        {!todayActions.length && <div className="quick-task-empty"><CheckCircle2 size={20} /><span>No next-action, document-expiry, billing or personal tasks due today in this view.</span></div>}
+        {!todayActions.length && <div className="quick-task-empty"><CheckCircle2 size={20} /><span>No next-action, calendar, document-expiry, billing or personal tasks due today in this view.</span></div>}
       </div>
     </section>
   );
@@ -1157,6 +1186,7 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, saveClient, 
   const [draft, setDraft] = useState(client);
   const [showFullRecord, setShowFullRecord] = useState(false);
   const [showDocumentChecklist, setShowDocumentChecklist] = useState(false);
+  const [showActionLog, setShowActionLog] = useState(false);
   const [customStageLabel, setCustomStageLabel] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
   const [validationMessage, setValidationMessage] = useState('');
@@ -1165,6 +1195,7 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, saveClient, 
     setDraft(client);
     setShowFullRecord(false);
     setShowDocumentChecklist(false);
+    setShowActionLog(false);
     setCustomStageLabel('');
     setStatusMessage('');
     setValidationMessage('');
@@ -1365,7 +1396,9 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, saveClient, 
         <button className="btn dark" type="button" onClick={handleSaveClient} disabled={saving || !isDirty}><Save size={16} />Save changes</button>
       </div>
 
-      <ClientSummaryPanel draft={draft} setField={setField} />
+      <ClientSummaryPanel draft={draft} setField={setField} onOpenActionLog={() => setShowActionLog(true)} />
+
+      {showActionLog && <NextActionLogModal client={draft} onClose={() => setShowActionLog(false)} />}
 
       <div className="client-record-toggle document-checklist-toggle">
         <button className="btn" type="button" onClick={() => setShowDocumentChecklist((value) => !value)}>{showDocumentChecklist ? 'Hide document checklist' : 'Show document checklist'}</button>
@@ -1557,8 +1590,9 @@ function TasksDashboard({ taskRows, personalTasks, allClients, advisers, dashboa
     if (row.diff >= 0 && row.diff <= 7) acc.next7 += 1;
     if (row.diff >= 0 && row.diff <= 30) acc.next30 += 1;
     if (row.source === 'personal-task') acc.personal += 1;
+    if (row.source === 'calendar-entry') acc.calendar += 1;
     return acc;
-  }, { total: 0, overdue: 0, today: 0, next7: 0, next30: 0, personal: 0 });
+  }, { total: 0, overdue: 0, today: 0, next7: 0, next30: 0, personal: 0, calendar: 0 });
 
   function openTask(row) {
     if (!row.client) return;
@@ -1572,7 +1606,7 @@ function TasksDashboard({ taskRows, personalTasks, allClients, advisers, dashboa
       <section className="panel dashboard-heading">
         <div>
           <h2>Task list</h2>
-          <p className="muted">Deadlines, expiry dates, next-action dates, billing tasks and personal adviser tasks for the current view: {scopeLabel}.</p>
+          <p className="muted">Deadlines, expiry dates, next-action dates, calendar appointments, billing tasks and personal adviser tasks for the current view: {scopeLabel}.</p>
         </div>
         <span>{visibleTasks.length} task{visibleTasks.length === 1 ? '' : 's'} shown</span>
       </section>
@@ -1581,7 +1615,7 @@ function TasksDashboard({ taskRows, personalTasks, allClients, advisers, dashboa
         <MetricCard label="Total tasks" value={counts.total} note="All dated active tasks in this view" icon={ListChecks} />
         <MetricCard label="Overdue" value={counts.overdue} note="Past due dates" icon={AlertTriangle} warning />
         <MetricCard label="Due today" value={counts.today} note="Needs action now" icon={Clock} />
-        <MetricCard label="Personal tasks" value={counts.personal} note="Adviser-created active tasks" icon={UserRound} />
+        <MetricCard label="Calendar items" value={counts.calendar} note="Open linked appointments" icon={CalendarDays} />
       </div>
 
       <PersonalTasksPanel personalTasks={personalTasks} allClients={allClients} advisers={advisers} dashboardAdviserFilter={dashboardAdviserFilter} savePersonalTask={savePersonalTask} deletePersonalTask={deletePersonalTask} saving={saving} />
@@ -1713,6 +1747,198 @@ function PersonalTasksPanel({ personalTasks, allClients, advisers, dashboardAdvi
         {!visiblePersonalTasks.length && <p className="muted center">No personal tasks in this adviser view.</p>}
       </div>
     </section>
+  );
+}
+
+
+function CalendarWorkspace({ entries, clients, scopedClients, advisers, dashboardAdviserFilter, saveCalendarEntry, deleteCalendarEntry, saving, openClientRecord }) {
+  const [viewMode, setViewMode] = useState('current');
+  const [selectedMonth, setSelectedMonth] = useState(currentMonthInput());
+  const [calendarSearch, setCalendarSearch] = useState('');
+  const [draft, setDraft] = useState(null);
+  const [calendarMessage, setCalendarMessage] = useState('');
+
+  const defaultAdviserId = dashboardAdviserFilter !== 'all' ? dashboardAdviserFilter : advisers[0]?.id || '';
+  const scopeLabel = dashboardAdviserFilter === 'all' ? 'All advisers' : advisers.find((adviser) => adviser.id === dashboardAdviserFilter)?.name || 'Selected adviser';
+  const range = useMemo(() => calendarViewRange(viewMode, selectedMonth), [viewMode, selectedMonth]);
+
+  const visibleEntries = useMemo(() => {
+    const q = calendarSearch.trim().toLowerCase();
+    return entries
+      .filter((entry) => entry.appointmentDate >= range.start && entry.appointmentDate < range.end)
+      .filter((entry) => !q || calendarEntrySearchText(entry, clients, advisers).includes(q))
+      .sort((a, b) => a.appointmentDate.localeCompare(b.appointmentDate) || (a.startTime || '').localeCompare(b.startTime || '') || a.title.localeCompare(b.title));
+  }, [entries, range, calendarSearch, clients, advisers]);
+
+  const openEntries = visibleEntries.filter((entry) => entry.status !== 'Completed');
+  const linkedEntries = visibleEntries.filter((entry) => entry.clientId);
+  const monthKeys = calendarMonthKeys(range.start, viewMode === 'three' ? 3 : 1);
+
+  function startNew(dateValue = '') {
+    setCalendarMessage('');
+    setDraft(makeBlankCalendarEntry(defaultAdviserId, dateValue || todayIso()));
+  }
+
+  function editEntry(entry) {
+    setCalendarMessage('');
+    setDraft(normaliseCalendarEntry(entry));
+  }
+
+  async function saveDraft() {
+    if (!draft) return;
+    if (!draft.appointmentDate) {
+      setCalendarMessage('Add an appointment date before saving.');
+      return;
+    }
+    await saveCalendarEntry(draft);
+    setCalendarMessage(`Calendar entry saved ${formatTimeNow()}.`);
+    setDraft(null);
+  }
+
+  async function deleteDraft() {
+    if (!draft || String(draft.id || '').startsWith('temp-')) {
+      setDraft(null);
+      return;
+    }
+    await deleteCalendarEntry(draft.id);
+    setCalendarMessage('Calendar entry deleted.');
+    setDraft(null);
+  }
+
+  function updateDraft(field, value) {
+    setCalendarMessage('');
+    setDraft((current) => ({ ...(current || makeBlankCalendarEntry(defaultAdviserId)), [field]: value }));
+  }
+
+  return (
+    <div className="stack">
+      <section className="panel dashboard-heading">
+        <div>
+          <h2>Calendar</h2>
+          <p className="muted">Book appointments, link them to clients and advisers, and feed open appointments into the task list. Current scope: {scopeLabel}.</p>
+        </div>
+        <button className="btn dark" type="button" onClick={() => startNew()}><Plus size={16} />Book appointment</button>
+      </section>
+
+      <div className="metric-grid three">
+        <MetricCard label="Appointments shown" value={visibleEntries.length} note={periodLabel(range)} icon={CalendarDays} />
+        <MetricCard label="Open calendar tasks" value={openEntries.length} note="Appear in dashboard/tasks" icon={ListChecks} />
+        <MetricCard label="Linked to clients" value={linkedEntries.length} note="Appointments with client context" icon={UsersRound} />
+      </div>
+
+      <section className="panel calendar-controls-panel">
+        <div className="calendar-controls">
+          <label>
+            <span>Calendar view</span>
+            <select value={viewMode} onChange={(event) => setViewMode(event.target.value)}>
+              <option value="current">Current month</option>
+              <option value="three">Current month + 2 months</option>
+              <option value="search">Search month</option>
+            </select>
+          </label>
+          <label>
+            <span>Search month</span>
+            <input type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value || currentMonthInput())} disabled={viewMode !== 'search'} />
+          </label>
+          <label className="calendar-search-field">
+            <span>Search appointments</span>
+            <div><Search size={16} /><input value={calendarSearch} onChange={(event) => setCalendarSearch(event.target.value)} placeholder="Client, adviser, appointment, location or notes" /></div>
+          </label>
+          <button className="btn" type="button" onClick={() => startNew(range.start)}><Plus size={16} />Add in this period</button>
+        </div>
+        {calendarMessage && <p className="inline-status">{calendarMessage}</p>}
+      </section>
+
+      <div className="calendar-layout">
+        <section className="panel calendar-list-panel">
+          <div className="sub-panel-head">
+            <div>
+              <h2>{calendarViewTitle(viewMode, selectedMonth)}</h2>
+              <p className="muted">Open entries are treated as task-style bring-up items until marked completed.</p>
+            </div>
+            <span className="workload-count">{visibleEntries.length} shown</span>
+          </div>
+          <div className="calendar-month-list">
+            {monthKeys.map((monthKey) => {
+              const monthEntries = visibleEntries.filter((entry) => entry.appointmentDate.startsWith(monthKey));
+              const grouped = groupCalendarEntriesByDate(monthEntries);
+              return (
+                <div className="calendar-month-card" key={monthKey}>
+                  <div className="calendar-month-head">
+                    <h3>{calendarMonthLabel(monthKey)}</h3>
+                    <button className="btn ghost" type="button" onClick={() => startNew(`${monthKey}-01`)}><Plus size={14} />Appointment</button>
+                  </div>
+                  <div className="calendar-day-list">
+                    {grouped.map(({ date, items }) => (
+                      <div className="calendar-day-group" key={date}>
+                        <div className="calendar-day-label"><strong>{calendarDayLabel(date)}</strong><small>{date}</small></div>
+                        <div className="calendar-entry-list">
+                          {items.map((entry) => {
+                            const linkedClient = clients.find((client) => client.id === entry.clientId);
+                            const adviser = advisers.find((item) => item.id === entry.adviserId);
+                            return (
+                              <button className={`calendar-entry-card ${entry.status === 'Completed' ? 'completed' : ''}`} key={entry.id} type="button" onClick={() => editEntry(entry)}>
+                                <span className="calendar-time-pill">{calendarEntryTimeLabel(entry) || 'No time'}</span>
+                                <span>
+                                  <strong>{entry.title || 'Appointment'}</strong>
+                                  <small>{linkedClient ? `${linkedClient.firstName} ${linkedClient.lastName}` : 'No linked client'}{adviser ? ` · ${adviser.name}` : ''}</small>
+                                  <small>{entry.location || entry.notes || (entry.status === 'Completed' ? 'Completed' : 'Open task')}</small>
+                                </span>
+                                <DeadlineBadge diff={dateDiff(entry.appointmentDate)} />
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                    {!monthEntries.length && <p className="muted center">No appointments for this month.</p>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="panel calendar-editor-panel">
+          {draft ? (
+            <>
+              <div className="sub-panel-head">
+                <div>
+                  <h2>{String(draft.id || '').startsWith('temp-') ? 'Book appointment' : 'Edit appointment'}</h2>
+                  <p className="muted">Link to a client where possible so this appears with the right file context.</p>
+                </div>
+                <button className="icon-btn" type="button" onClick={() => setDraft(null)} aria-label="Close calendar editor"><X size={18} /></button>
+              </div>
+              <div className="calendar-editor-form">
+                <label className="field"><span>Appointment title</span><input value={draft.title || ''} onChange={(event) => updateDraft('title', event.target.value)} placeholder="e.g. Client call, lodgement review, document chase" /></label>
+                <label className="field"><span>Linked client</span><select value={draft.clientId || ''} onChange={(event) => updateDraft('clientId', event.target.value)}><option value="">No linked client</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.firstName} {client.lastName} - {client.caseType || 'No case type'}</option>)}</select></label>
+                <label className="field"><span>Adviser</span><select value={draft.adviserId || ''} onChange={(event) => updateDraft('adviserId', event.target.value)}><option value="">Unassigned</option>{advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}</select></label>
+                <div className="calendar-time-grid">
+                  <label className="field"><span>Date</span><input type="date" value={draft.appointmentDate || ''} onChange={(event) => updateDraft('appointmentDate', event.target.value)} /></label>
+                  <label className="field"><span>Start</span><input type="time" value={draft.startTime || ''} onChange={(event) => updateDraft('startTime', event.target.value)} /></label>
+                  <label className="field"><span>End</span><input type="time" value={draft.endTime || ''} onChange={(event) => updateDraft('endTime', event.target.value)} /></label>
+                </div>
+                <label className="field"><span>Location / channel</span><input value={draft.location || ''} onChange={(event) => updateDraft('location', event.target.value)} placeholder="Office, phone, Teams, Zoom, INZ, etc." /></label>
+                <label className="field"><span>Status</span><select value={draft.status || 'Open'} onChange={(event) => updateDraft('status', event.target.value)}><option value="Open">Open - show as task</option><option value="Completed">Completed - hide from active tasks</option></select></label>
+                <label className="field"><span>Notes</span><textarea value={draft.notes || ''} rows={5} onChange={(event) => updateDraft('notes', event.target.value)} placeholder="Brief appointment notes or preparation points" /></label>
+                <div className="button-row calendar-editor-actions">
+                  <button className="btn dark" type="button" onClick={saveDraft} disabled={saving}><Save size={16} />Save appointment</button>
+                  <button className="btn danger" type="button" onClick={deleteDraft} disabled={saving}><Trash2 size={16} />{String(draft.id || '').startsWith('temp-') ? 'Discard' : 'Delete'}</button>
+                  <button className="btn" type="button" disabled={!draft.clientId} onClick={() => draft.clientId && openClientRecord?.(draft.clientId)}><ChevronRight size={16} />Open client</button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="calendar-editor-empty">
+              <CalendarDays size={36} />
+              <h2>No appointment selected</h2>
+              <p className="muted">Select an appointment to edit it, or book a new appointment. Open appointments linked to clients will also appear in the Tasks tab and dashboard bring-up views.</p>
+              <button className="btn dark" type="button" onClick={() => startNew()}><Plus size={16} />Book appointment</button>
+            </div>
+          )}
+        </section>
+      </div>
+    </div>
   );
 }
 
@@ -1860,7 +2086,7 @@ function DateWithAgeField({ label, value, onChange }) {
 
 
 
-function ClientSummaryPanel({ draft, setField }) {
+function ClientSummaryPanel({ draft, setField, onOpenActionLog }) {
   const link = normaliseExternalUrl(draft.sharepointFolderUrl);
   const hasValue = Boolean(String(draft.sharepointFolderUrl || '').trim());
   const looksSharePoint = isSharePointLike(draft.sharepointFolderUrl);
@@ -1901,6 +2127,10 @@ function ClientSummaryPanel({ draft, setField }) {
         <TextArea label="Next action" value={draft.nextAction} onChange={(v) => setField('nextAction', v)} rows={3} />
         <DateField label="Next action date" value={draft.nextActionDue} onChange={(v) => setField('nextActionDue', v)} />
       </div>
+      <div className="next-action-log-strip">
+        <button className="btn" type="button" onClick={onOpenActionLog}><Clock size={16} />Next action log <span className="button-count">{normaliseNextActionLog(draft.nextActionLog).length}</span></button>
+        <span>Previous next actions are logged when the next action or date is changed and the client record is saved.</span>
+      </div>
       <div className="summary-sharepoint-row">
         <label className="field sharepoint-field">
           <span>SharePoint folder link</span>
@@ -1914,6 +2144,52 @@ function ClientSummaryPanel({ draft, setField }) {
       {copyMessage && <p className="inline-status">{copyMessage}</p>}
       {hasValue && !looksSharePoint && <p className="field-warning">This does not look like a SharePoint or OneDrive link. It will still save, but the Open button only works for normal web URLs.</p>}
     </section>
+  );
+}
+
+
+function NextActionLogModal({ client, onClose }) {
+  const log = normaliseNextActionLog(client.nextActionLog)
+    .sort((a, b) => String(b.completedAt || b.completedDate || '').localeCompare(String(a.completedAt || a.completedDate || '')));
+
+  return (
+    <div className="modal-layer" role="dialog" aria-modal="true" aria-label="Next action log">
+      <div className="modal-backdrop" onClick={onClose} />
+      <section className="modal-card action-log-modal">
+        <div className="modal-head">
+          <div>
+            <span>Client action history</span>
+            <h2>Next action log</h2>
+            <p className="muted">Stored record of previous scheduled next actions for {client.firstName || 'this'} {client.lastName || 'client'}.</p>
+          </div>
+          <button className="icon-btn" type="button" onClick={onClose} aria-label="Close next action log"><X size={18} /></button>
+        </div>
+
+        <div className="current-action-card">
+          <span>Current next action</span>
+          <strong>{client.nextAction || 'No current next action recorded.'}</strong>
+          <small>{client.nextActionDue ? `Due ${client.nextActionDue}` : 'No current due date.'}</small>
+        </div>
+
+        <div className="action-log-list">
+          {log.map((item) => (
+            <div className="action-log-row" key={item.id}>
+              <div className="action-log-date">
+                <strong>{item.completedDate || 'No completion date'}</strong>
+                <small>{item.dueDate ? `Was due ${item.dueDate}` : 'No due date'}</small>
+              </div>
+              <div>
+                <p>{item.action || 'No action text recorded.'}</p>
+                {(item.replacedByAction || item.replacedByDueDate) && (
+                  <small>Next scheduled: {item.replacedByAction || 'No action text'}{item.replacedByDueDate ? `, due ${item.replacedByDueDate}` : ''}</small>
+                )}
+              </div>
+            </div>
+          ))}
+          {!log.length && <p className="muted center">No previous next actions have been logged yet. The current next action will be added here after it is changed and the client record is saved.</p>}
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -2078,11 +2354,12 @@ function formatApiError(body, fallback) {
 function normaliseData(body) {
   return {
     advisers: body.advisers || [],
-    clients: (body.clients || []).map((client) => ({ ...client, sharepointFolderUrl: client.sharepointFolderUrl || '', dateOfBirth: client.dateOfBirth || '', familyMembers: Array.isArray(client.familyMembers) ? client.familyMembers.map((member) => ({ ...member, nationality: member.nationality || '' })) : [], documentChecklist: normaliseDocumentChecklist(client.documentChecklist), billing: normaliseBillingItems(client.billing || []), stages: normaliseStages(client.stages, body.stageTemplates || DEFAULT_STAGE_TEMPLATES) })),
+    clients: (body.clients || []).map((client) => ({ ...client, sharepointFolderUrl: client.sharepointFolderUrl || '', dateOfBirth: client.dateOfBirth || '', nextActionLog: normaliseNextActionLog(client.nextActionLog), familyMembers: Array.isArray(client.familyMembers) ? client.familyMembers.map((member) => ({ ...member, nationality: member.nationality || '' })) : [], documentChecklist: normaliseDocumentChecklist(client.documentChecklist), billing: normaliseBillingItems(client.billing || []), stages: normaliseStages(client.stages, body.stageTemplates || DEFAULT_STAGE_TEMPLATES) })),
     caseTypes: body.caseTypes || DEFAULT_CASE_TYPES,
     deadlineTypes: body.deadlineTypes || DEFAULT_DEADLINE_TYPES,
     stageTemplates: body.stageTemplates || DEFAULT_STAGE_TEMPLATES,
     personalTasks: (body.personalTasks || []).map(normalisePersonalTask),
+    calendarEntries: (body.calendarEntries || []).map(normaliseCalendarEntry),
     securityMode: body.securityMode || 'unknown',
   };
 }
@@ -2111,6 +2388,113 @@ function normalisePersonalTask(task = {}) {
   };
 }
 
+function makeBlankCalendarEntry(defaultAdviserId = '', defaultDate = '') {
+  return {
+    id: `temp-calendar-${Date.now()}`,
+    clientId: '',
+    adviserId: defaultAdviserId || '',
+    title: 'Appointment',
+    appointmentDate: defaultDate || todayIso(),
+    startTime: '',
+    endTime: '',
+    location: '',
+    notes: '',
+    status: 'Open',
+  };
+}
+
+function normaliseCalendarEntry(entry = {}) {
+  const timePattern = /^\d{2}:\d{2}$/;
+  return {
+    id: entry.id || `temp-calendar-${Date.now()}`,
+    clientId: entry.clientId || '',
+    adviserId: entry.adviserId || '',
+    title: String(entry.title || 'Appointment').trim() || 'Appointment',
+    appointmentDate: /^\d{4}-\d{2}-\d{2}$/.test(String(entry.appointmentDate || '')) ? String(entry.appointmentDate) : todayIso(),
+    startTime: timePattern.test(String(entry.startTime || '')) ? String(entry.startTime) : '',
+    endTime: timePattern.test(String(entry.endTime || '')) ? String(entry.endTime) : '',
+    location: String(entry.location || '').trim(),
+    notes: String(entry.notes || '').trim(),
+    status: entry.status === 'Completed' ? 'Completed' : 'Open',
+  };
+}
+
+function calendarEntryTimeLabel(entry = {}) {
+  if (entry.startTime && entry.endTime) return `${entry.startTime}-${entry.endTime}`;
+  return entry.startTime || entry.endTime || '';
+}
+
+function calendarEntrySearchText(entry = {}, clients = [], advisers = []) {
+  const client = clients.find((item) => item.id === entry.clientId);
+  const adviser = advisers.find((item) => item.id === entry.adviserId);
+  return [
+    entry.title, entry.appointmentDate, entry.startTime, entry.endTime, entry.location, entry.notes, entry.status,
+    client?.firstName, client?.lastName, client?.email, client?.caseType, client?.caseStrategy,
+    adviser?.name, adviser?.email,
+  ].join(' ').toLowerCase();
+}
+
+function calendarViewRange(mode = 'current', selectedMonth = currentMonthInput()) {
+  const monthValue = mode === 'search' ? selectedMonth : currentMonthInput();
+  const months = mode === 'three' ? 3 : 1;
+  const [yearRaw, monthRaw] = String(monthValue || currentMonthInput()).split('-');
+  const start = new Date(Number(yearRaw), Number(monthRaw || 1) - 1, 1);
+  const end = addMonths(start, months);
+  return { start: toIsoDate(start), end: toIsoDate(end), label: periodLabel({ start: toIsoDate(start), end: toIsoDate(end) }) };
+}
+
+function calendarMonthKeys(startDateValue, count = 1) {
+  const start = parseLocalDate(startDateValue) || parseLocalDate(todayIso());
+  return Array.from({ length: count }, (_, index) => toIsoDate(addMonths(start, index)).slice(0, 7));
+}
+
+function calendarMonthLabel(monthValue) {
+  const [yearRaw, monthRaw] = String(monthValue || currentMonthInput()).split('-');
+  const date = new Date(Number(yearRaw), Number(monthRaw || 1) - 1, 1);
+  return new Intl.DateTimeFormat('en-NZ', { month: 'long', year: 'numeric' }).format(date);
+}
+
+function calendarDayLabel(dateValue) {
+  const date = parseLocalDate(dateValue);
+  if (!date) return 'No date';
+  return new Intl.DateTimeFormat('en-NZ', { weekday: 'short', day: 'numeric', month: 'short' }).format(date);
+}
+
+function calendarViewTitle(viewMode, selectedMonth) {
+  if (viewMode === 'three') return 'Current month + 2 months';
+  if (viewMode === 'search') return calendarMonthLabel(selectedMonth);
+  return calendarMonthLabel(currentMonthInput());
+}
+
+function groupCalendarEntriesByDate(entries = []) {
+  const map = new Map();
+  for (const entry of entries) {
+    const date = entry.appointmentDate || todayIso();
+    if (!map.has(date)) map.set(date, []);
+    map.get(date).push(entry);
+  }
+  return Array.from(map.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, items]) => ({ date, items: items.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || '') || a.title.localeCompare(b.title)) }));
+}
+
+
+
+function normaliseNextActionLog(items = []) {
+  const input = Array.isArray(items) ? items : [];
+  return input
+    .map((item, index) => ({
+      id: String(item.id || `next-action-log-${Date.now()}-${index}`).trim(),
+      action: String(item.action || item.nextAction || '').trim(),
+      dueDate: /^\d{4}-\d{2}-\d{2}$/.test(String(item.dueDate || item.nextActionDue || '')) ? String(item.dueDate || item.nextActionDue) : '',
+      completedDate: /^\d{4}-\d{2}-\d{2}$/.test(String(item.completedDate || '')) ? String(item.completedDate) : '',
+      completedAt: String(item.completedAt || '').trim(),
+      replacedByAction: String(item.replacedByAction || '').trim(),
+      replacedByDueDate: /^\d{4}-\d{2}-\d{2}$/.test(String(item.replacedByDueDate || '')) ? String(item.replacedByDueDate) : '',
+    }))
+    .filter((item) => item.action || item.dueDate)
+    .slice(-200);
+}
 
 
 function buildDocumentChecklist(items = []) {
@@ -2434,7 +2818,46 @@ function documentExpiryRowsForClient(client) {
     }));
 }
 
-function buildTaskRows(clients, personalTasks = [], allClients = []) {
+function calendarDeadlineRows(entries = [], clients = []) {
+  return (entries || [])
+    .filter((entry) => entry.status !== 'Completed' && entry.appointmentDate && entry.clientId)
+    .map((entry) => {
+      const linkedClient = clients.find((client) => client.id === entry.clientId) || null;
+      if (!linkedClient) return null;
+      return {
+        id: `calendar-deadline-${entry.id}`,
+        client: linkedClient,
+        calendarEntry: entry,
+        type: 'Calendar Appointment',
+        date: entry.appointmentDate,
+        note: [calendarEntryTimeLabel(entry), entry.title, entry.notes].filter(Boolean).join(' · '),
+        source: 'calendar-entry',
+        diff: dateDiff(entry.appointmentDate),
+      };
+    })
+    .filter(Boolean);
+}
+
+function calendarTaskRows(entries = [], clients = []) {
+  return (entries || [])
+    .filter((entry) => entry.status !== 'Completed' && entry.appointmentDate)
+    .map((entry) => {
+      const linkedClient = clients.find((client) => client.id === entry.clientId) || null;
+      return {
+        id: `calendar-${entry.id}`,
+        client: linkedClient,
+        calendarEntry: entry,
+        adviserId: entry.adviserId || linkedClient?.primaryAdviserId || '',
+        type: 'Calendar Appointment',
+        date: entry.appointmentDate,
+        note: [calendarEntryTimeLabel(entry), entry.title, entry.location, entry.notes].filter(Boolean).join(' · '),
+        source: 'calendar-entry',
+        diff: dateDiff(entry.appointmentDate),
+      };
+    });
+}
+
+function buildTaskRows(clients, personalTasks = [], allClients = [], calendarEntries = []) {
   const clientRows = clients
     .flatMap((client) => [
       ...(client.deadlines || []).map((deadline) => ({
@@ -2476,7 +2899,9 @@ function buildTaskRows(clients, personalTasks = [], allClients = []) {
       };
     });
 
-  return [...clientRows, ...personalRows]
+  const calendarRows = calendarTaskRows(calendarEntries, allClients);
+
+  return [...clientRows, ...personalRows, ...calendarRows]
     .filter((row) => row.date)
     .sort((a, b) => compareTasks(a, b, 'priority'));
 }
@@ -2521,11 +2946,13 @@ function compareTasks(a, b, sortMode) {
 
 function taskDisplayName(row) {
   if (row.client) return `${row.client.firstName || ''} ${row.client.lastName || ''}`.trim() || 'Linked client';
+  if (row.calendarEntry) return row.calendarEntry.title || 'Calendar appointment';
   return row.personalTask?.title || 'Personal task';
 }
 
 function taskContextLabel(row) {
   if (row.client) return row.client.caseType || 'Linked client';
+  if (row.source === 'calendar-entry') return 'Calendar appointment';
   if (row.source === 'personal-task') return 'No linked client';
   return 'Task';
 }
@@ -2539,12 +2966,20 @@ function taskSearchText(row) {
   return [
     row.type, row.note, row.date,
     row.client?.firstName, row.client?.lastName, row.client?.email, row.client?.caseType, row.client?.caseStrategy,
+    row.calendarEntry?.title, row.calendarEntry?.location, row.calendarEntry?.notes,
     row.personalTask?.title, row.personalTask?.note
   ].join(' ').toLowerCase();
 }
 
 function matchesPersonalTaskScope(task, adviserId) {
   return adviserId === 'all' || task.adviserId === adviserId;
+}
+
+function matchesCalendarEntryScope(entry, adviserId, clients = []) {
+  if (adviserId === 'all') return true;
+  if (entry.adviserId === adviserId) return true;
+  const linkedClient = clients.find((client) => client.id === entry.clientId);
+  return Boolean(linkedClient && matchesAdviserScope(linkedClient, adviserId));
 }
 
 function matchesAdviserScope(client, adviserId) {

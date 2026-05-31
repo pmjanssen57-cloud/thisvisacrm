@@ -1,4 +1,4 @@
-# Turner Hopkins CRM - Netlify Database v0.7.0
+# Turner Hopkins CRM - Netlify Database v0.7.2
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
@@ -127,3 +127,20 @@ Document checklist hidden items now show only the document name, greyed out, wit
 - Added a dashboard safety-net panel for active clients with no next action date.
 - WIP billing with a past reporting date now displays as overdue in billing views while preserving the saved billing status until updated.
 - Uses the public Turner Hopkins logo asset instead of embedding a large base64 logo in the app bundle.
+
+## v0.7.1 - Next action log
+
+- Adds a durable next action log for each client.
+- When a saved client record has its next action text or next action date changed, the previous scheduled action is automatically stored in the client's action history.
+- Adds a Next action log button in the client quick view, opening a pop-up with the current next action and previous completed/replaced scheduled actions.
+- Adds migration `202605310001_add_next_action_log.sql`.
+
+
+## v0.7.2 - Calendar and appointment task mapping
+
+- Adds a Calendar tab to the main CRM navigation.
+- Calendar view options now include current month, current month + 2 months, and a searchable month selector.
+- Adds calendar appointment booking with title, client link, adviser link, date, start/end time, location/channel, notes and status.
+- Open calendar appointments appear as task-style bring-up items in the Dashboard and Tasks page.
+- Completed calendar appointments remain in the calendar but are removed from active task views.
+- Adds migration `202605310002_add_calendar_entries.sql`.

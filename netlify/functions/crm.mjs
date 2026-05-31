@@ -95,6 +95,16 @@ export const handler = async (event) => {
       return json(await readCrmData());
     }
 
+    if (action === 'saveCalendarEntry') {
+      const calendarEntry = await saveCalendarEntry(body.entry);
+      return json({ calendarEntry, ...(await readCrmData()) });
+    }
+
+    if (action === 'deleteCalendarEntry') {
+      await deleteCalendarEntry(body.entryId);
+      return json(await readCrmData());
+    }
+
     if (action === 'saveClient') {
       const client = await saveClient(body.client);
       return json({ client, ...(await readCrmData()) });
@@ -172,6 +182,7 @@ async function ensureSchema() {
       client_status TEXT NOT NULL DEFAULT 'Active',
       next_action TEXT,
       next_action_due DATE,
+      next_action_log JSONB NOT NULL DEFAULT '[]'::jsonb,
       notes TEXT,
       family_members JSONB NOT NULL DEFAULT '[]'::jsonb,
       document_checklist JSONB NOT NULL DEFAULT '[]'::jsonb,
@@ -230,11 +241,28 @@ async function ensureSchema() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+  await database.sql`
+    CREATE TABLE IF NOT EXISTS calendar_entries (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
+      adviser_id UUID REFERENCES advisers(id) ON DELETE SET NULL,
+      title TEXT NOT NULL,
+      appointment_date DATE NOT NULL,
+      start_time TEXT,
+      end_time TEXT,
+      location TEXT,
+      notes TEXT,
+      status TEXT NOT NULL DEFAULT 'Open',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS case_strategy TEXT`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS date_of_birth DATE`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS family_members JSONB NOT NULL DEFAULT '[]'::jsonb`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS document_checklist JSONB NOT NULL DEFAULT '[]'::jsonb`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS sharepoint_folder_url TEXT`;
+  await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS next_action_log JSONB NOT NULL DEFAULT '[]'::jsonb`;
   await database.sql`ALTER TABLE billing_milestones ADD COLUMN IF NOT EXISTS billing_trigger_type TEXT NOT NULL DEFAULT 'Date'`;
   await database.sql`ALTER TABLE billing_milestones ADD COLUMN IF NOT EXISTS billing_stage_key TEXT`;
   await database.sql`UPDATE billing_milestones SET status = 'WIP' WHERE status IN ('Draft', 'Scheduled')`;
@@ -245,24 +273,29 @@ async function ensureSchema() {
   await database.sql`CREATE INDEX IF NOT EXISTS idx_billing_milestones_due_date ON billing_milestones(due_date)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_personal_tasks_due_date ON personal_tasks(due_date)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_personal_tasks_adviser ON personal_tasks(adviser_id)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_calendar_entries_date ON calendar_entries(appointment_date)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_calendar_entries_client ON calendar_entries(client_id)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_calendar_entries_adviser ON calendar_entries(adviser_id)`;
 }
 
 
 async function readCrmData() {
   const database = db();
-  const [advisers, clients, stages, deadlines, billing, personalTasks] = await Promise.all([
+  const [advisers, clients, stages, deadlines, billing, personalTasks, calendarEntries] = await Promise.all([
     database.sql`SELECT id, name, role, email, phone, licence, active FROM advisers ORDER BY name ASC`,
-    database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, notes, family_members, document_checklist FROM clients ORDER BY updated_at DESC`,
+    database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, notes, family_members, document_checklist FROM clients ORDER BY updated_at DESC`,
     database.sql`SELECT id, client_id, stage_key, stage_label, mandatory, applied, completed, completed_date, sort_order FROM client_stages ORDER BY sort_order ASC`,
     database.sql`SELECT id, client_id, deadline_type, deadline_date, note FROM client_deadlines ORDER BY deadline_date ASC NULLS LAST`,
     database.sql`SELECT id, client_id, milestone, due_date, amount, status, invoice_no, billing_trigger_type, billing_stage_key FROM billing_milestones ORDER BY due_date ASC NULLS LAST`,
     database.sql`SELECT id, adviser_id, client_id, title, due_date, status, note FROM personal_tasks ORDER BY due_date ASC NULLS LAST, created_at DESC`,
+    database.sql`SELECT id, client_id, adviser_id, title, appointment_date, start_time, end_time, location, notes, status FROM calendar_entries ORDER BY appointment_date ASC, start_time ASC NULLS LAST, created_at DESC`,
   ]);
 
   return {
     advisers: advisers.map(mapAdviserFromDb),
     clients: clients.map((client) => mapClientFromDb(client, stages, deadlines, billing)),
     personalTasks: personalTasks.map(mapPersonalTaskFromDb),
+    calendarEntries: calendarEntries.map(mapCalendarEntryFromDb),
     caseTypes: CASE_TYPES,
     deadlineTypes: DEADLINE_TYPES,
     stageTemplates: STAGE_TEMPLATES,
@@ -290,6 +323,21 @@ function mapPersonalTaskFromDb(row) {
     dueDate: toDateOnly(row.due_date),
     status: row.status === 'Completed' ? 'Completed' : 'Open',
     note: row.note || '',
+  };
+}
+
+function mapCalendarEntryFromDb(row) {
+  return {
+    id: row.id,
+    clientId: row.client_id || '',
+    adviserId: row.adviser_id || '',
+    title: row.title || '',
+    appointmentDate: toDateOnly(row.appointment_date),
+    startTime: row.start_time || '',
+    endTime: row.end_time || '',
+    location: row.location || '',
+    notes: row.notes || '',
+    status: row.status === 'Completed' ? 'Completed' : 'Open',
   };
 }
 
@@ -326,6 +374,7 @@ function mapClientFromDb(row, stages, deadlines, billing) {
     clientStatus: row.client_status || 'Active',
     nextAction: row.next_action || '',
     nextActionDue: toDateOnly(row.next_action_due),
+    nextActionLog: parseNextActionLog(row.next_action_log),
     notes: row.notes || '',
     familyMembers: parseFamilyMembers(row.family_members),
     documentChecklist: parseDocumentChecklist(row.document_checklist),
@@ -391,24 +440,36 @@ async function saveClient(input = {}) {
 
     let clientId = isUuid(client.id) ? client.id : null;
 
+    let nextActionLog = normaliseNextActionLog(client.nextActionLog);
+
     if (clientId) {
+      const existingRows = await poolClient.query(
+        `SELECT next_action, next_action_due, next_action_log FROM clients WHERE id = $1 FOR UPDATE`,
+        [clientId]
+      );
+      const existing = existingRows.rows[0];
+      if (existing) {
+        nextActionLog = buildNextActionLog(existing, client);
+      }
+
       await poolClient.query(
         `UPDATE clients
          SET first_name = $1, last_name = $2, email = $3, phone = $4, nationality = $5, date_of_birth = $6, location = $7, sharepoint_folder_url = $8,
              matter_name = $9, case_strategy = $10, case_type = $11, primary_adviser_id = $12, backup_adviser_id = $13,
-             priority = $14, client_status = $15, next_action = $16, next_action_due = $17, notes = $18, family_members = $19::jsonb, document_checklist = $20::jsonb, updated_at = NOW()
-         WHERE id = $21`,
-        [client.firstName, client.lastName || 'Unnamed client', client.email, client.phone, client.nationality, nullableDate(client.dateOfBirth), client.location, client.sharepointFolderUrl, client.matterName, client.caseStrategy, client.caseType, nullableUuid(client.primaryAdviserId), nullableUuid(client.backupAdviserId), client.priority, client.clientStatus, client.nextAction, nullableDate(client.nextActionDue), client.notes, JSON.stringify(client.familyMembers || []), JSON.stringify(client.documentChecklist || []), clientId]
+             priority = $14, client_status = $15, next_action = $16, next_action_due = $17, next_action_log = $18::jsonb, notes = $19, family_members = $20::jsonb, document_checklist = $21::jsonb, updated_at = NOW()
+         WHERE id = $22`,
+        [client.firstName, client.lastName || 'Unnamed client', client.email, client.phone, client.nationality, nullableDate(client.dateOfBirth), client.location, client.sharepointFolderUrl, client.matterName, client.caseStrategy, client.caseType, nullableUuid(client.primaryAdviserId), nullableUuid(client.backupAdviserId), client.priority, client.clientStatus, client.nextAction, nullableDate(client.nextActionDue), JSON.stringify(nextActionLog), client.notes, JSON.stringify(client.familyMembers || []), JSON.stringify(client.documentChecklist || []), clientId]
       );
     } else {
       const result = await poolClient.query(
-        `INSERT INTO clients (first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, notes, family_members, document_checklist)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19::jsonb, $20::jsonb)
+        `INSERT INTO clients (first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, notes, family_members, document_checklist)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18::jsonb, $19, $20::jsonb, $21::jsonb)
          RETURNING id`,
-        [client.firstName, client.lastName || 'Unnamed client', client.email, client.phone, client.nationality, nullableDate(client.dateOfBirth), client.location, client.sharepointFolderUrl, client.matterName, client.caseStrategy, client.caseType, nullableUuid(client.primaryAdviserId), nullableUuid(client.backupAdviserId), client.priority, client.clientStatus, client.nextAction, nullableDate(client.nextActionDue), client.notes, JSON.stringify(client.familyMembers || []), JSON.stringify(client.documentChecklist || [])]
+        [client.firstName, client.lastName || 'Unnamed client', client.email, client.phone, client.nationality, nullableDate(client.dateOfBirth), client.location, client.sharepointFolderUrl, client.matterName, client.caseStrategy, client.caseType, nullableUuid(client.primaryAdviserId), nullableUuid(client.backupAdviserId), client.priority, client.clientStatus, client.nextAction, nullableDate(client.nextActionDue), JSON.stringify(nextActionLog), client.notes, JSON.stringify(client.familyMembers || []), JSON.stringify(client.documentChecklist || [])]
       );
       clientId = result.rows[0].id;
     }
+
 
     await poolClient.query('DELETE FROM client_stages WHERE client_id = $1', [clientId]);
     for (const stage of client.stages) {
@@ -440,13 +501,50 @@ async function saveClient(input = {}) {
     }
 
     await poolClient.query('COMMIT');
-    return { ...client, id: clientId };
+    return { ...client, id: clientId, nextActionLog };
   } catch (error) {
     await poolClient.query('ROLLBACK');
     throw error;
   } finally {
     poolClient.release();
   }
+}
+
+async function saveCalendarEntry(input = {}) {
+  const database = db();
+  const entry = normaliseCalendarEntryInput(input);
+  const id = isUuid(entry.id) ? entry.id : null;
+
+  if (id) {
+    const rows = await database.sql`
+      UPDATE calendar_entries
+      SET client_id = ${nullableUuid(entry.clientId)},
+          adviser_id = ${nullableUuid(entry.adviserId)},
+          title = ${entry.title || 'Appointment'},
+          appointment_date = ${nullableDate(entry.appointmentDate) || todayDateOnly()},
+          start_time = ${entry.startTime || ''},
+          end_time = ${entry.endTime || ''},
+          location = ${entry.location || ''},
+          notes = ${entry.notes || ''},
+          status = ${entry.status === 'Completed' ? 'Completed' : 'Open'},
+          updated_at = NOW()
+      WHERE id = ${id}
+      RETURNING id, client_id, adviser_id, title, appointment_date, start_time, end_time, location, notes, status
+    `;
+    return mapCalendarEntryFromDb(rows[0]);
+  }
+
+  const rows = await database.sql`
+    INSERT INTO calendar_entries (client_id, adviser_id, title, appointment_date, start_time, end_time, location, notes, status)
+    VALUES (${nullableUuid(entry.clientId)}, ${nullableUuid(entry.adviserId)}, ${entry.title || 'Appointment'}, ${nullableDate(entry.appointmentDate) || todayDateOnly()}, ${entry.startTime || ''}, ${entry.endTime || ''}, ${entry.location || ''}, ${entry.notes || ''}, ${entry.status === 'Completed' ? 'Completed' : 'Open'})
+    RETURNING id, client_id, adviser_id, title, appointment_date, start_time, end_time, location, notes, status
+  `;
+  return mapCalendarEntryFromDb(rows[0]);
+}
+
+async function deleteCalendarEntry(entryId) {
+  if (!isUuid(entryId)) return;
+  await db().sql`DELETE FROM calendar_entries WHERE id = ${entryId}`;
 }
 
 async function savePersonalTask(input = {}) {
@@ -541,10 +639,10 @@ async function insertAdviser(client, values) {
 
 async function insertSeedClient(poolClient, seed) {
   const result = await poolClient.query(
-    `INSERT INTO clients (first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, notes, family_members, document_checklist)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19::jsonb, $20::jsonb)
+    `INSERT INTO clients (first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, notes, family_members, document_checklist, next_action_log)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19::jsonb, $20::jsonb, $21::jsonb)
      RETURNING id`,
-    [seed.firstName, seed.lastName, seed.email, seed.phone, seed.nationality, nullableDate(seed.dateOfBirth), seed.location, seed.sharepointFolderUrl || '', seed.matterName || '', seed.caseStrategy || '', seed.caseType, seed.primaryAdviserId, seed.backupAdviserId, seed.priority, seed.clientStatus, seed.nextAction, seed.nextActionDue, seed.notes, JSON.stringify(seed.familyMembers || []), JSON.stringify(seed.documentChecklist || buildDocumentChecklist())]
+    [seed.firstName, seed.lastName, seed.email, seed.phone, seed.nationality, nullableDate(seed.dateOfBirth), seed.location, seed.sharepointFolderUrl || '', seed.matterName || '', seed.caseStrategy || '', seed.caseType, seed.primaryAdviserId, seed.backupAdviserId, seed.priority, seed.clientStatus, seed.nextAction, seed.nextActionDue, seed.notes, JSON.stringify(seed.familyMembers || []), JSON.stringify(seed.documentChecklist || buildDocumentChecklist()), JSON.stringify(seed.nextActionLog || [])]
   );
   const clientId = result.rows[0].id;
   const stages = normaliseStages(buildStages(seed.appliedStageIds, seed.completedStageIds));
@@ -591,6 +689,21 @@ function normalisePersonalTaskInput(input = {}) {
   };
 }
 
+function normaliseCalendarEntryInput(input = {}) {
+  return {
+    id: input.id,
+    clientId: input.clientId || '',
+    adviserId: input.adviserId || '',
+    title: String(input.title || '').trim() || 'Appointment',
+    appointmentDate: nullableDate(input.appointmentDate) || todayDateOnly(),
+    startTime: /^\d{2}:\d{2}$/.test(String(input.startTime || '')) ? String(input.startTime) : '',
+    endTime: /^\d{2}:\d{2}$/.test(String(input.endTime || '')) ? String(input.endTime) : '',
+    location: String(input.location || '').trim(),
+    notes: String(input.notes || '').trim(),
+    status: String(input.status || '').trim() === 'Completed' ? 'Completed' : 'Open',
+  };
+}
+
 function normaliseBillingItems(inputItems = []) {
   if (!Array.isArray(inputItems)) return [];
   return inputItems.map((item) => ({
@@ -603,6 +716,61 @@ function normaliseBillingItems(inputItems = []) {
     triggerType: normaliseBillingTriggerType(item.triggerType),
     stageKey: normaliseStageKey(String(item.stageKey || '').trim()),
   })).filter((item) => item.milestone || item.dueDate || item.amount || item.invoiceNo || item.stageKey);
+}
+
+function normaliseNextActionLog(items = []) {
+  const input = Array.isArray(items) ? items : [];
+  return input
+    .map((item, index) => ({
+      id: String(item.id || `next-action-log-${Date.now()}-${index}`).trim(),
+      action: String(item.action || item.nextAction || '').trim(),
+      dueDate: nullableDate(item.dueDate || item.nextActionDue) || '',
+      completedDate: nullableDate(item.completedDate) || '',
+      completedAt: String(item.completedAt || '').trim(),
+      replacedByAction: String(item.replacedByAction || '').trim(),
+      replacedByDueDate: nullableDate(item.replacedByDueDate) || '',
+    }))
+    .filter((item) => item.action || item.dueDate)
+    .slice(-200);
+}
+
+function parseNextActionLog(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return normaliseNextActionLog(value);
+  try {
+    return normaliseNextActionLog(JSON.parse(value));
+  } catch {
+    return [];
+  }
+}
+
+function buildNextActionLog(existing, client) {
+  const previousAction = String(existing?.next_action || '').trim();
+  const previousDueDate = toDateOnly(existing?.next_action_due);
+  const nextAction = String(client.nextAction || '').trim();
+  const nextDueDate = nullableDate(client.nextActionDue) || '';
+  const actionChanged = previousAction !== nextAction || previousDueDate !== nextDueDate;
+  const hadPreviousAction = Boolean(previousAction || previousDueDate);
+  const log = normaliseNextActionLog(existing?.next_action_log);
+
+  if (!actionChanged || !hadPreviousAction) return log;
+
+  const last = log[log.length - 1];
+  const alreadyLogged = last && last.action === previousAction && last.dueDate === previousDueDate && last.replacedByAction === nextAction && last.replacedByDueDate === nextDueDate;
+  if (alreadyLogged) return log;
+
+  return normaliseNextActionLog([
+    ...log,
+    {
+      id: `next-action-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      action: previousAction,
+      dueDate: previousDueDate,
+      completedDate: todayDateOnly(),
+      completedAt: new Date().toISOString(),
+      replacedByAction: nextAction,
+      replacedByDueDate: nextDueDate,
+    },
+  ]);
 }
 
 function normaliseClientInput(input) {
@@ -625,6 +793,7 @@ function normaliseClientInput(input) {
     clientStatus: input.clientStatus || 'Active',
     nextAction: input.nextAction || '',
     nextActionDue: input.nextActionDue || null,
+    nextActionLog: normaliseNextActionLog(input.nextActionLog),
     notes: input.notes || '',
     stages: normaliseStages(input.stages || []),
     deadlines: Array.isArray(input.deadlines) ? input.deadlines : [],
@@ -793,10 +962,21 @@ function toDateOnly(value) {
   return String(value).slice(0, 10);
 }
 
+function todayDateOnly() {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function daysFromNow(days) {
   const d = new Date();
   d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function json(body, statusCode = 200) {
