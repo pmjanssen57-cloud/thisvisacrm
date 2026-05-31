@@ -1,4 +1,4 @@
-# Turner Hopkins CRM - Netlify Database v0.7.7
+# Turner Hopkins CRM - Netlify Database v0.8.0
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
@@ -8,8 +8,9 @@ Deployment:
 3. Build command: `npm run build`
 4. Publish directory: `dist`
 5. Functions directory: `netlify/functions`
-6. Add environment variable: `CRM_ACCESS_TOKEN`
-7. Clear cache and deploy.
+6. Add environment variable: `CRM_ACCESS_TOKEN` during the login transition.
+7. Enable Netlify Identity and set registration to invite-only before testing adviser logins.
+8. Clear cache and deploy.
 
 Function tests after deploy:
 - `https://YOUR-SITE.netlify.app/.netlify/functions/ping` should return `{"ok":true,"function":"ping"}`.
@@ -191,3 +192,28 @@ Adds a mobile-specific CRM layout while preserving the desktop experience. Phone
 - Fixes the mobile Adviser Tools drawer so calculator results, currency conversion outcomes, weather results and other bottom-of-panel outputs are not hidden behind the sticky mobile quick access bar.
 - Raises mobile Help/Tools full-screen drawers above the bottom navigation and adds safe-area bottom spacing for phone browsers.
 - No database migration required.
+
+
+## v0.8.0 - Adviser login foundation
+
+- Adds Netlify Identity browser login using `@netlify/identity`.
+- Handles invite acceptance and password recovery callback links inside the CRM.
+- Adds a Turner Hopkins branded login screen with email/password login and password reset request.
+- Keeps a temporary CRM access-code fallback during transition so the team is not locked out while Identity is tested.
+- Adds logged-in user display and logout.
+- Adds a Login Email field to adviser profiles and maps the logged-in Identity user to the adviser record.
+- Defaults the adviser scope to the matched logged-in adviser once CRM data loads.
+- Adds basic admin/manager role awareness for all-adviser/adviser-management UI access.
+- Adds server-side Identity acceptance in the CRM Netlify Function while retaining the legacy `CRM_ACCESS_TOKEN` fallback.
+- Adds migration `202606010001_add_adviser_login_email.sql`.
+
+### v0.8.0 testing sequence
+
+1. Deploy this build.
+2. Confirm Netlify Identity is enabled and registration is invite-only.
+3. In Netlify Identity, ensure Paul Janssen has role `admin`.
+4. In the CRM Adviser profile, set Login Email to the same Netlify Identity email.
+5. Use Send reset password email or resend invite from Netlify.
+6. Open the email link and set the password through the CRM screen.
+7. Confirm the CRM opens, shows the logged-in user, and defaults to the matched adviser view.
+8. Keep `CRM_ACCESS_TOKEN` until the login flow has been tested by at least one other adviser.

@@ -1,4 +1,5 @@
 import { getDatabase } from '@netlify/database';
+import { getUser } from '@netlify/identity';
 
 const STAGE_TEMPLATES = [
   { id: 'instruction-sent', label: 'Instruction Sent', mandatory: true, sortOrder: 1 },
@@ -57,19 +58,34 @@ const DOCUMENT_CHECKLIST_TEMPLATES = [
   { id: 'police-clearances', name: 'Police Clearances' },
 ];
 
-export const handler = async (event) => {
+export const handler = async (event) => handleCrmEvent(event);
+
+export default async function crmRequestHandler(request) {
+  const body = request.method === 'GET' || request.method === 'HEAD' ? '' : await request.text();
+  const response = await handleCrmEvent({
+    httpMethod: request.method,
+    headers: Object.fromEntries(request.headers.entries()),
+    body,
+  });
+  return new Response(response.body || '', {
+    status: response.statusCode || 200,
+    headers: response.headers || {},
+  });
+}
+
+async function handleCrmEvent(event) {
   try {
     const method = event.httpMethod || 'GET';
     if (method === 'OPTIONS') return empty(204);
 
-    const auth = checkAuth(event);
+    const auth = await checkAuth(event);
     if (!auth.ok) return json({ error: 'Unauthorised. Enter the internal CRM access code.' }, 401);
 
     await ensureSchema();
 
     if (method === 'GET') {
       const data = await readCrmData();
-      return json({ ...data, securityMode: process.env.CRM_ACCESS_TOKEN ? 'token' : 'open-prototype' });
+      return json({ ...data, securityMode: auth.mode, authUser: serialiseIdentityUser(auth.user) });
     }
 
     if (method !== 'POST') return json({ error: 'Method not allowed' }, 405);
@@ -122,15 +138,35 @@ export const handler = async (event) => {
     console.error(error);
     return json({ error: 'CRM function error', detail: String(error?.message || error) }, 500);
   }
-};
+}
 
-function checkAuth(event) {
+async function checkAuth(event) {
   const expected = process.env.CRM_ACCESS_TOKEN;
-  if (!expected) return { ok: true, mode: 'open-prototype' };
-
   const headers = event.headers || {};
   const provided = headers['x-crm-token'] || headers['X-CRM-Token'] || extractBearer(headers.authorization || headers.Authorization);
-  return { ok: provided === expected, mode: 'token' };
+
+  if (expected && provided === expected) return { ok: true, mode: 'token-fallback' };
+
+  try {
+    const user = await getUser();
+    if (user?.email) return { ok: true, mode: 'identity', user };
+  } catch (error) {
+    console.warn('Identity check failed', error?.message || error);
+  }
+
+  if (!expected) return { ok: true, mode: 'open-prototype' };
+  return { ok: false, mode: 'none' };
+}
+
+function serialiseIdentityUser(user) {
+  if (!user) return null;
+  return {
+    id: user.id,
+    email: user.email || '',
+    name: user.name || '',
+    role: user.role || '',
+    roles: Array.isArray(user.roles) ? user.roles : [],
+  };
 }
 
 function extractBearer(value) {
@@ -157,6 +193,7 @@ async function ensureSchema() {
       name TEXT NOT NULL,
       role TEXT,
       email TEXT,
+      login_email TEXT,
       phone TEXT,
       licence TEXT,
       active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -260,6 +297,7 @@ async function ensureSchema() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+  await database.sql`ALTER TABLE advisers ADD COLUMN IF NOT EXISTS login_email TEXT`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS case_strategy TEXT`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS date_of_birth DATE`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS family_members JSONB NOT NULL DEFAULT '[]'::jsonb`;
@@ -271,6 +309,7 @@ async function ensureSchema() {
   await database.sql`ALTER TABLE billing_milestones ADD COLUMN IF NOT EXISTS billing_stage_key TEXT`;
   await database.sql`UPDATE billing_milestones SET status = 'WIP' WHERE status IN ('Draft', 'Scheduled')`;
   await database.sql`UPDATE billing_milestones SET status = 'Invoiced' WHERE status = 'Paid'`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_advisers_login_email ON advisers (LOWER(login_email))`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_clients_case_type ON clients(case_type)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_clients_primary_adviser ON clients(primary_adviser_id)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_client_deadlines_date ON client_deadlines(deadline_date)`;
@@ -286,7 +325,7 @@ async function ensureSchema() {
 async function readCrmData() {
   const database = db();
   const [advisers, clients, stages, deadlines, billing, personalTasks, calendarEntries] = await Promise.all([
-    database.sql`SELECT id, name, role, email, phone, licence, active FROM advisers ORDER BY name ASC`,
+    database.sql`SELECT id, name, role, email, login_email, phone, licence, active FROM advisers ORDER BY name ASC`,
     database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, notes, family_members, document_checklist FROM clients ORDER BY updated_at DESC`,
     database.sql`SELECT id, client_id, stage_key, stage_label, mandatory, applied, completed, completed_date, sort_order FROM client_stages ORDER BY sort_order ASC`,
     database.sql`SELECT id, client_id, deadline_type, deadline_date, note FROM client_deadlines ORDER BY deadline_date ASC NULLS LAST`,
@@ -312,6 +351,7 @@ function mapAdviserFromDb(row) {
     name: row.name || '',
     role: row.role || '',
     email: row.email || '',
+    loginEmail: row.login_email || '',
     phone: row.phone || '',
     licence: row.licence || '',
     active: Boolean(row.active),
@@ -417,20 +457,21 @@ async function saveAdviser(adviser = {}) {
       SET name = ${adviser.name || 'Unnamed adviser'},
           role = ${adviser.role || ''},
           email = ${adviser.email || ''},
+          login_email = ${adviser.loginEmail || adviser.login_email || ''},
           phone = ${adviser.phone || ''},
           licence = ${adviser.licence || ''},
           active = ${adviser.active !== false},
           updated_at = NOW()
       WHERE id = ${id}
-      RETURNING id, name, role, email, phone, licence, active
+      RETURNING id, name, role, email, login_email, phone, licence, active
     `;
     return mapAdviserFromDb(rows[0]);
   }
 
   const rows = await database.sql`
-    INSERT INTO advisers (name, role, email, phone, licence, active)
-    VALUES (${adviser.name || 'New adviser'}, ${adviser.role || 'Licensed Immigration Adviser'}, ${adviser.email || ''}, ${adviser.phone || ''}, ${adviser.licence || ''}, ${adviser.active !== false})
-    RETURNING id, name, role, email, phone, licence, active
+    INSERT INTO advisers (name, role, email, login_email, phone, licence, active)
+    VALUES (${adviser.name || 'New adviser'}, ${adviser.role || 'Licensed Immigration Adviser'}, ${adviser.email || ''}, ${adviser.loginEmail || adviser.login_email || ''}, ${adviser.phone || ''}, ${adviser.licence || ''}, ${adviser.active !== false})
+    RETURNING id, name, role, email, login_email, phone, licence, active
   `;
   return mapAdviserFromDb(rows[0]);
 }

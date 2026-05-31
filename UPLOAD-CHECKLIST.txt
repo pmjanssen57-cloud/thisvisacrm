@@ -9,3 +9,6 @@ Important:
 - Do not upload node_modules.
 - Do not upload package-lock.json from an older package.
 - Keep .npmrc in the repo root so Netlify uses the public npm registry.
+- Keep CRM_ACCESS_TOKEN in Netlify during the v0.8.0 Identity transition.
+- Enable Netlify Identity and set registration to invite-only before inviting advisers.
+- Do not edit already-applied migration files; this build adds 202606010001_add_adviser_login_email.sql.

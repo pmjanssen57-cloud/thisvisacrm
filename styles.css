@@ -2411,3 +2411,68 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
     height: 23px;
   }
 }
+
+/* v0.8.0 Identity login */
+.identity-card { text-align: center; }
+.access-logo {
+  width: 210px;
+  max-width: 86%;
+  max-height: 70px;
+  object-fit: contain;
+  margin: 0 auto 2px;
+}
+.access-form { display: grid; gap: 10px; width: 100%; }
+.access-form .btn { justify-content: center; }
+.link-button {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-weight: 800;
+  padding: 4px 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  box-shadow: none;
+}
+.legacy-access-box {
+  border-top: 1px solid var(--line);
+  margin-top: 4px;
+  padding-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+.success-text { color: #047857 !important; }
+.auth-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  max-width: 360px;
+  padding: 9px 12px;
+  border: 1px solid #cfe7dc;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #f4fbf8 0%, #eaf8f1 100%);
+  color: var(--ink);
+  box-shadow: 0 4px 14px rgba(0, 55, 54, 0.06);
+}
+.auth-status svg { flex: 0 0 auto; }
+.auth-status div { display: grid; gap: 1px; min-width: 0; }
+.auth-status strong,
+.auth-status span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.auth-status strong { font-size: 13px; }
+.auth-status span { color: var(--muted); font-size: 11px; }
+.auth-status .link-button { font-size: 12px; margin-left: auto; white-space: nowrap; }
+
+@media (max-width: 760px) {
+  .auth-status {
+    order: 2;
+    width: 100%;
+    max-width: none;
+    justify-content: flex-start;
+  }
+  .mobile-header-actions { order: 3; }
+  .access-logo { width: 180px; }
+}

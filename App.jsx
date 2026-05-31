@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowUpDown, Calculator, CalendarDays, CheckCircle2, ChevronRight, Clock, CloudSun, Copy, CreditCard, Database, DollarSign, ExternalLink, Globe2, HelpCircle, LayoutDashboard, Link2, ListChecks, LockKeyhole, Plus, RefreshCw, Save, Search, Trash2, UserRound, UsersRound, Wrench, X } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { acceptInvite, getUser, handleAuthCallback, login, logout, onAuthChange, requestPasswordRecovery, updateUser } from '@netlify/identity';
+import { AlertTriangle, ArrowUpDown, Calculator, CalendarDays, CheckCircle2, ChevronRight, Clock, CloudSun, Copy, CreditCard, Database, DollarSign, ExternalLink, Globe2, HelpCircle, LayoutDashboard, Link2, ListChecks, LockKeyhole, Plus, RefreshCw, Save, Search, ShieldCheck, Trash2, UserRound, UsersRound, Wrench, X } from 'lucide-react';
 
 const BRAND = {
   ink: '#003736',
@@ -128,9 +129,9 @@ const SUPPORT_CONTENT = {
     sections: [
       { heading: 'Adviser profiles', text: 'Keep adviser names and emails accurate. These records drive primary and backup adviser assignments.' },
       { heading: 'Active status', text: 'Use inactive status for advisers who should remain in historical records but should not usually receive new clients.' },
-      { heading: 'Future login mapping', text: 'When individual logins are added, adviser email addresses can be used to match a logged-in user to their adviser profile.' },
+      { heading: 'Login mapping', text: 'Use the Login Email field to match a Netlify Identity user to the adviser profile. The main adviser email can still be used for client communication.' },
     ],
-    tips: ['Review adviser profiles before moving to individual logins.', 'Avoid deleting advisers if they are linked to historical client records.'],
+    tips: ['Match each adviser profile to their Netlify Identity email address.', 'Avoid deleting advisers if they are linked to historical client records.'],
   },
 };
 
@@ -402,7 +403,12 @@ export default function App() {
   const [dashboardAdviserFilter, setDashboardAdviserFilter] = useState(() => localStorage.getItem('this_crm_dashboard_adviser_filter') || 'all');
   const [accessCode, setAccessCode] = useState(() => localStorage.getItem('this_crm_access_code') || '');
   const [pendingCode, setPendingCode] = useState('');
+  const [identityUser, setIdentityUser] = useState(null);
+  const [authFlow, setAuthFlow] = useState({ type: 'login' });
+  const [authMessage, setAuthMessage] = useState('');
+  const [legacyAccessVisible, setLegacyAccessVisible] = useState(false);
   const [authRequired, setAuthRequired] = useState(false);
+  const identityScopeAppliedRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -456,13 +462,61 @@ export default function App() {
     load();
   }
 
+  async function initialiseAuthAndLoad() {
+    setLoading(true);
+    setError('');
+    setAuthMessage('');
+
+    try {
+      let callbackResult = null;
+      try {
+        callbackResult = await handleAuthCallback();
+      } catch (callbackError) {
+        setAuthMessage(`Identity link could not be processed: ${callbackError?.message || callbackError}`);
+      }
+
+      if (callbackResult?.type === 'invite') {
+        setAuthFlow({ type: 'invite', token: callbackResult.token || '' });
+        setAuthRequired(true);
+        setLoading(false);
+        return;
+      }
+
+      if (callbackResult?.type === 'recovery') {
+        const recoveredUser = callbackResult.user || await getUser();
+        setIdentityUser(recoveredUser || null);
+        setAuthFlow({ type: 'recovery' });
+        setAuthRequired(true);
+        setLoading(false);
+        return;
+      }
+
+      const currentUser = callbackResult?.user || await getUser();
+      setIdentityUser(currentUser || null);
+      if (currentUser || accessCode) {
+        await load(accessCode);
+        return;
+      }
+
+      setAuthRequired(true);
+      setLoading(false);
+    } catch (err) {
+      setError(err.message || String(err));
+      setAuthRequired(true);
+      setLoading(false);
+    }
+  }
+
   async function load(code = accessCode) {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('/.netlify/functions/crm', { headers: authHeaders(code) });
+      const response = await fetch('/.netlify/functions/crm', { headers: authHeaders(code), credentials: 'same-origin' });
       if (response.status === 401) {
         setAuthRequired(true);
+        if (identityUser) {
+          setError('You are logged in, but the CRM API did not accept the Identity session. Use the temporary CRM access code fallback while this is checked.');
+        }
         setLoading(false);
         return;
       }
@@ -479,7 +533,16 @@ export default function App() {
   }
 
   useEffect(() => {
-    load();
+    initialiseAuthAndLoad();
+    const unsubscribe = onAuthChange((event, user) => {
+      setIdentityUser(user || null);
+      if (event === 'logout') {
+        identityScopeAppliedRef.current = false;
+        setData(emptyData);
+        setAuthRequired(true);
+      }
+    });
+    return () => unsubscribe?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -494,11 +557,12 @@ export default function App() {
       const response = await fetch('/.netlify/functions/crm', {
         method: 'POST',
         headers: { 'content-type': 'application/json', ...authHeaders(accessCode) },
+        credentials: 'same-origin',
         body: JSON.stringify({ action, ...payload }),
       });
       if (response.status === 401) {
         setAuthRequired(true);
-        throw new Error('Access code was not accepted.');
+        throw new Error('Your Identity session or temporary CRM access code was not accepted.');
       }
       const body = await readJsonResponse(response);
       if (!response.ok) throw new Error(formatApiError(body, 'CRM save failed'));
@@ -517,6 +581,84 @@ export default function App() {
     localStorage.setItem('this_crm_access_code', pendingCode);
     setAccessCode(pendingCode);
     load(pendingCode);
+  }
+
+  async function submitIdentityLogin(email, password) {
+    setLoading(true);
+    setError('');
+    setAuthMessage('');
+    try {
+      const user = await login(email, password);
+      setIdentityUser(user);
+      setAuthFlow({ type: 'login' });
+      setAuthRequired(false);
+      await load(accessCode);
+    } catch (err) {
+      setError(err.message || String(err));
+      setAuthRequired(true);
+      setLoading(false);
+    }
+  }
+
+  async function submitInvitePassword(password) {
+    setLoading(true);
+    setError('');
+    setAuthMessage('');
+    try {
+      const user = await acceptInvite(authFlow.token, password);
+      setIdentityUser(user);
+      setAuthFlow({ type: 'login' });
+      setAuthRequired(false);
+      await load(accessCode);
+    } catch (err) {
+      setError(err.message || String(err));
+      setAuthRequired(true);
+      setLoading(false);
+    }
+  }
+
+  async function submitRecoveryPassword(password) {
+    setLoading(true);
+    setError('');
+    setAuthMessage('');
+    try {
+      const user = await updateUser({ password });
+      setIdentityUser(user);
+      setAuthFlow({ type: 'login' });
+      setAuthRequired(false);
+      await load(accessCode);
+    } catch (err) {
+      setError(err.message || String(err));
+      setAuthRequired(true);
+      setLoading(false);
+    }
+  }
+
+  async function requestIdentityPasswordReset(email) {
+    setError('');
+    setAuthMessage('');
+    try {
+      await requestPasswordRecovery(email);
+      setAuthMessage('Password reset email sent. Open the link from your email on this same CRM site.');
+    } catch (err) {
+      setError(err.message || String(err));
+    }
+  }
+
+  async function logoutIdentityUser() {
+    if (!confirmDiscardPendingEdits()) return;
+    try {
+      await logout();
+    } catch {
+      // Continue with local sign-out even if the remote logout request fails.
+    }
+    localStorage.removeItem('this_crm_access_code');
+    setAccessCode('');
+    setPendingCode('');
+    setIdentityUser(null);
+    identityScopeAppliedRef.current = false;
+    setAuthRequired(true);
+    setData(emptyData);
   }
 
   async function seedSampleData() {
@@ -587,6 +729,7 @@ export default function App() {
       name: 'New adviser',
       role: 'Licensed Immigration Adviser',
       email: '',
+      loginEmail: '',
       phone: '',
       licence: '',
       active: true,
@@ -600,6 +743,25 @@ export default function App() {
   const scopedCalendarEntries = useMemo(() => data.calendarEntries.filter((entry) => matchesCalendarEntryScope(entry, dashboardAdviserFilter, data.clients)), [data.calendarEntries, dashboardAdviserFilter, data.clients]);
   const activeClients = scopedClients.filter((client) => client.clientStatus !== 'Closed');
   const selectedClient = data.clients.find((client) => client.id === selectedClientId) || data.clients[0] || null;
+  const identityAdviser = useMemo(() => findAdviserForIdentity(data.advisers, identityUser), [data.advisers, identityUser]);
+  const canViewAllAdvisers = !identityUser || identityHasRole(identityUser, ['admin', 'manager']);
+  const canManageAdvisers = !identityUser || identityHasRole(identityUser, ['admin', 'manager']);
+  const scopeAdvisers = canViewAllAdvisers ? data.advisers : (identityAdviser ? [identityAdviser] : data.advisers);
+
+  useEffect(() => {
+    if (!identityUser || !data.advisers.length || identityScopeAppliedRef.current) return;
+    const matchedAdviser = findAdviserForIdentity(data.advisers, identityUser);
+    if (matchedAdviser) {
+      setDashboardAdviserFilter(matchedAdviser.id);
+      identityScopeAppliedRef.current = true;
+    }
+  }, [identityUser, data.advisers]);
+
+  useEffect(() => {
+    if (identityUser && identityAdviser && !canViewAllAdvisers && dashboardAdviserFilter !== identityAdviser.id) {
+      setDashboardAdviserFilter(identityAdviser.id);
+    }
+  }, [identityUser, identityAdviser, canViewAllAdvisers, dashboardAdviserFilter]);
 
   useEffect(() => {
     if (!selectedClientId || !scopedClients.length) return;
@@ -643,7 +805,24 @@ export default function App() {
   }, [scopedClients]);
 
   if (authRequired) {
-    return <AccessScreen pendingCode={pendingCode} setPendingCode={setPendingCode} submitAccessCode={submitAccessCode} error={error} />;
+    return (
+      <AccessScreen
+        pendingCode={pendingCode}
+        setPendingCode={setPendingCode}
+        submitAccessCode={submitAccessCode}
+        error={error}
+        message={authMessage}
+        loading={loading}
+        authFlow={authFlow}
+        identityUser={identityUser}
+        legacyAccessVisible={legacyAccessVisible}
+        setLegacyAccessVisible={setLegacyAccessVisible}
+        submitIdentityLogin={submitIdentityLogin}
+        submitInvitePassword={submitInvitePassword}
+        submitRecoveryPassword={submitRecoveryPassword}
+        requestPasswordReset={requestIdentityPasswordReset}
+      />
+    );
   }
 
   return (
@@ -656,12 +835,13 @@ export default function App() {
             <span>Client progress, deadlines and billing</span>
           </div>
         </div>
+        <AuthStatus user={identityUser} adviser={identityAdviser} onLogout={logoutIdentityUser} />
         <div className="top-actions desktop-only">
           <button className="btn ghost" onClick={() => { setToolsOpen(false); setSupportOpen(true); }}><HelpCircle size={16} />Help</button>
           <button className="btn ghost" onClick={() => { setSupportOpen(false); setToolsOpen(true); }}><Wrench size={16} />Tools</button>
           <button className="btn ghost" onClick={refreshData} disabled={loading}><RefreshCw size={16} />Refresh</button>
           <button className="btn dark" onClick={addClient}><Plus size={16} />Client</button>
-          <button className="btn" onClick={addAdviser}><Plus size={16} />Adviser</button>
+          {canManageAdvisers && <button className="btn" onClick={addAdviser}><Plus size={16} />Adviser</button>}
         </div>
         <div className="mobile-header-actions mobile-only">
           <button className="btn ghost" onClick={() => { setToolsOpen(false); setSupportOpen(true); }}><HelpCircle size={16} />Help</button>
@@ -691,7 +871,7 @@ export default function App() {
         {(data.clients.length > 0 || data.advisers.length > 0) && (
           <>
             <ViewToolbar
-              advisers={data.advisers}
+              advisers={scopeAdvisers}
               dashboardAdviserFilter={dashboardAdviserFilter}
               setDashboardAdviserFilter={setDashboardAdviserFilter}
               clientQuery={clientQuery}
@@ -700,6 +880,7 @@ export default function App() {
               setTab={switchTab}
               setAdviserFilter={setAdviserFilter}
               setCaseTypeFilter={setCaseTypeFilter}
+              canViewAllAdvisers={canViewAllAdvisers}
             />
             <nav className="tabs desktop-tabs">
               <TabButton active={tab === 'dashboard'} onClick={() => switchTab('dashboard')} icon={LayoutDashboard} label="Dashboard" />
@@ -707,7 +888,7 @@ export default function App() {
               <TabButton active={tab === 'calendar'} onClick={() => switchTab('calendar')} icon={CalendarDays} label="Calendar" />
               <TabButton active={tab === 'clients'} onClick={() => switchTab('clients')} icon={UsersRound} label="Clients" />
               <TabButton active={tab === 'billing'} onClick={() => switchTab('billing')} icon={CreditCard} label="Billing" />
-              <TabButton active={tab === 'advisers'} onClick={() => switchTab('advisers')} icon={UsersRound} label="Advisers" />
+              {canManageAdvisers && <TabButton active={tab === 'advisers'} onClick={() => switchTab('advisers')} icon={UsersRound} label="Advisers" />}
             </nav>
 
             {tab === 'dashboard' && (
@@ -748,7 +929,7 @@ export default function App() {
               <BillingDashboard billingRows={billingRows} advisers={data.advisers} adviserFilter={adviserFilter} setAdviserFilter={setAdviserFilter} dashboardAdviserFilter={dashboardAdviserFilter} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} />
             )}
 
-            {tab === 'advisers' && (
+            {tab === 'advisers' && canManageAdvisers && (
               <AdviserProfiles advisers={data.advisers} clients={data.clients} saveAdviser={saveAdviser} saving={saving} />
             )}
           </>
@@ -768,10 +949,29 @@ export default function App() {
         onAddClient={() => { setMobileMoreOpen(false); addClient(); }}
         onAddAdviser={() => { setMobileMoreOpen(false); addAdviser(); }}
         loading={loading}
+        canManageAdvisers={canManageAdvisers}
+        onLogout={logoutIdentityUser}
+        identityUser={identityUser}
       />
     </div>
   );
 
+}
+
+
+function AuthStatus({ user, adviser, onLogout }) {
+  if (!user) return null;
+  const roleLabel = identityRoleLabel(user);
+  return (
+    <div className="auth-status" title={user.email || ''}>
+      <ShieldCheck size={16} />
+      <div>
+        <strong>{adviser?.name || user.name || user.email || 'Logged-in user'}</strong>
+        <span>{roleLabel}{user.email ? ` · ${user.email}` : ''}</span>
+      </div>
+      <button type="button" className="link-button" onClick={onLogout}>Logout</button>
+    </div>
+  );
 }
 
 
@@ -799,7 +999,7 @@ function MobileBottomNav({ activeTab, onNavigate, onOpenMore }) {
   );
 }
 
-function MobileMoreSheet({ open, onClose, onNavigate, activeTab, onOpenHelp, onOpenTools, onRefresh, onAddClient, onAddAdviser, loading }) {
+function MobileMoreSheet({ open, onClose, onNavigate, activeTab, onOpenHelp, onOpenTools, onRefresh, onAddClient, onAddAdviser, loading, canManageAdvisers, onLogout, identityUser }) {
   function go(tab) {
     onClose();
     onNavigate(tab);
@@ -818,12 +1018,13 @@ function MobileMoreSheet({ open, onClose, onNavigate, activeTab, onOpenHelp, onO
         </div>
         <div className="mobile-more-grid">
           <button type="button" className={activeTab === 'billing' ? 'active' : ''} onClick={() => go('billing')}><CreditCard size={18} /><span>Billing</span></button>
-          <button type="button" className={activeTab === 'advisers' ? 'active' : ''} onClick={() => go('advisers')}><UserRound size={18} /><span>Advisers</span></button>
+          {canManageAdvisers && <button type="button" className={activeTab === 'advisers' ? 'active' : ''} onClick={() => go('advisers')}><UserRound size={18} /><span>Advisers</span></button>}
           <button type="button" onClick={onOpenTools}><Wrench size={18} /><span>Tools</span></button>
           <button type="button" onClick={onOpenHelp}><HelpCircle size={18} /><span>Help</span></button>
           <button type="button" onClick={onRefresh} disabled={loading}><RefreshCw size={18} /><span>Refresh</span></button>
           <button type="button" onClick={onAddClient}><Plus size={18} /><span>New client</span></button>
-          <button type="button" onClick={onAddAdviser}><Plus size={18} /><span>New adviser</span></button>
+          {canManageAdvisers && <button type="button" onClick={onAddAdviser}><Plus size={18} /><span>New adviser</span></button>}
+          {identityUser && <button type="button" onClick={onLogout}><LockKeyhole size={18} /><span>Logout</span></button>}
         </div>
       </aside>
     </>
@@ -1194,7 +1395,7 @@ function SupportDrawer({ open, onOpen, onClose, tab }) {
   );
 }
 
-function ViewToolbar({ advisers, dashboardAdviserFilter, setDashboardAdviserFilter, clientQuery, setClientQuery, matchingClientCount, setTab, setAdviserFilter, setCaseTypeFilter }) {
+function ViewToolbar({ advisers, dashboardAdviserFilter, setDashboardAdviserFilter, clientQuery, setClientQuery, matchingClientCount, setTab, setAdviserFilter, setCaseTypeFilter, canViewAllAdvisers = true }) {
   const selectedAdviser = advisers.find((adviser) => adviser.id === dashboardAdviserFilter);
   const viewLabel = selectedAdviser ? `${selectedAdviser.name}'s matters` : 'All advisers';
 
@@ -1223,7 +1424,7 @@ function ViewToolbar({ advisers, dashboardAdviserFilter, setDashboardAdviserFilt
         <label>
           <span>Adviser scope</span>
           <select value={dashboardAdviserFilter} onChange={(event) => setDashboardAdviserFilter(event.target.value)}>
-            <option value="all">All advisers</option>
+            {canViewAllAdvisers && <option value="all">All advisers</option>}
             {advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}
           </select>
         </label>
@@ -1242,17 +1443,131 @@ function ViewToolbar({ advisers, dashboardAdviserFilter, setDashboardAdviserFilt
   );
 }
 
-function AccessScreen({ pendingCode, setPendingCode, submitAccessCode, error }) {
+function AccessScreen(props) {
+  const {
+    pendingCode,
+    setPendingCode,
+    submitAccessCode,
+    error,
+    message,
+    loading,
+    authFlow,
+    identityUser,
+    legacyAccessVisible,
+    setLegacyAccessVisible,
+    submitIdentityLogin,
+    submitInvitePassword,
+    submitRecoveryPassword,
+    requestPasswordReset,
+  } = props;
+  const [email, setEmail] = useState(identityUser?.email || '');
+  const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [localError, setLocalError] = useState('');
+
+  function validateNewPassword() {
+    if (newPassword.length < 8) return 'Use at least 8 characters for the password.';
+    if (newPassword !== confirmPassword) return 'The passwords do not match.';
+    return '';
+  }
+
+  function handleLoginSubmit(event) {
+    event.preventDefault();
+    setLocalError('');
+    if (!email || !password) {
+      setLocalError('Enter your email and password.');
+      return;
+    }
+    submitIdentityLogin(email, password);
+  }
+
+  function handleInviteSubmit(event) {
+    event.preventDefault();
+    setLocalError('');
+    const validationError = validateNewPassword();
+    if (validationError) {
+      setLocalError(validationError);
+      return;
+    }
+    submitInvitePassword(newPassword);
+  }
+
+  function handleRecoverySubmit(event) {
+    event.preventDefault();
+    setLocalError('');
+    const validationError = validateNewPassword();
+    if (validationError) {
+      setLocalError(validationError);
+      return;
+    }
+    submitRecoveryPassword(newPassword);
+  }
+
+  function handleResetRequest(event) {
+    event.preventDefault();
+    setLocalError('');
+    if (!email) {
+      setLocalError('Enter your email address first.');
+      return;
+    }
+    requestPasswordReset(email);
+  }
+
+  const isInvite = authFlow?.type === 'invite';
+  const isRecovery = authFlow?.type === 'recovery';
+
   return (
     <div className="access-screen">
-      <form className="access-card" onSubmit={submitAccessCode}>
-        <LockKeyhole size={36} />
-        <h1>THiS CRM access required</h1>
-        <p>Enter the internal CRM access code configured in Netlify.</p>
-        <input type="password" value={pendingCode} onChange={(event) => setPendingCode(event.target.value)} placeholder="CRM access code" autoFocus />
-        <button className="btn dark" type="submit">Continue</button>
-        {error && <small>{error}</small>}
-      </form>
+      <div className="access-card identity-card">
+        <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="access-logo" />
+        <LockKeyhole size={34} />
+        <h1>{isInvite ? 'Set your THiS CRM password' : isRecovery ? 'Choose a new password' : 'THiS CRM login'}</h1>
+        <p>{isInvite ? 'Your Netlify Identity invitation has been recognised. Set a password to finish activating your CRM access.' : isRecovery ? 'Enter a new password to complete the reset process.' : 'Access is restricted to invited Turner Hopkins users.'}</p>
+
+        {isInvite && (
+          <form className="access-form" onSubmit={handleInviteSubmit}>
+            <input type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="New password" autoFocus />
+            <input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Confirm password" />
+            <button className="btn dark" type="submit" disabled={loading}>Activate login</button>
+          </form>
+        )}
+
+        {isRecovery && (
+          <form className="access-form" onSubmit={handleRecoverySubmit}>
+            <input type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="New password" autoFocus />
+            <input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Confirm password" />
+            <button className="btn dark" type="submit" disabled={loading}>Save new password</button>
+          </form>
+        )}
+
+        {!isInvite && !isRecovery && (
+          <>
+            <form className="access-form" onSubmit={handleLoginSubmit}>
+              <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email address" autoFocus />
+              <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password" />
+              <button className="btn dark" type="submit" disabled={loading}>Login</button>
+            </form>
+            <button className="link-button" type="button" onClick={handleResetRequest} disabled={loading}>Send reset password email</button>
+          </>
+        )}
+
+        {(message || localError || error) && <small className={message && !localError && !error ? 'success-text' : ''}>{localError || error || message}</small>}
+
+        {!isInvite && !isRecovery && (
+          <div className="legacy-access-box">
+            <button type="button" className="link-button" onClick={() => setLegacyAccessVisible(!legacyAccessVisible)}>
+              {legacyAccessVisible ? 'Hide temporary access code fallback' : 'Use temporary access code fallback'}
+            </button>
+            {legacyAccessVisible && (
+              <form className="access-form" onSubmit={submitAccessCode}>
+                <input type="password" value={pendingCode} onChange={(event) => setPendingCode(event.target.value)} placeholder="CRM access code" />
+                <button className="btn" type="submit" disabled={loading}>Continue with access code</button>
+              </form>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -2602,6 +2917,7 @@ function AdviserProfiles({ advisers, clients, saveAdviser, saving }) {
                 <Field label="Name" value={adviser.name} onChange={(v) => updateAdviser(adviser.id, { name: v })} />
                 <Field label="Role" value={adviser.role} onChange={(v) => updateAdviser(adviser.id, { role: v })} />
                 <Field label="Email" value={adviser.email} onChange={(v) => updateAdviser(adviser.id, { email: v })} />
+                <Field label="Login Email" value={adviser.loginEmail} onChange={(v) => updateAdviser(adviser.id, { loginEmail: v })} />
                 <Field label="Phone" value={adviser.phone} onChange={(v) => updateAdviser(adviser.id, { phone: v })} />
                 <Field label="LIA licence" value={adviser.licence} onChange={(v) => updateAdviser(adviser.id, { licence: v })} />
                 <SelectField label="Status" value={adviser.active ? 'Active' : 'Inactive'} onChange={(v) => updateAdviser(adviser.id, { active: v === 'Active' })} options={['Active', 'Inactive']} />
@@ -2960,7 +3276,7 @@ function formatApiError(body, fallback) {
 
 function normaliseData(body) {
   return {
-    advisers: body.advisers || [],
+    advisers: (body.advisers || []).map((adviser) => ({ ...adviser, loginEmail: adviser.loginEmail || adviser.login_email || '' })),
     clients: (body.clients || []).map((client) => ({ ...client, sharepointFolderUrl: client.sharepointFolderUrl || '', dateOfBirth: client.dateOfBirth || '', nextActionLog: normaliseNextActionLog(client.nextActionLog), familyMembers: Array.isArray(client.familyMembers) ? client.familyMembers.map((member) => ({ ...member, nationality: member.nationality || '' })) : [], documentChecklist: normaliseDocumentChecklist(client.documentChecklist), billing: normaliseBillingItems(client.billing || []), stages: normaliseStages(client.stages, body.stageTemplates || DEFAULT_STAGE_TEMPLATES) })),
     caseTypes: body.caseTypes || DEFAULT_CASE_TYPES,
     deadlineTypes: body.deadlineTypes || DEFAULT_DEADLINE_TYPES,
@@ -3267,6 +3583,34 @@ async function readJsonResponse(response) {
     }
     throw new Error(`The CRM API returned a non-JSON response. Status ${response.status}. Response preview: ${preview || '(empty response)'}`);
   }
+}
+
+function normaliseEmail(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function findAdviserForIdentity(advisers = [], user = null) {
+  const email = normaliseEmail(user?.email);
+  if (!email) return null;
+  return advisers.find((adviser) => normaliseEmail(adviser.loginEmail) === email)
+    || advisers.find((adviser) => normaliseEmail(adviser.email) === email)
+    || null;
+}
+
+function identityRoles(user = null) {
+  const roles = Array.isArray(user?.roles) ? user.roles : [];
+  if (user?.role && !roles.includes(user.role)) return [...roles, user.role];
+  return roles;
+}
+
+function identityHasRole(user = null, allowedRoles = []) {
+  const allowed = allowedRoles.map((role) => role.toLowerCase());
+  return identityRoles(user).some((role) => allowed.includes(String(role).toLowerCase()));
+}
+
+function identityRoleLabel(user = null) {
+  const roles = identityRoles(user);
+  return roles.length ? roles.join(', ') : 'Identity user';
 }
 
 function authHeaders(code) {
