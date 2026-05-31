@@ -100,3 +100,12 @@ Adds a client SharePoint folder URL field, plus Open folder and Copy link action
 ## v0.6.7 - Personal adviser tasks
 
 Adds adviser-specific personal tasks. These can be linked to a client or used as general internal tasks. Personal tasks appear in the Tasks tab, Today's bring-up list, and Quick task panel based on the current adviser view. A new database migration creates the `personal_tasks` table.
+
+## v0.6.8 - Favicon and document checklist
+
+- Adds a THiS-branded SVG favicon using the Turner Hopkins colour scheme.
+- Adds a collapsible Document checklist section inside each client record.
+- Standard checklist items can be included or hidden per client.
+- Each checklist item stores the document name, optional expiry date, and whether the item has been obtained.
+- Custom checklist items can be added and removed per client.
+- Adds migration `202605300006_add_document_checklist.sql`.

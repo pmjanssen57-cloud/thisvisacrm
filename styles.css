@@ -1121,3 +1121,93 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 @media (max-width: 760px) {
   .personal-task-form, .personal-task-row { grid-template-columns: 1fr; }
 }
+
+/* v0.6.8: favicon + client document checklist */
+.document-checklist-toggle {
+  margin-top: 14px;
+}
+.document-checklist-panel {
+  margin-top: 14px;
+  background: #fff;
+}
+.document-checklist-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.document-checklist-list {
+  display: grid;
+  gap: 10px;
+}
+.document-checklist-row {
+  display: grid;
+  grid-template-columns: minmax(105px, 0.75fr) minmax(220px, 1.6fr) minmax(180px, 1fr) minmax(120px, 0.8fr) 52px;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--pale);
+}
+.document-checklist-row.muted-row {
+  background: #f8fafc;
+  opacity: 0.72;
+}
+.document-checklist-row label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.document-checklist-row label span,
+.document-checklist-row .doc-name > span,
+.document-checklist-row .doc-expiry > span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.document-checklist-row input[type="text"],
+.document-checklist-row input[type="date"],
+.document-checklist-row .doc-name input {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  padding: 10px 12px;
+  min-height: 43px;
+  outline: none;
+  width: 100%;
+  min-width: 0;
+}
+.document-checklist-row .doc-name strong {
+  color: var(--ink);
+  font-size: 15px;
+  padding: 10px 0;
+}
+.doc-include,
+.doc-obtained {
+  display: flex !important;
+  align-items: center;
+  grid-auto-flow: column;
+  justify-content: start;
+  gap: 9px;
+  font-weight: 850;
+  color: var(--ink);
+}
+.doc-include input,
+.doc-obtained input {
+  width: 16px;
+  height: 16px;
+}
+@media (max-width: 1060px) {
+  .document-checklist-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 700px) {
+  .document-checklist-row {
+    grid-template-columns: 1fr;
+  }
+}

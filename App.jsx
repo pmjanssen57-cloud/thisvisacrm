@@ -55,6 +55,19 @@ const DEFAULT_DEADLINE_TYPES = [
 const BILLING_STATUSES = ['WIP', 'Invoiced', 'Overdue'];
 const BILLING_TRIGGER_TYPES = ['Date', 'Milestone'];
 
+const DOCUMENT_CHECKLIST_TEMPLATES = [
+  { id: 'passports', name: 'Passports' },
+  { id: 'passport-photos', name: 'Passport photos' },
+  { id: 'birth-certificates', name: 'Birth certificates' },
+  { id: 'marriage-certificate', name: 'Marriage certificate' },
+  { id: 'relationship-evidence', name: 'Relationship evidence' },
+  { id: 'work-experience', name: 'Work experience' },
+  { id: 'qualifications', name: 'Qualifications' },
+  { id: 'custody-documents', name: 'Custody documents' },
+  { id: 'medicals', name: 'Medicals' },
+  { id: 'police-clearances', name: 'Police Clearances' },
+];
+
 const SUPPORT_CONTENT = {
   dashboard: {
     title: 'Dashboard help',
@@ -78,12 +91,13 @@ const SUPPORT_CONTENT = {
   },
   clients: {
     title: 'Clients help',
-    summary: 'The Clients page is where adviser users create, update and review the master client record, including personal details, family details, case type, case strategy, stages, deadlines and billing milestones.',
+    summary: 'The Clients page is where adviser users create, update and review the master client record, including personal details, family details, case type, case strategy, document checklist, stages, deadlines and billing milestones.',
     sections: [
       { heading: 'Creating a client', text: 'Click Client in the top bar, complete the blank record, then save. New-client saves confirm and open a fresh blank form so it is clear the record has been created.' },
       { heading: 'Case strategy', text: 'Use the Case strategy field as the master case summary. Record the agreed approach, key immigration issues, evidence gaps, risks and next strategic steps.' },
       { heading: 'Progress map', text: 'The progress map shows mandatory, optional and custom stages. Select only the stages that apply, add custom stages where a client needs a different pathway, and reorder stages before saving the client record. Skipped stages are shown muted and do not affect progress percentage.' },
       { heading: 'Deadlines and next action', text: 'Add expiry and filing dates in the deadlines section. Use Next action and Task due date for internal adviser tasks that should appear on the dashboard and task lists.' },
+      { heading: 'Document checklist', text: 'Use the document checklist to include or hide standard document items, add custom document requests, record expiry dates and mark whether each item has been obtained.' },
     ],
     tips: ['Keep the case strategy client-specific and practical.', 'Use the citizenship and address fields consistently because they are searchable.', 'Add family members where their details are relevant to the matter.'],
   },
@@ -359,6 +373,7 @@ function makeBlankClient(data) {
     notes: '',
     stages: buildStagePlan(data.stageTemplates),
     familyMembers: [],
+    documentChecklist: buildDocumentChecklist(),
     deadlines: [],
     billing: [],
   };
@@ -1074,10 +1089,12 @@ function ClientsWorkspace(props) {
 function ClientEditor({ client, advisers, caseTypes, deadlineTypes, saveClient, deleteClient, saving }) {
   const [draft, setDraft] = useState(client);
   const [showFullRecord, setShowFullRecord] = useState(false);
+  const [showDocumentChecklist, setShowDocumentChecklist] = useState(false);
   const [customStageLabel, setCustomStageLabel] = useState('');
   useEffect(() => {
     setDraft(client);
     setShowFullRecord(false);
+    setShowDocumentChecklist(false);
     setCustomStageLabel('');
   }, [client]);
 
@@ -1170,6 +1187,38 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, saveClient, 
     setDraft((current) => ({ ...current, billing: current.billing.filter((item) => item.id !== id) }));
   }
 
+  function updateDocumentItem(id, patch) {
+    setDraft((current) => ({
+      ...current,
+      documentChecklist: normaliseDocumentChecklist(current.documentChecklist).map((item) => item.id === id ? { ...item, ...patch } : item),
+    }));
+  }
+
+  function addCustomDocumentItem() {
+    const name = window.prompt('Document name');
+    const trimmed = String(name || '').trim();
+    if (!trimmed) return;
+    setDraft((current) => {
+      const checklist = normaliseDocumentChecklist(current.documentChecklist);
+      const duplicate = checklist.some((item) => item.name.toLowerCase() === trimmed.toLowerCase());
+      if (duplicate) {
+        window.alert('That document item already exists in this checklist.');
+        return current;
+      }
+      return {
+        ...current,
+        documentChecklist: [...checklist, { id: makeDocumentItemId(trimmed, checklist), name: trimmed, applied: true, custom: true, expiryDate: '', obtained: false }],
+      };
+    });
+  }
+
+  function removeCustomDocumentItem(id) {
+    setDraft((current) => ({
+      ...current,
+      documentChecklist: normaliseDocumentChecklist(current.documentChecklist).filter((item) => item.id !== id || !item.custom),
+    }));
+  }
+
 
   function addFamilyMember(relationship) {
     setDraft((current) => ({
@@ -1216,6 +1265,20 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, saveClient, 
       </div>
 
       <ClientSummaryPanel draft={draft} setField={setField} />
+
+      <div className="client-record-toggle document-checklist-toggle">
+        <button className="btn" type="button" onClick={() => setShowDocumentChecklist((value) => !value)}>{showDocumentChecklist ? 'Hide document checklist' : 'Show document checklist'}</button>
+        <span>Track requested documents, expiry dates and whether each document has been obtained.</span>
+      </div>
+
+      {showDocumentChecklist && (
+        <DocumentChecklist
+          items={normaliseDocumentChecklist(draft.documentChecklist)}
+          updateItem={updateDocumentItem}
+          addCustomItem={addCustomDocumentItem}
+          removeCustomItem={removeCustomDocumentItem}
+        />
+      )}
 
       <div className="client-record-toggle">
         <button className="btn" type="button" onClick={() => setShowFullRecord((value) => !value)}>{showFullRecord ? 'Hide full client record' : 'Show full client record'}</button>
@@ -1323,6 +1386,38 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, saveClient, 
         </>
       )}
     </div>
+  );
+}
+
+
+function DocumentChecklist({ items, updateItem, addCustomItem, removeCustomItem }) {
+  const includedItems = items.filter((item) => item.applied);
+  const obtainedCount = includedItems.filter((item) => item.obtained).length;
+
+  return (
+    <section className="sub-panel document-checklist-panel">
+      <div className="sub-panel-head">
+        <div>
+          <h2>Document checklist</h2>
+          <p className="muted">Include the document items that apply to this client, add expiry dates where relevant, and mark items as obtained once received.</p>
+        </div>
+        <div className="document-checklist-actions">
+          <span className="workload-count">{obtainedCount}/{includedItems.length} obtained</span>
+          <button className="btn" type="button" onClick={addCustomItem}><Plus size={16} />Custom item</button>
+        </div>
+      </div>
+      <div className="document-checklist-list">
+        {items.map((item) => (
+          <div className={`document-checklist-row ${item.applied ? '' : 'muted-row'}`} key={item.id}>
+            <label className="doc-include"><input type="checkbox" checked={item.applied} onChange={(event) => updateItem(item.id, { applied: event.target.checked, obtained: event.target.checked ? item.obtained : false })} /><span>{item.applied ? 'Included' : 'Hidden'}</span></label>
+            <label className="doc-name"><span>Document</span>{item.custom ? <input value={item.name} onChange={(event) => updateItem(item.id, { name: event.target.value })} /> : <strong>{item.name}</strong>}</label>
+            <label className="doc-expiry"><span>Expiry date</span><input type="date" value={item.expiryDate || ''} disabled={!item.applied} onChange={(event) => updateItem(item.id, { expiryDate: event.target.value })} /></label>
+            <label className="doc-obtained"><input type="checkbox" checked={item.obtained} disabled={!item.applied} onChange={(event) => updateItem(item.id, { obtained: event.target.checked })} /><span>Obtained</span></label>
+            <button className="icon-btn" type="button" disabled={!item.custom} onClick={() => removeCustomItem(item.id)} title={item.custom ? 'Remove custom checklist item' : 'Standard item can be hidden, not deleted'}><Trash2 size={16} /></button>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -1843,7 +1938,7 @@ function formatApiError(body, fallback) {
 function normaliseData(body) {
   return {
     advisers: body.advisers || [],
-    clients: (body.clients || []).map((client) => ({ ...client, sharepointFolderUrl: client.sharepointFolderUrl || '', dateOfBirth: client.dateOfBirth || '', familyMembers: Array.isArray(client.familyMembers) ? client.familyMembers.map((member) => ({ ...member, nationality: member.nationality || '' })) : [], billing: normaliseBillingItems(client.billing || []), stages: normaliseStages(client.stages, body.stageTemplates || DEFAULT_STAGE_TEMPLATES) })),
+    clients: (body.clients || []).map((client) => ({ ...client, sharepointFolderUrl: client.sharepointFolderUrl || '', dateOfBirth: client.dateOfBirth || '', familyMembers: Array.isArray(client.familyMembers) ? client.familyMembers.map((member) => ({ ...member, nationality: member.nationality || '' })) : [], documentChecklist: normaliseDocumentChecklist(client.documentChecklist), billing: normaliseBillingItems(client.billing || []), stages: normaliseStages(client.stages, body.stageTemplates || DEFAULT_STAGE_TEMPLATES) })),
     caseTypes: body.caseTypes || DEFAULT_CASE_TYPES,
     deadlineTypes: body.deadlineTypes || DEFAULT_DEADLINE_TYPES,
     stageTemplates: body.stageTemplates || DEFAULT_STAGE_TEMPLATES,
@@ -1876,6 +1971,60 @@ function normalisePersonalTask(task = {}) {
   };
 }
 
+
+
+function buildDocumentChecklist(items = []) {
+  return normaliseDocumentChecklist(items);
+}
+
+function normaliseDocumentChecklist(items = []) {
+  const input = Array.isArray(items) ? items : [];
+  const templateRows = DOCUMENT_CHECKLIST_TEMPLATES.map((template) => {
+    const existing = input.find((item) => item.id === template.id || String(item.name || '').toLowerCase() === template.name.toLowerCase()) || {};
+    const applied = existing.applied !== false;
+    return {
+      id: template.id,
+      name: template.name,
+      applied,
+      custom: false,
+      expiryDate: existing.expiryDate || existing.expiry_date || '',
+      obtained: applied ? Boolean(existing.obtained) : false,
+    };
+  });
+  const templateIds = new Set(DOCUMENT_CHECKLIST_TEMPLATES.map((template) => template.id));
+  const templateNames = new Set(DOCUMENT_CHECKLIST_TEMPLATES.map((template) => template.name.toLowerCase()));
+  const customRows = input
+    .filter((item) => {
+      const id = String(item.id || '').trim();
+      const name = String(item.name || '').trim().toLowerCase();
+      return item.custom || (id && !templateIds.has(id)) || (name && !templateNames.has(name));
+    })
+    .map((item, index) => ({
+      id: String(item.id || `custom-doc-${index + 1}`).trim(),
+      name: String(item.name || 'Custom document').trim(),
+      applied: item.applied !== false,
+      custom: true,
+      expiryDate: item.expiryDate || item.expiry_date || '',
+      obtained: item.applied === false ? false : Boolean(item.obtained),
+    }))
+    .filter((item) => item.name);
+  return [...templateRows, ...customRows];
+}
+
+function makeDocumentItemId(name, existingItems = []) {
+  const base = String(name || 'custom-document')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'custom-document';
+  const existing = new Set((existingItems || []).map((item) => item.id));
+  let candidate = `custom-doc-${base}`;
+  let count = 2;
+  while (existing.has(candidate)) {
+    candidate = `custom-doc-${base}-${count}`;
+    count += 1;
+  }
+  return candidate;
+}
 
 function normaliseStageKey(value) {
   const key = String(value || '').trim();

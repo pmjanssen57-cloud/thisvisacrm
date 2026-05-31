@@ -42,6 +42,19 @@ const DEADLINE_TYPES = [
   'Filing Deadline Date',
 ];
 
+const DOCUMENT_CHECKLIST_TEMPLATES = [
+  { id: 'passports', name: 'Passports' },
+  { id: 'passport-photos', name: 'Passport photos' },
+  { id: 'birth-certificates', name: 'Birth certificates' },
+  { id: 'marriage-certificate', name: 'Marriage certificate' },
+  { id: 'relationship-evidence', name: 'Relationship evidence' },
+  { id: 'work-experience', name: 'Work experience' },
+  { id: 'qualifications', name: 'Qualifications' },
+  { id: 'custody-documents', name: 'Custody documents' },
+  { id: 'medicals', name: 'Medicals' },
+  { id: 'police-clearances', name: 'Police Clearances' },
+];
+
 export const handler = async (event) => {
   try {
     const method = event.httpMethod || 'GET';
@@ -161,6 +174,7 @@ async function ensureSchema() {
       next_action_due DATE,
       notes TEXT,
       family_members JSONB NOT NULL DEFAULT '[]'::jsonb,
+      document_checklist JSONB NOT NULL DEFAULT '[]'::jsonb,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
@@ -219,6 +233,7 @@ async function ensureSchema() {
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS case_strategy TEXT`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS date_of_birth DATE`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS family_members JSONB NOT NULL DEFAULT '[]'::jsonb`;
+  await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS document_checklist JSONB NOT NULL DEFAULT '[]'::jsonb`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS sharepoint_folder_url TEXT`;
   await database.sql`ALTER TABLE billing_milestones ADD COLUMN IF NOT EXISTS billing_trigger_type TEXT NOT NULL DEFAULT 'Date'`;
   await database.sql`ALTER TABLE billing_milestones ADD COLUMN IF NOT EXISTS billing_stage_key TEXT`;
@@ -237,7 +252,7 @@ async function readCrmData() {
   const database = db();
   const [advisers, clients, stages, deadlines, billing, personalTasks] = await Promise.all([
     database.sql`SELECT id, name, role, email, phone, licence, active FROM advisers ORDER BY name ASC`,
-    database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, notes, family_members FROM clients ORDER BY updated_at DESC`,
+    database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, notes, family_members, document_checklist FROM clients ORDER BY updated_at DESC`,
     database.sql`SELECT id, client_id, stage_key, stage_label, mandatory, applied, completed, completed_date, sort_order FROM client_stages ORDER BY sort_order ASC`,
     database.sql`SELECT id, client_id, deadline_type, deadline_date, note FROM client_deadlines ORDER BY deadline_date ASC NULLS LAST`,
     database.sql`SELECT id, client_id, milestone, due_date, amount, status, invoice_no, billing_trigger_type, billing_stage_key FROM billing_milestones ORDER BY due_date ASC NULLS LAST`,
@@ -313,6 +328,7 @@ function mapClientFromDb(row, stages, deadlines, billing) {
     nextActionDue: toDateOnly(row.next_action_due),
     notes: row.notes || '',
     familyMembers: parseFamilyMembers(row.family_members),
+    documentChecklist: parseDocumentChecklist(row.document_checklist),
     stages: normaliseStages(clientStages),
     deadlines: deadlines
       .filter((deadline) => deadline.client_id === row.id)
@@ -380,16 +396,16 @@ async function saveClient(input = {}) {
         `UPDATE clients
          SET first_name = $1, last_name = $2, email = $3, phone = $4, nationality = $5, date_of_birth = $6, location = $7, sharepoint_folder_url = $8,
              matter_name = $9, case_strategy = $10, case_type = $11, primary_adviser_id = $12, backup_adviser_id = $13,
-             priority = $14, client_status = $15, next_action = $16, next_action_due = $17, notes = $18, family_members = $19::jsonb, updated_at = NOW()
-         WHERE id = $20`,
-        [client.firstName, client.lastName || 'Unnamed client', client.email, client.phone, client.nationality, nullableDate(client.dateOfBirth), client.location, client.sharepointFolderUrl, client.matterName, client.caseStrategy, client.caseType, nullableUuid(client.primaryAdviserId), nullableUuid(client.backupAdviserId), client.priority, client.clientStatus, client.nextAction, nullableDate(client.nextActionDue), client.notes, JSON.stringify(client.familyMembers || []), clientId]
+             priority = $14, client_status = $15, next_action = $16, next_action_due = $17, notes = $18, family_members = $19::jsonb, document_checklist = $20::jsonb, updated_at = NOW()
+         WHERE id = $21`,
+        [client.firstName, client.lastName || 'Unnamed client', client.email, client.phone, client.nationality, nullableDate(client.dateOfBirth), client.location, client.sharepointFolderUrl, client.matterName, client.caseStrategy, client.caseType, nullableUuid(client.primaryAdviserId), nullableUuid(client.backupAdviserId), client.priority, client.clientStatus, client.nextAction, nullableDate(client.nextActionDue), client.notes, JSON.stringify(client.familyMembers || []), JSON.stringify(client.documentChecklist || []), clientId]
       );
     } else {
       const result = await poolClient.query(
-        `INSERT INTO clients (first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, notes, family_members)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19::jsonb)
+        `INSERT INTO clients (first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, notes, family_members, document_checklist)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19::jsonb, $20::jsonb)
          RETURNING id`,
-        [client.firstName, client.lastName || 'Unnamed client', client.email, client.phone, client.nationality, nullableDate(client.dateOfBirth), client.location, client.sharepointFolderUrl, client.matterName, client.caseStrategy, client.caseType, nullableUuid(client.primaryAdviserId), nullableUuid(client.backupAdviserId), client.priority, client.clientStatus, client.nextAction, nullableDate(client.nextActionDue), client.notes, JSON.stringify(client.familyMembers || [])]
+        [client.firstName, client.lastName || 'Unnamed client', client.email, client.phone, client.nationality, nullableDate(client.dateOfBirth), client.location, client.sharepointFolderUrl, client.matterName, client.caseStrategy, client.caseType, nullableUuid(client.primaryAdviserId), nullableUuid(client.backupAdviserId), client.priority, client.clientStatus, client.nextAction, nullableDate(client.nextActionDue), client.notes, JSON.stringify(client.familyMembers || []), JSON.stringify(client.documentChecklist || [])]
       );
       clientId = result.rows[0].id;
     }
@@ -525,10 +541,10 @@ async function insertAdviser(client, values) {
 
 async function insertSeedClient(poolClient, seed) {
   const result = await poolClient.query(
-    `INSERT INTO clients (first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, notes, family_members)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19::jsonb)
+    `INSERT INTO clients (first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, notes, family_members, document_checklist)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19::jsonb, $20::jsonb)
      RETURNING id`,
-    [seed.firstName, seed.lastName, seed.email, seed.phone, seed.nationality, nullableDate(seed.dateOfBirth), seed.location, seed.sharepointFolderUrl || '', seed.matterName || '', seed.caseStrategy || '', seed.caseType, seed.primaryAdviserId, seed.backupAdviserId, seed.priority, seed.clientStatus, seed.nextAction, seed.nextActionDue, seed.notes, JSON.stringify(seed.familyMembers || [])]
+    [seed.firstName, seed.lastName, seed.email, seed.phone, seed.nationality, nullableDate(seed.dateOfBirth), seed.location, seed.sharepointFolderUrl || '', seed.matterName || '', seed.caseStrategy || '', seed.caseType, seed.primaryAdviserId, seed.backupAdviserId, seed.priority, seed.clientStatus, seed.nextAction, seed.nextActionDue, seed.notes, JSON.stringify(seed.familyMembers || []), JSON.stringify(seed.documentChecklist || buildDocumentChecklist())]
   );
   const clientId = result.rows[0].id;
   const stages = normaliseStages(buildStages(seed.appliedStageIds, seed.completedStageIds));
@@ -614,6 +630,7 @@ function normaliseClientInput(input) {
     deadlines: Array.isArray(input.deadlines) ? input.deadlines : [],
     billing: normaliseBillingItems(input.billing),
     familyMembers: normaliseFamilyMembers(input.familyMembers),
+    documentChecklist: normaliseDocumentChecklist(input.documentChecklist),
   };
   return client;
 }
@@ -639,6 +656,57 @@ function parseFamilyMembers(value) {
     return normaliseFamilyMembers(JSON.parse(value));
   } catch {
     return [];
+  }
+}
+
+function buildDocumentChecklist(items = []) {
+  return normaliseDocumentChecklist(items);
+}
+
+function normaliseDocumentChecklist(items = []) {
+  const input = Array.isArray(items) ? items : [];
+  const templateRows = DOCUMENT_CHECKLIST_TEMPLATES.map((template) => {
+    const existing = input.find((item) => item.id === template.id || String(item.name || '').toLowerCase() === template.name.toLowerCase()) || {};
+    const applied = existing.applied !== false;
+    return {
+      id: template.id,
+      name: template.name,
+      applied,
+      custom: false,
+      expiryDate: nullableDate(existing.expiryDate || existing.expiry_date) || '',
+      obtained: applied ? Boolean(existing.obtained) : false,
+    };
+  });
+  const templateIds = new Set(DOCUMENT_CHECKLIST_TEMPLATES.map((template) => template.id));
+  const templateNames = new Set(DOCUMENT_CHECKLIST_TEMPLATES.map((template) => template.name.toLowerCase()));
+  const customRows = input
+    .filter((item) => {
+      const id = String(item.id || '').trim();
+      const name = String(item.name || '').trim().toLowerCase();
+      return item.custom || (id && !templateIds.has(id)) || (name && !templateNames.has(name));
+    })
+    .map((item, index) => {
+      const applied = item.applied !== false;
+      return {
+        id: String(item.id || `custom-doc-${index + 1}`).trim(),
+        name: String(item.name || 'Custom document').trim(),
+        applied,
+        custom: true,
+        expiryDate: nullableDate(item.expiryDate || item.expiry_date) || '',
+        obtained: applied ? Boolean(item.obtained) : false,
+      };
+    })
+    .filter((item) => item.name);
+  return [...templateRows, ...customRows];
+}
+
+function parseDocumentChecklist(value) {
+  if (!value) return buildDocumentChecklist();
+  if (Array.isArray(value)) return normaliseDocumentChecklist(value);
+  try {
+    return normaliseDocumentChecklist(JSON.parse(value));
+  } catch {
+    return buildDocumentChecklist();
   }
 }
 
