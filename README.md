@@ -217,3 +217,7 @@ Adds a mobile-specific CRM layout while preserving the desktop experience. Phone
 6. Open the email link and set the password through the CRM screen.
 7. Confirm the CRM opens, shows the logged-in user, and defaults to the matched adviser view.
 8. Keep `CRM_ACCESS_TOKEN` until the login flow has been tested by at least one other adviser.
+
+### v0.8.0 deployment note
+
+This package-lock uses public npm registry tarball URLs so Netlify can install dependencies during deployment.
