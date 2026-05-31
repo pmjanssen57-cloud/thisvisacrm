@@ -2029,14 +2029,32 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   }
   .mobile-header-actions {
     display: grid !important;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 9px;
   }
   .mobile-header-actions .btn {
-    justify-content: center;
-    padding: 9px 8px;
-    border-radius: 14px;
-    font-size: 13px;
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 6px;
+    min-height: 72px;
+    padding: 11px 8px;
+    border-radius: 18px;
+    border-color: #cfe7dc;
+    background: linear-gradient(180deg, #f4fbf8 0%, #eaf8f1 100%);
+    color: var(--ink);
+    font-size: 12px;
+    line-height: 1.1;
+    text-align: center;
+    box-shadow: 0 8px 22px rgba(0, 55, 54, 0.08);
+  }
+  .mobile-header-actions .btn svg {
+    width: 26px;
+    height: 26px;
+    stroke-width: 2.2;
+  }
+  .mobile-header-actions .btn:active {
+    transform: translateY(1px);
   }
   .layout {
     padding: 12px 10px 104px;
@@ -2220,7 +2238,20 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
     height: 100dvh;
     max-height: 100dvh;
     border-left: 0;
-    padding: 18px;
+    padding: 18px 18px calc(128px + env(safe-area-inset-bottom));
+    z-index: 95;
+  }
+  .support-overlay,
+  .tools-overlay {
+    z-index: 90;
+  }
+  .tools-drawer .tool-panel {
+    padding-bottom: calc(28px + env(safe-area-inset-bottom));
+  }
+  .tools-drawer .conversion-result,
+  .tools-drawer .tool-error,
+  .tools-drawer .tool-muted {
+    scroll-margin-bottom: calc(140px + env(safe-area-inset-bottom));
   }
   .tool-tabs {
     grid-template-columns: repeat(2, 1fr);
@@ -2367,6 +2398,16 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
     grid-template-columns: 1fr;
   }
   .mobile-header-actions {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+  }
+  .mobile-header-actions .btn {
+    min-height: 66px;
+    padding: 9px 5px;
+    font-size: 11px;
+  }
+  .mobile-header-actions .btn svg {
+    width: 23px;
+    height: 23px;
   }
 }

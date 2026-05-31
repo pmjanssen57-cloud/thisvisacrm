@@ -178,3 +178,16 @@ Adds a right-side Adviser Tools drawer alongside the existing support drawer. Th
 
 Adds a mobile-specific CRM layout while preserving the desktop experience. Phones now use a bottom navigation bar, a mobile More menu for Billing, Advisers, Help and Tools, card-style task/workload/billing rows, and full-screen mobile drawers/modals for Help, Tools, Timeline and other pop-up panels. No database migration is required.
 
+## v0.7.8 - Mobile header button polish
+
+- Refines the three mobile header buttons so Help, Tools and Refresh display as equal side-by-side action tiles.
+- Adds larger mobile icons and pale green Turner Hopkins-style shading for better thumb usability and visual consistency.
+- Keeps the desktop header unchanged.
+- No database migration required.
+
+
+## v0.7.9 - Mobile tools safe-area fix
+
+- Fixes the mobile Adviser Tools drawer so calculator results, currency conversion outcomes, weather results and other bottom-of-panel outputs are not hidden behind the sticky mobile quick access bar.
+- Raises mobile Help/Tools full-screen drawers above the bottom navigation and adds safe-area bottom spacing for phone browsers.
+- No database migration required.
