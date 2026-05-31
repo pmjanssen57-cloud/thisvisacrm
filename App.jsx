@@ -97,7 +97,7 @@ const SUPPORT_CONTENT = {
       { heading: 'Case strategy', text: 'Use the Case strategy field as the master case summary. Record the agreed approach, key immigration issues, evidence gaps, risks and next strategic steps.' },
       { heading: 'Progress map', text: 'The progress map shows mandatory, optional and custom stages. Select only the stages that apply, add custom stages where a client needs a different pathway, and reorder stages before saving the client record. Skipped stages are shown muted and do not affect progress percentage.' },
       { heading: 'Deadlines and next action', text: 'Add expiry and filing dates in the deadlines section. Use Next action and Task due date for internal adviser tasks that should appear on the dashboard and task lists.' },
-      { heading: 'Document checklist', text: 'Use the document checklist to include or hide standard document items, add custom document requests, record expiry dates and mark whether each item has been obtained.' },
+      { heading: 'Document checklist', text: 'Use the document checklist to include standard document items, hide items that do not apply, add custom document requests, record expiry dates and mark whether each item has been obtained. Hidden items are greyed out and show only the document name and the option to include them again.' },
     ],
     tips: ['Keep the case strategy client-specific and practical.', 'Use the citizenship and address fields consistently because they are searchable.', 'Add family members where their details are relevant to the matter.'],
   },
@@ -1408,13 +1408,21 @@ function DocumentChecklist({ items, updateItem, addCustomItem, removeCustomItem 
       </div>
       <div className="document-checklist-list">
         {items.map((item) => (
-          <div className={`document-checklist-row ${item.applied ? '' : 'muted-row'}`} key={item.id}>
-            <label className="doc-include"><input type="checkbox" checked={item.applied} onChange={(event) => updateItem(item.id, { applied: event.target.checked, obtained: event.target.checked ? item.obtained : false })} /><span>{item.applied ? 'Included' : 'Hidden'}</span></label>
-            <label className="doc-name"><span>Document</span>{item.custom ? <input value={item.name} onChange={(event) => updateItem(item.id, { name: event.target.value })} /> : <strong>{item.name}</strong>}</label>
-            <label className="doc-expiry"><span>Expiry date</span><input type="date" value={item.expiryDate || ''} disabled={!item.applied} onChange={(event) => updateItem(item.id, { expiryDate: event.target.value })} /></label>
-            <label className="doc-obtained"><input type="checkbox" checked={item.obtained} disabled={!item.applied} onChange={(event) => updateItem(item.id, { obtained: event.target.checked })} /><span>Obtained</span></label>
-            <button className="icon-btn" type="button" disabled={!item.custom} onClick={() => removeCustomItem(item.id)} title={item.custom ? 'Remove custom checklist item' : 'Standard item can be hidden, not deleted'}><Trash2 size={16} /></button>
-          </div>
+          item.applied ? (
+            <div className="document-checklist-row" key={item.id}>
+              <label className="doc-include"><input type="checkbox" checked={item.applied} onChange={(event) => updateItem(item.id, { applied: event.target.checked, obtained: event.target.checked ? item.obtained : false })} /><span>Included</span></label>
+              <label className="doc-name"><span>Document</span>{item.custom ? <input value={item.name} onChange={(event) => updateItem(item.id, { name: event.target.value })} /> : <strong>{item.name}</strong>}</label>
+              <label className="doc-expiry"><span>Expiry date</span><input type="date" value={item.expiryDate || ''} onChange={(event) => updateItem(item.id, { expiryDate: event.target.value })} /></label>
+              <label className="doc-obtained"><input type="checkbox" checked={item.obtained} onChange={(event) => updateItem(item.id, { obtained: event.target.checked })} /><span>Obtained</span></label>
+              <button className="icon-btn" type="button" disabled={!item.custom} onClick={() => removeCustomItem(item.id)} title={item.custom ? 'Remove custom checklist item' : 'Standard item can be hidden, not deleted'}><Trash2 size={16} /></button>
+            </div>
+          ) : (
+            <div className="document-checklist-row muted-row document-checklist-row-hidden" key={item.id}>
+              <label className="doc-include"><input type="checkbox" checked={item.applied} onChange={(event) => updateItem(item.id, { applied: event.target.checked })} /><span>Include</span></label>
+              <div className="doc-hidden-name"><span>Document</span><strong>{item.name}</strong><small>Hidden from this client checklist</small></div>
+              {item.custom ? <button className="icon-btn" type="button" onClick={() => removeCustomItem(item.id)} title="Remove custom checklist item"><Trash2 size={16} /></button> : <span className="doc-hidden-spacer" aria-hidden="true" />}
+            </div>
+          )
         ))}
       </div>
     </section>
