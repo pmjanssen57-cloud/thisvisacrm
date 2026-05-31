@@ -54,6 +54,7 @@ const DEFAULT_DEADLINE_TYPES = [
 
 const BILLING_STATUSES = ['WIP', 'Invoiced', 'Overdue'];
 const BILLING_TRIGGER_TYPES = ['Date', 'Milestone'];
+const APPOINTMENT_TYPES = ['Client meeting', 'Adviser review', 'Lodgement target', 'Document follow-up', 'INZ call', 'Billing follow-up', 'Internal review', 'Other'];
 
 const DOCUMENT_CHECKLIST_TEMPLATES = [
   { id: 'passports', name: 'Passports' },
@@ -91,13 +92,13 @@ const SUPPORT_CONTENT = {
   },
   calendar: {
     title: 'Calendar help',
-    summary: 'The Calendar page records appointments and internal diary items. Calendar entries can be linked to clients and advisers, and open entries appear in the Tasks page as dated work items.',
+    summary: 'The Calendar page records appointments and internal diary items. Calendar entries can be linked to clients and advisers, and open entries appear in the Tasks page as dated work items. Completed appointments can also create a follow-up next action for the linked client.',
     sections: [
       { heading: 'Views', text: 'Use Current month for the immediate diary, Current + 2 months for a forward-planning window, or Search month to jump to a specific month.' },
-      { heading: 'Booking appointments', text: 'Click Book appointment, select the client and adviser where relevant, add the date, time, title, location and notes, then save. Linked appointments become task-style entries until marked completed.' },
-      { heading: 'Task mapping', text: 'Open calendar entries are included in dashboard bring-up lists and the Tasks page. Mark an appointment completed once it no longer needs to appear as an active task.' },
+      { heading: 'Booking appointments', text: 'Click Book appointment, select the appointment type, client and adviser where relevant, add the date, time, title, location and notes, then save. Linked appointments become task-style entries until marked completed.' },
+      { heading: 'Task mapping', text: 'Open calendar entries are included in dashboard bring-up lists and the Tasks page. When an appointment is completed, optionally create the next client follow-up action from the same screen.' },
     ],
-    tips: ['Link the appointment to a client whenever possible.', 'Keep notes concise and operational.', 'Use completed status once the appointment has been dealt with.'],
+    tips: ['Link the appointment to a client whenever possible.', 'Use appointment type consistently so timeline history is easy to read.', 'Create a follow-up action when a completed appointment leaves further work to do.'],
   },
   clients: {
     title: 'Clients help',
@@ -106,7 +107,7 @@ const SUPPORT_CONTENT = {
       { heading: 'Creating a client', text: 'Click Client in the top bar, complete the blank record, then save. New-client saves confirm and open a fresh blank form so it is clear the record has been created.' },
       { heading: 'Case strategy', text: 'Use the Case strategy field as the master case summary. Record the agreed approach, key immigration issues, evidence gaps, risks and next strategic steps.' },
       { heading: 'Progress map', text: 'The progress map shows mandatory, optional and custom stages. Select only the stages that apply, add custom stages where a client needs a different pathway, and reorder stages before saving the client record. Skipped stages are shown muted and do not affect progress percentage.' },
-      { heading: 'Deadlines and next action', text: 'Add expiry and filing dates in the deadlines section. Use Next action and Task due date for internal adviser tasks that should appear on the dashboard and task lists.' },
+      { heading: 'Deadlines and next action', text: 'Add expiry and filing dates in the deadlines section. Use Next action and Task due date for internal adviser tasks that should appear on the dashboard and task lists. Use the Timeline button to review previous actions, linked appointments, completed stages, document expiries and billing events.' },
       { heading: 'Document checklist', text: 'Use the document checklist to include standard document items, mark items as not required, add custom document requests, record expiry dates and mark whether each item has been obtained. Not-required items are greyed out and show only the document name and the option to include them again.' },
     ],
     tips: ['Keep the case strategy client-specific and practical.', 'Use the citizenship and address fields consistently because they are searchable.', 'Add family members where their details are relevant to the matter.'],
@@ -407,15 +408,25 @@ export default function App() {
   const [error, setError] = useState('');
   const [supportOpen, setSupportOpen] = useState(false);
   const [clientEditorDirty, setClientEditorDirty] = useState(false);
+  const [calendarEditorDirty, setCalendarEditorDirty] = useState(false);
 
   function confirmDiscardClientEdits() {
     return !clientEditorDirty || window.confirm('You have unsaved client changes. Discard those changes and continue?');
   }
 
+  function confirmDiscardCalendarEdits() {
+    return !calendarEditorDirty || window.confirm('You have unsaved calendar changes. Discard those changes and continue?');
+  }
+
+  function confirmDiscardPendingEdits() {
+    return confirmDiscardClientEdits() && confirmDiscardCalendarEdits();
+  }
+
   function switchTab(nextTab) {
     if (nextTab === tab) return;
-    if (!confirmDiscardClientEdits()) return;
+    if (!confirmDiscardPendingEdits()) return;
     if (tab === 'clients' && nextTab !== 'clients') setClientEditorDirty(false);
+    if (tab === 'calendar' && nextTab !== 'calendar') setCalendarEditorDirty(false);
     setTab(nextTab);
   }
 
@@ -428,13 +439,16 @@ export default function App() {
   }
 
   function openClientRecord(clientId) {
+    if (tab === 'calendar' && !confirmDiscardCalendarEdits()) return;
     if (!selectClient(clientId)) return;
+    setCalendarEditorDirty(false);
     setTab('clients');
   }
 
   function refreshData() {
-    if (!confirmDiscardClientEdits()) return;
+    if (!confirmDiscardPendingEdits()) return;
     setClientEditorDirty(false);
+    setCalendarEditorDirty(false);
     load();
   }
 
@@ -551,8 +565,9 @@ export default function App() {
   }
 
   function addClient() {
-    if (!confirmDiscardClientEdits()) return;
+    if (!confirmDiscardPendingEdits()) return;
     setClientEditorDirty(false);
+    setCalendarEditorDirty(false);
     const newClient = makeBlankClient(data);
     setData((current) => ({ ...current, clients: [newClient, ...current.clients] }));
     setSelectedClientId(newClient.id);
@@ -560,8 +575,9 @@ export default function App() {
   }
 
   function addAdviser() {
-    if (!confirmDiscardClientEdits()) return;
+    if (!confirmDiscardPendingEdits()) return;
     setClientEditorDirty(false);
+    setCalendarEditorDirty(false);
     const adviser = {
       id: `temp-${Date.now()}`,
       name: 'New adviser',
@@ -671,7 +687,7 @@ export default function App() {
               clientQuery={clientQuery}
               setClientQuery={setClientQuery}
               matchingClientCount={filteredClients.length}
-              setTab={setTab}
+              setTab={switchTab}
               setAdviserFilter={setAdviserFilter}
               setCaseTypeFilter={setCaseTypeFilter}
             />
@@ -693,7 +709,7 @@ export default function App() {
             )}
 
             {tab === 'calendar' && (
-              <CalendarWorkspace entries={scopedCalendarEntries} allEntries={data.calendarEntries} clients={data.clients} scopedClients={scopedClients} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} saveCalendarEntry={saveCalendarEntry} deleteCalendarEntry={deleteCalendarEntry} saving={saving} openClientRecord={openClientRecord} />
+              <CalendarWorkspace entries={scopedCalendarEntries} allEntries={data.calendarEntries} clients={data.clients} scopedClients={scopedClients} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} saveCalendarEntry={saveCalendarEntry} deleteCalendarEntry={deleteCalendarEntry} saveClient={saveClient} saving={saving} openClientRecord={openClientRecord} onDirtyChange={setCalendarEditorDirty} />
             )}
 
             {tab === 'clients' && selectedClient && (
@@ -714,6 +730,7 @@ export default function App() {
                 saveClient={saveClient}
                 deleteClient={deleteClient}
                 saving={saving}
+                calendarEntries={data.calendarEntries}
               />
             )}
 
@@ -841,6 +858,7 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
   const overdueRows = deadlineRows.filter((row) => dateDiff(row.date) < 0);
   const next14 = deadlineRows.filter((row) => dateDiff(row.date) >= 0 && dateDiff(row.date) <= 14);
   const clientsWithoutNextAction = activeClients.filter((client) => !client.nextActionDue);
+  const overdueCalendarItems = taskRows.filter((row) => row.source === 'calendar-entry' && row.diff < 0);
 
   const visibleAdvisers = dashboardAdviserFilter === 'all' ? advisers : advisers.filter((adviser) => adviser.id === dashboardAdviserFilter);
   const viewTitle = dashboardAdviserFilter === 'all' ? 'Whole-practice dashboard' : `${advisers.find((adviser) => adviser.id === dashboardAdviserFilter)?.name || 'Adviser'} dashboard`;
@@ -859,6 +877,7 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
         <MetricCard label="Active clients" value={activeClients.length} note="Open matters" icon={UsersRound} />
         <MetricCard label="Deadlines next 14 days" value={next14.length} note="Expiry, PPI, filing and actions" icon={CalendarDays} />
         <MetricCard label="Overdue items" value={overdueRows.length} note="Needs attention" icon={AlertTriangle} warning />
+        <MetricCard label="Overdue calendar" value={overdueCalendarItems.length} note="Open appointments in the past" icon={CalendarDays} warning={overdueCalendarItems.length > 0} />
         <MetricCard label="WIP / overdue billing" value={formatCurrency(pendingInvoices.reduce((sum, row) => sum + Number(row.item.amount || 0), 0))} note="Billing not yet invoiced" icon={CreditCard} />
       </div>
 
@@ -1157,7 +1176,7 @@ function ProgressMap({ client }) {
 }
 
 function ClientsWorkspace(props) {
-  const { clients, selectedClient, advisers, caseTypes, deadlineTypes, clientQuery, setClientQuery, adviserFilter, setAdviserFilter, caseTypeFilter, setCaseTypeFilter, setSelectedClientId, onDirtyChange, saveClient, deleteClient, saving } = props;
+  const { clients, selectedClient, advisers, caseTypes, deadlineTypes, clientQuery, setClientQuery, adviserFilter, setAdviserFilter, caseTypeFilter, setCaseTypeFilter, setSelectedClientId, onDirtyChange, saveClient, deleteClient, saving, calendarEntries = [] } = props;
   return (
     <div className="workspace-grid">
       <aside className="panel list-panel">
@@ -1176,17 +1195,18 @@ function ClientsWorkspace(props) {
         </div>
       </aside>
       <section className="panel detail-panel">
-        <ClientEditor client={selectedClient} advisers={advisers} caseTypes={caseTypes} deadlineTypes={deadlineTypes} saveClient={saveClient} deleteClient={deleteClient} saving={saving} onDirtyChange={onDirtyChange} />
+        <ClientEditor client={selectedClient} advisers={advisers} caseTypes={caseTypes} deadlineTypes={deadlineTypes} calendarEntries={calendarEntries} saveClient={saveClient} deleteClient={deleteClient} saving={saving} onDirtyChange={onDirtyChange} />
       </section>
     </div>
   );
 }
 
-function ClientEditor({ client, advisers, caseTypes, deadlineTypes, saveClient, deleteClient, saving, onDirtyChange }) {
+function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntries = [], saveClient, deleteClient, saving, onDirtyChange }) {
   const [draft, setDraft] = useState(client);
   const [showFullRecord, setShowFullRecord] = useState(false);
   const [showDocumentChecklist, setShowDocumentChecklist] = useState(false);
   const [showActionLog, setShowActionLog] = useState(false);
+  const [showTimeline, setShowTimeline] = useState(false);
   const [customStageLabel, setCustomStageLabel] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
   const [validationMessage, setValidationMessage] = useState('');
@@ -1196,6 +1216,7 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, saveClient, 
     setShowFullRecord(false);
     setShowDocumentChecklist(false);
     setShowActionLog(false);
+    setShowTimeline(false);
     setCustomStageLabel('');
     setStatusMessage('');
     setValidationMessage('');
@@ -1396,9 +1417,10 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, saveClient, 
         <button className="btn dark" type="button" onClick={handleSaveClient} disabled={saving || !isDirty}><Save size={16} />Save changes</button>
       </div>
 
-      <ClientSummaryPanel draft={draft} setField={setField} onOpenActionLog={() => setShowActionLog(true)} />
+      <ClientSummaryPanel draft={draft} setField={setField} onOpenActionLog={() => setShowActionLog(true)} onOpenTimeline={() => setShowTimeline(true)} calendarEntries={calendarEntries} />
 
       {showActionLog && <NextActionLogModal client={draft} onClose={() => setShowActionLog(false)} />}
+      {showTimeline && <ClientTimelineModal client={draft} calendarEntries={calendarEntries} advisers={advisers} onClose={() => setShowTimeline(false)} />}
 
       <div className="client-record-toggle document-checklist-toggle">
         <button className="btn" type="button" onClick={() => setShowDocumentChecklist((value) => !value)}>{showDocumentChecklist ? 'Hide document checklist' : 'Show document checklist'}</button>
@@ -1751,16 +1773,23 @@ function PersonalTasksPanel({ personalTasks, allClients, advisers, dashboardAdvi
 }
 
 
-function CalendarWorkspace({ entries, clients, scopedClients, advisers, dashboardAdviserFilter, saveCalendarEntry, deleteCalendarEntry, saving, openClientRecord }) {
+function CalendarWorkspace({ entries, clients, scopedClients, advisers, dashboardAdviserFilter, saveCalendarEntry, deleteCalendarEntry, saveClient, saving, openClientRecord, onDirtyChange }) {
   const [viewMode, setViewMode] = useState('current');
   const [selectedMonth, setSelectedMonth] = useState(currentMonthInput());
   const [calendarSearch, setCalendarSearch] = useState('');
   const [draft, setDraft] = useState(null);
   const [calendarMessage, setCalendarMessage] = useState('');
+  const [editorDirty, setEditorDirty] = useState(false);
+  const [followUpDraft, setFollowUpDraft] = useState(makeBlankCalendarFollowUp());
 
   const defaultAdviserId = dashboardAdviserFilter !== 'all' ? dashboardAdviserFilter : advisers[0]?.id || '';
   const scopeLabel = dashboardAdviserFilter === 'all' ? 'All advisers' : advisers.find((adviser) => adviser.id === dashboardAdviserFilter)?.name || 'Selected adviser';
   const range = useMemo(() => calendarViewRange(viewMode, selectedMonth), [viewMode, selectedMonth]);
+
+  useEffect(() => {
+    onDirtyChange?.(editorDirty);
+    return () => onDirtyChange?.(false);
+  }, [editorDirty, onDirtyChange]);
 
   const visibleEntries = useMemo(() => {
     const q = calendarSearch.trim().toLowerCase();
@@ -1771,17 +1800,35 @@ function CalendarWorkspace({ entries, clients, scopedClients, advisers, dashboar
   }, [entries, range, calendarSearch, clients, advisers]);
 
   const openEntries = visibleEntries.filter((entry) => entry.status !== 'Completed');
+  const overdueOpenEntries = openEntries.filter((entry) => dateDiff(entry.appointmentDate) < 0);
   const linkedEntries = visibleEntries.filter((entry) => entry.clientId);
   const monthKeys = calendarMonthKeys(range.start, viewMode === 'three' ? 3 : 1);
 
+  function confirmDiscardCalendarDraft() {
+    return !editorDirty || window.confirm('You have unsaved calendar changes. Discard those changes?');
+  }
+
+  function closeEditor() {
+    if (!confirmDiscardCalendarDraft()) return;
+    setDraft(null);
+    setFollowUpDraft(makeBlankCalendarFollowUp());
+    setEditorDirty(false);
+  }
+
   function startNew(dateValue = '') {
+    if (!confirmDiscardCalendarDraft()) return;
     setCalendarMessage('');
     setDraft(makeBlankCalendarEntry(defaultAdviserId, dateValue || todayIso()));
+    setFollowUpDraft(makeBlankCalendarFollowUp());
+    setEditorDirty(false);
   }
 
   function editEntry(entry) {
+    if (!confirmDiscardCalendarDraft()) return;
     setCalendarMessage('');
     setDraft(normaliseCalendarEntry(entry));
+    setFollowUpDraft(makeBlankCalendarFollowUp());
+    setEditorDirty(false);
   }
 
   async function saveDraft() {
@@ -1791,23 +1838,58 @@ function CalendarWorkspace({ entries, clients, scopedClients, advisers, dashboar
       return;
     }
     await saveCalendarEntry(draft);
-    setCalendarMessage(`Calendar entry saved ${formatTimeNow()}.`);
+    if (followUpDraft.enabled && draft.clientId && (followUpDraft.action.trim() || followUpDraft.dueDate)) {
+      const linkedClient = clients.find((client) => client.id === draft.clientId);
+      if (linkedClient) {
+        await saveClient({
+          ...linkedClient,
+          nextAction: followUpDraft.action.trim() || `Follow up: ${draft.title || 'Appointment'}`,
+          nextActionDue: followUpDraft.dueDate || '',
+        });
+      }
+    }
+    setCalendarMessage(followUpDraft.enabled && draft.clientId ? `Calendar entry saved and client follow-up action updated ${formatTimeNow()}.` : `Calendar entry saved ${formatTimeNow()}.`);
     setDraft(null);
+    setFollowUpDraft(makeBlankCalendarFollowUp());
+    setEditorDirty(false);
   }
 
   async function deleteDraft() {
     if (!draft || String(draft.id || '').startsWith('temp-')) {
       setDraft(null);
+      setFollowUpDraft(makeBlankCalendarFollowUp());
+      setEditorDirty(false);
       return;
     }
     await deleteCalendarEntry(draft.id);
     setCalendarMessage('Calendar entry deleted.');
     setDraft(null);
+    setFollowUpDraft(makeBlankCalendarFollowUp());
+    setEditorDirty(false);
   }
 
   function updateDraft(field, value) {
     setCalendarMessage('');
-    setDraft((current) => ({ ...(current || makeBlankCalendarEntry(defaultAdviserId)), [field]: value }));
+    setEditorDirty(true);
+    setDraft((current) => {
+      const base = current || makeBlankCalendarEntry(defaultAdviserId);
+      const next = { ...base, [field]: value };
+      if (field === 'status' && value === 'Completed' && base.status !== 'Completed' && base.clientId) {
+        setFollowUpDraft((existing) => ({
+          ...existing,
+          enabled: true,
+          action: existing.action || `Follow up after ${base.title || 'appointment'}`,
+          dueDate: existing.dueDate || addDaysIso(base.appointmentDate || todayIso(), 1),
+        }));
+      }
+      return next;
+    });
+  }
+
+  function updateFollowUp(patch) {
+    setCalendarMessage('');
+    setEditorDirty(true);
+    setFollowUpDraft((current) => ({ ...current, ...patch }));
   }
 
   return (
@@ -1820,9 +1902,10 @@ function CalendarWorkspace({ entries, clients, scopedClients, advisers, dashboar
         <button className="btn dark" type="button" onClick={() => startNew()}><Plus size={16} />Book appointment</button>
       </section>
 
-      <div className="metric-grid three">
+      <div className="metric-grid four">
         <MetricCard label="Appointments shown" value={visibleEntries.length} note={periodLabel(range)} icon={CalendarDays} />
         <MetricCard label="Open calendar tasks" value={openEntries.length} note="Appear in dashboard/tasks" icon={ListChecks} />
+        <MetricCard label="Overdue appointments" value={overdueOpenEntries.length} note="Open entries in the past" icon={AlertTriangle} warning={overdueOpenEntries.length > 0} />
         <MetricCard label="Linked to clients" value={linkedEntries.length} note="Appointments with client context" icon={UsersRound} />
       </div>
 
@@ -1881,7 +1964,7 @@ function CalendarWorkspace({ entries, clients, scopedClients, advisers, dashboar
                                 <span className="calendar-time-pill">{calendarEntryTimeLabel(entry) || 'No time'}</span>
                                 <span>
                                   <strong>{entry.title || 'Appointment'}</strong>
-                                  <small>{linkedClient ? `${linkedClient.firstName} ${linkedClient.lastName}` : 'No linked client'}{adviser ? ` · ${adviser.name}` : ''}</small>
+                                  <small>{entry.appointmentType || 'Client meeting'} · {linkedClient ? `${linkedClient.firstName} ${linkedClient.lastName}` : 'No linked client'}{adviser ? ` · ${adviser.name}` : ''}</small>
                                   <small>{entry.location || entry.notes || (entry.status === 'Completed' ? 'Completed' : 'Open task')}</small>
                                 </span>
                                 <DeadlineBadge diff={dateDiff(entry.appointmentDate)} />
@@ -1907,10 +1990,11 @@ function CalendarWorkspace({ entries, clients, scopedClients, advisers, dashboar
                   <h2>{String(draft.id || '').startsWith('temp-') ? 'Book appointment' : 'Edit appointment'}</h2>
                   <p className="muted">Link to a client where possible so this appears with the right file context.</p>
                 </div>
-                <button className="icon-btn" type="button" onClick={() => setDraft(null)} aria-label="Close calendar editor"><X size={18} /></button>
+                <button className="icon-btn" type="button" onClick={closeEditor} aria-label="Close calendar editor"><X size={18} /></button>
               </div>
               <div className="calendar-editor-form">
                 <label className="field"><span>Appointment title</span><input value={draft.title || ''} onChange={(event) => updateDraft('title', event.target.value)} placeholder="e.g. Client call, lodgement review, document chase" /></label>
+                <label className="field"><span>Appointment type</span><select value={draft.appointmentType || 'Client meeting'} onChange={(event) => updateDraft('appointmentType', event.target.value)}>{APPOINTMENT_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
                 <label className="field"><span>Linked client</span><select value={draft.clientId || ''} onChange={(event) => updateDraft('clientId', event.target.value)}><option value="">No linked client</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.firstName} {client.lastName} - {client.caseType || 'No case type'}</option>)}</select></label>
                 <label className="field"><span>Adviser</span><select value={draft.adviserId || ''} onChange={(event) => updateDraft('adviserId', event.target.value)}><option value="">Unassigned</option>{advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}</select></label>
                 <div className="calendar-time-grid">
@@ -1921,6 +2005,18 @@ function CalendarWorkspace({ entries, clients, scopedClients, advisers, dashboar
                 <label className="field"><span>Location / channel</span><input value={draft.location || ''} onChange={(event) => updateDraft('location', event.target.value)} placeholder="Office, phone, Teams, Zoom, INZ, etc." /></label>
                 <label className="field"><span>Status</span><select value={draft.status || 'Open'} onChange={(event) => updateDraft('status', event.target.value)}><option value="Open">Open - show as task</option><option value="Completed">Completed - hide from active tasks</option></select></label>
                 <label className="field"><span>Notes</span><textarea value={draft.notes || ''} rows={5} onChange={(event) => updateDraft('notes', event.target.value)} placeholder="Brief appointment notes or preparation points" /></label>
+                {draft.status === 'Completed' && draft.clientId && (
+                  <section className="calendar-followup-box">
+                    <label className="compact-check"><input type="checkbox" checked={followUpDraft.enabled} onChange={(event) => updateFollowUp({ enabled: event.target.checked })} />Create/update the linked client's next action</label>
+                    {followUpDraft.enabled && (
+                      <div className="calendar-followup-grid">
+                        <label className="field"><span>Follow-up action</span><input value={followUpDraft.action} onChange={(event) => updateFollowUp({ action: event.target.value })} placeholder="e.g. Send meeting notes and request missing documents" /></label>
+                        <label className="field"><span>Follow-up due date</span><input type="date" value={followUpDraft.dueDate} onChange={(event) => updateFollowUp({ dueDate: event.target.value })} /></label>
+                      </div>
+                    )}
+                  </section>
+                )}
+                {editorDirty && <p className="inline-status">Unsaved calendar changes.</p>}
                 <div className="button-row calendar-editor-actions">
                   <button className="btn dark" type="button" onClick={saveDraft} disabled={saving}><Save size={16} />Save appointment</button>
                   <button className="btn danger" type="button" onClick={deleteDraft} disabled={saving}><Trash2 size={16} />{String(draft.id || '').startsWith('temp-') ? 'Discard' : 'Delete'}</button>
@@ -2086,11 +2182,12 @@ function DateWithAgeField({ label, value, onChange }) {
 
 
 
-function ClientSummaryPanel({ draft, setField, onOpenActionLog }) {
+function ClientSummaryPanel({ draft, setField, onOpenActionLog, onOpenTimeline, calendarEntries = [] }) {
   const link = normaliseExternalUrl(draft.sharepointFolderUrl);
   const hasValue = Boolean(String(draft.sharepointFolderUrl || '').trim());
   const looksSharePoint = isSharePointLike(draft.sharepointFolderUrl);
   const [copyMessage, setCopyMessage] = useState('');
+  const linkedCalendarCount = calendarEntries.filter((entry) => entry.clientId === draft.id).length;
 
   async function copyLink() {
     if (!hasValue) return;
@@ -2129,6 +2226,7 @@ function ClientSummaryPanel({ draft, setField, onOpenActionLog }) {
       </div>
       <div className="next-action-log-strip">
         <button className="btn" type="button" onClick={onOpenActionLog}><Clock size={16} />Next action log <span className="button-count">{normaliseNextActionLog(draft.nextActionLog).length}</span></button>
+        <button className="btn" type="button" onClick={onOpenTimeline}><CalendarDays size={16} />Timeline <span className="button-count">{linkedCalendarCount}</span></button>
         <span>Previous next actions are logged when the next action or date is changed and the client record is saved.</span>
       </div>
       <div className="summary-sharepoint-row">
@@ -2187,6 +2285,48 @@ function NextActionLogModal({ client, onClose }) {
             </div>
           ))}
           {!log.length && <p className="muted center">No previous next actions have been logged yet. The current next action will be added here after it is changed and the client record is saved.</p>}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+
+function ClientTimelineModal({ client, calendarEntries = [], advisers = [], onClose }) {
+  const timelineItems = buildClientTimelineItems(client, calendarEntries, advisers);
+  const openCalendarCount = calendarEntries.filter((entry) => entry.clientId === client.id && entry.status !== 'Completed').length;
+
+  return (
+    <div className="modal-layer" role="dialog" aria-modal="true" aria-label="Client timeline">
+      <div className="modal-backdrop" onClick={onClose} />
+      <section className="modal-card timeline-modal">
+        <div className="modal-head">
+          <div>
+            <span>Client file history</span>
+            <h2>Timeline</h2>
+            <p className="muted">Chronological view for {client.firstName || 'this'} {client.lastName || 'client'} across actions, appointments, stages, documents and billing.</p>
+          </div>
+          <button className="icon-btn" type="button" onClick={onClose} aria-label="Close client timeline"><X size={18} /></button>
+        </div>
+
+        <div className="timeline-summary-grid">
+          <div><span>Current next action</span><strong>{client.nextAction || 'None recorded'}</strong><small>{client.nextActionDue ? `Due ${client.nextActionDue}` : 'No due date'}</small></div>
+          <div><span>Linked calendar entries</span><strong>{calendarEntries.filter((entry) => entry.clientId === client.id).length}</strong><small>{openCalendarCount} open</small></div>
+          <div><span>Logged actions</span><strong>{normaliseNextActionLog(client.nextActionLog).length}</strong><small>Saved next-action history</small></div>
+        </div>
+
+        <div className="timeline-list">
+          {timelineItems.map((item) => (
+            <div className={`timeline-row ${item.statusKey || ''}`} key={item.id}>
+              <div className="timeline-date"><strong>{item.date || 'No date'}</strong><small>{item.category}</small></div>
+              <div className="timeline-body">
+                <div className="timeline-title-row"><strong>{item.title}</strong>{item.badge && <span>{item.badge}</span>}</div>
+                {item.detail && <p>{item.detail}</p>}
+                {item.meta && <small>{item.meta}</small>}
+              </div>
+            </div>
+          ))}
+          {!timelineItems.length && <p className="muted center">No timeline items yet. Actions, linked calendar appointments, completed stages, document expiries and billing events will appear here as the file develops.</p>}
         </div>
       </section>
     </div>
@@ -2394,6 +2534,7 @@ function makeBlankCalendarEntry(defaultAdviserId = '', defaultDate = '') {
     clientId: '',
     adviserId: defaultAdviserId || '',
     title: 'Appointment',
+    appointmentType: APPOINTMENT_TYPES[0],
     appointmentDate: defaultDate || todayIso(),
     startTime: '',
     endTime: '',
@@ -2403,6 +2544,10 @@ function makeBlankCalendarEntry(defaultAdviserId = '', defaultDate = '') {
   };
 }
 
+function makeBlankCalendarFollowUp() {
+  return { enabled: false, action: '', dueDate: '' };
+}
+
 function normaliseCalendarEntry(entry = {}) {
   const timePattern = /^\d{2}:\d{2}$/;
   return {
@@ -2410,6 +2555,7 @@ function normaliseCalendarEntry(entry = {}) {
     clientId: entry.clientId || '',
     adviserId: entry.adviserId || '',
     title: String(entry.title || 'Appointment').trim() || 'Appointment',
+    appointmentType: APPOINTMENT_TYPES.includes(entry.appointmentType) ? entry.appointmentType : APPOINTMENT_TYPES[0],
     appointmentDate: /^\d{4}-\d{2}-\d{2}$/.test(String(entry.appointmentDate || '')) ? String(entry.appointmentDate) : todayIso(),
     startTime: timePattern.test(String(entry.startTime || '')) ? String(entry.startTime) : '',
     endTime: timePattern.test(String(entry.endTime || '')) ? String(entry.endTime) : '',
@@ -2428,7 +2574,7 @@ function calendarEntrySearchText(entry = {}, clients = [], advisers = []) {
   const client = clients.find((item) => item.id === entry.clientId);
   const adviser = advisers.find((item) => item.id === entry.adviserId);
   return [
-    entry.title, entry.appointmentDate, entry.startTime, entry.endTime, entry.location, entry.notes, entry.status,
+    entry.title, entry.appointmentType, entry.appointmentDate, entry.startTime, entry.endTime, entry.location, entry.notes, entry.status,
     client?.firstName, client?.lastName, client?.email, client?.caseType, client?.caseStrategy,
     adviser?.name, adviser?.email,
   ].join(' ').toLowerCase();
@@ -2749,6 +2895,12 @@ function addMonths(date, months) {
   return next;
 }
 
+function addDaysIso(dateValue, days) {
+  const date = parseLocalDate(dateValue) || new Date();
+  date.setDate(date.getDate() + Number(days || 0));
+  return toIsoDate(date);
+}
+
 function toIsoDate(date) {
   const value = date instanceof Date ? date : new Date(date);
   if (Number.isNaN(value.getTime())) return '';
@@ -2804,6 +2956,101 @@ function calculateAge(dateValue) {
 }
 
 
+
+function buildClientTimelineItems(client = {}, calendarEntries = [], advisers = []) {
+  const items = [];
+  const clientId = client.id;
+
+  if (client.nextAction || client.nextActionDue) {
+    items.push({
+      id: `${clientId}-current-next-action`,
+      date: client.nextActionDue || todayIso(),
+      category: 'Current next action',
+      title: client.nextAction || 'No action text recorded',
+      detail: client.nextActionDue ? `Due ${client.nextActionDue}` : 'No due date recorded',
+      badge: 'Current',
+      statusKey: dateDiff(client.nextActionDue) < 0 ? 'overdue' : '',
+    });
+  }
+
+  normaliseNextActionLog(client.nextActionLog).forEach((item) => {
+    items.push({
+      id: `${clientId}-action-log-${item.id}`,
+      date: item.completedDate || item.dueDate || '',
+      category: 'Next action log',
+      title: item.action || 'Previous next action',
+      detail: item.replacedByAction ? `Replaced by: ${item.replacedByAction}` : 'Previous scheduled action was replaced or completed.',
+      meta: [item.dueDate ? `Was due ${item.dueDate}` : '', item.replacedByDueDate ? `New due date ${item.replacedByDueDate}` : ''].filter(Boolean).join(' · '),
+      badge: 'Logged',
+    });
+  });
+
+  calendarEntries
+    .filter((entry) => entry.clientId === clientId)
+    .forEach((entry) => {
+      const adviser = advisers.find((item) => item.id === entry.adviserId);
+      items.push({
+        id: `${clientId}-calendar-${entry.id}`,
+        date: entry.appointmentDate || '',
+        category: 'Calendar',
+        title: entry.title || 'Appointment',
+        detail: [calendarEntryTimeLabel(entry), entry.appointmentType || APPOINTMENT_TYPES[0], entry.location].filter(Boolean).join(' · '),
+        meta: [adviser?.name, entry.notes].filter(Boolean).join(' · '),
+        badge: entry.status === 'Completed' ? 'Completed' : 'Open',
+        statusKey: entry.status !== 'Completed' && dateDiff(entry.appointmentDate) < 0 ? 'overdue' : entry.status === 'Completed' ? 'completed' : '',
+      });
+    });
+
+  (client.stages || [])
+    .filter((stage) => stage.applied && stage.completed && stage.completedDate)
+    .forEach((stage) => {
+      items.push({
+        id: `${clientId}-stage-${stage.id}`,
+        date: stage.completedDate,
+        category: 'Matter stage',
+        title: `${stage.label} completed`,
+        detail: stage.custom ? 'Custom matter stage' : (stage.mandatory ? 'Mandatory stage' : 'Optional stage'),
+        badge: 'Completed',
+        statusKey: 'completed',
+      });
+    });
+
+  normaliseDocumentChecklist(client.documentChecklist)
+    .filter((item) => item.applied && item.expiryDate)
+    .forEach((item) => {
+      items.push({
+        id: `${clientId}-document-${item.id}`,
+        date: item.expiryDate,
+        category: 'Document expiry',
+        title: `${item.name} expiry`,
+        detail: item.obtained ? 'Document marked as obtained.' : 'Document not yet marked as obtained.',
+        badge: item.obtained ? 'Obtained' : 'Outstanding',
+        statusKey: dateDiff(item.expiryDate) < 0 ? 'overdue' : '',
+      });
+    });
+
+  normaliseBillingItems(client.billing || []).forEach((item) => {
+    const date = billingReportingDate(item, client);
+    if (!date) return;
+    const status = effectiveBillingStatus(item, client);
+    items.push({
+      id: `${clientId}-billing-${item.id || item.milestone}`,
+      date,
+      category: 'Billing',
+      title: item.milestone || 'Billing item',
+      detail: `${formatCurrency(item.amount)} · ${billingTriggerLabel(item, client)}`,
+      meta: item.invoiceNo ? `Invoice ${item.invoiceNo}` : 'No invoice number recorded',
+      badge: status,
+      statusKey: status === 'Overdue' ? 'overdue' : status === 'Invoiced' ? 'completed' : '',
+    });
+  });
+
+  return items
+    .filter((item) => item.title)
+    .sort((a, b) => (b.date || '0000-00-00').localeCompare(a.date || '0000-00-00') || a.category.localeCompare(b.category))
+    .slice(0, 120);
+}
+
 function documentExpiryRowsForClient(client) {
   return normaliseDocumentChecklist(client.documentChecklist)
     .filter((item) => item.applied && item.expiryDate)
@@ -2830,7 +3077,7 @@ function calendarDeadlineRows(entries = [], clients = []) {
         calendarEntry: entry,
         type: 'Calendar Appointment',
         date: entry.appointmentDate,
-        note: [calendarEntryTimeLabel(entry), entry.title, entry.notes].filter(Boolean).join(' · '),
+        note: [calendarEntryTimeLabel(entry), entry.appointmentType, entry.title, entry.notes].filter(Boolean).join(' · '),
         source: 'calendar-entry',
         diff: dateDiff(entry.appointmentDate),
       };
@@ -2850,7 +3097,7 @@ function calendarTaskRows(entries = [], clients = []) {
         adviserId: entry.adviserId || linkedClient?.primaryAdviserId || '',
         type: 'Calendar Appointment',
         date: entry.appointmentDate,
-        note: [calendarEntryTimeLabel(entry), entry.title, entry.location, entry.notes].filter(Boolean).join(' · '),
+        note: [calendarEntryTimeLabel(entry), entry.appointmentType, entry.title, entry.location, entry.notes].filter(Boolean).join(' · '),
         source: 'calendar-entry',
         diff: dateDiff(entry.appointmentDate),
       };
@@ -2966,7 +3213,7 @@ function taskSearchText(row) {
   return [
     row.type, row.note, row.date,
     row.client?.firstName, row.client?.lastName, row.client?.email, row.client?.caseType, row.client?.caseStrategy,
-    row.calendarEntry?.title, row.calendarEntry?.location, row.calendarEntry?.notes,
+    row.calendarEntry?.title, row.calendarEntry?.appointmentType, row.calendarEntry?.location, row.calendarEntry?.notes,
     row.personalTask?.title, row.personalTask?.note
   ].join(' ').toLowerCase();
 }

@@ -42,6 +42,8 @@ const DEADLINE_TYPES = [
   'Filing Deadline Date',
 ];
 
+const APPOINTMENT_TYPES = ['Client meeting', 'Adviser review', 'Lodgement target', 'Document follow-up', 'INZ call', 'Billing follow-up', 'Internal review', 'Other'];
+
 const DOCUMENT_CHECKLIST_TEMPLATES = [
   { id: 'passports', name: 'Passports' },
   { id: 'passport-photos', name: 'Passport photos' },
@@ -247,6 +249,7 @@ async function ensureSchema() {
       client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
       adviser_id UUID REFERENCES advisers(id) ON DELETE SET NULL,
       title TEXT NOT NULL,
+      appointment_type TEXT NOT NULL DEFAULT 'Client meeting',
       appointment_date DATE NOT NULL,
       start_time TEXT,
       end_time TEXT,
@@ -263,6 +266,7 @@ async function ensureSchema() {
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS document_checklist JSONB NOT NULL DEFAULT '[]'::jsonb`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS sharepoint_folder_url TEXT`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS next_action_log JSONB NOT NULL DEFAULT '[]'::jsonb`;
+  await database.sql`ALTER TABLE calendar_entries ADD COLUMN IF NOT EXISTS appointment_type TEXT NOT NULL DEFAULT 'Client meeting'`;
   await database.sql`ALTER TABLE billing_milestones ADD COLUMN IF NOT EXISTS billing_trigger_type TEXT NOT NULL DEFAULT 'Date'`;
   await database.sql`ALTER TABLE billing_milestones ADD COLUMN IF NOT EXISTS billing_stage_key TEXT`;
   await database.sql`UPDATE billing_milestones SET status = 'WIP' WHERE status IN ('Draft', 'Scheduled')`;
@@ -288,7 +292,7 @@ async function readCrmData() {
     database.sql`SELECT id, client_id, deadline_type, deadline_date, note FROM client_deadlines ORDER BY deadline_date ASC NULLS LAST`,
     database.sql`SELECT id, client_id, milestone, due_date, amount, status, invoice_no, billing_trigger_type, billing_stage_key FROM billing_milestones ORDER BY due_date ASC NULLS LAST`,
     database.sql`SELECT id, adviser_id, client_id, title, due_date, status, note FROM personal_tasks ORDER BY due_date ASC NULLS LAST, created_at DESC`,
-    database.sql`SELECT id, client_id, adviser_id, title, appointment_date, start_time, end_time, location, notes, status FROM calendar_entries ORDER BY appointment_date ASC, start_time ASC NULLS LAST, created_at DESC`,
+    database.sql`SELECT id, client_id, adviser_id, title, appointment_type, appointment_date, start_time, end_time, location, notes, status FROM calendar_entries ORDER BY appointment_date ASC, start_time ASC NULLS LAST, created_at DESC`,
   ]);
 
   return {
@@ -332,6 +336,7 @@ function mapCalendarEntryFromDb(row) {
     clientId: row.client_id || '',
     adviserId: row.adviser_id || '',
     title: row.title || '',
+    appointmentType: normaliseAppointmentType(row.appointment_type),
     appointmentDate: toDateOnly(row.appointment_date),
     startTime: row.start_time || '',
     endTime: row.end_time || '',
@@ -521,6 +526,7 @@ async function saveCalendarEntry(input = {}) {
       SET client_id = ${nullableUuid(entry.clientId)},
           adviser_id = ${nullableUuid(entry.adviserId)},
           title = ${entry.title || 'Appointment'},
+          appointment_type = ${normaliseAppointmentType(entry.appointmentType)},
           appointment_date = ${nullableDate(entry.appointmentDate) || todayDateOnly()},
           start_time = ${entry.startTime || ''},
           end_time = ${entry.endTime || ''},
@@ -529,15 +535,15 @@ async function saveCalendarEntry(input = {}) {
           status = ${entry.status === 'Completed' ? 'Completed' : 'Open'},
           updated_at = NOW()
       WHERE id = ${id}
-      RETURNING id, client_id, adviser_id, title, appointment_date, start_time, end_time, location, notes, status
+      RETURNING id, client_id, adviser_id, title, appointment_type, appointment_date, start_time, end_time, location, notes, status
     `;
     return mapCalendarEntryFromDb(rows[0]);
   }
 
   const rows = await database.sql`
-    INSERT INTO calendar_entries (client_id, adviser_id, title, appointment_date, start_time, end_time, location, notes, status)
-    VALUES (${nullableUuid(entry.clientId)}, ${nullableUuid(entry.adviserId)}, ${entry.title || 'Appointment'}, ${nullableDate(entry.appointmentDate) || todayDateOnly()}, ${entry.startTime || ''}, ${entry.endTime || ''}, ${entry.location || ''}, ${entry.notes || ''}, ${entry.status === 'Completed' ? 'Completed' : 'Open'})
-    RETURNING id, client_id, adviser_id, title, appointment_date, start_time, end_time, location, notes, status
+    INSERT INTO calendar_entries (client_id, adviser_id, title, appointment_type, appointment_date, start_time, end_time, location, notes, status)
+    VALUES (${nullableUuid(entry.clientId)}, ${nullableUuid(entry.adviserId)}, ${entry.title || 'Appointment'}, ${normaliseAppointmentType(entry.appointmentType)}, ${nullableDate(entry.appointmentDate) || todayDateOnly()}, ${entry.startTime || ''}, ${entry.endTime || ''}, ${entry.location || ''}, ${entry.notes || ''}, ${entry.status === 'Completed' ? 'Completed' : 'Open'})
+    RETURNING id, client_id, adviser_id, title, appointment_type, appointment_date, start_time, end_time, location, notes, status
   `;
   return mapCalendarEntryFromDb(rows[0]);
 }
@@ -689,12 +695,19 @@ function normalisePersonalTaskInput(input = {}) {
   };
 }
 
+
+function normaliseAppointmentType(value) {
+  const type = String(value || '').trim();
+  return APPOINTMENT_TYPES.includes(type) ? type : APPOINTMENT_TYPES[0];
+}
+
 function normaliseCalendarEntryInput(input = {}) {
   return {
     id: input.id,
     clientId: input.clientId || '',
     adviserId: input.adviserId || '',
     title: String(input.title || '').trim() || 'Appointment',
+    appointmentType: normaliseAppointmentType(input.appointmentType),
     appointmentDate: nullableDate(input.appointmentDate) || todayDateOnly(),
     startTime: /^\d{2}:\d{2}$/.test(String(input.startTime || '')) ? String(input.startTime) : '',
     endTime: /^\d{2}:\d{2}$/.test(String(input.endTime || '')) ? String(input.endTime) : '',

@@ -1612,3 +1612,97 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   }
   .calendar-entry-card { align-items: start; }
 }
+
+/* v0.7.3: client timeline and calendar follow-up polish */
+.timeline-modal { width: min(920px, 96vw); }
+.timeline-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 16px 0;
+}
+.timeline-summary-grid > div {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--pale);
+  padding: 14px;
+  min-width: 0;
+}
+.timeline-summary-grid span,
+.timeline-summary-grid small {
+  display: block;
+  color: var(--muted);
+}
+.timeline-summary-grid span {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 11px;
+  font-weight: 850;
+  margin-bottom: 6px;
+}
+.timeline-summary-grid strong {
+  display: block;
+  color: var(--ink);
+  line-height: 1.35;
+}
+.timeline-summary-grid small { margin-top: 5px; }
+.timeline-list { display: grid; gap: 12px; }
+.timeline-row {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+  padding: 14px;
+}
+.timeline-row.overdue { border-color: #fecaca; background: #fff7f7; }
+.timeline-row.completed { background: #f8fafc; }
+.timeline-date strong,
+.timeline-date small,
+.timeline-body small { display: block; }
+.timeline-date strong { color: var(--ink); }
+.timeline-date small,
+.timeline-body small { color: var(--muted); margin-top: 4px; }
+.timeline-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.timeline-title-row strong { color: var(--ink); line-height: 1.35; }
+.timeline-title-row span {
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 850;
+  color: var(--ink);
+  background: var(--pale);
+}
+.timeline-body p {
+  margin: 6px 0 0;
+  color: var(--text);
+  line-height: 1.45;
+}
+.calendar-followup-box {
+  border: 1px solid var(--line);
+  background: var(--pale);
+  border-radius: 18px;
+  padding: 14px;
+}
+.calendar-followup-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(160px, 0.7fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+.calendar-entry-card.completed .badge { opacity: 0.7; }
+@media (max-width: 720px) {
+  .timeline-summary-grid,
+  .timeline-row,
+  .calendar-followup-grid {
+    grid-template-columns: 1fr;
+  }
+}

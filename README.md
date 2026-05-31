@@ -1,4 +1,4 @@
-# Turner Hopkins CRM - Netlify Database v0.7.2
+# Turner Hopkins CRM - Netlify Database v0.7.3
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
@@ -144,3 +144,14 @@ Document checklist hidden items now show only the document name, greyed out, wit
 - Open calendar appointments appear as task-style bring-up items in the Dashboard and Tasks page.
 - Completed calendar appointments remain in the calendar but are removed from active task views.
 - Adds migration `202605310002_add_calendar_entries.sql`.
+
+
+## v0.7.3
+
+- Added a client Timeline modal from the client quick view.
+- Timeline shows current next action, logged previous next actions, linked calendar entries, completed matter stages, document expiries and billing events.
+- Added appointment type to calendar entries. New migration: `202605310003_add_calendar_appointment_type.sql`.
+- Added optional follow-up next action creation when completing a linked calendar appointment.
+- Added unsaved-change protection inside the Calendar editor.
+- Added dashboard/calendar counts for overdue open appointments.
+- Updated Calendar and Clients help content to explain the new workflow.
