@@ -1207,6 +1207,9 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
   const [showDocumentChecklist, setShowDocumentChecklist] = useState(false);
   const [showActionLog, setShowActionLog] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
+  const [showMatterStages, setShowMatterStages] = useState(false);
+  const [showClientDeadlines, setShowClientDeadlines] = useState(false);
+  const [showClientBilling, setShowClientBilling] = useState(false);
   const [customStageLabel, setCustomStageLabel] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
   const [validationMessage, setValidationMessage] = useState('');
@@ -1217,6 +1220,9 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
     setShowDocumentChecklist(false);
     setShowActionLog(false);
     setShowTimeline(false);
+    setShowMatterStages(false);
+    setShowClientDeadlines(false);
+    setShowClientBilling(false);
     setCustomStageLabel('');
     setStatusMessage('');
     setValidationMessage('');
@@ -1396,6 +1402,13 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
     }
   }
 
+  const appliedStageCount = appliedStages(draft).length;
+  const completedStageCount = completedStages(draft).length;
+  const deadlineCount = (draft.deadlines || []).length;
+  const billingItems = normaliseBillingItems(draft.billing || []);
+  const activeBillingItems = billingItems.filter((item) => effectiveBillingStatus(item, draft) !== 'Invoiced');
+  const activeBillingAmount = activeBillingItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
   return (
     <div>
       <div className="detail-header">
@@ -1472,7 +1485,12 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
         <TextArea label="Notes" value={draft.notes} onChange={(v) => setField('notes', v)} />
       </div>
 
-      <section className="sub-panel">
+      <ExpandableClientSection
+        title="matter stages"
+        isOpen={showMatterStages}
+        onToggle={() => setShowMatterStages((value) => !value)}
+        summary={`${completedStageCount}/${appliedStageCount || 0} applied stages complete. Expand to apply, reorder or complete stages.`}
+      >
         <h2>Matter stages</h2>
         <p className="muted">Mandatory stages always apply. Optional and custom stages can be added, removed or reordered before saving the client.</p>
         <div className="stage-add-row">
@@ -1493,9 +1511,14 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
             </div>
           ))}
         </div>
-      </section>
+      </ExpandableClientSection>
 
-      <section className="sub-panel">
+      <ExpandableClientSection
+        title="client deadlines"
+        isOpen={showClientDeadlines}
+        onToggle={() => setShowClientDeadlines((value) => !value)}
+        summary={`${deadlineCount} deadline${deadlineCount === 1 ? '' : 's'} recorded. Expand to add, edit or remove critical dates.`}
+      >
         <div className="sub-panel-head"><div><h2>Client deadline dates</h2><p className="muted">Add only the deadline dates that matter for this client.</p></div><button className="btn" onClick={addDeadline}><Plus size={16} />Deadline</button></div>
         <div className="table-like">
           {(draft.deadlines || []).map((deadline) => (
@@ -1508,9 +1531,14 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
           ))}
           {!draft.deadlines?.length && <p className="muted center">No deadlines added yet.</p>}
         </div>
-      </section>
+      </ExpandableClientSection>
 
-      <section className="sub-panel">
+      <ExpandableClientSection
+        title="billing schedule"
+        isOpen={showClientBilling}
+        onToggle={() => setShowClientBilling((value) => !value)}
+        summary={`${billingItems.length} milestone${billingItems.length === 1 ? '' : 's'} recorded. ${activeBillingItems.length} WIP/overdue totalling ${formatCurrency(activeBillingAmount)}.`}
+      >
         <div className="sub-panel-head"><div><h2>Billing and invoicing schedule</h2><p className="muted">Record milestones only. No documents are stored here.</p></div><button className="btn" onClick={addBilling}><Plus size={16} />Milestone</button></div>
         <div className="table-like">
           {(draft.billing || []).map((rawItem) => {
@@ -1540,10 +1568,26 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
           );})}
           {!draft.billing?.length && <p className="muted center">No billing milestones added yet.</p>}
         </div>
-      </section>
+      </ExpandableClientSection>
         </>
       )}
     </div>
+  );
+}
+
+
+function ExpandableClientSection({ title, summary, isOpen, onToggle, children }) {
+  return (
+    <>
+      <div className={`client-record-toggle section-toggle ${isOpen ? 'open' : ''}`}>
+        <button className="btn" type="button" onClick={onToggle}>
+          <ChevronRight size={16} className="section-toggle-icon" />
+          {isOpen ? `Hide ${title}` : `Show ${title}`}
+        </button>
+        <span>{summary}</span>
+      </div>
+      {isOpen && <section className="sub-panel collapsible-sub-panel">{children}</section>}
+    </>
   );
 }
 
@@ -2038,6 +2082,25 @@ function CalendarWorkspace({ entries, clients, scopedClients, advisers, dashboar
   );
 }
 
+function MonthPicker({ value, onChange }) {
+  const safeValue = normaliseMonthValue(value);
+  const options = useMemo(() => monthOptionsAround(safeValue), [safeValue]);
+
+  function step(months) {
+    onChange(addMonthsToMonthValue(safeValue, months));
+  }
+
+  return (
+    <div className="month-picker">
+      <button type="button" aria-label="Previous month" onClick={() => step(-1)}>‹</button>
+      <select value={safeValue} onChange={(event) => onChange(normaliseMonthValue(event.target.value))} aria-label="Start period">
+        {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+      </select>
+      <button type="button" aria-label="Next month" onClick={() => step(1)}>›</button>
+    </div>
+  );
+}
+
 function BillingDashboard({ billingRows, advisers, adviserFilter, setAdviserFilter, dashboardAdviserFilter, setTab, setSelectedClientId, openClientRecord }) {
   const [periodMode, setPeriodMode] = useState('month');
   const [periodMonth, setPeriodMonth] = useState(currentMonthInput());
@@ -2087,7 +2150,7 @@ function BillingDashboard({ billingRows, advisers, adviserFilter, setAdviserFilt
       <section className="panel">
         <div className="task-toolbar billing-toolbar">
           <label><span>Period</span><select value={periodMode} onChange={(event) => setPeriodMode(event.target.value)}><option value="month">Month</option><option value="3-months">3 months</option><option value="6-months">6 months</option><option value="year">Year</option></select></label>
-          <label><span>Start month</span><input type="month" value={periodMonth} onChange={(event) => setPeriodMonth(event.target.value)} /></label>
+          <label className="billing-period-field"><span>Start period</span><MonthPicker value={periodMonth} onChange={setPeriodMonth} /></label>
           <label><span>Status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">All statuses</option>{BILLING_STATUSES.map((status) => <option key={status}>{status}</option>)}</select></label>
           <label><span>Adviser</span><select value={adviserFilter} onChange={(event) => setAdviserFilter(event.target.value)}><option value="all">All advisers in current view</option>{advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}</select></label>
           <label className="task-search"><span>Search billing</span><div><Search size={16} /><input value={billingSearch} onChange={(event) => setBillingSearch(event.target.value)} placeholder="Client, invoice, item or stage" /></div></label>
@@ -2885,14 +2948,51 @@ function billingTaskForClient(client, item) {
 }
 
 function currentMonthInput() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  return monthValueFromDate(new Date());
+}
+
+function monthValueFromDate(date) {
+  const value = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(value.getTime())) return '';
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function normaliseMonthValue(monthValue) {
+  const match = /^(\d{4})-(\d{2})$/.exec(String(monthValue || ''));
+  if (!match) return currentMonthInput();
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  if (!Number.isFinite(year) || month < 1 || month > 12) return currentMonthInput();
+  return `${year}-${String(month).padStart(2, '0')}`;
 }
 
 function addMonths(date, months) {
   const next = new Date(date);
   next.setMonth(next.getMonth() + months);
   return next;
+}
+
+function addMonthsToMonthValue(monthValue, months) {
+  const [yearRaw, monthRaw] = normaliseMonthValue(monthValue).split('-');
+  const date = new Date(Number(yearRaw), Number(monthRaw) - 1, 1);
+  return monthValueFromDate(addMonths(date, months));
+}
+
+function monthDisplayLabel(monthValue, format = 'long') {
+  const [yearRaw, monthRaw] = normaliseMonthValue(monthValue).split('-');
+  const date = new Date(Number(yearRaw), Number(monthRaw) - 1, 1);
+  const month = format === 'short' ? 'short' : 'long';
+  return new Intl.DateTimeFormat('en-NZ', { month, year: 'numeric' }).format(date);
+}
+
+function monthOptionsAround(monthValue, monthsBack = 24, monthsForward = 36) {
+  const safeValue = normaliseMonthValue(monthValue);
+  const options = [];
+  for (let offset = -monthsBack; offset <= monthsForward; offset += 1) {
+    const value = addMonthsToMonthValue(safeValue, offset);
+    options.push({ value, label: monthDisplayLabel(value) });
+  }
+  return options;
 }
 
 function addDaysIso(dateValue, days) {
@@ -2918,9 +3018,9 @@ function parseLocalDate(dateValue) {
 }
 
 function billingPeriodRange(monthValue, mode) {
-  const [yearRaw, monthRaw] = String(monthValue || currentMonthInput()).split('-');
+  const [yearRaw, monthRaw] = normaliseMonthValue(monthValue).split('-');
   const year = Number(yearRaw);
-  const month = Number(monthRaw || 1) - 1;
+  const month = Number(monthRaw) - 1;
   if (mode === 'year') {
     const start = new Date(year, 0, 1);
     const end = new Date(year + 1, 0, 1);
@@ -2929,10 +3029,13 @@ function billingPeriodRange(monthValue, mode) {
   const months = mode === '6-months' ? 6 : mode === '3-months' ? 3 : 1;
   const start = new Date(year, month, 1);
   const end = addMonths(start, months);
-  return { start: toIsoDate(start), end: toIsoDate(end), label: `${toIsoDate(start)} to ${toIsoDate(addMonths(end, 0)).slice(0, 7)}` };
+  const endMonthValue = monthValueFromDate(addMonths(end, -1));
+  const label = months === 1 ? monthDisplayLabel(monthValue) : `${monthDisplayLabel(monthValue, 'short')} to ${monthDisplayLabel(endMonthValue, 'short')}`;
+  return { start: toIsoDate(start), end: toIsoDate(end), label };
 }
 
 function periodLabel(range) {
+  if (range?.label) return range.label;
   const endDate = parseLocalDate(range.end);
   if (!endDate) return `${range.start} to ${range.end}`;
   endDate.setDate(endDate.getDate() - 1);

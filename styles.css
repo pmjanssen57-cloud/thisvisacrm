@@ -391,6 +391,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   align-items: end;
   margin-bottom: 16px;
 }
+.task-toolbar label { min-width: 0; }
 .task-toolbar label span {
   display: block;
   color: var(--muted);
@@ -400,7 +401,10 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   text-transform: uppercase;
   margin-bottom: 6px;
 }
-.task-toolbar select, .task-search div {
+.task-toolbar select,
+.task-toolbar input,
+.task-search div,
+.month-picker {
   border: 1px solid var(--line);
   border-radius: 14px;
   background: #fff;
@@ -408,7 +412,13 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   width: 100%;
   outline: none;
 }
-.task-toolbar select { padding: 10px 12px; }
+.task-toolbar select,
+.task-toolbar input {
+  min-width: 0;
+  padding: 10px 12px;
+}
+.task-toolbar input { font: inherit; color: var(--ink); }
+.task-toolbar select { text-overflow: ellipsis; }
 .task-search div {
   display: flex;
   align-items: center;
@@ -417,6 +427,33 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 }
 .task-search svg { color: var(--muted); flex: 0 0 auto; }
 .task-search input { border: 0; outline: 0; width: 100%; min-width: 0; padding: 10px 0; }
+.month-picker {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 36px;
+  align-items: stretch;
+  overflow: hidden;
+}
+.month-picker button,
+.task-toolbar .month-picker select {
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  min-height: 41px;
+}
+.month-picker button {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 20px;
+  font-weight: 850;
+  line-height: 1;
+}
+.month-picker button:hover { background: var(--pale); color: var(--ink); }
+.task-toolbar .month-picker select {
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  padding: 10px 8px;
+  min-width: 0;
+}
 .task-table {
   border: 1px solid var(--line);
   border-radius: 18px;
@@ -907,6 +944,27 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   color: var(--muted);
   font-size: 13px;
 }
+
+.section-toggle {
+  margin-top: 16px;
+  margin-bottom: 0;
+}
+.section-toggle .btn {
+  min-width: 210px;
+  justify-content: flex-start;
+}
+.section-toggle-icon {
+  transition: transform 0.16s ease;
+}
+.section-toggle.open .section-toggle-icon {
+  transform: rotate(90deg);
+}
+.collapsible-sub-panel {
+  margin-top: 10px;
+}
+.collapsible-sub-panel > h2:first-child {
+  margin-bottom: 6px;
+}
 @media (max-width: 1050px) {
   .workload-scroll { max-height: 720px; }
 }
@@ -922,8 +980,9 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   margin-top: -4px;
 }
 .billing-toolbar {
-  grid-template-columns: 150px 150px 150px 190px minmax(240px, 1fr);
+  grid-template-columns: minmax(140px, 0.55fr) minmax(220px, 0.9fr) minmax(160px, 0.65fr) minmax(260px, 1fr) minmax(300px, 1.35fr);
 }
+.billing-period-field { min-width: 220px; }
 .billing-head-wide, .billing-line-wide {
   grid-template-columns: 1.25fr 1.25fr 1.1fr 0.75fr 0.75fr 0.75fr 90px;
 }

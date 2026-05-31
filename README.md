@@ -1,4 +1,4 @@
-# Turner Hopkins CRM - Netlify Database v0.7.3
+# Turner Hopkins CRM - Netlify Database v0.7.5
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
@@ -145,13 +145,28 @@ Document checklist hidden items now show only the document name, greyed out, wit
 - Completed calendar appointments remain in the calendar but are removed from active task views.
 - Adds migration `202605310002_add_calendar_entries.sql`.
 
+## v0.7.3 - Client timeline and calendar follow-up polish
 
-## v0.7.3
+- Adds a client Timeline button and modal showing current next action, previous next actions, linked calendar appointments, completed matter stages, document expiry items and billing events.
+- Adds appointment type to calendar entries.
+- Allows a completed linked calendar appointment to create or update the client's next action.
+- Adds unsaved-change protection to the calendar editor.
+- Adds overdue open calendar appointment counts.
+- Adds migration `202605310003_add_calendar_appointment_type.sql`.
 
-- Added a client Timeline modal from the client quick view.
-- Timeline shows current next action, logged previous next actions, linked calendar entries, completed matter stages, document expiries and billing events.
-- Added appointment type to calendar entries. New migration: `202605310003_add_calendar_appointment_type.sql`.
-- Added optional follow-up next action creation when completing a linked calendar appointment.
-- Added unsaved-change protection inside the Calendar editor.
-- Added dashboard/calendar counts for overdue open appointments.
-- Updated Calendar and Clients help content to explain the new workflow.
+## v0.7.4 - Billing filter UI polish
+
+- Replaces the native billing Start month field with a CRM-styled Start period month selector.
+- Adds previous/next month controls for the billing period selector.
+- Improves billing period display labels, for example May 2026 rather than raw ISO date ranges.
+- Widens the billing adviser filter so “All advisers in current view” is not clipped.
+- Applies consistent rounded styling to billing toolbar inputs and filters.
+- No database migration required.
+
+
+## v0.7.5 - Client section expanders
+
+- Makes the Matter stages, Client deadline dates, and Billing and invoicing schedule areas collapsible inside the full client record.
+- Adds summary text to each collapsed section so advisers can see stage progress, deadline count, and active billing totals before opening the section.
+- Keeps the full client record toggle unchanged, but reduces visual clutter once the record is open.
+- No database migration required.
