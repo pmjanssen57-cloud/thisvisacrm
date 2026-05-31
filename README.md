@@ -1,4 +1,4 @@
-# Turner Hopkins CRM - Netlify Database v0.5.5
+# Turner Hopkins CRM - Netlify Database v0.7.0
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
@@ -114,3 +114,16 @@ Adds adviser-specific personal tasks. These can be linked to a client or used as
 ## v0.6.9 update
 
 Document checklist hidden items now show only the document name, greyed out, with the option to include the item again. Expiry and obtained fields are hidden until the item is included.
+
+
+## v0.7.0 - Usability polish
+
+- Reworked date helpers to use local calendar dates rather than UTC string slicing, reducing New Zealand off-by-one date risk.
+- Added unsaved-change protection when switching client records, changing pages, refreshing, or leaving the browser tab.
+- Added a sticky client save/status bar showing unsaved changes and quieter save feedback.
+- Replaced save/copy browser alerts with inline status messages where practical.
+- Added document checklist expiry dates to the task list and next critical dates.
+- Changed document checklist wording from hidden to not required for clearer file-handling language.
+- Added a dashboard safety-net panel for active clients with no next action date.
+- WIP billing with a past reporting date now displays as overdue in billing views while preserving the saved billing status until updated.
+- Uses the public Turner Hopkins logo asset instead of embedding a large base64 logo in the app bundle.
