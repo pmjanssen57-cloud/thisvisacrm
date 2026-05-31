@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowUpDown, CalendarDays, CheckCircle2, ChevronRight, Clock, Copy, CreditCard, Database, ExternalLink, HelpCircle, LayoutDashboard, Link2, ListChecks, LockKeyhole, Plus, RefreshCw, Save, Search, Trash2, UserRound, UsersRound, X } from 'lucide-react';
+import { AlertTriangle, ArrowUpDown, Calculator, CalendarDays, CheckCircle2, ChevronRight, Clock, CloudSun, Copy, CreditCard, Database, DollarSign, ExternalLink, Globe2, HelpCircle, LayoutDashboard, Link2, ListChecks, LockKeyhole, Plus, RefreshCw, Save, Search, Trash2, UserRound, UsersRound, Wrench, X } from 'lucide-react';
 
 const BRAND = {
   ink: '#003736',
@@ -407,6 +407,8 @@ export default function App() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [supportOpen, setSupportOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const [clientEditorDirty, setClientEditorDirty] = useState(false);
   const [calendarEditorDirty, setCalendarEditorDirty] = useState(false);
 
@@ -427,6 +429,7 @@ export default function App() {
     if (!confirmDiscardPendingEdits()) return;
     if (tab === 'clients' && nextTab !== 'clients') setClientEditorDirty(false);
     if (tab === 'calendar' && nextTab !== 'calendar') setCalendarEditorDirty(false);
+    setMobileMoreOpen(false);
     setTab(nextTab);
   }
 
@@ -449,6 +452,7 @@ export default function App() {
     if (!confirmDiscardPendingEdits()) return;
     setClientEditorDirty(false);
     setCalendarEditorDirty(false);
+    setMobileMoreOpen(false);
     load();
   }
 
@@ -652,11 +656,17 @@ export default function App() {
             <span>Client progress, deadlines and billing</span>
           </div>
         </div>
-        <div className="top-actions">
-          <button className="btn ghost" onClick={() => setSupportOpen(true)}><HelpCircle size={16} />Help</button>
+        <div className="top-actions desktop-only">
+          <button className="btn ghost" onClick={() => { setToolsOpen(false); setSupportOpen(true); }}><HelpCircle size={16} />Help</button>
+          <button className="btn ghost" onClick={() => { setSupportOpen(false); setToolsOpen(true); }}><Wrench size={16} />Tools</button>
           <button className="btn ghost" onClick={refreshData} disabled={loading}><RefreshCw size={16} />Refresh</button>
           <button className="btn dark" onClick={addClient}><Plus size={16} />Client</button>
           <button className="btn" onClick={addAdviser}><Plus size={16} />Adviser</button>
+        </div>
+        <div className="mobile-header-actions mobile-only">
+          <button className="btn ghost" onClick={() => { setToolsOpen(false); setSupportOpen(true); }}><HelpCircle size={16} />Help</button>
+          <button className="btn ghost" onClick={() => { setSupportOpen(false); setToolsOpen(true); }}><Wrench size={16} />Tools</button>
+          <button className="btn ghost" onClick={refreshData} disabled={loading}><RefreshCw size={16} />Refresh</button>
         </div>
       </header>
 
@@ -691,7 +701,7 @@ export default function App() {
               setAdviserFilter={setAdviserFilter}
               setCaseTypeFilter={setCaseTypeFilter}
             />
-            <nav className="tabs">
+            <nav className="tabs desktop-tabs">
               <TabButton active={tab === 'dashboard'} onClick={() => switchTab('dashboard')} icon={LayoutDashboard} label="Dashboard" />
               <TabButton active={tab === 'tasks'} onClick={() => switchTab('tasks')} icon={ListChecks} label="Tasks" />
               <TabButton active={tab === 'calendar'} onClick={() => switchTab('calendar')} icon={CalendarDays} label="Calendar" />
@@ -744,11 +754,405 @@ export default function App() {
           </>
         )}
       </main>
-      <SupportDrawer open={supportOpen} onOpen={() => setSupportOpen(true)} onClose={() => setSupportOpen(false)} tab={tab} />
+      <SupportDrawer open={supportOpen} onOpen={() => { setToolsOpen(false); setSupportOpen(true); }} onClose={() => setSupportOpen(false)} tab={tab} />
+      <ToolsDrawer open={toolsOpen} onOpen={() => { setSupportOpen(false); setToolsOpen(true); }} onClose={() => setToolsOpen(false)} />
+      <MobileBottomNav activeTab={tab} onNavigate={switchTab} onOpenMore={() => setMobileMoreOpen(true)} />
+      <MobileMoreSheet
+        open={mobileMoreOpen}
+        onClose={() => setMobileMoreOpen(false)}
+        onNavigate={switchTab}
+        activeTab={tab}
+        onOpenHelp={() => { setMobileMoreOpen(false); setToolsOpen(false); setSupportOpen(true); }}
+        onOpenTools={() => { setMobileMoreOpen(false); setSupportOpen(false); setToolsOpen(true); }}
+        onRefresh={refreshData}
+        onAddClient={() => { setMobileMoreOpen(false); addClient(); }}
+        onAddAdviser={() => { setMobileMoreOpen(false); addAdviser(); }}
+        loading={loading}
+      />
     </div>
+  );
+
+}
+
+
+function MobileBottomNav({ activeTab, onNavigate, onOpenMore }) {
+  const navItems = [
+    { tab: 'dashboard', label: 'Home', icon: LayoutDashboard },
+    { tab: 'tasks', label: 'Tasks', icon: ListChecks },
+    { tab: 'clients', label: 'Clients', icon: UsersRound },
+    { tab: 'calendar', label: 'Calendar', icon: CalendarDays },
+  ];
+  const moreActive = ['billing', 'advisers'].includes(activeTab);
+  return (
+    <nav className="mobile-bottom-nav" aria-label="Mobile CRM navigation">
+      {navItems.map(({ tab, label, icon: Icon }) => (
+        <button key={tab} type="button" className={activeTab === tab ? 'active' : ''} onClick={() => onNavigate(tab)}>
+          <Icon size={18} />
+          <span>{label}</span>
+        </button>
+      ))}
+      <button type="button" className={moreActive ? 'active' : ''} onClick={onOpenMore}>
+        <Wrench size={18} />
+        <span>More</span>
+      </button>
+    </nav>
   );
 }
 
+function MobileMoreSheet({ open, onClose, onNavigate, activeTab, onOpenHelp, onOpenTools, onRefresh, onAddClient, onAddAdviser, loading }) {
+  function go(tab) {
+    onClose();
+    onNavigate(tab);
+  }
+  return (
+    <>
+      <div className={`mobile-more-overlay ${open ? 'open' : ''}`} onClick={onClose} />
+      <aside className={`mobile-more-sheet ${open ? 'open' : ''}`} aria-hidden={!open}>
+        <div className="mobile-more-handle" />
+        <div className="mobile-more-head">
+          <div>
+            <span>Mobile menu</span>
+            <h2>Quick access</h2>
+          </div>
+          <button className="icon-btn" type="button" onClick={onClose} aria-label="Close mobile menu"><X size={18} /></button>
+        </div>
+        <div className="mobile-more-grid">
+          <button type="button" className={activeTab === 'billing' ? 'active' : ''} onClick={() => go('billing')}><CreditCard size={18} /><span>Billing</span></button>
+          <button type="button" className={activeTab === 'advisers' ? 'active' : ''} onClick={() => go('advisers')}><UserRound size={18} /><span>Advisers</span></button>
+          <button type="button" onClick={onOpenTools}><Wrench size={18} /><span>Tools</span></button>
+          <button type="button" onClick={onOpenHelp}><HelpCircle size={18} /><span>Help</span></button>
+          <button type="button" onClick={onRefresh} disabled={loading}><RefreshCw size={18} /><span>Refresh</span></button>
+          <button type="button" onClick={onAddClient}><Plus size={18} /><span>New client</span></button>
+          <button type="button" onClick={onAddAdviser}><Plus size={18} /><span>New adviser</span></button>
+        </div>
+      </aside>
+    </>
+  );
+}
+
+const TOOL_CURRENCIES = ['NZD', 'AUD', 'USD', 'GBP', 'EUR', 'CAD', 'CNY', 'INR', 'PHP', 'ZAR', 'JPY', 'SGD'];
+const TOOL_TIMEZONES = [
+  { value: 'Pacific/Auckland', label: 'Auckland, New Zealand' },
+  { value: 'Australia/Sydney', label: 'Sydney, Australia' },
+  { value: 'Asia/Singapore', label: 'Singapore' },
+  { value: 'Asia/Shanghai', label: 'China' },
+  { value: 'Asia/Kolkata', label: 'India' },
+  { value: 'Asia/Manila', label: 'Philippines' },
+  { value: 'Europe/London', label: 'London, United Kingdom' },
+  { value: 'Europe/Berlin', label: 'Central Europe' },
+  { value: 'Africa/Johannesburg', label: 'South Africa' },
+  { value: 'America/Vancouver', label: 'Vancouver, Canada' },
+  { value: 'America/Los_Angeles', label: 'Los Angeles, USA' },
+  { value: 'America/New_York', label: 'New York, USA' },
+];
+
+function ToolsDrawer({ open, onOpen, onClose }) {
+  const [activeTool, setActiveTool] = useState('weather');
+
+  return (
+    <>
+      <button className="tools-fab" type="button" onClick={onOpen} style={{ display: open ? 'none' : undefined }} aria-label="Open adviser tools">
+        <Wrench size={18} /> Tools
+      </button>
+      <div className={`tools-overlay ${open ? 'open' : ''}`} onClick={onClose} />
+      <aside className={`tools-drawer ${open ? 'open' : ''}`} aria-hidden={!open}>
+        <div className="support-head">
+          <div>
+            <span>Adviser tools</span>
+            <h2>Working tools</h2>
+          </div>
+          <button className="icon-btn" type="button" onClick={onClose} aria-label="Close adviser tools"><X size={18} /></button>
+        </div>
+        <p className="support-summary">Quick tools for client calls, international matters and day-to-day file work. Results are practical aids only and should be checked before being used in formal advice.</p>
+        <div className="tool-tabs" role="tablist" aria-label="Adviser tools">
+          <button type="button" className={activeTool === 'weather' ? 'active' : ''} onClick={() => setActiveTool('weather')}><CloudSun size={16} />Weather</button>
+          <button type="button" className={activeTool === 'timezone' ? 'active' : ''} onClick={() => setActiveTool('timezone')}><Globe2 size={16} />Time</button>
+          <button type="button" className={activeTool === 'currency' ? 'active' : ''} onClick={() => setActiveTool('currency')}><DollarSign size={16} />Currency</button>
+          <button type="button" className={activeTool === 'calculator' ? 'active' : ''} onClick={() => setActiveTool('calculator')}><Calculator size={16} />Calc</button>
+        </div>
+        <div className="tool-panel">
+          {activeTool === 'weather' && <WeatherTool />}
+          {activeTool === 'timezone' && <TimezoneTool />}
+          {activeTool === 'currency' && <CurrencyTool />}
+          {activeTool === 'calculator' && <CalculatorTool />}
+        </div>
+      </aside>
+    </>
+  );
+}
+
+function WeatherTool() {
+  const [location, setLocation] = useState('Auckland');
+  const [weather, setWeather] = useState(null);
+  const [loadingWeather, setLoadingWeather] = useState(false);
+  const [weatherError, setWeatherError] = useState('');
+
+  async function lookupWeather(event) {
+    event?.preventDefault();
+    const query = location.trim();
+    if (!query) return setWeatherError('Enter a city or town.');
+    setLoadingWeather(true);
+    setWeatherError('');
+    setWeather(null);
+    try {
+      const geoResponse = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`);
+      if (!geoResponse.ok) throw new Error('Location lookup failed.');
+      const geoBody = await geoResponse.json();
+      const place = geoBody.results?.[0];
+      if (!place) throw new Error('No matching location found.');
+      const forecastResponse = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${place.latitude}&longitude=${place.longitude}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=5`);
+      if (!forecastResponse.ok) throw new Error('Weather lookup failed.');
+      const forecast = await forecastResponse.json();
+      setWeather({ place, forecast });
+    } catch (err) {
+      setWeatherError(err.message || 'Weather lookup failed.');
+    } finally {
+      setLoadingWeather(false);
+    }
+  }
+
+  return (
+    <section className="tool-card">
+      <div className="tool-card-head">
+        <CloudSun size={20} />
+        <div>
+          <h3>Weather</h3>
+          <p>Check current conditions and a short forecast for a client location.</p>
+        </div>
+      </div>
+      <form className="tool-form" onSubmit={lookupWeather}>
+        <label>
+          <span>Location</span>
+          <input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Auckland, London, Manila..." />
+        </label>
+        <button className="btn dark" type="submit" disabled={loadingWeather}>{loadingWeather ? 'Checking...' : 'Check weather'}</button>
+      </form>
+      {weatherError && <div className="tool-error">{weatherError}</div>}
+      {weather && (
+        <div className="weather-result">
+          <div className="weather-current">
+            <span>{weather.place.name}{weather.place.country ? `, ${weather.place.country}` : ''}</span>
+            <strong>{Math.round(weather.forecast.current.temperature_2m)}°C</strong>
+            <small>{weatherCodeLabel(weather.forecast.current.weather_code)} · Feels like {Math.round(weather.forecast.current.apparent_temperature)}°C · Wind {Math.round(weather.forecast.current.wind_speed_10m)} km/h</small>
+          </div>
+          <div className="weather-days">
+            {(weather.forecast.daily?.time || []).slice(0, 5).map((date, index) => (
+              <div className="weather-day" key={date}>
+                <strong>{formatShortDate(date)}</strong>
+                <span>{Math.round(weather.forecast.daily.temperature_2m_min[index])}° / {Math.round(weather.forecast.daily.temperature_2m_max[index])}°C</span>
+                <small>{weatherCodeLabel(weather.forecast.daily.weather_code[index])}</small>
+                <small>Rain {weather.forecast.daily.precipitation_probability_max[index] ?? 0}%</small>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function TimezoneTool() {
+  const [date, setDate] = useState(todayIso());
+  const [time, setTime] = useState('09:00');
+  const [fromZone, setFromZone] = useState('Pacific/Auckland');
+  const [toZone, setToZone] = useState('Europe/London');
+  const convertedInstant = useMemo(() => zonedWallTimeToInstant(date, time, fromZone), [date, time, fromZone]);
+
+  return (
+    <section className="tool-card">
+      <div className="tool-card-head">
+        <Globe2 size={20} />
+        <div>
+          <h3>Timezone converter</h3>
+          <p>Convert appointment or call times between New Zealand and client locations.</p>
+        </div>
+      </div>
+      <div className="tool-grid two">
+        <label><span>Date</span><input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label>
+        <label><span>Time</span><input type="time" value={time} onChange={(event) => setTime(event.target.value)} /></label>
+        <label><span>From</span><select value={fromZone} onChange={(event) => setFromZone(event.target.value)}>{TOOL_TIMEZONES.map((zone) => <option key={zone.value} value={zone.value}>{zone.label}</option>)}</select></label>
+        <label><span>To</span><select value={toZone} onChange={(event) => setToZone(event.target.value)}>{TOOL_TIMEZONES.map((zone) => <option key={zone.value} value={zone.value}>{zone.label}</option>)}</select></label>
+      </div>
+      <div className="conversion-result">
+        <span>Converted time</span>
+        <strong>{convertedInstant ? formatInZone(convertedInstant, toZone) : 'Enter a valid date and time'}</strong>
+        {convertedInstant && <small>{formatZoneName(toZone)} · Source: {formatInZone(convertedInstant, fromZone)}</small>}
+      </div>
+    </section>
+  );
+}
+
+function CurrencyTool() {
+  const [amount, setAmount] = useState('1000');
+  const [fromCurrency, setFromCurrency] = useState('NZD');
+  const [toCurrency, setToCurrency] = useState('USD');
+  const [currencyResult, setCurrencyResult] = useState(null);
+  const [loadingCurrency, setLoadingCurrency] = useState(false);
+  const [currencyError, setCurrencyError] = useState('');
+
+  async function convertCurrency(event) {
+    event?.preventDefault();
+    const value = Number(amount);
+    if (!Number.isFinite(value) || value <= 0) return setCurrencyError('Enter an amount greater than zero.');
+    setLoadingCurrency(true);
+    setCurrencyError('');
+    setCurrencyResult(null);
+    try {
+      if (fromCurrency === toCurrency) {
+        setCurrencyResult({ amount: value, converted: value, rate: 1, date: todayIso() });
+        return;
+      }
+      const response = await fetch(`https://api.frankfurter.app/latest?amount=${encodeURIComponent(value)}&from=${encodeURIComponent(fromCurrency)}&to=${encodeURIComponent(toCurrency)}`);
+      if (!response.ok) throw new Error('Currency lookup failed.');
+      const body = await response.json();
+      const converted = body.rates?.[toCurrency];
+      if (typeof converted !== 'number') throw new Error('Currency result was not available.');
+      setCurrencyResult({ amount: value, converted, rate: converted / value, date: body.date });
+    } catch (err) {
+      setCurrencyError(err.message || 'Currency lookup failed.');
+    } finally {
+      setLoadingCurrency(false);
+    }
+  }
+
+  return (
+    <section className="tool-card">
+      <div className="tool-card-head">
+        <DollarSign size={20} />
+        <div>
+          <h3>Currency converter</h3>
+          <p>Quick indicative conversion for fees, investment funds or settlement planning.</p>
+        </div>
+      </div>
+      <form className="tool-form" onSubmit={convertCurrency}>
+        <div className="tool-grid three">
+          <label><span>Amount</span><input value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" /></label>
+          <label><span>From</span><select value={fromCurrency} onChange={(event) => setFromCurrency(event.target.value)}>{TOOL_CURRENCIES.map((currency) => <option key={currency} value={currency}>{currency}</option>)}</select></label>
+          <label><span>To</span><select value={toCurrency} onChange={(event) => setToCurrency(event.target.value)}>{TOOL_CURRENCIES.map((currency) => <option key={currency} value={currency}>{currency}</option>)}</select></label>
+        </div>
+        <button className="btn dark" type="submit" disabled={loadingCurrency}>{loadingCurrency ? 'Converting...' : 'Convert'}</button>
+      </form>
+      {currencyError && <div className="tool-error">{currencyError}</div>}
+      {currencyResult && (
+        <div className="conversion-result">
+          <span>Converted amount</span>
+          <strong>{formatCurrencyAmount(currencyResult.converted, toCurrency)}</strong>
+          <small>{formatCurrencyAmount(currencyResult.amount, fromCurrency)} · 1 {fromCurrency} = {currencyResult.rate.toFixed(4)} {toCurrency} · Rate date {currencyResult.date}</small>
+        </div>
+      )}
+      <p className="tool-muted">Indicative only. Confirm exchange rates before quoting or relying on them for formal advice.</p>
+    </section>
+  );
+}
+
+function CalculatorTool() {
+  const [expression, setExpression] = useState('');
+  const [calculatorResult, setCalculatorResult] = useState('');
+  const [calculatorError, setCalculatorError] = useState('');
+
+  function calculate(event) {
+    event?.preventDefault();
+    const cleaned = expression.trim();
+    if (!cleaned) return;
+    if (!/^[0-9+\-*/().\s%]+$/.test(cleaned)) {
+      setCalculatorResult('');
+      setCalculatorError('Use numbers and basic operators only.');
+      return;
+    }
+    try {
+      const normalised = cleaned.replace(/%/g, '/100');
+      const result = Function(`"use strict"; return (${normalised})`)();
+      if (!Number.isFinite(result)) throw new Error('Invalid calculation.');
+      setCalculatorError('');
+      setCalculatorResult(Number.isInteger(result) ? String(result) : result.toFixed(4).replace(/0+$/, '').replace(/\.$/, ''));
+    } catch (_err) {
+      setCalculatorResult('');
+      setCalculatorError('Unable to calculate that expression.');
+    }
+  }
+
+  const quickButtons = ['7', '8', '9', '/', '4', '5', '6', '*', '1', '2', '3', '-', '0', '.', '%', '+'];
+
+  return (
+    <section className="tool-card">
+      <div className="tool-card-head">
+        <Calculator size={20} />
+        <div>
+          <h3>Basic calculator</h3>
+          <p>Run quick calculations without leaving the client workspace.</p>
+        </div>
+      </div>
+      <form className="tool-form" onSubmit={calculate}>
+        <label>
+          <span>Calculation</span>
+          <input value={expression} onChange={(event) => setExpression(event.target.value)} placeholder="e.g. 3500 * 1.15" />
+        </label>
+        <div className="calc-buttons">
+          {quickButtons.map((button) => <button key={button} type="button" onClick={() => setExpression((current) => `${current}${button}`)}>{button}</button>)}
+          <button type="button" onClick={() => setExpression((current) => current.slice(0, -1))}>⌫</button>
+          <button type="button" onClick={() => { setExpression(''); setCalculatorResult(''); setCalculatorError(''); }}>Clear</button>
+          <button type="submit" className="equals">=</button>
+        </div>
+      </form>
+      {calculatorError && <div className="tool-error">{calculatorError}</div>}
+      {calculatorResult && <div className="conversion-result"><span>Result</span><strong>{calculatorResult}</strong></div>}
+    </section>
+  );
+}
+
+function weatherCodeLabel(code) {
+  const labels = {
+    0: 'Clear', 1: 'Mainly clear', 2: 'Partly cloudy', 3: 'Overcast',
+    45: 'Fog', 48: 'Rime fog', 51: 'Light drizzle', 53: 'Drizzle', 55: 'Heavy drizzle',
+    61: 'Light rain', 63: 'Rain', 65: 'Heavy rain', 71: 'Light snow', 73: 'Snow', 75: 'Heavy snow',
+    80: 'Rain showers', 81: 'Rain showers', 82: 'Heavy showers', 95: 'Thunderstorm', 96: 'Thunderstorm with hail', 99: 'Thunderstorm with hail',
+  };
+  return labels[code] || 'Weather update';
+}
+
+function formatShortDate(value) {
+  if (!value) return '';
+  return new Intl.DateTimeFormat('en-NZ', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(`${value}T12:00:00`));
+}
+
+function formatCurrencyAmount(value, currency) {
+  return new Intl.NumberFormat('en-NZ', { style: 'currency', currency }).format(value || 0);
+}
+
+function formatZoneName(timeZone) {
+  return TOOL_TIMEZONES.find((zone) => zone.value === timeZone)?.label || timeZone;
+}
+
+function formatInZone(date, timeZone) {
+  return new Intl.DateTimeFormat('en-NZ', { timeZone, weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).format(date);
+}
+
+function zonedWallTimeToInstant(dateValue, timeValue, timeZone) {
+  if (!dateValue || !timeValue || !timeZone) return null;
+  const [year, month, day] = dateValue.split('-').map(Number);
+  const [hour, minute] = timeValue.split(':').map(Number);
+  if (![year, month, day, hour, minute].every(Number.isFinite)) return null;
+  let utcGuess = new Date(Date.UTC(year, month - 1, day, hour, minute));
+  let offset = timeZoneOffsetMs(utcGuess, timeZone);
+  let instant = new Date(utcGuess.getTime() - offset);
+  offset = timeZoneOffsetMs(instant, timeZone);
+  instant = new Date(Date.UTC(year, month - 1, day, hour, minute) - offset);
+  return instant;
+}
+
+function timeZoneOffsetMs(date, timeZone) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour12: false,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).formatToParts(date).reduce((acc, part) => {
+    if (part.type !== 'literal') acc[part.type] = part.value;
+    return acc;
+  }, {});
+  const hour = parts.hour === '24' ? '00' : parts.hour;
+  return Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(hour), Number(parts.minute), Number(parts.second)) - date.getTime();
+}
 
 function SupportDrawer({ open, onOpen, onClose, tab }) {
   const content = SUPPORT_CONTENT[tab] || SUPPORT_CONTENT.dashboard;

@@ -1,4 +1,4 @@
-# Turner Hopkins CRM - Netlify Database v0.7.5
+# Turner Hopkins CRM - Netlify Database v0.7.7
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
@@ -170,3 +170,11 @@ Document checklist hidden items now show only the document name, greyed out, wit
 - Adds summary text to each collapsed section so advisers can see stage progress, deadline count, and active billing totals before opening the section.
 - Keeps the full client record toggle unchanged, but reduces visual clutter once the record is open.
 - No database migration required.
+## v0.7.6 - Adviser tools sidebar
+
+Adds a right-side Adviser Tools drawer alongside the existing support drawer. The tools drawer includes a weather lookup, timezone converter, indicative currency converter and basic calculator for use during client work. No database migration is required.
+
+## v0.7.7 - Mobile view foundation
+
+Adds a mobile-specific CRM layout while preserving the desktop experience. Phones now use a bottom navigation bar, a mobile More menu for Billing, Advisers, Help and Tools, card-style task/workload/billing rows, and full-screen mobile drawers/modals for Help, Tools, Timeline and other pop-up panels. No database migration is required.
+
