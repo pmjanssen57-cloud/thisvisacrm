@@ -1,6 +1,16 @@
-# Turner Hopkins CRM - Netlify Database v0.10.1
+# Turner Hopkins CRM - Netlify Database v0.10.2
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
+
+
+## v0.10.2 - Client Editor Section Polish and Portal Billing Save Fix
+
+- Fixed portal billing milestone selections so selected billing items remain selected after saving/publishing.
+- Preserved billing milestone IDs on save instead of deleting and recreating every milestone, which keeps portal visibility selections stable.
+- New billing milestones now receive stable local IDs before saving.
+- Moved Matter stages, Client deadlines and Billing schedule out of the full client record into their own top-level collapsible sections.
+- Tidied the client editor section cards so each collapsible area is clearer and easier to work through one section at a time.
+- No database migration required.
 
 ## v0.10.1 - Client Portal Section and Billing Visibility
 

@@ -378,6 +378,11 @@ const emptyData = {
   securityMode: 'unknown',
 };
 
+function makeStableLocalId(prefix = 'temp') {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 function makeBlankClient(data) {
   return {
     id: `temp-${Date.now()}`,
@@ -2319,7 +2324,7 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
   }
 
   function addBilling() {
-    setDraft((current) => ({ ...current, billing: [...(current.billing || []), { id: `temp-${Date.now()}`, milestone: 'New billing item', dueDate: '', amount: 0, status: 'WIP', invoiceNo: '', triggerType: 'Date', stageKey: '' }] }));
+    setDraft((current) => ({ ...current, billing: [...(current.billing || []), { id: makeStableLocalId('billing'), milestone: 'New billing item', dueDate: '', amount: 0, status: 'WIP', invoiceNo: '', triggerType: 'Date', stageKey: '' }] }));
   }
 
   function updateBilling(id, patch) {
@@ -2503,7 +2508,7 @@ Turner Hopkins Immigration Specialists`;
 
       <div className="client-record-toggle">
         <button className="btn" type="button" onClick={() => setShowFullRecord((value) => !value)}>{showFullRecord ? 'Hide full client record' : 'Show full client record'}</button>
-        <span>{showFullRecord ? 'Full editable file details are shown below.' : 'Open the full record to edit strategy, stages, deadlines, family details and billing.'}</span>
+        <span>{showFullRecord ? 'Full editable file details are shown below.' : 'Open the full record to edit core details, case strategy, family details and notes.'}</span>
       </div>
 
       <ExpandableClientSection
@@ -2558,6 +2563,10 @@ Turner Hopkins Immigration Specialists`;
       <div className="form-grid two">
         <TextArea label="Notes" value={draft.notes} onChange={(v) => setField('notes', v)} />
       </div>
+
+        </>
+      )}
+
 
       <ExpandableClientSection
         title="matter stages"
@@ -2643,22 +2652,21 @@ Turner Hopkins Immigration Specialists`;
           {!draft.billing?.length && <p className="muted center">No billing milestones added yet.</p>}
         </div>
       </ExpandableClientSection>
-        </>
-      )}
     </div>
   );
 }
 
 
 function ExpandableClientSection({ title, summary, isOpen, onToggle, children, badge }) {
+  const displayTitle = String(title || '').replace(/\b\w/g, (letter) => letter.toUpperCase());
   return (
     <>
       <div className={`client-record-toggle section-toggle ${isOpen ? 'open' : ''}`}>
-        <button className="btn" type="button" onClick={onToggle}>
-          <ChevronRight size={16} className="section-toggle-icon" />
-          {isOpen ? `Hide ${title}` : `Show ${title}`}
+        <button className="section-toggle-button" type="button" onClick={onToggle}>
+          <ChevronRight size={18} className="section-toggle-icon" />
+          <span>{displayTitle}</span>
         </button>
-        <span>{summary}</span>
+        <span className="section-summary">{summary}</span>
         {badge && <b className={`section-status-pill ${String(badge).toLowerCase()}`}>{badge}</b>}
       </div>
       {isOpen && <section className="sub-panel collapsible-sub-panel">{children}</section>}

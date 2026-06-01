@@ -700,14 +700,35 @@ async function saveClient(input = {}) {
       );
     }
 
-    await poolClient.query('DELETE FROM billing_milestones WHERE client_id = $1', [clientId]);
+    const retainedBillingIds = client.billing.map((item) => item.id).filter(isUuid);
+    if (retainedBillingIds.length) {
+      await poolClient.query('DELETE FROM billing_milestones WHERE client_id = $1 AND NOT (id = ANY($2::uuid[]))', [clientId, retainedBillingIds]);
+    } else {
+      await poolClient.query('DELETE FROM billing_milestones WHERE client_id = $1', [clientId]);
+    }
+
     for (const item of client.billing) {
       if (!item.milestone) continue;
-      await poolClient.query(
-        `INSERT INTO billing_milestones (client_id, milestone, due_date, amount, status, invoice_no, billing_trigger_type, billing_stage_key)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [clientId, item.milestone, nullableDate(item.dueDate), Number(item.amount || 0), normaliseBillingStatus(item.status), item.invoiceNo || '', normaliseBillingTriggerType(item.triggerType), item.stageKey || null]
-      );
+      if (isUuid(item.id)) {
+        const updateResult = await poolClient.query(
+          `UPDATE billing_milestones
+           SET milestone = $3, due_date = $4, amount = $5, status = $6, invoice_no = $7, billing_trigger_type = $8, billing_stage_key = $9
+           WHERE id = $1 AND client_id = $2`,
+          [item.id, clientId, item.milestone, nullableDate(item.dueDate), Number(item.amount || 0), normaliseBillingStatus(item.status), item.invoiceNo || '', normaliseBillingTriggerType(item.triggerType), item.stageKey || null]
+        );
+        if (updateResult.rowCount > 0) continue;
+        await poolClient.query(
+          `INSERT INTO billing_milestones (id, client_id, milestone, due_date, amount, status, invoice_no, billing_trigger_type, billing_stage_key)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [item.id, clientId, item.milestone, nullableDate(item.dueDate), Number(item.amount || 0), normaliseBillingStatus(item.status), item.invoiceNo || '', normaliseBillingTriggerType(item.triggerType), item.stageKey || null]
+        );
+      } else {
+        await poolClient.query(
+          `INSERT INTO billing_milestones (client_id, milestone, due_date, amount, status, invoice_no, billing_trigger_type, billing_stage_key)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [clientId, item.milestone, nullableDate(item.dueDate), Number(item.amount || 0), normaliseBillingStatus(item.status), item.invoiceNo || '', normaliseBillingTriggerType(item.triggerType), item.stageKey || null]
+        );
+      }
     }
 
     await poolClient.query('COMMIT');
