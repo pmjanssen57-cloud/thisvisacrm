@@ -54,6 +54,13 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .btn.dark { background: var(--ink); color: #fff; border-color: var(--ink); }
 .btn.ghost { color: var(--muted); }
 .btn.danger { color: var(--danger); }
+.btn.mini {
+  padding: 6px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  box-shadow: none;
+}
+
 .icon-btn {
   display: inline-flex;
   align-items: center;
@@ -2464,7 +2471,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 }
 .auth-status strong { font-size: 13px; }
 .auth-status span { color: var(--muted); font-size: 11px; }
-.auth-status .link-button { font-size: 12px; margin-left: auto; white-space: nowrap; }
+.auth-status .btn { margin-left: auto; white-space: nowrap; }
 
 @media (max-width: 760px) {
   .auth-status {

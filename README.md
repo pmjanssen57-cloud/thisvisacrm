@@ -1,4 +1,4 @@
-# Turner Hopkins CRM - Netlify Database v0.8.0
+# Turner Hopkins CRM - Netlify Database v0.8.1
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
@@ -193,6 +193,16 @@ Adds a mobile-specific CRM layout while preserving the desktop experience. Phone
 - Raises mobile Help/Tools full-screen drawers above the bottom navigation and adds safe-area bottom spacing for phone browsers.
 - No database migration required.
 
+
+
+## v0.8.1 - Login logout polish
+
+- Added a clearer desktop Sign out button in the top action bar.
+- Changed the session status card logout link into a visible Sign out button.
+- Added Sign out to the mobile More menu for both Identity and temporary access-code sessions.
+- Stopped silently reusing legacy stored CRM access codes from older builds.
+- Kept Netlify Identity session persistence intact: users stay logged in until they sign out.
+- No database migration required.
 
 ## v0.8.0 - Adviser login foundation
 

@@ -401,7 +401,7 @@ export default function App() {
   const [adviserFilter, setAdviserFilter] = useState('all');
   const [caseTypeFilter, setCaseTypeFilter] = useState('all');
   const [dashboardAdviserFilter, setDashboardAdviserFilter] = useState(() => localStorage.getItem('this_crm_dashboard_adviser_filter') || 'all');
-  const [accessCode, setAccessCode] = useState(() => localStorage.getItem('this_crm_access_code') || '');
+  const [accessCode, setAccessCode] = useState('');
   const [pendingCode, setPendingCode] = useState('');
   const [identityUser, setIdentityUser] = useState(null);
   const [authFlow, setAuthFlow] = useState({ type: 'login' });
@@ -468,6 +468,8 @@ export default function App() {
     setAuthMessage('');
 
     try {
+      // v0.8.1: do not silently reuse legacy access-code sessions from older builds.
+      localStorage.removeItem('this_crm_access_code');
       let callbackResult = null;
       try {
         callbackResult = await handleAuthCallback();
@@ -493,7 +495,7 @@ export default function App() {
 
       const currentUser = callbackResult?.user || await getUser();
       setIdentityUser(currentUser || null);
-      if (currentUser || accessCode) {
+      if (currentUser) {
         await load(accessCode);
         return;
       }
@@ -578,7 +580,6 @@ export default function App() {
 
   function submitAccessCode(event) {
     event.preventDefault();
-    localStorage.setItem('this_crm_access_code', pendingCode);
     setAccessCode(pendingCode);
     load(pendingCode);
   }
@@ -653,6 +654,7 @@ export default function App() {
       // Continue with local sign-out even if the remote logout request fails.
     }
     localStorage.removeItem('this_crm_access_code');
+    sessionStorage.removeItem('this_crm_access_code');
     setAccessCode('');
     setPendingCode('');
     setIdentityUser(null);
@@ -835,11 +837,12 @@ export default function App() {
             <span>Client progress, deadlines and billing</span>
           </div>
         </div>
-        <AuthStatus user={identityUser} adviser={identityAdviser} onLogout={logoutIdentityUser} />
+        <AuthStatus user={identityUser} adviser={identityAdviser} accessCodeActive={Boolean(accessCode)} onLogout={logoutIdentityUser} />
         <div className="top-actions desktop-only">
           <button className="btn ghost" onClick={() => { setToolsOpen(false); setSupportOpen(true); }}><HelpCircle size={16} />Help</button>
           <button className="btn ghost" onClick={() => { setSupportOpen(false); setToolsOpen(true); }}><Wrench size={16} />Tools</button>
           <button className="btn ghost" onClick={refreshData} disabled={loading}><RefreshCw size={16} />Refresh</button>
+          {(identityUser || accessCode) && <button className="btn danger" onClick={logoutIdentityUser}><LockKeyhole size={16} />Sign out</button>}
           <button className="btn dark" onClick={addClient}><Plus size={16} />Client</button>
           {canManageAdvisers && <button className="btn" onClick={addAdviser}><Plus size={16} />Adviser</button>}
         </div>
@@ -952,6 +955,7 @@ export default function App() {
         canManageAdvisers={canManageAdvisers}
         onLogout={logoutIdentityUser}
         identityUser={identityUser}
+        accessCodeActive={Boolean(accessCode)}
       />
     </div>
   );
@@ -959,17 +963,17 @@ export default function App() {
 }
 
 
-function AuthStatus({ user, adviser, onLogout }) {
-  if (!user) return null;
+function AuthStatus({ user, adviser, accessCodeActive, onLogout }) {
+  if (!user && !accessCodeActive) return null;
   const roleLabel = identityRoleLabel(user);
   return (
-    <div className="auth-status" title={user.email || ''}>
+    <div className="auth-status" title={user?.email || 'Temporary access-code session'}>
       <ShieldCheck size={16} />
       <div>
-        <strong>{adviser?.name || user.name || user.email || 'Logged-in user'}</strong>
-        <span>{roleLabel}{user.email ? ` · ${user.email}` : ''}</span>
+        <strong>{user ? (adviser?.name || user.name || user.email || 'Logged-in user') : 'Temporary access session'}</strong>
+        <span>{user ? `${roleLabel}${user.email ? ` · ${user.email}` : ''}` : 'Access code fallback active'}</span>
       </div>
-      <button type="button" className="link-button" onClick={onLogout}>Logout</button>
+      <button type="button" className="btn mini danger" onClick={onLogout}>Sign out</button>
     </div>
   );
 }
@@ -999,7 +1003,7 @@ function MobileBottomNav({ activeTab, onNavigate, onOpenMore }) {
   );
 }
 
-function MobileMoreSheet({ open, onClose, onNavigate, activeTab, onOpenHelp, onOpenTools, onRefresh, onAddClient, onAddAdviser, loading, canManageAdvisers, onLogout, identityUser }) {
+function MobileMoreSheet({ open, onClose, onNavigate, activeTab, onOpenHelp, onOpenTools, onRefresh, onAddClient, onAddAdviser, loading, canManageAdvisers, onLogout, identityUser, accessCodeActive }) {
   function go(tab) {
     onClose();
     onNavigate(tab);
@@ -1024,7 +1028,7 @@ function MobileMoreSheet({ open, onClose, onNavigate, activeTab, onOpenHelp, onO
           <button type="button" onClick={onRefresh} disabled={loading}><RefreshCw size={18} /><span>Refresh</span></button>
           <button type="button" onClick={onAddClient}><Plus size={18} /><span>New client</span></button>
           {canManageAdvisers && <button type="button" onClick={onAddAdviser}><Plus size={18} /><span>New adviser</span></button>}
-          {identityUser && <button type="button" onClick={onLogout}><LockKeyhole size={18} /><span>Logout</span></button>}
+          {(identityUser || accessCodeActive) && <button type="button" onClick={onLogout}><LockKeyhole size={18} /><span>Sign out</span></button>}
         </div>
       </aside>
     </>
