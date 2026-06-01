@@ -3162,3 +3162,85 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   .portal-inbox-row { grid-template-columns: 1fr; }
   .portal-hero-chips b { width: 100%; text-align: center; }
 }
+
+/* v0.10.4: adviser profile photos */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+.adviser-avatar {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 2px solid rgba(85, 217, 160, .55);
+  background: linear-gradient(135deg, #e9fbf3, #fff);
+  color: var(--ink);
+  box-shadow: 0 6px 18px rgba(0, 55, 54, .09);
+}
+.adviser-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.adviser-avatar b {
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .04em;
+}
+.adviser-avatar-sm { width: 34px; height: 34px; }
+.adviser-avatar-md { width: 48px; height: 48px; }
+.adviser-avatar-lg { width: 72px; height: 72px; }
+.adviser-avatar-lg b { font-size: 20px; }
+.adviser-profile-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 12px;
+  border: 1px solid rgba(85, 217, 160, .42);
+  border-radius: 18px;
+  background: linear-gradient(135deg, #ffffff, #f4fbf8);
+}
+.adviser-profile-head strong,
+.adviser-profile-head span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.adviser-profile-head strong { color: var(--ink); font-size: 16px; }
+.adviser-profile-head span { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.adviser-photo-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 13px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.adviser-photo-actions span { line-height: 1.35; }
+.portal-adviser-card-head {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-bottom: 12px;
+}
+.portal-adviser-card-head h2 { margin-bottom: 3px; }
+.portal-adviser-card-head strong { display: block; font-size: 17px; }
+
+@media (max-width: 760px) {
+  .adviser-profile-head { grid-template-columns: auto minmax(0, 1fr); }
+  .adviser-photo-upload { grid-column: 1 / -1; justify-content: center; }
+  .adviser-photo-actions { align-items: flex-start; flex-direction: column; }
+}

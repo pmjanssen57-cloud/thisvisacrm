@@ -1,7 +1,16 @@
-# Turner Hopkins CRM - Netlify Database v0.10.3
+# Turner Hopkins CRM - Netlify Database v0.10.4
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
+
+## v0.10.4 - Adviser Profile Photos
+
+- Added a round adviser profile photo field to Adviser profiles.
+- Adviser photos can be uploaded from the Adviser profile editor and are resized in-browser before saving.
+- Profile photos are stored with the adviser record and shown as round images.
+- The logged-in adviser display now shows the matched adviser photo where available.
+- The client portal now shows the allocated adviser photo in the Your adviser card, helping clients recognise who is handling their matter.
+- Added new migration only: `202606010007_add_adviser_profile_photo_url.sql`.
 
 ## v0.10.3 - Client Portal Experience and Notes
 

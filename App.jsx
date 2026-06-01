@@ -141,11 +141,11 @@ const SUPPORT_CONTENT = {
     title: 'Advisers help',
     summary: 'The Advisers page stores adviser profile details used for client allocation, workload reporting and filtering throughout the CRM.',
     sections: [
-      { heading: 'Adviser profiles', text: 'Keep adviser names and emails accurate. These records drive primary and backup adviser assignments.' },
+      { heading: 'Adviser profiles', text: 'Keep adviser names, emails, phone numbers and profile photos accurate. These records drive primary and backup adviser assignments and the adviser details clients see in the portal.' },
       { heading: 'Active status', text: 'Use inactive status for advisers who should remain in historical records but should not usually receive new clients.' },
       { heading: 'Login mapping', text: 'Use the Login Email field to match a Netlify Identity user to the adviser profile. The main adviser email can still be used for client communication.' },
     ],
-    tips: ['Match each adviser profile to their Netlify Identity email address.', 'Avoid deleting advisers if they are linked to historical client records.'],
+    tips: ['Match each adviser profile to their Netlify Identity email address.', 'Use clear head-and-shoulders profile photos so clients can identify their adviser in the portal.', 'Avoid deleting advisers if they are linked to historical client records.'],
   },
 };
 
@@ -784,6 +784,7 @@ export default function App() {
       role: 'Licensed Immigration Adviser',
       email: '',
       loginEmail: '',
+      profilePhotoUrl: '',
       phone: '',
       licence: '',
       active: true,
@@ -1166,9 +1167,14 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
       )}
 
       <div className="portal-dashboard-grid">
-        <section className="portal-card portal-accent-card">
-          <h2>Your adviser</h2>
-          <strong>{snapshot.adviser.name || 'Turner Hopkins adviser'}</strong>
+        <section className="portal-card portal-accent-card portal-adviser-card">
+          <div className="portal-adviser-card-head">
+            <AdviserAvatar adviser={snapshot.adviser} size="lg" />
+            <div>
+              <h2>Your adviser</h2>
+              <strong>{snapshot.adviser.name || 'Turner Hopkins adviser'}</strong>
+            </div>
+          </div>
           <p>{snapshot.adviser.email || snapshot.turnerHopkins.email}</p>
           <p>{snapshot.adviser.phone || snapshot.turnerHopkins.phone}</p>
         </section>
@@ -1336,7 +1342,7 @@ function AuthStatus({ user, adviser, accessCodeActive, onLogout }) {
   const roleLabel = identityRoleLabel(user);
   return (
     <div className="auth-status" title={user?.email || 'Temporary access-code session'}>
-      <ShieldCheck size={16} />
+      {user && adviser ? <AdviserAvatar adviser={adviser} size="sm" /> : <ShieldCheck size={16} />}
       <div>
         <strong>{user ? (adviser?.name || user.name || user.email || 'Logged-in user') : 'Temporary access session'}</strong>
         <span>{user ? `${roleLabel}${user.email ? ` · ${user.email}` : ''}` : 'Access code fallback active'}</span>
@@ -1344,6 +1350,23 @@ function AuthStatus({ user, adviser, accessCodeActive, onLogout }) {
       <button type="button" className="btn mini danger" onClick={onLogout}>Sign out</button>
     </div>
   );
+}
+
+function AdviserAvatar({ adviser = {}, size = 'md', className = '' }) {
+  const src = adviser.profilePhotoUrl || adviser.profile_photo_url || '';
+  const initials = adviserInitials(adviser.name || adviser.email || 'TH');
+  return (
+    <span className={`adviser-avatar adviser-avatar-${size} ${className}`.trim()} aria-label={`${adviser.name || 'Adviser'} profile photo`}>
+      {src ? <img src={src} alt={`${adviser.name || 'Adviser'} profile`} /> : <b>{initials}</b>}
+    </span>
+  );
+}
+
+function adviserInitials(value = '') {
+  const parts = String(value || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return 'TH';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] || ''}${parts[parts.length - 1][0] || ''}`.toUpperCase();
 }
 
 
@@ -3489,22 +3512,53 @@ function BillingDashboard({ billingRows, advisers, adviserFilter, setAdviserFilt
 
 function AdviserProfiles({ advisers, clients, saveAdviser, saving }) {
   const [drafts, setDrafts] = useState(advisers);
+  const [photoMessages, setPhotoMessages] = useState({});
   useEffect(() => setDrafts(advisers), [advisers]);
 
   function updateAdviser(id, patch) {
     setDrafts((current) => current.map((adviser) => adviser.id === id ? { ...adviser, ...patch } : adviser));
   }
 
+  async function handlePhotoFile(adviserId, file) {
+    if (!file) return;
+    if (!/^image\//i.test(file.type || '')) {
+      setPhotoMessages((current) => ({ ...current, [adviserId]: 'Choose a JPG, PNG or WebP image file.' }));
+      return;
+    }
+    try {
+      setPhotoMessages((current) => ({ ...current, [adviserId]: 'Preparing photo...' }));
+      const dataUrl = await resizeProfilePhoto(file);
+      updateAdviser(adviserId, { profilePhotoUrl: dataUrl });
+      setPhotoMessages((current) => ({ ...current, [adviserId]: 'Photo ready. Save the adviser profile to keep it.' }));
+    } catch (error) {
+      setPhotoMessages((current) => ({ ...current, [adviserId]: error?.message || 'Could not read that image.' }));
+    }
+  }
+
   return (
     <section className="panel">
       <h2>Adviser profiles</h2>
-      <p className="muted">Add or edit adviser details used for allocation and reporting.</p>
+      <p className="muted">Add or edit adviser details used for allocation, reporting, login mapping and client portal adviser cards.</p>
       <div className="adviser-edit-grid">
         {drafts.map((adviser) => {
           const primary = clients.filter((client) => client.primaryAdviserId === adviser.id && client.clientStatus !== 'Closed').length;
           const backup = clients.filter((client) => client.backupAdviserId === adviser.id && client.clientStatus !== 'Closed').length;
+          const photoInputId = `adviser-photo-${adviser.id}`;
           return (
             <div className="adviser-edit-card" key={adviser.id}>
+              <div className="adviser-profile-head">
+                <AdviserAvatar adviser={adviser} size="lg" />
+                <div>
+                  <strong>{adviser.name || 'New adviser'}</strong>
+                  <span>{adviser.role || 'Adviser profile'}</span>
+                </div>
+                <label className="btn mini ghost adviser-photo-upload" htmlFor={photoInputId}>Upload photo</label>
+                <input id={photoInputId} type="file" accept="image/*" className="visually-hidden" onChange={(event) => handlePhotoFile(adviser.id, event.target.files?.[0])} />
+              </div>
+              <div className="adviser-photo-actions">
+                <button type="button" className="btn mini" onClick={() => updateAdviser(adviser.id, { profilePhotoUrl: '' })}>Remove photo</button>
+                <span>{photoMessages[adviser.id] || 'Use a clear square or head-and-shoulders image. It will be shown as a round photo.'}</span>
+              </div>
               <div className="form-grid two">
                 <Field label="Name" value={adviser.name} onChange={(v) => updateAdviser(adviser.id, { name: v })} />
                 <Field label="Role" value={adviser.role} onChange={(v) => updateAdviser(adviser.id, { role: v })} />
@@ -3521,6 +3575,39 @@ function AdviserProfiles({ advisers, clients, saveAdviser, saving }) {
       </div>
     </section>
   );
+}
+
+function resizeProfilePhoto(file, maxSize = 420) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read that image.'));
+    reader.onload = () => {
+      const image = new Image();
+      image.onerror = () => reject(new Error('Could not prepare that image.'));
+      image.onload = () => {
+        const side = Math.min(image.width, image.height);
+        if (!side) {
+          reject(new Error('That image appears to be empty.'));
+          return;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = maxSize;
+        canvas.height = maxSize;
+        const ctx = canvas.getContext('2d');
+        const sx = Math.max(0, (image.width - side) / 2);
+        const sy = Math.max(0, (image.height - side) / 2);
+        ctx.drawImage(image, sx, sy, side, side, 0, 0, maxSize, maxSize);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+        if (dataUrl.length > 480000) {
+          reject(new Error('The resized image is still too large. Try a smaller photo.'));
+          return;
+        }
+        resolve(dataUrl);
+      };
+      image.src = String(reader.result || '');
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 function MetricCard({ label, value, note, icon: Icon, warning }) {

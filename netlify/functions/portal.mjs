@@ -80,6 +80,7 @@ async function ensurePortalSchema() {
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_last_published_at TIMESTAMPTZ`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_last_accessed_at TIMESTAMPTZ`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_clients_portal_email ON clients (LOWER(portal_email))`;
+  await database.sql`ALTER TABLE advisers ADD COLUMN IF NOT EXISTS profile_photo_url TEXT`;
   await database.sql`
     CREATE TABLE IF NOT EXISTS client_portal_messages (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -138,7 +139,7 @@ async function buildPortalSnapshot(clientId) {
       SELECT id, first_name, last_name, email, case_type, primary_adviser_id, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_last_published_at, document_checklist
       FROM clients WHERE id = ${clientId} AND portal_enabled = TRUE LIMIT 1
     `,
-    database.sql`SELECT id, name, email, phone FROM advisers`,
+    database.sql`SELECT id, name, email, phone, profile_photo_url FROM advisers`,
     database.sql`SELECT id, client_id, stage_key, stage_label, applied, completed, completed_date, sort_order FROM client_stages WHERE client_id = ${clientId} ORDER BY sort_order ASC`,
     database.sql`SELECT id, deadline_type, deadline_date, note FROM client_deadlines WHERE client_id = ${clientId} ORDER BY deadline_date ASC NULLS LAST`,
     database.sql`SELECT id, adviser_id, title, appointment_type, appointment_date, start_time, end_time, location, notes, status FROM calendar_entries WHERE client_id = ${clientId} ORDER BY appointment_date ASC, start_time ASC NULLS LAST`,
@@ -198,7 +199,7 @@ async function buildPortalSnapshot(clientId) {
   return {
     clientName: [client.first_name, client.last_name].filter(Boolean).join(' ') || 'Client',
     matterType: client.case_type || '',
-    adviser: adviser ? { name: adviser.name || '', email: adviser.email || '', phone: adviser.phone || '' } : { name: '', email: '', phone: '' },
+    adviser: adviser ? { name: adviser.name || '', email: adviser.email || '', phone: adviser.phone || '', profilePhotoUrl: adviser.profile_photo_url || '' } : { name: '', email: '', phone: '', profilePhotoUrl: '' },
     currentStage: currentStage?.label || 'Not yet published',
     progressPercent: progress,
     statusUpdate: client.portal_status_update || '',
