@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { acceptInvite, getUser, handleAuthCallback, login, logout, onAuthChange, requestPasswordRecovery, updateUser } from '@netlify/identity';
-import { AlertTriangle, ArrowUpDown, BookOpen, Calculator, CalendarDays, CheckCircle2, ChevronRight, Clock, CloudSun, Copy, CreditCard, Database, DollarSign, ExternalLink, FileText, Globe2, HelpCircle, LayoutDashboard, Link2, ListChecks, LockKeyhole, Plus, RefreshCw, Save, Search, ShieldCheck, Trash2, UserRound, UsersRound, Wrench, X } from 'lucide-react';
+import { AlertTriangle, ArrowUpDown, BookOpen, Calculator, CalendarDays, CheckCircle2, ChevronRight, Clock, CloudSun, Copy, CreditCard, Database, DollarSign, ExternalLink, FileText, Globe2, HelpCircle, LayoutDashboard, Link2, ListChecks, LockKeyhole, MessageSquare, Plus, RefreshCw, Save, Search, Send, ShieldCheck, Trash2, UserRound, UsersRound, Wrench, X } from 'lucide-react';
 
 const BRAND = {
   ink: '#003736',
@@ -585,7 +585,7 @@ export default function App() {
     localStorage.setItem('this_crm_dashboard_adviser_filter', dashboardAdviserFilter);
   }, [dashboardAdviserFilter]);
 
-  async function callApi(action, payload = {}) {
+  async function callApi(action, payload = {}, options = {}) {
     setSaving(true);
     setError('');
     try {
@@ -601,7 +601,7 @@ export default function App() {
       }
       const body = await readJsonResponse(response);
       if (!response.ok) throw new Error(formatApiError(body, 'CRM save failed'));
-      setData(normaliseData(body));
+      if (!options.skipDataUpdate) setData(normaliseData(body));
       return body;
     } catch (err) {
       setError(err.message || String(err));
@@ -703,18 +703,28 @@ export default function App() {
 
   async function saveClient(client, options = {}) {
     const wasNewClient = String(client.id || '').startsWith('temp-');
-    const body = await callApi('saveClient', { client });
+    const body = await callApi('saveClient', { client }, { skipDataUpdate: true });
     if (body.client?.id) {
-      if (wasNewClient && options.resetNewClientForm) {
-        const blankClient = makeBlankClient({ ...data, clients: body.clients || data.clients });
-        setData((current) => ({ ...current, clients: [blankClient, ...(body.clients || current.clients)] }));
-        setSelectedClientId(blankClient.id);
-        setTab('clients');
-      } else {
-        setSelectedClientId(body.client.id);
-      }
+      let nextSelectedId = body.client.id;
+      setData((current) => {
+        const savedClient = normaliseClientFromApi(body.client, current.stageTemplates);
+        const withoutSaved = current.clients.filter((item) => item.id !== savedClient.id && !String(item.id || '').startsWith('temp-'));
+        const nextClients = [savedClient, ...withoutSaved];
+        if (wasNewClient && options.resetNewClientForm) {
+          const blankClient = makeBlankClient({ ...current, clients: nextClients });
+          nextSelectedId = blankClient.id;
+          return { ...current, clients: [blankClient, ...nextClients] };
+        }
+        return { ...current, clients: nextClients };
+      });
+      setSelectedClientId(nextSelectedId);
+      if (wasNewClient && options.resetNewClientForm) setTab('clients');
     }
     return body;
+  }
+
+  async function updatePortalMessageStatus(clientId, messageId, status = 'Reviewed') {
+    return await callApi('updatePortalMessageStatus', { clientId, messageId, status });
   }
 
   async function saveAdviser(adviser) {
@@ -969,6 +979,7 @@ export default function App() {
                 setSelectedClientId={selectClient}
                 onDirtyChange={setClientEditorDirty}
                 saveClient={saveClient}
+                updatePortalMessageStatus={updatePortalMessageStatus}
                 deleteClient={deleteClient}
                 saving={saving}
                 calendarEntries={data.calendarEntries}
@@ -1011,28 +1022,43 @@ export default function App() {
 
 
 function ClientPortalApp() {
-  const stored = sessionStorage.getItem('this_crm_client_portal_snapshot');
+  const storedSnapshot = sessionStorage.getItem('this_crm_client_portal_snapshot');
+  const storedAuth = sessionStorage.getItem('this_crm_client_portal_auth');
   const [email, setEmail] = useState('');
   const [accessCode, setAccessCode] = useState('');
-  const [snapshot, setSnapshot] = useState(() => stored ? safeJsonParse(stored, null) : null);
+  const [portalAuth, setPortalAuth] = useState(() => storedAuth ? safeJsonParse(storedAuth, null) : null);
+  const [snapshot, setSnapshot] = useState(() => storedSnapshot ? safeJsonParse(storedSnapshot, null) : null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [portalNotice, setPortalNotice] = useState('');
+
+  async function portalRequest(payload) {
+    const response = await fetch('/.netlify/functions/portal', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const body = await readJsonResponse(response);
+    if (!response.ok) throw new Error(body.error || 'Portal access details were not recognised.');
+    return body;
+  }
+
+  function storeSession(nextAuth, nextSnapshot) {
+    setPortalAuth(nextAuth);
+    setSnapshot(nextSnapshot);
+    sessionStorage.setItem('this_crm_client_portal_auth', JSON.stringify(nextAuth));
+    sessionStorage.setItem('this_crm_client_portal_snapshot', JSON.stringify(nextSnapshot));
+  }
 
   async function submit(event) {
     event.preventDefault();
     setLoading(true);
     setError('');
+    setPortalNotice('');
     try {
-      const response = await fetch('/.netlify/functions/portal', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ action: 'login', email, accessCode }),
-      });
-      const body = await readJsonResponse(response);
-      if (!response.ok) throw new Error(body.error || 'Portal access details were not recognised.');
-      const nextSnapshot = body.snapshot || null;
-      setSnapshot(nextSnapshot);
-      sessionStorage.setItem('this_crm_client_portal_snapshot', JSON.stringify(nextSnapshot));
+      const nextAuth = { email: email.trim(), accessCode: accessCode.trim() };
+      const body = await portalRequest({ action: 'login', ...nextAuth });
+      storeSession(nextAuth, body.snapshot || null);
     } catch (err) {
       setError(err.message || String(err));
     } finally {
@@ -1040,13 +1066,45 @@ function ClientPortalApp() {
     }
   }
 
-  function signOut() {
-    sessionStorage.removeItem('this_crm_client_portal_snapshot');
-    setSnapshot(null);
-    setAccessCode('');
+  async function refreshPortalSnapshot() {
+    if (!portalAuth?.email || !portalAuth?.accessCode) return;
+    setError('');
+    try {
+      const body = await portalRequest({ action: 'login', email: portalAuth.email, accessCode: portalAuth.accessCode });
+      storeSession(portalAuth, body.snapshot || null);
+    } catch (err) {
+      setError(err.message || 'Portal refresh failed. Sign out and back in if the problem continues.');
+    }
   }
 
-  if (snapshot) return <ClientPortalDashboard snapshot={normalisePortalSnapshot(snapshot)} onSignOut={signOut} />;
+  async function submitPortalMessage({ messageType, title, message }) {
+    if (!portalAuth?.email || !portalAuth?.accessCode) throw new Error('Your portal session has expired. Please sign in again.');
+    const body = await portalRequest({ action: 'addMessage', email: portalAuth.email, accessCode: portalAuth.accessCode, messageType, title, message });
+    storeSession(portalAuth, body.snapshot || null);
+    setPortalNotice(messageType === 'adviser_action' ? 'Your note has been sent to Turner Hopkins.' : 'Your note has been saved to your portal.');
+  }
+
+  function signOut() {
+    sessionStorage.removeItem('this_crm_client_portal_snapshot');
+    sessionStorage.removeItem('this_crm_client_portal_auth');
+    setPortalAuth(null);
+    setSnapshot(null);
+    setAccessCode('');
+    setPortalNotice('');
+  }
+
+  if (snapshot) {
+    return (
+      <ClientPortalDashboard
+        snapshot={normalisePortalSnapshot(snapshot)}
+        onSignOut={signOut}
+        onRefresh={refreshPortalSnapshot}
+        onSubmitPortalMessage={submitPortalMessage}
+        portalNotice={portalNotice}
+        portalError={error}
+      />
+    );
+  }
 
   return (
     <div className="portal-shell">
@@ -1061,30 +1119,41 @@ function ClientPortalApp() {
           <button className="btn dark" type="submit" disabled={loading}>{loading ? 'Checking...' : 'View matter update'}</button>
         </form>
         {error && <p className="portal-error">{error}</p>}
-        <p className="portal-smallprint">This portal is read-only. Contact Turner Hopkins if your details need updating.</p>
+        <p className="portal-smallprint">This portal is read-only for matter information. Any notes you add are visible to Turner Hopkins.</p>
       </main>
     </div>
   );
 }
 
-function ClientPortalDashboard({ snapshot, onSignOut }) {
+function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalMessage, portalNotice, portalError }) {
+  const [activeTool, setActiveTool] = useState('notes');
+  const adviserMessages = snapshot.portalMessages.filter((item) => item.messageType === 'adviser_action');
+  const clientNotes = snapshot.portalMessages.filter((item) => item.messageType === 'client_note');
   return (
     <div className="portal-dashboard-shell">
-      <header className="portal-dashboard-header">
+      <header className="portal-dashboard-header portal-dashboard-header-vibrant">
         <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="portal-logo-small" />
         <div>
-          <span>Client portal</span>
+          <span>Turner Hopkins client portal</span>
           <h1>{snapshot.clientName}</h1>
-          <p>{snapshot.matterType || 'Matter update'}</p>
+          <p>{snapshot.matterType || 'Matter update'} · Last updated {formatPortalDateTime(snapshot.lastUpdated) || 'not recorded'}</p>
         </div>
-        <button className="btn ghost" type="button" onClick={onSignOut}>Sign out</button>
+        <div className="portal-header-actions">
+          <button className="btn" type="button" onClick={onRefresh}><RefreshCw size={16} />Refresh</button>
+          <button className="btn ghost" type="button" onClick={onSignOut}>Sign out</button>
+        </div>
       </header>
 
-      <section className="portal-hero-card">
+      <section className="portal-hero-card portal-hero-card-vibrant">
         <div>
           <span>Current stage</span>
           <h2>{snapshot.currentStage || 'Not yet published'}</h2>
           <p>{snapshot.statusUpdate || 'No plain-English status update has been published yet.'}</p>
+          <div className="portal-hero-chips">
+            <b>{snapshot.documentsStillRequired.length} document{snapshot.documentsStillRequired.length === 1 ? '' : 's'} still required</b>
+            <b>{snapshot.keyDates.length} key date{snapshot.keyDates.length === 1 ? '' : 's'}</b>
+            <b>{snapshot.billingMilestones.length} billing milestone{snapshot.billingMilestones.length === 1 ? '' : 's'}</b>
+          </div>
         </div>
         <div className="portal-progress-dial">
           <strong>{snapshot.progressPercent}%</strong>
@@ -1092,23 +1161,51 @@ function ClientPortalDashboard({ snapshot, onSignOut }) {
         </div>
       </section>
 
+      {(portalNotice || portalError) && (
+        <div className={`portal-feedback ${portalError ? 'error' : 'success'}`}>{portalError || portalNotice}</div>
+      )}
+
       <div className="portal-dashboard-grid">
-        <section className="portal-card">
+        <section className="portal-card portal-accent-card">
           <h2>Your adviser</h2>
           <strong>{snapshot.adviser.name || 'Turner Hopkins adviser'}</strong>
           <p>{snapshot.adviser.email || snapshot.turnerHopkins.email}</p>
           <p>{snapshot.adviser.phone || snapshot.turnerHopkins.phone}</p>
         </section>
 
-        <section className="portal-card">
+        <section className="portal-card portal-accent-card">
           <h2>Next step</h2>
           <p>{snapshot.nextStep || 'No specific client action has been published at this stage.'}</p>
+        </section>
+
+        <section className="portal-card wide portal-client-action-card">
+          <div className="portal-section-head">
+            <div><h2>Notes, actions and planning</h2><p>Add a note for Turner Hopkins or keep a planning note in your portal. Notes are visible to Turner Hopkins.</p></div>
+            <MessageSquare size={22} />
+          </div>
+          <div className="portal-message-grid">
+            <ClientPortalMessageComposer
+              title="Send Turner Hopkins a note or action"
+              description="Use this for a question, update, or item you want your adviser to see."
+              buttonLabel="Send to adviser"
+              messageType="adviser_action"
+              onSubmit={onSubmitPortalMessage}
+            />
+            <ClientPortalMessageComposer
+              title="My notes and plans"
+              description="Keep a note about your own planning, documents or next steps."
+              buttonLabel="Save note"
+              messageType="client_note"
+              onSubmit={onSubmitPortalMessage}
+            />
+          </div>
+          <ClientPortalMessageList adviserMessages={adviserMessages} clientNotes={clientNotes} />
         </section>
 
         <section className="portal-card wide">
           <h2>Documents still required</h2>
           {snapshot.documentsStillRequired.length ? (
-            <div className="portal-list">
+            <div className="portal-list portal-card-list">
               {snapshot.documentsStillRequired.map((item) => <div key={item.id}><strong>{item.name}</strong>{item.expiryDate && <span>Expiry: {formatPortalDate(item.expiryDate)}</span>}</div>)}
             </div>
           ) : <p>No visible outstanding document requests.</p>}
@@ -1146,6 +1243,27 @@ function ClientPortalDashboard({ snapshot, onSignOut }) {
           ) : <p>No billing milestones have been published.</p>}
         </section>
 
+        <section className="portal-card wide portal-tools-card">
+          <div className="portal-section-head">
+            <div><h2>Useful tools</h2><p>Quick tools for client planning. Results are indicative only.</p></div>
+            <Wrench size={22} />
+          </div>
+          <div className="tool-tabs portal-tool-tabs" role="tablist" aria-label="Client portal tools">
+            <button type="button" className={activeTool === 'notes' ? 'active' : ''} onClick={() => setActiveTool('notes')}><FileText size={16} />Notes</button>
+            <button type="button" className={activeTool === 'weather' ? 'active' : ''} onClick={() => setActiveTool('weather')}><CloudSun size={16} />Weather</button>
+            <button type="button" className={activeTool === 'timezone' ? 'active' : ''} onClick={() => setActiveTool('timezone')}><Globe2 size={16} />Time</button>
+            <button type="button" className={activeTool === 'currency' ? 'active' : ''} onClick={() => setActiveTool('currency')}><DollarSign size={16} />Currency</button>
+            <button type="button" className={activeTool === 'calculator' ? 'active' : ''} onClick={() => setActiveTool('calculator')}><Calculator size={16} />Calc</button>
+          </div>
+          <div className="portal-tool-panel">
+            {activeTool === 'notes' && <div className="portal-tool-intro"><strong>Planning space</strong><p>Use the notes area above to keep track of your questions, documents and plans. Turner Hopkins can see saved notes.</p></div>}
+            {activeTool === 'weather' && <WeatherTool />}
+            {activeTool === 'timezone' && <TimezoneTool />}
+            {activeTool === 'currency' && <CurrencyTool />}
+            {activeTool === 'calculator' && <CalculatorTool />}
+          </div>
+        </section>
+
         <section className="portal-card wide contact-card">
           <h2>Turner Hopkins contact</h2>
           <div className="portal-contact-grid">
@@ -1157,6 +1275,57 @@ function ClientPortalDashboard({ snapshot, onSignOut }) {
           <span className="portal-last-updated">Last updated: {formatPortalDateTime(snapshot.lastUpdated) || 'Not recorded'}</span>
         </section>
       </div>
+    </div>
+  );
+}
+
+function ClientPortalMessageComposer({ title, description, buttonLabel, messageType, onSubmit }) {
+  const [messageTitle, setMessageTitle] = useState('');
+  const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
+
+  async function submit(event) {
+    event.preventDefault();
+    const cleanMessage = message.trim();
+    if (!cleanMessage) return setError('Add a note before saving.');
+    setSending(true);
+    setError('');
+    try {
+      await onSubmit({ messageType, title: messageTitle.trim(), message: cleanMessage });
+      setMessageTitle('');
+      setMessage('');
+    } catch (err) {
+      setError(err.message || 'Could not save this note.');
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <form className="portal-message-composer" onSubmit={submit}>
+      <h3>{title}</h3>
+      <p>{description}</p>
+      <input value={messageTitle} onChange={(event) => setMessageTitle(event.target.value)} placeholder="Optional short title" />
+      <textarea value={message} onChange={(event) => setMessage(event.target.value)} rows={4} placeholder="Write your note here..." />
+      {error && <small className="portal-inline-error">{error}</small>}
+      <button className="btn dark" type="submit" disabled={sending}><Send size={15} />{sending ? 'Saving...' : buttonLabel}</button>
+    </form>
+  );
+}
+
+function ClientPortalMessageList({ adviserMessages, clientNotes }) {
+  const allMessages = [...adviserMessages, ...clientNotes].sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''))).slice(0, 8);
+  return (
+    <div className="portal-message-history">
+      <h3>Recent portal notes</h3>
+      {allMessages.length ? allMessages.map((item) => (
+        <div className="portal-message-history-row" key={item.id}>
+          <span>{item.messageType === 'adviser_action' ? 'Sent to adviser' : 'Client note'} · {formatPortalDateTime(item.createdAt)}</span>
+          <strong>{item.title || (item.messageType === 'adviser_action' ? 'Note for Turner Hopkins' : 'My note')}</strong>
+          <p>{item.message}</p>
+        </div>
+      )) : <p className="muted">No client notes have been saved yet.</p>}
     </div>
   );
 }
@@ -1780,6 +1949,10 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
   const next14 = deadlineRows.filter((row) => dateDiff(row.date) >= 0 && dateDiff(row.date) <= 14);
   const clientsWithoutNextAction = activeClients.filter((client) => !client.nextActionDue);
   const overdueCalendarItems = taskRows.filter((row) => row.source === 'calendar-entry' && row.diff < 0);
+  const newPortalMessages = activeClients.flatMap((client) => (client.portalMessages || [])
+    .filter((message) => message.status === 'New')
+    .map((message) => ({ client, message })))
+    .sort((a, b) => String(b.message.createdAt || '').localeCompare(String(a.message.createdAt || '')));
 
   const visibleAdvisers = dashboardAdviserFilter === 'all' ? advisers : advisers.filter((adviser) => adviser.id === dashboardAdviserFilter);
   const viewTitle = dashboardAdviserFilter === 'all' ? 'Whole-practice dashboard' : `${advisers.find((adviser) => adviser.id === dashboardAdviserFilter)?.name || 'Adviser'} dashboard`;
@@ -1799,12 +1972,15 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
         <MetricCard label="Deadlines next 14 days" value={next14.length} note="Expiry, PPI, filing and actions" icon={CalendarDays} />
         <MetricCard label="Overdue items" value={overdueRows.length} note="Needs attention" icon={AlertTriangle} warning />
         <MetricCard label="Overdue calendar" value={overdueCalendarItems.length} note="Open appointments in the past" icon={CalendarDays} warning={overdueCalendarItems.length > 0} />
+        <MetricCard label="Client portal notes" value={newPortalMessages.length} note="New client-submitted items" icon={MessageSquare} warning={newPortalMessages.length > 0} />
         <MetricCard label="WIP / overdue billing" value={formatCurrency(pendingInvoices.reduce((sum, row) => sum + Number(row.item.amount || 0), 0))} note="Billing not yet invoiced" icon={CreditCard} />
       </div>
 
       <DailyBringUpPanel taskRows={taskRows} advisers={advisers} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} />
 
       <QuickTaskPanel taskRows={taskRows} advisers={advisers} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} />
+
+      <PortalMessageAlertPanel messages={newPortalMessages} openClientRecord={openClientRecord} />
 
       <ClientsWithoutNextActionPanel clients={clientsWithoutNextAction} openClientRecord={openClientRecord} />
 
@@ -1850,6 +2026,34 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
 
 }
 
+
+function PortalMessageAlertPanel({ messages, openClientRecord }) {
+  if (!messages.length) return null;
+  return (
+    <section className="panel portal-message-alert-panel">
+      <div className="quick-task-head">
+        <div>
+          <h2>New client portal notes</h2>
+          <p className="muted">Client-submitted notes and actions that need adviser review. Open the client portal section to respond or mark them reviewed.</p>
+        </div>
+        <div className="quick-task-counts"><span><b>{messages.length}</b> new</span></div>
+      </div>
+      <div className="quick-task-list">
+        {messages.slice(0, 6).map(({ client, message }) => (
+          <button className="quick-task portal-message-task" key={message.id} type="button" onClick={() => openClientRecord?.(client.id)}>
+            <MessageSquare size={18} />
+            <span>
+              <strong>{clientName(client)}</strong>
+              <small>{message.title || (message.messageType === 'adviser_action' ? 'Note/action for adviser' : 'Client planning note')}</small>
+              <small>{formatPortalDateTime(message.createdAt)}</small>
+            </span>
+            <ChevronRight size={16} />
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 function ClientsWithoutNextActionPanel({ clients, openClientRecord }) {
   if (!clients.length) return null;
@@ -2097,7 +2301,7 @@ function ProgressMap({ client }) {
 }
 
 
-function ClientPortalPanel({ client, advisers, calendarEntries, generatedPortalCode, setField, updatePortalSelection, generatePortalAccessCode, copyPortalInstructions, publishPortalUpdate, saving }) {
+function ClientPortalPanel({ client, advisers, calendarEntries, generatedPortalCode, setField, updatePortalSelection, generatePortalAccessCode, copyPortalInstructions, publishPortalUpdate, updatePortalMessageStatus, saving }) {
   const portalLink = `${window.location.origin}/portal`;
   const documents = normaliseDocumentChecklist(client.documentChecklist).filter((item) => item.applied !== false && !item.obtained);
   const deadlines = (client.deadlines || []).filter((item) => item.date || item.note || item.type).map((item) => ({ ...item, id: portalDeadlineKey(item) }));
@@ -2108,6 +2312,8 @@ function ClientPortalPanel({ client, advisers, calendarEntries, generatedPortalC
   const visibleAppointments = new Set(client.portalVisibleAppointmentIds || []);
   const billingItems = normaliseBillingItems(client.billing || []).map((item) => ({ ...item, status: effectiveBillingStatus(item, client) }));
   const visibleBilling = new Set(client.portalVisibleBillingIds || []);
+  const portalMessages = (client.portalMessages || []).slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  const newMessages = portalMessages.filter((message) => message.status === 'New');
 
   return (
     <div className="portal-admin-panel">
@@ -2123,7 +2329,7 @@ function ClientPortalPanel({ client, advisers, calendarEntries, generatedPortalC
         <span><strong>Portal link</strong><button type="button" className="linklike" onClick={() => navigator.clipboard?.writeText(portalLink)}>{portalLink}</button></span>
         <span><strong>Access code</strong>{client.portalAccessCodeSet || generatedPortalCode ? 'Set' : 'Not generated'}</span>
         <span><strong>Last published</strong>{formatPortalDateTime(client.portalLastPublishedAt) || 'Not published'}</span>
-        <span><strong>Last access</strong>{formatPortalDateTime(client.portalLastAccessedAt) || 'Not accessed'}</span>
+        <span><strong>Client notes</strong>{newMessages.length ? `${newMessages.length} new` : `${portalMessages.length} total`}</span>
       </div>
 
       <div className="form-grid two">
@@ -2139,6 +2345,26 @@ function ClientPortalPanel({ client, advisers, calendarEntries, generatedPortalC
         <PortalVisibilityBox title="Upcoming key dates" empty="No client deadlines recorded." items={deadlines} selected={visibleDeadlines} onToggle={(id, checked) => updatePortalSelection('portalVisibleDeadlineIds', id, checked)} renderLabel={(item) => item.type} renderMeta={(item) => [item.date, item.note].filter(Boolean).join(' · ') || 'No date'} />
         <PortalVisibilityBox title="Appointments" empty="No open linked appointments." items={appointments} selected={visibleAppointments} onToggle={(id, checked) => updatePortalSelection('portalVisibleAppointmentIds', id, checked)} renderLabel={(item) => item.title || 'Appointment'} renderMeta={(item) => [item.appointmentDate, calendarEntryTimeLabel(item), item.location].filter(Boolean).join(' · ') || 'No date'} />
         <PortalVisibilityBox title="Billing milestones" empty="No billing milestones recorded." items={billingItems} selected={visibleBilling} onToggle={(id, checked) => updatePortalSelection('portalVisibleBillingIds', id, checked)} renderLabel={(item) => item.milestone || 'Billing milestone'} renderMeta={(item) => [formatCurrency(item.amount), item.status, item.dueDate ? `Date ${item.dueDate}` : '', item.invoiceNo ? `Invoice ${item.invoiceNo}` : ''].filter(Boolean).join(' · ') || 'No billing details'} />
+      </div>
+
+      <div className="portal-adviser-inbox">
+        <div className="sub-panel-head compact">
+          <div>
+            <h3>Client-submitted notes and actions</h3>
+            <p className="muted">Items added from the client portal. Mark them reviewed once the adviser has dealt with them.</p>
+          </div>
+          {newMessages.length > 0 && <span className="count-pill warning">{newMessages.length} new</span>}
+        </div>
+        {portalMessages.length ? portalMessages.slice(0, 8).map((message) => (
+          <div className={`portal-inbox-row ${message.status === 'New' ? 'new' : ''}`} key={message.id}>
+            <div>
+              <span>{message.messageType === 'adviser_action' ? 'Note/action for adviser' : 'Client note/planning'} · {formatPortalDateTime(message.createdAt)}</span>
+              <strong>{message.title || (message.messageType === 'adviser_action' ? 'Client note/action' : 'Client planning note')}</strong>
+              <p>{message.message}</p>
+            </div>
+            {message.status === 'New' ? <button className="btn mini" type="button" onClick={() => updatePortalMessageStatus?.(client.id, message.id, 'Reviewed')}>Mark reviewed</button> : <b className="reviewed-pill">Reviewed</b>}
+          </div>
+        )) : <p className="muted">No client-submitted notes yet.</p>}
       </div>
 
       {generatedPortalCode && <div className="portal-code-card"><span>New portal access code - shown once</span><strong>{generatedPortalCode}</strong><small>Save or publish the client record before sending this code to the client.</small></div>}
@@ -2169,7 +2395,7 @@ function PortalVisibilityBox({ title, empty, items, selected, onToggle, renderLa
 
 
 function ClientsWorkspace(props) {
-  const { clients, selectedClient, advisers, caseTypes, deadlineTypes, clientQuery, setClientQuery, adviserFilter, setAdviserFilter, caseTypeFilter, setCaseTypeFilter, setSelectedClientId, onDirtyChange, saveClient, deleteClient, saving, calendarEntries = [] } = props;
+  const { clients, selectedClient, advisers, caseTypes, deadlineTypes, clientQuery, setClientQuery, adviserFilter, setAdviserFilter, caseTypeFilter, setCaseTypeFilter, setSelectedClientId, onDirtyChange, saveClient, updatePortalMessageStatus, deleteClient, saving, calendarEntries = [] } = props;
   return (
     <div className="workspace-grid">
       <aside className="panel list-panel">
@@ -2188,13 +2414,13 @@ function ClientsWorkspace(props) {
         </div>
       </aside>
       <section className="panel detail-panel">
-        <ClientEditor client={selectedClient} advisers={advisers} caseTypes={caseTypes} deadlineTypes={deadlineTypes} calendarEntries={calendarEntries} saveClient={saveClient} deleteClient={deleteClient} saving={saving} onDirtyChange={onDirtyChange} />
+        <ClientEditor client={selectedClient} advisers={advisers} caseTypes={caseTypes} deadlineTypes={deadlineTypes} calendarEntries={calendarEntries} saveClient={saveClient} updatePortalMessageStatus={updatePortalMessageStatus} deleteClient={deleteClient} saving={saving} onDirtyChange={onDirtyChange} />
       </section>
     </div>
   );
 }
 
-function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntries = [], saveClient, deleteClient, saving, onDirtyChange }) {
+function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntries = [], saveClient, updatePortalMessageStatus, deleteClient, saving, onDirtyChange }) {
   const [draft, setDraft] = useState(client);
   const [showFullRecord, setShowFullRecord] = useState(false);
   const [showDocumentChecklist, setShowDocumentChecklist] = useState(false);
@@ -2464,7 +2690,8 @@ Turner Hopkins Immigration Specialists`;
   const billingItems = normaliseBillingItems(draft.billing || []);
   const activeBillingItems = billingItems.filter((item) => effectiveBillingStatus(item, draft) !== 'Invoiced');
   const activeBillingAmount = activeBillingItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const portalStatusSummary = draft.portalEnabled ? `Active for ${draft.portalEmail || draft.email || 'client email not set'}. Last published ${formatPortalDateTime(draft.portalLastPublishedAt) || 'not yet'}.` : 'Inactive. Expand to enable portal access for this client.';
+  const portalNewMessageCount = (draft.portalMessages || []).filter((message) => message.status === 'New').length;
+  const portalStatusSummary = draft.portalEnabled ? `Active for ${draft.portalEmail || draft.email || 'client email not set'}. Last published ${formatPortalDateTime(draft.portalLastPublishedAt) || 'not yet'}.${portalNewMessageCount ? ` ${portalNewMessageCount} new client note${portalNewMessageCount === 1 ? '' : 's'} waiting.` : ''}` : 'Inactive. Expand to enable portal access for this client.';
 
   return (
     <div>
@@ -2516,7 +2743,7 @@ Turner Hopkins Immigration Specialists`;
         isOpen={showClientPortal}
         onToggle={() => setShowClientPortal((value) => !value)}
         summary={portalStatusSummary}
-        badge={draft.portalEnabled ? 'Active' : 'Inactive'}
+        badge={portalNewMessageCount ? `${portalNewMessageCount} new` : (draft.portalEnabled ? 'Active' : 'Inactive')}
       >
         <ClientPortalPanel
           client={draft}
@@ -2528,6 +2755,7 @@ Turner Hopkins Immigration Specialists`;
           generatePortalAccessCode={generatePortalAccessCode}
           copyPortalInstructions={copyPortalInstructions}
           publishPortalUpdate={handlePublishPortalUpdate}
+          updatePortalMessageStatus={updatePortalMessageStatus}
           saving={saving}
         />
       </ExpandableClientSection>
@@ -4077,6 +4305,7 @@ function normalisePortalSnapshot(snapshot = {}) {
     keyDates: Array.isArray(snapshot.keyDates) ? snapshot.keyDates : [],
     appointments: Array.isArray(snapshot.appointments) ? snapshot.appointments : [],
     billingMilestones: Array.isArray(snapshot.billingMilestones) ? snapshot.billingMilestones : [],
+    portalMessages: Array.isArray(snapshot.portalMessages) ? snapshot.portalMessages.map(normalisePortalMessage) : [],
     turnerHopkins: snapshot.turnerHopkins || { name: 'Turner Hopkins Immigration Specialists', phone: '+64 9 486 2169', email: 'immigration@turnerhopkins.co.nz', website: 'www.turnerhopkinsimmigration.co.nz' },
     lastUpdated: snapshot.lastUpdated || '',
   };
@@ -4194,10 +4423,47 @@ function daysFromToday(days) {
   return toIsoDate(d);
 }
 
+function normaliseClientFromApi(client = {}, stageTemplates = DEFAULT_STAGE_TEMPLATES) {
+  return {
+    ...client,
+    sharepointFolderUrl: client.sharepointFolderUrl || '',
+    oneLawClientNumber: client.oneLawClientNumber || client.one_law_client_number || '',
+    dateOfBirth: client.dateOfBirth || '',
+    nextActionLog: normaliseNextActionLog(client.nextActionLog),
+    portalEnabled: Boolean(client.portalEnabled),
+    portalEmail: client.portalEmail || '',
+    portalStatusUpdate: client.portalStatusUpdate || '',
+    portalNextStep: client.portalNextStep || '',
+    portalVisibleDocumentIds: Array.isArray(client.portalVisibleDocumentIds) ? client.portalVisibleDocumentIds : [],
+    portalVisibleDeadlineIds: Array.isArray(client.portalVisibleDeadlineIds) ? client.portalVisibleDeadlineIds : [],
+    portalVisibleAppointmentIds: Array.isArray(client.portalVisibleAppointmentIds) ? client.portalVisibleAppointmentIds : [],
+    portalVisibleBillingIds: Array.isArray(client.portalVisibleBillingIds) ? client.portalVisibleBillingIds : [],
+    portalAccessCodeSet: Boolean(client.portalAccessCodeSet),
+    portalLastPublishedAt: client.portalLastPublishedAt || '',
+    portalLastAccessedAt: client.portalLastAccessedAt || '',
+    portalMessages: Array.isArray(client.portalMessages) ? client.portalMessages.map(normalisePortalMessage) : [],
+    familyMembers: Array.isArray(client.familyMembers) ? client.familyMembers.map((member) => ({ ...member, nationality: member.nationality || '' })) : [],
+    documentChecklist: normaliseDocumentChecklist(client.documentChecklist),
+    billing: normaliseBillingItems(client.billing || []),
+    stages: normaliseStages(client.stages, stageTemplates),
+  };
+}
+
+function normalisePortalMessage(message = {}) {
+  return {
+    id: message.id || `portal-message-${Date.now()}`,
+    messageType: message.messageType || message.message_type || 'client_note',
+    title: message.title || '',
+    message: message.message || '',
+    status: message.status === 'Reviewed' ? 'Reviewed' : 'New',
+    createdAt: message.createdAt || message.created_at || '',
+  };
+}
+
 function normaliseData(body) {
   return {
     advisers: (body.advisers || []).map((adviser) => ({ ...adviser, loginEmail: adviser.loginEmail || adviser.login_email || '' })),
-    clients: (body.clients || []).map((client) => ({ ...client, sharepointFolderUrl: client.sharepointFolderUrl || '', oneLawClientNumber: client.oneLawClientNumber || client.one_law_client_number || '', dateOfBirth: client.dateOfBirth || '', nextActionLog: normaliseNextActionLog(client.nextActionLog), portalEnabled: Boolean(client.portalEnabled), portalEmail: client.portalEmail || '', portalStatusUpdate: client.portalStatusUpdate || '', portalNextStep: client.portalNextStep || '', portalVisibleDocumentIds: Array.isArray(client.portalVisibleDocumentIds) ? client.portalVisibleDocumentIds : [], portalVisibleDeadlineIds: Array.isArray(client.portalVisibleDeadlineIds) ? client.portalVisibleDeadlineIds : [], portalVisibleAppointmentIds: Array.isArray(client.portalVisibleAppointmentIds) ? client.portalVisibleAppointmentIds : [], portalVisibleBillingIds: Array.isArray(client.portalVisibleBillingIds) ? client.portalVisibleBillingIds : [], portalAccessCodeSet: Boolean(client.portalAccessCodeSet), portalLastPublishedAt: client.portalLastPublishedAt || '', portalLastAccessedAt: client.portalLastAccessedAt || '', familyMembers: Array.isArray(client.familyMembers) ? client.familyMembers.map((member) => ({ ...member, nationality: member.nationality || '' })) : [], documentChecklist: normaliseDocumentChecklist(client.documentChecklist), billing: normaliseBillingItems(client.billing || []), stages: normaliseStages(client.stages, body.stageTemplates || DEFAULT_STAGE_TEMPLATES) })),
+    clients: (body.clients || []).map((client) => normaliseClientFromApi(client, body.stageTemplates || DEFAULT_STAGE_TEMPLATES)),
     caseTypes: body.caseTypes || DEFAULT_CASE_TYPES,
     deadlineTypes: body.deadlineTypes || DEFAULT_DEADLINE_TYPES,
     stageTemplates: body.stageTemplates || DEFAULT_STAGE_TEMPLATES,

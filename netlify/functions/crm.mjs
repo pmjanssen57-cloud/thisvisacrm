@@ -141,7 +141,12 @@ async function handleCrmEvent(event) {
 
     if (action === 'saveClient') {
       const client = await saveClient(body.client);
-      return json({ client, ...(await readCrmData()) });
+      return json({ client: await readSingleClient(client.id) });
+    }
+
+    if (action === 'updatePortalMessageStatus') {
+      await updatePortalMessageStatus(body.clientId, body.messageId, body.status);
+      return json(await readCrmData());
     }
 
     if (action === 'deleteClient') {
@@ -398,13 +403,28 @@ async function ensureSchema() {
   await database.sql`CREATE INDEX IF NOT EXISTS idx_library_entries_type ON library_entries(entry_type)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_library_entries_status ON library_entries(status)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_library_entries_review_due ON library_entries(next_review_due)`;
+  await database.sql`
+    CREATE TABLE IF NOT EXISTS client_portal_messages (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      portal_email TEXT,
+      message_type TEXT NOT NULL DEFAULT 'client_note',
+      title TEXT,
+      message TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'New',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_client_portal_messages_client ON client_portal_messages(client_id, created_at DESC)`;
 }
+
 
 
 
 async function readCrmData() {
   const database = db();
-  const [advisers, clients, stages, deadlines, billing, personalTasks, calendarEntries, libraryEntries] = await Promise.all([
+  const [advisers, clients, stages, deadlines, billing, personalTasks, calendarEntries, libraryEntries, portalMessages] = await Promise.all([
     database.sql`SELECT id, name, role, email, login_email, phone, licence, active FROM advisers ORDER BY name ASC`,
     database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, one_law_client_number, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, portal_enabled, portal_email, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_access_code_hash, portal_last_published_at, portal_last_accessed_at, notes, family_members, document_checklist FROM clients ORDER BY updated_at DESC`,
     database.sql`SELECT id, client_id, stage_key, stage_label, mandatory, applied, completed, completed_date, sort_order FROM client_stages ORDER BY sort_order ASC`,
@@ -413,11 +433,12 @@ async function readCrmData() {
     database.sql`SELECT id, adviser_id, client_id, title, due_date, status, note FROM personal_tasks ORDER BY due_date ASC NULLS LAST, created_at DESC`,
     database.sql`SELECT id, client_id, adviser_id, title, appointment_type, appointment_date, start_time, end_time, location, notes, status FROM calendar_entries ORDER BY appointment_date ASC, start_time ASC NULLS LAST, created_at DESC`,
     database.sql`SELECT id, entry_type, reference_code, title, category, status, official_url, version_label, acceptable_until, related_case_types, related_document_items, internal_summary, adviser_notes, last_reviewed, next_review_due, reviewed_by FROM library_entries ORDER BY entry_type ASC, title ASC`,
+    database.sql`SELECT id, client_id, portal_email, message_type, title, message, status, created_at FROM client_portal_messages ORDER BY created_at DESC`,
   ]);
 
   return {
     advisers: advisers.map(mapAdviserFromDb),
-    clients: clients.map((client) => mapClientFromDb(client, stages, deadlines, billing)),
+    clients: clients.map((client) => mapClientFromDb(client, stages, deadlines, billing, portalMessages)),
     personalTasks: personalTasks.map(mapPersonalTaskFromDb),
     calendarEntries: calendarEntries.map(mapCalendarEntryFromDb),
     libraryEntries: libraryEntries.map(mapLibraryEntryFromDb),
@@ -425,6 +446,19 @@ async function readCrmData() {
     deadlineTypes: DEADLINE_TYPES,
     stageTemplates: STAGE_TEMPLATES,
   };
+}
+
+async function readSingleClient(clientId) {
+  const database = db();
+  const [clients, stages, deadlines, billing, portalMessages] = await Promise.all([
+    database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, one_law_client_number, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, portal_enabled, portal_email, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_access_code_hash, portal_last_published_at, portal_last_accessed_at, notes, family_members, document_checklist FROM clients WHERE id = ${clientId} LIMIT 1`,
+    database.sql`SELECT id, client_id, stage_key, stage_label, mandatory, applied, completed, completed_date, sort_order FROM client_stages WHERE client_id = ${clientId} ORDER BY sort_order ASC`,
+    database.sql`SELECT id, client_id, deadline_type, deadline_date, note FROM client_deadlines WHERE client_id = ${clientId} ORDER BY deadline_date ASC NULLS LAST`,
+    database.sql`SELECT id, client_id, milestone, due_date, amount, status, invoice_no, billing_trigger_type, billing_stage_key FROM billing_milestones WHERE client_id = ${clientId} ORDER BY due_date ASC NULLS LAST`,
+    database.sql`SELECT id, client_id, portal_email, message_type, title, message, status, created_at FROM client_portal_messages WHERE client_id = ${clientId} ORDER BY created_at DESC`,
+  ]);
+  if (!clients[0]) throw new Error('Saved client could not be reloaded.');
+  return mapClientFromDb(clients[0], stages, deadlines, billing, portalMessages);
 }
 
 function mapAdviserFromDb(row) {
@@ -490,7 +524,7 @@ function mapLibraryEntryFromDb(row) {
   };
 }
 
-function mapClientFromDb(row, stages, deadlines, billing) {
+function mapClientFromDb(row, stages, deadlines, billing, portalMessages = []) {
   const clientStages = stages
     .filter((stage) => stage.client_id === row.id)
     .map((stage) => ({
@@ -539,6 +573,9 @@ function mapClientFromDb(row, stages, deadlines, billing) {
     notes: row.notes || '',
     familyMembers: parseFamilyMembers(row.family_members),
     documentChecklist: parseDocumentChecklist(row.document_checklist),
+    portalMessages: (portalMessages || [])
+      .filter((message) => message.client_id === row.id)
+      .map(mapPortalMessageFromDb),
     stages: normaliseStages(clientStages),
     deadlines: deadlines
       .filter((deadline) => deadline.client_id === row.id)
@@ -560,6 +597,19 @@ function mapClientFromDb(row, stages, deadlines, billing) {
         triggerType: normaliseBillingTriggerType(item.billing_trigger_type),
         stageKey: normaliseStageKey(item.billing_stage_key || ''),
       })),
+  };
+}
+
+function mapPortalMessageFromDb(row = {}) {
+  return {
+    id: row.id,
+    clientId: row.client_id || '',
+    portalEmail: row.portal_email || '',
+    messageType: row.message_type || 'client_note',
+    title: row.title || '',
+    message: row.message || '',
+    status: row.status === 'Reviewed' ? 'Reviewed' : 'New',
+    createdAt: toDateTimeLabel(row.created_at),
   };
 }
 
@@ -634,6 +684,15 @@ async function saveLibraryEntry(input = {}) {
 async function deleteLibraryEntry(entryId) {
   if (!isUuid(entryId)) return;
   await db().sql`DELETE FROM library_entries WHERE id = ${entryId}`;
+}
+
+async function updatePortalMessageStatus(clientId, messageId, status = 'Reviewed') {
+  if (!isUuid(clientId) || !isUuid(messageId)) return;
+  await db().sql`
+    UPDATE client_portal_messages
+    SET status = ${status === 'Reviewed' ? 'Reviewed' : 'New'}, updated_at = NOW()
+    WHERE id = ${messageId} AND client_id = ${clientId}
+  `;
 }
 
 async function saveClient(input = {}) {

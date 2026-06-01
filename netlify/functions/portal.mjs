@@ -16,34 +16,42 @@ export default async function portalRequestHandler(request, context = {}) {
   try {
     await ensurePortalSchema();
     const body = await request.json().catch(() => ({}));
-    if (body.action !== 'login') return json({ error: 'Unknown portal action.' }, 400);
+    const action = String(body.action || '').trim();
+    if (!['login', 'addMessage'].includes(action)) return json({ error: 'Unknown portal action.' }, 400);
 
     const email = normaliseEmail(body.email);
     const accessCode = String(body.accessCode || '').trim();
     if (!email || !accessCode) return json({ error: 'Enter your email address and portal access code.' }, 400);
 
     const database = db();
-    const matches = await database.sql`
-      SELECT id, first_name, last_name, email, portal_email, portal_access_code_hash
-      FROM clients
-      WHERE portal_enabled = TRUE
-        AND LOWER(COALESCE(NULLIF(portal_email, ''), email)) = ${email}
-      ORDER BY updated_at DESC
-      LIMIT 5
-    `;
-
-    const matchedClient = matches.find((client) => verifyPortalAccessCode(accessCode, client.portal_access_code_hash));
+    const matchedClient = await authenticatePortalClient(email, accessCode);
     if (!matchedClient) return json({ error: 'Portal access details were not recognised.' }, 401);
 
-    const snapshot = await buildPortalSnapshot(matchedClient.id);
     const ip = request.headers.get('x-forwarded-for') || request.headers.get('client-ip') || '';
     const userAgent = request.headers.get('user-agent') || '';
-    await database.sql`
-      INSERT INTO client_portal_access_log (client_id, portal_email, action, ip_address, user_agent)
-      VALUES (${matchedClient.id}, ${email}, 'login', ${ip}, ${userAgent})
-    `;
-    await database.sql`UPDATE clients SET portal_last_accessed_at = NOW() WHERE id = ${matchedClient.id}`;
 
+    if (action === 'addMessage') {
+      const message = String(body.message || '').trim();
+      if (!message) return json({ error: 'Add a note before saving.' }, 400);
+      const messageType = body.messageType === 'adviser_action' ? 'adviser_action' : 'client_note';
+      const title = String(body.title || '').trim().slice(0, 160);
+      await database.sql`
+        INSERT INTO client_portal_messages (client_id, portal_email, message_type, title, message, status)
+        VALUES (${matchedClient.id}, ${email}, ${messageType}, ${title}, ${message.slice(0, 4000)}, 'New')
+      `;
+      await database.sql`
+        INSERT INTO client_portal_access_log (client_id, portal_email, action, ip_address, user_agent)
+        VALUES (${matchedClient.id}, ${email}, ${messageType}, ${ip}, ${userAgent})
+      `;
+    } else {
+      await database.sql`
+        INSERT INTO client_portal_access_log (client_id, portal_email, action, ip_address, user_agent)
+        VALUES (${matchedClient.id}, ${email}, 'login', ${ip}, ${userAgent})
+      `;
+      await database.sql`UPDATE clients SET portal_last_accessed_at = NOW() WHERE id = ${matchedClient.id}`;
+    }
+
+    const snapshot = await buildPortalSnapshot(matchedClient.id);
     return json({ snapshot });
   } catch (error) {
     console.error(error);
@@ -73,6 +81,20 @@ async function ensurePortalSchema() {
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_last_accessed_at TIMESTAMPTZ`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_clients_portal_email ON clients (LOWER(portal_email))`;
   await database.sql`
+    CREATE TABLE IF NOT EXISTS client_portal_messages (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      portal_email TEXT,
+      message_type TEXT NOT NULL DEFAULT 'client_note',
+      title TEXT,
+      message TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'New',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_client_portal_messages_client ON client_portal_messages(client_id, created_at DESC)`;
+  await database.sql`
     CREATE TABLE IF NOT EXISTS client_portal_access_log (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
@@ -85,9 +107,33 @@ async function ensurePortalSchema() {
   `;
 }
 
+async function authenticatePortalClient(email, accessCode) {
+  const database = db();
+  const matches = await database.sql`
+    SELECT id, first_name, last_name, email, portal_email, portal_access_code_hash
+    FROM clients
+    WHERE portal_enabled = TRUE
+      AND LOWER(COALESCE(NULLIF(portal_email, ''), email)) = ${email}
+    ORDER BY updated_at DESC
+    LIMIT 5
+  `;
+  return matches.find((client) => verifyPortalAccessCode(accessCode, client.portal_access_code_hash)) || null;
+}
+
+function mapPortalMessageFromDb(row = {}) {
+  return {
+    id: row.id,
+    messageType: row.message_type || 'client_note',
+    title: row.title || '',
+    message: row.message || '',
+    status: row.status === 'Reviewed' ? 'Reviewed' : 'New',
+    createdAt: toDateTimeLabel(row.created_at),
+  };
+}
+
 async function buildPortalSnapshot(clientId) {
   const database = db();
-  const [clientRows, adviserRows, stageRows, deadlineRows, calendarRows, billingRows] = await Promise.all([
+  const [clientRows, adviserRows, stageRows, deadlineRows, calendarRows, billingRows, messageRows] = await Promise.all([
     database.sql`
       SELECT id, first_name, last_name, email, case_type, primary_adviser_id, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_last_published_at, document_checklist
       FROM clients WHERE id = ${clientId} AND portal_enabled = TRUE LIMIT 1
@@ -97,6 +143,7 @@ async function buildPortalSnapshot(clientId) {
     database.sql`SELECT id, deadline_type, deadline_date, note FROM client_deadlines WHERE client_id = ${clientId} ORDER BY deadline_date ASC NULLS LAST`,
     database.sql`SELECT id, adviser_id, title, appointment_type, appointment_date, start_time, end_time, location, notes, status FROM calendar_entries WHERE client_id = ${clientId} ORDER BY appointment_date ASC, start_time ASC NULLS LAST`,
     database.sql`SELECT id, milestone, due_date, amount, status, invoice_no, billing_trigger_type, billing_stage_key FROM billing_milestones WHERE client_id = ${clientId} ORDER BY due_date ASC NULLS LAST`,
+    database.sql`SELECT id, message_type, title, message, status, created_at FROM client_portal_messages WHERE client_id = ${clientId} ORDER BY created_at DESC LIMIT 40`,
   ]);
   const client = clientRows[0];
   if (!client) throw new Error('Portal snapshot not available.');
@@ -160,6 +207,7 @@ async function buildPortalSnapshot(clientId) {
     keyDates,
     appointments,
     billingMilestones,
+    portalMessages: (messageRows || []).map(mapPortalMessageFromDb),
     turnerHopkins: TURNER_HOPKINS_CONTACT,
     lastUpdated: toDateTimeLabel(client.portal_last_published_at) || '',
   };

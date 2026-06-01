@@ -1,4 +1,4 @@
-THiS CRM v0.10.1 upload checklist
+THiS CRM v0.10.3 upload checklist
 
 1. Preserve the netlify/ folder.
 2. Preserve the public/ folder.
@@ -11,4 +11,7 @@ THiS CRM v0.10.1 upload checklist
 7. Confirm /portal opens the client portal login screen.
 8. In one client record, enable Portal, generate an access code, publish an update and test the client portal login.
 9. Confirm only client-facing portal information appears.
-10. Test Clients, Calendar, Library, Tools and Print Profile after deploy.
+10. From the client portal, submit one adviser note and one client planning note.
+11. Confirm the Dashboard shows a new client portal note and the Client Portal section can mark it reviewed.
+12. Test Weather, Timezone, Currency and Calculator tools in the client portal.
+13. Test Clients, Calendar, Library, Tools and Print Profile after deploy.

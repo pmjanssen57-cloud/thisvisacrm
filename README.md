@@ -1,7 +1,19 @@
-# Turner Hopkins CRM - Netlify Database v0.10.2
+# Turner Hopkins CRM - Netlify Database v0.10.3
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
+
+## v0.10.3 - Client Portal Experience and Notes
+
+- Refined the client portal dashboard with a more vibrant visual layout, clearer progress summary and portal status chips.
+- Added client-submitted notes/actions from the portal. Clients can send a note or action to Turner Hopkins from their dashboard.
+- Added a client notes/planning area in the portal. Notes are saved and visible to Turner Hopkins.
+- Added adviser-side visibility of new client portal notes inside the Client Portal section.
+- Added a Dashboard panel and metric for new client portal notes so advisers can see client-submitted items when they next open the CRM.
+- Added adviser review status for client portal notes, including a Mark reviewed action.
+- Added Weather, Timezone, Currency and Calculator tools to the client portal dashboard.
+- Improved client save/publish responsiveness by returning only the saved client record after a client save instead of reloading the whole CRM dataset.
+- Added new migration only: `202606010006_add_client_portal_messages.sql`.
 
 ## v0.10.2 - Client Editor Section Polish and Portal Billing Save Fix
 
