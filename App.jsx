@@ -389,6 +389,7 @@ function makeBlankClient(data) {
     dateOfBirth: '',
     location: '',
     sharepointFolderUrl: '',
+    oneLawClientNumber: '',
     matterName: '',
     caseStrategy: '',
     caseType: '',
@@ -799,7 +800,7 @@ export default function App() {
   const filteredClients = useMemo(() => {
     const q = clientQuery.trim().toLowerCase();
     return scopedClients.filter((client) => {
-      const matchesQuery = !q || [client.firstName, client.lastName, client.email, client.caseType, client.nationality, client.location, client.sharepointFolderUrl, client.caseStrategy, (client.familyMembers || []).map((member) => `${member.name || ''} ${member.nationality || ''}`).join(' ')]
+      const matchesQuery = !q || [client.firstName, client.lastName, client.email, client.caseType, client.nationality, client.location, client.sharepointFolderUrl, client.oneLawClientNumber, client.caseStrategy, (client.familyMembers || []).map((member) => `${member.name || ''} ${member.nationality || ''}`).join(' ')]
         .join(' ')
         .toLowerCase()
         .includes(q);
@@ -1822,7 +1823,7 @@ function AdviserClientWorkloadList({ clients, advisers, taskRows, setTab, setSel
   })
     .filter((row) => {
       const q = clientFilter.trim().toLowerCase();
-      const text = [row.client.firstName, row.client.lastName, row.client.email, row.client.caseType, row.client.nationality, row.client.sharepointFolderUrl, row.client.caseStrategy, row.primary?.name, row.backup?.name].join(' ').toLowerCase();
+      const text = [row.client.firstName, row.client.lastName, row.client.email, row.client.caseType, row.client.nationality, row.client.sharepointFolderUrl, row.client.oneLawClientNumber, row.client.caseStrategy, row.primary?.name, row.backup?.name].join(' ').toLowerCase();
       const matchesClient = !q || text.includes(q);
       const matchesStage = stageFilter === 'all' || row.currentStage === stageFilter;
       const matchesCase = caseTypeFilter === 'all' || row.client.caseType === caseTypeFilter;
@@ -1938,7 +1939,7 @@ function ClientsWorkspace(props) {
         <div className="client-list">
           {clients.map((client) => (
             <button className={`client-card ${selectedClient.id === client.id ? 'active' : ''}`} key={client.id} onClick={() => setSelectedClientId(client.id)}>
-              <span><strong>{[client.firstName, client.lastName].filter(Boolean).join(' ') || 'New client'}</strong><small>{client.caseType}</small><small>{client.caseStrategy ? 'Strategy added' : 'No case strategy yet'}</small><small>{client.sharepointFolderUrl ? 'SharePoint linked' : 'No SharePoint link'}</small></span>
+              <span><strong>{[client.firstName, client.lastName].filter(Boolean).join(' ') || 'New client'}</strong><small>{client.caseType}</small><small>{client.caseStrategy ? 'Strategy added' : 'No case strategy yet'}</small><small>{client.oneLawClientNumber ? `OneLaw ${client.oneLawClientNumber}` : 'No OneLaw number'}</small><small>{client.sharepointFolderUrl ? 'SharePoint linked' : 'No SharePoint link'}</small></span>
               <ChevronRight size={16} />
               <ProgressBar value={progressPercent(client)} />
             </button>
@@ -2153,6 +2154,13 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
     }
   }
 
+  function handlePrintClientProfile() {
+    setValidationMessage('');
+    setStatusMessage('Preparing printable client profile...');
+    const opened = printClientProfile(draft, calendarEntries, advisers);
+    setStatusMessage(opened ? 'Client profile opened in a printable window.' : 'The browser blocked the print window. Allow pop-ups for this CRM, then try again.');
+  }
+
   const appliedStageCount = appliedStages(draft).length;
   const completedStageCount = completedStages(draft).length;
   const deadlineCount = (draft.deadlines || []).length;
@@ -2181,7 +2189,7 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
         <button className="btn dark" type="button" onClick={handleSaveClient} disabled={saving || !isDirty}><Save size={16} />Save changes</button>
       </div>
 
-      <ClientSummaryPanel draft={draft} setField={setField} onOpenActionLog={() => setShowActionLog(true)} onOpenTimeline={() => setShowTimeline(true)} calendarEntries={calendarEntries} />
+      <ClientSummaryPanel draft={draft} setField={setField} onOpenActionLog={() => setShowActionLog(true)} onOpenTimeline={() => setShowTimeline(true)} onPrintProfile={handlePrintClientProfile} calendarEntries={calendarEntries} />
 
       {showActionLog && <NextActionLogModal client={draft} onClose={() => setShowActionLog(false)} />}
       {showTimeline && <ClientTimelineModal client={draft} calendarEntries={calendarEntries} advisers={advisers} onClose={() => setShowTimeline(false)} />}
@@ -2214,6 +2222,7 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
       <div className="form-grid">
         <Field label="Email" value={draft.email} onChange={(v) => setField('email', v)} />
         <Field label="Phone" value={draft.phone} onChange={(v) => setField('phone', v)} />
+        <Field label="OneLaw Client Number" value={draft.oneLawClientNumber || ''} onChange={(v) => setField('oneLawClientNumber', v)} placeholder="e.g. OL-12345" />
         <LookupField label="Citizenship" value={draft.nationality} onChange={(v) => setField('nationality', v)} options={COUNTRY_OPTIONS} listId="citizenship-options" placeholder="Start typing a country of citizenship" />
         <LookupField label="Current address" value={draft.location} onChange={(v) => setField('location', v)} options={ADDRESS_LOOKUP_EXAMPLES} listId="address-options" placeholder="Start typing the current address" />
         <SelectField label="Case type / application type" value={draft.caseType} onChange={(v) => setField('caseType', v)} options={caseTypes} placeholder="Select case type" />
@@ -2997,7 +3006,7 @@ function DateWithAgeField({ label, value, onChange }) {
 
 
 
-function ClientSummaryPanel({ draft, setField, onOpenActionLog, onOpenTimeline, calendarEntries = [] }) {
+function ClientSummaryPanel({ draft, setField, onOpenActionLog, onOpenTimeline, onPrintProfile, calendarEntries = [] }) {
   const link = normaliseExternalUrl(draft.sharepointFolderUrl);
   const hasValue = Boolean(String(draft.sharepointFolderUrl || '').trim());
   const looksSharePoint = isSharePointLike(draft.sharepointFolderUrl);
@@ -3033,6 +3042,7 @@ function ClientSummaryPanel({ draft, setField, onOpenActionLog, onOpenTimeline, 
         <Field label="First name" value={draft.firstName} onChange={(v) => setField('firstName', v)} />
         <Field label="Last name" value={draft.lastName} onChange={(v) => setField('lastName', v)} />
         <DateWithAgeField label="Date of birth" value={draft.dateOfBirth} onChange={(v) => setField('dateOfBirth', v)} />
+        <Field label="OneLaw Client Number" value={draft.oneLawClientNumber || ''} onChange={(v) => setField('oneLawClientNumber', v)} placeholder="Internal OneLaw reference" />
         <SelectField label="Current status" value={draft.clientStatus} onChange={(v) => setField('clientStatus', v)} options={['Active', 'Waiting on client', 'Waiting on INZ', 'On hold', 'Closed']} />
       </div>
       <div className="form-grid two summary-action-grid">
@@ -3042,6 +3052,7 @@ function ClientSummaryPanel({ draft, setField, onOpenActionLog, onOpenTimeline, 
       <div className="next-action-log-strip">
         <button className="btn" type="button" onClick={onOpenActionLog}><Clock size={16} />Next action log <span className="button-count">{normaliseNextActionLog(draft.nextActionLog).length}</span></button>
         <button className="btn" type="button" onClick={onOpenTimeline}><CalendarDays size={16} />Timeline <span className="button-count">{linkedCalendarCount}</span></button>
+        <button className="btn" type="button" onClick={onPrintProfile}><FileText size={16} />Print profile</button>
         <span>Previous next actions are logged when the next action or date is changed and the client record is saved.</span>
       </div>
       <div className="summary-sharepoint-row">
@@ -3060,6 +3071,191 @@ function ClientSummaryPanel({ draft, setField, onOpenActionLog, onOpenTimeline, 
   );
 }
 
+
+function printClientProfile(client = {}, calendarEntries = [], advisers = []) {
+  const printWindow = window.open('', '_blank', 'width=980,height=900,noopener,noreferrer');
+  if (!printWindow) return false;
+  const html = buildClientProfilePrintHtml(client, calendarEntries, advisers);
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
+  printWindow.focus();
+  setTimeout(() => printWindow.print(), 350);
+  return true;
+}
+
+function buildClientProfilePrintHtml(client = {}, calendarEntries = [], advisers = []) {
+  const fullName = [client.firstName, client.lastName].filter(Boolean).join(' ') || 'Unnamed client';
+  const primaryAdviser = adviserName(client.primaryAdviserId, advisers);
+  const backupAdviser = adviserName(client.backupAdviserId, advisers);
+  const linkedCalendarEntries = (calendarEntries || []).filter((entry) => entry.clientId === client.id)
+    .sort((a, b) => String(a.appointmentDate || '').localeCompare(String(b.appointmentDate || '')) || String(a.startTime || '').localeCompare(String(b.startTime || '')));
+  const timelineItems = buildClientTimelineItems(client, calendarEntries, advisers);
+  const stages = (client.stages || []).filter((stage) => stage.applied);
+  const completedCount = stages.filter((stage) => stage.completed).length;
+  const documentItems = normaliseDocumentChecklist(client.documentChecklist || []);
+  const requiredDocs = documentItems.filter((item) => item.applied);
+  const nextActionLog = normaliseNextActionLog(client.nextActionLog || []).sort((a, b) => String(b.completedDate || b.dueDate || '').localeCompare(String(a.completedDate || a.dueDate || '')));
+  const billingItems = normaliseBillingItems(client.billing || []);
+  const generatedAt = new Intl.DateTimeFormat('en-NZ', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date());
+  const logoUrl = `${window.location.origin}${LOGO_SRC}`;
+
+  const summaryRows = [
+    ['Client', fullName],
+    ['OneLaw Client Number', client.oneLawClientNumber || 'Not recorded'],
+    ['Date of birth', profileDate(client.dateOfBirth)],
+    ['Age', calculateAge(client.dateOfBirth) ?? 'Not recorded'],
+    ['Citizenship', client.nationality || 'Not recorded'],
+    ['Current address', client.location || 'Not recorded'],
+    ['Email', client.email || 'Not recorded'],
+    ['Phone', client.phone || 'Not recorded'],
+    ['Case type', client.caseType || 'Not selected'],
+    ['Client status', client.clientStatus || 'Not recorded'],
+    ['Priority', client.priority || 'Normal'],
+    ['Primary adviser', primaryAdviser],
+    ['Backup adviser', backupAdviser],
+    ['SharePoint folder', client.sharepointFolderUrl || 'Not linked'],
+  ];
+
+  return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>THiS Client Profile - ${escapeHtml(fullName)}</title>
+  <style>
+    :root { --ink:#003736; --mint:#55D9A0; --pale:#F4FBF8; --line:#D9E6E1; --muted:#64748b; --text:#0f172a; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Inter, Arial, sans-serif; color: var(--text); background: #fff; }
+    .page { max-width: 1040px; margin: 0 auto; padding: 30px; }
+    .cover { border: 1px solid var(--line); border-radius: 22px; padding: 24px; margin-bottom: 18px; background: linear-gradient(135deg, #fff, var(--pale)); }
+    .head { display:flex; justify-content:space-between; gap:20px; align-items:flex-start; }
+    .logo { width: 190px; height: auto; object-fit: contain; }
+    h1 { margin: 18px 0 4px; color: var(--ink); font-size: 32px; }
+    h2 { color: var(--ink); font-size: 19px; margin: 0 0 10px; }
+    h3 { color: var(--ink); font-size: 15px; margin: 14px 0 6px; }
+    p { line-height: 1.45; }
+    .muted { color: var(--muted); }
+    .badge { display:inline-block; border:1px solid var(--line); border-radius:999px; padding:6px 10px; background:#fff; color:var(--ink); font-weight:700; font-size:12px; }
+    .grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .metric-grid { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+    .metric { background:#fff; border:1px solid var(--line); border-radius:16px; padding:12px; }
+    .metric span, .row span, .timeline small, table small { display:block; color:var(--muted); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
+    .metric strong { display:block; color:var(--ink); font-size:20px; margin-top:4px; }
+    .section { border:1px solid var(--line); border-radius:18px; padding:18px; margin: 14px 0; break-inside: avoid; }
+    .row { border:1px solid #e7f0ec; border-radius:13px; padding:10px 12px; background:#fff; }
+    .row strong { display:block; margin-top:4px; word-break:break-word; }
+    .preline { white-space: pre-wrap; }
+    table { width:100%; border-collapse: collapse; font-size: 13px; }
+    th { background: var(--pale); color: var(--ink); text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
+    th, td { border:1px solid var(--line); padding:9px; vertical-align:top; }
+    .timeline { display:grid; gap: 8px; }
+    .timeline-row { display:grid; grid-template-columns: 150px 1fr; gap: 12px; border:1px solid var(--line); border-radius: 14px; padding: 10px; break-inside: avoid; }
+    .timeline-date { color: var(--ink); font-weight: 800; }
+    .timeline-title { font-weight: 800; color: var(--ink); }
+    .footer { margin-top: 26px; color: var(--muted); font-size: 11px; border-top:1px solid var(--line); padding-top:12px; }
+    @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .page { padding: 0; max-width: none; } .section, .cover { break-inside: avoid; } a { color: inherit; text-decoration: none; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="cover">
+      <div class="head">
+        <div>
+          <span class="badge">Internal client profile</span>
+          <h1>${escapeHtml(fullName)}</h1>
+          <p class="muted">Generated ${escapeHtml(generatedAt)} from THiS CRM. Review official file records before relying on this for formal advice.</p>
+        </div>
+        <img class="logo" src="${escapeHtml(logoUrl)}" alt="Turner Hopkins Immigration Specialists" />
+      </div>
+      <div class="metric-grid">
+        <div class="metric"><span>Current progress</span><strong>${progressPercent(client)}%</strong></div>
+        <div class="metric"><span>Current stage</span><strong>${escapeHtml(currentStageLabel(client))}</strong></div>
+        <div class="metric"><span>Next action due</span><strong>${escapeHtml(profileDate(client.nextActionDue))}</strong></div>
+        <div class="metric"><span>Logged actions</span><strong>${nextActionLog.length}</strong></div>
+      </div>
+    </section>
+
+    ${printSection('Client details', renderRows(summaryRows))}
+    ${printSection('Current next action', `<p class="preline">${escapeHtml(client.nextAction || 'No current next action recorded.')}</p><p class="muted">Due: ${escapeHtml(profileDate(client.nextActionDue))}</p>`)}
+    ${printSection('Case strategy / key issues', `<p class="preline">${escapeHtml(client.caseStrategy || 'No case strategy recorded.')}</p>`)}
+    ${printSection('Current progress', renderStageTable(stages))}
+    ${printSection('Full action log', renderActionLogTable(nextActionLog))}
+    ${printSection('Client timeline', renderTimelineItems(timelineItems))}
+    ${printSection('Calendar appointments', renderCalendarTable(linkedCalendarEntries, advisers))}
+    ${printSection('Client deadlines', renderDeadlineTable(client.deadlines || []))}
+    ${printSection('Document checklist', renderDocumentTable(requiredDocs))}
+    ${printSection('Family / dependants', renderFamilyTable(client.familyMembers || []))}
+    ${printSection('Billing schedule', renderBillingTable(billingItems, client))}
+    ${printSection('Notes', `<p class="preline">${escapeHtml(client.notes || 'No notes recorded.')}</p>`)}
+
+    <div class="footer">THiS CRM client profile export. This PDF/printout is an internal working summary and should be checked against the live CRM, SharePoint file and official INZ sources before use.</div>
+  </main>
+</body>
+</html>`;
+}
+
+function printSection(title, body) {
+  return `<section class="section"><h2>${escapeHtml(title)}</h2>${body}</section>`;
+}
+
+function renderRows(rows = []) {
+  return `<div class="grid">${rows.map(([label, value]) => `<div class="row"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value || 'Not recorded')}</strong></div>`).join('')}</div>`;
+}
+
+function renderStageTable(stages = []) {
+  if (!stages.length) return '<p class="muted">No matter stages are applied to this client.</p>';
+  return `<table><thead><tr><th>Stage</th><th>Status</th><th>Completed date</th></tr></thead><tbody>${stages.map((stage) => `<tr><td>${escapeHtml(stage.label)}</td><td>${stage.completed ? 'Completed' : 'Open'}</td><td>${escapeHtml(profileDate(stage.completedDate))}</td></tr>`).join('')}</tbody></table>`;
+}
+
+function renderActionLogTable(log = []) {
+  if (!log.length) return '<p class="muted">No previous next actions have been logged yet.</p>';
+  return `<table><thead><tr><th>Completed / replaced</th><th>Previous action</th><th>Was due</th><th>Replaced by</th></tr></thead><tbody>${log.map((item) => `<tr><td>${escapeHtml(profileDate(item.completedDate))}</td><td>${escapeHtml(item.action || '')}</td><td>${escapeHtml(profileDate(item.dueDate))}</td><td>${escapeHtml([item.replacedByAction, item.replacedByDueDate ? `Due ${item.replacedByDueDate}` : ''].filter(Boolean).join(' - ') || 'Not recorded')}</td></tr>`).join('')}</tbody></table>`;
+}
+
+function renderTimelineItems(items = []) {
+  if (!items.length) return '<p class="muted">No timeline items recorded yet.</p>';
+  return `<div class="timeline">${items.map((item) => `<div class="timeline-row"><div class="timeline-date">${escapeHtml(profileDate(item.date))}<small>${escapeHtml(item.category || '')}</small></div><div><div class="timeline-title">${escapeHtml(item.title || '')}${item.badge ? ` <span class="badge">${escapeHtml(item.badge)}</span>` : ''}</div>${item.detail ? `<p>${escapeHtml(item.detail)}</p>` : ''}${item.meta ? `<small>${escapeHtml(item.meta)}</small>` : ''}</div></div>`).join('')}</div>`;
+}
+
+function renderCalendarTable(entries = [], advisers = []) {
+  if (!entries.length) return '<p class="muted">No linked calendar appointments recorded.</p>';
+  return `<table><thead><tr><th>Date</th><th>Time</th><th>Type</th><th>Title</th><th>Adviser</th><th>Status</th><th>Notes</th></tr></thead><tbody>${entries.map((entry) => `<tr><td>${escapeHtml(profileDate(entry.appointmentDate))}</td><td>${escapeHtml(calendarEntryTimeLabel(entry) || '')}</td><td>${escapeHtml(entry.appointmentType || '')}</td><td>${escapeHtml(entry.title || '')}</td><td>${escapeHtml(adviserName(entry.adviserId, advisers))}</td><td>${escapeHtml(entry.status || '')}</td><td>${escapeHtml(entry.notes || '')}</td></tr>`).join('')}</tbody></table>`;
+}
+
+function renderDeadlineTable(deadlines = []) {
+  if (!deadlines.length) return '<p class="muted">No client deadline dates recorded.</p>';
+  return `<table><thead><tr><th>Deadline</th><th>Date</th><th>Note</th></tr></thead><tbody>${deadlines.map((deadline) => `<tr><td>${escapeHtml(deadline.type || '')}</td><td>${escapeHtml(profileDate(deadline.date))}</td><td>${escapeHtml(deadline.note || '')}</td></tr>`).join('')}</tbody></table>`;
+}
+
+function renderDocumentTable(items = []) {
+  if (!items.length) return '<p class="muted">No required document checklist items recorded.</p>';
+  return `<table><thead><tr><th>Document</th><th>Obtained</th><th>Expiry</th></tr></thead><tbody>${items.map((item) => `<tr><td>${escapeHtml(item.name || '')}</td><td>${item.obtained ? 'Yes' : 'No'}</td><td>${escapeHtml(profileDate(item.expiryDate))}</td></tr>`).join('')}</tbody></table>`;
+}
+
+function renderFamilyTable(members = []) {
+  if (!members.length) return '<p class="muted">No family or dependant details recorded.</p>';
+  return `<table><thead><tr><th>Relationship</th><th>Name</th><th>Citizenship</th><th>Date of birth</th><th>Age</th></tr></thead><tbody>${members.map((member) => `<tr><td>${escapeHtml(member.relationship || '')}</td><td>${escapeHtml(member.name || '')}</td><td>${escapeHtml(member.nationality || '')}</td><td>${escapeHtml(profileDate(member.dateOfBirth))}</td><td>${escapeHtml(calculateAge(member.dateOfBirth) ?? '')}</td></tr>`).join('')}</tbody></table>`;
+}
+
+function renderBillingTable(items = [], client = {}) {
+  if (!items.length) return '<p class="muted">No billing milestones recorded.</p>';
+  return `<table><thead><tr><th>Item</th><th>Trigger / date</th><th>Amount</th><th>Status</th><th>Invoice</th></tr></thead><tbody>${items.map((item) => `<tr><td>${escapeHtml(item.milestone || '')}</td><td>${escapeHtml(billingTriggerLabel(item, client) || profileDate(item.dueDate))}</td><td>${escapeHtml(formatCurrency(item.amount))}</td><td>${escapeHtml(effectiveBillingStatus(item, client))}</td><td>${escapeHtml(item.invoiceNo || '')}</td></tr>`).join('')}</tbody></table>`;
+}
+
+function adviserName(adviserId, advisers = []) {
+  return advisers.find((adviser) => adviser.id === adviserId)?.name || 'Not assigned';
+}
+
+function profileDate(value) {
+  if (!value) return 'Not recorded';
+  const date = parseLocalDate(value);
+  if (!date) return String(value);
+  return new Intl.DateTimeFormat('en-NZ', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+}
 
 function NextActionLogModal({ client, onClose }) {
   const log = normaliseNextActionLog(client.nextActionLog)
@@ -3597,7 +3793,7 @@ function daysFromToday(days) {
 function normaliseData(body) {
   return {
     advisers: (body.advisers || []).map((adviser) => ({ ...adviser, loginEmail: adviser.loginEmail || adviser.login_email || '' })),
-    clients: (body.clients || []).map((client) => ({ ...client, sharepointFolderUrl: client.sharepointFolderUrl || '', dateOfBirth: client.dateOfBirth || '', nextActionLog: normaliseNextActionLog(client.nextActionLog), familyMembers: Array.isArray(client.familyMembers) ? client.familyMembers.map((member) => ({ ...member, nationality: member.nationality || '' })) : [], documentChecklist: normaliseDocumentChecklist(client.documentChecklist), billing: normaliseBillingItems(client.billing || []), stages: normaliseStages(client.stages, body.stageTemplates || DEFAULT_STAGE_TEMPLATES) })),
+    clients: (body.clients || []).map((client) => ({ ...client, sharepointFolderUrl: client.sharepointFolderUrl || '', oneLawClientNumber: client.oneLawClientNumber || client.one_law_client_number || '', dateOfBirth: client.dateOfBirth || '', nextActionLog: normaliseNextActionLog(client.nextActionLog), familyMembers: Array.isArray(client.familyMembers) ? client.familyMembers.map((member) => ({ ...member, nationality: member.nationality || '' })) : [], documentChecklist: normaliseDocumentChecklist(client.documentChecklist), billing: normaliseBillingItems(client.billing || []), stages: normaliseStages(client.stages, body.stageTemplates || DEFAULT_STAGE_TEMPLATES) })),
     caseTypes: body.caseTypes || DEFAULT_CASE_TYPES,
     deadlineTypes: body.deadlineTypes || DEFAULT_DEADLINE_TYPES,
     stageTemplates: body.stageTemplates || DEFAULT_STAGE_TEMPLATES,
@@ -4398,7 +4594,7 @@ function taskAdviserName(row, advisers = []) {
 function taskSearchText(row) {
   return [
     row.type, row.note, row.date,
-    row.client?.firstName, row.client?.lastName, row.client?.email, row.client?.caseType, row.client?.caseStrategy,
+    row.client?.firstName, row.client?.lastName, row.client?.email, row.client?.caseType, row.client?.oneLawClientNumber, row.client?.caseStrategy,
     row.calendarEntry?.title, row.calendarEntry?.appointmentType, row.calendarEntry?.location, row.calendarEntry?.notes,
     row.personalTask?.title, row.personalTask?.note
   ].join(' ').toLowerCase();

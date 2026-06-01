@@ -253,3 +253,12 @@ This package-lock uses public npm registry tarball URLs so Netlify can install d
 - Adds horizontal overflow protection on narrower desktop/tablet widths rather than wrapping the final tab onto a second line.
 - Mobile bottom navigation remains unchanged.
 - No database migration required.
+
+## v0.9.2 - Client Profile Export and OneLaw Reference
+
+- Adds a OneLaw Client Number field to the client record for matching CRM records to OneLaw.
+- Adds migration `202606010003_add_onelaw_client_number.sql`.
+- Adds a Print profile button from the client quick view.
+- The printable client profile includes client details, OneLaw number, advisers, case strategy, current progress, matter stages, current next action, full next-action log, client timeline, linked calendar appointments, deadlines, document checklist, family/dependants, billing schedule and notes.
+- The profile opens in a browser print window so users can print or save as PDF using the browser/system print dialogue.
+- No existing migration files were edited.
