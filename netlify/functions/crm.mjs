@@ -249,6 +249,7 @@ async function ensureSchema() {
       portal_visible_document_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
       portal_visible_deadline_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
       portal_visible_appointment_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+      portal_visible_billing_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
       portal_access_code_hash TEXT,
       portal_last_published_at TIMESTAMPTZ,
       portal_last_accessed_at TIMESTAMPTZ,
@@ -342,6 +343,7 @@ async function ensureSchema() {
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_visible_document_ids JSONB NOT NULL DEFAULT '[]'::jsonb`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_visible_deadline_ids JSONB NOT NULL DEFAULT '[]'::jsonb`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_visible_appointment_ids JSONB NOT NULL DEFAULT '[]'::jsonb`;
+  await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_visible_billing_ids JSONB NOT NULL DEFAULT '[]'::jsonb`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_access_code_hash TEXT`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_last_published_at TIMESTAMPTZ`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_last_accessed_at TIMESTAMPTZ`;
@@ -404,7 +406,7 @@ async function readCrmData() {
   const database = db();
   const [advisers, clients, stages, deadlines, billing, personalTasks, calendarEntries, libraryEntries] = await Promise.all([
     database.sql`SELECT id, name, role, email, login_email, phone, licence, active FROM advisers ORDER BY name ASC`,
-    database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, one_law_client_number, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, portal_enabled, portal_email, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_access_code_hash, portal_last_published_at, portal_last_accessed_at, notes, family_members, document_checklist FROM clients ORDER BY updated_at DESC`,
+    database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, one_law_client_number, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, portal_enabled, portal_email, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_access_code_hash, portal_last_published_at, portal_last_accessed_at, notes, family_members, document_checklist FROM clients ORDER BY updated_at DESC`,
     database.sql`SELECT id, client_id, stage_key, stage_label, mandatory, applied, completed, completed_date, sort_order FROM client_stages ORDER BY sort_order ASC`,
     database.sql`SELECT id, client_id, deadline_type, deadline_date, note FROM client_deadlines ORDER BY deadline_date ASC NULLS LAST`,
     database.sql`SELECT id, client_id, milestone, due_date, amount, status, invoice_no, billing_trigger_type, billing_stage_key FROM billing_milestones ORDER BY due_date ASC NULLS LAST`,
@@ -530,6 +532,7 @@ function mapClientFromDb(row, stages, deadlines, billing) {
     portalVisibleDocumentIds: parseJsonArray(row.portal_visible_document_ids),
     portalVisibleDeadlineIds: parseJsonArray(row.portal_visible_deadline_ids),
     portalVisibleAppointmentIds: parseJsonArray(row.portal_visible_appointment_ids),
+    portalVisibleBillingIds: parseJsonArray(row.portal_visible_billing_ids),
     portalAccessCodeSet: Boolean(row.portal_access_code_hash),
     portalLastPublishedAt: toDateTimeLabel(row.portal_last_published_at),
     portalLastAccessedAt: toDateTimeLabel(row.portal_last_accessed_at),
@@ -661,18 +664,18 @@ async function saveClient(input = {}) {
              matter_name = $10, case_strategy = $11, case_type = $12, primary_adviser_id = $13, backup_adviser_id = $14,
              priority = $15, client_status = $16, next_action = $17, next_action_due = $18, next_action_log = $19::jsonb,
              portal_enabled = $20, portal_email = $21, portal_status_update = $22, portal_next_step = $23,
-             portal_visible_document_ids = $24::jsonb, portal_visible_deadline_ids = $25::jsonb, portal_visible_appointment_ids = $26::jsonb,
-             portal_access_code_hash = COALESCE($27, portal_access_code_hash), portal_last_published_at = CASE WHEN $28 THEN NOW() ELSE portal_last_published_at END,
-             notes = $29, family_members = $30::jsonb, document_checklist = $31::jsonb, updated_at = NOW()
-         WHERE id = $32`,
-        [client.firstName, client.lastName || 'Unnamed client', client.email, client.phone, client.nationality, nullableDate(client.dateOfBirth), client.location, client.sharepointFolderUrl, client.oneLawClientNumber, client.matterName, client.caseStrategy, client.caseType, nullableUuid(client.primaryAdviserId), nullableUuid(client.backupAdviserId), client.priority, client.clientStatus, client.nextAction, nullableDate(client.nextActionDue), JSON.stringify(nextActionLog), client.portalEnabled, client.portalEmail, client.portalStatusUpdate, client.portalNextStep, JSON.stringify(client.portalVisibleDocumentIds || []), JSON.stringify(client.portalVisibleDeadlineIds || []), JSON.stringify(client.portalVisibleAppointmentIds || []), client.portalNewAccessCode ? hashPortalAccessCode(client.portalNewAccessCode) : null, client.portalPublishNow, client.notes, JSON.stringify(client.familyMembers || []), JSON.stringify(client.documentChecklist || []), clientId]
+             portal_visible_document_ids = $24::jsonb, portal_visible_deadline_ids = $25::jsonb, portal_visible_appointment_ids = $26::jsonb, portal_visible_billing_ids = $27::jsonb,
+             portal_access_code_hash = COALESCE($28, portal_access_code_hash), portal_last_published_at = CASE WHEN $29 THEN NOW() ELSE portal_last_published_at END,
+             notes = $30, family_members = $31::jsonb, document_checklist = $32::jsonb, updated_at = NOW()
+         WHERE id = $33`,
+        [client.firstName, client.lastName || 'Unnamed client', client.email, client.phone, client.nationality, nullableDate(client.dateOfBirth), client.location, client.sharepointFolderUrl, client.oneLawClientNumber, client.matterName, client.caseStrategy, client.caseType, nullableUuid(client.primaryAdviserId), nullableUuid(client.backupAdviserId), client.priority, client.clientStatus, client.nextAction, nullableDate(client.nextActionDue), JSON.stringify(nextActionLog), client.portalEnabled, client.portalEmail, client.portalStatusUpdate, client.portalNextStep, JSON.stringify(client.portalVisibleDocumentIds || []), JSON.stringify(client.portalVisibleDeadlineIds || []), JSON.stringify(client.portalVisibleAppointmentIds || []), JSON.stringify(client.portalVisibleBillingIds || []), client.portalNewAccessCode ? hashPortalAccessCode(client.portalNewAccessCode) : null, client.portalPublishNow, client.notes, JSON.stringify(client.familyMembers || []), JSON.stringify(client.documentChecklist || []), clientId]
       );
     } else {
       const result = await poolClient.query(
-        `INSERT INTO clients (first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, one_law_client_number, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, portal_enabled, portal_email, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_access_code_hash, portal_last_published_at, notes, family_members, document_checklist)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19::jsonb, $20, $21, $22, $23, $24::jsonb, $25::jsonb, $26::jsonb, $27, CASE WHEN $28 THEN NOW() ELSE NULL END, $29, $30::jsonb, $31::jsonb)
+        `INSERT INTO clients (first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, one_law_client_number, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, portal_enabled, portal_email, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_access_code_hash, portal_last_published_at, notes, family_members, document_checklist)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19::jsonb, $20, $21, $22, $23, $24::jsonb, $25::jsonb, $26::jsonb, $27::jsonb, $28, CASE WHEN $29 THEN NOW() ELSE NULL END, $30, $31::jsonb, $32::jsonb)
          RETURNING id`,
-        [client.firstName, client.lastName || 'Unnamed client', client.email, client.phone, client.nationality, nullableDate(client.dateOfBirth), client.location, client.sharepointFolderUrl, client.oneLawClientNumber, client.matterName, client.caseStrategy, client.caseType, nullableUuid(client.primaryAdviserId), nullableUuid(client.backupAdviserId), client.priority, client.clientStatus, client.nextAction, nullableDate(client.nextActionDue), JSON.stringify(nextActionLog), client.portalEnabled, client.portalEmail, client.portalStatusUpdate, client.portalNextStep, JSON.stringify(client.portalVisibleDocumentIds || []), JSON.stringify(client.portalVisibleDeadlineIds || []), JSON.stringify(client.portalVisibleAppointmentIds || []), client.portalNewAccessCode ? hashPortalAccessCode(client.portalNewAccessCode) : null, client.portalPublishNow, client.notes, JSON.stringify(client.familyMembers || []), JSON.stringify(client.documentChecklist || [])]
+        [client.firstName, client.lastName || 'Unnamed client', client.email, client.phone, client.nationality, nullableDate(client.dateOfBirth), client.location, client.sharepointFolderUrl, client.oneLawClientNumber, client.matterName, client.caseStrategy, client.caseType, nullableUuid(client.primaryAdviserId), nullableUuid(client.backupAdviserId), client.priority, client.clientStatus, client.nextAction, nullableDate(client.nextActionDue), JSON.stringify(nextActionLog), client.portalEnabled, client.portalEmail, client.portalStatusUpdate, client.portalNextStep, JSON.stringify(client.portalVisibleDocumentIds || []), JSON.stringify(client.portalVisibleDeadlineIds || []), JSON.stringify(client.portalVisibleAppointmentIds || []), JSON.stringify(client.portalVisibleBillingIds || []), client.portalNewAccessCode ? hashPortalAccessCode(client.portalNewAccessCode) : null, client.portalPublishNow, client.notes, JSON.stringify(client.familyMembers || []), JSON.stringify(client.documentChecklist || [])]
       );
       clientId = result.rows[0].id;
     }
@@ -1091,6 +1094,7 @@ function normaliseClientInput(input) {
     portalVisibleDocumentIds: parseStringArray(input.portalVisibleDocumentIds),
     portalVisibleDeadlineIds: parseStringArray(input.portalVisibleDeadlineIds),
     portalVisibleAppointmentIds: parseStringArray(input.portalVisibleAppointmentIds),
+    portalVisibleBillingIds: parseStringArray(input.portalVisibleBillingIds),
     portalNewAccessCode: String(input.portalNewAccessCode || '').trim(),
     portalPublishNow: Boolean(input.portalPublishNow),
     notes: input.notes || '',

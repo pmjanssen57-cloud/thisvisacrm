@@ -407,6 +407,7 @@ function makeBlankClient(data) {
     portalVisibleDocumentIds: [],
     portalVisibleDeadlineIds: [],
     portalVisibleAppointmentIds: [],
+    portalVisibleBillingIds: [],
     portalAccessCodeSet: false,
     portalLastPublishedAt: '',
     portalLastAccessedAt: '',
@@ -1124,6 +1125,20 @@ function ClientPortalDashboard({ snapshot, onSignOut }) {
               {snapshot.appointments.map((item) => <div key={item.id}><strong>{formatPortalDate(item.date)} {item.time}</strong><span>{item.title}{item.location ? ` — ${item.location}` : ''}</span></div>)}
             </div>
           ) : <p>No appointments have been published.</p>}
+        </section>
+
+        <section className="portal-card wide">
+          <h2>Billing milestones</h2>
+          {snapshot.billingMilestones.length ? (
+            <div className="portal-list billing-portal-list">
+              {snapshot.billingMilestones.map((item) => (
+                <div key={item.id}>
+                  <strong>{item.title}</strong>
+                  <span>{[item.status, item.amount, item.dueDate ? `Date: ${formatPortalDate(item.dueDate)}` : '', item.invoiceNo ? `Invoice: ${item.invoiceNo}` : ''].filter(Boolean).join(' · ')}</span>
+                </div>
+              ))}
+            </div>
+          ) : <p>No billing milestones have been published.</p>}
         </section>
 
         <section className="portal-card wide contact-card">
@@ -2086,9 +2101,11 @@ function ClientPortalPanel({ client, advisers, calendarEntries, generatedPortalC
   const visibleDocs = new Set(client.portalVisibleDocumentIds || []);
   const visibleDeadlines = new Set(client.portalVisibleDeadlineIds || []);
   const visibleAppointments = new Set(client.portalVisibleAppointmentIds || []);
+  const billingItems = normaliseBillingItems(client.billing || []).map((item) => ({ ...item, status: effectiveBillingStatus(item, client) }));
+  const visibleBilling = new Set(client.portalVisibleBillingIds || []);
 
   return (
-    <section className="sub-panel portal-admin-panel">
+    <div className="portal-admin-panel">
       <div className="sub-panel-head">
         <div>
           <h2>Client portal</h2>
@@ -2116,6 +2133,7 @@ function ClientPortalPanel({ client, advisers, calendarEntries, generatedPortalC
         <PortalVisibilityBox title="Documents still required" empty="No outstanding document checklist items." items={documents} selected={visibleDocs} onToggle={(id, checked) => updatePortalSelection('portalVisibleDocumentIds', id, checked)} renderLabel={(item) => item.name} renderMeta={(item) => item.expiryDate ? `Expiry ${item.expiryDate}` : 'No expiry date'} />
         <PortalVisibilityBox title="Upcoming key dates" empty="No client deadlines recorded." items={deadlines} selected={visibleDeadlines} onToggle={(id, checked) => updatePortalSelection('portalVisibleDeadlineIds', id, checked)} renderLabel={(item) => item.type} renderMeta={(item) => [item.date, item.note].filter(Boolean).join(' · ') || 'No date'} />
         <PortalVisibilityBox title="Appointments" empty="No open linked appointments." items={appointments} selected={visibleAppointments} onToggle={(id, checked) => updatePortalSelection('portalVisibleAppointmentIds', id, checked)} renderLabel={(item) => item.title || 'Appointment'} renderMeta={(item) => [item.appointmentDate, calendarEntryTimeLabel(item), item.location].filter(Boolean).join(' · ') || 'No date'} />
+        <PortalVisibilityBox title="Billing milestones" empty="No billing milestones recorded." items={billingItems} selected={visibleBilling} onToggle={(id, checked) => updatePortalSelection('portalVisibleBillingIds', id, checked)} renderLabel={(item) => item.milestone || 'Billing milestone'} renderMeta={(item) => [formatCurrency(item.amount), item.status, item.dueDate ? `Date ${item.dueDate}` : '', item.invoiceNo ? `Invoice ${item.invoiceNo}` : ''].filter(Boolean).join(' · ') || 'No billing details'} />
       </div>
 
       {generatedPortalCode && <div className="portal-code-card"><span>New portal access code - shown once</span><strong>{generatedPortalCode}</strong><small>Save or publish the client record before sending this code to the client.</small></div>}
@@ -2125,7 +2143,7 @@ function ClientPortalPanel({ client, advisers, calendarEntries, generatedPortalC
         <button className="btn" type="button" onClick={copyPortalInstructions}><Copy size={16} />Copy client instructions</button>
         <button className="btn dark" type="button" onClick={publishPortalUpdate} disabled={saving}><ExternalLink size={16} />Publish portal update</button>
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -2180,6 +2198,7 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
   const [showMatterStages, setShowMatterStages] = useState(false);
   const [showClientDeadlines, setShowClientDeadlines] = useState(false);
   const [showClientBilling, setShowClientBilling] = useState(false);
+  const [showClientPortal, setShowClientPortal] = useState(false);
   const [customStageLabel, setCustomStageLabel] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
   const [validationMessage, setValidationMessage] = useState('');
@@ -2199,6 +2218,7 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
     setShowMatterStages(false);
     setShowClientDeadlines(false);
     setShowClientBilling(false);
+    setShowClientPortal(false);
     setCustomStageLabel('');
     setStatusMessage('');
     setValidationMessage('');
@@ -2439,6 +2459,7 @@ Turner Hopkins Immigration Specialists`;
   const billingItems = normaliseBillingItems(draft.billing || []);
   const activeBillingItems = billingItems.filter((item) => effectiveBillingStatus(item, draft) !== 'Invoiced');
   const activeBillingAmount = activeBillingItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const portalStatusSummary = draft.portalEnabled ? `Active for ${draft.portalEmail || draft.email || 'client email not set'}. Last published ${formatPortalDateTime(draft.portalLastPublishedAt) || 'not yet'}.` : 'Inactive. Expand to enable portal access for this client.';
 
   return (
     <div>
@@ -2485,24 +2506,32 @@ Turner Hopkins Immigration Specialists`;
         <span>{showFullRecord ? 'Full editable file details are shown below.' : 'Open the full record to edit strategy, stages, deadlines, family details and billing.'}</span>
       </div>
 
+      <ExpandableClientSection
+        title="client portal"
+        isOpen={showClientPortal}
+        onToggle={() => setShowClientPortal((value) => !value)}
+        summary={portalStatusSummary}
+        badge={draft.portalEnabled ? 'Active' : 'Inactive'}
+      >
+        <ClientPortalPanel
+          client={draft}
+          advisers={advisers}
+          calendarEntries={calendarEntries}
+          generatedPortalCode={generatedPortalCode}
+          setField={setField}
+          updatePortalSelection={updatePortalSelection}
+          generatePortalAccessCode={generatePortalAccessCode}
+          copyPortalInstructions={copyPortalInstructions}
+          publishPortalUpdate={handlePublishPortalUpdate}
+          saving={saving}
+        />
+      </ExpandableClientSection>
+
       {showFullRecord && (
         <>
       <div className="progress-card"><span>{currentStageLabel(draft)}</span><b>{progressPercent(draft)}%</b><ProgressBar value={progressPercent(draft)} /></div>
 
       <ProgressMap client={draft} />
-
-      <ClientPortalPanel
-        client={draft}
-        advisers={advisers}
-        calendarEntries={calendarEntries}
-        generatedPortalCode={generatedPortalCode}
-        setField={setField}
-        updatePortalSelection={updatePortalSelection}
-        generatePortalAccessCode={generatePortalAccessCode}
-        copyPortalInstructions={copyPortalInstructions}
-        publishPortalUpdate={handlePublishPortalUpdate}
-        saving={saving}
-      />
 
       <div className="form-grid">
         <Field label="Email" value={draft.email} onChange={(v) => setField('email', v)} />
@@ -2621,7 +2650,7 @@ Turner Hopkins Immigration Specialists`;
 }
 
 
-function ExpandableClientSection({ title, summary, isOpen, onToggle, children }) {
+function ExpandableClientSection({ title, summary, isOpen, onToggle, children, badge }) {
   return (
     <>
       <div className={`client-record-toggle section-toggle ${isOpen ? 'open' : ''}`}>
@@ -2630,6 +2659,7 @@ function ExpandableClientSection({ title, summary, isOpen, onToggle, children })
           {isOpen ? `Hide ${title}` : `Show ${title}`}
         </button>
         <span>{summary}</span>
+        {badge && <b className={`section-status-pill ${String(badge).toLowerCase()}`}>{badge}</b>}
       </div>
       {isOpen && <section className="sub-panel collapsible-sub-panel">{children}</section>}
     </>
@@ -4038,6 +4068,7 @@ function normalisePortalSnapshot(snapshot = {}) {
     documentsStillRequired: Array.isArray(snapshot.documentsStillRequired) ? snapshot.documentsStillRequired : [],
     keyDates: Array.isArray(snapshot.keyDates) ? snapshot.keyDates : [],
     appointments: Array.isArray(snapshot.appointments) ? snapshot.appointments : [],
+    billingMilestones: Array.isArray(snapshot.billingMilestones) ? snapshot.billingMilestones : [],
     turnerHopkins: snapshot.turnerHopkins || { name: 'Turner Hopkins Immigration Specialists', phone: '+64 9 486 2169', email: 'immigration@turnerhopkins.co.nz', website: 'www.turnerhopkinsimmigration.co.nz' },
     lastUpdated: snapshot.lastUpdated || '',
   };
@@ -4158,7 +4189,7 @@ function daysFromToday(days) {
 function normaliseData(body) {
   return {
     advisers: (body.advisers || []).map((adviser) => ({ ...adviser, loginEmail: adviser.loginEmail || adviser.login_email || '' })),
-    clients: (body.clients || []).map((client) => ({ ...client, sharepointFolderUrl: client.sharepointFolderUrl || '', oneLawClientNumber: client.oneLawClientNumber || client.one_law_client_number || '', dateOfBirth: client.dateOfBirth || '', nextActionLog: normaliseNextActionLog(client.nextActionLog), portalEnabled: Boolean(client.portalEnabled), portalEmail: client.portalEmail || '', portalStatusUpdate: client.portalStatusUpdate || '', portalNextStep: client.portalNextStep || '', portalVisibleDocumentIds: Array.isArray(client.portalVisibleDocumentIds) ? client.portalVisibleDocumentIds : [], portalVisibleDeadlineIds: Array.isArray(client.portalVisibleDeadlineIds) ? client.portalVisibleDeadlineIds : [], portalVisibleAppointmentIds: Array.isArray(client.portalVisibleAppointmentIds) ? client.portalVisibleAppointmentIds : [], portalAccessCodeSet: Boolean(client.portalAccessCodeSet), portalLastPublishedAt: client.portalLastPublishedAt || '', portalLastAccessedAt: client.portalLastAccessedAt || '', familyMembers: Array.isArray(client.familyMembers) ? client.familyMembers.map((member) => ({ ...member, nationality: member.nationality || '' })) : [], documentChecklist: normaliseDocumentChecklist(client.documentChecklist), billing: normaliseBillingItems(client.billing || []), stages: normaliseStages(client.stages, body.stageTemplates || DEFAULT_STAGE_TEMPLATES) })),
+    clients: (body.clients || []).map((client) => ({ ...client, sharepointFolderUrl: client.sharepointFolderUrl || '', oneLawClientNumber: client.oneLawClientNumber || client.one_law_client_number || '', dateOfBirth: client.dateOfBirth || '', nextActionLog: normaliseNextActionLog(client.nextActionLog), portalEnabled: Boolean(client.portalEnabled), portalEmail: client.portalEmail || '', portalStatusUpdate: client.portalStatusUpdate || '', portalNextStep: client.portalNextStep || '', portalVisibleDocumentIds: Array.isArray(client.portalVisibleDocumentIds) ? client.portalVisibleDocumentIds : [], portalVisibleDeadlineIds: Array.isArray(client.portalVisibleDeadlineIds) ? client.portalVisibleDeadlineIds : [], portalVisibleAppointmentIds: Array.isArray(client.portalVisibleAppointmentIds) ? client.portalVisibleAppointmentIds : [], portalVisibleBillingIds: Array.isArray(client.portalVisibleBillingIds) ? client.portalVisibleBillingIds : [], portalAccessCodeSet: Boolean(client.portalAccessCodeSet), portalLastPublishedAt: client.portalLastPublishedAt || '', portalLastAccessedAt: client.portalLastAccessedAt || '', familyMembers: Array.isArray(client.familyMembers) ? client.familyMembers.map((member) => ({ ...member, nationality: member.nationality || '' })) : [], documentChecklist: normaliseDocumentChecklist(client.documentChecklist), billing: normaliseBillingItems(client.billing || []), stages: normaliseStages(client.stages, body.stageTemplates || DEFAULT_STAGE_TEMPLATES) })),
     caseTypes: body.caseTypes || DEFAULT_CASE_TYPES,
     deadlineTypes: body.deadlineTypes || DEFAULT_DEADLINE_TYPES,
     stageTemplates: body.stageTemplates || DEFAULT_STAGE_TEMPLATES,

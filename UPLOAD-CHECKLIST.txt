@@ -1,4 +1,4 @@
-THiS CRM v0.10.0 upload checklist
+THiS CRM v0.10.1 upload checklist
 
 1. Preserve the netlify/ folder.
 2. Preserve the public/ folder.

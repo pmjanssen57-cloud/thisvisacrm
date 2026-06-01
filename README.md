@@ -1,6 +1,15 @@
-# Turner Hopkins CRM - Netlify Database v0.10.0
+# Turner Hopkins CRM - Netlify Database v0.10.1
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
+
+## v0.10.1 - Client Portal Section and Billing Visibility
+
+- Moved Client Portal management into its own collapsible section immediately after the Show full client record control.
+- The closed Client Portal section now shows whether portal access is Active or Inactive and when it was last published.
+- Added adviser-controlled billing milestone visibility for the client portal.
+- The read-only client portal dashboard can now show selected billing milestones with amount, status, billing date and invoice number where available.
+- Added new migration only: `202606010005_add_client_portal_billing_visibility.sql`.
+
 
 Deployment:
 1. Upload the unzipped project contents to the GitHub repo root.

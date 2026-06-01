@@ -2868,3 +2868,41 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   .portal-dashboard-grid, .portal-contact-grid, .portal-visibility-grid, .portal-admin-status { grid-template-columns: 1fr; }
   .portal-login-card { padding: 24px; border-radius: 24px; }
 }
+
+/* v0.10.1: client portal section and billing visibility */
+.section-status-pill {
+  margin-left: auto;
+  border-radius: 999px;
+  padding: 7px 11px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--muted);
+}
+.section-status-pill.active {
+  border-color: rgba(85, 217, 160, .55);
+  background: rgba(85, 217, 160, .16);
+  color: var(--ink);
+}
+.section-status-pill.inactive {
+  border-color: #d8e5df;
+  background: #f8fbfa;
+  color: var(--muted);
+}
+.portal-visibility-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.billing-portal-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (max-width: 1180px) {
+  .portal-visibility-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .section-status-pill { margin-left: 0; }
+  .billing-portal-list { grid-template-columns: 1fr; }
+  .portal-visibility-grid { grid-template-columns: 1fr; }
+}

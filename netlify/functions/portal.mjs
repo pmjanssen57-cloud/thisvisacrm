@@ -67,6 +67,7 @@ async function ensurePortalSchema() {
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_visible_document_ids JSONB NOT NULL DEFAULT '[]'::jsonb`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_visible_deadline_ids JSONB NOT NULL DEFAULT '[]'::jsonb`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_visible_appointment_ids JSONB NOT NULL DEFAULT '[]'::jsonb`;
+  await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_visible_billing_ids JSONB NOT NULL DEFAULT '[]'::jsonb`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_access_code_hash TEXT`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_last_published_at TIMESTAMPTZ`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_last_accessed_at TIMESTAMPTZ`;
@@ -86,15 +87,16 @@ async function ensurePortalSchema() {
 
 async function buildPortalSnapshot(clientId) {
   const database = db();
-  const [clientRows, adviserRows, stageRows, deadlineRows, calendarRows] = await Promise.all([
+  const [clientRows, adviserRows, stageRows, deadlineRows, calendarRows, billingRows] = await Promise.all([
     database.sql`
-      SELECT id, first_name, last_name, email, case_type, primary_adviser_id, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_last_published_at, document_checklist
+      SELECT id, first_name, last_name, email, case_type, primary_adviser_id, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_last_published_at, document_checklist
       FROM clients WHERE id = ${clientId} AND portal_enabled = TRUE LIMIT 1
     `,
     database.sql`SELECT id, name, email, phone FROM advisers`,
     database.sql`SELECT id, client_id, stage_key, stage_label, applied, completed, completed_date, sort_order FROM client_stages WHERE client_id = ${clientId} ORDER BY sort_order ASC`,
     database.sql`SELECT id, deadline_type, deadline_date, note FROM client_deadlines WHERE client_id = ${clientId} ORDER BY deadline_date ASC NULLS LAST`,
     database.sql`SELECT id, adviser_id, title, appointment_type, appointment_date, start_time, end_time, location, notes, status FROM calendar_entries WHERE client_id = ${clientId} ORDER BY appointment_date ASC, start_time ASC NULLS LAST`,
+    database.sql`SELECT id, milestone, due_date, amount, status, invoice_no, billing_trigger_type, billing_stage_key FROM billing_milestones WHERE client_id = ${clientId} ORDER BY due_date ASC NULLS LAST`,
   ]);
   const client = clientRows[0];
   if (!client) throw new Error('Portal snapshot not available.');
@@ -112,6 +114,7 @@ async function buildPortalSnapshot(clientId) {
   const visibleDocumentIds = new Set(parseJsonArray(client.portal_visible_document_ids));
   const visibleDeadlineIds = new Set(parseJsonArray(client.portal_visible_deadline_ids));
   const visibleAppointmentIds = new Set(parseJsonArray(client.portal_visible_appointment_ids));
+  const visibleBillingIds = new Set(parseJsonArray(client.portal_visible_billing_ids));
 
   const documents = parseDocumentChecklist(client.document_checklist)
     .filter((item) => item.applied !== false && !item.obtained && visibleDocumentIds.has(item.id))
@@ -134,6 +137,17 @@ async function buildPortalSnapshot(clientId) {
       adviser: advisers.find((adviserItem) => adviserItem.id === item.adviser_id)?.name || adviser?.name || '',
     }));
 
+  const billingMilestones = (billingRows || [])
+    .filter((item) => visibleBillingIds.has(item.id))
+    .map((item) => ({
+      id: item.id,
+      title: item.milestone || 'Billing milestone',
+      dueDate: toDateOnly(item.due_date),
+      amount: formatMoney(item.amount),
+      status: effectivePortalBillingStatus(item),
+      invoiceNo: item.invoice_no || '',
+    }));
+
   return {
     clientName: [client.first_name, client.last_name].filter(Boolean).join(' ') || 'Client',
     matterType: client.case_type || '',
@@ -145,9 +159,30 @@ async function buildPortalSnapshot(clientId) {
     documentsStillRequired: documents,
     keyDates,
     appointments,
+    billingMilestones,
     turnerHopkins: TURNER_HOPKINS_CONTACT,
     lastUpdated: toDateTimeLabel(client.portal_last_published_at) || '',
   };
+}
+
+
+function effectivePortalBillingStatus(item = {}) {
+  const status = String(item.status || 'WIP').trim() || 'WIP';
+  if (status === 'WIP') {
+    const due = toDateOnly(item.due_date);
+    const today = toDateOnly(new Date());
+    if (due && due < today) return 'Overdue';
+  }
+  return status;
+}
+
+function formatMoney(value) {
+  const amount = Number(value || 0);
+  try {
+    return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(amount);
+  } catch {
+    return `$${amount.toFixed(2)}`;
+  }
 }
 
 function portalDeadlineKey(deadline = {}) {
