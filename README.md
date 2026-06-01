@@ -269,3 +269,12 @@ This package-lock uses public npm registry tarball URLs so Netlify can install d
 - Fixes the Client Profile print export opening as a blank pop-up in some browsers by writing to a same-origin printable window before triggering print.
 - Tidies the client quick-view action area into a cleaner Client tools strip with clearer buttons for Next action log, Timeline and Print profile.
 - No database migration required.
+
+
+## v0.9.4 - Client Tools UI Polish
+
+- Tightens the Client tools strip in the client quick view.
+- Replaces the larger card-style action buttons with cleaner compact pill buttons.
+- Shortens the action text, improves alignment, and keeps count badges visually consistent.
+- Preserves the working Print profile function from v0.9.3.
+- No database migration required.

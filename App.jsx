@@ -3052,12 +3052,12 @@ function ClientSummaryPanel({ draft, setField, onOpenActionLog, onOpenTimeline, 
       <div className="client-quick-actions">
         <div className="client-quick-actions-text">
           <strong>Client tools</strong>
-          <span>Review action history, open the client timeline, or print an internal profile summary.</span>
+          <span>Review history, timeline and internal profile exports.</span>
         </div>
         <div className="client-quick-actions-buttons">
           <button className="quick-action-button" type="button" onClick={onOpenActionLog}>
             <Clock size={20} />
-            <span>Next action log</span>
+            <span>Action log</span>
             <b>{normaliseNextActionLog(draft.nextActionLog).length}</b>
           </button>
           <button className="quick-action-button" type="button" onClick={onOpenTimeline}>
