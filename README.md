@@ -1,4 +1,4 @@
-# Turner Hopkins CRM - Netlify Database v0.9.0
+# Turner Hopkins CRM - Netlify Database v0.9.3
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
@@ -262,3 +262,10 @@ This package-lock uses public npm registry tarball URLs so Netlify can install d
 - The printable client profile includes client details, OneLaw number, advisers, case strategy, current progress, matter stages, current next action, full next-action log, client timeline, linked calendar appointments, deadlines, document checklist, family/dependants, billing schedule and notes.
 - The profile opens in a browser print window so users can print or save as PDF using the browser/system print dialogue.
 - No existing migration files were edited.
+
+
+## v0.9.3
+
+- Fixes the Client Profile print export opening as a blank pop-up in some browsers by writing to a same-origin printable window before triggering print.
+- Tidies the client quick-view action area into a cleaner Client tools strip with clearer buttons for Next action log, Timeline and Print profile.
+- No database migration required.

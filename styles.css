@@ -2611,3 +2611,96 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   .library-metrics { grid-template-columns: repeat(2, 1fr); }
   .library-save-bar { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
 }
+
+/* v0.9.3: client quick-action strip and print profile polish */
+.client-quick-actions {
+  display: grid;
+  grid-template-columns: minmax(210px, 0.75fr) minmax(0, 1.25fr);
+  gap: 14px;
+  align-items: stretch;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid rgba(85, 217, 160, 0.55);
+  border-radius: 20px;
+  background: linear-gradient(135deg, #f4fbf8 0%, #ffffff 100%);
+  box-shadow: 0 10px 24px rgba(0, 55, 54, 0.05);
+}
+.client-quick-actions-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+}
+.client-quick-actions-text strong {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 900;
+}
+.client-quick-actions-text span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.client-quick-actions-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.quick-action-button {
+  min-height: 74px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+  color: var(--ink);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  font-weight: 850;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+}
+.quick-action-button:hover {
+  border-color: var(--mint);
+  box-shadow: 0 10px 22px rgba(0, 55, 54, 0.08);
+  transform: translateY(-1px);
+}
+.quick-action-button svg {
+  color: var(--ink);
+}
+.quick-action-button span {
+  min-width: 0;
+  line-height: 1.2;
+}
+.quick-action-button b {
+  min-width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  padding: 0 8px;
+}
+@media (max-width: 980px) {
+  .client-quick-actions {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 720px) {
+  .client-quick-actions {
+    padding: 12px;
+    border-radius: 18px;
+  }
+  .client-quick-actions-buttons {
+    grid-template-columns: 1fr;
+  }
+  .quick-action-button {
+    min-height: 58px;
+  }
+}

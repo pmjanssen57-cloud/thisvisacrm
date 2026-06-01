@@ -3049,11 +3049,27 @@ function ClientSummaryPanel({ draft, setField, onOpenActionLog, onOpenTimeline, 
         <TextArea label="Next action" value={draft.nextAction} onChange={(v) => setField('nextAction', v)} rows={3} />
         <DateField label="Next action date" value={draft.nextActionDue} onChange={(v) => setField('nextActionDue', v)} />
       </div>
-      <div className="next-action-log-strip">
-        <button className="btn" type="button" onClick={onOpenActionLog}><Clock size={16} />Next action log <span className="button-count">{normaliseNextActionLog(draft.nextActionLog).length}</span></button>
-        <button className="btn" type="button" onClick={onOpenTimeline}><CalendarDays size={16} />Timeline <span className="button-count">{linkedCalendarCount}</span></button>
-        <button className="btn" type="button" onClick={onPrintProfile}><FileText size={16} />Print profile</button>
-        <span>Previous next actions are logged when the next action or date is changed and the client record is saved.</span>
+      <div className="client-quick-actions">
+        <div className="client-quick-actions-text">
+          <strong>Client tools</strong>
+          <span>Review action history, open the client timeline, or print an internal profile summary.</span>
+        </div>
+        <div className="client-quick-actions-buttons">
+          <button className="quick-action-button" type="button" onClick={onOpenActionLog}>
+            <Clock size={20} />
+            <span>Next action log</span>
+            <b>{normaliseNextActionLog(draft.nextActionLog).length}</b>
+          </button>
+          <button className="quick-action-button" type="button" onClick={onOpenTimeline}>
+            <CalendarDays size={20} />
+            <span>Timeline</span>
+            <b>{linkedCalendarCount}</b>
+          </button>
+          <button className="quick-action-button" type="button" onClick={onPrintProfile}>
+            <FileText size={20} />
+            <span>Print profile</span>
+          </button>
+        </div>
       </div>
       <div className="summary-sharepoint-row">
         <label className="field sharepoint-field">
@@ -3073,15 +3089,31 @@ function ClientSummaryPanel({ draft, setField, onOpenActionLog, onOpenTimeline, 
 
 
 function printClientProfile(client = {}, calendarEntries = [], advisers = []) {
-  const printWindow = window.open('', '_blank', 'width=980,height=900,noopener,noreferrer');
+  const printWindow = window.open('about:blank', `this-client-profile-${Date.now()}`, 'width=980,height=900,scrollbars=yes,resizable=yes');
   if (!printWindow) return false;
-  const html = buildClientProfilePrintHtml(client, calendarEntries, advisers);
-  printWindow.document.open();
-  printWindow.document.write(html);
-  printWindow.document.close();
-  printWindow.focus();
-  setTimeout(() => printWindow.print(), 350);
-  return true;
+
+  try {
+    const html = buildClientProfilePrintHtml(client, calendarEntries, advisers);
+    printWindow.document.open('text/html', 'replace');
+    printWindow.document.write(html);
+    printWindow.document.close();
+
+    let printStarted = false;
+    const startPrint = () => {
+      if (printStarted || printWindow.closed) return;
+      printStarted = true;
+      printWindow.focus();
+      printWindow.print();
+    };
+
+    printWindow.addEventListener?.('load', () => window.setTimeout(startPrint, 450), { once: true });
+    window.setTimeout(startPrint, 900);
+    return true;
+  } catch (err) {
+    console.error('Client profile print window could not be prepared.', err);
+    try { printWindow.close(); } catch {}
+    return false;
+  }
 }
 
 function buildClientProfilePrintHtml(client = {}, calendarEntries = [], advisers = []) {
