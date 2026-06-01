@@ -1,14 +1,12 @@
-Upload these project contents to the GitHub repo root, preserving folders.
+THiS CRM v0.9.0 upload checklist
 
-Must remain as folders:
-- netlify/functions
-- netlify/database/migrations
-- public
-
-Important:
-- Do not upload node_modules.
-- Do not upload package-lock.json from an older package.
-- Keep .npmrc in the repo root so Netlify uses the public npm registry.
-- Keep CRM_ACCESS_TOKEN in Netlify during the v0.8.2 Identity transition.
-- Enable Netlify Identity and set registration to invite-only before inviting advisers.
-- Do not edit already-applied migration files; this build adds 202606010001_add_adviser_login_email.sql.
+1. Unzip this package.
+2. Copy all contents into the GitHub repo root.
+3. Preserve the netlify/ and public/ folders.
+4. Do not edit previously-applied migration files.
+5. Commit and push to GitHub.
+6. In Netlify, use Clear cache and deploy site.
+7. Confirm Netlify Identity remains enabled and invite-only.
+8. Confirm CRM loads after login.
+9. Confirm Library tab appears and a test Library item can save/delete.
+10. Confirm Tools > Currency converts without the browser Failed to fetch message.

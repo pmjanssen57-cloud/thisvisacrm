@@ -58,6 +58,10 @@ const DOCUMENT_CHECKLIST_TEMPLATES = [
   { id: 'police-clearances', name: 'Police Clearances' },
 ];
 
+const LIBRARY_ENTRY_TYPES = ['Policy', 'Form'];
+const LIBRARY_STATUSES = ['Current', 'Watch', 'Superseded', 'Archived', 'Acceptable until'];
+const LIBRARY_CATEGORIES = ['Work', 'Residence', 'Family', 'Student', 'Visitor', 'Investor', 'Health', 'Character', 'Compliance', 'Forms', 'General'];
+
 export default async function crmRequestHandler(request, context = {}) {
   const method = String(request.method || 'GET').toUpperCase();
   const body = method === 'GET' || method === 'HEAD' ? '' : await request.text();
@@ -121,6 +125,16 @@ async function handleCrmEvent(event) {
 
     if (action === 'deleteCalendarEntry') {
       await deleteCalendarEntry(body.entryId);
+      return json(await readCrmData());
+    }
+
+    if (action === 'saveLibraryEntry') {
+      const libraryEntry = await saveLibraryEntry(body.entry);
+      return json({ libraryEntry, ...(await readCrmData()) });
+    }
+
+    if (action === 'deleteLibraryEntry') {
+      await deleteLibraryEntry(body.entryId);
       return json(await readCrmData());
     }
 
@@ -322,13 +336,39 @@ async function ensureSchema() {
   await database.sql`CREATE INDEX IF NOT EXISTS idx_personal_tasks_adviser ON personal_tasks(adviser_id)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_calendar_entries_date ON calendar_entries(appointment_date)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_calendar_entries_client ON calendar_entries(client_id)`;
+  await database.sql`
+    CREATE TABLE IF NOT EXISTS library_entries (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      entry_type TEXT NOT NULL DEFAULT 'Policy',
+      reference_code TEXT,
+      title TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'General',
+      status TEXT NOT NULL DEFAULT 'Current',
+      official_url TEXT,
+      version_label TEXT,
+      acceptable_until DATE,
+      related_case_types JSONB NOT NULL DEFAULT '[]'::jsonb,
+      related_document_items JSONB NOT NULL DEFAULT '[]'::jsonb,
+      internal_summary TEXT,
+      adviser_notes TEXT,
+      last_reviewed DATE,
+      next_review_due DATE,
+      reviewed_by TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_calendar_entries_adviser ON calendar_entries(adviser_id)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_library_entries_type ON library_entries(entry_type)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_library_entries_status ON library_entries(status)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_library_entries_review_due ON library_entries(next_review_due)`;
 }
+
 
 
 async function readCrmData() {
   const database = db();
-  const [advisers, clients, stages, deadlines, billing, personalTasks, calendarEntries] = await Promise.all([
+  const [advisers, clients, stages, deadlines, billing, personalTasks, calendarEntries, libraryEntries] = await Promise.all([
     database.sql`SELECT id, name, role, email, login_email, phone, licence, active FROM advisers ORDER BY name ASC`,
     database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, notes, family_members, document_checklist FROM clients ORDER BY updated_at DESC`,
     database.sql`SELECT id, client_id, stage_key, stage_label, mandatory, applied, completed, completed_date, sort_order FROM client_stages ORDER BY sort_order ASC`,
@@ -336,6 +376,7 @@ async function readCrmData() {
     database.sql`SELECT id, client_id, milestone, due_date, amount, status, invoice_no, billing_trigger_type, billing_stage_key FROM billing_milestones ORDER BY due_date ASC NULLS LAST`,
     database.sql`SELECT id, adviser_id, client_id, title, due_date, status, note FROM personal_tasks ORDER BY due_date ASC NULLS LAST, created_at DESC`,
     database.sql`SELECT id, client_id, adviser_id, title, appointment_type, appointment_date, start_time, end_time, location, notes, status FROM calendar_entries ORDER BY appointment_date ASC, start_time ASC NULLS LAST, created_at DESC`,
+    database.sql`SELECT id, entry_type, reference_code, title, category, status, official_url, version_label, acceptable_until, related_case_types, related_document_items, internal_summary, adviser_notes, last_reviewed, next_review_due, reviewed_by FROM library_entries ORDER BY entry_type ASC, title ASC`,
   ]);
 
   return {
@@ -343,6 +384,7 @@ async function readCrmData() {
     clients: clients.map((client) => mapClientFromDb(client, stages, deadlines, billing)),
     personalTasks: personalTasks.map(mapPersonalTaskFromDb),
     calendarEntries: calendarEntries.map(mapCalendarEntryFromDb),
+    libraryEntries: libraryEntries.map(mapLibraryEntryFromDb),
     caseTypes: CASE_TYPES,
     deadlineTypes: DEADLINE_TYPES,
     stageTemplates: STAGE_TEMPLATES,
@@ -387,6 +429,28 @@ function mapCalendarEntryFromDb(row) {
     location: row.location || '',
     notes: row.notes || '',
     status: row.status === 'Completed' ? 'Completed' : 'Open',
+  };
+}
+
+
+function mapLibraryEntryFromDb(row) {
+  return {
+    id: row.id,
+    entryType: normaliseLibraryEntryType(row.entry_type),
+    referenceCode: row.reference_code || '',
+    title: row.title || '',
+    category: normaliseLibraryCategory(row.category),
+    status: normaliseLibraryStatus(row.status),
+    officialUrl: row.official_url || '',
+    versionLabel: row.version_label || '',
+    acceptableUntil: toDateOnly(row.acceptable_until),
+    relatedCaseTypes: parseJsonArray(row.related_case_types),
+    relatedDocumentItems: parseJsonArray(row.related_document_items),
+    internalSummary: row.internal_summary || '',
+    adviserNotes: row.adviser_notes || '',
+    lastReviewed: toDateOnly(row.last_reviewed),
+    nextReviewDue: toDateOnly(row.next_review_due),
+    reviewedBy: row.reviewed_by || '',
   };
 }
 
@@ -478,6 +542,50 @@ async function saveAdviser(adviser = {}) {
     RETURNING id, name, role, email, login_email, phone, licence, active
   `;
   return mapAdviserFromDb(rows[0]);
+}
+
+
+async function saveLibraryEntry(input = {}) {
+  const database = db();
+  const entry = normaliseLibraryEntryInput(input);
+  const id = isUuid(entry.id) ? entry.id : null;
+
+  if (id) {
+    const rows = await database.sql`
+      UPDATE library_entries
+      SET entry_type = ${entry.entryType},
+          reference_code = ${entry.referenceCode},
+          title = ${entry.title || 'Untitled library item'},
+          category = ${entry.category},
+          status = ${entry.status},
+          official_url = ${entry.officialUrl},
+          version_label = ${entry.versionLabel},
+          acceptable_until = ${nullableDate(entry.acceptableUntil)},
+          related_case_types = CAST(${JSON.stringify(entry.relatedCaseTypes || [])} AS jsonb),
+          related_document_items = CAST(${JSON.stringify(entry.relatedDocumentItems || [])} AS jsonb),
+          internal_summary = ${entry.internalSummary},
+          adviser_notes = ${entry.adviserNotes},
+          last_reviewed = ${nullableDate(entry.lastReviewed)},
+          next_review_due = ${nullableDate(entry.nextReviewDue)},
+          reviewed_by = ${entry.reviewedBy},
+          updated_at = NOW()
+      WHERE id = ${id}
+      RETURNING id, entry_type, reference_code, title, category, status, official_url, version_label, acceptable_until, related_case_types, related_document_items, internal_summary, adviser_notes, last_reviewed, next_review_due, reviewed_by
+    `;
+    return mapLibraryEntryFromDb(rows[0]);
+  }
+
+  const rows = await database.sql`
+    INSERT INTO library_entries (entry_type, reference_code, title, category, status, official_url, version_label, acceptable_until, related_case_types, related_document_items, internal_summary, adviser_notes, last_reviewed, next_review_due, reviewed_by)
+    VALUES (${entry.entryType}, ${entry.referenceCode}, ${entry.title || 'Untitled library item'}, ${entry.category}, ${entry.status}, ${entry.officialUrl}, ${entry.versionLabel}, ${nullableDate(entry.acceptableUntil)}, CAST(${JSON.stringify(entry.relatedCaseTypes || [])} AS jsonb), CAST(${JSON.stringify(entry.relatedDocumentItems || [])} AS jsonb), ${entry.internalSummary}, ${entry.adviserNotes}, ${nullableDate(entry.lastReviewed)}, ${nullableDate(entry.nextReviewDue)}, ${entry.reviewedBy})
+    RETURNING id, entry_type, reference_code, title, category, status, official_url, version_label, acceptable_until, related_case_types, related_document_items, internal_summary, adviser_notes, last_reviewed, next_review_due, reviewed_by
+  `;
+  return mapLibraryEntryFromDb(rows[0]);
+}
+
+async function deleteLibraryEntry(entryId) {
+  if (!isUuid(entryId)) return;
+  await db().sql`DELETE FROM library_entries WHERE id = ${entryId}`;
 }
 
 async function saveClient(input = {}) {
@@ -829,6 +937,51 @@ function buildNextActionLog(existing, client) {
       replacedByDueDate: nextDueDate,
     },
   ]);
+}
+
+
+function normaliseLibraryEntryInput(input = {}) {
+  return {
+    id: input.id || '',
+    entryType: normaliseLibraryEntryType(input.entryType || input.entry_type),
+    referenceCode: String(input.referenceCode || input.reference_code || '').trim(),
+    title: String(input.title || '').trim(),
+    category: normaliseLibraryCategory(input.category),
+    status: normaliseLibraryStatus(input.status),
+    officialUrl: String(input.officialUrl || input.official_url || '').trim(),
+    versionLabel: String(input.versionLabel || input.version_label || '').trim(),
+    acceptableUntil: nullableDate(input.acceptableUntil || input.acceptable_until) || '',
+    relatedCaseTypes: parseJsonArray(input.relatedCaseTypes || input.related_case_types).filter((item) => CASE_TYPES.includes(item)),
+    relatedDocumentItems: parseJsonArray(input.relatedDocumentItems || input.related_document_items).map((item) => String(item || '').trim()).filter(Boolean).slice(0, 50),
+    internalSummary: String(input.internalSummary || input.internal_summary || '').trim(),
+    adviserNotes: String(input.adviserNotes || input.adviser_notes || '').trim(),
+    lastReviewed: nullableDate(input.lastReviewed || input.last_reviewed) || '',
+    nextReviewDue: nullableDate(input.nextReviewDue || input.next_review_due) || '',
+    reviewedBy: String(input.reviewedBy || input.reviewed_by || '').trim(),
+  };
+}
+
+function normaliseLibraryEntryType(value) {
+  return value === 'Form' ? 'Form' : 'Policy';
+}
+
+function normaliseLibraryStatus(value) {
+  return LIBRARY_STATUSES.includes(value) ? value : 'Current';
+}
+
+function normaliseLibraryCategory(value) {
+  return LIBRARY_CATEGORIES.includes(value) ? value : 'General';
+}
+
+function parseJsonArray(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.map((item) => String(item || '').trim()).filter(Boolean);
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.map((item) => String(item || '').trim()).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
 }
 
 function normaliseClientInput(input) {

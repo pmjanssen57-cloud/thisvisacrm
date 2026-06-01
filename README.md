@@ -1,4 +1,4 @@
-# Turner Hopkins CRM - Netlify Database v0.8.1
+# Turner Hopkins CRM - Netlify Database v0.9.0
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
@@ -231,3 +231,16 @@ Adds a mobile-specific CRM layout while preserving the desktop experience. Phone
 ### v0.8.0 deployment note
 
 This package-lock uses public npm registry tarball URLs so Netlify can install dependencies during deployment.
+
+## v0.9.0 - INZ Knowledge Library Foundation
+
+- Added a new Library section for controlled INZ policy and forms references.
+- Added Policy and Form tabs with searchable/filterable library entries.
+- Library entries store reference code/form number, title, category, status, official source URL, version/acceptable-until notes, related case types, related document items, THiS summary, adviser notes, last reviewed date, next review due date and reviewed by.
+- Added review-due and watch-status visibility so stale or change-sensitive policy/form items can be managed.
+- Added copy/open official source controls.
+- Added mobile access to the Library through the More menu.
+- Added migration `202606010002_add_inz_library_entries.sql`.
+- Fixed the Tools currency converter by routing conversions through a Netlify Function proxy with a fallback exchange-rate source, avoiding browser `Failed to fetch`/CORS failures.
+- Added `netlify/functions/currency.mjs` for currency lookups.
+- Kept adviser roles permissive for now; all advisers can be assigned admin in Netlify Identity while role restrictions are handled later.

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { acceptInvite, getUser, handleAuthCallback, login, logout, onAuthChange, requestPasswordRecovery, updateUser } from '@netlify/identity';
-import { AlertTriangle, ArrowUpDown, Calculator, CalendarDays, CheckCircle2, ChevronRight, Clock, CloudSun, Copy, CreditCard, Database, DollarSign, ExternalLink, Globe2, HelpCircle, LayoutDashboard, Link2, ListChecks, LockKeyhole, Plus, RefreshCw, Save, Search, ShieldCheck, Trash2, UserRound, UsersRound, Wrench, X } from 'lucide-react';
+import { AlertTriangle, ArrowUpDown, BookOpen, Calculator, CalendarDays, CheckCircle2, ChevronRight, Clock, CloudSun, Copy, CreditCard, Database, DollarSign, ExternalLink, FileText, Globe2, HelpCircle, LayoutDashboard, Link2, ListChecks, LockKeyhole, Plus, RefreshCw, Save, Search, ShieldCheck, Trash2, UserRound, UsersRound, Wrench, X } from 'lucide-react';
 
 const BRAND = {
   ink: '#003736',
@@ -70,6 +70,10 @@ const DOCUMENT_CHECKLIST_TEMPLATES = [
   { id: 'police-clearances', name: 'Police Clearances' },
 ];
 
+const LIBRARY_ENTRY_TYPES = ['Policy', 'Form'];
+const LIBRARY_STATUSES = ['Current', 'Watch', 'Superseded', 'Archived', 'Acceptable until'];
+const LIBRARY_CATEGORIES = ['Work', 'Residence', 'Family', 'Student', 'Visitor', 'Investor', 'Health', 'Character', 'Compliance', 'Forms', 'General'];
+
 const SUPPORT_CONTENT = {
   dashboard: {
     title: 'Dashboard help',
@@ -122,6 +126,16 @@ const SUPPORT_CONTENT = {
       { heading: 'Using status', text: 'Use WIP, Invoiced and Overdue consistently so the dashboard figures remain useful.' },
     ],
     tips: ['Use invoice numbers once the actual invoice has been raised.', 'Billing notes should stay factual and operational.'],
+  },
+  library: {
+    title: 'Library help',
+    summary: 'The Library is the controlled THiS reference shelf for INZ policy notes, forms, guides and internal adviser watch-points. It should speed up file work without replacing formal adviser judgement or source checking.',
+    sections: [
+      { heading: 'Policy items', text: 'Use Policy entries for INZ Operational Manual references, policy categories, internal THiS summaries, watch-points and review dates. Always keep the official INZ source link attached.' },
+      { heading: 'Form items', text: 'Use Form entries for INZ forms, guides, checklists and acceptable-version notes. Record the form number, version, status and official PDF/source link.' },
+      { heading: 'Review control', text: 'Use Last reviewed, Next review due and Reviewed by fields so policy and form references are periodically checked rather than left to go stale.' },
+    ],
+    tips: ['Keep summaries short and practical.', 'Use Watch status for items affected by current or expected policy change.', 'Do not rely on the Library without opening the official INZ source for formal advice.'],
   },
   advisers: {
     title: 'Advisers help',
@@ -360,6 +374,7 @@ const emptyData = {
   stageTemplates: DEFAULT_STAGE_TEMPLATES,
   personalTasks: [],
   calendarEntries: [],
+  libraryEntries: [],
   securityMode: 'unknown',
 };
 
@@ -706,6 +721,15 @@ export default function App() {
     await callApi('deleteCalendarEntry', { entryId });
   }
 
+  async function saveLibraryEntry(entry) {
+    return await callApi('saveLibraryEntry', { entry });
+  }
+
+  async function deleteLibraryEntry(entryId) {
+    if (!window.confirm('Delete this library item?')) return;
+    return await callApi('deleteLibraryEntry', { entryId });
+  }
+
   async function deleteClient(clientId) {
     if (!window.confirm('Delete this client and all linked stages, deadlines and billing records?')) return;
     const body = await callApi('deleteClient', { clientId });
@@ -871,7 +895,7 @@ export default function App() {
           </section>
         )}
 
-        {(data.clients.length > 0 || data.advisers.length > 0) && (
+        {(data.clients.length > 0 || data.advisers.length > 0 || data.libraryEntries.length > 0) && (
           <>
             <ViewToolbar
               advisers={scopeAdvisers}
@@ -889,6 +913,7 @@ export default function App() {
               <TabButton active={tab === 'dashboard'} onClick={() => switchTab('dashboard')} icon={LayoutDashboard} label="Dashboard" />
               <TabButton active={tab === 'tasks'} onClick={() => switchTab('tasks')} icon={ListChecks} label="Tasks" />
               <TabButton active={tab === 'calendar'} onClick={() => switchTab('calendar')} icon={CalendarDays} label="Calendar" />
+              <TabButton active={tab === 'library'} onClick={() => switchTab('library')} icon={BookOpen} label="Library" />
               <TabButton active={tab === 'clients'} onClick={() => switchTab('clients')} icon={UsersRound} label="Clients" />
               <TabButton active={tab === 'billing'} onClick={() => switchTab('billing')} icon={CreditCard} label="Billing" />
               {canManageAdvisers && <TabButton active={tab === 'advisers'} onClick={() => switchTab('advisers')} icon={UsersRound} label="Advisers" />}
@@ -904,6 +929,10 @@ export default function App() {
 
             {tab === 'calendar' && (
               <CalendarWorkspace entries={scopedCalendarEntries} allEntries={data.calendarEntries} clients={data.clients} scopedClients={scopedClients} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} saveCalendarEntry={saveCalendarEntry} deleteCalendarEntry={deleteCalendarEntry} saveClient={saveClient} saving={saving} openClientRecord={openClientRecord} onDirtyChange={setCalendarEditorDirty} />
+            )}
+
+            {tab === 'library' && (
+              <LibraryWorkspace entries={data.libraryEntries} caseTypes={data.caseTypes} saveLibraryEntry={saveLibraryEntry} deleteLibraryEntry={deleteLibraryEntry} saving={saving} />
             )}
 
             {tab === 'clients' && selectedClient && (
@@ -986,7 +1015,7 @@ function MobileBottomNav({ activeTab, onNavigate, onOpenMore }) {
     { tab: 'clients', label: 'Clients', icon: UsersRound },
     { tab: 'calendar', label: 'Calendar', icon: CalendarDays },
   ];
-  const moreActive = ['billing', 'advisers'].includes(activeTab);
+  const moreActive = ['billing', 'advisers', 'library'].includes(activeTab);
   return (
     <nav className="mobile-bottom-nav" aria-label="Mobile CRM navigation">
       {navItems.map(({ tab, label, icon: Icon }) => (
@@ -1022,6 +1051,7 @@ function MobileMoreSheet({ open, onClose, onNavigate, activeTab, onOpenHelp, onO
         </div>
         <div className="mobile-more-grid">
           <button type="button" className={activeTab === 'billing' ? 'active' : ''} onClick={() => go('billing')}><CreditCard size={18} /><span>Billing</span></button>
+          <button type="button" className={activeTab === 'library' ? 'active' : ''} onClick={() => go('library')}><BookOpen size={18} /><span>Library</span></button>
           {canManageAdvisers && <button type="button" className={activeTab === 'advisers' ? 'active' : ''} onClick={() => go('advisers')}><UserRound size={18} /><span>Advisers</span></button>}
           <button type="button" onClick={onOpenTools}><Wrench size={18} /><span>Tools</span></button>
           <button type="button" onClick={onOpenHelp}><HelpCircle size={18} /><span>Help</span></button>
@@ -1207,14 +1237,12 @@ function CurrencyTool() {
         setCurrencyResult({ amount: value, converted: value, rate: 1, date: todayIso() });
         return;
       }
-      const response = await fetch(`https://api.frankfurter.app/latest?amount=${encodeURIComponent(value)}&from=${encodeURIComponent(fromCurrency)}&to=${encodeURIComponent(toCurrency)}`);
-      if (!response.ok) throw new Error('Currency lookup failed.');
-      const body = await response.json();
-      const converted = body.rates?.[toCurrency];
-      if (typeof converted !== 'number') throw new Error('Currency result was not available.');
-      setCurrencyResult({ amount: value, converted, rate: converted / value, date: body.date });
+      const response = await fetch(`/.netlify/functions/currency?amount=${encodeURIComponent(value)}&from=${encodeURIComponent(fromCurrency)}&to=${encodeURIComponent(toCurrency)}`, { credentials: 'same-origin' });
+      const body = await readJsonResponse(response);
+      if (!response.ok || !body?.ok) throw new Error(body?.error || 'Currency lookup failed.');
+      setCurrencyResult({ amount: body.amount, converted: body.converted, rate: body.rate, date: body.date, source: body.source });
     } catch (err) {
-      setCurrencyError(err.message || 'Currency lookup failed.');
+      setCurrencyError(err.message || 'Currency lookup failed. Try again later.');
     } finally {
       setLoadingCurrency(false);
     }
@@ -1242,7 +1270,7 @@ function CurrencyTool() {
         <div className="conversion-result">
           <span>Converted amount</span>
           <strong>{formatCurrencyAmount(currencyResult.converted, toCurrency)}</strong>
-          <small>{formatCurrencyAmount(currencyResult.amount, fromCurrency)} · 1 {fromCurrency} = {currencyResult.rate.toFixed(4)} {toCurrency} · Rate date {currencyResult.date}</small>
+          <small>{formatCurrencyAmount(currencyResult.amount, fromCurrency)} · 1 {fromCurrency} = {currencyResult.rate.toFixed(4)} {toCurrency} · Rate date {currencyResult.date}{currencyResult.source ? ` · ${currencyResult.source}` : ''}</small>
         </div>
       )}
       <p className="tool-muted">Indicative only. Confirm exchange rates before quoting or relying on them for formal advice.</p>
@@ -3120,6 +3148,241 @@ function ClientTimelineModal({ client, calendarEntries = [], advisers = [], onCl
   );
 }
 
+function makeBlankLibraryEntry(entryType = 'Policy') {
+  return {
+    id: `temp-library-${Date.now()}`,
+    entryType: LIBRARY_ENTRY_TYPES.includes(entryType) ? entryType : 'Policy',
+    referenceCode: '',
+    title: '',
+    category: entryType === 'Form' ? 'Forms' : 'General',
+    status: 'Current',
+    officialUrl: '',
+    versionLabel: '',
+    acceptableUntil: '',
+    relatedCaseTypes: [],
+    relatedDocumentItems: [],
+    internalSummary: '',
+    adviserNotes: '',
+    lastReviewed: todayIso(),
+    nextReviewDue: daysFromToday(90),
+    reviewedBy: '',
+  };
+}
+
+function LibraryWorkspace({ entries, caseTypes, saveLibraryEntry, deleteLibraryEntry, saving }) {
+  const [activeType, setActiveType] = useState('Policy');
+  const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [selectedId, setSelectedId] = useState(entries.find((entry) => entry.entryType === activeType)?.id || '');
+  const [draft, setDraft] = useState(makeBlankLibraryEntry(activeType));
+  const [saveMessage, setSaveMessage] = useState('');
+  const [copyMessage, setCopyMessage] = useState('');
+
+  const visibleEntries = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return entries
+      .filter((entry) => entry.entryType === activeType)
+      .filter((entry) => statusFilter === 'all' || entry.status === statusFilter)
+      .filter((entry) => categoryFilter === 'all' || entry.category === categoryFilter)
+      .filter((entry) => !q || [entry.referenceCode, entry.title, entry.category, entry.status, entry.officialUrl, entry.versionLabel, entry.internalSummary, entry.adviserNotes, entry.reviewedBy, ...(entry.relatedCaseTypes || []), ...(entry.relatedDocumentItems || [])].join(' ').toLowerCase().includes(q))
+      .sort((a, b) => {
+        const aDue = isLibraryReviewDue(a) ? 0 : 1;
+        const bDue = isLibraryReviewDue(b) ? 0 : 1;
+        if (aDue !== bDue) return aDue - bDue;
+        return (a.title || '').localeCompare(b.title || '');
+      });
+  }, [entries, activeType, query, statusFilter, categoryFilter]);
+
+  const stats = useMemo(() => {
+    const scoped = entries.filter((entry) => entry.entryType === activeType);
+    return {
+      total: scoped.length,
+      reviewDue: scoped.filter(isLibraryReviewDue).length,
+      watch: scoped.filter((entry) => entry.status === 'Watch').length,
+      archived: scoped.filter((entry) => ['Archived', 'Superseded'].includes(entry.status)).length,
+    };
+  }, [entries, activeType]);
+
+  useEffect(() => {
+    const selected = entries.find((entry) => entry.id === selectedId && entry.entryType === activeType);
+    if (selected) {
+      setDraft(normaliseLibraryEntry(selected));
+      return;
+    }
+    const first = visibleEntries[0];
+    if (first) {
+      setSelectedId(first.id);
+      setDraft(normaliseLibraryEntry(first));
+    } else {
+      setSelectedId('');
+      setDraft(makeBlankLibraryEntry(activeType));
+    }
+  }, [selectedId, activeType, entries, visibleEntries]);
+
+  function updateDraft(patch) {
+    setDraft((current) => ({ ...current, ...patch }));
+    setSaveMessage('');
+  }
+
+  function startNewEntry(type = activeType) {
+    setSelectedId('');
+    setActiveType(type);
+    setDraft(makeBlankLibraryEntry(type));
+    setSaveMessage('');
+    setCopyMessage('');
+  }
+
+  async function saveDraft(event) {
+    event?.preventDefault();
+    if (!draft.title.trim()) {
+      setSaveMessage('Add a title before saving this library item.');
+      return;
+    }
+    const body = await saveLibraryEntry(draft);
+    const saved = normaliseLibraryEntry(body.libraryEntry || draft);
+    setSelectedId(saved.id);
+    setDraft(saved);
+    setActiveType(saved.entryType);
+    setSaveMessage(`Saved ${formatTimeNow()}.`);
+  }
+
+  async function removeDraft() {
+    if (!isPersistedId(draft.id)) return startNewEntry(activeType);
+    await deleteLibraryEntry(draft.id);
+    setSelectedId('');
+    setDraft(makeBlankLibraryEntry(activeType));
+    setSaveMessage('Library item deleted.');
+  }
+
+  async function copyOfficialLink() {
+    if (!draft.officialUrl) return;
+    try {
+      await navigator.clipboard.writeText(draft.officialUrl);
+      setCopyMessage(`Copied ${formatTimeNow()}.`);
+    } catch {
+      window.prompt('Copy official source link:', draft.officialUrl);
+      setCopyMessage('Copy prompt opened.');
+    }
+  }
+
+  const officialLink = normaliseExternalUrl(draft.officialUrl);
+
+  return (
+    <section className="library-workspace">
+      <div className="section-title-row">
+        <div>
+          <p className="eyebrow">INZ knowledge library</p>
+          <h1>Policy and forms reference</h1>
+          <p className="muted">Controlled internal reference records with official INZ links, THiS notes and review dates. Use this as a shortcut to source material, not as a substitute for checking current instructions.</p>
+        </div>
+        <div className="button-row">
+          <button className="btn" type="button" onClick={() => startNewEntry('Policy')}><BookOpen size={16} />Policy item</button>
+          <button className="btn dark" type="button" onClick={() => startNewEntry('Form')}><FileText size={16} />Form item</button>
+        </div>
+      </div>
+
+      <div className="library-tabs">
+        {LIBRARY_ENTRY_TYPES.map((type) => (
+          <button key={type} type="button" className={activeType === type ? 'active' : ''} onClick={() => { setActiveType(type); setSelectedId(''); }}>
+            {type === 'Policy' ? <BookOpen size={16} /> : <FileText size={16} />}{type}
+          </button>
+        ))}
+      </div>
+
+      <div className="metric-grid compact library-metrics">
+        <div className="metric-card"><span>{activeType} items</span><strong>{stats.total}</strong><small>Controlled records</small></div>
+        <div className="metric-card"><span>Review due</span><strong>{stats.reviewDue}</strong><small>Due or overdue</small></div>
+        <div className="metric-card"><span>Watch</span><strong>{stats.watch}</strong><small>Change-sensitive items</small></div>
+        <div className="metric-card"><span>Archived/superseded</span><strong>{stats.archived}</strong><small>Kept for history</small></div>
+      </div>
+
+      <div className="library-layout">
+        <aside className="library-list-panel">
+          <div className="filters library-filters">
+            <label><span>Search</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Policy code, form number, title or note" /></label>
+            <label><span>Status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">All statuses</option>{LIBRARY_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}</select></label>
+            <label><span>Category</span><select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}><option value="all">All categories</option>{LIBRARY_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>
+          </div>
+          <div className="library-list">
+            {visibleEntries.map((entry) => (
+              <button key={entry.id} type="button" className={`library-list-item ${selectedId === entry.id ? 'active' : ''}`} onClick={() => setSelectedId(entry.id)}>
+                <span className={`library-status ${statusClass(entry.status)}`}>{entry.status}</span>
+                <strong>{entry.referenceCode ? `${entry.referenceCode} - ${entry.title}` : entry.title}</strong>
+                <small>{entry.category || 'General'}{entry.nextReviewDue ? ` · Review ${formatShortDate(entry.nextReviewDue)}` : ''}</small>
+                {isLibraryReviewDue(entry) && <em>Review due</em>}
+              </button>
+            ))}
+            {!visibleEntries.length && <p className="muted center">No {activeType.toLowerCase()} items match the current filters.</p>}
+          </div>
+        </aside>
+
+        <form className="library-editor" onSubmit={saveDraft}>
+          <div className="sub-panel-head">
+            <div>
+              <h2>{isPersistedId(draft.id) ? 'Edit library item' : `New ${draft.entryType.toLowerCase()} item`}</h2>
+              <p className="muted">Attach the official source, record the THiS working note, and keep review dates current.</p>
+            </div>
+            <div className="button-row">
+              <button className="btn" type="button" onClick={copyOfficialLink} disabled={!draft.officialUrl}><Copy size={16} />Copy link</button>
+              <button className="btn" type="button" onClick={() => officialLink && window.open(officialLink, '_blank', 'noopener,noreferrer')} disabled={!officialLink}><ExternalLink size={16} />Open source</button>
+            </div>
+          </div>
+
+          <div className="grid two">
+            <label className="field"><span>Type</span><select value={draft.entryType} onChange={(event) => updateDraft({ entryType: event.target.value, category: event.target.value === 'Form' ? 'Forms' : draft.category })}>{LIBRARY_ENTRY_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
+            <label className="field"><span>Status</span><select value={draft.status} onChange={(event) => updateDraft({ status: event.target.value })}>{LIBRARY_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}</select></label>
+            <label className="field"><span>{draft.entryType === 'Form' ? 'INZ form/reference number' : 'Policy code/reference'}</span><input value={draft.referenceCode} onChange={(event) => updateDraft({ referenceCode: event.target.value })} placeholder={draft.entryType === 'Form' ? 'e.g. INZ 1000' : 'e.g. SM6, F2, A5'} /></label>
+            <label className="field"><span>Category</span><select value={draft.category} onChange={(event) => updateDraft({ category: event.target.value })}>{LIBRARY_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>
+          </div>
+
+          <label className="field"><span>Title</span><input value={draft.title} onChange={(event) => updateDraft({ title: event.target.value })} placeholder={draft.entryType === 'Form' ? 'Form or guide name' : 'Policy title or topic'} /></label>
+          <label className="field"><span>Official INZ source URL</span><input value={draft.officialUrl} onChange={(event) => updateDraft({ officialUrl: event.target.value })} placeholder="Paste the official INZ policy, form, guide or checklist link" /></label>
+
+          {draft.entryType === 'Form' && (
+            <div className="grid two">
+              <label className="field"><span>Version / issue note</span><input value={draft.versionLabel} onChange={(event) => updateDraft({ versionLabel: event.target.value })} placeholder="e.g. May 2026 version" /></label>
+              <label className="field"><span>Previous version acceptable until</span><input type="date" value={draft.acceptableUntil} onChange={(event) => updateDraft({ acceptableUntil: event.target.value })} /></label>
+            </div>
+          )}
+
+          <div className="grid two">
+            <label className="field"><span>Last reviewed</span><input type="date" value={draft.lastReviewed} onChange={(event) => updateDraft({ lastReviewed: event.target.value })} /></label>
+            <label className="field"><span>Next review due</span><input type="date" value={draft.nextReviewDue} onChange={(event) => updateDraft({ nextReviewDue: event.target.value })} /></label>
+            <label className="field"><span>Reviewed by</span><input value={draft.reviewedBy} onChange={(event) => updateDraft({ reviewedBy: event.target.value })} placeholder="Adviser name" /></label>
+            <label className="field"><span>Related document items</span><input value={(draft.relatedDocumentItems || []).join(', ')} onChange={(event) => updateDraft({ relatedDocumentItems: splitCsv(event.target.value) })} placeholder="Passports, Police Clearances, Medicals" /></label>
+          </div>
+
+          <div className="case-chip-grid">
+            <span>Related case types</span>
+            <div>
+              {caseTypes.map((caseType) => {
+                const checked = (draft.relatedCaseTypes || []).includes(caseType);
+                return <button key={caseType} type="button" className={checked ? 'active' : ''} onClick={() => updateDraft({ relatedCaseTypes: toggleArrayValue(draft.relatedCaseTypes || [], caseType) })}>{caseType}</button>;
+              })}
+            </div>
+          </div>
+
+          <label className="field"><span>THiS summary</span><textarea rows={4} value={draft.internalSummary} onChange={(event) => updateDraft({ internalSummary: event.target.value })} placeholder="Plain-English internal summary. Keep it practical and source-linked." /></label>
+          <label className="field"><span>Adviser watch-points / notes</span><textarea rows={4} value={draft.adviserNotes} onChange={(event) => updateDraft({ adviserNotes: event.target.value })} placeholder="Risk points, file handling notes, review comments or accepted-version notes." /></label>
+
+          <div className="client-save-bar library-save-bar">
+            <div>
+              <strong>{saveMessage || copyMessage || (isLibraryReviewDue(draft) ? 'Review due or overdue.' : 'Ready to save.')}</strong>
+              <span>{officialLink ? 'Official source link is available.' : 'Add an official INZ link where possible.'}</span>
+            </div>
+            <div className="button-row">
+              <button className="btn danger" type="button" onClick={removeDraft}>{isPersistedId(draft.id) ? 'Delete' : 'Clear'}</button>
+              <button className="btn dark" type="submit" disabled={saving}><Save size={16} />{saving ? 'Saving...' : 'Save library item'}</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </section>
+  );
+}
+
+
 function SharePointFolderPanel({ value, onChange }) {
   const link = normaliseExternalUrl(value);
   const hasValue = Boolean(String(value || '').trim());
@@ -3278,6 +3541,59 @@ function formatApiError(body, fallback) {
   return body.error || fallback;
 }
 
+
+function normaliseLibraryEntry(entry = {}) {
+  const entryType = LIBRARY_ENTRY_TYPES.includes(entry.entryType || entry.entry_type) ? (entry.entryType || entry.entry_type) : 'Policy';
+  const status = LIBRARY_STATUSES.includes(entry.status) ? entry.status : 'Current';
+  const category = LIBRARY_CATEGORIES.includes(entry.category) ? entry.category : (entryType === 'Form' ? 'Forms' : 'General');
+  return {
+    id: entry.id || `temp-library-${Date.now()}`,
+    entryType,
+    referenceCode: entry.referenceCode || entry.reference_code || '',
+    title: entry.title || '',
+    category,
+    status,
+    officialUrl: entry.officialUrl || entry.official_url || '',
+    versionLabel: entry.versionLabel || entry.version_label || '',
+    acceptableUntil: entry.acceptableUntil || entry.acceptable_until || '',
+    relatedCaseTypes: Array.isArray(entry.relatedCaseTypes) ? entry.relatedCaseTypes : Array.isArray(entry.related_case_types) ? entry.related_case_types : [],
+    relatedDocumentItems: Array.isArray(entry.relatedDocumentItems) ? entry.relatedDocumentItems : Array.isArray(entry.related_document_items) ? entry.related_document_items : [],
+    internalSummary: entry.internalSummary || entry.internal_summary || '',
+    adviserNotes: entry.adviserNotes || entry.adviser_notes || '',
+    lastReviewed: entry.lastReviewed || entry.last_reviewed || '',
+    nextReviewDue: entry.nextReviewDue || entry.next_review_due || '',
+    reviewedBy: entry.reviewedBy || entry.reviewed_by || '',
+  };
+}
+
+function splitCsv(value) {
+  return String(value || '').split(',').map((item) => item.trim()).filter(Boolean);
+}
+
+function toggleArrayValue(values = [], value) {
+  return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
+}
+
+function isPersistedId(id) {
+  return Boolean(id && !String(id).startsWith('temp-'));
+}
+
+function isLibraryReviewDue(entry = {}) {
+  const reviewDiff = dateDiff(entry.nextReviewDue);
+  const acceptableDiff = entry.status === 'Acceptable until' ? dateDiff(entry.acceptableUntil) : null;
+  return (reviewDiff !== null && reviewDiff <= 0) || (acceptableDiff !== null && acceptableDiff <= 30);
+}
+
+function statusClass(status = '') {
+  return String(status).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+}
+
+function daysFromToday(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + Number(days || 0));
+  return toIsoDate(d);
+}
+
 function normaliseData(body) {
   return {
     advisers: (body.advisers || []).map((adviser) => ({ ...adviser, loginEmail: adviser.loginEmail || adviser.login_email || '' })),
@@ -3287,6 +3603,7 @@ function normaliseData(body) {
     stageTemplates: body.stageTemplates || DEFAULT_STAGE_TEMPLATES,
     personalTasks: (body.personalTasks || []).map(normalisePersonalTask),
     calendarEntries: (body.calendarEntries || []).map(normaliseCalendarEntry),
+    libraryEntries: (body.libraryEntries || []).map(normaliseLibraryEntry),
     securityMode: body.securityMode || 'unknown',
   };
 }
