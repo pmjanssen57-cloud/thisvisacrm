@@ -244,3 +244,12 @@ This package-lock uses public npm registry tarball URLs so Netlify can install d
 - Fixed the Tools currency converter by routing conversions through a Netlify Function proxy with a fallback exchange-rate source, avoiding browser `Failed to fetch`/CORS failures.
 - Added `netlify/functions/currency.mjs` for currency lookups.
 - Kept adviser roles permissive for now; all advisers can be assigned admin in Netlify Identity while role restrictions are handled later.
+
+## v0.9.1 - Main Menu Polish
+
+- Tidied the desktop main navigation after the Library tab was added.
+- Keeps the desktop menu on one line where space allows.
+- Adds stronger pale-green menu styling, clearer button separation and a more obvious active tab.
+- Adds horizontal overflow protection on narrower desktop/tablet widths rather than wrapping the final tab onto a second line.
+- Mobile bottom navigation remains unchanged.
+- No database migration required.

@@ -1,12 +1,12 @@
-THiS CRM v0.9.0 upload checklist
+THiS CRM v0.9.1 upload checklist
 
-1. Unzip this package.
-2. Copy all contents into the GitHub repo root.
-3. Preserve the netlify/ and public/ folders.
-4. Do not edit previously-applied migration files.
-5. Commit and push to GitHub.
-6. In Netlify, use Clear cache and deploy site.
-7. Confirm Netlify Identity remains enabled and invite-only.
-8. Confirm CRM loads after login.
-9. Confirm Library tab appears and a test Library item can save/delete.
-10. Confirm Tools > Currency converts without the browser Failed to fetch message.
+1. Preserve the netlify/ folder.
+2. Preserve the public/ folder.
+3. Upload/commit all files from this ZIP to the GitHub repo.
+4. Confirm Netlify environment variables remain set:
+   - NETLIFY_DATABASE_URL
+   - CRM_ACCESS_TOKEN (temporary fallback until removed)
+5. Deploy through Netlify.
+6. Confirm the main desktop menu appears on one line and the Library tab is visible.
+7. Confirm mobile bottom navigation still works.
+8. Test Library, Clients, Calendar and Tools after deploy.
