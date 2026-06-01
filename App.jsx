@@ -400,6 +400,16 @@ function makeBlankClient(data) {
     nextAction: '',
     nextActionDue: '',
     nextActionLog: [],
+    portalEnabled: false,
+    portalEmail: '',
+    portalStatusUpdate: '',
+    portalNextStep: '',
+    portalVisibleDocumentIds: [],
+    portalVisibleDeadlineIds: [],
+    portalVisibleAppointmentIds: [],
+    portalAccessCodeSet: false,
+    portalLastPublishedAt: '',
+    portalLastAccessedAt: '',
     notes: '',
     stages: buildStagePlan(data.stageTemplates),
     familyMembers: [],
@@ -410,6 +420,7 @@ function makeBlankClient(data) {
 }
 
 export default function App() {
+  if (window.location.pathname.startsWith('/portal')) return <ClientPortalApp />;
   const [data, setData] = useState(emptyData);
   const [tab, setTab] = useState('dashboard');
   const [selectedClientId, setSelectedClientId] = useState('');
@@ -990,6 +1001,144 @@ export default function App() {
     </div>
   );
 
+}
+
+
+function ClientPortalApp() {
+  const stored = sessionStorage.getItem('this_crm_client_portal_snapshot');
+  const [email, setEmail] = useState('');
+  const [accessCode, setAccessCode] = useState('');
+  const [snapshot, setSnapshot] = useState(() => stored ? safeJsonParse(stored, null) : null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  async function submit(event) {
+    event.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch('/.netlify/functions/portal', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'login', email, accessCode }),
+      });
+      const body = await readJsonResponse(response);
+      if (!response.ok) throw new Error(body.error || 'Portal access details were not recognised.');
+      const nextSnapshot = body.snapshot || null;
+      setSnapshot(nextSnapshot);
+      sessionStorage.setItem('this_crm_client_portal_snapshot', JSON.stringify(nextSnapshot));
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function signOut() {
+    sessionStorage.removeItem('this_crm_client_portal_snapshot');
+    setSnapshot(null);
+    setAccessCode('');
+  }
+
+  if (snapshot) return <ClientPortalDashboard snapshot={normalisePortalSnapshot(snapshot)} onSignOut={signOut} />;
+
+  return (
+    <div className="portal-shell">
+      <main className="portal-login-card">
+        <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="portal-logo" />
+        <LockKeyhole size={34} className="portal-lock" />
+        <h1>Client matter update</h1>
+        <p>Enter your email address and Turner Hopkins portal access code to view the latest read-only update for your matter.</p>
+        <form onSubmit={submit} className="portal-login-form">
+          <label><span>Email address</span><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" autoComplete="email" /></label>
+          <label><span>Portal access code</span><input value={accessCode} onChange={(event) => setAccessCode(event.target.value)} placeholder="TH-XXXX-XXXX-XXXX" autoComplete="one-time-code" /></label>
+          <button className="btn dark" type="submit" disabled={loading}>{loading ? 'Checking...' : 'View matter update'}</button>
+        </form>
+        {error && <p className="portal-error">{error}</p>}
+        <p className="portal-smallprint">This portal is read-only. Contact Turner Hopkins if your details need updating.</p>
+      </main>
+    </div>
+  );
+}
+
+function ClientPortalDashboard({ snapshot, onSignOut }) {
+  return (
+    <div className="portal-dashboard-shell">
+      <header className="portal-dashboard-header">
+        <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="portal-logo-small" />
+        <div>
+          <span>Client portal</span>
+          <h1>{snapshot.clientName}</h1>
+          <p>{snapshot.matterType || 'Matter update'}</p>
+        </div>
+        <button className="btn ghost" type="button" onClick={onSignOut}>Sign out</button>
+      </header>
+
+      <section className="portal-hero-card">
+        <div>
+          <span>Current stage</span>
+          <h2>{snapshot.currentStage || 'Not yet published'}</h2>
+          <p>{snapshot.statusUpdate || 'No plain-English status update has been published yet.'}</p>
+        </div>
+        <div className="portal-progress-dial">
+          <strong>{snapshot.progressPercent}%</strong>
+          <span>progress</span>
+        </div>
+      </section>
+
+      <div className="portal-dashboard-grid">
+        <section className="portal-card">
+          <h2>Your adviser</h2>
+          <strong>{snapshot.adviser.name || 'Turner Hopkins adviser'}</strong>
+          <p>{snapshot.adviser.email || snapshot.turnerHopkins.email}</p>
+          <p>{snapshot.adviser.phone || snapshot.turnerHopkins.phone}</p>
+        </section>
+
+        <section className="portal-card">
+          <h2>Next step</h2>
+          <p>{snapshot.nextStep || 'No specific client action has been published at this stage.'}</p>
+        </section>
+
+        <section className="portal-card wide">
+          <h2>Documents still required</h2>
+          {snapshot.documentsStillRequired.length ? (
+            <div className="portal-list">
+              {snapshot.documentsStillRequired.map((item) => <div key={item.id}><strong>{item.name}</strong>{item.expiryDate && <span>Expiry: {formatPortalDate(item.expiryDate)}</span>}</div>)}
+            </div>
+          ) : <p>No visible outstanding document requests.</p>}
+        </section>
+
+        <section className="portal-card">
+          <h2>Upcoming key dates</h2>
+          {snapshot.keyDates.length ? (
+            <div className="portal-list compact">
+              {snapshot.keyDates.map((item) => <div key={item.id}><strong>{formatPortalDate(item.date)}</strong><span>{item.type}{item.note ? ` — ${item.note}` : ''}</span></div>)}
+            </div>
+          ) : <p>No key dates have been published.</p>}
+        </section>
+
+        <section className="portal-card">
+          <h2>Upcoming appointments</h2>
+          {snapshot.appointments.length ? (
+            <div className="portal-list compact">
+              {snapshot.appointments.map((item) => <div key={item.id}><strong>{formatPortalDate(item.date)} {item.time}</strong><span>{item.title}{item.location ? ` — ${item.location}` : ''}</span></div>)}
+            </div>
+          ) : <p>No appointments have been published.</p>}
+        </section>
+
+        <section className="portal-card wide contact-card">
+          <h2>Turner Hopkins contact</h2>
+          <div className="portal-contact-grid">
+            <p><strong>{snapshot.turnerHopkins.name}</strong></p>
+            <p>{snapshot.turnerHopkins.phone}</p>
+            <p>{snapshot.turnerHopkins.email}</p>
+            <p>{snapshot.turnerHopkins.website}</p>
+          </div>
+          <span className="portal-last-updated">Last updated: {formatPortalDateTime(snapshot.lastUpdated) || 'Not recorded'}</span>
+        </section>
+      </div>
+    </div>
+  );
 }
 
 
@@ -1927,6 +2076,75 @@ function ProgressMap({ client }) {
   );
 }
 
+
+function ClientPortalPanel({ client, advisers, calendarEntries, generatedPortalCode, setField, updatePortalSelection, generatePortalAccessCode, copyPortalInstructions, publishPortalUpdate, saving }) {
+  const portalLink = `${window.location.origin}/portal`;
+  const documents = normaliseDocumentChecklist(client.documentChecklist).filter((item) => item.applied !== false && !item.obtained);
+  const deadlines = (client.deadlines || []).filter((item) => item.date || item.note || item.type).map((item) => ({ ...item, id: portalDeadlineKey(item) }));
+  const appointments = (calendarEntries || []).filter((entry) => entry.clientId === client.id && entry.status !== 'Completed').sort((a, b) => (a.appointmentDate || '').localeCompare(b.appointmentDate || ''));
+  const primaryAdviser = advisers.find((adviser) => adviser.id === client.primaryAdviserId);
+  const visibleDocs = new Set(client.portalVisibleDocumentIds || []);
+  const visibleDeadlines = new Set(client.portalVisibleDeadlineIds || []);
+  const visibleAppointments = new Set(client.portalVisibleAppointmentIds || []);
+
+  return (
+    <section className="sub-panel portal-admin-panel">
+      <div className="sub-panel-head">
+        <div>
+          <h2>Client portal</h2>
+          <p className="muted">Publish a read-only client dashboard. Only selected items and client-facing wording are visible.</p>
+        </div>
+        <label className="compact-check portal-toggle"><input type="checkbox" checked={Boolean(client.portalEnabled)} onChange={(event) => setField('portalEnabled', event.target.checked)} />Portal enabled</label>
+      </div>
+
+      <div className="portal-admin-status">
+        <span><strong>Portal link</strong><button type="button" className="linklike" onClick={() => navigator.clipboard?.writeText(portalLink)}>{portalLink}</button></span>
+        <span><strong>Access code</strong>{client.portalAccessCodeSet || generatedPortalCode ? 'Set' : 'Not generated'}</span>
+        <span><strong>Last published</strong>{formatPortalDateTime(client.portalLastPublishedAt) || 'Not published'}</span>
+        <span><strong>Last access</strong>{formatPortalDateTime(client.portalLastAccessedAt) || 'Not accessed'}</span>
+      </div>
+
+      <div className="form-grid two">
+        <label className="field"><span>Portal contact email</span><input value={client.portalEmail || client.email || ''} onChange={(event) => setField('portalEmail', event.target.value)} placeholder="Client email for portal access" /></label>
+        <label className="field"><span>Allocated adviser shown to client</span><input value={primaryAdviser ? `${primaryAdviser.name} · ${primaryAdviser.email || 'no email'} · ${primaryAdviser.phone || 'no phone'}` : 'No primary adviser selected'} readOnly /></label>
+      </div>
+
+      <TextArea label="Plain-English update" value={client.portalStatusUpdate || ''} onChange={(value) => setField('portalStatusUpdate', value)} rows={5} />
+      <TextArea label="Next client step" value={client.portalNextStep || ''} onChange={(value) => setField('portalNextStep', value)} rows={3} />
+
+      <div className="portal-visibility-grid">
+        <PortalVisibilityBox title="Documents still required" empty="No outstanding document checklist items." items={documents} selected={visibleDocs} onToggle={(id, checked) => updatePortalSelection('portalVisibleDocumentIds', id, checked)} renderLabel={(item) => item.name} renderMeta={(item) => item.expiryDate ? `Expiry ${item.expiryDate}` : 'No expiry date'} />
+        <PortalVisibilityBox title="Upcoming key dates" empty="No client deadlines recorded." items={deadlines} selected={visibleDeadlines} onToggle={(id, checked) => updatePortalSelection('portalVisibleDeadlineIds', id, checked)} renderLabel={(item) => item.type} renderMeta={(item) => [item.date, item.note].filter(Boolean).join(' · ') || 'No date'} />
+        <PortalVisibilityBox title="Appointments" empty="No open linked appointments." items={appointments} selected={visibleAppointments} onToggle={(id, checked) => updatePortalSelection('portalVisibleAppointmentIds', id, checked)} renderLabel={(item) => item.title || 'Appointment'} renderMeta={(item) => [item.appointmentDate, calendarEntryTimeLabel(item), item.location].filter(Boolean).join(' · ') || 'No date'} />
+      </div>
+
+      {generatedPortalCode && <div className="portal-code-card"><span>New portal access code - shown once</span><strong>{generatedPortalCode}</strong><small>Save or publish the client record before sending this code to the client.</small></div>}
+
+      <div className="button-row portal-admin-actions">
+        <button className="btn" type="button" onClick={generatePortalAccessCode}><LockKeyhole size={16} />Generate/reset access code</button>
+        <button className="btn" type="button" onClick={copyPortalInstructions}><Copy size={16} />Copy client instructions</button>
+        <button className="btn dark" type="button" onClick={publishPortalUpdate} disabled={saving}><ExternalLink size={16} />Publish portal update</button>
+      </div>
+    </section>
+  );
+}
+
+function PortalVisibilityBox({ title, empty, items, selected, onToggle, renderLabel, renderMeta }) {
+  return (
+    <div className="portal-visibility-box">
+      <h3>{title}</h3>
+      {items.map((item) => (
+        <label key={item.id} className="portal-check-row">
+          <input type="checkbox" checked={selected.has(item.id)} onChange={(event) => onToggle(item.id, event.target.checked)} />
+          <span><strong>{renderLabel(item)}</strong><small>{renderMeta(item)}</small></span>
+        </label>
+      ))}
+      {!items.length && <p className="muted">{empty}</p>}
+    </div>
+  );
+}
+
+
 function ClientsWorkspace(props) {
   const { clients, selectedClient, advisers, caseTypes, deadlineTypes, clientQuery, setClientQuery, adviserFilter, setAdviserFilter, caseTypeFilter, setCaseTypeFilter, setSelectedClientId, onDirtyChange, saveClient, deleteClient, saving, calendarEntries = [] } = props;
   return (
@@ -1965,8 +2183,14 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
   const [customStageLabel, setCustomStageLabel] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
   const [validationMessage, setValidationMessage] = useState('');
+  const [generatedPortalCode, setGeneratedPortalCode] = useState('');
+  const previousClientIdRef = useRef(client.id);
   const isDirty = useMemo(() => stableStringify(draft) !== stableStringify(client), [draft, client]);
   useEffect(() => {
+    if (previousClientIdRef.current !== client.id) {
+      setGeneratedPortalCode('');
+      previousClientIdRef.current = client.id;
+    }
     setDraft(client);
     setShowFullRecord(false);
     setShowDocumentChecklist(false);
@@ -2118,6 +2342,54 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
     }));
   }
 
+  function updatePortalSelection(field, id, checked) {
+    setDraft((current) => {
+      const currentValues = Array.isArray(current[field]) ? current[field] : [];
+      const nextValues = checked ? Array.from(new Set([...currentValues, id])) : currentValues.filter((item) => item !== id);
+      return { ...current, [field]: nextValues };
+    });
+  }
+
+  function generatePortalAccessCode() {
+    const code = makePortalAccessCode();
+    setGeneratedPortalCode(code);
+    setField('portalNewAccessCode', code);
+    setStatusMessage('New portal access code generated. Save or publish the client record before sending it to the client.');
+  }
+
+  function copyPortalInstructions() {
+    const code = generatedPortalCode || 'ACCESS-CODE-SHOWN-WHEN-GENERATED';
+    const portalEmail = draft.portalEmail || draft.email || '';
+    const text = `Kia ora ${draft.firstName || ''},
+
+You can view your Turner Hopkins matter update here:
+${window.location.origin}/portal
+
+Please log in with:
+Email: ${portalEmail}
+Access code: ${code}
+
+This portal is read-only and shows the latest status update we have published for your matter.
+
+Ngā mihi,
+Turner Hopkins Immigration Specialists`;
+    navigator.clipboard?.writeText(text);
+    setStatusMessage('Client portal instructions copied. Check the email before sending.');
+  }
+
+  async function handlePublishPortalUpdate() {
+    setValidationMessage('');
+    setStatusMessage('Publishing client portal update...');
+    try {
+      await saveClient({ ...draft, portalPublishNow: true }, { resetNewClientForm: false });
+      onDirtyChange?.(false);
+      setStatusMessage(`Client portal update published ${formatTimeNow()}.`);
+    } catch (err) {
+      setStatusMessage('');
+      setValidationMessage(err.message || 'Client portal update could not be published.');
+    }
+  }
+
 
   function addFamilyMember(relationship) {
     setDraft((current) => ({
@@ -2218,6 +2490,19 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
       <div className="progress-card"><span>{currentStageLabel(draft)}</span><b>{progressPercent(draft)}%</b><ProgressBar value={progressPercent(draft)} /></div>
 
       <ProgressMap client={draft} />
+
+      <ClientPortalPanel
+        client={draft}
+        advisers={advisers}
+        calendarEntries={calendarEntries}
+        generatedPortalCode={generatedPortalCode}
+        setField={setField}
+        updatePortalSelection={updatePortalSelection}
+        generatePortalAccessCode={generatePortalAccessCode}
+        copyPortalInstructions={copyPortalInstructions}
+        publishPortalUpdate={handlePublishPortalUpdate}
+        saving={saving}
+      />
 
       <div className="form-grid">
         <Field label="Email" value={draft.email} onChange={(v) => setField('email', v)} />
@@ -3724,6 +4009,54 @@ function DeadlineBadge({ diff }) {
 
 
 
+
+function portalDeadlineKey(deadline = {}) {
+  return ['deadline', deadline.type || '', deadline.date || '', deadline.note || ''].join('|').toLowerCase();
+}
+
+function makePortalAccessCode() {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const bytes = new Uint8Array(12);
+  window.crypto?.getRandomValues?.(bytes);
+  const chars = Array.from(bytes).map((byte) => alphabet[byte % alphabet.length]);
+  return `TH-${chars.slice(0, 4).join('')}-${chars.slice(4, 8).join('')}-${chars.slice(8, 12).join('')}`;
+}
+
+function safeJsonParse(value, fallback) {
+  try { return JSON.parse(value); } catch { return fallback; }
+}
+
+function normalisePortalSnapshot(snapshot = {}) {
+  return {
+    clientName: snapshot.clientName || 'Client',
+    matterType: snapshot.matterType || '',
+    adviser: snapshot.adviser || { name: '', email: '', phone: '' },
+    currentStage: snapshot.currentStage || '',
+    progressPercent: Number(snapshot.progressPercent || 0),
+    statusUpdate: snapshot.statusUpdate || '',
+    nextStep: snapshot.nextStep || '',
+    documentsStillRequired: Array.isArray(snapshot.documentsStillRequired) ? snapshot.documentsStillRequired : [],
+    keyDates: Array.isArray(snapshot.keyDates) ? snapshot.keyDates : [],
+    appointments: Array.isArray(snapshot.appointments) ? snapshot.appointments : [],
+    turnerHopkins: snapshot.turnerHopkins || { name: 'Turner Hopkins Immigration Specialists', phone: '+64 9 486 2169', email: 'immigration@turnerhopkins.co.nz', website: 'www.turnerhopkinsimmigration.co.nz' },
+    lastUpdated: snapshot.lastUpdated || '',
+  };
+}
+
+function formatPortalDate(value) {
+  if (!value) return 'Not recorded';
+  const date = parseLocalDate(value);
+  if (!date) return String(value);
+  return new Intl.DateTimeFormat('en-NZ', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
+}
+
+function formatPortalDateTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('en-NZ', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(date);
+}
+
 function stableStringify(value) {
   return JSON.stringify(value, (_key, item) => {
     if (!item || typeof item !== 'object' || Array.isArray(item)) return item;
@@ -3825,7 +4158,7 @@ function daysFromToday(days) {
 function normaliseData(body) {
   return {
     advisers: (body.advisers || []).map((adviser) => ({ ...adviser, loginEmail: adviser.loginEmail || adviser.login_email || '' })),
-    clients: (body.clients || []).map((client) => ({ ...client, sharepointFolderUrl: client.sharepointFolderUrl || '', oneLawClientNumber: client.oneLawClientNumber || client.one_law_client_number || '', dateOfBirth: client.dateOfBirth || '', nextActionLog: normaliseNextActionLog(client.nextActionLog), familyMembers: Array.isArray(client.familyMembers) ? client.familyMembers.map((member) => ({ ...member, nationality: member.nationality || '' })) : [], documentChecklist: normaliseDocumentChecklist(client.documentChecklist), billing: normaliseBillingItems(client.billing || []), stages: normaliseStages(client.stages, body.stageTemplates || DEFAULT_STAGE_TEMPLATES) })),
+    clients: (body.clients || []).map((client) => ({ ...client, sharepointFolderUrl: client.sharepointFolderUrl || '', oneLawClientNumber: client.oneLawClientNumber || client.one_law_client_number || '', dateOfBirth: client.dateOfBirth || '', nextActionLog: normaliseNextActionLog(client.nextActionLog), portalEnabled: Boolean(client.portalEnabled), portalEmail: client.portalEmail || '', portalStatusUpdate: client.portalStatusUpdate || '', portalNextStep: client.portalNextStep || '', portalVisibleDocumentIds: Array.isArray(client.portalVisibleDocumentIds) ? client.portalVisibleDocumentIds : [], portalVisibleDeadlineIds: Array.isArray(client.portalVisibleDeadlineIds) ? client.portalVisibleDeadlineIds : [], portalVisibleAppointmentIds: Array.isArray(client.portalVisibleAppointmentIds) ? client.portalVisibleAppointmentIds : [], portalAccessCodeSet: Boolean(client.portalAccessCodeSet), portalLastPublishedAt: client.portalLastPublishedAt || '', portalLastAccessedAt: client.portalLastAccessedAt || '', familyMembers: Array.isArray(client.familyMembers) ? client.familyMembers.map((member) => ({ ...member, nationality: member.nationality || '' })) : [], documentChecklist: normaliseDocumentChecklist(client.documentChecklist), billing: normaliseBillingItems(client.billing || []), stages: normaliseStages(client.stages, body.stageTemplates || DEFAULT_STAGE_TEMPLATES) })),
     caseTypes: body.caseTypes || DEFAULT_CASE_TYPES,
     deadlineTypes: body.deadlineTypes || DEFAULT_DEADLINE_TYPES,
     stageTemplates: body.stageTemplates || DEFAULT_STAGE_TEMPLATES,

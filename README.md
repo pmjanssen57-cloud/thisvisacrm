@@ -1,4 +1,4 @@
-# Turner Hopkins CRM - Netlify Database v0.9.3
+# Turner Hopkins CRM - Netlify Database v0.10.0
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
@@ -278,3 +278,27 @@ This package-lock uses public npm registry tarball URLs so Netlify can install d
 - Shortens the action text, improves alignment, and keeps count badges visually consistent.
 - Preserves the working Print profile function from v0.9.3.
 - No database migration required.
+
+
+## v0.10.0 - Client Portal Access Code Foundation
+
+- Adds a public `/portal` client portal route.
+- Adds a read-only client dashboard showing only deliberately published client-facing information.
+- Adds client portal controls inside the client record:
+  - Portal enabled toggle
+  - Portal contact email
+  - Generated/resettable portal access code
+  - Plain-English update
+  - Next client step
+  - Visible document requests
+  - Visible key dates
+  - Visible linked appointments
+  - Last published date
+  - Last accessed date
+- Clients log in using email address plus portal access code. They do not need Netlify Identity accounts.
+- Portal access codes are stored as PBKDF2 hashes, not plain text.
+- Adds `netlify/functions/portal.mjs` for public client portal access.
+- Adds portal access logging in `client_portal_access_log`.
+- Adds migration `202606010004_add_client_portal_foundation.sql`.
+- The portal is read-only. Clients cannot edit details or upload documents in this release.
+- Internal strategy, notes, billing, action logs, SharePoint links and CRM file history are not exposed through the portal.

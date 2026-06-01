@@ -1,4 +1,4 @@
-THiS CRM v0.9.1 upload checklist
+THiS CRM v0.10.0 upload checklist
 
 1. Preserve the netlify/ folder.
 2. Preserve the public/ folder.
@@ -6,7 +6,9 @@ THiS CRM v0.9.1 upload checklist
 4. Confirm Netlify environment variables remain set:
    - NETLIFY_DATABASE_URL
    - CRM_ACCESS_TOKEN (temporary fallback until removed)
-5. Deploy through Netlify.
-6. Confirm the main desktop menu appears on one line and the Library tab is visible.
-7. Confirm mobile bottom navigation still works.
-8. Test Library, Clients, Calendar and Tools after deploy.
+5. Deploy through Netlify with Clear cache and deploy if possible.
+6. Confirm adviser login still works.
+7. Confirm /portal opens the client portal login screen.
+8. In one client record, enable Portal, generate an access code, publish an update and test the client portal login.
+9. Confirm only client-facing portal information appears.
+10. Test Clients, Calendar, Library, Tools and Print Profile after deploy.
