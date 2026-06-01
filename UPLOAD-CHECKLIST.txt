@@ -1,4 +1,4 @@
-THiS CRM v0.10.3 upload checklist
+THiS CRM v0.10.5 upload checklist
 
 1. Preserve the netlify/ folder.
 2. Preserve the public/ folder.
@@ -8,10 +8,15 @@ THiS CRM v0.10.3 upload checklist
    - CRM_ACCESS_TOKEN (temporary fallback until removed)
 5. Deploy through Netlify with Clear cache and deploy if possible.
 6. Confirm adviser login still works.
-7. Confirm /portal opens the client portal login screen.
-8. In one client record, enable Portal, generate an access code, publish an update and test the client portal login.
-9. Confirm only client-facing portal information appears.
-10. From the client portal, submit one adviser note and one client planning note.
-11. Confirm the Dashboard shows a new client portal note and the Client Portal section can mark it reviewed.
-12. Test Weather, Timezone, Currency and Calculator tools in the client portal.
-13. Test Clients, Calendar, Library, Tools and Print Profile after deploy.
+7. Open an existing client and expand Client Portal.
+8. Upload one small PDF under Portal PDFs and standard forms.
+9. Set the title/category/note and confirm it is visible to the client.
+10. Publish the portal update.
+11. Open /portal in a private/incognito browser, log in as the client and confirm the Forms and instructions section shows the PDF.
+12. Open the PDF from the client portal.
+13. Confirm existing portal functions still work: notes/actions, billing milestones, documents required, dates, appointments and tools.
+14. Test Clients, Calendar, Library, Tools and Print Profile after deploy.
+
+Notes:
+- Portal PDFs are limited to 4 MB each in this release.
+- PDF files are stored in Netlify Blobs and metadata is stored in Netlify Database/Postgres.

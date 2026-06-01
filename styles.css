@@ -3244,3 +3244,117 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   .adviser-photo-upload { grid-column: 1 / -1; justify-content: center; }
   .adviser-photo-actions { align-items: flex-start; flex-direction: column; }
 }
+
+/* v0.10.5 - Portal PDF documents */
+.portal-documents-admin {
+  border: 1px solid var(--border, #d9e6e1);
+  background: #f8fcfa;
+  border-radius: 18px;
+  padding: 18px;
+  margin: 18px 0;
+}
+
+.portal-document-upload {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.1fr) minmax(220px, 1.3fr) minmax(150px, .8fr);
+  gap: 12px;
+  align-items: end;
+  margin: 12px 0 16px;
+}
+
+.portal-document-upload .portal-document-description {
+  grid-column: span 2;
+}
+
+.portal-document-admin-list {
+  display: grid;
+  gap: 10px;
+}
+
+.portal-document-admin-row {
+  display: grid;
+  grid-template-columns: auto minmax(240px, 1fr) minmax(150px, .5fr) auto auto auto;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid #dfeae6;
+  background: #fff;
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.portal-document-admin-row svg {
+  color: #003736;
+}
+
+.portal-document-admin-main {
+  display: grid;
+  gap: 5px;
+}
+
+.portal-document-admin-main small {
+  color: #65746f;
+}
+
+.portal-document-admin-row input,
+.portal-document-admin-row select {
+  width: 100%;
+}
+
+.portal-download-card {
+  background: linear-gradient(135deg, #f4fbf8, #ffffff);
+  border-color: #cce8dc;
+}
+
+.portal-document-list {
+  display: grid;
+  gap: 10px;
+}
+
+.portal-document-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid #dfeae6;
+  background: #fff;
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.portal-document-row svg {
+  color: #003736;
+}
+
+.portal-document-row div {
+  min-width: 0;
+}
+
+.portal-document-row strong,
+.portal-document-row span {
+  display: block;
+}
+
+.portal-document-row span {
+  color: #63736e;
+  font-size: .88rem;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  .portal-document-upload,
+  .portal-document-admin-row,
+  .portal-document-row {
+    grid-template-columns: 1fr;
+  }
+
+  .portal-document-upload .portal-document-description {
+    grid-column: auto;
+  }
+
+  .portal-document-row .btn,
+  .portal-document-admin-row .btn,
+  .portal-document-admin-row .icon-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}

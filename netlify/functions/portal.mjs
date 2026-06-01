@@ -1,5 +1,8 @@
 import { getDatabase } from '@netlify/database';
+import { getStore } from '@netlify/blobs';
 import crypto from 'node:crypto';
+
+const PORTAL_DOCUMENT_STORE = 'client-portal-documents';
 
 const TURNER_HOPKINS_CONTACT = {
   name: 'Turner Hopkins Immigration Specialists',
@@ -17,7 +20,7 @@ export default async function portalRequestHandler(request, context = {}) {
     await ensurePortalSchema();
     const body = await request.json().catch(() => ({}));
     const action = String(body.action || '').trim();
-    if (!['login', 'addMessage'].includes(action)) return json({ error: 'Unknown portal action.' }, 400);
+    if (!['login', 'addMessage', 'getDocument'].includes(action)) return json({ error: 'Unknown portal action.' }, 400);
 
     const email = normaliseEmail(body.email);
     const accessCode = String(body.accessCode || '').trim();
@@ -43,6 +46,13 @@ export default async function portalRequestHandler(request, context = {}) {
         INSERT INTO client_portal_access_log (client_id, portal_email, action, ip_address, user_agent)
         VALUES (${matchedClient.id}, ${email}, ${messageType}, ${ip}, ${userAgent})
       `;
+    } else if (action === 'getDocument') {
+      const document = await getPortalDocumentPayload(matchedClient.id, body.documentId);
+      await database.sql`
+        INSERT INTO client_portal_access_log (client_id, portal_email, action, ip_address, user_agent)
+        VALUES (${matchedClient.id}, ${email}, 'download-document', ${ip}, ${userAgent})
+      `;
+      return json({ document });
     } else {
       await database.sql`
         INSERT INTO client_portal_access_log (client_id, portal_email, action, ip_address, user_agent)
@@ -96,6 +106,24 @@ async function ensurePortalSchema() {
   `;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_client_portal_messages_client ON client_portal_messages(client_id, created_at DESC)`;
   await database.sql`
+    CREATE TABLE IF NOT EXISTS client_portal_documents (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'THiS instructions',
+      description TEXT,
+      file_name TEXT NOT NULL,
+      file_type TEXT NOT NULL DEFAULT 'application/pdf',
+      file_size INTEGER NOT NULL DEFAULT 0,
+      blob_key TEXT NOT NULL,
+      visible_to_client BOOLEAN NOT NULL DEFAULT TRUE,
+      uploaded_by TEXT,
+      uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_client_portal_documents_client ON client_portal_documents(client_id, uploaded_at DESC)`;
+  await database.sql`
     CREATE TABLE IF NOT EXISTS client_portal_access_log (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
@@ -132,9 +160,45 @@ function mapPortalMessageFromDb(row = {}) {
   };
 }
 
+function mapPortalDocumentForClient(row = {}) {
+  return {
+    id: row.id,
+    title: row.title || row.file_name || 'Client portal PDF',
+    category: row.category || 'THiS instructions',
+    description: row.description || '',
+    fileName: row.file_name || '',
+    fileType: row.file_type || 'application/pdf',
+    fileSize: Number(row.file_size || 0),
+    uploadedAt: toDateTimeLabel(row.uploaded_at),
+  };
+}
+
+async function getPortalDocumentPayload(clientId, documentId) {
+  if (!documentId) throw new Error('Select a document to open.');
+  const rows = await db().sql`
+    SELECT id, title, file_name, file_type, file_size, blob_key
+    FROM client_portal_documents
+    WHERE id = ${documentId} AND client_id = ${clientId} AND visible_to_client = TRUE
+    LIMIT 1
+  `;
+  const row = rows[0];
+  if (!row) throw new Error('That portal document is not available.');
+  const store = getStore({ name: PORTAL_DOCUMENT_STORE, consistency: 'strong' });
+  const arrayBuffer = await store.get(row.blob_key, { type: 'arrayBuffer', consistency: 'strong' });
+  if (!arrayBuffer) throw new Error('The PDF file is no longer available.');
+  return {
+    id: row.id,
+    title: row.title || row.file_name || 'Client portal PDF',
+    fileName: row.file_name || 'client-portal-document.pdf',
+    fileType: row.file_type || 'application/pdf',
+    fileSize: Number(row.file_size || 0),
+    dataBase64: Buffer.from(arrayBuffer).toString('base64'),
+  };
+}
+
 async function buildPortalSnapshot(clientId) {
   const database = db();
-  const [clientRows, adviserRows, stageRows, deadlineRows, calendarRows, billingRows, messageRows] = await Promise.all([
+  const [clientRows, adviserRows, stageRows, deadlineRows, calendarRows, billingRows, messageRows, documentRows] = await Promise.all([
     database.sql`
       SELECT id, first_name, last_name, email, case_type, primary_adviser_id, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_last_published_at, document_checklist
       FROM clients WHERE id = ${clientId} AND portal_enabled = TRUE LIMIT 1
@@ -145,6 +209,7 @@ async function buildPortalSnapshot(clientId) {
     database.sql`SELECT id, adviser_id, title, appointment_type, appointment_date, start_time, end_time, location, notes, status FROM calendar_entries WHERE client_id = ${clientId} ORDER BY appointment_date ASC, start_time ASC NULLS LAST`,
     database.sql`SELECT id, milestone, due_date, amount, status, invoice_no, billing_trigger_type, billing_stage_key FROM billing_milestones WHERE client_id = ${clientId} ORDER BY due_date ASC NULLS LAST`,
     database.sql`SELECT id, message_type, title, message, status, created_at FROM client_portal_messages WHERE client_id = ${clientId} ORDER BY created_at DESC LIMIT 40`,
+    database.sql`SELECT id, title, category, description, file_name, file_type, file_size, visible_to_client, uploaded_at FROM client_portal_documents WHERE client_id = ${clientId} AND visible_to_client = TRUE ORDER BY uploaded_at DESC`,
   ]);
   const client = clientRows[0];
   if (!client) throw new Error('Portal snapshot not available.');
@@ -208,6 +273,7 @@ async function buildPortalSnapshot(clientId) {
     keyDates,
     appointments,
     billingMilestones,
+    portalDocuments: (documentRows || []).map(mapPortalDocumentForClient),
     portalMessages: (messageRows || []).map(mapPortalMessageFromDb),
     turnerHopkins: TURNER_HOPKINS_CONTACT,
     lastUpdated: toDateTimeLabel(client.portal_last_published_at) || '',

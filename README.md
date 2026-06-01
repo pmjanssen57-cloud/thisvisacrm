@@ -1,7 +1,19 @@
-# Turner Hopkins CRM - Netlify Database v0.10.4
+# Turner Hopkins CRM - Netlify Database v0.10.5
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
+
+
+## v0.10.5 - Client Portal PDF Documents
+
+- Added adviser-side PDF upload management inside each client Client Portal section.
+- Advisers can upload standard PDF forms, INZ guides, THiS instructions, evidence checklists and templates for a specific client.
+- PDF files are stored in Netlify Blobs, while document metadata and client visibility settings are stored in Netlify Database/Postgres.
+- Advisers can set a client-facing title, category, short note and visible/hidden status for each portal PDF.
+- The client portal now includes a Forms and instructions section where clients can open published PDFs.
+- Added portal access logging for document downloads/open events.
+- Added new migration only: `202606010008_add_client_portal_documents.sql`.
+- Added dependency: `@netlify/blobs`.
 
 ## v0.10.4 - Adviser Profile Photos
 

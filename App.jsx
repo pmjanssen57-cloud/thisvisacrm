@@ -413,6 +413,7 @@ function makeBlankClient(data) {
     portalVisibleDeadlineIds: [],
     portalVisibleAppointmentIds: [],
     portalVisibleBillingIds: [],
+    portalDocuments: [],
     portalAccessCodeSet: false,
     portalLastPublishedAt: '',
     portalLastAccessedAt: '',
@@ -727,6 +728,32 @@ export default function App() {
     return await callApi('updatePortalMessageStatus', { clientId, messageId, status });
   }
 
+  async function uploadPortalDocument(clientId, document) {
+    const body = await callApi('uploadPortalDocument', { clientId, document }, { skipDataUpdate: true });
+    if (body.client?.id) mergeSavedClient(body.client);
+    return body;
+  }
+
+  async function updatePortalDocument(clientId, document) {
+    const body = await callApi('updatePortalDocument', { clientId, document }, { skipDataUpdate: true });
+    if (body.client?.id) mergeSavedClient(body.client);
+    return body;
+  }
+
+  async function deletePortalDocument(clientId, documentId) {
+    if (!window.confirm('Remove this PDF from the client portal?')) return;
+    const body = await callApi('deletePortalDocument', { clientId, documentId }, { skipDataUpdate: true });
+    if (body.client?.id) mergeSavedClient(body.client);
+    return body;
+  }
+
+  function mergeSavedClient(client) {
+    setData((current) => {
+      const savedClient = normaliseClientFromApi(client, current.stageTemplates);
+      return { ...current, clients: current.clients.map((item) => item.id === savedClient.id ? savedClient : item) };
+    });
+  }
+
   async function saveAdviser(adviser) {
     await callApi('saveAdviser', { adviser });
   }
@@ -981,6 +1008,9 @@ export default function App() {
                 onDirtyChange={setClientEditorDirty}
                 saveClient={saveClient}
                 updatePortalMessageStatus={updatePortalMessageStatus}
+                uploadPortalDocument={uploadPortalDocument}
+                updatePortalDocument={updatePortalDocument}
+                deletePortalDocument={deletePortalDocument}
                 deleteClient={deleteClient}
                 saving={saving}
                 calendarEntries={data.calendarEntries}
@@ -1085,6 +1115,20 @@ function ClientPortalApp() {
     setPortalNotice(messageType === 'adviser_action' ? 'Your note has been sent to Turner Hopkins.' : 'Your note has been saved to your portal.');
   }
 
+  async function openPortalDocument(documentId) {
+    if (!portalAuth?.email || !portalAuth?.accessCode) throw new Error('Your portal session has expired. Please sign in again.');
+    setPortalNotice('Preparing document...');
+    setError('');
+    try {
+      const body = await portalRequest({ action: 'getDocument', email: portalAuth.email, accessCode: portalAuth.accessCode, documentId });
+      openBase64Pdf(body.document);
+      setPortalNotice('Document opened. Use your browser controls to save or print it.');
+    } catch (err) {
+      setPortalNotice('');
+      setError(err.message || 'That document could not be opened.');
+    }
+  }
+
   function signOut() {
     sessionStorage.removeItem('this_crm_client_portal_snapshot');
     sessionStorage.removeItem('this_crm_client_portal_auth');
@@ -1101,6 +1145,7 @@ function ClientPortalApp() {
         onSignOut={signOut}
         onRefresh={refreshPortalSnapshot}
         onSubmitPortalMessage={submitPortalMessage}
+        onOpenPortalDocument={openPortalDocument}
         portalNotice={portalNotice}
         portalError={error}
       />
@@ -1126,7 +1171,7 @@ function ClientPortalApp() {
   );
 }
 
-function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalMessage, portalNotice, portalError }) {
+function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalMessage, onOpenPortalDocument, portalNotice, portalError }) {
   const [activeTool, setActiveTool] = useState('notes');
   const adviserMessages = snapshot.portalMessages.filter((item) => item.messageType === 'adviser_action');
   const clientNotes = snapshot.portalMessages.filter((item) => item.messageType === 'client_note');
@@ -1215,6 +1260,26 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
               {snapshot.documentsStillRequired.map((item) => <div key={item.id}><strong>{item.name}</strong>{item.expiryDate && <span>Expiry: {formatPortalDate(item.expiryDate)}</span>}</div>)}
             </div>
           ) : <p>No visible outstanding document requests.</p>}
+        </section>
+
+        <section className="portal-card wide portal-download-card">
+          <div className="portal-section-head">
+            <div><h2>Forms and instructions</h2><p>Download the standard PDFs Turner Hopkins has made available for your matter.</p></div>
+          </div>
+          {(snapshot.portalDocuments || []).length ? (
+            <div className="portal-document-list">
+              {snapshot.portalDocuments.map((doc) => (
+                <div className="portal-document-row" key={doc.id}>
+                  <FileText size={20} />
+                  <div>
+                    <strong>{doc.title}</strong>
+                    <span>{[doc.category, formatFileSize(doc.fileSize), doc.description].filter(Boolean).join(' · ')}</span>
+                  </div>
+                  <button className="btn mini dark" type="button" onClick={() => onOpenPortalDocument?.(doc.id)}><ExternalLink size={15} />Open</button>
+                </div>
+              ))}
+            </div>
+          ) : <p>No forms or instruction PDFs have been published to your portal yet.</p>}
         </section>
 
         <section className="portal-card">
@@ -2324,7 +2389,7 @@ function ProgressMap({ client }) {
 }
 
 
-function ClientPortalPanel({ client, advisers, calendarEntries, generatedPortalCode, setField, updatePortalSelection, generatePortalAccessCode, copyPortalInstructions, publishPortalUpdate, updatePortalMessageStatus, saving }) {
+function ClientPortalPanel({ client, advisers, calendarEntries, generatedPortalCode, setField, updatePortalSelection, generatePortalAccessCode, copyPortalInstructions, publishPortalUpdate, updatePortalMessageStatus, uploadPortalDocument, updatePortalDocument, deletePortalDocument, saving }) {
   const portalLink = `${window.location.origin}/portal`;
   const documents = normaliseDocumentChecklist(client.documentChecklist).filter((item) => item.applied !== false && !item.obtained);
   const deadlines = (client.deadlines || []).filter((item) => item.date || item.note || item.type).map((item) => ({ ...item, id: portalDeadlineKey(item) }));
@@ -2369,6 +2434,14 @@ function ClientPortalPanel({ client, advisers, calendarEntries, generatedPortalC
         <PortalVisibilityBox title="Appointments" empty="No open linked appointments." items={appointments} selected={visibleAppointments} onToggle={(id, checked) => updatePortalSelection('portalVisibleAppointmentIds', id, checked)} renderLabel={(item) => item.title || 'Appointment'} renderMeta={(item) => [item.appointmentDate, calendarEntryTimeLabel(item), item.location].filter(Boolean).join(' · ') || 'No date'} />
         <PortalVisibilityBox title="Billing milestones" empty="No billing milestones recorded." items={billingItems} selected={visibleBilling} onToggle={(id, checked) => updatePortalSelection('portalVisibleBillingIds', id, checked)} renderLabel={(item) => item.milestone || 'Billing milestone'} renderMeta={(item) => [formatCurrency(item.amount), item.status, item.dueDate ? `Date ${item.dueDate}` : '', item.invoiceNo ? `Invoice ${item.invoiceNo}` : ''].filter(Boolean).join(' · ') || 'No billing details'} />
       </div>
+
+      <PortalDocumentsManager
+        client={client}
+        uploadPortalDocument={uploadPortalDocument}
+        updatePortalDocument={updatePortalDocument}
+        deletePortalDocument={deletePortalDocument}
+        saving={saving}
+      />
 
       <div className="portal-adviser-inbox">
         <div className="sub-panel-head compact">
@@ -2417,8 +2490,82 @@ function PortalVisibilityBox({ title, empty, items, selected, onToggle, renderLa
 }
 
 
+function PortalDocumentsManager({ client, uploadPortalDocument, updatePortalDocument, deletePortalDocument, saving }) {
+  const [file, setFile] = useState(null);
+  const [title, setTitle] = useState('');
+  const [category, setCategory] = useState('THiS instructions');
+  const [description, setDescription] = useState('');
+  const [visibleToClient, setVisibleToClient] = useState(true);
+  const docs = Array.isArray(client.portalDocuments) ? client.portalDocuments : [];
+  const persistedClient = !String(client.id || '').startsWith('temp-');
+
+  function chooseFile(nextFile) {
+    setFile(nextFile || null);
+    if (nextFile && !title) setTitle(nextFile.name.replace(/\.pdf$/i, '').replace(/[-_]+/g, ' '));
+  }
+
+  async function submit(event) {
+    event.preventDefault();
+    await uploadPortalDocument?.({ title, category, description, visibleToClient }, file);
+    setFile(null);
+    setTitle('');
+    setDescription('');
+    setVisibleToClient(true);
+  }
+
+  return (
+    <div className="portal-documents-admin">
+      <div className="sub-panel-head compact">
+        <div>
+          <h3>Portal PDFs and standard forms</h3>
+          <p className="muted">Upload standard PDFs, INZ forms or instructions that this client can open from their portal.</p>
+        </div>
+        <span className="count-pill">{docs.filter((doc) => doc.visibleToClient !== false).length} visible</span>
+      </div>
+
+      <form className="portal-document-upload" onSubmit={submit}>
+        <label className="field"><span>PDF file</span><input type="file" accept="application/pdf,.pdf" disabled={!persistedClient || saving} onChange={(event) => chooseFile(event.target.files?.[0])} /></label>
+        <label className="field"><span>Client-facing title</span><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. INZ 1178 Partnership Support Form" /></label>
+        <label className="field"><span>Category</span><select value={category} onChange={(event) => setCategory(event.target.value)}><option>INZ form</option><option>INZ guide</option><option>THiS instructions</option><option>Evidence checklist</option><option>Template</option><option>Other</option></select></label>
+        <label className="field portal-document-description"><span>Short note for client</span><input value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Optional note shown in the portal" /></label>
+        <label className="compact-check"><input type="checkbox" checked={visibleToClient} onChange={(event) => setVisibleToClient(event.target.checked)} />Visible to client</label>
+        <button className="btn dark" type="submit" disabled={!persistedClient || saving || !file}><FileText size={16} />Upload PDF</button>
+      </form>
+      {!persistedClient && <p className="muted">Save the client record before uploading portal PDFs.</p>}
+
+      <div className="portal-document-admin-list">
+        {docs.map((doc) => (
+          <PortalDocumentAdminRow key={doc.id} doc={doc} updatePortalDocument={updatePortalDocument} deletePortalDocument={deletePortalDocument} saving={saving} />
+        ))}
+        {!docs.length && <p className="muted center">No portal PDFs uploaded for this client yet.</p>}
+      </div>
+    </div>
+  );
+}
+
+function PortalDocumentAdminRow({ doc, updatePortalDocument, deletePortalDocument, saving }) {
+  const [draft, setDraft] = useState(doc);
+  useEffect(() => setDraft(doc), [doc]);
+  const dirty = stableStringify(draft) !== stableStringify(doc);
+  return (
+    <div className={`portal-document-admin-row ${draft.visibleToClient === false ? 'muted-row' : ''}`}>
+      <FileText size={20} />
+      <div className="portal-document-admin-main">
+        <input value={draft.title || ''} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} />
+        <small>{[draft.fileName, formatFileSize(draft.fileSize), draft.uploadedAt ? `Uploaded ${formatPortalDateTime(draft.uploadedAt)}` : ''].filter(Boolean).join(' · ')}</small>
+        <input value={draft.description || ''} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} placeholder="Client-facing note" />
+      </div>
+      <select value={draft.category || 'THiS instructions'} onChange={(event) => setDraft((current) => ({ ...current, category: event.target.value }))}><option>INZ form</option><option>INZ guide</option><option>THiS instructions</option><option>Evidence checklist</option><option>Template</option><option>Other</option></select>
+      <label className="compact-check"><input type="checkbox" checked={draft.visibleToClient !== false} onChange={(event) => setDraft((current) => ({ ...current, visibleToClient: event.target.checked }))} />Visible</label>
+      <button className="btn mini" type="button" disabled={!dirty || saving} onClick={() => updatePortalDocument?.(draft)}>Save</button>
+      <button className="icon-btn" type="button" disabled={saving} onClick={() => deletePortalDocument?.(doc.id)}><Trash2 size={16} /></button>
+    </div>
+  );
+}
+
+
 function ClientsWorkspace(props) {
-  const { clients, selectedClient, advisers, caseTypes, deadlineTypes, clientQuery, setClientQuery, adviserFilter, setAdviserFilter, caseTypeFilter, setCaseTypeFilter, setSelectedClientId, onDirtyChange, saveClient, updatePortalMessageStatus, deleteClient, saving, calendarEntries = [] } = props;
+  const { clients, selectedClient, advisers, caseTypes, deadlineTypes, clientQuery, setClientQuery, adviserFilter, setAdviserFilter, caseTypeFilter, setCaseTypeFilter, setSelectedClientId, onDirtyChange, saveClient, updatePortalMessageStatus, uploadPortalDocument, updatePortalDocument, deletePortalDocument, deleteClient, saving, calendarEntries = [] } = props;
   return (
     <div className="workspace-grid">
       <aside className="panel list-panel">
@@ -2437,13 +2584,13 @@ function ClientsWorkspace(props) {
         </div>
       </aside>
       <section className="panel detail-panel">
-        <ClientEditor client={selectedClient} advisers={advisers} caseTypes={caseTypes} deadlineTypes={deadlineTypes} calendarEntries={calendarEntries} saveClient={saveClient} updatePortalMessageStatus={updatePortalMessageStatus} deleteClient={deleteClient} saving={saving} onDirtyChange={onDirtyChange} />
+        <ClientEditor client={selectedClient} advisers={advisers} caseTypes={caseTypes} deadlineTypes={deadlineTypes} calendarEntries={calendarEntries} saveClient={saveClient} updatePortalMessageStatus={updatePortalMessageStatus} uploadPortalDocument={uploadPortalDocument} updatePortalDocument={updatePortalDocument} deletePortalDocument={deletePortalDocument} deleteClient={deleteClient} saving={saving} onDirtyChange={onDirtyChange} />
       </section>
     </div>
   );
 }
 
-function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntries = [], saveClient, updatePortalMessageStatus, deleteClient, saving, onDirtyChange }) {
+function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntries = [], saveClient, updatePortalMessageStatus, uploadPortalDocument, updatePortalDocument, deletePortalDocument, deleteClient, saving, onDirtyChange }) {
   const [draft, setDraft] = useState(client);
   const [showFullRecord, setShowFullRecord] = useState(false);
   const [showDocumentChecklist, setShowDocumentChecklist] = useState(false);
@@ -2686,6 +2833,68 @@ Turner Hopkins Immigration Specialists`;
     }));
   }
 
+  async function handlePortalDocumentUpload(metadata, file) {
+    setValidationMessage('');
+    if (String(draft.id || '').startsWith('temp-')) {
+      setValidationMessage('Save the client record before uploading portal PDFs.');
+      return;
+    }
+    if (!file) {
+      setValidationMessage('Choose a PDF to upload.');
+      return;
+    }
+    if (file.type && file.type !== 'application/pdf') {
+      setValidationMessage('Only PDF files can be uploaded for the client portal.');
+      return;
+    }
+    if (file.size > 4 * 1024 * 1024) {
+      setValidationMessage('Portal PDFs must be under 4 MB for this version.');
+      return;
+    }
+    setStatusMessage('Uploading portal PDF...');
+    try {
+      const dataBase64 = await readFileAsBase64(file);
+      const body = await uploadPortalDocument?.(draft.id, {
+        ...metadata,
+        fileName: file.name,
+        fileType: file.type || 'application/pdf',
+        fileSize: file.size,
+        dataBase64,
+      });
+      if (body?.client) setDraft(normaliseClientFromApi(body.client));
+      setStatusMessage('Portal PDF uploaded. Publish the portal update when ready.');
+    } catch (err) {
+      setStatusMessage('');
+      setValidationMessage(err.message || 'Portal PDF could not be uploaded.');
+    }
+  }
+
+  async function handlePortalDocumentUpdate(document) {
+    setValidationMessage('');
+    setStatusMessage('Updating portal PDF details...');
+    try {
+      const body = await updatePortalDocument?.(draft.id, document);
+      if (body?.client) setDraft(normaliseClientFromApi(body.client));
+      setStatusMessage('Portal PDF details updated.');
+    } catch (err) {
+      setStatusMessage('');
+      setValidationMessage(err.message || 'Portal PDF details could not be updated.');
+    }
+  }
+
+  async function handlePortalDocumentDelete(documentId) {
+    setValidationMessage('');
+    setStatusMessage('Removing portal PDF...');
+    try {
+      const body = await deletePortalDocument?.(draft.id, documentId);
+      if (body?.client) setDraft(normaliseClientFromApi(body.client));
+      setStatusMessage('Portal PDF removed.');
+    } catch (err) {
+      setStatusMessage('');
+      setValidationMessage(err.message || 'Portal PDF could not be removed.');
+    }
+  }
+
   async function handleSaveClient() {
     const isNewClient = String(draft.id || '').startsWith('temp-');
     setValidationMessage('');
@@ -2779,6 +2988,9 @@ Turner Hopkins Immigration Specialists`;
           copyPortalInstructions={copyPortalInstructions}
           publishPortalUpdate={handlePublishPortalUpdate}
           updatePortalMessageStatus={updatePortalMessageStatus}
+          uploadPortalDocument={handlePortalDocumentUpload}
+          updatePortalDocument={handlePortalDocumentUpdate}
+          deletePortalDocument={handlePortalDocumentDelete}
           saving={saving}
         />
       </ExpandableClientSection>
@@ -3608,6 +3820,43 @@ function resizeProfilePhoto(file, maxSize = 420) {
     };
     reader.readAsDataURL(file);
   });
+}
+
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read that file.'));
+    reader.onload = () => {
+      const value = String(reader.result || '');
+      resolve(value.includes(',') ? value.split(',').pop() : value);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function openBase64Pdf(portalDocument = {}) {
+  if (!portalDocument?.dataBase64) throw new Error('The PDF data was not returned.');
+  const byteCharacters = atob(portalDocument.dataBase64);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i += 1) byteNumbers[i] = byteCharacters.charCodeAt(i);
+  const blob = new Blob([new Uint8Array(byteNumbers)], { type: portalDocument.fileType || 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  const opened = window.open(url, '_blank', 'noopener,noreferrer');
+  if (!opened) {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = portalDocument.fileName || 'client-portal-document.pdf';
+    link.click();
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+function formatFileSize(bytes = 0) {
+  const size = Number(bytes || 0);
+  if (!size) return '';
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function MetricCard({ label, value, note, icon: Icon, warning }) {
@@ -4529,6 +4778,7 @@ function normaliseClientFromApi(client = {}, stageTemplates = DEFAULT_STAGE_TEMP
     portalLastPublishedAt: client.portalLastPublishedAt || '',
     portalLastAccessedAt: client.portalLastAccessedAt || '',
     portalMessages: Array.isArray(client.portalMessages) ? client.portalMessages.map(normalisePortalMessage) : [],
+    portalDocuments: Array.isArray(client.portalDocuments) ? client.portalDocuments.map(normalisePortalDocument) : [],
     familyMembers: Array.isArray(client.familyMembers) ? client.familyMembers.map((member) => ({ ...member, nationality: member.nationality || '' })) : [],
     documentChecklist: normaliseDocumentChecklist(client.documentChecklist),
     billing: normaliseBillingItems(client.billing || []),
@@ -4544,6 +4794,22 @@ function normalisePortalMessage(message = {}) {
     message: message.message || '',
     status: message.status === 'Reviewed' ? 'Reviewed' : 'New',
     createdAt: message.createdAt || message.created_at || '',
+  };
+}
+
+function normalisePortalDocument(doc = {}) {
+  return {
+    id: doc.id || `portal-doc-${Date.now()}`,
+    clientId: doc.clientId || doc.client_id || '',
+    title: doc.title || doc.fileName || doc.file_name || 'Client portal PDF',
+    category: doc.category || 'THiS instructions',
+    description: doc.description || '',
+    fileName: doc.fileName || doc.file_name || '',
+    fileType: doc.fileType || doc.file_type || 'application/pdf',
+    fileSize: Number(doc.fileSize || doc.file_size || 0),
+    visibleToClient: doc.visibleToClient ?? doc.visible_to_client ?? true,
+    uploadedBy: doc.uploadedBy || doc.uploaded_by || '',
+    uploadedAt: doc.uploadedAt || doc.uploaded_at || '',
   };
 }
 

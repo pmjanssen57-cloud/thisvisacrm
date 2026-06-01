@@ -1,4 +1,5 @@
 import { getDatabase } from '@netlify/database';
+import { getStore } from '@netlify/blobs';
 import crypto from 'node:crypto';
 import { getUser } from '@netlify/identity';
 
@@ -62,6 +63,7 @@ const DOCUMENT_CHECKLIST_TEMPLATES = [
 const LIBRARY_ENTRY_TYPES = ['Policy', 'Form'];
 const LIBRARY_STATUSES = ['Current', 'Watch', 'Superseded', 'Archived', 'Acceptable until'];
 const LIBRARY_CATEGORIES = ['Work', 'Residence', 'Family', 'Student', 'Visitor', 'Investor', 'Health', 'Character', 'Compliance', 'Forms', 'General'];
+const PORTAL_DOCUMENT_STORE = 'client-portal-documents';
 
 export default async function crmRequestHandler(request, context = {}) {
   const method = String(request.method || 'GET').toUpperCase();
@@ -147,6 +149,21 @@ async function handleCrmEvent(event) {
     if (action === 'updatePortalMessageStatus') {
       await updatePortalMessageStatus(body.clientId, body.messageId, body.status);
       return json(await readCrmData());
+    }
+
+    if (action === 'uploadPortalDocument') {
+      await uploadPortalDocument(body.clientId, body.document || {}, auth.user);
+      return json({ client: await readSingleClient(body.clientId) });
+    }
+
+    if (action === 'updatePortalDocument') {
+      await updatePortalDocument(body.clientId, body.document || {});
+      return json({ client: await readSingleClient(body.clientId) });
+    }
+
+    if (action === 'deletePortalDocument') {
+      await deletePortalDocument(body.clientId, body.documentId);
+      return json({ client: await readSingleClient(body.clientId) });
     }
 
     if (action === 'deleteClient') {
@@ -419,6 +436,24 @@ async function ensureSchema() {
     )
   `;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_client_portal_messages_client ON client_portal_messages(client_id, created_at DESC)`;
+  await database.sql`
+    CREATE TABLE IF NOT EXISTS client_portal_documents (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'THiS instructions',
+      description TEXT,
+      file_name TEXT NOT NULL,
+      file_type TEXT NOT NULL DEFAULT 'application/pdf',
+      file_size INTEGER NOT NULL DEFAULT 0,
+      blob_key TEXT NOT NULL,
+      visible_to_client BOOLEAN NOT NULL DEFAULT TRUE,
+      uploaded_by TEXT,
+      uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_client_portal_documents_client ON client_portal_documents(client_id, uploaded_at DESC)`;
 }
 
 
@@ -426,7 +461,7 @@ async function ensureSchema() {
 
 async function readCrmData() {
   const database = db();
-  const [advisers, clients, stages, deadlines, billing, personalTasks, calendarEntries, libraryEntries, portalMessages] = await Promise.all([
+  const [advisers, clients, stages, deadlines, billing, personalTasks, calendarEntries, libraryEntries, portalMessages, portalDocuments] = await Promise.all([
     database.sql`SELECT id, name, role, email, login_email, profile_photo_url, phone, licence, active FROM advisers ORDER BY name ASC`,
     database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, one_law_client_number, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, portal_enabled, portal_email, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_access_code_hash, portal_last_published_at, portal_last_accessed_at, notes, family_members, document_checklist FROM clients ORDER BY updated_at DESC`,
     database.sql`SELECT id, client_id, stage_key, stage_label, mandatory, applied, completed, completed_date, sort_order FROM client_stages ORDER BY sort_order ASC`,
@@ -436,11 +471,12 @@ async function readCrmData() {
     database.sql`SELECT id, client_id, adviser_id, title, appointment_type, appointment_date, start_time, end_time, location, notes, status FROM calendar_entries ORDER BY appointment_date ASC, start_time ASC NULLS LAST, created_at DESC`,
     database.sql`SELECT id, entry_type, reference_code, title, category, status, official_url, version_label, acceptable_until, related_case_types, related_document_items, internal_summary, adviser_notes, last_reviewed, next_review_due, reviewed_by FROM library_entries ORDER BY entry_type ASC, title ASC`,
     database.sql`SELECT id, client_id, portal_email, message_type, title, message, status, created_at FROM client_portal_messages ORDER BY created_at DESC`,
+    database.sql`SELECT id, client_id, title, category, description, file_name, file_type, file_size, blob_key, visible_to_client, uploaded_by, uploaded_at FROM client_portal_documents ORDER BY uploaded_at DESC`,
   ]);
 
   return {
     advisers: advisers.map(mapAdviserFromDb),
-    clients: clients.map((client) => mapClientFromDb(client, stages, deadlines, billing, portalMessages)),
+    clients: clients.map((client) => mapClientFromDb(client, stages, deadlines, billing, portalMessages, portalDocuments)),
     personalTasks: personalTasks.map(mapPersonalTaskFromDb),
     calendarEntries: calendarEntries.map(mapCalendarEntryFromDb),
     libraryEntries: libraryEntries.map(mapLibraryEntryFromDb),
@@ -452,15 +488,16 @@ async function readCrmData() {
 
 async function readSingleClient(clientId) {
   const database = db();
-  const [clients, stages, deadlines, billing, portalMessages] = await Promise.all([
+  const [clients, stages, deadlines, billing, portalMessages, portalDocuments] = await Promise.all([
     database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, one_law_client_number, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, portal_enabled, portal_email, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_access_code_hash, portal_last_published_at, portal_last_accessed_at, notes, family_members, document_checklist FROM clients WHERE id = ${clientId} LIMIT 1`,
     database.sql`SELECT id, client_id, stage_key, stage_label, mandatory, applied, completed, completed_date, sort_order FROM client_stages WHERE client_id = ${clientId} ORDER BY sort_order ASC`,
     database.sql`SELECT id, client_id, deadline_type, deadline_date, note FROM client_deadlines WHERE client_id = ${clientId} ORDER BY deadline_date ASC NULLS LAST`,
     database.sql`SELECT id, client_id, milestone, due_date, amount, status, invoice_no, billing_trigger_type, billing_stage_key FROM billing_milestones WHERE client_id = ${clientId} ORDER BY due_date ASC NULLS LAST`,
     database.sql`SELECT id, client_id, portal_email, message_type, title, message, status, created_at FROM client_portal_messages WHERE client_id = ${clientId} ORDER BY created_at DESC`,
+    database.sql`SELECT id, client_id, title, category, description, file_name, file_type, file_size, blob_key, visible_to_client, uploaded_by, uploaded_at FROM client_portal_documents WHERE client_id = ${clientId} ORDER BY uploaded_at DESC`,
   ]);
   if (!clients[0]) throw new Error('Saved client could not be reloaded.');
-  return mapClientFromDb(clients[0], stages, deadlines, billing, portalMessages);
+  return mapClientFromDb(clients[0], stages, deadlines, billing, portalMessages, portalDocuments);
 }
 
 function mapAdviserFromDb(row) {
@@ -527,7 +564,7 @@ function mapLibraryEntryFromDb(row) {
   };
 }
 
-function mapClientFromDb(row, stages, deadlines, billing, portalMessages = []) {
+function mapClientFromDb(row, stages, deadlines, billing, portalMessages = [], portalDocuments = []) {
   const clientStages = stages
     .filter((stage) => stage.client_id === row.id)
     .map((stage) => ({
@@ -579,6 +616,9 @@ function mapClientFromDb(row, stages, deadlines, billing, portalMessages = []) {
     portalMessages: (portalMessages || [])
       .filter((message) => message.client_id === row.id)
       .map(mapPortalMessageFromDb),
+    portalDocuments: (portalDocuments || [])
+      .filter((document) => document.client_id === row.id)
+      .map(mapPortalDocumentFromDb),
     stages: normaliseStages(clientStages),
     deadlines: deadlines
       .filter((deadline) => deadline.client_id === row.id)
@@ -621,6 +661,22 @@ function mapPortalMessageFromDb(row = {}) {
     message: row.message || '',
     status: row.status === 'Reviewed' ? 'Reviewed' : 'New',
     createdAt: toDateTimeLabel(row.created_at),
+  };
+}
+
+function mapPortalDocumentFromDb(row = {}) {
+  return {
+    id: row.id,
+    clientId: row.client_id || '',
+    title: row.title || row.file_name || 'Client portal PDF',
+    category: row.category || 'THiS instructions',
+    description: row.description || '',
+    fileName: row.file_name || '',
+    fileType: row.file_type || 'application/pdf',
+    fileSize: Number(row.file_size || 0),
+    visibleToClient: row.visible_to_client !== false,
+    uploadedBy: row.uploaded_by || '',
+    uploadedAt: toDateTimeLabel(row.uploaded_at),
   };
 }
 
@@ -705,6 +761,68 @@ async function updatePortalMessageStatus(clientId, messageId, status = 'Reviewed
     SET status = ${status === 'Reviewed' ? 'Reviewed' : 'New'}, updated_at = NOW()
     WHERE id = ${messageId} AND client_id = ${clientId}
   `;
+}
+
+async function uploadPortalDocument(clientId, input = {}, user = null) {
+  if (!isUuid(clientId)) throw new Error('Save the client record before uploading portal PDFs.');
+  const title = String(input.title || input.fileName || 'Client portal PDF').trim().slice(0, 180) || 'Client portal PDF';
+  const category = normalisePortalDocumentCategory(input.category);
+  const description = String(input.description || '').trim().slice(0, 1000);
+  const fileName = sanitiseFileName(input.fileName || `${title}.pdf`);
+  const fileType = String(input.fileType || 'application/pdf').slice(0, 120);
+  if (fileType !== 'application/pdf') throw new Error('Only PDF files can be uploaded for the client portal.');
+  const base64 = String(input.dataBase64 || '').replace(/^data:application\/pdf;base64,/, '');
+  if (!base64) throw new Error('The PDF upload did not include any file data.');
+  const buffer = Buffer.from(base64, 'base64');
+  if (!buffer.length) throw new Error('The PDF file could not be read.');
+  const maxBytes = 4 * 1024 * 1024;
+  if (buffer.length > maxBytes) throw new Error('Portal PDFs must be under 4 MB for this version.');
+  const fileSize = Number(input.fileSize || buffer.length);
+  const documentId = crypto.randomUUID();
+  const blobKey = `clients/${clientId}/portal-documents/${documentId}-${fileName}`;
+  const store = getStore({ name: PORTAL_DOCUMENT_STORE, consistency: 'strong' });
+  await store.set(blobKey, buffer, { metadata: { clientId, documentId, fileName, fileType, title } });
+  await db().sql`
+    INSERT INTO client_portal_documents (id, client_id, title, category, description, file_name, file_type, file_size, blob_key, visible_to_client, uploaded_by)
+    VALUES (${documentId}, ${clientId}, ${title}, ${category}, ${description}, ${fileName}, ${fileType}, ${fileSize}, ${blobKey}, ${input.visibleToClient !== false}, ${user?.email || user?.name || ''})
+  `;
+}
+
+async function updatePortalDocument(clientId, input = {}) {
+  if (!isUuid(clientId) || !isUuid(input.id)) return;
+  const title = String(input.title || input.fileName || 'Client portal PDF').trim().slice(0, 180) || 'Client portal PDF';
+  const category = normalisePortalDocumentCategory(input.category);
+  const description = String(input.description || '').trim().slice(0, 1000);
+  await db().sql`
+    UPDATE client_portal_documents
+    SET title = ${title}, category = ${category}, description = ${description}, visible_to_client = ${input.visibleToClient !== false}, updated_at = NOW()
+    WHERE id = ${input.id} AND client_id = ${clientId}
+  `;
+}
+
+async function deletePortalDocument(clientId, documentId) {
+  if (!isUuid(clientId) || !isUuid(documentId)) return;
+  const rows = await db().sql`SELECT blob_key FROM client_portal_documents WHERE id = ${documentId} AND client_id = ${clientId} LIMIT 1`;
+  const blobKey = rows[0]?.blob_key || '';
+  await db().sql`DELETE FROM client_portal_documents WHERE id = ${documentId} AND client_id = ${clientId}`;
+  if (blobKey) {
+    try {
+      const store = getStore({ name: PORTAL_DOCUMENT_STORE, consistency: 'strong' });
+      await store.delete(blobKey);
+    } catch (error) {
+      console.warn('Portal document blob delete failed', error?.message || error);
+    }
+  }
+}
+
+function sanitiseFileName(value = '') {
+  const cleaned = String(value || 'portal-document.pdf').replace(/[^a-zA-Z0-9._ -]+/g, '').replace(/\s+/g, '-').slice(0, 120);
+  return cleaned.toLowerCase().endsWith('.pdf') ? cleaned : `${cleaned || 'portal-document'}.pdf`;
+}
+
+function normalisePortalDocumentCategory(value = '') {
+  const allowed = ['INZ form', 'INZ guide', 'THiS instructions', 'Evidence checklist', 'Template', 'Other'];
+  return allowed.includes(value) ? value : 'THiS instructions';
 }
 
 async function saveClient(input = {}) {
