@@ -786,6 +786,7 @@ async function uploadPortalDocument(clientId, input = {}, user = null) {
     INSERT INTO client_portal_documents (id, client_id, title, category, description, file_name, file_type, file_size, blob_key, visible_to_client, uploaded_by)
     VALUES (${documentId}, ${clientId}, ${title}, ${category}, ${description}, ${fileName}, ${fileType}, ${fileSize}, ${blobKey}, ${input.visibleToClient !== false}, ${user?.email || user?.name || ''})
   `;
+  await db().sql`UPDATE clients SET portal_last_published_at = NOW(), updated_at = NOW() WHERE id = ${clientId}`;
 }
 
 async function updatePortalDocument(clientId, input = {}) {
@@ -798,6 +799,7 @@ async function updatePortalDocument(clientId, input = {}) {
     SET title = ${title}, category = ${category}, description = ${description}, visible_to_client = ${input.visibleToClient !== false}, updated_at = NOW()
     WHERE id = ${input.id} AND client_id = ${clientId}
   `;
+  await db().sql`UPDATE clients SET portal_last_published_at = NOW(), updated_at = NOW() WHERE id = ${clientId}`;
 }
 
 async function deletePortalDocument(clientId, documentId) {
@@ -805,6 +807,7 @@ async function deletePortalDocument(clientId, documentId) {
   const rows = await db().sql`SELECT blob_key FROM client_portal_documents WHERE id = ${documentId} AND client_id = ${clientId} LIMIT 1`;
   const blobKey = rows[0]?.blob_key || '';
   await db().sql`DELETE FROM client_portal_documents WHERE id = ${documentId} AND client_id = ${clientId}`;
+  await db().sql`UPDATE clients SET portal_last_published_at = NOW(), updated_at = NOW() WHERE id = ${clientId}`;
   if (blobKey) {
     try {
       const store = getStore({ name: PORTAL_DOCUMENT_STORE, consistency: 'strong' });

@@ -1,8 +1,17 @@
-# Turner Hopkins CRM - Netlify Database v0.10.5
+# Turner Hopkins CRM - Netlify Database v0.10.6
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
 
+
+
+## v0.10.6 - Portal PDF Visibility and UI Polish
+
+- Refined the adviser-side Portal PDFs and standard forms manager so uploaded PDFs appear in a cleaner CRM-styled layout.
+- Added clearer visible/hidden status pills and a stronger Save changes state for portal PDF metadata.
+- The client portal now refreshes a stored client session on load so newly published PDFs are not hidden by an older cached portal snapshot.
+- Portal PDF upload, update and delete actions now refresh the client portal published timestamp.
+- No database migration required.
 
 ## v0.10.5 - Client Portal PDF Documents
 

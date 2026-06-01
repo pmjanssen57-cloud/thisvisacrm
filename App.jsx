@@ -1063,6 +1063,21 @@ function ClientPortalApp() {
   const [error, setError] = useState('');
   const [portalNotice, setPortalNotice] = useState('');
 
+  useEffect(() => {
+    let cancelled = false;
+    async function refreshStoredSession() {
+      if (!portalAuth?.email || !portalAuth?.accessCode) return;
+      try {
+        const body = await portalRequest({ action: 'login', email: portalAuth.email, accessCode: portalAuth.accessCode });
+        if (!cancelled) storeSession(portalAuth, body.snapshot || null);
+      } catch (err) {
+        if (!cancelled) setError(err.message || 'Portal refresh failed. Please sign in again.');
+      }
+    }
+    refreshStoredSession();
+    return () => { cancelled = true; };
+  }, []);
+
   async function portalRequest(payload) {
     const response = await fetch('/.netlify/functions/portal', {
       method: 'POST',
@@ -1199,6 +1214,7 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
             <b>{snapshot.documentsStillRequired.length} document{snapshot.documentsStillRequired.length === 1 ? '' : 's'} still required</b>
             <b>{snapshot.keyDates.length} key date{snapshot.keyDates.length === 1 ? '' : 's'}</b>
             <b>{snapshot.billingMilestones.length} billing milestone{snapshot.billingMilestones.length === 1 ? '' : 's'}</b>
+            <b>{(snapshot.portalDocuments || []).length} form{(snapshot.portalDocuments || []).length === 1 ? '' : 's'} published</b>
           </div>
         </div>
         <div className="portal-progress-dial">
@@ -2547,18 +2563,35 @@ function PortalDocumentAdminRow({ doc, updatePortalDocument, deletePortalDocumen
   const [draft, setDraft] = useState(doc);
   useEffect(() => setDraft(doc), [doc]);
   const dirty = stableStringify(draft) !== stableStringify(doc);
+  const visible = draft.visibleToClient !== false;
   return (
-    <div className={`portal-document-admin-row ${draft.visibleToClient === false ? 'muted-row' : ''}`}>
-      <FileText size={20} />
+    <div className={`portal-document-admin-row ${!visible ? 'muted-row' : ''}`}>
+      <div className="portal-document-admin-icon"><FileText size={22} /></div>
       <div className="portal-document-admin-main">
-        <input value={draft.title || ''} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} />
-        <small>{[draft.fileName, formatFileSize(draft.fileSize), draft.uploadedAt ? `Uploaded ${formatPortalDateTime(draft.uploadedAt)}` : ''].filter(Boolean).join(' · ')}</small>
-        <input value={draft.description || ''} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} placeholder="Client-facing note" />
+        <div className="portal-document-admin-title-line">
+          <label className="portal-document-admin-field title">
+            <span>Client-facing title</span>
+            <input value={draft.title || ''} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} />
+          </label>
+          <span className={`portal-document-status ${visible ? 'visible' : 'hidden'}`}>{visible ? 'Visible in portal' : 'Hidden from portal'}</span>
+        </div>
+        <div className="portal-document-admin-meta">{[draft.fileName, formatFileSize(draft.fileSize), draft.uploadedAt ? `Uploaded ${formatPortalDateTime(draft.uploadedAt)}` : ''].filter(Boolean).join(' · ')}</div>
+        <label className="portal-document-admin-field">
+          <span>Note shown to client</span>
+          <input value={draft.description || ''} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} placeholder="Optional client-facing note" />
+        </label>
       </div>
-      <select value={draft.category || 'THiS instructions'} onChange={(event) => setDraft((current) => ({ ...current, category: event.target.value }))}><option>INZ form</option><option>INZ guide</option><option>THiS instructions</option><option>Evidence checklist</option><option>Template</option><option>Other</option></select>
-      <label className="compact-check"><input type="checkbox" checked={draft.visibleToClient !== false} onChange={(event) => setDraft((current) => ({ ...current, visibleToClient: event.target.checked }))} />Visible</label>
-      <button className="btn mini" type="button" disabled={!dirty || saving} onClick={() => updatePortalDocument?.(draft)}>Save</button>
-      <button className="icon-btn" type="button" disabled={saving} onClick={() => deletePortalDocument?.(doc.id)}><Trash2 size={16} /></button>
+      <div className="portal-document-admin-side">
+        <label className="portal-document-admin-field">
+          <span>Category</span>
+          <select value={draft.category || 'THiS instructions'} onChange={(event) => setDraft((current) => ({ ...current, category: event.target.value }))}><option>INZ form</option><option>INZ guide</option><option>THiS instructions</option><option>Evidence checklist</option><option>Template</option><option>Other</option></select>
+        </label>
+        <label className="portal-document-toggle"><input type="checkbox" checked={visible} onChange={(event) => setDraft((current) => ({ ...current, visibleToClient: event.target.checked }))} /> Publish to portal</label>
+      </div>
+      <div className="portal-document-admin-actions">
+        <button className={`btn mini ${dirty ? 'dark' : ''}`} type="button" disabled={!dirty || saving} onClick={() => updatePortalDocument?.(draft)}>{dirty ? 'Save changes' : 'Saved'}</button>
+        <button className="icon-btn danger" type="button" disabled={saving} onClick={() => deletePortalDocument?.(doc.id)} aria-label="Remove PDF"><Trash2 size={16} /></button>
+      </div>
     </div>
   );
 }
