@@ -58,14 +58,15 @@ const DOCUMENT_CHECKLIST_TEMPLATES = [
   { id: 'police-clearances', name: 'Police Clearances' },
 ];
 
-export const handler = async (event) => handleCrmEvent(event);
-
-export default async function crmRequestHandler(request) {
-  const body = request.method === 'GET' || request.method === 'HEAD' ? '' : await request.text();
+export default async function crmRequestHandler(request, context = {}) {
+  const method = String(request.method || 'GET').toUpperCase();
+  const body = method === 'GET' || method === 'HEAD' ? '' : await request.text();
   const response = await handleCrmEvent({
-    httpMethod: request.method,
+    httpMethod: method,
     headers: Object.fromEntries(request.headers.entries()),
     body,
+    context,
+    rawUrl: request.url,
   });
   return new Response(response.body || '', {
     status: response.statusCode || 200,
@@ -146,6 +147,9 @@ async function checkAuth(event) {
   const provided = headers['x-crm-token'] || headers['X-CRM-Token'] || extractBearer(headers.authorization || headers.Authorization);
 
   if (expected && provided === expected) return { ok: true, mode: 'token-fallback' };
+
+  const contextUser = event.context?.clientContext?.user || event.context?.user || null;
+  if (contextUser?.email) return { ok: true, mode: 'identity-context', user: contextUser };
 
   try {
     const user = await getUser();

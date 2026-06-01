@@ -496,7 +496,7 @@ export default function App() {
       const currentUser = callbackResult?.user || await getUser();
       setIdentityUser(currentUser || null);
       if (currentUser) {
-        await load(accessCode);
+        await load(accessCode, currentUser);
         return;
       }
 
@@ -509,11 +509,11 @@ export default function App() {
     }
   }
 
-  async function load(code = accessCode) {
+  async function load(code = accessCode, userForRequest = identityUser) {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('/.netlify/functions/crm', { headers: authHeaders(code), credentials: 'same-origin' });
+      const response = await fetch('/.netlify/functions/crm', { headers: authHeaders(code, userForRequest), credentials: 'same-origin' });
       if (response.status === 401) {
         setAuthRequired(true);
         if (identityUser) {
@@ -558,7 +558,7 @@ export default function App() {
     try {
       const response = await fetch('/.netlify/functions/crm', {
         method: 'POST',
-        headers: { 'content-type': 'application/json', ...authHeaders(accessCode) },
+        headers: { 'content-type': 'application/json', ...authHeaders(accessCode, identityUser) },
         credentials: 'same-origin',
         body: JSON.stringify({ action, ...payload }),
       });
@@ -593,7 +593,7 @@ export default function App() {
       setIdentityUser(user);
       setAuthFlow({ type: 'login' });
       setAuthRequired(false);
-      await load(accessCode);
+      await load(accessCode, user);
     } catch (err) {
       setError(err.message || String(err));
       setAuthRequired(true);
@@ -610,7 +610,7 @@ export default function App() {
       setIdentityUser(user);
       setAuthFlow({ type: 'login' });
       setAuthRequired(false);
-      await load(accessCode);
+      await load(accessCode, user);
     } catch (err) {
       setError(err.message || String(err));
       setAuthRequired(true);
@@ -627,7 +627,7 @@ export default function App() {
       setIdentityUser(user);
       setAuthFlow({ type: 'login' });
       setAuthRequired(false);
-      await load(accessCode);
+      await load(accessCode, user);
     } catch (err) {
       setError(err.message || String(err));
       setAuthRequired(true);
@@ -3617,8 +3617,22 @@ function identityRoleLabel(user = null) {
   return roles.length ? roles.join(', ') : 'Identity user';
 }
 
-function authHeaders(code) {
-  return code ? { 'x-crm-token': code } : {};
+function authHeaders(code, user) {
+  const headers = code ? { 'x-crm-token': code } : {};
+  const token = identityAccessToken(user);
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+}
+
+function identityAccessToken(user) {
+  if (!user) return '';
+  if (typeof user.access_token === 'string') return user.access_token;
+  if (typeof user.accessToken === 'string') return user.accessToken;
+  if (typeof user.jwt === 'string') return user.jwt;
+  if (typeof user.token === 'string') return user.token;
+  if (typeof user.token?.access_token === 'string') return user.token.access_token;
+  if (typeof user.token?.jwt === 'string') return user.token.jwt;
+  return '';
 }
 
 
