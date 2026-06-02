@@ -183,7 +183,9 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .stage-summary span, .stage-summary small { display: block; color: var(--muted); font-size: 12px; }
 .stage-summary strong { display: block; color: var(--ink); font-size: 26px; margin: 8px 0 2px; }
 
-.workspace-grid { display: grid; grid-template-columns: 390px minmax(0, 1fr); gap: 20px; align-items: start; }
+.workspace-grid { display: grid; grid-template-columns: minmax(280px, 330px) minmax(0, 1fr); gap: 18px; align-items: start; }
+.detail-panel { min-width: 0; overflow: hidden; }
+.list-panel { max-width: 330px; width: 100%; box-sizing: border-box; }
 .list-panel select, .sub-panel-head select, .field select, .field input, .field textarea, .search-box, .editable-row input, .editable-row select, .stage-row input[type="date"], .stage-add-row input, .stage-label-input, .access-card input {
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -294,7 +296,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 @media (max-width: 1050px) {
   .metric-grid, .dashboard-grid, .workspace-grid, .adviser-edit-grid { grid-template-columns: 1fr; }
   .metric-grid.three, .adviser-cards, .stage-summary-grid { grid-template-columns: repeat(2, 1fr); }
-  .list-panel { position: static; }
+  .list-panel { position: static; max-width: none; }
 }
 
 @media (max-width: 760px) {
@@ -2124,6 +2126,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   }
   .list-panel {
     position: static;
+    max-width: none;
   }
   .client-list {
     max-height: none;
@@ -3551,14 +3554,18 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .client-workspace {
   display: grid;
-  grid-template-columns: minmax(250px, 320px) minmax(0, 1fr);
+  grid-template-columns: minmax(260px, 304px) minmax(0, 840px);
   gap: 18px;
   align-items: start;
+  justify-content: start;
   margin-top: 18px;
 }
 
 .client-workspace-nav {
   position: sticky;
+  width: 100%;
+  max-width: 304px;
+  box-sizing: border-box;
   top: 16px;
   border: 1px solid rgba(85, 217, 160, 0.42);
   border-radius: 28px;
@@ -3678,14 +3685,21 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .client-workspace-body {
   min-width: 0;
+  width: 100%;
+  max-width: 840px;
+  justify-self: start;
 }
 
 .client-workspace-section-stack {
   display: grid;
   gap: 16px;
+  width: 100%;
+  max-width: 840px;
 }
 
 .client-workspace-intro {
+  width: 100%;
+  box-sizing: border-box;
   border: 1px solid rgba(85, 217, 160, 0.45);
   border-radius: 26px;
   padding: 18px 20px;
@@ -3747,6 +3761,22 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .workspace-panel {
   margin: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.editable-row.deadline-row {
+  grid-template-columns: minmax(180px, 240px) minmax(132px, 150px) minmax(180px, 1fr) 42px;
+  gap: 12px;
+}
+
+.editable-row.deadline-row input,
+.editable-row.deadline-row select {
+  min-width: 0;
+}
+
+.editable-row.deadline-row .icon-btn {
+  justify-self: end;
 }
 
 .portal-message-row {
@@ -3777,6 +3807,11 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   }
   .client-workspace-nav {
     position: static;
+    max-width: none;
+  }
+  .client-workspace-body,
+  .client-workspace-section-stack {
+    max-width: none;
   }
   .client-workspace-section-list {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -3786,6 +3821,9 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 @media (max-width: 780px) {
   .client-workspace {
     gap: 12px;
+  }
+  .editable-row.deadline-row {
+    grid-template-columns: 1fr !important;
   }
   .client-workspace-nav {
     border-radius: 22px;

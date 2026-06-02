@@ -1,6 +1,15 @@
-# Turner Hopkins CRM - Netlify Database v0.10.11
+# Turner Hopkins CRM - Netlify Database v0.10.12
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
+
+
+## v0.10.12 - Client Workspace Layout Polish
+
+- Narrowed the left client list column so the Clients view has better desktop balance.
+- Kept the Client Workspace section navigation compact and aligned with the adviser workflow.
+- Constrained the right-hand client section content to a tidy working width so cards and forms do not over-stretch on wide screens.
+- Refined the Key dates/deadline row layout so deadline type, date, note and delete controls line up cleanly and wrap properly on smaller screens.
+- No database migration required.
 
 
 ## v0.10.11 - Client Workspace Redesign

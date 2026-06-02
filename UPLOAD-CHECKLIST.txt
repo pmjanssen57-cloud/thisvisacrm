@@ -1,24 +1,22 @@
-THiS CRM v0.10.11 - Client Workspace Redesign
+THiS CRM v0.10.12 - Client Workspace Layout Polish
 
-THiS CRM v0.10.7 upload checklist
+Upload checklist
 
 1. Preserve the netlify/ folder.
 2. Preserve the public/ folder.
-3. Upload/commit all files from this ZIP to the GitHub repo.
+3. Upload/commit all files from this ZIP to the GitHub repo root.
 4. Confirm Netlify environment variables remain set:
    - NETLIFY_DATABASE_URL
    - CRM_ACCESS_TOKEN (temporary fallback until removed)
 5. Deploy through Netlify with Clear cache and deploy if possible.
 6. Confirm adviser login still works.
-7. Open an existing client and expand Client Portal.
-8. Upload one small PDF under Portal PDFs and standard forms.
-9. Set the title/category/note and confirm it is visible to the client.
-10. Publish the portal update.
-11. Open /portal in a private/incognito browser, log in as the client and confirm the Forms and instructions section shows the PDF. If testing an existing uploaded PDF, click Refresh or sign out/in after deploy.
-12. Open the PDF from the client portal.
-13. Confirm existing portal functions still work: notes/actions, billing milestones, documents required, dates, appointments and tools.
-14. Test Clients, Calendar, Library, Tools and Print Profile after deploy.
+7. Open Clients from Dashboard, Tasks, Calendar, Billing and the main navigation.
+8. Confirm the left client list is narrower and the Client Workspace section navigation remains compact.
+9. Open Key dates and confirm deadline rows fit neatly within the page.
+10. Check Overview, Actions, Documents, Portal, Stages, Billing, Family and Notes & strategy still open and save normally.
+11. Check the Clients view on mobile/tablet width to confirm the layout stacks cleanly.
 
 Notes:
-- Portal PDFs are limited to 4 MB each in this release.
-- PDF files are stored in Netlify Blobs and metadata is stored in Netlify Database/Postgres.
+- This is a front-end layout polish release.
+- No database migration required.
+- Existing portal PDF, billing, deadline and document checklist functionality is unchanged.
