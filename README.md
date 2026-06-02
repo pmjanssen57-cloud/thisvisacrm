@@ -1,10 +1,15 @@
-# Turner Hopkins CRM - Netlify Database v0.10.7
+# Turner Hopkins CRM - Netlify Database v0.10.8
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
 
 
 
+
+## v0.10.8 - Portal PDF Client Display Fix
+- Fixed the client portal dashboard normalisation layer so visible portal PDFs are retained after the portal snapshot is loaded.
+- The portal function was already returning the document list; the client-side portal view was dropping it before rendering.
+- No database migration required.
 
 ## v0.10.7 - Portal PDF Publication Bridge Fix
 

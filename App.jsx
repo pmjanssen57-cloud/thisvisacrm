@@ -4674,6 +4674,7 @@ function normalisePortalSnapshot(snapshot = {}) {
     keyDates: Array.isArray(snapshot.keyDates) ? snapshot.keyDates : [],
     appointments: Array.isArray(snapshot.appointments) ? snapshot.appointments : [],
     billingMilestones: Array.isArray(snapshot.billingMilestones) ? snapshot.billingMilestones : [],
+    portalDocuments: Array.isArray(snapshot.portalDocuments) ? snapshot.portalDocuments.map(normalisePortalDocument) : [],
     portalMessages: Array.isArray(snapshot.portalMessages) ? snapshot.portalMessages.map(normalisePortalMessage) : [],
     turnerHopkins: snapshot.turnerHopkins || { name: 'Turner Hopkins Immigration Specialists', phone: '+64 9 486 2169', email: 'immigration@turnerhopkins.co.nz', website: 'www.turnerhopkinsimmigration.co.nz' },
     lastUpdated: snapshot.lastUpdated || '',
