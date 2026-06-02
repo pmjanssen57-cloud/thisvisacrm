@@ -1,7 +1,19 @@
-# Turner Hopkins CRM - Netlify Database v0.11.3
+# Turner Hopkins CRM - Netlify Database v0.11.4
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
+
+
+## v0.11.4 - Intake Inbox Management
+
+- Reworked the CRM Intake page into a full-width inbox model for higher form volumes.
+- Removed the left-hand intake list/detail split.
+- Default Intake view now shows New / untouched assessment questionnaires first.
+- Added top-level search, status, adviser and review-flag filters, plus a Show all reset action.
+- Converted intake records into expandable cards showing basic triage details before full review.
+- Kept adviser review fields, assessment snapshot, full structured payload, save, convert-to-client and delete actions inside the expanded entry.
+- Added intake metrics for New, Active, Review flags and Converted.
+- No database migration required.
 
 
 ## v0.11.3 - Intake Assessment Questionnaire Redesign

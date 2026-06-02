@@ -4069,3 +4069,56 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   .intake-brand-logo { width: 190px; }
   .intake-panel-title-row { align-items: stretch; display: grid; }
 }
+
+/* v0.11.4 intake inbox management */
+.intake-inbox-workspace { gap: 20px; }
+.intake-inbox-panel { border: 1px solid var(--line); background: #fff; border-radius: 24px; padding: 16px; box-shadow: 0 14px 38px rgba(15, 23, 42, 0.05); display: grid; gap: 16px; min-width: 0; }
+.intake-inbox-toolbar { display: grid; grid-template-columns: minmax(260px, 1.4fr) minmax(150px, 0.7fr) minmax(150px, 0.7fr) minmax(150px, 0.7fr) auto; gap: 12px; align-items: end; }
+.intake-inbox-toolbar label { display: grid; gap: 6px; min-width: 0; }
+.intake-inbox-toolbar label > span, .intake-search-field > span { color: var(--muted); font-size: 11px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+.intake-inbox-toolbar select, .intake-inbox-toolbar input { width: 100%; min-width: 0; }
+.intake-search-field > div { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 14px; padding: 0 12px; min-height: 42px; background: #fff; }
+.intake-search-field svg { color: var(--muted); flex: 0 0 auto; }
+.intake-search-field input { border: 0; padding: 0; min-height: auto; box-shadow: none; }
+.intake-search-field input:focus { outline: none; }
+.intake-inbox-summary-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 14px; border-top: 1px solid var(--line); padding-top: 14px; }
+.intake-inbox-summary-row h2 { margin: 3px 0 0; color: var(--ink); }
+.intake-inbox-summary-row strong { color: var(--ink); border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; background: var(--pale); }
+.intake-inbox-list { display: grid; gap: 12px; }
+.intake-inbox-card { border: 1px solid var(--line); border-radius: 20px; background: #fff; overflow: hidden; min-width: 0; }
+.intake-inbox-card.expanded { border-color: #cfe3df; box-shadow: 0 12px 32px rgba(0, 55, 54, 0.08); }
+.intake-inbox-card-head { width: 100%; border: 0; background: #fff; display: grid; grid-template-columns: minmax(190px, 1.25fr) minmax(150px, 0.95fr) minmax(130px, 0.8fr) minmax(145px, 0.8fr) minmax(125px, 0.7fr) 28px; gap: 12px; align-items: center; text-align: left; padding: 14px 16px 8px; cursor: pointer; color: inherit; }
+.intake-inbox-card-head:hover { background: #fbfdfc; }
+.intake-inbox-person, .intake-inbox-detail, .intake-inbox-status-block { display: grid; gap: 4px; min-width: 0; }
+.intake-inbox-person strong { color: var(--ink); font-size: 1rem; overflow-wrap: anywhere; }
+.intake-inbox-person small, .intake-inbox-status-block small { color: var(--muted); line-height: 1.35; overflow-wrap: anywhere; }
+.intake-inbox-detail span { color: var(--muted); font-size: 10px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+.intake-inbox-detail strong { color: var(--text); font-size: .93rem; line-height: 1.3; overflow-wrap: anywhere; }
+.intake-inbox-status-block { justify-items: start; }
+.intake-expand-icon { color: var(--muted); justify-self: end; transition: transform .16s ease; }
+.intake-inbox-card.expanded .intake-expand-icon { transform: rotate(90deg); }
+.intake-inbox-flags-row { padding: 0 16px 14px; }
+.intake-inbox-flags-row .intake-flags.compact small { color: var(--muted); }
+.intake-inbox-expanded { border-top: 1px solid var(--line); background: #fbfdfc; padding: 16px; display: grid; gap: 16px; }
+.intake-inbox-expanded .intake-summary-card, .intake-inbox-expanded .intake-payload-view .intake-summary-card { background: #fff; }
+.intake-inbox-expanded-head { border-bottom: 0; padding-bottom: 0; }
+.intake-review-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.intake-inbox-empty { border: 1px dashed var(--line); border-radius: 20px; background: var(--pale); }
+
+@media (max-width: 1250px) {
+  .intake-inbox-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .intake-inbox-card-head { grid-template-columns: minmax(190px, 1fr) minmax(150px, 0.9fr) minmax(130px, 0.8fr) minmax(120px, 0.7fr) 28px; }
+  .intake-inbox-card-head .intake-inbox-detail:nth-of-type(4) { display: none; }
+  .intake-review-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 900px) {
+  .intake-inbox-panel { padding: 12px; border-radius: 18px; }
+  .intake-inbox-toolbar, .intake-review-grid { grid-template-columns: 1fr; }
+  .intake-inbox-summary-row { display: grid; align-items: start; }
+  .intake-inbox-card-head { grid-template-columns: 1fr auto; gap: 8px; padding: 14px; }
+  .intake-inbox-detail, .intake-inbox-status-block { grid-column: 1 / -1; }
+  .intake-inbox-card-head .intake-inbox-detail:nth-of-type(4) { display: grid; }
+  .intake-inbox-flags-row { padding: 0 14px 14px; }
+  .intake-inbox-expanded { padding: 14px; }
+}

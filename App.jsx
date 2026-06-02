@@ -1411,42 +1411,109 @@ function IntakeFormApp() {
 }
 
 function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, saving, openClientRecord }) {
-  const [statusFilter, setStatusFilter] = useState('active');
+  const [statusFilter, setStatusFilter] = useState('New');
   const [query, setQuery] = useState('');
-  const [selectedId, setSelectedId] = useState(enquiries[0]?.id || '');
-  const selected = enquiries.find((item) => item.id === selectedId) || enquiries[0] || null;
-  const [draft, setDraft] = useState(selected ? normaliseIntakeEnquiry(selected) : null);
+  const [adviserFilter, setAdviserFilter] = useState('all');
+  const [flagFilter, setFlagFilter] = useState('all');
+  const [expandedId, setExpandedId] = useState('');
+  const [draft, setDraft] = useState(null);
   const activeStatuses = ['New', 'Reviewing', 'Contacted', 'Consultation booked', 'Agreement sent', 'Signed client'];
+  const flagOptions = [
+    { value: 'urgent', label: 'Urgent timing' },
+    { value: 'visaExpirySoon', label: 'Visa expiry' },
+    { value: 'health', label: 'Health review' },
+    { value: 'character', label: 'Character review' },
+    { value: 'employment', label: 'Employment details' },
+    { value: 'partnership', label: 'Partner/family' },
+    { value: 'family', label: 'Children/family' },
+    { value: 'investor', label: 'Investor interest' },
+    { value: 'funds', label: 'Funds/investment' },
+  ];
+
+  const normalisedEnquiries = enquiries
+    .map((item) => normaliseIntakeEnquiry(item))
+    .sort((a, b) => intakeSortTime(b) - intakeSortTime(a));
+
+  const filtered = normalisedEnquiries.filter((item) => {
+    const q = query.trim().toLowerCase();
+    const searchText = [
+      item.firstName,
+      item.lastName,
+      item.email,
+      item.phone,
+      item.targetPathway,
+      item.currentVisaType,
+      item.currentLocation,
+      item.citizenship,
+      item.urgency,
+      item.recommendedPathway,
+    ].join(' ').toLowerCase();
+    const matchesQuery = !q || searchText.includes(q);
+    const matchesStatus = statusFilter === 'all' || (statusFilter === 'active' ? activeStatuses.includes(item.status) : item.status === statusFilter);
+    const matchesAdviser = adviserFilter === 'all' || (adviserFilter === 'unassigned' ? !item.assignedAdviserId : item.assignedAdviserId === adviserFilter);
+    const matchesFlag = flagFilter === 'all' || Boolean(item.flags?.[flagFilter]);
+    return matchesQuery && matchesStatus && matchesAdviser && matchesFlag;
+  });
+
+  const newCount = normalisedEnquiries.filter((item) => item.status === 'New').length;
+  const activeCount = normalisedEnquiries.filter((item) => activeStatuses.includes(item.status)).length;
+  const reviewFlagCount = normalisedEnquiries.filter((item) => hasAnyIntakeFlag(item.flags)).length;
+  const convertedCount = normalisedEnquiries.filter((item) => item.convertedClientId || item.status === 'Converted').length;
+  const expandedItem = expandedId ? normalisedEnquiries.find((item) => item.id === expandedId) : null;
 
   useEffect(() => {
-    if (!enquiries.length) {
-      setSelectedId('');
+    if (!expandedId) {
       setDraft(null);
       return;
     }
-    if (!selectedId || !enquiries.some((item) => item.id === selectedId)) setSelectedId(enquiries[0].id);
-  }, [enquiries, selectedId]);
+    const next = normalisedEnquiries.find((item) => item.id === expandedId);
+    if (!next) {
+      setExpandedId('');
+      setDraft(null);
+      return;
+    }
+    setDraft((current) => current?.id === next.id ? current : normaliseIntakeEnquiry(next));
+  }, [enquiries, expandedId]);
 
-  useEffect(() => {
-    setDraft(selected ? normaliseIntakeEnquiry(selected) : null);
-  }, [selected?.id, selected?.updatedAt]);
+  function intakeSortTime(item = {}) {
+    return Date.parse(item.createdAt || item.updatedAt || '') || 0;
+  }
 
-  const filtered = enquiries.filter((item) => {
-    const q = query.trim().toLowerCase();
-    const matchesQuery = !q || [item.firstName, item.lastName, item.email, item.phone, item.targetPathway, item.currentVisaType].join(' ').toLowerCase().includes(q);
-    const matchesStatus = statusFilter === 'all' || (statusFilter === 'active' ? activeStatuses.includes(item.status) : item.status === statusFilter);
-    return matchesQuery && matchesStatus;
-  });
-  const urgentCount = enquiries.filter((item) => item.flags?.urgent || item.flags?.visaExpirySoon || item.flags?.health || item.flags?.character).length;
-  const convertedCount = enquiries.filter((item) => item.convertedClientId).length;
+  function hasAnyIntakeFlag(flags = {}) {
+    return flagOptions.some((option) => Boolean(flags?.[option.value]));
+  }
 
   function setDraftField(name, value) {
     setDraft((current) => ({ ...(current || {}), [name]: value }));
   }
 
+  function toggleExpanded(item) {
+    if (expandedId === item.id) {
+      setExpandedId('');
+      setDraft(null);
+      return;
+    }
+    setExpandedId(item.id);
+    setDraft(normaliseIntakeEnquiry(item));
+  }
+
+  function clearFilters() {
+    setStatusFilter('all');
+    setAdviserFilter('all');
+    setFlagFilter('all');
+    setQuery('');
+  }
+
   async function saveDraft() {
     if (!draft) return;
     await saveIntakeEnquiry(draft);
+  }
+
+  async function deleteDraft() {
+    if (!draft?.id) return;
+    await deleteIntakeEnquiry(draft.id);
+    setExpandedId('');
+    setDraft(null);
   }
 
   async function convertDraft() {
@@ -1455,92 +1522,129 @@ function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, del
   }
 
   return (
-    <div className="intake-workspace">
+    <div className="intake-workspace intake-inbox-workspace">
       <div className="library-heading intake-heading">
         <div>
-          <h1>Intake and enquiries</h1>
-          <p className="muted">Review website assessment submissions, triage risk flags, record adviser assessment notes and convert suitable matters into client records.</p>
+          <h1>Intake</h1>
+          <p className="muted">Manage assessment questionnaires as a triage inbox. New, untouched submissions show first by default.</p>
         </div>
-        <a className="btn dark" href="/intake" target="_blank" rel="noreferrer"><ExternalLink size={16} />Open draft web form</a>
+        <a className="btn dark" href="/intake" target="_blank" rel="noreferrer"><ExternalLink size={16} />Open web form</a>
       </div>
 
-      <div className="metric-grid three intake-metrics">
-        <MetricCard label="Open intake" value={enquiries.filter((item) => activeStatuses.includes(item.status)).length} note="Pre-client records" icon={ClipboardList} />
-        <MetricCard label="Review flags" value={urgentCount} note="Generated adviser review prompts" icon={AlertTriangle} />
-        <MetricCard label="Converted" value={convertedCount} note="Moved into CRM clients" icon={CheckCircle2} />
+      <div className="metric-grid four intake-metrics">
+        <MetricCard label="New" value={newCount} note="Untouched questionnaires" icon={ClipboardList} />
+        <MetricCard label="Active" value={activeCount} note="Open intake workflow" icon={Clock} />
+        <MetricCard label="Review flags" value={reviewFlagCount} note="Need adviser attention" icon={AlertTriangle} />
+        <MetricCard label="Converted" value={convertedCount} note="Moved into clients" icon={CheckCircle2} />
       </div>
 
-      <div className="intake-layout">
-        <aside className="library-list-panel intake-list-panel">
-          <div className="library-filters">
-            <label><span>Search</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Name, email, pathway..." /></label>
-            <label><span>Status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="active">Active intake</option><option value="all">All statuses</option>{statuses.map((status) => <option key={status} value={status}>{status}</option>)}</select></label>
+      <section className="intake-inbox-panel">
+        <div className="intake-inbox-toolbar">
+          <label className="intake-search-field">
+            <span>Search</span>
+            <div><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Name, email, phone, pathway, visa..." /></div>
+          </label>
+          <label><span>Status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="New">New / untouched</option><option value="active">Active intake</option><option value="all">All statuses</option>{statuses.filter((status) => status !== 'New').map((status) => <option key={status} value={status}>{status}</option>)}</select></label>
+          <label><span>Adviser</span><select value={adviserFilter} onChange={(event) => setAdviserFilter(event.target.value)}><option value="all">All advisers</option><option value="unassigned">Unassigned</option>{advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}</select></label>
+          <label><span>Review flag</span><select value={flagFilter} onChange={(event) => setFlagFilter(event.target.value)}><option value="all">All flags</option>{flagOptions.map((flag) => <option key={flag.value} value={flag.value}>{flag.label}</option>)}</select></label>
+          <button className="btn" type="button" onClick={clearFilters}>Show all</button>
+        </div>
+
+        <div className="intake-inbox-summary-row">
+          <div>
+            <span className="eyebrow">Assessment questionnaires</span>
+            <h2>{statusFilter === 'New' ? 'New submissions' : statusFilter === 'active' ? 'Active intake' : statusFilter === 'all' ? 'All intake records' : statusFilter}</h2>
           </div>
-          <div className="library-list intake-list">
-            {filtered.map((item) => (
-              <button key={item.id} type="button" className={`library-list-item intake-list-item ${selected?.id === item.id ? 'active' : ''}`} onClick={() => setSelectedId(item.id)}>
-                <strong>{[item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unnamed enquiry'}</strong>
-                <small>{item.email || 'No email'} · {item.targetPathway || 'Pathway not selected'}</small>
-                <span className={`library-status ${statusClass(item.status)}`}>{item.status}</span>
-                <IntakeFlagList flags={item.flags} compact />
-              </button>
-            ))}
-            {!filtered.length && <p className="muted center">No intake enquiries match this view.</p>}
-          </div>
-        </aside>
+          <strong>{filtered.length} shown</strong>
+        </div>
 
-        <section className="library-editor intake-editor">
-          {!draft ? (
-            <div className="empty-state slim"><ClipboardList size={34} /><h2>No intake records yet</h2><p>Open the draft web form and submit a test enquiry to start road-testing.</p></div>
-          ) : (
-            <>
-              <div className="intake-editor-head">
-                <div>
-                  <span className="eyebrow">Intake record</span>
-                  <h2>{[draft.firstName, draft.lastName].filter(Boolean).join(' ') || 'Unnamed enquiry'}</h2>
-                  <p>{draft.email || 'No email'}{draft.phone ? ` · ${draft.phone}` : ''}</p>
-                </div>
-                <IntakeFlagList flags={draft.flags} />
-              </div>
+        <div className="intake-inbox-list">
+          {filtered.map((item) => {
+            const isExpanded = expandedId === item.id;
+            const itemDraft = isExpanded ? (draft || item) : item;
+            return (
+              <article key={item.id} className={`intake-inbox-card ${isExpanded ? 'expanded' : ''}`}>
+                <button className="intake-inbox-card-head" type="button" onClick={() => toggleExpanded(item)}>
+                  <div className="intake-inbox-person">
+                    <strong>{[item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unnamed enquiry'}</strong>
+                    <small>{item.email || 'No email'}{item.phone ? ` · ${item.phone}` : ''}</small>
+                  </div>
+                  <div className="intake-inbox-detail"><span>Goal</span><strong>{item.targetPathway || 'Not selected'}</strong></div>
+                  <div className="intake-inbox-detail"><span>Location</span><strong>{item.currentLocation || item.citizenship || 'Not recorded'}</strong></div>
+                  <div className="intake-inbox-detail"><span>Submitted</span><strong>{item.createdAt ? formatPortalDateTime(item.createdAt) : 'No date'}</strong></div>
+                  <div className="intake-inbox-status-block">
+                    <span className={`library-status ${statusClass(item.status)}`}>{item.status}</span>
+                    <small>{adviserName(item.assignedAdviserId, advisers)}</small>
+                  </div>
+                  <ChevronRight size={18} className="intake-expand-icon" />
+                </button>
+                <div className="intake-inbox-flags-row"><IntakeFlagList flags={item.flags} compact /></div>
 
-              <div className="form-grid">
-                <SelectField label="Status" value={draft.status} onChange={(value) => setDraftField('status', value)} options={statuses} />
-                <SelectField label="Assigned adviser" value={draft.assignedAdviserId} onChange={(value) => setDraftField('assignedAdviserId', value)} options={advisers.map((adviser) => ({ value: adviser.id, label: adviser.name }))} placeholder="Unassigned" />
-                <Field label="Recommended pathway" value={draft.recommendedPathway} onChange={(value) => setDraftField('recommendedPathway', value)} />
-                <Field label="Consultation / outcome" value={draft.consultationOutcome} onChange={(value) => setDraftField('consultationOutcome', value)} />
-              </div>
-              <TextArea label="Adviser assessment notes" value={draft.adviserAssessmentNotes} onChange={(value) => setDraftField('adviserAssessmentNotes', value)} rows={5} />
+                {isExpanded && itemDraft && (
+                  <div className="intake-inbox-expanded">
+                    <div className="intake-editor-head intake-inbox-expanded-head">
+                      <div>
+                        <span className="eyebrow">Intake record</span>
+                        <h2>{[itemDraft.firstName, itemDraft.lastName].filter(Boolean).join(' ') || 'Unnamed enquiry'}</h2>
+                        <p>{itemDraft.email || 'No email'}{itemDraft.phone ? ` · ${itemDraft.phone}` : ''}</p>
+                      </div>
+                      <IntakeFlagList flags={itemDraft.flags} />
+                    </div>
 
-              <div className="intake-summary-grid">
-                <IntakeSummaryCard title="Current situation" rows={[
-                  ['Pathway', draft.targetPathway],
-                  ['Urgency', draft.urgency],
-                  ['Current visa', draft.currentVisaType],
-                  ['Visa expiry', draft.currentVisaExpiry ? formatPortalDate(draft.currentVisaExpiry) : ''],
-                  ['Location', draft.currentLocation],
-                  ['Citizenship', draft.citizenship],
-                ]} />
-                <IntakeSummaryCard title="Applicant detail" rows={[
-                  ['Date of birth', draft.dateOfBirth ? formatPortalDate(draft.dateOfBirth) : ''],
-                  ['Submitted', draft.createdAt ? formatPortalDateTime(draft.createdAt) : ''],
-                  ['Updated', draft.updatedAt ? formatPortalDateTime(draft.updatedAt) : ''],
-                  ['Converted client', draft.convertedClientId ? 'Yes' : 'No'],
-                ]} />
-                <IntakeSummaryCard title="Assessment snapshot" rows={intakeSnapshotRows(draft.rawPayload)} />
-              </div>
+                    <div className="form-grid intake-review-grid">
+                      <SelectField label="Status" value={itemDraft.status} onChange={(value) => setDraftField('status', value)} options={statuses} />
+                      <SelectField label="Assigned adviser" value={itemDraft.assignedAdviserId} onChange={(value) => setDraftField('assignedAdviserId', value)} options={advisers.map((adviser) => ({ value: adviser.id, label: adviser.name }))} placeholder="Unassigned" />
+                      <Field label="Recommended pathway" value={itemDraft.recommendedPathway} onChange={(value) => setDraftField('recommendedPathway', value)} />
+                      <Field label="Consultation / outcome" value={itemDraft.consultationOutcome} onChange={(value) => setDraftField('consultationOutcome', value)} />
+                    </div>
+                    <TextArea label="Adviser assessment notes" value={itemDraft.adviserAssessmentNotes} onChange={(value) => setDraftField('adviserAssessmentNotes', value)} rows={5} />
 
-              <IntakePayloadView payload={draft.rawPayload} />
+                    <div className="intake-summary-grid">
+                      <IntakeSummaryCard title="Applicant summary" rows={[
+                        ['Name', [itemDraft.firstName, itemDraft.lastName].filter(Boolean).join(' ')],
+                        ['Email', itemDraft.email],
+                        ['Phone', itemDraft.phone],
+                        ['Citizenship', itemDraft.citizenship],
+                        ['Current location', itemDraft.currentLocation],
+                      ]} />
+                      <IntakeSummaryCard title="Current situation" rows={[
+                        ['Pathway', itemDraft.targetPathway],
+                        ['Urgency', itemDraft.urgency],
+                        ['Current visa', itemDraft.currentVisaType],
+                        ['Visa expiry', itemDraft.currentVisaExpiry ? formatPortalDate(itemDraft.currentVisaExpiry) : ''],
+                        ['Submitted', itemDraft.createdAt ? formatPortalDateTime(itemDraft.createdAt) : ''],
+                      ]} />
+                      <IntakeSummaryCard title="Assessment snapshot" rows={intakeSnapshotRows(itemDraft.rawPayload)} />
+                      <IntakeSummaryCard title="Record status" rows={[
+                        ['Status', itemDraft.status],
+                        ['Assigned adviser', adviserName(itemDraft.assignedAdviserId, advisers)],
+                        ['Updated', itemDraft.updatedAt ? formatPortalDateTime(itemDraft.updatedAt) : ''],
+                        ['Converted client', itemDraft.convertedClientId ? 'Yes' : 'No'],
+                      ]} />
+                    </div>
 
-              <div className="library-save-bar intake-save-bar button-row">
-                <button className="btn" type="button" onClick={saveDraft} disabled={saving}><Save size={16} />Save intake review</button>
-                <button className="btn dark" type="button" onClick={convertDraft} disabled={saving || Boolean(draft.convertedClientId)}><UsersRound size={16} />Convert to client</button>
-                {draft.convertedClientId && <button className="btn" type="button" onClick={() => openClientRecord(draft.convertedClientId)}><ExternalLink size={16} />Open client</button>}
-                <button className="btn danger" type="button" onClick={() => deleteIntakeEnquiry(draft.id)} disabled={saving || Boolean(draft.convertedClientId)}><Trash2 size={16} />Delete</button>
-              </div>
-            </>
+                    <IntakePayloadView payload={itemDraft.rawPayload} />
+
+                    <div className="library-save-bar intake-save-bar button-row">
+                      <button className="btn" type="button" onClick={saveDraft} disabled={saving}><Save size={16} />Save intake review</button>
+                      <button className="btn dark" type="button" onClick={convertDraft} disabled={saving || Boolean(itemDraft.convertedClientId)}><UsersRound size={16} />Convert to client</button>
+                      {itemDraft.convertedClientId && <button className="btn" type="button" onClick={() => openClientRecord(itemDraft.convertedClientId)}><ExternalLink size={16} />Open client</button>}
+                      <button className="btn danger" type="button" onClick={deleteDraft} disabled={saving || Boolean(itemDraft.convertedClientId)}><Trash2 size={16} />Delete</button>
+                    </div>
+                  </div>
+                )}
+              </article>
+            );
+          })}
+          {!filtered.length && (
+            <div className="empty-state slim intake-inbox-empty">
+              <ClipboardList size={34} />
+              <h2>No intake records match this view</h2>
+              <p>The default view shows new, untouched assessment questionnaires. Use Show all or adjust the filters to see older records.</p>
+            </div>
           )}
-        </section>
-      </div>
+        </div>
+      </section>
     </div>
   );
 }

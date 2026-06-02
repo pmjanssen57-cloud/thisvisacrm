@@ -1,4 +1,4 @@
-THiS CRM v0.11.3 - Intake Assessment Questionnaire Redesign
+THiS CRM v0.11.4 - Intake Inbox Management
 
 Upload checklist
 
@@ -11,15 +11,16 @@ Upload checklist
 5. Deploy through Netlify with Clear cache and deploy if possible.
 6. Confirm adviser login still works.
 7. Open the Intake section.
-8. Confirm the intake metric says Review flags rather than Flagged.
-9. Open an intake record with flags and confirm the right-hand header shows Review flags plus the helper note.
-10. Confirm flag labels are clearer, for example Character review, Employment details and Funds/investment.
-11. Confirm the flag tags use softer neutral styling rather than strong orange/brown warning colours.
-12. Confirm intake list cards still show compact review flags and no layout clipping occurs.
-13. Open `/intake` and submit a test enquiry to confirm intake creation still works.
-14. Confirm the test enquiry can still be saved, updated and converted to a client.
+8. Confirm the page opens as a full-width inbox, not a left/right split view.
+9. Confirm the default filter shows New / untouched assessment questionnaires.
+10. Test search by applicant name, email, phone and pathway.
+11. Test status, adviser and review-flag filters.
+12. Expand an intake entry and confirm the adviser review fields, assessment snapshot and structured payload display correctly.
+13. Save an intake review update and confirm the entry remains manageable from the inbox.
+14. Confirm Convert to client still works from inside the expanded entry.
+15. Open `/intake` and submit a test questionnaire to confirm new intake creation still works.
 
 Notes:
-- This is a UI wording and presentation polish release on top of v0.11.1.
+- This is a CRM Intake management UI release.
 - No database migration required.
-- Intake review flags remain internal adviser prompts only. They are not client-facing outcomes or assessment conclusions.
+- The public Assessment Questionnaire remains as built in v0.11.3.
