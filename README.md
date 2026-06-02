@@ -1,6 +1,18 @@
-# Turner Hopkins CRM - Netlify Database v0.11.5
+# Turner Hopkins CRM - Netlify Database v0.11.8
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
+
+
+## v0.11.8 - Client Portal Polish
+
+- Fixed the client portal progress map data normalisation so published matter stage tiles are retained in the portal snapshot.
+- Made adviser email addresses clickable with a mailto link from the client portal adviser card.
+- Changed the portal document checklist to show selected checklist items, including completed/obtained items with a green tick.
+- Updated the adviser-side portal publishing console so completed checklist items can also be selected for portal visibility.
+- Tightened the Forms and instructions PDF cards so they populate across the page, up to four cards per row on desktop.
+- Removed the separate client planning-space tool from the portal and simplified the message section to adviser-directed messages.
+- Restyled the Turner Hopkins contact area as a stronger footer-style block with clickable contact links.
+- No database migration required.
 
 
 

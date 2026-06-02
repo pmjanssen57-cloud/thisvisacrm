@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { acceptInvite, getUser, handleAuthCallback, login, logout, onAuthChange, requestPasswordRecovery, updateUser } from '@netlify/identity';
-import { AlertTriangle, ArrowUpDown, BookOpen, Calculator, CalendarDays, CheckCircle2, ChevronRight, Clock, CloudSun, Copy, CreditCard, ClipboardList, Database, DollarSign, ExternalLink, FileText, Globe2, HelpCircle, LayoutDashboard, Link2, ListChecks, LockKeyhole, MessageSquare, Plus, RefreshCw, Save, Search, Send, ShieldCheck, Trash2, UserRound, UsersRound, Wrench, X } from 'lucide-react';
+import { AlertTriangle, ArrowUpDown, BookOpen, Calculator, CalendarDays, CheckCircle2, ChevronRight, Clock, CloudSun, Copy, CreditCard, ClipboardList, Database, DollarSign, ExternalLink, FileText, Globe2, HelpCircle, LayoutDashboard, Link2, ListChecks, LockKeyhole, Mail, MessageSquare, Plus, RefreshCw, Save, Search, Send, ShieldCheck, Trash2, UserRound, UsersRound, Wrench, X } from 'lucide-react';
 
 const BRAND = {
   ink: '#003736',
@@ -1939,9 +1939,9 @@ function ClientPortalProgressMap({ stagePlan = [], progressPercent = 0 }) {
 }
 
 function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalMessage, onOpenPortalDocument, portalNotice, portalError }) {
-  const [activeTool, setActiveTool] = useState('notes');
+  const [activeTool, setActiveTool] = useState('weather');
   const adviserMessages = snapshot.portalMessages.filter((item) => item.messageType === 'adviser_action');
-  const clientNotes = snapshot.portalMessages.filter((item) => item.messageType === 'client_note');
+  const documentsRequired = Array.isArray(snapshot.documentsRequired) && snapshot.documentsRequired.length ? snapshot.documentsRequired : snapshot.documentsStillRequired;
   return (
     <div className="portal-dashboard-shell">
       <header className="portal-dashboard-header portal-dashboard-header-vibrant">
@@ -1988,7 +1988,9 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
               <strong>{snapshot.adviser.name || 'Turner Hopkins adviser'}</strong>
             </div>
           </div>
-          <p>{snapshot.adviser.email || snapshot.turnerHopkins.email}</p>
+          {(snapshot.adviser.email || snapshot.turnerHopkins.email) ? (
+            <p><a className="portal-email-link" href={`mailto:${snapshot.adviser.email || snapshot.turnerHopkins.email}`}><Mail size={15} />{snapshot.adviser.email || snapshot.turnerHopkins.email}</a></p>
+          ) : null}
           <p>{snapshot.adviser.phone || snapshot.turnerHopkins.phone}</p>
         </section>
 
@@ -2001,10 +2003,10 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
 
         <section className="portal-card wide portal-client-action-card">
           <div className="portal-section-head">
-            <div><h2>Notes, actions and planning</h2><p>Add a note for Turner Hopkins or keep a planning note in your portal. Notes are visible to Turner Hopkins.</p></div>
+            <div><h2>Messages for your adviser</h2><p>Send Turner Hopkins a question, update or action item for your matter.</p></div>
             <MessageSquare size={22} />
           </div>
-          <div className="portal-message-grid">
+          <div className="portal-message-grid single">
             <ClientPortalMessageComposer
               title="Send Turner Hopkins a note or action"
               description="Use this for a question, update, or item you want your adviser to see."
@@ -2012,24 +2014,23 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
               messageType="adviser_action"
               onSubmit={onSubmitPortalMessage}
             />
-            <ClientPortalMessageComposer
-              title="My notes and plans"
-              description="Keep a note about your own planning, documents or next steps."
-              buttonLabel="Save note"
-              messageType="client_note"
-              onSubmit={onSubmitPortalMessage}
-            />
           </div>
-          <ClientPortalMessageList adviserMessages={adviserMessages} clientNotes={clientNotes} />
+          <ClientPortalMessageList adviserMessages={adviserMessages} />
         </section>
 
         <section className="portal-card wide">
-          <h2>Documents still required</h2>
-          {snapshot.documentsStillRequired.length ? (
-            <div className="portal-list portal-card-list">
-              {snapshot.documentsStillRequired.map((item) => <div key={item.id}><strong>{item.name}</strong>{item.expiryDate && <span>Expiry: {formatPortalDate(item.expiryDate)}</span>}</div>)}
+          <h2>Document checklist</h2>
+          {documentsRequired.length ? (
+            <div className="portal-document-checklist">
+              {documentsRequired.map((item) => (
+                <div className={`portal-document-checklist-row ${item.obtained ? 'obtained' : 'outstanding'}`} key={item.id}>
+                  <span className="portal-document-check-icon">{item.obtained ? <CheckCircle2 size={17} /> : <Clock size={17} />}</span>
+                  <div><strong>{item.name}</strong>{item.expiryDate && <span>Expiry: {formatPortalDate(item.expiryDate)}</span>}</div>
+                  <b>{item.obtained ? 'Obtained' : 'Required'}</b>
+                </div>
+              ))}
             </div>
-          ) : <p>No visible outstanding document requests.</p>}
+          ) : <p>No document checklist items have been published to your portal yet.</p>}
         </section>
 
         <section className="portal-card wide portal-download-card">
@@ -2091,14 +2092,12 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
             <Wrench size={22} />
           </div>
           <div className="tool-tabs portal-tool-tabs" role="tablist" aria-label="Client portal tools">
-            <button type="button" className={activeTool === 'notes' ? 'active' : ''} onClick={() => setActiveTool('notes')}><FileText size={16} />Notes</button>
             <button type="button" className={activeTool === 'weather' ? 'active' : ''} onClick={() => setActiveTool('weather')}><CloudSun size={16} />Weather</button>
             <button type="button" className={activeTool === 'timezone' ? 'active' : ''} onClick={() => setActiveTool('timezone')}><Globe2 size={16} />Time</button>
             <button type="button" className={activeTool === 'currency' ? 'active' : ''} onClick={() => setActiveTool('currency')}><DollarSign size={16} />Currency</button>
             <button type="button" className={activeTool === 'calculator' ? 'active' : ''} onClick={() => setActiveTool('calculator')}><Calculator size={16} />Calc</button>
           </div>
           <div className="portal-tool-panel">
-            {activeTool === 'notes' && <div className="portal-tool-intro"><strong>Planning space</strong><p>Use the notes area above to keep track of your questions, documents and plans. Turner Hopkins can see saved notes.</p></div>}
             {activeTool === 'weather' && <WeatherTool />}
             {activeTool === 'timezone' && <TimezoneTool />}
             {activeTool === 'currency' && <CurrencyTool />}
@@ -2106,13 +2105,16 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
           </div>
         </section>
 
-        <section className="portal-card wide contact-card">
-          <h2>Turner Hopkins contact</h2>
+        <section className="portal-card wide contact-card portal-footer-card">
+          <div>
+            <h2>Turner Hopkins Immigration Specialists</h2>
+            <p>For questions about your matter, contact your adviser or the Turner Hopkins team.</p>
+          </div>
           <div className="portal-contact-grid">
             <p><strong>{snapshot.turnerHopkins.name}</strong></p>
-            <p>{snapshot.turnerHopkins.phone}</p>
-            <p>{snapshot.turnerHopkins.email}</p>
-            <p>{snapshot.turnerHopkins.website}</p>
+            <p><a href={`tel:${String(snapshot.turnerHopkins.phone || '').replace(/\s+/g, '')}`}>{snapshot.turnerHopkins.phone}</a></p>
+            <p><a href={`mailto:${snapshot.turnerHopkins.email}`}>{snapshot.turnerHopkins.email}</a></p>
+            <p><a href={`https://${String(snapshot.turnerHopkins.website || '').replace(/^https?:\/\//, '')}`} target="_blank" rel="noreferrer">{snapshot.turnerHopkins.website}</a></p>
           </div>
           <span className="portal-last-updated">Last updated: {formatPortalDateTime(snapshot.lastUpdated) || 'Not recorded'}</span>
         </section>
@@ -2156,18 +2158,18 @@ function ClientPortalMessageComposer({ title, description, buttonLabel, messageT
   );
 }
 
-function ClientPortalMessageList({ adviserMessages, clientNotes }) {
-  const allMessages = [...adviserMessages, ...clientNotes].sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''))).slice(0, 8);
+function ClientPortalMessageList({ adviserMessages = [] }) {
+  const allMessages = [...adviserMessages].sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''))).slice(0, 8);
   return (
     <div className="portal-message-history">
-      <h3>Recent portal notes</h3>
+      <h3>Recent messages sent to Turner Hopkins</h3>
       {allMessages.length ? allMessages.map((item) => (
         <div className="portal-message-history-row" key={item.id}>
-          <span>{item.messageType === 'adviser_action' ? 'Sent to adviser' : 'Client note'} · {formatPortalDateTime(item.createdAt)}</span>
-          <strong>{item.title || (item.messageType === 'adviser_action' ? 'Note for Turner Hopkins' : 'My note')}</strong>
+          <span>Sent to adviser · {formatPortalDateTime(item.createdAt)}</span>
+          <strong>{item.title || 'Note for Turner Hopkins'}</strong>
           <p>{item.message}</p>
         </div>
-      )) : <p className="muted">No client notes have been saved yet.</p>}
+      )) : <p className="muted">No messages have been sent through the portal yet.</p>}
     </div>
   );
 }
@@ -3161,7 +3163,7 @@ function ProgressMap({ client }) {
 
 function ClientPortalPanel({ client, advisers, calendarEntries, generatedPortalCode, setField, updatePortalSelection, generatePortalAccessCode, copyPortalInstructions, publishPortalUpdate, updatePortalMessageStatus, uploadPortalDocument, updatePortalDocument, deletePortalDocument, saving }) {
   const portalLink = `${window.location.origin}/portal`;
-  const documents = normaliseDocumentChecklist(client.documentChecklist).filter((item) => item.applied !== false && !item.obtained);
+  const documents = normaliseDocumentChecklist(client.documentChecklist).filter((item) => item.applied !== false);
   const deadlines = (client.deadlines || []).filter((item) => item.date || item.note || item.type).map((item) => ({ ...item, id: portalDeadlineKey(item) }));
   const appointments = (calendarEntries || []).filter((entry) => entry.clientId === client.id && entry.status !== 'Completed').sort((a, b) => (a.appointmentDate || '').localeCompare(b.appointmentDate || ''));
   const primaryAdviser = advisers.find((adviser) => adviser.id === client.primaryAdviserId);
@@ -3199,7 +3201,7 @@ function ClientPortalPanel({ client, advisers, calendarEntries, generatedPortalC
       <TextArea label="Next client step" value={client.portalNextStep || ''} onChange={(value) => setField('portalNextStep', value)} rows={3} />
 
       <div className="portal-visibility-grid">
-        <PortalVisibilityBox title="Documents still required" empty="No outstanding document checklist items." items={documents} selected={visibleDocs} onToggle={(id, checked) => updatePortalSelection('portalVisibleDocumentIds', id, checked)} renderLabel={(item) => item.name} renderMeta={(item) => item.expiryDate ? `Expiry ${item.expiryDate}` : 'No expiry date'} />
+        <PortalVisibilityBox title="Document checklist" empty="No applied document checklist items." items={documents} selected={visibleDocs} onToggle={(id, checked) => updatePortalSelection('portalVisibleDocumentIds', id, checked)} renderLabel={(item) => item.name} renderMeta={(item) => [item.obtained ? 'Obtained' : 'Required', item.expiryDate ? `Expiry ${item.expiryDate}` : 'No expiry date'].join(' · ')} />
         <PortalVisibilityBox title="Upcoming key dates" empty="No client deadlines recorded." items={deadlines} selected={visibleDeadlines} onToggle={(id, checked) => updatePortalSelection('portalVisibleDeadlineIds', id, checked)} renderLabel={(item) => item.type} renderMeta={(item) => [item.date, item.note].filter(Boolean).join(' · ') || 'No date'} />
         <PortalVisibilityBox title="Appointments" empty="No open linked appointments." items={appointments} selected={visibleAppointments} onToggle={(id, checked) => updatePortalSelection('portalVisibleAppointmentIds', id, checked)} renderLabel={(item) => item.title || 'Appointment'} renderMeta={(item) => [item.appointmentDate, calendarEntryTimeLabel(item), item.location].filter(Boolean).join(' · ') || 'No date'} />
         <PortalVisibilityBox title="Billing milestones" empty="No billing milestones recorded." items={billingItems} selected={visibleBilling} onToggle={(id, checked) => updatePortalSelection('portalVisibleBillingIds', id, checked)} renderLabel={(item) => item.milestone || 'Billing milestone'} renderMeta={(item) => [formatCurrency(item.amount), item.status, item.dueDate ? `Date ${item.dueDate}` : '', item.invoiceNo ? `Invoice ${item.invoiceNo}` : ''].filter(Boolean).join(' · ') || 'No billing details'} />
@@ -5455,6 +5457,8 @@ function normalisePortalSnapshot(snapshot = {}) {
     statusUpdate: snapshot.statusUpdate || '',
     nextStep: snapshot.nextStep || '',
     documentsStillRequired: Array.isArray(snapshot.documentsStillRequired) ? snapshot.documentsStillRequired : [],
+    documentsRequired: Array.isArray(snapshot.documentsRequired) ? snapshot.documentsRequired : [],
+    stagePlan: Array.isArray(snapshot.stagePlan) ? snapshot.stagePlan : [],
     keyDates: Array.isArray(snapshot.keyDates) ? snapshot.keyDates : [],
     appointments: Array.isArray(snapshot.appointments) ? snapshot.appointments : [],
     billingMilestones: Array.isArray(snapshot.billingMilestones) ? snapshot.billingMilestones : [],

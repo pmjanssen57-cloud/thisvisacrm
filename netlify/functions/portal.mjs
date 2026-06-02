@@ -240,9 +240,10 @@ async function buildPortalSnapshot(clientId) {
   const visibleAppointmentIds = new Set(parseJsonArray(client.portal_visible_appointment_ids));
   const visibleBillingIds = new Set(parseJsonArray(client.portal_visible_billing_ids));
 
-  const documents = parseDocumentChecklist(client.document_checklist)
-    .filter((item) => item.applied !== false && !item.obtained && visibleDocumentIds.has(item.id))
-    .map((item) => ({ id: item.id, name: item.name, expiryDate: item.expiryDate || '' }));
+  const documentsRequired = parseDocumentChecklist(client.document_checklist)
+    .filter((item) => item.applied !== false && visibleDocumentIds.has(item.id))
+    .map((item) => ({ id: item.id, name: item.name, expiryDate: item.expiryDate || '', obtained: Boolean(item.obtained) }));
+  const documents = documentsRequired.filter((item) => !item.obtained);
 
   const keyDates = (deadlineRows || [])
     .filter((item) => visibleDeadlineIds.has(item.id) || visibleDeadlineIds.has(portalDeadlineKey(item)))
@@ -282,6 +283,7 @@ async function buildPortalSnapshot(clientId) {
     statusUpdate: client.portal_status_update || '',
     nextStep: client.portal_next_step || '',
     documentsStillRequired: documents,
+    documentsRequired,
     keyDates,
     appointments,
     billingMilestones,

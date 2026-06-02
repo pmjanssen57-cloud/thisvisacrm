@@ -1,4 +1,4 @@
-THiS CRM v0.11.6 - Client Portal Progress and Document Tiles
+THiS CRM v0.11.8 - Client Portal Polish
 
 Upload checklist
 
@@ -24,3 +24,12 @@ Notes:
 - No database migration required.
 - The Stage editor still shows all stages because advisers need somewhere to apply optional stages again.
 - The public portal only shows stages selected for that client.
+
+Additional v0.11.8 checks:
+16. Log in to the client portal and confirm the Matter progress tile map appears under the hero section.
+17. Confirm the adviser email address is clickable and opens a new email.
+18. In the CRM, publish both obtained and outstanding document checklist items to the portal.
+19. Confirm the portal Document checklist shows obtained items with a green tick and outstanding items as Required.
+20. Confirm Forms and instructions PDF cards sit across the page, up to four per row on desktop.
+21. Confirm the Planning space tab/tool no longer appears in the portal tools section.
+22. Confirm the Turner Hopkins contact section appears as a footer-style block with clickable phone, email and website links.

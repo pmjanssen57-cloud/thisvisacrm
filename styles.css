@@ -4293,3 +4293,244 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
     grid-template-columns: 1fr;
   }
 }
+
+/* v0.11.7: client tools and portal PDF upload styling polish */
+.client-quick-actions {
+  grid-template-columns: minmax(170px, 0.5fr) minmax(0, 1fr);
+  overflow: visible;
+}
+
+.client-quick-actions-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(126px, 1fr));
+  gap: 10px;
+  align-items: stretch;
+}
+
+.quick-action-button {
+  width: 100%;
+  min-width: 0;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  overflow: visible;
+}
+
+.quick-action-button svg {
+  flex: 0 0 auto;
+}
+
+.quick-action-button span {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.quick-action-button b {
+  position: static;
+  transform: none;
+  flex: 0 0 auto;
+  margin-left: auto;
+  min-width: 22px;
+  width: auto;
+  height: 22px;
+  padding: 0 7px;
+  box-shadow: 0 4px 10px rgba(0, 55, 54, 0.16);
+}
+
+.portal-document-upload {
+  grid-template-columns: minmax(230px, 1fr) minmax(220px, 1.15fr) minmax(160px, 0.75fr);
+}
+
+.portal-document-upload .field input[type="file"] {
+  min-height: 46px;
+  padding: 7px 10px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 28px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.portal-document-upload .field input[type="file"]::file-selector-button {
+  min-height: 30px;
+  margin-right: 10px;
+  border: 1px solid rgba(0, 67, 66, 0.16);
+  border-radius: 10px;
+  background: #f6fcf9;
+  color: var(--ink);
+  font-weight: 900;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.portal-document-upload .field input[type="file"]:hover::file-selector-button {
+  border-color: var(--mint);
+  background: #effcf6;
+}
+
+@media (max-width: 1320px) {
+  .client-quick-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .client-quick-actions-buttons {
+    justify-content: stretch;
+  }
+}
+
+@media (max-width: 760px) {
+  .client-quick-actions-buttons {
+    grid-template-columns: 1fr;
+  }
+
+  .portal-document-upload {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* v0.11.8: client portal progress, checklist and footer polish */
+.portal-email-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ink);
+  font-weight: 800;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.portal-email-link:hover { text-decoration: underline; }
+
+.portal-message-grid.single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.portal-document-checklist {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.portal-document-checklist-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #dceae5;
+  border-radius: 18px;
+  padding: 13px 14px;
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(0, 55, 54, 0.04);
+}
+.portal-document-checklist-row strong,
+.portal-document-checklist-row span {
+  display: block;
+}
+.portal-document-checklist-row strong {
+  color: var(--ink);
+  line-height: 1.25;
+}
+.portal-document-checklist-row span {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 3px;
+}
+.portal-document-check-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: grid !important;
+  place-items: center;
+  margin: 0 !important;
+  background: #f8fafc;
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+.portal-document-checklist-row b {
+  border-radius: 999px;
+  padding: 6px 9px;
+  font-size: 11px;
+  font-weight: 900;
+  color: #52635d;
+  background: #f4f8f6;
+  border: 1px solid #dceae5;
+  white-space: nowrap;
+}
+.portal-document-checklist-row.obtained {
+  border-color: rgba(85, 217, 160, .68);
+  background: #f0fdf4;
+}
+.portal-document-checklist-row.obtained .portal-document-check-icon {
+  background: var(--mint);
+  border-color: var(--mint);
+  color: var(--ink);
+}
+.portal-document-checklist-row.obtained b {
+  color: var(--ink);
+  background: rgba(85, 217, 160, .24);
+  border-color: rgba(85, 217, 160, .6);
+}
+
+.portal-document-tile-grid {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 260px));
+  justify-content: start;
+}
+.portal-document-tile {
+  width: 100%;
+}
+
+.portal-footer-card {
+  border: none;
+  color: #fff;
+  background: linear-gradient(135deg, var(--ink), #075451);
+  box-shadow: 0 18px 42px rgba(0, 55, 54, 0.18);
+}
+.portal-footer-card h2,
+.portal-footer-card p,
+.portal-footer-card strong,
+.portal-footer-card .portal-last-updated {
+  color: #fff;
+}
+.portal-footer-card > p,
+.portal-footer-card p {
+  color: rgba(255,255,255,.82);
+}
+.portal-footer-card a {
+  color: #fff;
+  font-weight: 800;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.portal-footer-card a:hover { text-decoration: underline; }
+.portal-footer-card .portal-contact-grid {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,.18);
+}
+.portal-footer-card .portal-last-updated {
+  opacity: .78;
+}
+
+@media (min-width: 1020px) {
+  .portal-document-tile-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .portal-document-checklist,
+  .portal-document-tile-grid {
+    grid-template-columns: 1fr;
+  }
+  .portal-document-checklist-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .portal-document-checklist-row b {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
