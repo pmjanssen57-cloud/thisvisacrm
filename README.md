@@ -1,10 +1,18 @@
-# Turner Hopkins CRM - Netlify Database v0.10.8
+# Turner Hopkins CRM - Netlify Database v0.10.9
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
 
 
 
+
+## v0.10.9 - Dashboard Task Adviser Scope Fix
+
+- Fixed the main Dashboard/Tasks task lists so task rows respect the selected adviser scope.
+- Client-level task rows now carry the primary adviser as the task owner.
+- Calendar and personal task rows are filtered by their assigned adviser.
+- This prevents tasks for other advisers appearing when a specific adviser dashboard is selected.
+- No database migration required.
 
 ## v0.10.8 - Portal PDF Client Display Fix
 - Fixed the client portal dashboard normalisation layer so visible portal PDFs are retained after the portal snapshot is loaded.

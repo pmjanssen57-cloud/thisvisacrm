@@ -878,7 +878,8 @@ export default function App() {
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [scopedClients, scopedCalendarEntries, data.clients]);
 
-  const taskRows = useMemo(() => buildTaskRows(scopedClients, scopedPersonalTasks, data.clients, scopedCalendarEntries), [scopedClients, scopedPersonalTasks, data.clients, scopedCalendarEntries]);
+  const taskRows = useMemo(() => buildTaskRows(scopedClients, scopedPersonalTasks, data.clients, scopedCalendarEntries)
+    .filter((row) => matchesTaskRowScope(row, dashboardAdviserFilter)), [scopedClients, scopedPersonalTasks, data.clients, scopedCalendarEntries, dashboardAdviserFilter]);
 
   const billingRows = useMemo(() => {
     return scopedClients
@@ -5275,6 +5276,7 @@ function billingTaskForClient(client, item) {
   return {
     id: `${client.id}-billing-${normalised.id || normalised.milestone}`,
     client,
+    adviserId: client.primaryAdviserId || '',
     type: `Billing Due: ${normalised.milestone || 'Billing item'}`,
     date,
     note: `${billingTriggerLabel(normalised, client)} · ${formatCurrency(normalised.amount)}`,
@@ -5496,6 +5498,7 @@ function documentExpiryRowsForClient(client) {
     .map((item) => ({
       id: `${client.id}-document-expiry-${item.id}`,
       client,
+      adviserId: client.primaryAdviserId || '',
       type: `Document Expiry: ${item.name}`,
       date: item.expiryDate,
       note: item.obtained ? 'Document obtained; check expiry before use.' : 'Document not yet marked as obtained.',
@@ -5549,6 +5552,7 @@ function buildTaskRows(clients, personalTasks = [], allClients = [], calendarEnt
       ...(client.deadlines || []).map((deadline) => ({
         id: `${client.id}-${deadline.id}`,
         client,
+        adviserId: client.primaryAdviserId || '',
         type: deadline.type,
         date: deadline.date,
         note: deadline.note || '',
@@ -5559,6 +5563,7 @@ function buildTaskRows(clients, personalTasks = [], allClients = [], calendarEnt
       client.nextActionDue ? {
         id: `${client.id}-next-action`,
         client,
+        adviserId: client.primaryAdviserId || '',
         type: 'Next Action Date',
         date: client.nextActionDue,
         note: client.nextAction || '',
@@ -5655,6 +5660,13 @@ function taskSearchText(row) {
     row.calendarEntry?.title, row.calendarEntry?.appointmentType, row.calendarEntry?.location, row.calendarEntry?.notes,
     row.personalTask?.title, row.personalTask?.note
   ].join(' ').toLowerCase();
+}
+
+
+function matchesTaskRowScope(row, adviserId) {
+  if (adviserId === 'all') return true;
+  const rowAdviserId = row.adviserId || row.personalTask?.adviserId || row.calendarEntry?.adviserId || row.client?.primaryAdviserId || '';
+  return rowAdviserId === adviserId;
 }
 
 function matchesPersonalTaskScope(task, adviserId) {
