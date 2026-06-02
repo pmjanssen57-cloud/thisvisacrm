@@ -1,6 +1,6 @@
 {
   "name": "turner-hopkins-crm-netlify-db",
-  "version": "0.10.9",
+  "version": "0.10.10",
   "private": true,
   "engines": {
     "node": ">=20.19.0 <21"

@@ -2626,14 +2626,9 @@ function ClientsWorkspace(props) {
 
 function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntries = [], saveClient, updatePortalMessageStatus, uploadPortalDocument, updatePortalDocument, deletePortalDocument, deleteClient, saving, onDirtyChange }) {
   const [draft, setDraft] = useState(client);
-  const [showFullRecord, setShowFullRecord] = useState(false);
-  const [showDocumentChecklist, setShowDocumentChecklist] = useState(false);
+  const [activeClientSection, setActiveClientSection] = useState('overview');
   const [showActionLog, setShowActionLog] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
-  const [showMatterStages, setShowMatterStages] = useState(false);
-  const [showClientDeadlines, setShowClientDeadlines] = useState(false);
-  const [showClientBilling, setShowClientBilling] = useState(false);
-  const [showClientPortal, setShowClientPortal] = useState(false);
   const [customStageLabel, setCustomStageLabel] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
   const [validationMessage, setValidationMessage] = useState('');
@@ -2646,14 +2641,9 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
       previousClientIdRef.current = client.id;
     }
     setDraft(client);
-    setShowFullRecord(false);
-    setShowDocumentChecklist(false);
+    setActiveClientSection('overview');
     setShowActionLog(false);
     setShowTimeline(false);
-    setShowMatterStages(false);
-    setShowClientDeadlines(false);
-    setShowClientBilling(false);
-    setShowClientPortal(false);
     setCustomStageLabel('');
     setStatusMessage('');
     setValidationMessage('');
@@ -2958,13 +2948,30 @@ Turner Hopkins Immigration Specialists`;
   const activeBillingAmount = activeBillingItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const portalNewMessageCount = (draft.portalMessages || []).filter((message) => message.status === 'New').length;
   const portalStatusSummary = draft.portalEnabled ? `Active for ${draft.portalEmail || draft.email || 'client email not set'}. Last published ${formatPortalDateTime(draft.portalLastPublishedAt) || 'not yet'}.${portalNewMessageCount ? ` ${portalNewMessageCount} new client note${portalNewMessageCount === 1 ? '' : 's'} waiting.` : ''}` : 'Inactive. Expand to enable portal access for this client.';
+  const requiredDocuments = normaliseDocumentChecklist(draft.documentChecklist || []).filter((item) => item.applied);
+  const outstandingDocuments = requiredDocuments.filter((item) => !item.obtained);
+  const upcomingDeadlines = (draft.deadlines || []).filter((item) => item.date).sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
+  const linkedAppointments = (calendarEntries || []).filter((entry) => entry.clientId === draft.id && entry.status !== 'Completed');
+  const visiblePortalPdfCount = normalisePortalDocuments(draft.portalDocuments || []).filter((doc) => doc.visibleToClient !== false).length;
+  const currentStage = currentStageLabel(draft);
+  const workspaceSections = [
+    { id: 'overview', label: 'Overview', icon: LayoutDashboard, summary: `${currentStage} · ${progressPercent(draft)}% progress`, badge: draft.clientStatus || 'Status' },
+    { id: 'actions', label: 'Actions', icon: Clock, summary: draft.nextActionDue ? `Next due ${draft.nextActionDue}` : 'No next action date', badge: normaliseNextActionLog(draft.nextActionLog).length ? `${normaliseNextActionLog(draft.nextActionLog).length} logged` : 'Action' },
+    { id: 'documents', label: 'Documents', icon: ListChecks, summary: `${outstandingDocuments.length}/${requiredDocuments.length} outstanding`, badge: outstandingDocuments.length ? `${outstandingDocuments.length} open` : 'Clear' },
+    { id: 'portal', label: 'Portal', icon: LockKeyhole, summary: portalStatusSummary, badge: portalNewMessageCount ? `${portalNewMessageCount} new` : (draft.portalEnabled ? 'Active' : 'Inactive') },
+    { id: 'stages', label: 'Stages', icon: ArrowUpDown, summary: `${completedStageCount}/${appliedStageCount || 0} applied stages complete`, badge: `${progressPercent(draft)}%` },
+    { id: 'dates', label: 'Key dates', icon: CalendarDays, summary: `${deadlineCount} deadline${deadlineCount === 1 ? '' : 's'} recorded`, badge: upcomingDeadlines[0]?.date || 'Dates' },
+    { id: 'billing', label: 'Billing', icon: CreditCard, summary: `${billingItems.length} milestone${billingItems.length === 1 ? '' : 's'} · ${formatCurrency(activeBillingAmount)} active`, badge: activeBillingItems.length ? `${activeBillingItems.length} active` : 'Billing' },
+    { id: 'family', label: 'Family', icon: UsersRound, summary: `${(draft.familyMembers || []).length} family/dependant record${(draft.familyMembers || []).length === 1 ? '' : 's'}`, badge: (draft.familyMembers || []).length ? `${(draft.familyMembers || []).length}` : 'Family' },
+    { id: 'notes', label: 'Notes & strategy', icon: FileText, summary: draft.caseStrategy ? 'Case strategy added' : 'No case strategy yet', badge: 'Internal' },
+  ];
 
   return (
     <div>
-      <div className="detail-header">
+      <div className="detail-header client-workspace-header">
         <div>
           <h1>{draft.firstName || 'New'} {draft.lastName || 'client'}</h1>
-          <p>{draft.caseType || 'No case type selected'}</p>
+          <p>{draft.caseType || 'No case type selected'} · {currentStage} · {progressPercent(draft)}% progress</p>
         </div>
         <div className="button-row">
           <button className="btn danger" onClick={() => deleteClient(draft.id)} disabled={saving || String(draft.id).startsWith('temp-')}><Trash2 size={16} />Delete</button>
@@ -2980,175 +2987,201 @@ Turner Hopkins Immigration Specialists`;
         <button className="btn dark" type="button" onClick={handleSaveClient} disabled={saving || !isDirty}><Save size={16} />Save changes</button>
       </div>
 
-      <ClientSummaryPanel draft={draft} setField={setField} onOpenActionLog={() => setShowActionLog(true)} onOpenTimeline={() => setShowTimeline(true)} onPrintProfile={handlePrintClientProfile} calendarEntries={calendarEntries} />
-
       {showActionLog && <NextActionLogModal client={draft} onClose={() => setShowActionLog(false)} />}
       {showTimeline && <ClientTimelineModal client={draft} calendarEntries={calendarEntries} advisers={advisers} onClose={() => setShowTimeline(false)} />}
 
-      <div className="client-record-toggle document-checklist-toggle">
-        <button className="btn" type="button" onClick={() => setShowDocumentChecklist((value) => !value)}>{showDocumentChecklist ? 'Hide document checklist' : 'Show document checklist'}</button>
-        <span>Track requested documents, expiry dates and whether each document has been obtained.</span>
-      </div>
-
-      {showDocumentChecklist && (
-        <DocumentChecklist
-          items={normaliseDocumentChecklist(draft.documentChecklist)}
-          updateItem={updateDocumentItem}
-          addCustomItem={addCustomDocumentItem}
-          removeCustomItem={removeCustomDocumentItem}
-        />
-      )}
-
-      <div className="client-record-toggle">
-        <button className="btn" type="button" onClick={() => setShowFullRecord((value) => !value)}>{showFullRecord ? 'Hide full client record' : 'Show full client record'}</button>
-        <span>{showFullRecord ? 'Full editable file details are shown below.' : 'Open the full record to edit core details, case strategy, family details and notes.'}</span>
-      </div>
-
-      <ExpandableClientSection
-        title="client portal"
-        isOpen={showClientPortal}
-        onToggle={() => setShowClientPortal((value) => !value)}
-        summary={portalStatusSummary}
-        badge={portalNewMessageCount ? `${portalNewMessageCount} new` : (draft.portalEnabled ? 'Active' : 'Inactive')}
-      >
-        <ClientPortalPanel
-          client={draft}
-          advisers={advisers}
-          calendarEntries={calendarEntries}
-          generatedPortalCode={generatedPortalCode}
-          setField={setField}
-          updatePortalSelection={updatePortalSelection}
-          generatePortalAccessCode={generatePortalAccessCode}
-          copyPortalInstructions={copyPortalInstructions}
-          publishPortalUpdate={handlePublishPortalUpdate}
-          updatePortalMessageStatus={updatePortalMessageStatus}
-          uploadPortalDocument={handlePortalDocumentUpload}
-          updatePortalDocument={handlePortalDocumentUpdate}
-          deletePortalDocument={handlePortalDocumentDelete}
-          saving={saving}
-        />
-      </ExpandableClientSection>
-
-      {showFullRecord && (
-        <>
-      <div className="progress-card"><span>{currentStageLabel(draft)}</span><b>{progressPercent(draft)}%</b><ProgressBar value={progressPercent(draft)} /></div>
-
-      <ProgressMap client={draft} />
-
-      <div className="form-grid">
-        <Field label="Email" value={draft.email} onChange={(v) => setField('email', v)} />
-        <Field label="Phone" value={draft.phone} onChange={(v) => setField('phone', v)} />
-        <Field label="OneLaw Client Number" value={draft.oneLawClientNumber || ''} onChange={(v) => setField('oneLawClientNumber', v)} placeholder="e.g. OL-12345" />
-        <LookupField label="Citizenship" value={draft.nationality} onChange={(v) => setField('nationality', v)} options={COUNTRY_OPTIONS} listId="citizenship-options" placeholder="Start typing a country of citizenship" />
-        <LookupField label="Current address" value={draft.location} onChange={(v) => setField('location', v)} options={ADDRESS_LOOKUP_EXAMPLES} listId="address-options" placeholder="Start typing the current address" />
-        <SelectField label="Case type / application type" value={draft.caseType} onChange={(v) => setField('caseType', v)} options={caseTypes} placeholder="Select case type" />
-        <SelectField label="Primary adviser" value={draft.primaryAdviserId} onChange={(v) => setField('primaryAdviserId', v)} options={advisers.map((a) => ({ label: a.name, value: a.id }))} placeholder="Select primary adviser" />
-        <SelectField label="Backup adviser" value={draft.backupAdviserId} onChange={(v) => setField('backupAdviserId', v)} options={advisers.map((a) => ({ label: a.name, value: a.id }))} placeholder="Select backup adviser" />
-        <SelectField label="Priority" value={draft.priority} onChange={(v) => setField('priority', v)} options={['Normal', 'High', 'Urgent']} />
-      </div>
-
-
-      <section className="sub-panel strategy-panel">
-        <h2>Case strategy</h2>
-        <p className="muted">Use this as the master case summary: key issues, strategy, risks, evidence gaps and agreed approach.</p>
-        <TextArea label="Case strategy / key issues" value={draft.caseStrategy} onChange={(v) => setField('caseStrategy', v)} rows={8} />
-      </section>
-
-
-      <FamilyDetails members={draft.familyMembers || []} addFamilyMember={addFamilyMember} updateFamilyMember={updateFamilyMember} removeFamilyMember={removeFamilyMember} />
-
-      <div className="form-grid two">
-        <TextArea label="Notes" value={draft.notes} onChange={(v) => setField('notes', v)} />
-      </div>
-
-        </>
-      )}
-
-
-      <ExpandableClientSection
-        title="matter stages"
-        isOpen={showMatterStages}
-        onToggle={() => setShowMatterStages((value) => !value)}
-        summary={`${completedStageCount}/${appliedStageCount || 0} applied stages complete. Expand to apply, reorder or complete stages.`}
-      >
-        <h2>Matter stages</h2>
-        <p className="muted">Mandatory stages always apply. Optional and custom stages can be added, removed or reordered before saving the client.</p>
-        <div className="stage-add-row">
-          <input value={customStageLabel} onChange={(event) => setCustomStageLabel(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addCustomStage(); } }} placeholder="Add custom matter stage" />
-          <button className="btn" type="button" onClick={addCustomStage}><Plus size={16} />Add stage</button>
-        </div>
-        <div className="stage-list">
-          {(draft.stages || []).map((stage, index) => (
-            <div className={`stage-row ${stage.custom ? 'custom-stage' : ''}`} key={stage.id}>
-              <div className="stage-order-controls">
-                <button className="icon-btn" type="button" disabled={index === 0} onClick={() => moveStage(stage.id, -1)}>↑</button>
-                <button className="icon-btn" type="button" disabled={index === (draft.stages || []).length - 1} onClick={() => moveStage(stage.id, 1)}>↓</button>
+      <ClientWorkspaceShell sections={workspaceSections} activeSection={activeClientSection} onSelect={setActiveClientSection}>
+        {activeClientSection === 'overview' && (
+          <div className="client-workspace-section-stack">
+            <ClientWorkspaceIntro title="Client overview" description="Use this front page to orient yourself quickly before working in a specific file section." />
+            <div className="client-overview-stats">
+              <WorkspaceStat label="Current stage" value={currentStage} />
+              <WorkspaceStat label="Progress" value={`${progressPercent(draft)}%`} />
+              <WorkspaceStat label="Documents outstanding" value={`${outstandingDocuments.length}/${requiredDocuments.length}`} />
+              <WorkspaceStat label="Portal" value={draft.portalEnabled ? 'Active' : 'Inactive'} />
+              <WorkspaceStat label="Active billing" value={formatCurrency(activeBillingAmount)} />
+              <WorkspaceStat label="Upcoming appointments" value={linkedAppointments.length} />
+            </div>
+            <ClientSummaryPanel draft={draft} setField={setField} onOpenActionLog={() => setShowActionLog(true)} onOpenTimeline={() => setShowTimeline(true)} onPrintProfile={handlePrintClientProfile} calendarEntries={calendarEntries} />
+            <section className="sub-panel workspace-panel">
+              <div className="sub-panel-head compact"><div><h2>Core file details</h2><p className="muted">Details used for allocation, search, reporting and client contact.</p></div></div>
+              <div className="form-grid">
+                <Field label="Email" value={draft.email} onChange={(v) => setField('email', v)} />
+                <Field label="Phone" value={draft.phone} onChange={(v) => setField('phone', v)} />
+                <LookupField label="Citizenship" value={draft.nationality} onChange={(v) => setField('nationality', v)} options={COUNTRY_OPTIONS} listId="citizenship-options" placeholder="Start typing a country of citizenship" />
+                <LookupField label="Current address" value={draft.location} onChange={(v) => setField('location', v)} options={ADDRESS_LOOKUP_EXAMPLES} listId="address-options" placeholder="Start typing the current address" />
+                <SelectField label="Case type / application type" value={draft.caseType} onChange={(v) => setField('caseType', v)} options={caseTypes} placeholder="Select case type" />
+                <SelectField label="Primary adviser" value={draft.primaryAdviserId} onChange={(v) => setField('primaryAdviserId', v)} options={advisers.map((a) => ({ label: a.name, value: a.id }))} placeholder="Select primary adviser" />
+                <SelectField label="Backup adviser" value={draft.backupAdviserId} onChange={(v) => setField('backupAdviserId', v)} options={advisers.map((a) => ({ label: a.name, value: a.id }))} placeholder="Select backup adviser" />
+                <SelectField label="Priority" value={draft.priority} onChange={(v) => setField('priority', v)} options={['Normal', 'High', 'Urgent']} />
               </div>
-              <div className="stage-name-cell"><input type="checkbox" checked={stage.applied} disabled={stage.mandatory} onChange={(event) => updateStage(stage.id, { applied: event.target.checked })} /> <span>{stage.custom ? <input className="stage-label-input" value={stage.label} onChange={(event) => updateStage(stage.id, { label: event.target.value })} /> : <strong>{stage.label}</strong>}<small>{stage.mandatory ? 'Mandatory' : stage.custom ? 'Custom' : 'Optional'}</small></span></div>
-              <label><input type="checkbox" checked={stage.completed} disabled={!stage.applied} onChange={(event) => updateStage(stage.id, { completed: event.target.checked })} /> Completed</label>
-              <input type="date" value={stage.completedDate || ''} disabled={!stage.applied || !stage.completed} onChange={(event) => updateStage(stage.id, { completedDate: event.target.value })} />
-              <button className="icon-btn" type="button" disabled={!stage.custom} onClick={() => removeCustomStage(stage.id)} title={stage.custom ? 'Remove custom stage' : 'Hard-coded stage cannot be removed'}><Trash2 size={16} /></button>
-            </div>
-          ))}
-        </div>
-      </ExpandableClientSection>
+            </section>
+          </div>
+        )}
 
-      <ExpandableClientSection
-        title="client deadlines"
-        isOpen={showClientDeadlines}
-        onToggle={() => setShowClientDeadlines((value) => !value)}
-        summary={`${deadlineCount} deadline${deadlineCount === 1 ? '' : 's'} recorded. Expand to add, edit or remove critical dates.`}
-      >
-        <div className="sub-panel-head"><div><h2>Client deadline dates</h2><p className="muted">Add only the deadline dates that matter for this client.</p></div><button className="btn" onClick={addDeadline}><Plus size={16} />Deadline</button></div>
-        <div className="table-like">
-          {(draft.deadlines || []).map((deadline) => (
-            <div className="editable-row" key={deadline.id}>
-              <select value={deadline.type} onChange={(event) => updateDeadline(deadline.id, { type: event.target.value })}>{deadlineTypes.map((type) => <option key={type}>{type}</option>)}</select>
-              <input type="date" value={deadline.date || ''} onChange={(event) => updateDeadline(deadline.id, { date: event.target.value })} />
-              <input value={deadline.note || ''} onChange={(event) => updateDeadline(deadline.id, { note: event.target.value })} placeholder="Optional note" />
-              <button className="icon-btn" onClick={() => removeDeadline(deadline.id)}><Trash2 size={16} /></button>
-            </div>
-          ))}
-          {!draft.deadlines?.length && <p className="muted center">No deadlines added yet.</p>}
-        </div>
-      </ExpandableClientSection>
+        {activeClientSection === 'actions' && (
+          <div className="client-workspace-section-stack">
+            <ClientWorkspaceIntro title="Actions and timeline" description="Manage the current next action, review previous scheduled actions and open the full timeline." />
+            <section className="sub-panel workspace-panel">
+              <div className="sub-panel-head compact"><div><h2>Current bring-up</h2><p className="muted">Changing this action and saving will preserve the previous scheduled action in the action log.</p></div><div className="button-row"><button className="btn" type="button" onClick={() => setShowActionLog(true)}><Clock size={16} />Action log</button><button className="btn" type="button" onClick={() => setShowTimeline(true)}><CalendarDays size={16} />Timeline</button></div></div>
+              <div className="form-grid two summary-action-grid">
+                <TextArea label="Next action" value={draft.nextAction} onChange={(v) => setField('nextAction', v)} rows={5} />
+                <DateField label="Next action date" value={draft.nextActionDue} onChange={(v) => setField('nextActionDue', v)} />
+              </div>
+            </section>
+            <section className="sub-panel workspace-panel">
+              <div className="sub-panel-head compact"><div><h2>Client-submitted portal notes</h2><p className="muted">Client notes and actions submitted through the portal. Detailed handling remains in the Portal section.</p></div><span className="count-pill">{portalNewMessageCount} new</span></div>
+              {(draft.portalMessages || []).slice(0, 5).map((message) => <div className="portal-message-row" key={message.id || message.createdAt}><strong>{message.type || 'Client note'}</strong><span>{message.message || message.body || 'No message content'}</span><small>{formatPortalDateTime(message.createdAt)} · {message.status || 'New'}</small></div>)}
+              {!(draft.portalMessages || []).length && <p className="muted center">No client-submitted portal notes yet.</p>}
+            </section>
+          </div>
+        )}
 
-      <ExpandableClientSection
-        title="billing schedule"
-        isOpen={showClientBilling}
-        onToggle={() => setShowClientBilling((value) => !value)}
-        summary={`${billingItems.length} milestone${billingItems.length === 1 ? '' : 's'} recorded. ${activeBillingItems.length} WIP/overdue totalling ${formatCurrency(activeBillingAmount)}.`}
-      >
-        <div className="sub-panel-head"><div><h2>Billing and invoicing schedule</h2><p className="muted">Record milestones only. No documents are stored here.</p></div><button className="btn" onClick={addBilling}><Plus size={16} />Milestone</button></div>
-        <div className="table-like">
-          {(draft.billing || []).map((rawItem) => {
-            const item = normaliseBillingItem(rawItem);
-            const linkedStage = (draft.stages || []).find((stage) => stage.id === item.stageKey);
-            const linkedStageDue = item.triggerType === 'Milestone' && linkedStage?.completed ? linkedStage.completedDate : '';
-            const displayedStatus = effectiveBillingStatus(item, draft);
-            const autoOverdue = displayedStatus === 'Overdue' && item.status === 'WIP';
+        {activeClientSection === 'documents' && (
+          <div className="client-workspace-section-stack">
+            <ClientWorkspaceIntro title="Documents" description="Track required evidence and expiry dates. Portal PDFs and client-facing forms are managed in the Portal section." />
+            <DocumentChecklist items={normaliseDocumentChecklist(draft.documentChecklist)} updateItem={updateDocumentItem} addCustomItem={addCustomDocumentItem} removeCustomItem={removeCustomDocumentItem} />
+          </div>
+        )}
+
+        {activeClientSection === 'portal' && (
+          <div className="client-workspace-section-stack">
+            <ClientWorkspaceIntro title="Client portal publishing console" description="Manage what the client can see. Internal strategy, file notes and risk comments stay out of the portal." />
+            <ClientPortalPanel client={draft} advisers={advisers} calendarEntries={calendarEntries} generatedPortalCode={generatedPortalCode} setField={setField} updatePortalSelection={updatePortalSelection} generatePortalAccessCode={generatePortalAccessCode} copyPortalInstructions={copyPortalInstructions} publishPortalUpdate={handlePublishPortalUpdate} updatePortalMessageStatus={updatePortalMessageStatus} uploadPortalDocument={handlePortalDocumentUpload} updatePortalDocument={handlePortalDocumentUpdate} deletePortalDocument={handlePortalDocumentDelete} saving={saving} />
+          </div>
+        )}
+
+        {activeClientSection === 'stages' && (
+          <div className="client-workspace-section-stack">
+            <ClientWorkspaceIntro title="Matter stages" description="Apply, reorder and complete stages so the file progress map stays accurate." />
+            <div className="progress-card"><span>{currentStage}</span><b>{progressPercent(draft)}%</b><ProgressBar value={progressPercent(draft)} /></div>
+            <ProgressMap client={draft} />
+            <section className="sub-panel workspace-panel">
+              <div className="sub-panel-head compact"><div><h2>Stage editor</h2><p className="muted">Mandatory stages always apply. Optional and custom stages can be added, removed or reordered before saving the client.</p></div></div>
+              <div className="stage-add-row"><input value={customStageLabel} onChange={(event) => setCustomStageLabel(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addCustomStage(); } }} placeholder="Add custom matter stage" /><button className="btn" type="button" onClick={addCustomStage}><Plus size={16} />Add stage</button></div>
+              <div className="stage-list">
+                {(draft.stages || []).map((stage, index) => (
+                  <div className={`stage-row ${stage.custom ? 'custom-stage' : ''}`} key={stage.id}>
+                    <div className="stage-order-controls"><button className="icon-btn" type="button" disabled={index === 0} onClick={() => moveStage(stage.id, -1)}>↑</button><button className="icon-btn" type="button" disabled={index === (draft.stages || []).length - 1} onClick={() => moveStage(stage.id, 1)}>↓</button></div>
+                    <div className="stage-name-cell"><input type="checkbox" checked={stage.applied} disabled={stage.mandatory} onChange={(event) => updateStage(stage.id, { applied: event.target.checked })} /> <span>{stage.custom ? <input className="stage-label-input" value={stage.label} onChange={(event) => updateStage(stage.id, { label: event.target.value })} /> : <strong>{stage.label}</strong>}<small>{stage.mandatory ? 'Mandatory' : stage.custom ? 'Custom' : 'Optional'}</small></span></div>
+                    <label><input type="checkbox" checked={stage.completed} disabled={!stage.applied} onChange={(event) => updateStage(stage.id, { completed: event.target.checked })} /> Completed</label>
+                    <input type="date" value={stage.completedDate || ''} disabled={!stage.applied || !stage.completed} onChange={(event) => updateStage(stage.id, { completedDate: event.target.value })} />
+                    <button className="icon-btn" type="button" disabled={!stage.custom} onClick={() => removeCustomStage(stage.id)} title={stage.custom ? 'Remove custom stage' : 'Hard-coded stage cannot be removed'}><Trash2 size={16} /></button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+        )}
+
+        {activeClientSection === 'dates' && (
+          <div className="client-workspace-section-stack">
+            <ClientWorkspaceIntro title="Key dates" description="Record the expiry dates and deadlines that can affect the matter. These feed the task list and dashboard." />
+            <section className="sub-panel workspace-panel">
+              <div className="sub-panel-head"><div><h2>Client deadline dates</h2><p className="muted">Add only the deadline dates that matter for this client.</p></div><button className="btn" onClick={addDeadline}><Plus size={16} />Deadline</button></div>
+              <div className="table-like">
+                {(draft.deadlines || []).map((deadline) => <div className="editable-row" key={deadline.id}><select value={deadline.type} onChange={(event) => updateDeadline(deadline.id, { type: event.target.value })}>{deadlineTypes.map((type) => <option key={type}>{type}</option>)}</select><input type="date" value={deadline.date || ''} onChange={(event) => updateDeadline(deadline.id, { date: event.target.value })} /><input value={deadline.note || ''} onChange={(event) => updateDeadline(deadline.id, { note: event.target.value })} placeholder="Optional note" /><button className="icon-btn" onClick={() => removeDeadline(deadline.id)}><Trash2 size={16} /></button></div>)}
+                {!draft.deadlines?.length && <p className="muted center">No deadlines added yet.</p>}
+              </div>
+            </section>
+          </div>
+        )}
+
+        {activeClientSection === 'billing' && (
+          <div className="client-workspace-section-stack">
+            <ClientWorkspaceIntro title="Billing" description="Record billing milestones, invoice status and client-visible payment items." />
+            <section className="sub-panel workspace-panel">
+              <div className="sub-panel-head"><div><h2>Billing and invoicing schedule</h2><p className="muted">Record milestones only. No documents are stored here.</p></div><button className="btn" onClick={addBilling}><Plus size={16} />Milestone</button></div>
+              <div className="table-like">
+                {(draft.billing || []).map((rawItem) => {
+                  const item = normaliseBillingItem(rawItem);
+                  const linkedStage = (draft.stages || []).find((stage) => stage.id === item.stageKey);
+                  const linkedStageDue = item.triggerType === 'Milestone' && linkedStage?.completed ? linkedStage.completedDate : '';
+                  const displayedStatus = effectiveBillingStatus(item, draft);
+                  const autoOverdue = displayedStatus === 'Overdue' && item.status === 'WIP';
+                  return (
+                    <div className={`billing-edit-card ${displayedStatus === 'Overdue' ? 'overdue-soft' : ''}`} key={item.id}>
+                      <label className="billing-field billing-description-field"><span>Billing item / description</span><input value={item.milestone || ''} onChange={(event) => updateBilling(item.id, { milestone: event.target.value })} placeholder="e.g. Lodgement fee, professional fee, balance invoice" /></label>
+                      <label className="billing-field billing-trigger-field"><span>Billing based on</span><select value={item.triggerType || 'Date'} onChange={(event) => updateBilling(item.id, { triggerType: event.target.value, stageKey: event.target.value === 'Date' ? '' : item.stageKey })}><option value="Date">Date</option><option value="Milestone">Matter stage / milestone</option></select></label>
+                      {item.triggerType === 'Milestone' ? <label className="billing-field billing-stage-field"><span>Linked matter stage</span><select value={item.stageKey || ''} onChange={(event) => updateBilling(item.id, { stageKey: event.target.value })}><option value="">Select linked stage</option>{(draft.stages || []).filter((stage) => stage.applied).map((stage) => <option key={stage.id} value={stage.id}>{stage.label}</option>)}</select></label> : <label className="billing-field billing-date-field"><span>Billing date</span><input type="date" value={item.dueDate || ''} onChange={(event) => updateBilling(item.id, { dueDate: event.target.value })} /></label>}
+                      <label className="billing-field billing-amount-field"><span>Amount</span><input type="number" value={item.amount || 0} onChange={(event) => updateBilling(item.id, { amount: event.target.value })} /></label>
+                      <label className="billing-field billing-status-field"><span>Status</span><select value={item.status || 'WIP'} onChange={(event) => updateBilling(item.id, { status: event.target.value })}>{BILLING_STATUSES.map((status) => <option key={status}>{status}</option>)}</select></label>
+                      <label className="billing-field billing-invoice-field"><span>Invoice no.</span><input value={item.invoiceNo || ''} onChange={(event) => updateBilling(item.id, { invoiceNo: event.target.value })} placeholder="Invoice no." /></label>
+                      <button className="icon-btn billing-remove-btn" type="button" onClick={() => removeBilling(item.id)} aria-label="Remove billing item"><Trash2 size={16} /></button>
+                      <small className="billing-hint">{autoOverdue ? 'This WIP billing item is displayed as overdue because its reporting date has passed. Change status to Invoiced once raised.' : item.triggerType === 'Milestone' ? (linkedStage ? (linkedStageDue ? `Billing is now due because ${linkedStage.label} was completed on ${linkedStageDue}.` : `This billing item will become due when ${linkedStage.label} is marked completed.`) : 'Choose Matter stage / milestone, then select the linked client stage that triggers this bill.') : 'This billing item will appear in period billing reports based on the billing date.'}</small>
+                    </div>
+                  );
+                })}
+                {!draft.billing?.length && <p className="muted center">No billing milestones added yet.</p>}
+              </div>
+            </section>
+          </div>
+        )}
+
+        {activeClientSection === 'family' && (
+          <div className="client-workspace-section-stack">
+            <ClientWorkspaceIntro title="Family and dependants" description="Record family members relevant to the matter, including partners and dependants." />
+            <FamilyDetails members={draft.familyMembers || []} addFamilyMember={addFamilyMember} updateFamilyMember={updateFamilyMember} removeFamilyMember={removeFamilyMember} />
+          </div>
+        )}
+
+        {activeClientSection === 'notes' && (
+          <div className="client-workspace-section-stack">
+            <ClientWorkspaceIntro title="Notes and strategy" description="Internal-only strategy, adviser notes, risk points and file comments. These are not shown in the client portal." />
+            <section className="sub-panel strategy-panel workspace-panel"><h2>Case strategy</h2><p className="muted">Use this as the master case summary: key issues, strategy, risks, evidence gaps and agreed approach.</p><TextArea label="Case strategy / key issues" value={draft.caseStrategy} onChange={(v) => setField('caseStrategy', v)} rows={8} /></section>
+            <section className="sub-panel workspace-panel"><h2>Internal notes</h2><div className="form-grid two"><TextArea label="Notes" value={draft.notes} onChange={(v) => setField('notes', v)} rows={8} /></div></section>
+          </div>
+        )}
+      </ClientWorkspaceShell>
+    </div>
+  );
+}
+
+
+function ClientWorkspaceShell({ sections, activeSection, onSelect, children }) {
+  return (
+    <section className="client-workspace">
+      <aside className="client-workspace-nav" aria-label="Client record sections">
+        <div className="client-workspace-nav-head">
+          <strong>Client workspace</strong>
+          <span>Work through one section at a time.</span>
+        </div>
+        <div className="client-workspace-section-list">
+          {sections.map((section) => {
+            const Icon = section.icon || FileText;
+            const active = activeSection === section.id;
             return (
-            <div className={`billing-edit-card ${displayedStatus === 'Overdue' ? 'overdue-soft' : ''}`} key={item.id}>
-              <label className="billing-field billing-description-field"><span>Billing item / description</span><input value={item.milestone || ''} onChange={(event) => updateBilling(item.id, { milestone: event.target.value })} placeholder="e.g. Lodgement fee, professional fee, balance invoice" /></label>
-              <label className="billing-field billing-trigger-field"><span>Billing based on</span><select value={item.triggerType || 'Date'} onChange={(event) => updateBilling(item.id, { triggerType: event.target.value, stageKey: event.target.value === 'Date' ? '' : item.stageKey })}><option value="Date">Date</option><option value="Milestone">Matter stage / milestone</option></select></label>
-              {item.triggerType === 'Milestone' ? (
-                <label className="billing-field billing-stage-field"><span>Linked matter stage</span><select value={item.stageKey || ''} onChange={(event) => updateBilling(item.id, { stageKey: event.target.value })}>
-                  <option value="">Select linked stage</option>
-                  {(draft.stages || []).filter((stage) => stage.applied).map((stage) => <option key={stage.id} value={stage.id}>{stage.label}</option>)}
-                </select></label>
-              ) : (
-                <label className="billing-field billing-date-field"><span>Billing date</span><input type="date" value={item.dueDate || ''} onChange={(event) => updateBilling(item.id, { dueDate: event.target.value })} /></label>
-              )}
-              <label className="billing-field billing-amount-field"><span>Amount</span><input type="number" value={item.amount || 0} onChange={(event) => updateBilling(item.id, { amount: event.target.value })} /></label>
-              <label className="billing-field billing-status-field"><span>Status</span><select value={item.status || 'WIP'} onChange={(event) => updateBilling(item.id, { status: event.target.value })}>{BILLING_STATUSES.map((status) => <option key={status}>{status}</option>)}</select></label>
-              <label className="billing-field billing-invoice-field"><span>Invoice no.</span><input value={item.invoiceNo || ''} onChange={(event) => updateBilling(item.id, { invoiceNo: event.target.value })} placeholder="Invoice no." /></label>
-              <button className="icon-btn billing-remove-btn" type="button" onClick={() => removeBilling(item.id)} aria-label="Remove billing item"><Trash2 size={16} /></button>
-              <small className="billing-hint">{autoOverdue ? 'This WIP billing item is displayed as overdue because its reporting date has passed. Change status to Invoiced once raised.' : item.triggerType === 'Milestone' ? (linkedStage ? (linkedStageDue ? `Billing is now due because ${linkedStage.label} was completed on ${linkedStageDue}.` : `This billing item will become due when ${linkedStage.label} is marked completed.`) : 'Choose Matter stage / milestone, then select the linked client stage that triggers this bill.') : 'This billing item will appear in period billing reports based on the billing date.'}</small>
-            </div>
-          );})}
-          {!draft.billing?.length && <p className="muted center">No billing milestones added yet.</p>}
+              <button key={section.id} type="button" className={`client-workspace-nav-card ${active ? 'active' : ''}`} onClick={() => onSelect(section.id)}>
+                <span className="client-workspace-nav-icon"><Icon size={18} /></span>
+                <span className="client-workspace-nav-copy"><strong>{section.label}</strong><small>{section.summary}</small></span>
+                {section.badge && <b className="client-workspace-nav-badge">{section.badge}</b>}
+              </button>
+            );
+          })}
         </div>
-      </ExpandableClientSection>
+      </aside>
+      <div className="client-workspace-body">{children}</div>
+    </section>
+  );
+}
+
+function ClientWorkspaceIntro({ title, description }) {
+  return (
+    <div className="client-workspace-intro">
+      <div>
+        <span className="eyebrow">Client file section</span>
+        <h2>{title}</h2>
+        <p>{description}</p>
+      </div>
+    </div>
+  );
+}
+
+function WorkspaceStat({ label, value }) {
+  return (
+    <div className="workspace-stat">
+      <span>{label}</span>
+      <strong>{value || '—'}</strong>
     </div>
   );
 }

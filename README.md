@@ -1,6 +1,17 @@
-# Turner Hopkins CRM - Netlify Database v0.10.9
+# Turner Hopkins CRM - Netlify Database v0.10.10
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
+
+
+## v0.10.10 - Client Workspace Redesign
+
+- Reworked the client editor into a calmer Client Workspace layout.
+- Added section navigation for Overview, Actions, Documents, Portal, Stages, Key dates, Billing, Family, and Notes & strategy.
+- Shows one client workspace section at a time so advisers can focus on the task at hand.
+- Added status summaries and badges to each section so important file information can be scanned before opening the section.
+- Moved the previous stacked collapsible controls into a clearer adviser workflow without changing the underlying client data.
+- Preserved action log, timeline, portal, document checklist, stage, billing, family and notes functionality.
+- No database migration required.
 
 
 

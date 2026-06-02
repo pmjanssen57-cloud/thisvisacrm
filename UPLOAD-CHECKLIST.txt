@@ -1,3 +1,5 @@
+THiS CRM v0.10.10 - Client Workspace Redesign
+
 THiS CRM v0.10.7 upload checklist
 
 1. Preserve the netlify/ folder.
