@@ -81,3 +81,10 @@ Additional v0.11.15 checks:
 41. Confirm document checklist rows clearly show Required, Document, Expiry date and Obtained controls.
 42. Publish billing milestones to the client portal and confirm Invoiced items have a distinct blue-toned status style.
 43. Publish both obtained and outstanding document checklist items and confirm outstanding items appear lighter while obtained items remain green with a tick.
+
+
+Additional v0.11.16 checks:
+44. Publish a portal update for a client with both obtained and outstanding required document checklist items.
+45. Confirm the portal Document checklist shows outstanding items first in a lighter Still required style.
+46. Confirm obtained document checklist items remain green with the Obtained label.
+47. Publish billing milestones with WIP, Invoiced and Overdue statuses and confirm Invoiced items are visibly blue-toned.

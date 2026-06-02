@@ -2042,14 +2042,19 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
         </section>
 
         <section className="portal-card wide">
-          <h2>Document checklist</h2>
+          <div className="portal-section-head compact">
+            <div>
+              <h2>Document checklist</h2>
+              <p>Outstanding items are shown first. Completed items are marked as obtained.</p>
+            </div>
+          </div>
           {documentsRequired.length ? (
             <div className="portal-document-checklist">
               {documentsRequired.map((item) => (
                 <div className={`portal-document-checklist-row ${item.obtained ? 'obtained' : 'outstanding'}`} key={item.id}>
                   <span className="portal-document-check-icon">{item.obtained ? <CheckCircle2 size={17} /> : <Clock size={17} />}</span>
                   <div><strong>{item.name}</strong>{item.expiryDate && <span>Expiry: {formatPortalDate(item.expiryDate)}</span>}</div>
-                  <b>{item.obtained ? 'Obtained' : 'Required'}</b>
+                  <b>{item.obtained ? 'Obtained' : 'Still required'}</b>
                 </div>
               ))}
             </div>

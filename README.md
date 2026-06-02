@@ -1,7 +1,15 @@
-# Turner Hopkins CRM - Netlify Database v0.11.15
+# Turner Hopkins CRM - Netlify Database v0.11.16
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
+
+## v0.11.16 - Portal Document and Billing Refresh
+
+- Updated the client portal document checklist so all applied/required client checklist items are shown, not only selected/obtained items.
+- Outstanding portal document items now appear first and use a lighter still-required style.
+- Obtained portal document items retain the green completed treatment.
+- Strengthened portal billing milestone styling so Invoiced items are visibly distinct with a blue status treatment.
+- No database migration required.
 
 ## v0.11.15 - Client Workspace and Portal Readability Polish
 

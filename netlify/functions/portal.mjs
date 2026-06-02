@@ -244,9 +244,13 @@ async function buildPortalSnapshot(clientId) {
   const visibleAppointmentIds = new Set(parseJsonArray(client.portal_visible_appointment_ids));
   const visibleBillingIds = new Set(parseJsonArray(client.portal_visible_billing_ids));
 
+  // Client portal document checklist intentionally shows the full applied checklist for the client.
+  // The adviser controls relevance by marking checklist items as Required/Not required in the CRM;
+  // obtained items are shown with a completed state and outstanding items are shown separately.
   const documentsRequired = parseDocumentChecklist(client.document_checklist)
-    .filter((item) => item.applied !== false && visibleDocumentIds.has(item.id))
-    .map((item) => ({ id: item.id, name: item.name, expiryDate: item.expiryDate || '', obtained: Boolean(item.obtained) }));
+    .filter((item) => item.applied !== false)
+    .map((item) => ({ id: item.id, name: item.name, expiryDate: item.expiryDate || '', obtained: Boolean(item.obtained) }))
+    .sort((a, b) => Number(a.obtained) - Number(b.obtained) || String(a.name || '').localeCompare(String(b.name || '')));
   const documents = documentsRequired.filter((item) => !item.obtained);
 
   const keyDates = (deadlineRows || [])
