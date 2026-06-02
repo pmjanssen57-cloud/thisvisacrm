@@ -2524,6 +2524,88 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   }
 }
 
+/* v0.11.1: calmer grouped desktop navigation */
+.desktop-tabs.main-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  margin: 6px 0 24px;
+  overflow: visible;
+}
+.main-nav-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.main-nav-primary {
+  flex: 0 0 auto;
+}
+.main-nav-secondary {
+  flex: 1 1 auto;
+  justify-content: flex-end;
+}
+.main-nav-divider {
+  width: 1px;
+  align-self: stretch;
+  background: #d6ebe2;
+  margin: 4px 2px;
+}
+.desktop-tabs.main-nav .tab {
+  min-height: 44px;
+  border-radius: 16px;
+  box-shadow: none;
+  transform: none;
+}
+.desktop-tabs.main-nav .main-nav-primary .tab {
+  min-width: 132px;
+  padding: 10px 16px;
+  font-size: 15px;
+  background: #fff;
+  color: var(--ink);
+  border-color: #d8ebe3;
+}
+.desktop-tabs.main-nav .main-nav-secondary .tab {
+  min-width: 0;
+  min-height: 40px;
+  padding: 8px 11px;
+  font-size: 13px;
+  background: transparent;
+  color: #526477;
+  border-color: transparent;
+}
+.desktop-tabs.main-nav .tab:hover {
+  transform: none;
+}
+.desktop-tabs.main-nav .tab.active {
+  color: #fff;
+  background: var(--ink);
+  border-color: var(--ink);
+  box-shadow: 0 8px 18px rgba(0, 55, 54, 0.16);
+}
+.desktop-tabs.main-nav .tab.active svg {
+  color: #fff;
+}
+
+@media (max-width: 1180px) {
+  .desktop-tabs.main-nav {
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+  .main-nav-group {
+    flex: 0 0 auto;
+  }
+  .main-nav-divider {
+    display: none;
+  }
+  .desktop-tabs.main-nav .main-nav-primary .tab {
+    min-width: 120px;
+  }
+}
+
 /* v0.9.0 INZ Knowledge Library */
 .library-workspace { display: grid; gap: 18px; }
 .library-heading {
@@ -3905,14 +3987,19 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .intake-heading p { margin: 8px 0 0; max-width: 860px; }
 .intake-layout { display: grid; grid-template-columns: minmax(280px, 0.85fr) minmax(0, 1.65fr); gap: 18px; align-items: start; }
 .intake-list-panel, .intake-editor { min-width: 0; }
-.intake-list-item .intake-flags { margin-top: 2px; }
-.intake-editor-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; border-bottom: 1px solid var(--line); padding-bottom: 14px; }
+.intake-list-item .intake-flags { margin-top: 4px; }
+.intake-editor-head { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; border-bottom: 1px solid var(--line); padding-bottom: 14px; }
 .intake-editor-head h2 { margin: 4px 0 4px; color: var(--ink); }
 .intake-editor-head p { margin: 0; color: var(--muted); }
-.intake-flags { display: flex; flex-wrap: wrap; gap: 7px; justify-content: flex-end; }
-.intake-flags span { border: 1px solid #fed7aa; background: #fff7ed; color: #92400e; border-radius: 999px; padding: 4px 8px; font-size: 11px; font-weight: 900; }
-.intake-flags.compact { justify-content: flex-start; }
-.intake-flags.compact span { font-size: 10px; padding: 3px 7px; }
+.intake-flags { display: grid; gap: 7px; justify-items: end; min-width: min(310px, 42vw); }
+.intake-flags-head { display: grid; gap: 2px; text-align: right; }
+.intake-flags-head span { color: var(--ink); font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; }
+.intake-flags-head small { color: var(--muted); font-size: 11px; line-height: 1.35; max-width: 310px; }
+.intake-flag-tags { display: flex; flex-wrap: wrap; gap: 7px; justify-content: flex-end; }
+.intake-flag-tags span { border: 1px solid #cfe3df; background: #f7fbfa; color: #244a4a; border-radius: 999px; padding: 4px 9px; font-size: 11px; font-weight: 850; }
+.intake-flags.compact { min-width: 0; justify-items: start; }
+.intake-flags.compact .intake-flag-tags { justify-content: flex-start; }
+.intake-flags.compact .intake-flag-tags span { font-size: 10px; padding: 3px 7px; }
 .intake-summary-grid, .intake-payload-view { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .intake-summary-card { border: 1px solid var(--line); border-radius: 18px; padding: 14px; background: #fff; display: grid; gap: 9px; align-content: start; }
 .intake-summary-card h3 { margin: 0 0 3px; color: var(--ink); font-size: 1rem; }
@@ -3948,7 +4035,37 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   .intake-public-card { border-radius: 22px; padding: 16px; }
   .intake-section { border-radius: 18px; padding: 14px; }
   .intake-editor-head, .intake-submit-bar { display: grid; }
-  .intake-flags { justify-content: flex-start; }
+  .intake-flags { justify-items: flex-start; min-width: 0; }
+  .intake-flags-head { text-align: left; }
+  .intake-flag-tags { justify-content: flex-start; }
   .intake-summary-card p { grid-template-columns: 1fr; gap: 3px; }
   .intake-submit-bar .btn { justify-content: center; }
+}
+
+/* v0.11.3 intake assessment questionnaire polish */
+.intake-public-card { max-width: 1040px; }
+.intake-public-head.compact { grid-template-columns: 240px minmax(0, 1fr); gap: 30px; align-items: center; }
+.intake-brand-logo { width: min(240px, 100%); max-height: 112px; object-fit: contain; object-position: left center; }
+.intake-public-head.compact h1 { margin: 0 0 10px; font-size: clamp(34px, 4.2vw, 50px); }
+.intake-public-head.compact p { max-width: 680px; font-size: 1.02rem; }
+.intake-section { gap: 16px; }
+.intake-section h2 { font-size: 1.25rem; }
+.intake-section h3 { margin: 0; color: var(--ink); font-size: 1.03rem; }
+.intake-section h4 { margin: 0; color: var(--ink); font-size: 0.98rem; }
+.intake-nested-panel { border: 1px solid #d8efe6; background: #f7fcfa; border-radius: 20px; padding: 16px; display: grid; gap: 14px; }
+.intake-panel-title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.intake-child-card { border: 1px solid var(--line); background: #fff; border-radius: 18px; padding: 14px; display: grid; gap: 12px; }
+.intake-form .btn.mini { min-height: 34px; padding: 7px 10px; font-size: 0.82rem; }
+.intake-form .btn.danger.mini { border-color: #ffd8d8; background: #fff7f7; color: #8a2424; }
+.intake-payload-view { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+@media (max-width: 980px) {
+  .intake-public-head.compact { grid-template-columns: 1fr; gap: 14px; }
+  .intake-brand-logo { width: 220px; }
+  .intake-payload-view { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .intake-public-head.compact h1 { font-size: 2rem; }
+  .intake-brand-logo { width: 190px; }
+  .intake-panel-title-row { align-items: stretch; display: grid; }
 }

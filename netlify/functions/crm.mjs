@@ -30,6 +30,7 @@ const CASE_TYPES = [
   'Parent Retirement',
   'Active Investor',
   'AEWV Only',
+  'Visitor Visa',
   'Partner WV Only',
   'Specific Purpose Work Visa',
   'Citizenship',
@@ -966,23 +967,36 @@ function normaliseIntakeStatus(value) {
 function buildClientFromIntake(intake = {}) {
   const payload = intake.rawPayload || {};
   const familyMembers = [];
-  if (payload.partnerName || payload.partnerCitizenship) {
+  if (payload.partnerFullName || payload.partnerName || payload.partnerCitizenship) {
     familyMembers.push({
       id: `member-${Date.now()}-partner`,
       relationship: 'Spouse/Partner',
-      name: String(payload.partnerName || '').trim(),
+      name: String(payload.partnerFullName || payload.partnerName || '').trim(),
       nationality: String(payload.partnerCitizenship || '').trim(),
-      dateOfBirth: '',
+      dateOfBirth: String(payload.partnerDateOfBirth || '').trim(),
+    });
+  }
+  if (Array.isArray(payload.children)) {
+    payload.children.forEach((child, index) => {
+      if (!child || !(child.fullName || child.dateOfBirth || child.citizenship)) return;
+      familyMembers.push({
+        id: `member-${Date.now()}-child-${index}`,
+        relationship: 'Child',
+        name: String(child.fullName || '').trim(),
+        nationality: String(child.citizenship || '').trim(),
+        dateOfBirth: String(child.dateOfBirth || '').trim(),
+      });
     });
   }
   const strategyParts = [
     'Converted from website intake form.',
     intake.recommendedPathway ? `Recommended pathway: ${intake.recommendedPathway}` : '',
     payload.helpNeeded ? `Client goal/help needed: ${payload.helpNeeded}` : '',
+    payload.desiredTimeframe ? `Preferred timing: ${payload.desiredTimeframe}` : '',
     payload.currentVisaType || payload.currentVisaExpiry ? `Current visa: ${[payload.currentVisaType, payload.currentVisaExpiry ? `expires ${payload.currentVisaExpiry}` : ''].filter(Boolean).join(' ')}` : '',
-    payload.hasNzJobOffer || payload.employerName || payload.jobTitle ? `NZ employment: ${[payload.hasNzJobOffer, payload.jobTitle, payload.employerName].filter(Boolean).join(' · ')}` : '',
+    payload.hasNzJobOffer || payload.employerName || payload.jobTitle ? `NZ employment: ${[payload.hasNzJobOffer, payload.jobTitle, payload.employerName, payload.nzJobLocation].filter(Boolean).join(' · ')}` : '',
     payload.healthIssues ? `Health declaration: ${payload.healthIssues}${payload.healthDetails ? ` - ${payload.healthDetails}` : ''}` : '',
-    payload.characterIssues ? `Character declaration: ${payload.characterIssues}${payload.characterDetails ? ` - ${payload.characterDetails}` : ''}` : '',
+    [payload.characterIssues, payload.characterConvictions, payload.characterPendingCharges, payload.deportationRemoval].some(Boolean) ? `Character declaration: ${[payload.characterIssues, payload.characterConvictions, payload.characterPendingCharges, payload.deportationRemoval].filter(Boolean).join(' · ')}${payload.characterDetails ? ` - ${payload.characterDetails}` : ''}` : '',
     intake.adviserAssessmentNotes ? `Adviser assessment notes: ${intake.adviserAssessmentNotes}` : '',
   ].filter(Boolean).join('\n\n');
 
@@ -990,11 +1004,14 @@ function buildClientFromIntake(intake = {}) {
     `Intake source: ${payload.submittedVia || 'Website intake form'}`,
     payload.preferredContactMethod ? `Preferred contact: ${payload.preferredContactMethod}` : '',
     payload.additionalInfo ? `Additional intake comments: ${payload.additionalInfo}` : '',
-    payload.familyDetails ? `Family details: ${payload.familyDetails}` : '',
+    payload.relationshipBackground ? `Relationship background: ${payload.relationshipBackground}` : '',
+    Array.isArray(payload.children) && payload.children.length ? `Children: ${payload.children.map((child, index) => `${index + 1}. ${[child.fullName, child.dateOfBirth, child.citizenship, child.includedInApplication ? `Included: ${child.includedInApplication}` : ''].filter(Boolean).join(' · ')}`).join('\n')}` : '',
+    payload.qualificationName || payload.highestQualification ? `Qualification: ${[payload.highestQualification, payload.qualificationName, payload.qualificationInstitution, payload.qualificationCountry, payload.nzqaAssessed ? `NZQA: ${payload.nzqaAssessed}` : ''].filter(Boolean).join(' · ')}` : '',
     payload.qualificationDetails ? `Qualification details: ${payload.qualificationDetails}` : '',
-    payload.workDetails ? `Work details: ${payload.workDetails}` : '',
+    payload.currentEmployer || payload.currentEmploymentStatus ? `Current employment: ${[payload.currentEmploymentStatus, payload.occupation, payload.currentEmployer, payload.employmentCountry].filter(Boolean).join(' · ')}` : '',
     payload.employmentDetails ? `Employment details: ${payload.employmentDetails}` : '',
     payload.fundsDetails ? `Funds/investment details: ${payload.fundsDetails}` : '',
+    payload.immigrationHistoryDetails ? `Immigration history details: ${payload.immigrationHistoryDetails}` : '',
     payload.nzTravelHistory ? `NZ travel history: ${payload.nzTravelHistory}` : '',
   ].filter(Boolean).join('\n\n');
 
@@ -1041,6 +1058,7 @@ function inferCaseTypeFromIntake(intake = {}) {
   if (/skilled migrant|smc|residence|resident/.test(text)) return 'SMC Residence - Points';
   if (/employer|aewv|work visa|work/.test(text)) return 'AEWV Only';
   if (/student/.test(text)) return 'Student Visa (Intl)';
+  if (/visitor|visit/.test(text)) return 'Visitor Visa';
   if (/citizenship/.test(text)) return 'Citizenship';
   if (/permanent residence|prv/.test(text)) return 'Permanent Residence';
   if (/parent retirement/.test(text)) return 'Parent Retirement';

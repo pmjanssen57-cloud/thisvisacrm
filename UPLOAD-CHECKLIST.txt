@@ -1,4 +1,4 @@
-THiS CRM v0.11.0 - Intake Form Foundation
+THiS CRM v0.11.3 - Intake Assessment Questionnaire Redesign
 
 Upload checklist
 
@@ -10,16 +10,16 @@ Upload checklist
    - CRM_ACCESS_TOKEN (temporary fallback until removed)
 5. Deploy through Netlify with Clear cache and deploy if possible.
 6. Confirm adviser login still works.
-7. Confirm the new Intake tab appears in the main navigation.
-8. Open `/intake` in a new browser tab and submit a test enquiry.
-9. Return to the CRM Intake tab and confirm the enquiry appears with flags and raw assessment details.
-10. Assign an adviser, add assessment notes, recommended pathway and consultation outcome, then save.
-11. Convert the test enquiry to a client and confirm a new Client record opens.
-12. Confirm the converted intake record is linked and cannot be deleted from the Intake workspace.
-13. Spot-check Library, Clients, Dashboard, Tasks, Calendar and Billing still open normally.
+7. Open the Intake section.
+8. Confirm the intake metric says Review flags rather than Flagged.
+9. Open an intake record with flags and confirm the right-hand header shows Review flags plus the helper note.
+10. Confirm flag labels are clearer, for example Character review, Employment details and Funds/investment.
+11. Confirm the flag tags use softer neutral styling rather than strong orange/brown warning colours.
+12. Confirm intake list cards still show compact review flags and no layout clipping occurs.
+13. Open `/intake` and submit a test enquiry to confirm intake creation still works.
+14. Confirm the test enquiry can still be saved, updated and converted to a client.
 
 Notes:
-- This is the first road-testing version of the pre-client intake workflow.
-- Intake records are deliberately separate from live client records until conversion.
-- No file uploads are included in this version.
-- New migration added only: netlify/database/migrations/202606020001_add_intake_enquiries.sql.
+- This is a UI wording and presentation polish release on top of v0.11.1.
+- No database migration required.
+- Intake review flags remain internal adviser prompts only. They are not client-facing outcomes or assessment conclusions.

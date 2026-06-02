@@ -1,8 +1,29 @@
-# Turner Hopkins CRM - Netlify Database v0.11.0
+# Turner Hopkins CRM - Netlify Database v0.11.3
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
 
+
+## v0.11.3 - Intake Assessment Questionnaire Redesign
+
+- Renamed the public intake form to Assessment Questionnaire.
+- Enlarged the Turner Hopkins branding in the public form header.
+- Removed most explanatory notes from the public form and tightened the section layout.
+- Added responsive partner details that open only when the applicant selects that they have a partner.
+- Added structured child entries, with add/remove controls and support for up to four children in this version.
+- Expanded the questionnaire across immigration goal, current visa situation, partner/family, work, NZ job offer, qualifications, health, character, immigration history, funds/investment and consent.
+- Added conditional panels for NZ job offers, health details, character/immigration issues, investment background and child details.
+- Improved adviser-side intake summaries with a clearer assessment snapshot and expanded raw payload view.
+- No uploads in this version and no database migration required.
+
+
+## v0.11.1 - Main Navigation Simplification
+
+- Reordered the desktop navigation to lead with Dashboard, Tasks and Clients.
+- Grouped the remaining work areas after the primary adviser workflow: Calendar, Billing, Intake, Library and Advisers.
+- Reduced the visual weight of the secondary navigation items so the bar feels less busy.
+- Kept the mobile bottom navigation focused on Dashboard, Tasks, Clients and Calendar, with the remaining areas under More.
+- No database migration required.
 
 ## v0.11.0 - Intake Form Foundation
 
