@@ -1,4 +1,4 @@
-THiS CRM v0.11.13 - Client Portal Access Reliability Fix
+THiS CRM v0.11.14 - Client Portal Publish Save Fix
 
 Upload checklist
 
@@ -59,7 +59,7 @@ Additional v0.11.12 checks:
 37. In Portal > Portal PDFs and standard forms, confirm the PDF file picker, title, category, short note, Visible to client checkbox and Upload PDF button wrap neatly without overflowing.
 38. Confirm Documents, Stages, Key dates, Billing and Family rows wrap cleanly on narrower screens.
 
-Additional v0.11.13 checks:
+Additional v0.11.14 checks:
 39. Open a client record and confirm Portal enabled is ticked.
 40. Generate/reset the portal access code, then click Publish portal update.
 41. Copy the portal instructions and log in using the portal email and access code.
@@ -67,3 +67,9 @@ Additional v0.11.13 checks:
 43. Paste the access code with minor spacing/case differences and confirm the portal still recognises it.
 44. Confirm an incorrect code is still rejected.
 
+
+- On a client with Portal inactive, generate/reset an access code, then click Publish portal update.
+- Confirm the Portal workspace stays open after publishing.
+- Confirm the sidebar badge changes to Active once the save returns.
+- Re-open the portal section and confirm the one-time code banner is no longer shown after successful publishing.
+- Test portal login with the portal email/client email and the newly generated code.

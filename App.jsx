@@ -3429,17 +3429,18 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
   const previousClientIdRef = useRef(client.id);
   const isDirty = useMemo(() => stableStringify(draft) !== stableStringify(client), [draft, client]);
   useEffect(() => {
-    if (previousClientIdRef.current !== client.id) {
+    const clientChanged = previousClientIdRef.current !== client.id;
+    if (clientChanged) {
       setGeneratedPortalCode('');
       previousClientIdRef.current = client.id;
+      setActiveClientSection('overview');
+      setShowActionLog(false);
+      setShowTimeline(false);
+      setCustomStageLabel('');
+      setStatusMessage('');
+      setValidationMessage('');
     }
     setDraft(client);
-    setActiveClientSection('overview');
-    setShowActionLog(false);
-    setShowTimeline(false);
-    setCustomStageLabel('');
-    setStatusMessage('');
-    setValidationMessage('');
   }, [client]);
 
   useEffect(() => {
@@ -3624,7 +3625,16 @@ Turner Hopkins Immigration Specialists`;
     setValidationMessage('');
     setStatusMessage('Publishing client portal update...');
     try {
-      await saveClient(draftWithPendingPortalAccessCode({ portalPublishNow: true }), { resetNewClientForm: false });
+      const portalEmail = String(draft.portalEmail || draft.email || '').trim();
+      const clientToPublish = draftWithPendingPortalAccessCode({
+        portalPublishNow: true,
+        portalEnabled: true,
+        portalEmail,
+      });
+      const body = await saveClient(clientToPublish, { resetNewClientForm: false });
+      if (body?.client) setDraft(normaliseClientFromApi(body.client));
+      setGeneratedPortalCode('');
+      setActiveClientSection('portal');
       onDirtyChange?.(false);
       setStatusMessage(`Client portal update published ${formatTimeNow()}.`);
     } catch (err) {
@@ -3722,7 +3732,9 @@ Turner Hopkins Immigration Specialists`;
     setValidationMessage('');
     setStatusMessage('Saving client record...');
     try {
-      await saveClient(draftWithPendingPortalAccessCode(), { resetNewClientForm: isNewClient });
+      const body = await saveClient(draftWithPendingPortalAccessCode(), { resetNewClientForm: isNewClient });
+      if (!isNewClient && body?.client) setDraft(normaliseClientFromApi(body.client));
+      setGeneratedPortalCode('');
       onDirtyChange?.(false);
       setStatusMessage(isNewClient ? 'Saved. A blank new client form is ready for the next entry.' : `Saved ${formatTimeNow()}.`);
     } catch (err) {

@@ -1,7 +1,16 @@
-# Turner Hopkins CRM - Netlify Database v0.11.13
+# Turner Hopkins CRM - Netlify Database v0.11.14
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
+
+## v0.11.14 - Client Portal Publish Save Fix
+
+- Fixed portal publishing so clicking Publish portal update now also activates the portal for that client.
+- Saved a portal contact email automatically from the portal email field, falling back to the main client email when publishing.
+- Preserved the Portal workspace section after saving/publishing instead of returning to Overview.
+- Cleared the one-time access-code banner after a successful save or publish.
+- Added a server-side safeguard so portal publish requests cannot be stored as inactive by mistake.
+- No database migration required.
 
 ## v0.11.13 - Client Portal Access Reliability Fix
 
