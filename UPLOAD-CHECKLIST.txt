@@ -1,4 +1,4 @@
-THiS CRM v0.11.9 - Client Portal Notes and Footer Polish
+THiS CRM v0.11.10 - Client Portal Hero Polish
 
 Upload checklist
 
@@ -41,3 +41,9 @@ Additional v0.11.9 checks:
 25. Save a personal planning note and confirm it appears only in the client's portal personal notes history.
 26. Confirm the personal planning note is not shown in the adviser-facing client portal inbox.
 27. Confirm the footer contact area is tighter, has icons beside phone/email/web, and no duplicated company-name line above the email address.
+
+
+Additional v0.11.10 checks:
+28. Log in to the client portal and confirm the Turner Hopkins logo is slightly larger in the header.
+29. Confirm the progress percentage is visually centred inside the circular progress dial.
+30. Confirm the current-stage summary chips use capitalised labels and clearer number badges.

@@ -1964,10 +1964,10 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
           <h2>{snapshot.currentStage || 'Not yet published'}</h2>
           <p>{snapshot.statusUpdate || 'No plain-English status update has been published yet.'}</p>
           <div className="portal-hero-chips">
-            <b>{snapshot.documentsStillRequired.length} document{snapshot.documentsStillRequired.length === 1 ? '' : 's'} still required</b>
-            <b>{snapshot.keyDates.length} key date{snapshot.keyDates.length === 1 ? '' : 's'}</b>
-            <b>{snapshot.billingMilestones.length} billing milestone{snapshot.billingMilestones.length === 1 ? '' : 's'}</b>
-            <b>{(snapshot.portalDocuments || []).length} form{(snapshot.portalDocuments || []).length === 1 ? '' : 's'} published</b>
+            <b><span className="portal-hero-chip-number">{snapshot.documentsStillRequired.length}</span> Document{snapshot.documentsStillRequired.length === 1 ? '' : 's'} Still Required</b>
+            <b><span className="portal-hero-chip-number">{snapshot.keyDates.length}</span> Key Date{snapshot.keyDates.length === 1 ? '' : 's'}</b>
+            <b><span className="portal-hero-chip-number">{snapshot.billingMilestones.length}</span> Billing Milestone{snapshot.billingMilestones.length === 1 ? '' : 's'}</b>
+            <b><span className="portal-hero-chip-number">{(snapshot.portalDocuments || []).length}</span> Form{(snapshot.portalDocuments || []).length === 1 ? '' : 's'} Published</b>
           </div>
         </div>
         <div className="portal-progress-dial">

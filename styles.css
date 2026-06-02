@@ -4573,3 +4573,71 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
     grid-template-columns: 1fr;
   }
 }
+
+
+/* v0.11.10: client portal header and hero polish */
+.portal-logo-small {
+  width: 150px;
+  max-width: 30vw;
+}
+
+.portal-progress-dial {
+  position: relative;
+  display: grid;
+  place-items: center;
+  align-content: normal;
+  justify-content: center;
+  text-align: center;
+  line-height: 1;
+}
+
+.portal-progress-dial strong {
+  display: block;
+  grid-area: 1 / 1;
+  margin: 0;
+  line-height: 1;
+}
+
+.portal-progress-dial span {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 24px;
+  text-align: center;
+  line-height: 1;
+  opacity: .88;
+}
+
+.portal-hero-chips {
+  gap: 10px;
+}
+
+.portal-hero-chips b {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-color: rgba(255,255,255,.42);
+  background: rgba(255,255,255,.18);
+  box-shadow: 0 10px 24px rgba(0, 20, 20, .12);
+  padding: 8px 12px;
+  font-size: 12px;
+  letter-spacing: .01em;
+}
+
+.portal-hero-chips b .portal-hero-chip-number {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.96);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: 0;
+}
+
+@media (max-width: 760px) {
+  .portal-logo-small { width: 112px; max-width: 34vw; }
+  .portal-progress-dial span { bottom: 19px; }
+}

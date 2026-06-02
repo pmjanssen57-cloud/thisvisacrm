@@ -1,6 +1,14 @@
-# Turner Hopkins CRM - Netlify Database v0.11.9
+# Turner Hopkins CRM - Netlify Database v0.11.10
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
+
+
+## v0.11.10 - Client Portal Hero Polish
+
+- Increased the Turner Hopkins logo size in the client portal header.
+- Re-centred the portal progress percentage inside the circular progress dial.
+- Polished the current-stage summary chips with capitalised labels, stronger styling and clearer number badges.
+- No database migration required.
 
 
 ## v0.11.9 - Client Portal Notes and Footer Polish
