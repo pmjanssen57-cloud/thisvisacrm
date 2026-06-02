@@ -5377,3 +5377,24 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
     width: 100%;
   }
 }
+
+/* v0.11.18 - Pop-out save bar containment */
+.record-popout-content .client-save-bar {
+  position: static;
+  top: auto;
+  z-index: 1;
+  margin: 0 0 18px;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+}
+
+.record-popout-content .client-save-bar.dirty {
+  border-color: rgba(245, 158, 11, 0.38);
+}
+
+.record-popout-content .client-workspace {
+  align-items: start;
+}
+
+.record-popout-content .client-workspace-nav {
+  align-self: start;
+}

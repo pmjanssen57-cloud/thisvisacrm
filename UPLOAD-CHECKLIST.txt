@@ -1,4 +1,4 @@
-THiS CRM v0.11.17 - Pop-out Client Record Editor
+THiS CRM v0.11.18 - Pop-out Save Bar Containment
 
 Upload checklist
 
@@ -96,3 +96,10 @@ Additional v0.11.17 checks:
 51. Make a test edit, save, and confirm the normal client view reflects the saved change.
 52. Make another test edit and click Close; confirm the unsaved-changes warning appears.
 53. In Documents, add a custom checklist item using the inline field and confirm no browser prompt appears.
+
+
+Additional v0.11.18 checks:
+- Open a client record and click Pop out record.
+- Confirm the Save changes status bar sits above the record content and does not hover over the editor panels.
+- Make an edit and confirm the dirty/unsaved state still appears.
+- Save, then close the pop-out editor and confirm the normal client page remains usable.

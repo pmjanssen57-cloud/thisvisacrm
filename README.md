@@ -1,7 +1,15 @@
-# Turner Hopkins CRM - Netlify Database v0.11.17
+# Turner Hopkins CRM - Netlify Database v0.11.18
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
+
+
+## v0.11.18 - Pop-out Save Bar Containment
+
+- Fixed the pop-out client record editor so the Save changes status bar no longer floats over the record content.
+- In the pop-out editor, the save/status bar now sits in the normal document flow at the top of the editor content.
+- Preserved the normal client page save behaviour outside the pop-out editor.
+- No database migration required.
 
 ## v0.11.17 - Pop-out Client Record Editor
 
