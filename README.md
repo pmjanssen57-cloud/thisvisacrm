@@ -1,7 +1,16 @@
-# Turner Hopkins CRM - Netlify Database v0.11.14
+# Turner Hopkins CRM - Netlify Database v0.11.15
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
+
+## v0.11.15 - Client Workspace and Portal Readability Polish
+
+- Tidied editable client workspace rows so stage, document, billing and related controls are easier to read and do not squeeze labels into narrow columns.
+- Reworked matter stage editor rows so stage names, completed status, completion date and delete controls wrap cleanly.
+- Reworked document checklist rows so Required, Document, Expiry date and Obtained fields stay readable across narrower workspace widths.
+- Added clearer portal billing status styling, including a distinct invoiced state.
+- Softened outstanding portal document checklist items so clients can distinguish Required from Obtained at a glance.
+- No database migration required.
 
 ## v0.11.14 - Client Portal Publish Save Fix
 

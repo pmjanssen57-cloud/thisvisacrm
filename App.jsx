@@ -2099,12 +2099,17 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
           <h2>Billing milestones</h2>
           {snapshot.billingMilestones.length ? (
             <div className="portal-list billing-portal-list">
-              {snapshot.billingMilestones.map((item) => (
-                <div key={item.id}>
-                  <strong>{item.title}</strong>
-                  <span>{[item.status, item.amount, item.dueDate ? `Date: ${formatPortalDate(item.dueDate)}` : '', item.invoiceNo ? `Invoice: ${item.invoiceNo}` : ''].filter(Boolean).join(' · ')}</span>
-                </div>
-              ))}
+              {snapshot.billingMilestones.map((item) => {
+                const status = normaliseBillingStatus(item.status);
+                const statusClass = status.toLowerCase();
+                const details = [item.amount, item.dueDate ? `Date: ${formatPortalDate(item.dueDate)}` : '', item.invoiceNo ? `Invoice: ${item.invoiceNo}` : ''].filter(Boolean).join(' · ');
+                return (
+                  <div className={`portal-billing-row ${statusClass}`} key={item.id}>
+                    <strong>{item.title}</strong>
+                    <span><b className={`portal-billing-status ${statusClass}`}>{status}</b>{details ? ` · ${details}` : ''}</span>
+                  </div>
+                );
+              })}
             </div>
           ) : <p>No billing milestones have been published.</p>}
         </section>

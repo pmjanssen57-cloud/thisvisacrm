@@ -1,4 +1,4 @@
-THiS CRM v0.11.14 - Client Portal Publish Save Fix
+THiS CRM v0.11.15 - Client Workspace and Portal Readability Polish
 
 Upload checklist
 
@@ -73,3 +73,11 @@ Additional v0.11.14 checks:
 - Confirm the sidebar badge changes to Active once the save returns.
 - Re-open the portal section and confirm the one-time code banner is no longer shown after successful publishing.
 - Test portal login with the portal email/client email and the newly generated code.
+
+
+Additional v0.11.15 checks:
+39. Open a client record and review Stages, Documents, Key dates, Billing, Family and Portal sections.
+40. Confirm stage names and document labels no longer squeeze or wrap awkwardly in the editable workspace.
+41. Confirm document checklist rows clearly show Required, Document, Expiry date and Obtained controls.
+42. Publish billing milestones to the client portal and confirm Invoiced items have a distinct blue-toned status style.
+43. Publish both obtained and outstanding document checklist items and confirm outstanding items appear lighter while obtained items remain green with a tick.

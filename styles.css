@@ -4786,3 +4786,299 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
     justify-self: stretch;
   }
 }
+
+/* v0.11.15: client workspace readability and portal status polish */
+.client-workspace-section-stack,
+.client-workspace-body,
+.workspace-panel,
+.sub-panel {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.client-workspace .sub-panel-head {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.client-workspace .sub-panel-head > div {
+  min-width: 0;
+}
+
+.client-workspace .sub-panel-head h2,
+.client-workspace .sub-panel-head p,
+.client-workspace label,
+.client-workspace strong,
+.client-workspace small,
+.client-workspace span {
+  overflow-wrap: anywhere;
+}
+
+.stage-row {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "order name completed remove"
+    ". date date date";
+  gap: 12px 14px;
+  align-items: center;
+}
+
+.stage-row .stage-order-controls {
+  grid-area: order;
+  align-self: start;
+}
+
+.stage-row .stage-name-cell {
+  grid-area: name;
+  min-width: 0;
+  align-items: flex-start;
+}
+
+.stage-row .stage-name-cell > span {
+  min-width: 0;
+  display: block;
+}
+
+.stage-row .stage-name-cell strong,
+.stage-row .stage-label-input {
+  display: block;
+  max-width: 100%;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.stage-row > label {
+  grid-area: completed;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  white-space: nowrap;
+  color: var(--ink);
+  font-weight: 850;
+}
+
+.stage-row > input[type="date"] {
+  grid-area: date;
+  width: min(220px, 100%);
+  justify-self: start;
+}
+
+.stage-row > .icon-btn {
+  grid-area: remove;
+  justify-self: end;
+  align-self: start;
+}
+
+.document-checklist-row {
+  grid-template-columns: minmax(96px, 0.6fr) minmax(0, 1.4fr) minmax(155px, 0.8fr) minmax(104px, 0.65fr) 42px;
+  grid-template-areas: "required name expiry obtained remove";
+  align-items: center;
+  gap: 12px 14px;
+}
+
+.document-checklist-row .doc-include { grid-area: required; }
+.document-checklist-row .doc-name { grid-area: name; }
+.document-checklist-row .doc-expiry { grid-area: expiry; }
+.document-checklist-row .doc-obtained { grid-area: obtained; }
+.document-checklist-row > .icon-btn { grid-area: remove; justify-self: end; }
+
+.document-checklist-row .doc-include,
+.document-checklist-row .doc-obtained {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.document-checklist-row .doc-include span,
+.document-checklist-row .doc-obtained span {
+  white-space: nowrap;
+  letter-spacing: 0.03em;
+}
+
+.document-checklist-row .doc-name,
+.document-checklist-row .doc-expiry {
+  min-width: 0;
+}
+
+.document-checklist-row .doc-name strong {
+  display: block;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.document-checklist-row-hidden {
+  grid-template-columns: minmax(110px, auto) minmax(0, 1fr) 42px;
+  grid-template-areas: "required name remove";
+}
+
+.document-checklist-row-hidden .doc-hidden-name {
+  grid-area: name;
+  min-width: 0;
+}
+
+.document-checklist-row-hidden .doc-hidden-spacer {
+  grid-area: remove;
+}
+
+.editable-row,
+.editable-row.family-row,
+.editable-row.billing-row,
+.billing-edit-card,
+.portal-document-upload,
+.portal-document-admin-row {
+  overflow: visible;
+}
+
+.editable-row > *,
+.billing-edit-card > *,
+.portal-document-upload > *,
+.portal-document-admin-row > * {
+  min-width: 0;
+}
+
+.billing-edit-card {
+  align-items: end;
+}
+
+.billing-edit-card .billing-hint {
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.portal-billing-row {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 13px 14px;
+  background: #fff;
+}
+
+.portal-billing-row.invoiced {
+  border-color: rgba(59, 130, 246, 0.24);
+  background: #eff6ff;
+}
+
+.portal-billing-row.overdue {
+  border-color: rgba(220, 38, 38, 0.24);
+  background: #fff1f2;
+}
+
+.portal-billing-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 950;
+  line-height: 1;
+  border: 1px solid #dceae5;
+  background: #f4f8f6;
+  color: #52635d;
+}
+
+.portal-billing-status.invoiced {
+  background: #dbeafe;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.portal-billing-status.overdue {
+  background: #fee2e2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+.portal-billing-status.wip {
+  background: #ecfdf5;
+  border-color: rgba(85, 217, 160, .55);
+  color: #065f46;
+}
+
+.portal-document-checklist-row.outstanding {
+  background: #fbfdfc;
+  border-color: #e3eee9;
+  box-shadow: 0 6px 16px rgba(0, 55, 54, 0.028);
+}
+
+.portal-document-checklist-row.outstanding .portal-document-check-icon {
+  background: #f6faf8;
+  color: #6b7f78;
+}
+
+.portal-document-checklist-row.outstanding strong {
+  color: #163f3d;
+}
+
+.portal-document-checklist-row.outstanding b {
+  color: #49665e;
+  background: #f6faf8;
+  border-color: #dceae5;
+}
+
+.portal-document-checklist-row.obtained {
+  box-shadow: 0 8px 18px rgba(85, 217, 160, 0.11);
+}
+
+@media (max-width: 1250px) {
+  .stage-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "order name remove"
+      ". completed completed"
+      ". date date";
+  }
+
+  .stage-row > label,
+  .stage-row > input[type="date"] {
+    justify-self: start;
+  }
+
+  .document-checklist-row {
+    grid-template-columns: minmax(0, 1fr) minmax(150px, 190px) 42px;
+    grid-template-areas:
+      "name expiry remove"
+      "required obtained remove";
+  }
+
+  .document-checklist-row > .icon-btn {
+    align-self: center;
+  }
+}
+
+@media (max-width: 760px) {
+  .stage-row,
+  .document-checklist-row,
+  .document-checklist-row-hidden {
+    grid-template-columns: 1fr !important;
+    grid-template-areas: none;
+  }
+
+  .stage-row .stage-order-controls,
+  .stage-row .stage-name-cell,
+  .stage-row > label,
+  .stage-row > input[type="date"],
+  .stage-row > .icon-btn,
+  .document-checklist-row .doc-include,
+  .document-checklist-row .doc-name,
+  .document-checklist-row .doc-expiry,
+  .document-checklist-row .doc-obtained,
+  .document-checklist-row > .icon-btn,
+  .document-checklist-row-hidden .doc-hidden-name,
+  .document-checklist-row-hidden .doc-hidden-spacer {
+    grid-area: auto;
+    justify-self: stretch;
+  }
+
+  .stage-row > input[type="date"] {
+    width: 100%;
+  }
+
+  .stage-row > .icon-btn,
+  .document-checklist-row > .icon-btn {
+    width: 44px;
+    justify-self: start;
+  }
+}
