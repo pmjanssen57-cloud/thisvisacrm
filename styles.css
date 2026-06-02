@@ -3177,6 +3177,19 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .portal-message-history-row span { display: block; color: var(--muted); font-size: 11px; font-weight: 800; margin-bottom: 3px; text-transform: uppercase; letter-spacing: .04em; }
 .portal-message-history-row strong { color: var(--ink); }
 .portal-message-history-row p { margin: 5px 0 0; white-space: pre-wrap; }
+.portal-message-history-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+.portal-message-history.personal .portal-message-history-row {
+  background: #f7fffb;
+}
+.portal-message-history-row.personal {
+  border-color: rgba(85, 217, 160, .32);
+}
+
 .portal-feedback {
   max-width: 1120px;
   margin: 0 auto 16px;
@@ -4488,6 +4501,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   color: #fff;
   background: linear-gradient(135deg, var(--ink), #075451);
   box-shadow: 0 18px 42px rgba(0, 55, 54, 0.18);
+  padding: 22px;
 }
 .portal-footer-card h2,
 .portal-footer-card p,
@@ -4495,8 +4509,9 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .portal-footer-card .portal-last-updated {
   color: #fff;
 }
-.portal-footer-card > p,
-.portal-footer-card p {
+.portal-footer-intro h2 { margin-bottom: 4px; }
+.portal-footer-intro p {
+  margin: 0;
   color: rgba(255,255,255,.82);
 }
 .portal-footer-card a {
@@ -4510,8 +4525,25 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px solid rgba(255,255,255,.18);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.portal-footer-card .portal-contact-grid p {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: rgba(255,255,255,.9);
+}
+.portal-footer-card .portal-contact-grid svg {
+  flex: 0 0 auto;
+  color: var(--mint);
 }
 .portal-footer-card .portal-last-updated {
+  display: block;
+  margin-top: 12px;
   opacity: .78;
 }
 
@@ -4532,5 +4564,12 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   .portal-document-checklist-row b {
     grid-column: 2;
     justify-self: start;
+  }
+}
+
+@media (max-width: 760px) {
+  .portal-message-history-grid,
+  .portal-footer-card .portal-contact-grid {
+    grid-template-columns: 1fr;
   }
 }

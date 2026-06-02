@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { acceptInvite, getUser, handleAuthCallback, login, logout, onAuthChange, requestPasswordRecovery, updateUser } from '@netlify/identity';
-import { AlertTriangle, ArrowUpDown, BookOpen, Calculator, CalendarDays, CheckCircle2, ChevronRight, Clock, CloudSun, Copy, CreditCard, ClipboardList, Database, DollarSign, ExternalLink, FileText, Globe2, HelpCircle, LayoutDashboard, Link2, ListChecks, LockKeyhole, Mail, MessageSquare, Plus, RefreshCw, Save, Search, Send, ShieldCheck, Trash2, UserRound, UsersRound, Wrench, X } from 'lucide-react';
+import { AlertTriangle, ArrowUpDown, BookOpen, Calculator, CalendarDays, CheckCircle2, ChevronRight, Clock, CloudSun, Copy, CreditCard, ClipboardList, Database, DollarSign, ExternalLink, FileText, Globe2, HelpCircle, LayoutDashboard, Link2, ListChecks, LockKeyhole, Mail, MessageSquare, Phone, Plus, RefreshCw, Save, Search, Send, ShieldCheck, Trash2, UserRound, UsersRound, Wrench, X } from 'lucide-react';
 
 const BRAND = {
   ink: '#003736',
@@ -1893,7 +1893,7 @@ function ClientPortalApp() {
           <button className="btn dark" type="submit" disabled={loading}>{loading ? 'Checking...' : 'View matter update'}</button>
         </form>
         {error && <p className="portal-error">{error}</p>}
-        <p className="portal-smallprint">This portal is read-only for matter information. Any notes you add are visible to Turner Hopkins.</p>
+        <p className="portal-smallprint">This portal is read-only for matter information. You can send messages to Turner Hopkins or save your own planning notes inside the portal.</p>
       </main>
     </div>
   );
@@ -1941,6 +1941,7 @@ function ClientPortalProgressMap({ stagePlan = [], progressPercent = 0 }) {
 function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalMessage, onOpenPortalDocument, portalNotice, portalError }) {
   const [activeTool, setActiveTool] = useState('weather');
   const adviserMessages = snapshot.portalMessages.filter((item) => item.messageType === 'adviser_action');
+  const personalNotes = snapshot.portalMessages.filter((item) => item.messageType !== 'adviser_action');
   const documentsRequired = Array.isArray(snapshot.documentsRequired) && snapshot.documentsRequired.length ? snapshot.documentsRequired : snapshot.documentsStillRequired;
   return (
     <div className="portal-dashboard-shell">
@@ -2003,10 +2004,10 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
 
         <section className="portal-card wide portal-client-action-card">
           <div className="portal-section-head">
-            <div><h2>Messages for your adviser</h2><p>Send Turner Hopkins a question, update or action item for your matter.</p></div>
+            <div><h2>Messages and personal notes</h2><p>Send Turner Hopkins a question, or keep your own planning notes beside your matter update.</p></div>
             <MessageSquare size={22} />
           </div>
-          <div className="portal-message-grid single">
+          <div className="portal-message-grid">
             <ClientPortalMessageComposer
               title="Send Turner Hopkins a note or action"
               description="Use this for a question, update, or item you want your adviser to see."
@@ -2014,8 +2015,18 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
               messageType="adviser_action"
               onSubmit={onSubmitPortalMessage}
             />
+            <ClientPortalMessageComposer
+              title="My planning note"
+              description="Save your own notes, reminders or plans here. These are not sent to your adviser."
+              buttonLabel="Save personal note"
+              messageType="client_note"
+              onSubmit={onSubmitPortalMessage}
+            />
           </div>
-          <ClientPortalMessageList adviserMessages={adviserMessages} />
+          <div className="portal-message-history-grid">
+            <ClientPortalMessageList adviserMessages={adviserMessages} />
+            <ClientPortalPersonalNoteList personalNotes={personalNotes} />
+          </div>
         </section>
 
         <section className="portal-card wide">
@@ -2106,15 +2117,14 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
         </section>
 
         <section className="portal-card wide contact-card portal-footer-card">
-          <div>
-            <h2>Turner Hopkins Immigration Specialists</h2>
+          <div className="portal-footer-intro">
+            <h2>Contact Turner Hopkins</h2>
             <p>For questions about your matter, contact your adviser or the Turner Hopkins team.</p>
           </div>
           <div className="portal-contact-grid">
-            <p><strong>{snapshot.turnerHopkins.name}</strong></p>
-            <p><a href={`tel:${String(snapshot.turnerHopkins.phone || '').replace(/\s+/g, '')}`}>{snapshot.turnerHopkins.phone}</a></p>
-            <p><a href={`mailto:${snapshot.turnerHopkins.email}`}>{snapshot.turnerHopkins.email}</a></p>
-            <p><a href={`https://${String(snapshot.turnerHopkins.website || '').replace(/^https?:\/\//, '')}`} target="_blank" rel="noreferrer">{snapshot.turnerHopkins.website}</a></p>
+            <p><Phone size={17} /><a href={`tel:${String(snapshot.turnerHopkins.phone || '').replace(/\s+/g, '')}`}>{snapshot.turnerHopkins.phone}</a></p>
+            <p><Mail size={17} /><a href={`mailto:${snapshot.turnerHopkins.email}`}>{snapshot.turnerHopkins.email}</a></p>
+            <p><Globe2 size={17} /><a href={`https://${String(snapshot.turnerHopkins.website || '').replace(/^https?:\/\//, '')}`} target="_blank" rel="noreferrer">{snapshot.turnerHopkins.website}</a></p>
           </div>
           <span className="portal-last-updated">Last updated: {formatPortalDateTime(snapshot.lastUpdated) || 'Not recorded'}</span>
         </section>
@@ -2170,6 +2180,22 @@ function ClientPortalMessageList({ adviserMessages = [] }) {
           <p>{item.message}</p>
         </div>
       )) : <p className="muted">No messages have been sent through the portal yet.</p>}
+    </div>
+  );
+}
+
+function ClientPortalPersonalNoteList({ personalNotes = [] }) {
+  const allNotes = [...personalNotes].sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''))).slice(0, 8);
+  return (
+    <div className="portal-message-history personal">
+      <h3>My personal planning notes</h3>
+      {allNotes.length ? allNotes.map((item) => (
+        <div className="portal-message-history-row personal" key={item.id}>
+          <span>Saved note · {formatPortalDateTime(item.createdAt)}</span>
+          <strong>{item.title || 'Personal note'}</strong>
+          <p>{item.message}</p>
+        </div>
+      )) : <p className="muted">No personal planning notes have been saved yet.</p>}
     </div>
   );
 }

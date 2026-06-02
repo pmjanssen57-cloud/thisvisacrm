@@ -696,7 +696,7 @@ function mapClientFromDb(row, stages, deadlines, billing, portalMessages = [], p
     familyMembers: parseFamilyMembers(row.family_members),
     documentChecklist: parseDocumentChecklist(row.document_checklist),
     portalMessages: (portalMessages || [])
-      .filter((message) => message.client_id === row.id)
+      .filter((message) => message.client_id === row.id && (message.message_type || 'client_note') === 'adviser_action')
       .map(mapPortalMessageFromDb),
     portalDocuments: (portalDocuments || [])
       .filter((document) => document.client_id === row.id)

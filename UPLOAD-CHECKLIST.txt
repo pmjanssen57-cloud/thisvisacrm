@@ -1,4 +1,4 @@
-THiS CRM v0.11.8 - Client Portal Polish
+THiS CRM v0.11.9 - Client Portal Notes and Footer Polish
 
 Upload checklist
 
@@ -33,3 +33,11 @@ Additional v0.11.8 checks:
 20. Confirm Forms and instructions PDF cards sit across the page, up to four per row on desktop.
 21. Confirm the Planning space tab/tool no longer appears in the portal tools section.
 22. Confirm the Turner Hopkins contact section appears as a footer-style block with clickable phone, email and website links.
+
+
+Additional v0.11.9 checks:
+23. Log in to the client portal and confirm Messages and personal notes shows two side-by-side composers on desktop.
+24. Send a note to adviser and confirm it appears in the CRM portal inbox/dashboard as before.
+25. Save a personal planning note and confirm it appears only in the client's portal personal notes history.
+26. Confirm the personal planning note is not shown in the adviser-facing client portal inbox.
+27. Confirm the footer contact area is tighter, has icons beside phone/email/web, and no duplicated company-name line above the email address.

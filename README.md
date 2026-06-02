@@ -1,6 +1,17 @@
-# Turner Hopkins CRM - Netlify Database v0.11.8
+# Turner Hopkins CRM - Netlify Database v0.11.9
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
+
+
+## v0.11.9 - Client Portal Notes and Footer Polish
+
+- Restored a separate client personal planning-note composer on the client portal.
+- Kept adviser-directed messages beside personal notes so clients can either contact Turner Hopkins or save private planning notes in one place.
+- Filtered client personal planning notes out of the adviser-facing CRM inbox and client portal message panels.
+- Tightened the portal footer contact block.
+- Added icons beside the Turner Hopkins phone, email and website footer links.
+- Removed the duplicated company-name line from the footer contact grid.
+- No database migration required.
 
 
 ## v0.11.8 - Client Portal Polish
