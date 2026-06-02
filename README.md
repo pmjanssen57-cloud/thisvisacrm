@@ -1,9 +1,17 @@
-# Turner Hopkins CRM - Netlify Database v0.10.6
+# Turner Hopkins CRM - Netlify Database v0.10.7
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
 
 
+
+
+## v0.10.7 - Portal PDF Publication Bridge Fix
+
+- Fixed client portal PDF publication where PDFs marked visible in the CRM could still show as unavailable in the client portal.
+- Hardened the portal document visibility path by normalising existing document rows and filtering visible documents in the portal function response.
+- Added schema guard migration: `202606010009_fix_client_portal_document_visibility.sql`.
+- Kept the v0.10.6 adviser-side PDF UI polish intact.
 
 ## v0.10.6 - Portal PDF Visibility and UI Polish
 

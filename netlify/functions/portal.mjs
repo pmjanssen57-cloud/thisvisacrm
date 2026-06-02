@@ -122,6 +122,9 @@ async function ensurePortalSchema() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+  await database.sql`ALTER TABLE client_portal_documents ADD COLUMN IF NOT EXISTS visible_to_client BOOLEAN DEFAULT TRUE`;
+  await database.sql`ALTER TABLE client_portal_documents ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`;
+  await database.sql`UPDATE client_portal_documents SET visible_to_client = TRUE WHERE visible_to_client IS NULL`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_client_portal_documents_client ON client_portal_documents(client_id, uploaded_at DESC)`;
   await database.sql`
     CREATE TABLE IF NOT EXISTS client_portal_access_log (
@@ -173,6 +176,11 @@ function mapPortalDocumentForClient(row = {}) {
   };
 }
 
+function isPortalDocumentVisible(row = {}) {
+  const value = row.visible_to_client;
+  return value === true || value === 1 || String(value).toLowerCase() === 'true';
+}
+
 async function getPortalDocumentPayload(clientId, documentId) {
   if (!documentId) throw new Error('Select a document to open.');
   const rows = await db().sql`
@@ -209,7 +217,7 @@ async function buildPortalSnapshot(clientId) {
     database.sql`SELECT id, adviser_id, title, appointment_type, appointment_date, start_time, end_time, location, notes, status FROM calendar_entries WHERE client_id = ${clientId} ORDER BY appointment_date ASC, start_time ASC NULLS LAST`,
     database.sql`SELECT id, milestone, due_date, amount, status, invoice_no, billing_trigger_type, billing_stage_key FROM billing_milestones WHERE client_id = ${clientId} ORDER BY due_date ASC NULLS LAST`,
     database.sql`SELECT id, message_type, title, message, status, created_at FROM client_portal_messages WHERE client_id = ${clientId} ORDER BY created_at DESC LIMIT 40`,
-    database.sql`SELECT id, title, category, description, file_name, file_type, file_size, visible_to_client, uploaded_at FROM client_portal_documents WHERE client_id = ${clientId} AND visible_to_client = TRUE ORDER BY uploaded_at DESC`,
+    database.sql`SELECT id, title, category, description, file_name, file_type, file_size, visible_to_client, uploaded_at FROM client_portal_documents WHERE client_id = ${clientId} ORDER BY uploaded_at DESC`,
   ]);
   const client = clientRows[0];
   if (!client) throw new Error('Portal snapshot not available.');
@@ -273,7 +281,7 @@ async function buildPortalSnapshot(clientId) {
     keyDates,
     appointments,
     billingMilestones,
-    portalDocuments: (documentRows || []).map(mapPortalDocumentForClient),
+    portalDocuments: (documentRows || []).filter(isPortalDocumentVisible).map(mapPortalDocumentForClient),
     portalMessages: (messageRows || []).map(mapPortalMessageFromDb),
     turnerHopkins: TURNER_HOPKINS_CONTACT,
     lastUpdated: toDateTimeLabel(client.portal_last_published_at) || '',

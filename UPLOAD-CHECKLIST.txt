@@ -1,4 +1,4 @@
-THiS CRM v0.10.5 upload checklist
+THiS CRM v0.10.7 upload checklist
 
 1. Preserve the netlify/ folder.
 2. Preserve the public/ folder.
@@ -12,7 +12,7 @@ THiS CRM v0.10.5 upload checklist
 8. Upload one small PDF under Portal PDFs and standard forms.
 9. Set the title/category/note and confirm it is visible to the client.
 10. Publish the portal update.
-11. Open /portal in a private/incognito browser, log in as the client and confirm the Forms and instructions section shows the PDF.
+11. Open /portal in a private/incognito browser, log in as the client and confirm the Forms and instructions section shows the PDF. If testing an existing uploaded PDF, click Refresh or sign out/in after deploy.
 12. Open the PDF from the client portal.
 13. Confirm existing portal functions still work: notes/actions, billing milestones, documents required, dates, appointments and tools.
 14. Test Clients, Calendar, Library, Tools and Print Profile after deploy.
