@@ -1491,8 +1491,13 @@ function parseStringArray(value) {
 
 function hashPortalAccessCode(code) {
   const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.pbkdf2Sync(String(code || ''), salt, 120000, 32, 'sha256').toString('hex');
+  const canonicalCode = normalisePortalAccessCodeForStorage(code);
+  const hash = crypto.pbkdf2Sync(canonicalCode, salt, 120000, 32, 'sha256').toString('hex');
   return `pbkdf2:${salt}:${hash}`;
+}
+
+function normalisePortalAccessCodeForStorage(code) {
+  return String(code || '').trim().replace(/[\u2010-\u2015]/g, '-').replace(/\s+/g, '').toUpperCase();
 }
 
 function toDateTimeLabel(value) {

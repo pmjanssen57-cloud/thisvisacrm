@@ -4641,3 +4641,148 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   .portal-logo-small { width: 112px; max-width: 34vw; }
   .portal-progress-dial span { bottom: 19px; }
 }
+
+/* v0.11.12 - Client workspace editable section containment */
+.client-workspace,
+.client-workspace-body,
+.client-workspace-section-stack,
+.workspace-panel,
+.sub-panel,
+.portal-documents-admin,
+.portal-document-upload,
+.portal-document-admin-row,
+.document-checklist-row,
+.stage-row,
+.editable-row,
+.form-grid,
+.mini-grid {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.client-workspace-body,
+.client-workspace-section-stack,
+.workspace-panel,
+.sub-panel,
+.portal-documents-admin {
+  overflow-x: clip;
+}
+
+.client-workspace input,
+.client-workspace select,
+.client-workspace textarea,
+.client-workspace button,
+.client-workspace label,
+.client-workspace .field,
+.client-workspace .compact-check {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.client-workspace input,
+.client-workspace select,
+.client-workspace textarea {
+  width: 100%;
+}
+
+.client-workspace .compact-check,
+.portal-document-toggle,
+.doc-include,
+.doc-obtained {
+  overflow-wrap: anywhere;
+}
+
+.portal-document-upload {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(190px, 1.1fr) minmax(150px, .75fr);
+  align-items: end;
+  gap: 12px;
+  width: 100%;
+}
+
+.portal-document-upload .field,
+.portal-document-upload .compact-check,
+.portal-document-upload .btn {
+  min-width: 0;
+}
+
+.portal-document-upload .field input[type="file"] {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+}
+
+.portal-document-upload .field select {
+  appearance: auto;
+  text-overflow: ellipsis;
+}
+
+.portal-document-upload .portal-document-description {
+  grid-column: 1 / span 2;
+}
+
+.portal-document-upload .compact-check {
+  justify-self: start;
+  align-self: center;
+}
+
+.portal-document-upload .btn {
+  justify-self: start;
+  width: min(230px, 100%);
+}
+
+.portal-document-admin-title-line,
+.portal-document-admin-side,
+.portal-document-admin-actions {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.portal-document-admin-actions {
+  overflow: hidden;
+}
+
+.editable-row,
+.editable-row.billing-row,
+.editable-row.family-row,
+.stage-row,
+.document-checklist-row {
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+}
+
+.editable-row .icon-btn,
+.stage-row .icon-btn,
+.document-checklist-row .icon-btn {
+  justify-self: start;
+}
+
+.editable-row.deadline-row {
+  grid-template-columns: minmax(170px, 1fr) minmax(132px, .7fr) minmax(170px, 1fr) 42px;
+}
+
+@media (max-width: 1280px) {
+  .portal-document-upload {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .portal-document-upload .portal-document-description {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 860px) {
+  .portal-document-upload,
+  .editable-row.deadline-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  .portal-document-upload .portal-document-description,
+  .portal-document-upload .compact-check,
+  .portal-document-upload .btn {
+    grid-column: auto;
+    width: 100%;
+    justify-self: stretch;
+  }
+}

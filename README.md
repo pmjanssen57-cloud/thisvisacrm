@@ -1,6 +1,23 @@
-# Turner Hopkins CRM - Netlify Database v0.11.11
+# Turner Hopkins CRM - Netlify Database v0.11.13
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
+
+
+## v0.11.13 - Client Portal Access Reliability Fix
+
+- Improved client portal login matching so clients can sign in with either the portal contact email or the main client email where appropriate.
+- Normalised portal access codes on save and login so pasted spaces, casing differences and dash variations do not block access.
+- Protected against a race condition where a freshly generated access code could be shown to the adviser but not included in an immediate Save or Publish action.
+- No database migration required.
+
+
+## v0.11.12 - Client Workspace Editable Layout Tidy
+
+- Added broader layout containment across editable client workspace sections.
+- Tidied the Portal PDFs and standard forms upload panel so controls stay inside the section margins.
+- Added safer wrapping for editable rows in Documents, Stages, Key dates, Billing and Family.
+- Added stronger min-width/max-width safeguards to prevent nested grids and select fields from overflowing.
+- No database migration required.
 
 
 ## v0.11.11 - Add Client Filter Fix
@@ -517,4 +534,13 @@ This package-lock uses public npm registry tarball URLs so Netlify can install d
 - Adds selected stage data to the portal snapshot returned by the portal Netlify Function.
 - Restyles client portal Forms and instructions PDFs as client-facing tiles with clearer PDF open actions.
 - Removes the duplicate Upcoming key dates heading from the portal layout.
+- No database migration required.
+
+
+## v0.11.12 - Client Workspace Editable Layout Tidy
+
+- Tightens containment across editable client workspace sections so fields, selects, upload controls and buttons remain inside the right-hand panel.
+- Refines the adviser-side Portal PDFs and standard forms upload form so PDF file, title, category, note, visibility and upload controls wrap cleanly.
+- Adds general `min-width: 0` and max-width safeguards for nested workspace grids to prevent future horizontal overflow.
+- Improves wrapping for editable rows in Documents, Stages, Key dates, Billing and Family sections.
 - No database migration required.

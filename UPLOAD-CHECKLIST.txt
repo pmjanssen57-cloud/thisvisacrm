@@ -1,4 +1,4 @@
-THiS CRM v0.11.11 - Add Client Filter Fix
+THiS CRM v0.11.13 - Client Portal Access Reliability Fix
 
 Upload checklist
 
@@ -51,3 +51,19 @@ Additional v0.11.11 checks:
 32. Confirm the selected adviser is prepopulated as the main adviser.
 33. Repeat with All advisers selected and confirm the new blank client appears without a preselected adviser.
 34. If a case type filter is active, confirm the new client remains visible and inherits that case type.
+
+
+Additional v0.11.12 checks:
+35. Open a client record and test each editable workspace section: Overview, Actions, Documents, Portal, Stages, Key dates, Billing, Family and Notes/strategy.
+36. Confirm form fields, selects, buttons and upload controls remain inside the right-hand workspace panel.
+37. In Portal > Portal PDFs and standard forms, confirm the PDF file picker, title, category, short note, Visible to client checkbox and Upload PDF button wrap neatly without overflowing.
+38. Confirm Documents, Stages, Key dates, Billing and Family rows wrap cleanly on narrower screens.
+
+Additional v0.11.13 checks:
+39. Open a client record and confirm Portal enabled is ticked.
+40. Generate/reset the portal access code, then click Publish portal update.
+41. Copy the portal instructions and log in using the portal email and access code.
+42. Repeat using the main client email if different from the portal email.
+43. Paste the access code with minor spacing/case differences and confirm the portal still recognises it.
+44. Confirm an incorrect code is still rejected.
+

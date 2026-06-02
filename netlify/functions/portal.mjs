@@ -145,9 +145,13 @@ async function authenticatePortalClient(email, accessCode) {
     SELECT id, first_name, last_name, email, portal_email, portal_access_code_hash
     FROM clients
     WHERE portal_enabled = TRUE
-      AND LOWER(COALESCE(NULLIF(portal_email, ''), email)) = ${email}
+      AND (
+        LOWER(COALESCE(NULLIF(portal_email, ''), email)) = ${email}
+        OR LOWER(COALESCE(email, '')) = ${email}
+        OR LOWER(COALESCE(portal_email, '')) = ${email}
+      )
     ORDER BY updated_at DESC
-    LIMIT 5
+    LIMIT 10
   `;
   return matches.find((client) => verifyPortalAccessCode(accessCode, client.portal_access_code_hash)) || null;
 }
@@ -323,12 +327,23 @@ function verifyPortalAccessCode(code, stored) {
   const parts = String(stored).split(':');
   if (parts.length !== 3 || parts[0] !== 'pbkdf2') return false;
   const [, salt, expected] = parts;
-  const actual = crypto.pbkdf2Sync(String(code || ''), salt, 120000, 32, 'sha256').toString('hex');
-  try {
-    return crypto.timingSafeEqual(Buffer.from(actual, 'hex'), Buffer.from(expected, 'hex'));
-  } catch {
-    return false;
+  const expectedBuffer = Buffer.from(expected, 'hex');
+  for (const candidate of portalAccessCodeVariants(code)) {
+    const actual = crypto.pbkdf2Sync(candidate, salt, 120000, 32, 'sha256').toString('hex');
+    try {
+      if (crypto.timingSafeEqual(Buffer.from(actual, 'hex'), expectedBuffer)) return true;
+    } catch {
+      // Try the next normalised variant.
+    }
   }
+  return false;
+}
+
+function portalAccessCodeVariants(code) {
+  const raw = String(code || '').trim();
+  const normalised = raw.replace(/[\u2010-\u2015]/g, '-').replace(/\s+/g, '').toUpperCase();
+  const compact = normalised.replace(/-/g, '');
+  return Array.from(new Set([raw, normalised, compact].filter(Boolean)));
 }
 
 function parseJsonArray(value) {

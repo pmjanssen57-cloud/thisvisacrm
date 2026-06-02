@@ -3615,11 +3615,16 @@ Turner Hopkins Immigration Specialists`;
     setStatusMessage('Client portal instructions copied. Check the email before sending.');
   }
 
+  function draftWithPendingPortalAccessCode(extra = {}) {
+    const pendingPortalCode = generatedPortalCode && !draft.portalNewAccessCode ? { portalNewAccessCode: generatedPortalCode } : {};
+    return { ...draft, ...pendingPortalCode, ...extra };
+  }
+
   async function handlePublishPortalUpdate() {
     setValidationMessage('');
     setStatusMessage('Publishing client portal update...');
     try {
-      await saveClient({ ...draft, portalPublishNow: true }, { resetNewClientForm: false });
+      await saveClient(draftWithPendingPortalAccessCode({ portalPublishNow: true }), { resetNewClientForm: false });
       onDirtyChange?.(false);
       setStatusMessage(`Client portal update published ${formatTimeNow()}.`);
     } catch (err) {
@@ -3717,7 +3722,7 @@ Turner Hopkins Immigration Specialists`;
     setValidationMessage('');
     setStatusMessage('Saving client record...');
     try {
-      await saveClient(draft, { resetNewClientForm: isNewClient });
+      await saveClient(draftWithPendingPortalAccessCode(), { resetNewClientForm: isNewClient });
       onDirtyChange?.(false);
       setStatusMessage(isNewClient ? 'Saved. A blank new client form is ready for the next entry.' : `Saved ${formatTimeNow()}.`);
     } catch (err) {
