@@ -1,13 +1,15 @@
-# Turner Hopkins CRM - Netlify Database v0.11.10
+# Turner Hopkins CRM - Netlify Database v0.11.11
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
 
-## v0.11.10 - Client Portal Hero Polish
+## v0.11.11 - Add Client Filter Fix
 
-- Increased the Turner Hopkins logo size in the client portal header.
-- Re-centred the portal progress percentage inside the circular progress dial.
-- Polished the current-stage summary chips with capitalised labels, stronger styling and clearer number badges.
+- Fixed the main Add Client action when the Clients view is filtered by adviser.
+- New client records now inherit the active adviser filter as the primary adviser.
+- If a wider dashboard adviser scope is active, the new client remains visible in that scoped view.
+- New client records also inherit the active case type filter where one is selected.
+- The client search box is cleared when adding a new client so the blank record is not accidentally hidden by an old search.
 - No database migration required.
 
 

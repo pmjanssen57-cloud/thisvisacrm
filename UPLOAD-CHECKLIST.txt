@@ -1,4 +1,4 @@
-THiS CRM v0.11.10 - Client Portal Hero Polish
+THiS CRM v0.11.11 - Add Client Filter Fix
 
 Upload checklist
 
@@ -43,7 +43,11 @@ Additional v0.11.9 checks:
 27. Confirm the footer contact area is tighter, has icons beside phone/email/web, and no duplicated company-name line above the email address.
 
 
-Additional v0.11.10 checks:
-28. Log in to the client portal and confirm the Turner Hopkins logo is slightly larger in the header.
-29. Confirm the progress percentage is visually centred inside the circular progress dial.
-30. Confirm the current-stage summary chips use capitalised labels and clearer number badges.
+Additional v0.11.11 checks:
+28. Open Clients and set the adviser filter to a specific adviser.
+29. Click the main Add Client button.
+30. Confirm the new blank client appears immediately in the left-hand client list.
+31. Confirm the new blank client opens in the editor ready for data entry.
+32. Confirm the selected adviser is prepopulated as the main adviser.
+33. Repeat with All advisers selected and confirm the new blank client appears without a preselected adviser.
+34. If a case type filter is active, confirm the new client remains visible and inherits that case type.

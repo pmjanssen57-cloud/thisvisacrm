@@ -833,7 +833,19 @@ export default function App() {
     if (!confirmDiscardPendingEdits()) return;
     setClientEditorDirty(false);
     setCalendarEditorDirty(false);
-    const newClient = makeBlankClient(data);
+
+    const selectedAdviserId = adviserFilter !== 'all'
+      ? adviserFilter
+      : (dashboardAdviserFilter !== 'all' ? dashboardAdviserFilter : '');
+    const scopedAdviserId = dashboardAdviserFilter !== 'all' ? dashboardAdviserFilter : '';
+    const newClient = {
+      ...makeBlankClient(data),
+      primaryAdviserId: selectedAdviserId,
+      backupAdviserId: scopedAdviserId && selectedAdviserId && scopedAdviserId !== selectedAdviserId ? scopedAdviserId : '',
+      caseType: caseTypeFilter !== 'all' ? caseTypeFilter : '',
+    };
+
+    setClientQuery('');
     setData((current) => ({ ...current, clients: [newClient, ...current.clients] }));
     setSelectedClientId(newClient.id);
     setTab('clients');
