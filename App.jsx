@@ -1899,6 +1899,45 @@ function ClientPortalApp() {
   );
 }
 
+
+function ClientPortalProgressMap({ stagePlan = [], progressPercent = 0 }) {
+  const stages = Array.isArray(stagePlan) ? stagePlan.filter((stage) => stage && stage.label) : [];
+  const nextStage = stages.find((stage) => !stage.completed) || null;
+  if (!stages.length) return null;
+
+  function stageStatus(stage) {
+    if (stage.completed) return 'completed';
+    if (nextStage?.id === stage.id) return 'current';
+    return 'upcoming';
+  }
+
+  return (
+    <section className="portal-card wide portal-progress-card">
+      <div className="portal-section-head">
+        <div>
+          <h2>Matter progress</h2>
+          <p>These are the stages selected for your matter. Stages that do not apply are not shown.</p>
+        </div>
+        <span className="portal-progress-pill">{progressPercent}% complete</span>
+      </div>
+      <div className="portal-stage-track">
+        {stages.map((stage, index) => {
+          const status = stageStatus(stage);
+          return (
+            <div className={`portal-stage-tile ${status}`} key={stage.id || stage.label}>
+              <div className="portal-stage-marker"><span>{status === 'completed' ? '✓' : index + 1}</span></div>
+              <div>
+                <strong>{stage.label}</strong>
+                <small>{status === 'current' ? 'Current / next stage' : status === 'completed' ? (stage.completedDate ? `Completed ${formatPortalDate(stage.completedDate)}` : 'Completed') : 'Upcoming'}</small>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalMessage, onOpenPortalDocument, portalNotice, portalError }) {
   const [activeTool, setActiveTool] = useState('notes');
   const adviserMessages = snapshot.portalMessages.filter((item) => item.messageType === 'adviser_action');
@@ -1958,6 +1997,8 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
           <p>{snapshot.nextStep || 'No specific client action has been published at this stage.'}</p>
         </section>
 
+        <ClientPortalProgressMap stagePlan={snapshot.stagePlan || []} progressPercent={snapshot.progressPercent || 0} />
+
         <section className="portal-card wide portal-client-action-card">
           <div className="portal-section-head">
             <div><h2>Notes, actions and planning</h2><p>Add a note for Turner Hopkins or keep a planning note in your portal. Notes are visible to Turner Hopkins.</p></div>
@@ -1996,16 +2037,17 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
             <div><h2>Forms and instructions</h2><p>Download the standard PDFs Turner Hopkins has made available for your matter.</p></div>
           </div>
           {(snapshot.portalDocuments || []).length ? (
-            <div className="portal-document-list">
+            <div className="portal-document-tile-grid">
               {snapshot.portalDocuments.map((doc) => (
-                <div className="portal-document-row" key={doc.id}>
-                  <FileText size={20} />
-                  <div>
+                <article className="portal-document-tile" key={doc.id}>
+                  <div className="portal-document-tile-icon"><FileText size={24} /></div>
+                  <div className="portal-document-tile-copy">
                     <strong>{doc.title}</strong>
-                    <span>{[doc.category, formatFileSize(doc.fileSize), doc.description].filter(Boolean).join(' · ')}</span>
+                    <span>{[doc.category || 'PDF document', formatFileSize(doc.fileSize)].filter(Boolean).join(' · ')}</span>
+                    {doc.description && <p>{doc.description}</p>}
                   </div>
-                  <button className="btn mini dark" type="button" onClick={() => onOpenPortalDocument?.(doc.id)}><ExternalLink size={15} />Open</button>
-                </div>
+                  <button className="btn mini dark" type="button" onClick={() => onOpenPortalDocument?.(doc.id)}><ExternalLink size={15} />Open PDF</button>
+                </article>
               ))}
             </div>
           ) : <p>No forms or instruction PDFs have been published to your portal yet.</p>}
@@ -3069,13 +3111,11 @@ function AdviserClientWorkloadList({ clients, advisers, taskRows, setTab, setSel
 }
 
 function ProgressMap({ client }) {
-  const stages = client.stages || [];
-  const applied = appliedStages(client);
+  const stages = appliedStages(client);
   const completed = completedStages(client);
-  const nextStage = applied.find((stage) => !stage.completed) || null;
+  const nextStage = stages.find((stage) => !stage.completed) || null;
 
   function stageStatus(stage) {
-    if (!stage.applied) return 'skipped';
     if (stage.completed) return 'completed';
     if (nextStage?.id === stage.id) return 'current';
     return 'upcoming';
@@ -3086,10 +3126,10 @@ function ProgressMap({ client }) {
       <div className="progress-map-header">
         <div>
           <h2>Client progress map</h2>
-          <p className="muted">Applied stages drive the progress percentage. Optional stages that are not relevant are shown as skipped and do not affect progress.</p>
+          <p className="muted">Only stages selected for this client are shown. The numbering automatically follows the selected chronological order.</p>
         </div>
         <div className="progress-map-stats">
-          <span><b>{applied.length}</b> applied</span>
+          <span><b>{stages.length}</b> selected</span>
           <span><b>{completed.length}</b> completed</span>
           <span><b>{progressPercent(client)}%</b> progress</span>
         </div>
@@ -3103,7 +3143,7 @@ function ProgressMap({ client }) {
               <div className="progress-step-marker"><span>{status === 'completed' ? '✓' : index + 1}</span></div>
               <div className="progress-step-copy">
                 <strong>{stage.label}</strong>
-                <small>{status === 'current' ? 'Current / next stage' : status === 'completed' ? (stage.completedDate ? `Completed ${stage.completedDate}` : 'Completed') : status === 'skipped' ? 'Not applied to this matter' : 'Upcoming'}</small>
+                <small>{status === 'current' ? 'Current / next stage' : status === 'completed' ? (stage.completedDate ? `Completed ${stage.completedDate}` : 'Completed') : 'Upcoming'}</small>
               </div>
             </div>
           );

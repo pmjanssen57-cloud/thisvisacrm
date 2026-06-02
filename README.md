@@ -474,3 +474,14 @@ This package-lock uses public npm registry tarball URLs so Netlify can install d
 - Adds migration `202606010004_add_client_portal_foundation.sql`.
 - The portal is read-only. Clients cannot edit details or upload documents in this release.
 - Internal strategy, notes, billing, action logs, SharePoint links and CRM file history are not exposed through the portal.
+
+## v0.11.6 - Client Portal Progress and Document Tiles
+
+- Hides non-applied matter stages from the client progress map.
+- Renumbers only the selected stages in chronological order for each client.
+- Keeps the adviser-side Stage editor showing all available stages so advisers can apply or remove stages as needed.
+- Adds the selected-stage tile-style progress map to the client portal.
+- Adds selected stage data to the portal snapshot returned by the portal Netlify Function.
+- Restyles client portal Forms and instructions PDFs as client-facing tiles with clearer PDF open actions.
+- Removes the duplicate Upcoming key dates heading from the portal layout.
+- No database migration required.

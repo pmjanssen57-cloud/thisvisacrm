@@ -224,12 +224,15 @@ async function buildPortalSnapshot(clientId) {
 
   const advisers = adviserRows || [];
   const adviser = advisers.find((item) => item.id === client.primary_adviser_id) || null;
-  const stages = (stageRows || []).filter((stage) => stage.applied !== false).map((stage) => ({
-    id: stage.stage_key,
-    label: stage.stage_label,
-    completed: Boolean(stage.completed),
-    completedDate: toDateOnly(stage.completed_date),
-  }));
+  const stages = (stageRows || [])
+    .filter((stage) => stage.applied !== false)
+    .map((stage) => ({
+      id: stage.stage_key,
+      label: stage.stage_label,
+      completed: Boolean(stage.completed),
+      completedDate: toDateOnly(stage.completed_date),
+      sortOrder: Number(stage.sort_order || 0),
+    }));
   const currentStage = stages.find((stage) => !stage.completed) || stages[stages.length - 1] || null;
   const progress = stages.length ? Math.round((stages.filter((stage) => stage.completed).length / stages.length) * 100) : 0;
   const visibleDocumentIds = new Set(parseJsonArray(client.portal_visible_document_ids));
@@ -275,6 +278,7 @@ async function buildPortalSnapshot(clientId) {
     adviser: adviser ? { name: adviser.name || '', email: adviser.email || '', phone: adviser.phone || '', profilePhotoUrl: adviser.profile_photo_url || '' } : { name: '', email: '', phone: '', profilePhotoUrl: '' },
     currentStage: currentStage?.label || 'Not yet published',
     progressPercent: progress,
+    stagePlan: stages.map((stage) => ({ id: stage.id, label: stage.label, completed: stage.completed, completedDate: stage.completedDate })),
     statusUpdate: client.portal_status_update || '',
     nextStep: client.portal_next_step || '',
     documentsStillRequired: documents,
