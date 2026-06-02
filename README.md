@@ -1,8 +1,15 @@
-# Turner Hopkins CRM - Netlify Database v0.11.4
+# Turner Hopkins CRM - Netlify Database v0.11.5
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
 
+
+## v0.11.5 - Intake Filter Styling Fix
+
+- Styled the Intake inbox toolbar select filters so Status, Adviser and Review flag match the rest of the CRM form controls.
+- Added consistent rounded borders, height, spacing, focus state and select arrow treatment.
+- Kept the full Intake inbox layout and functionality unchanged.
+- No database migration required.
 
 ## v0.11.4 - Intake Inbox Management
 

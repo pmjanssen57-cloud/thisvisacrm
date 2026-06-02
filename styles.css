@@ -4077,9 +4077,35 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .intake-inbox-toolbar label { display: grid; gap: 6px; min-width: 0; }
 .intake-inbox-toolbar label > span, .intake-search-field > span { color: var(--muted); font-size: 11px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
 .intake-inbox-toolbar select, .intake-inbox-toolbar input { width: 100%; min-width: 0; }
-.intake-search-field > div { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 14px; padding: 0 12px; min-height: 42px; background: #fff; }
+.intake-inbox-toolbar select {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  min-height: 43px;
+  padding: 10px 40px 10px 12px;
+  color: var(--ink);
+  background-color: #fff;
+  background-image: linear-gradient(45deg, transparent 50%, #64748b 50%), linear-gradient(135deg, #64748b 50%, transparent 50%);
+  background-position: calc(100% - 18px) 18px, calc(100% - 13px) 18px;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  appearance: none;
+  -webkit-appearance: none;
+  outline: none;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02);
+}
+.intake-inbox-toolbar select:focus,
+.intake-search-field > div:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(72, 211, 156, 0.14);
+}
+.intake-inbox-toolbar .btn {
+  min-height: 43px;
+  align-self: end;
+  white-space: nowrap;
+}
+.intake-search-field > div { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 14px; padding: 0 12px; min-height: 43px; background: #fff; transition: border-color .16s ease, box-shadow .16s ease; }
 .intake-search-field svg { color: var(--muted); flex: 0 0 auto; }
-.intake-search-field input { border: 0; padding: 0; min-height: auto; box-shadow: none; }
+.intake-search-field input { border: 0; padding: 0; min-height: auto; box-shadow: none; color: var(--ink); background: transparent; }
 .intake-search-field input:focus { outline: none; }
 .intake-inbox-summary-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 14px; border-top: 1px solid var(--line); padding-top: 14px; }
 .intake-inbox-summary-row h2 { margin: 3px 0 0; color: var(--ink); }
@@ -4122,3 +4148,6 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   .intake-inbox-flags-row { padding: 0 14px 14px; }
   .intake-inbox-expanded { padding: 14px; }
 }
+
+/* v0.11.5 intake inbox filter styling */
+.intake-inbox-toolbar label > span { padding-left: 1px; }

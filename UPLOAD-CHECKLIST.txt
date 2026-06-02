@@ -1,4 +1,4 @@
-THiS CRM v0.11.4 - Intake Inbox Management
+THiS CRM v0.11.5 - Intake Filter Styling Fix
 
 Upload checklist
 
