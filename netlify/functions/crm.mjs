@@ -63,6 +63,7 @@ const DOCUMENT_CHECKLIST_TEMPLATES = [
 const LIBRARY_ENTRY_TYPES = ['Policy', 'Form'];
 const LIBRARY_STATUSES = ['Current', 'Watch', 'Superseded', 'Archived', 'Acceptable until'];
 const LIBRARY_CATEGORIES = ['Work', 'Residence', 'Family', 'Student', 'Visitor', 'Investor', 'Health', 'Character', 'Compliance', 'Forms', 'General'];
+const INTAKE_STATUSES = ['New', 'Reviewing', 'Contacted', 'Consultation booked', 'Agreement sent', 'Signed client', 'Converted', 'Not proceeding', 'Archived'];
 const PORTAL_DOCUMENT_STORE = 'client-portal-documents';
 
 export default async function crmRequestHandler(request, context = {}) {
@@ -139,6 +140,21 @@ async function handleCrmEvent(event) {
     if (action === 'deleteLibraryEntry') {
       await deleteLibraryEntry(body.entryId);
       return json(await readCrmData());
+    }
+
+    if (action === 'saveIntakeEnquiry') {
+      const intakeEnquiry = await saveIntakeEnquiry(body.intake);
+      return json({ intakeEnquiry, ...(await readCrmData()) });
+    }
+
+    if (action === 'deleteIntakeEnquiry') {
+      await deleteIntakeEnquiry(body.intakeId);
+      return json(await readCrmData());
+    }
+
+    if (action === 'convertIntakeToClient') {
+      const result = await convertIntakeToClient(body.intakeId);
+      return json({ ...result, ...(await readCrmData()) });
     }
 
     if (action === 'saveClient') {
@@ -457,6 +473,37 @@ async function ensureSchema() {
   await database.sql`ALTER TABLE client_portal_documents ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`;
   await database.sql`UPDATE client_portal_documents SET visible_to_client = TRUE WHERE visible_to_client IS NULL`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_client_portal_documents_client ON client_portal_documents(client_id, uploaded_at DESC)`;
+  await database.sql`
+    CREATE TABLE IF NOT EXISTS intake_enquiries (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      status TEXT NOT NULL DEFAULT 'New',
+      assigned_adviser_id UUID REFERENCES advisers(id) ON DELETE SET NULL,
+      applicant_first_name TEXT,
+      applicant_last_name TEXT,
+      email TEXT,
+      phone TEXT,
+      current_location TEXT,
+      citizenship TEXT,
+      date_of_birth DATE,
+      current_visa_type TEXT,
+      current_visa_expiry DATE,
+      target_pathway TEXT,
+      urgency TEXT,
+      flags JSONB NOT NULL DEFAULT '{}'::jsonb,
+      raw_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+      adviser_assessment_notes TEXT,
+      recommended_pathway TEXT,
+      consultation_outcome TEXT,
+      converted_client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`;
+  await database.sql`ALTER TABLE intake_enquiries ADD COLUMN IF NOT EXISTS assigned_adviser_id UUID REFERENCES advisers(id) ON DELETE SET NULL`;
+  await database.sql`ALTER TABLE intake_enquiries ADD COLUMN IF NOT EXISTS converted_client_id UUID REFERENCES clients(id) ON DELETE SET NULL`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_enquiries_status ON intake_enquiries(status)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_enquiries_created_at ON intake_enquiries(created_at DESC)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_enquiries_assigned_adviser ON intake_enquiries(assigned_adviser_id)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_enquiries_email ON intake_enquiries(LOWER(email))`;
 }
 
 
@@ -464,7 +511,7 @@ async function ensureSchema() {
 
 async function readCrmData() {
   const database = db();
-  const [advisers, clients, stages, deadlines, billing, personalTasks, calendarEntries, libraryEntries, portalMessages, portalDocuments] = await Promise.all([
+  const [advisers, clients, stages, deadlines, billing, personalTasks, calendarEntries, libraryEntries, portalMessages, portalDocuments, intakeEnquiries] = await Promise.all([
     database.sql`SELECT id, name, role, email, login_email, profile_photo_url, phone, licence, active FROM advisers ORDER BY name ASC`,
     database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, one_law_client_number, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, portal_enabled, portal_email, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_access_code_hash, portal_last_published_at, portal_last_accessed_at, notes, family_members, document_checklist FROM clients ORDER BY updated_at DESC`,
     database.sql`SELECT id, client_id, stage_key, stage_label, mandatory, applied, completed, completed_date, sort_order FROM client_stages ORDER BY sort_order ASC`,
@@ -475,6 +522,7 @@ async function readCrmData() {
     database.sql`SELECT id, entry_type, reference_code, title, category, status, official_url, version_label, acceptable_until, related_case_types, related_document_items, internal_summary, adviser_notes, last_reviewed, next_review_due, reviewed_by FROM library_entries ORDER BY entry_type ASC, title ASC`,
     database.sql`SELECT id, client_id, portal_email, message_type, title, message, status, created_at FROM client_portal_messages ORDER BY created_at DESC`,
     database.sql`SELECT id, client_id, title, category, description, file_name, file_type, file_size, blob_key, visible_to_client, uploaded_by, uploaded_at FROM client_portal_documents ORDER BY uploaded_at DESC`,
+    database.sql`SELECT id, status, assigned_adviser_id, applicant_first_name, applicant_last_name, email, phone, current_location, citizenship, date_of_birth, current_visa_type, current_visa_expiry, target_pathway, urgency, flags, raw_payload, adviser_assessment_notes, recommended_pathway, consultation_outcome, converted_client_id, created_at, updated_at FROM intake_enquiries ORDER BY created_at DESC`,
   ]);
 
   return {
@@ -483,6 +531,8 @@ async function readCrmData() {
     personalTasks: personalTasks.map(mapPersonalTaskFromDb),
     calendarEntries: calendarEntries.map(mapCalendarEntryFromDb),
     libraryEntries: libraryEntries.map(mapLibraryEntryFromDb),
+    intakeEnquiries: intakeEnquiries.map(mapIntakeEnquiryFromDb),
+    intakeStatuses: INTAKE_STATUSES,
     caseTypes: CASE_TYPES,
     deadlineTypes: DEADLINE_TYPES,
     stageTemplates: STAGE_TEMPLATES,
@@ -564,6 +614,34 @@ function mapLibraryEntryFromDb(row) {
     lastReviewed: toDateOnly(row.last_reviewed),
     nextReviewDue: toDateOnly(row.next_review_due),
     reviewedBy: row.reviewed_by || '',
+  };
+}
+
+
+function mapIntakeEnquiryFromDb(row = {}) {
+  return {
+    id: row.id,
+    status: normaliseIntakeStatus(row.status),
+    assignedAdviserId: row.assigned_adviser_id || '',
+    firstName: row.applicant_first_name || '',
+    lastName: row.applicant_last_name || '',
+    email: row.email || '',
+    phone: row.phone || '',
+    currentLocation: row.current_location || '',
+    citizenship: row.citizenship || '',
+    dateOfBirth: toDateOnly(row.date_of_birth),
+    currentVisaType: row.current_visa_type || '',
+    currentVisaExpiry: toDateOnly(row.current_visa_expiry),
+    targetPathway: row.target_pathway || '',
+    urgency: row.urgency || '',
+    flags: parseJsonObject(row.flags),
+    rawPayload: parseJsonObject(row.raw_payload),
+    adviserAssessmentNotes: row.adviser_assessment_notes || '',
+    recommendedPathway: row.recommended_pathway || '',
+    consultationOutcome: row.consultation_outcome || '',
+    convertedClientId: row.converted_client_id || '',
+    createdAt: toDateTimeLabel(row.created_at),
+    updatedAt: toDateTimeLabel(row.updated_at),
   };
 }
 
@@ -829,6 +907,146 @@ function sanitiseFileName(value = '') {
 function normalisePortalDocumentCategory(value = '') {
   const allowed = ['INZ form', 'INZ guide', 'THiS instructions', 'Evidence checklist', 'Template', 'Other'];
   return allowed.includes(value) ? value : 'THiS instructions';
+}
+
+
+async function saveIntakeEnquiry(input = {}) {
+  const intake = normaliseIntakeInput(input);
+  if (!isUuid(intake.id)) throw new Error('A saved intake enquiry is required.');
+  const rows = await db().sql`
+    UPDATE intake_enquiries
+    SET status = ${intake.status},
+        assigned_adviser_id = ${nullableUuid(intake.assignedAdviserId)},
+        adviser_assessment_notes = ${intake.adviserAssessmentNotes},
+        recommended_pathway = ${intake.recommendedPathway},
+        consultation_outcome = ${intake.consultationOutcome},
+        updated_at = NOW()
+    WHERE id = ${intake.id}
+    RETURNING id, status, assigned_adviser_id, applicant_first_name, applicant_last_name, email, phone, current_location, citizenship, date_of_birth, current_visa_type, current_visa_expiry, target_pathway, urgency, flags, raw_payload, adviser_assessment_notes, recommended_pathway, consultation_outcome, converted_client_id, created_at, updated_at
+  `;
+  if (!rows[0]) throw new Error('Intake enquiry was not found.');
+  return mapIntakeEnquiryFromDb(rows[0]);
+}
+
+async function deleteIntakeEnquiry(intakeId) {
+  if (!isUuid(intakeId)) return;
+  await db().sql`DELETE FROM intake_enquiries WHERE id = ${intakeId} AND converted_client_id IS NULL`;
+}
+
+async function convertIntakeToClient(intakeId) {
+  if (!isUuid(intakeId)) throw new Error('A saved intake enquiry is required.');
+  const rows = await db().sql`SELECT id, status, assigned_adviser_id, applicant_first_name, applicant_last_name, email, phone, current_location, citizenship, date_of_birth, current_visa_type, current_visa_expiry, target_pathway, urgency, flags, raw_payload, adviser_assessment_notes, recommended_pathway, consultation_outcome, converted_client_id, created_at, updated_at FROM intake_enquiries WHERE id = ${intakeId} LIMIT 1`;
+  const row = rows[0];
+  if (!row) throw new Error('Intake enquiry was not found.');
+  if (row.converted_client_id) return { client: await readSingleClient(row.converted_client_id), intakeEnquiry: mapIntakeEnquiryFromDb(row) };
+
+  const intake = mapIntakeEnquiryFromDb(row);
+  const clientDraft = buildClientFromIntake(intake);
+  const saved = await saveClient(clientDraft);
+  await db().sql`UPDATE intake_enquiries SET status = 'Converted', converted_client_id = ${saved.id}, updated_at = NOW() WHERE id = ${intakeId}`;
+  return { client: await readSingleClient(saved.id), intakeEnquiry: { ...intake, status: 'Converted', convertedClientId: saved.id } };
+}
+
+function normaliseIntakeInput(input = {}) {
+  return {
+    id: input.id,
+    status: normaliseIntakeStatus(input.status),
+    assignedAdviserId: input.assignedAdviserId || input.assigned_adviser_id || '',
+    adviserAssessmentNotes: String(input.adviserAssessmentNotes || input.adviser_assessment_notes || '').trim().slice(0, 12000),
+    recommendedPathway: String(input.recommendedPathway || input.recommended_pathway || '').trim().slice(0, 4000),
+    consultationOutcome: String(input.consultationOutcome || input.consultation_outcome || '').trim().slice(0, 4000),
+  };
+}
+
+function normaliseIntakeStatus(value) {
+  const text = String(value || '').trim();
+  return INTAKE_STATUSES.includes(text) ? text : 'New';
+}
+
+function buildClientFromIntake(intake = {}) {
+  const payload = intake.rawPayload || {};
+  const familyMembers = [];
+  if (payload.partnerName || payload.partnerCitizenship) {
+    familyMembers.push({
+      id: `member-${Date.now()}-partner`,
+      relationship: 'Spouse/Partner',
+      name: String(payload.partnerName || '').trim(),
+      nationality: String(payload.partnerCitizenship || '').trim(),
+      dateOfBirth: '',
+    });
+  }
+  const strategyParts = [
+    'Converted from website intake form.',
+    intake.recommendedPathway ? `Recommended pathway: ${intake.recommendedPathway}` : '',
+    payload.helpNeeded ? `Client goal/help needed: ${payload.helpNeeded}` : '',
+    payload.currentVisaType || payload.currentVisaExpiry ? `Current visa: ${[payload.currentVisaType, payload.currentVisaExpiry ? `expires ${payload.currentVisaExpiry}` : ''].filter(Boolean).join(' ')}` : '',
+    payload.hasNzJobOffer || payload.employerName || payload.jobTitle ? `NZ employment: ${[payload.hasNzJobOffer, payload.jobTitle, payload.employerName].filter(Boolean).join(' · ')}` : '',
+    payload.healthIssues ? `Health declaration: ${payload.healthIssues}${payload.healthDetails ? ` - ${payload.healthDetails}` : ''}` : '',
+    payload.characterIssues ? `Character declaration: ${payload.characterIssues}${payload.characterDetails ? ` - ${payload.characterDetails}` : ''}` : '',
+    intake.adviserAssessmentNotes ? `Adviser assessment notes: ${intake.adviserAssessmentNotes}` : '',
+  ].filter(Boolean).join('\n\n');
+
+  const notes = [
+    `Intake source: ${payload.submittedVia || 'Website intake form'}`,
+    payload.preferredContactMethod ? `Preferred contact: ${payload.preferredContactMethod}` : '',
+    payload.additionalInfo ? `Additional intake comments: ${payload.additionalInfo}` : '',
+    payload.familyDetails ? `Family details: ${payload.familyDetails}` : '',
+    payload.qualificationDetails ? `Qualification details: ${payload.qualificationDetails}` : '',
+    payload.workDetails ? `Work details: ${payload.workDetails}` : '',
+    payload.employmentDetails ? `Employment details: ${payload.employmentDetails}` : '',
+    payload.fundsDetails ? `Funds/investment details: ${payload.fundsDetails}` : '',
+    payload.nzTravelHistory ? `NZ travel history: ${payload.nzTravelHistory}` : '',
+  ].filter(Boolean).join('\n\n');
+
+  return {
+    firstName: intake.firstName || payload.firstName || '',
+    lastName: intake.lastName || payload.lastName || 'Unnamed client',
+    email: intake.email || payload.email || '',
+    phone: intake.phone || payload.phone || '',
+    nationality: intake.citizenship || payload.citizenship || '',
+    dateOfBirth: intake.dateOfBirth || payload.dateOfBirth || '',
+    location: intake.currentLocation || payload.currentLocation || '',
+    matterName: intake.targetPathway || payload.targetPathway || '',
+    caseStrategy: strategyParts,
+    caseType: inferCaseTypeFromIntake(intake),
+    primaryAdviserId: intake.assignedAdviserId || '',
+    backupAdviserId: '',
+    priority: intake.flags?.urgent ? 'High' : 'Normal',
+    clientStatus: 'Active',
+    nextAction: 'Complete onboarding and send agreement / client instructions.',
+    nextActionDue: todayDateOnly(),
+    nextActionLog: [],
+    portalEnabled: false,
+    portalEmail: intake.email || payload.email || '',
+    portalStatusUpdate: '',
+    portalNextStep: '',
+    portalVisibleDocumentIds: [],
+    portalVisibleDeadlineIds: [],
+    portalVisibleAppointmentIds: [],
+    portalVisibleBillingIds: [],
+    notes,
+    stages: normaliseStages(buildStages(['instruction-sent', 'documentation-gathering'], [])),
+    familyMembers,
+    documentChecklist: buildDocumentChecklist(),
+    deadlines: intake.currentVisaExpiry ? [{ type: 'Visa Expiry Date', date: intake.currentVisaExpiry, note: 'Captured from intake form.' }] : [],
+    billing: [],
+  };
+}
+
+function inferCaseTypeFromIntake(intake = {}) {
+  const text = `${intake.targetPathway || ''} ${intake.recommendedPathway || ''} ${intake.rawPayload?.helpNeeded || ''}`.toLowerCase();
+  if (/active investor|investor|investment/.test(text)) return 'Active Investor';
+  if (/partner|partnership|spouse|de facto/.test(text)) return /residence/.test(text) ? 'Partner Residence' : 'Partner WV Only';
+  if (/green list/.test(text)) return 'SMC Residence - Green List';
+  if (/skilled migrant|smc|residence|resident/.test(text)) return 'SMC Residence - Points';
+  if (/employer|aewv|work visa|work/.test(text)) return 'AEWV Only';
+  if (/student/.test(text)) return 'Student Visa (Intl)';
+  if (/citizenship/.test(text)) return 'Citizenship';
+  if (/permanent residence|prv/.test(text)) return 'Permanent Residence';
+  if (/parent retirement/.test(text)) return 'Parent Retirement';
+  if (/parent/.test(text)) return 'Parent Residence';
+  if (/specific purpose/.test(text)) return 'Specific Purpose Work Visa';
+  return CASE_TYPES[0];
 }
 
 async function saveClient(input = {}) {
@@ -1267,6 +1485,18 @@ function toDateTimeLabel(value) {
     return date.toISOString();
   } catch {
     return '';
+  }
+}
+
+
+function parseJsonObject(value) {
+  if (!value) return {};
+  if (typeof value === 'object' && !Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
   }
 }
 

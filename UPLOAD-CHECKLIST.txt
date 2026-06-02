@@ -1,4 +1,4 @@
-THiS CRM v0.10.13 - Client Workspace Overflow Fix
+THiS CRM v0.11.0 - Intake Form Foundation
 
 Upload checklist
 
@@ -10,14 +10,16 @@ Upload checklist
    - CRM_ACCESS_TOKEN (temporary fallback until removed)
 5. Deploy through Netlify with Clear cache and deploy if possible.
 6. Confirm adviser login still works.
-7. Open Clients from Dashboard, Tasks, Calendar, Billing and the main navigation.
-8. Open Documents and confirm checklist rows are not clipped.
-9. Open Portal and confirm the portal PDF/admin rows fit inside the section panel.
-10. Open Stages and confirm the progress map and stage rows wrap inside the page without horizontal cut-off.
-11. Check Key dates, Billing, Family and Notes & strategy still open and save normally.
-12. Check the Clients view on mobile/tablet width to confirm the layout stacks cleanly.
+7. Confirm the new Intake tab appears in the main navigation.
+8. Open `/intake` in a new browser tab and submit a test enquiry.
+9. Return to the CRM Intake tab and confirm the enquiry appears with flags and raw assessment details.
+10. Assign an adviser, add assessment notes, recommended pathway and consultation outcome, then save.
+11. Convert the test enquiry to a client and confirm a new Client record opens.
+12. Confirm the converted intake record is linked and cannot be deleted from the Intake workspace.
+13. Spot-check Library, Clients, Dashboard, Tasks, Calendar and Billing still open normally.
 
 Notes:
-- This is a front-end layout/overflow fix release.
-- No database migration required.
-- Existing portal PDF, billing, deadline and document checklist functionality is unchanged.
+- This is the first road-testing version of the pre-client intake workflow.
+- Intake records are deliberately separate from live client records until conversion.
+- No file uploads are included in this version.
+- New migration added only: netlify/database/migrations/202606020001_add_intake_enquiries.sql.

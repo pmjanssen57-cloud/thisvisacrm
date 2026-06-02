@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { acceptInvite, getUser, handleAuthCallback, login, logout, onAuthChange, requestPasswordRecovery, updateUser } from '@netlify/identity';
-import { AlertTriangle, ArrowUpDown, BookOpen, Calculator, CalendarDays, CheckCircle2, ChevronRight, Clock, CloudSun, Copy, CreditCard, Database, DollarSign, ExternalLink, FileText, Globe2, HelpCircle, LayoutDashboard, Link2, ListChecks, LockKeyhole, MessageSquare, Plus, RefreshCw, Save, Search, Send, ShieldCheck, Trash2, UserRound, UsersRound, Wrench, X } from 'lucide-react';
+import { AlertTriangle, ArrowUpDown, BookOpen, Calculator, CalendarDays, CheckCircle2, ChevronRight, Clock, CloudSun, Copy, CreditCard, ClipboardList, Database, DollarSign, ExternalLink, FileText, Globe2, HelpCircle, LayoutDashboard, Link2, ListChecks, LockKeyhole, MessageSquare, Plus, RefreshCw, Save, Search, Send, ShieldCheck, Trash2, UserRound, UsersRound, Wrench, X } from 'lucide-react';
 
 const BRAND = {
   ink: '#003736',
@@ -73,8 +73,21 @@ const DOCUMENT_CHECKLIST_TEMPLATES = [
 const LIBRARY_ENTRY_TYPES = ['Policy', 'Form'];
 const LIBRARY_STATUSES = ['Current', 'Watch', 'Superseded', 'Archived', 'Acceptable until'];
 const LIBRARY_CATEGORIES = ['Work', 'Residence', 'Family', 'Student', 'Visitor', 'Investor', 'Health', 'Character', 'Compliance', 'Forms', 'General'];
+const INTAKE_STATUSES = ['New', 'Reviewing', 'Contacted', 'Consultation booked', 'Agreement sent', 'Signed client', 'Converted', 'Not proceeding', 'Archived'];
+const INTAKE_PATHWAY_OPTIONS = ['Visitor visa', 'Work visa / AEWV', 'Partnership temporary visa', 'Partnership residence', 'Skilled residence / SMC', 'Green List residence', 'Active Investor', 'Student visa', 'Parent / family category', 'Permanent residence', 'Citizenship', 'Not sure yet'];
+const INTAKE_YES_NO_OPTIONS = ['Yes', 'No', 'Unsure'];
 
 const SUPPORT_CONTENT = {
+  intake: {
+    title: 'Intake help',
+    summary: 'The Intake page is for pre-client enquiries submitted through the draft website assessment form. Keep these records separate from active clients until Turner Hopkins decides to proceed and the matter should be converted.',
+    sections: [
+      { heading: 'Reviewing enquiries', text: 'Use status, adviser assignment, flags and assessment notes to triage new enquiries before contacting the person or sending an agreement.' },
+      { heading: 'Conversion', text: 'Convert only suitable or signed matters. The conversion creates a normal client record using selected contact, visa and assessment information while keeping the original intake record for reference.' },
+      { heading: 'Form testing', text: 'Use /intake to road-test the public-facing draft web form. The first version captures structured data only and does not accept uploads.' },
+    ],
+    tips: ['Do not use intake records as active client files.', 'Check health, character, urgency and visa expiry flags first.', 'Convert only once the matter should enter the live CRM workflow.'],
+  },
   dashboard: {
     title: 'Dashboard help',
     summary: 'The dashboard is the daily operational view. It shows the current adviser workload, urgent bring-up items, active clients, deadlines and billing pressure points based on the selected adviser view.',
@@ -375,6 +388,8 @@ const emptyData = {
   personalTasks: [],
   calendarEntries: [],
   libraryEntries: [],
+  intakeEnquiries: [],
+  intakeStatuses: INTAKE_STATUSES,
   securityMode: 'unknown',
 };
 
@@ -427,6 +442,7 @@ function makeBlankClient(data) {
 }
 
 export default function App() {
+  if (window.location.pathname.startsWith('/intake')) return <IntakeFormApp />;
   if (window.location.pathname.startsWith('/portal')) return <ClientPortalApp />;
   const [data, setData] = useState(emptyData);
   const [tab, setTab] = useState('dashboard');
@@ -785,6 +801,24 @@ export default function App() {
     return await callApi('deleteLibraryEntry', { entryId });
   }
 
+  async function saveIntakeEnquiry(intake) {
+    return await callApi('saveIntakeEnquiry', { intake });
+  }
+
+  async function deleteIntakeEnquiry(intakeId) {
+    if (!window.confirm('Delete this intake enquiry? Converted enquiries cannot be deleted.')) return;
+    return await callApi('deleteIntakeEnquiry', { intakeId });
+  }
+
+  async function convertIntakeToClient(intakeId) {
+    const body = await callApi('convertIntakeToClient', { intakeId });
+    if (body.client?.id) {
+      setSelectedClientId(body.client.id);
+      setTab('clients');
+    }
+    return body;
+  }
+
   async function deleteClient(clientId) {
     if (!window.confirm('Delete this client and all linked stages, deadlines and billing records?')) return;
     const body = await callApi('deleteClient', { clientId });
@@ -943,7 +977,7 @@ export default function App() {
         {error && <div className="error-banner"><AlertTriangle size={18} />{error}</div>}
         {loading && <div className="loading-card"><Database size={18} />Loading database-backed CRM data...</div>}
 
-        {!loading && !data.clients.length && !data.advisers.length && (
+        {!loading && !data.clients.length && !data.advisers.length && !data.intakeEnquiries.length && (
           <section className="empty-state">
             <Database size={40} />
             <h1>Database is connected, but no CRM records exist yet.</h1>
@@ -952,7 +986,7 @@ export default function App() {
           </section>
         )}
 
-        {(data.clients.length > 0 || data.advisers.length > 0 || data.libraryEntries.length > 0) && (
+        {(data.clients.length > 0 || data.advisers.length > 0 || data.libraryEntries.length > 0 || data.intakeEnquiries.length > 0) && (
           <>
             <ViewToolbar
               advisers={scopeAdvisers}
@@ -967,14 +1001,19 @@ export default function App() {
               canViewAllAdvisers={canViewAllAdvisers}
             />
             <nav className="tabs desktop-tabs">
+              <TabButton active={tab === 'intake'} onClick={() => switchTab('intake')} icon={ClipboardList} label="Intake" />
+              <TabButton active={tab === 'library'} onClick={() => switchTab('library')} icon={BookOpen} label="Library" />
               <TabButton active={tab === 'dashboard'} onClick={() => switchTab('dashboard')} icon={LayoutDashboard} label="Dashboard" />
               <TabButton active={tab === 'tasks'} onClick={() => switchTab('tasks')} icon={ListChecks} label="Tasks" />
               <TabButton active={tab === 'calendar'} onClick={() => switchTab('calendar')} icon={CalendarDays} label="Calendar" />
-              <TabButton active={tab === 'library'} onClick={() => switchTab('library')} icon={BookOpen} label="Library" />
               <TabButton active={tab === 'clients'} onClick={() => switchTab('clients')} icon={UsersRound} label="Clients" />
               <TabButton active={tab === 'billing'} onClick={() => switchTab('billing')} icon={CreditCard} label="Billing" />
               {canManageAdvisers && <TabButton active={tab === 'advisers'} onClick={() => switchTab('advisers')} icon={UsersRound} label="Advisers" />}
             </nav>
+
+            {tab === 'intake' && (
+              <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} statuses={data.intakeStatuses || INTAKE_STATUSES} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} convertIntakeToClient={convertIntakeToClient} saving={saving} openClientRecord={openClientRecord} />
+            )}
 
             {tab === 'dashboard' && (
               <Dashboard clients={scopedClients} activeClients={activeClients} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} deadlineRows={deadlineRows} taskRows={taskRows} stageTemplates={data.stageTemplates} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} />
@@ -1051,6 +1090,349 @@ export default function App() {
   );
 
 }
+
+
+function IntakeFormApp() {
+  const [form, setForm] = useState(makeBlankIntakePayload());
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState('');
+
+  function setField(name, value) {
+    setForm((current) => ({ ...current, [name]: value }));
+  }
+
+  async function submit(event) {
+    event.preventDefault();
+    setSubmitting(true);
+    setError('');
+    try {
+      const response = await fetch('/.netlify/functions/intake', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ payload: form }),
+      });
+      const body = await readJsonResponse(response);
+      if (!response.ok) throw new Error(body.error || 'The intake form could not be submitted.');
+      setSubmitted(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (submitted) {
+    return (
+      <div className="intake-public-shell">
+        <main className="intake-public-card intake-thanks-card">
+          <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="portal-logo" />
+          <CheckCircle2 size={40} className="portal-lock" />
+          <h1>Thank you. Your assessment details have been received.</h1>
+          <p className="muted">Turner Hopkins will review the information and come back to you if we can assist. This form is for initial assessment only and does not create an adviser-client relationship.</p>
+          <button className="btn dark" type="button" onClick={() => { setForm(makeBlankIntakePayload()); setSubmitted(false); }}>Start another intake</button>
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="intake-public-shell">
+      <main className="intake-public-card">
+        <div className="intake-public-head">
+          <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="portal-logo" />
+          <div>
+            <span className="eyebrow">Draft web intake form</span>
+            <h1>Immigration assessment details</h1>
+            <p>Use this draft form to capture enough information for an initial Turner Hopkins assessment. No documents are uploaded in this first version.</p>
+          </div>
+        </div>
+        {error && <div className="error-banner"><AlertTriangle size={18} />{error}</div>}
+        <form className="intake-form" onSubmit={submit}>
+          <IntakeSection title="Contact and consent" description="Basic contact details and permission to follow up.">
+            <div className="form-grid">
+              <IntakeField label="First name" value={form.firstName} onChange={(v) => setField('firstName', v)} required />
+              <IntakeField label="Last name" value={form.lastName} onChange={(v) => setField('lastName', v)} required />
+              <IntakeField label="Preferred name" value={form.preferredName} onChange={(v) => setField('preferredName', v)} />
+              <IntakeField label="Email" type="email" value={form.email} onChange={(v) => setField('email', v)} required />
+              <IntakeField label="Phone / WhatsApp" value={form.phone} onChange={(v) => setField('phone', v)} />
+              <IntakeSelect label="Preferred contact method" value={form.preferredContactMethod} onChange={(v) => setField('preferredContactMethod', v)} options={['Email', 'Phone', 'WhatsApp', 'Video call']} />
+            </div>
+            <div className="intake-consent-grid">
+              <IntakeCheckbox label="I agree Turner Hopkins may contact me about this enquiry." checked={form.consentToContact} onChange={(v) => setField('consentToContact', v)} required />
+              <IntakeCheckbox label="I understand this form is for initial assessment only and does not create an adviser-client relationship." checked={form.privacyAcknowledged} onChange={(v) => setField('privacyAcknowledged', v)} required />
+            </div>
+          </IntakeSection>
+
+          <IntakeSection title="Current situation and immigration goal" description="What the person wants help with and whether there are urgent timing issues.">
+            <div className="form-grid">
+              <IntakeSelect label="Urgency" value={form.urgency} onChange={(v) => setField('urgency', v)} options={['Standard', 'Urgent']} />
+              <IntakeSelect label="Main pathway / goal" value={form.targetPathway} onChange={(v) => setField('targetPathway', v)} options={INTAKE_PATHWAY_OPTIONS} />
+              <IntakeField label="Current visa type" value={form.currentVisaType} onChange={(v) => setField('currentVisaType', v)} />
+              <IntakeField label="Current visa expiry" type="date" value={form.currentVisaExpiry} onChange={(v) => setField('currentVisaExpiry', v)} />
+            </div>
+            <IntakeTextarea label="What help do you need?" value={form.helpNeeded} onChange={(v) => setField('helpNeeded', v)} rows={4} />
+          </IntakeSection>
+
+          <IntakeSection title="Identity and location" description="Core details used for eligibility triage.">
+            <div className="form-grid">
+              <IntakeField label="Country of citizenship" value={form.citizenship} onChange={(v) => setField('citizenship', v)} />
+              <IntakeField label="Date of birth" type="date" value={form.dateOfBirth} onChange={(v) => setField('dateOfBirth', v)} />
+              <IntakeField label="Current location" value={form.currentLocation} onChange={(v) => setField('currentLocation', v)} />
+              <IntakeField label="Passport expiry date" type="date" value={form.passportExpiry} onChange={(v) => setField('passportExpiry', v)} />
+            </div>
+          </IntakeSection>
+
+          <IntakeSection title="Partnership and family" description="Capture relevant partner and dependent information without creating a full client record yet.">
+            <div className="form-grid">
+              <IntakeSelect label="Relationship status" value={form.relationshipStatus} onChange={(v) => setField('relationshipStatus', v)} options={['Single', 'Married', 'De facto / partner', 'Separated', 'Other']} />
+              <IntakeField label="Partner full name" value={form.partnerName} onChange={(v) => setField('partnerName', v)} />
+              <IntakeField label="Partner citizenship / visa status" value={form.partnerCitizenship} onChange={(v) => setField('partnerCitizenship', v)} />
+              <IntakeSelect label="Children included?" value={form.childrenIncluded} onChange={(v) => setField('childrenIncluded', v)} options={INTAKE_YES_NO_OPTIONS} />
+            </div>
+            <IntakeTextarea label="Family details" value={form.familyDetails} onChange={(v) => setField('familyDetails', v)} rows={3} />
+          </IntakeSection>
+
+          <IntakeSection title="Qualifications, work and NZ employment" description="Useful for skilled residence, work visa and employer-assisted matters.">
+            <div className="form-grid">
+              <IntakeField label="Highest qualification" value={form.highestQualification} onChange={(v) => setField('highestQualification', v)} />
+              <IntakeField label="Occupation / profession" value={form.occupation} onChange={(v) => setField('occupation', v)} />
+              <IntakeField label="Years of relevant experience" value={form.yearsExperience} onChange={(v) => setField('yearsExperience', v)} />
+              <IntakeSelect label="NZ job offer?" value={form.hasNzJobOffer} onChange={(v) => setField('hasNzJobOffer', v)} options={INTAKE_YES_NO_OPTIONS} />
+              <IntakeField label="NZ employer name" value={form.employerName} onChange={(v) => setField('employerName', v)} />
+              <IntakeField label="Job title" value={form.jobTitle} onChange={(v) => setField('jobTitle', v)} />
+              <IntakeField label="Pay rate / salary" value={form.payRate} onChange={(v) => setField('payRate', v)} />
+            </div>
+            <IntakeTextarea label="Qualification and work details" value={form.qualificationDetails} onChange={(v) => setField('qualificationDetails', v)} rows={3} />
+            <IntakeTextarea label="Employment details" value={form.employmentDetails} onChange={(v) => setField('employmentDetails', v)} rows={3} />
+          </IntakeSection>
+
+          <IntakeSection title="Health, character, English and funds" description="Flag matters that need adviser review before taking instructions.">
+            <div className="form-grid">
+              <IntakeSelect label="Any health issues or medical concerns?" value={form.healthIssues} onChange={(v) => setField('healthIssues', v)} options={INTAKE_YES_NO_OPTIONS} />
+              <IntakeSelect label="Any character, police, deportation or visa decline issues?" value={form.characterIssues} onChange={(v) => setField('characterIssues', v)} options={INTAKE_YES_NO_OPTIONS} />
+              <IntakeField label="English level / test details" value={form.englishLevel} onChange={(v) => setField('englishLevel', v)} />
+              <IntakeField label="Available funds / investment amount" value={form.availableFunds} onChange={(v) => setField('availableFunds', v)} />
+              <IntakeSelect label="Interested in investor category?" value={form.investmentInterest} onChange={(v) => setField('investmentInterest', v)} options={INTAKE_YES_NO_OPTIONS} />
+            </div>
+            <IntakeTextarea label="Health details" value={form.healthDetails} onChange={(v) => setField('healthDetails', v)} rows={3} />
+            <IntakeTextarea label="Character / immigration history details" value={form.characterDetails} onChange={(v) => setField('characterDetails', v)} rows={3} />
+            <IntakeTextarea label="Funds / investment details" value={form.fundsDetails} onChange={(v) => setField('fundsDetails', v)} rows={3} />
+          </IntakeSection>
+
+          <IntakeSection title="Travel history and final comments" description="Optional background that can help the adviser triage the matter.">
+            <IntakeTextarea label="Countries lived in for 12 months or more" value={form.countriesLived} onChange={(v) => setField('countriesLived', v)} rows={3} />
+            <IntakeTextarea label="NZ travel / visa history" value={form.nzTravelHistory} onChange={(v) => setField('nzTravelHistory', v)} rows={3} />
+            <IntakeTextarea label="Anything else we should know?" value={form.additionalInfo} onChange={(v) => setField('additionalInfo', v)} rows={4} />
+          </IntakeSection>
+
+          <div className="intake-submit-bar">
+            <p>This draft form captures structured information only. It should not ask clients to upload documents yet.</p>
+            <button className="btn dark" type="submit" disabled={submitting}>{submitting ? 'Submitting...' : 'Submit intake details'}</button>
+          </div>
+        </form>
+      </main>
+    </div>
+  );
+}
+
+function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, saving, openClientRecord }) {
+  const [statusFilter, setStatusFilter] = useState('active');
+  const [query, setQuery] = useState('');
+  const [selectedId, setSelectedId] = useState(enquiries[0]?.id || '');
+  const selected = enquiries.find((item) => item.id === selectedId) || enquiries[0] || null;
+  const [draft, setDraft] = useState(selected ? normaliseIntakeEnquiry(selected) : null);
+  const activeStatuses = ['New', 'Reviewing', 'Contacted', 'Consultation booked', 'Agreement sent', 'Signed client'];
+
+  useEffect(() => {
+    if (!enquiries.length) {
+      setSelectedId('');
+      setDraft(null);
+      return;
+    }
+    if (!selectedId || !enquiries.some((item) => item.id === selectedId)) setSelectedId(enquiries[0].id);
+  }, [enquiries, selectedId]);
+
+  useEffect(() => {
+    setDraft(selected ? normaliseIntakeEnquiry(selected) : null);
+  }, [selected?.id, selected?.updatedAt]);
+
+  const filtered = enquiries.filter((item) => {
+    const q = query.trim().toLowerCase();
+    const matchesQuery = !q || [item.firstName, item.lastName, item.email, item.phone, item.targetPathway, item.currentVisaType].join(' ').toLowerCase().includes(q);
+    const matchesStatus = statusFilter === 'all' || (statusFilter === 'active' ? activeStatuses.includes(item.status) : item.status === statusFilter);
+    return matchesQuery && matchesStatus;
+  });
+  const urgentCount = enquiries.filter((item) => item.flags?.urgent || item.flags?.visaExpirySoon || item.flags?.health || item.flags?.character).length;
+  const convertedCount = enquiries.filter((item) => item.convertedClientId).length;
+
+  function setDraftField(name, value) {
+    setDraft((current) => ({ ...(current || {}), [name]: value }));
+  }
+
+  async function saveDraft() {
+    if (!draft) return;
+    await saveIntakeEnquiry(draft);
+  }
+
+  async function convertDraft() {
+    if (!draft?.id) return;
+    await convertIntakeToClient(draft.id);
+  }
+
+  return (
+    <div className="intake-workspace">
+      <div className="library-heading intake-heading">
+        <div>
+          <h1>Intake and enquiries</h1>
+          <p className="muted">Review website assessment submissions, triage risk flags, record adviser assessment notes and convert suitable matters into client records.</p>
+        </div>
+        <a className="btn dark" href="/intake" target="_blank" rel="noreferrer"><ExternalLink size={16} />Open draft web form</a>
+      </div>
+
+      <div className="metric-grid three intake-metrics">
+        <MetricCard label="Open intake" value={enquiries.filter((item) => activeStatuses.includes(item.status)).length} note="Pre-client records" icon={ClipboardList} />
+        <MetricCard label="Flagged" value={urgentCount} note="Urgency, health, character or visa expiry" icon={AlertTriangle} />
+        <MetricCard label="Converted" value={convertedCount} note="Moved into CRM clients" icon={CheckCircle2} />
+      </div>
+
+      <div className="intake-layout">
+        <aside className="library-list-panel intake-list-panel">
+          <div className="library-filters">
+            <label><span>Search</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Name, email, pathway..." /></label>
+            <label><span>Status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="active">Active intake</option><option value="all">All statuses</option>{statuses.map((status) => <option key={status} value={status}>{status}</option>)}</select></label>
+          </div>
+          <div className="library-list intake-list">
+            {filtered.map((item) => (
+              <button key={item.id} type="button" className={`library-list-item intake-list-item ${selected?.id === item.id ? 'active' : ''}`} onClick={() => setSelectedId(item.id)}>
+                <strong>{[item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unnamed enquiry'}</strong>
+                <small>{item.email || 'No email'} · {item.targetPathway || 'Pathway not selected'}</small>
+                <span className={`library-status ${statusClass(item.status)}`}>{item.status}</span>
+                <IntakeFlagList flags={item.flags} compact />
+              </button>
+            ))}
+            {!filtered.length && <p className="muted center">No intake enquiries match this view.</p>}
+          </div>
+        </aside>
+
+        <section className="library-editor intake-editor">
+          {!draft ? (
+            <div className="empty-state slim"><ClipboardList size={34} /><h2>No intake records yet</h2><p>Open the draft web form and submit a test enquiry to start road-testing.</p></div>
+          ) : (
+            <>
+              <div className="intake-editor-head">
+                <div>
+                  <span className="eyebrow">Intake record</span>
+                  <h2>{[draft.firstName, draft.lastName].filter(Boolean).join(' ') || 'Unnamed enquiry'}</h2>
+                  <p>{draft.email || 'No email'}{draft.phone ? ` · ${draft.phone}` : ''}</p>
+                </div>
+                <IntakeFlagList flags={draft.flags} />
+              </div>
+
+              <div className="form-grid">
+                <SelectField label="Status" value={draft.status} onChange={(value) => setDraftField('status', value)} options={statuses} />
+                <SelectField label="Assigned adviser" value={draft.assignedAdviserId} onChange={(value) => setDraftField('assignedAdviserId', value)} options={advisers.map((adviser) => ({ value: adviser.id, label: adviser.name }))} placeholder="Unassigned" />
+                <Field label="Recommended pathway" value={draft.recommendedPathway} onChange={(value) => setDraftField('recommendedPathway', value)} />
+                <Field label="Consultation / outcome" value={draft.consultationOutcome} onChange={(value) => setDraftField('consultationOutcome', value)} />
+              </div>
+              <TextArea label="Adviser assessment notes" value={draft.adviserAssessmentNotes} onChange={(value) => setDraftField('adviserAssessmentNotes', value)} rows={5} />
+
+              <div className="intake-summary-grid">
+                <IntakeSummaryCard title="Current situation" rows={[
+                  ['Pathway', draft.targetPathway],
+                  ['Urgency', draft.urgency],
+                  ['Current visa', draft.currentVisaType],
+                  ['Visa expiry', draft.currentVisaExpiry ? formatPortalDate(draft.currentVisaExpiry) : ''],
+                  ['Location', draft.currentLocation],
+                  ['Citizenship', draft.citizenship],
+                ]} />
+                <IntakeSummaryCard title="Applicant detail" rows={[
+                  ['Date of birth', draft.dateOfBirth ? formatPortalDate(draft.dateOfBirth) : ''],
+                  ['Submitted', draft.createdAt ? formatPortalDateTime(draft.createdAt) : ''],
+                  ['Updated', draft.updatedAt ? formatPortalDateTime(draft.updatedAt) : ''],
+                  ['Converted client', draft.convertedClientId ? 'Yes' : 'No'],
+                ]} />
+              </div>
+
+              <IntakePayloadView payload={draft.rawPayload} />
+
+              <div className="library-save-bar intake-save-bar button-row">
+                <button className="btn" type="button" onClick={saveDraft} disabled={saving}><Save size={16} />Save intake review</button>
+                <button className="btn dark" type="button" onClick={convertDraft} disabled={saving || Boolean(draft.convertedClientId)}><UsersRound size={16} />Convert to client</button>
+                {draft.convertedClientId && <button className="btn" type="button" onClick={() => openClientRecord(draft.convertedClientId)}><ExternalLink size={16} />Open client</button>}
+                <button className="btn danger" type="button" onClick={() => deleteIntakeEnquiry(draft.id)} disabled={saving || Boolean(draft.convertedClientId)}><Trash2 size={16} />Delete</button>
+              </div>
+            </>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function IntakeFlagList({ flags = {}, compact = false }) {
+  const rows = [
+    flags.urgent && 'Urgent',
+    flags.visaExpirySoon && 'Visa expiry',
+    flags.health && 'Health',
+    flags.character && 'Character',
+    flags.employment && 'Employment',
+    flags.partnership && 'Partnership',
+    flags.investor && 'Investor',
+    flags.funds && 'Funds',
+  ].filter(Boolean);
+  if (!rows.length) return compact ? <small>No flags</small> : <div className="intake-flags"><span>No flags</span></div>;
+  return <div className={`intake-flags ${compact ? 'compact' : ''}`}>{rows.map((row) => <span key={row}>{row}</span>)}</div>;
+}
+
+function IntakeSummaryCard({ title, rows }) {
+  return (
+    <div className="intake-summary-card">
+      <h3>{title}</h3>
+      {rows.filter(([, value]) => value).map(([label, value]) => <p key={label}><span>{label}</span><strong>{value}</strong></p>)}
+    </div>
+  );
+}
+
+function IntakePayloadView({ payload = {} }) {
+  const groups = [
+    ['Goal', ['helpNeeded', 'targetPathway', 'currentVisaType', 'currentVisaExpiry']],
+    ['Family', ['relationshipStatus', 'partnerName', 'partnerCitizenship', 'childrenIncluded', 'familyDetails']],
+    ['Qualifications and work', ['highestQualification', 'occupation', 'yearsExperience', 'hasNzJobOffer', 'employerName', 'jobTitle', 'payRate', 'qualificationDetails', 'employmentDetails']],
+    ['Risk and background', ['healthIssues', 'healthDetails', 'characterIssues', 'characterDetails', 'englishLevel', 'availableFunds', 'investmentInterest', 'fundsDetails', 'countriesLived', 'nzTravelHistory', 'additionalInfo']],
+  ];
+  return (
+    <div className="intake-payload-view">
+      {groups.map(([title, keys]) => {
+        const rows = keys.map((key) => [intakeLabelForKey(key), payload[key]]).filter(([, value]) => value);
+        if (!rows.length) return null;
+        return <IntakeSummaryCard key={title} title={title} rows={rows} />;
+      })}
+    </div>
+  );
+}
+
+function IntakeSection({ title, description, children }) {
+  return <section className="intake-section"><h2>{title}</h2><p>{description}</p>{children}</section>;
+}
+
+function IntakeField({ label, value, onChange, type = 'text', required = false }) {
+  return <label className="field"><span>{label}{required ? ' *' : ''}</span><input type={type} value={value || ''} required={required} onChange={(event) => onChange(event.target.value)} /></label>;
+}
+
+function IntakeSelect({ label, value, onChange, options, required = false }) {
+  return <label className="field"><span>{label}{required ? ' *' : ''}</span><select value={value || ''} required={required} onChange={(event) => onChange(event.target.value)}><option value="">Select...</option>{options.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>;
+}
+
+function IntakeTextarea({ label, value, onChange, rows = 4 }) {
+  return <label className="field intake-textarea"><span>{label}</span><textarea rows={rows} value={value || ''} onChange={(event) => onChange(event.target.value)} /></label>;
+}
+
+function IntakeCheckbox({ label, checked, onChange, required = false }) {
+  return <label className="intake-checkbox"><input type="checkbox" checked={Boolean(checked)} required={required} onChange={(event) => onChange(event.target.checked)} /><span>{label}</span></label>;
+}
+
 
 
 function ClientPortalApp() {
@@ -1459,7 +1841,7 @@ function MobileBottomNav({ activeTab, onNavigate, onOpenMore }) {
     { tab: 'clients', label: 'Clients', icon: UsersRound },
     { tab: 'calendar', label: 'Calendar', icon: CalendarDays },
   ];
-  const moreActive = ['billing', 'advisers', 'library'].includes(activeTab);
+  const moreActive = ['billing', 'advisers', 'library', 'intake'].includes(activeTab);
   return (
     <nav className="mobile-bottom-nav" aria-label="Mobile CRM navigation">
       {navItems.map(({ tab, label, icon: Icon }) => (
@@ -1494,6 +1876,7 @@ function MobileMoreSheet({ open, onClose, onNavigate, activeTab, onOpenHelp, onO
           <button className="icon-btn" type="button" onClick={onClose} aria-label="Close mobile menu"><X size={18} /></button>
         </div>
         <div className="mobile-more-grid">
+          <button type="button" className={activeTab === 'intake' ? 'active' : ''} onClick={() => go('intake')}><ClipboardList size={18} /><span>Intake</span></button>
           <button type="button" className={activeTab === 'billing' ? 'active' : ''} onClick={() => go('billing')}><CreditCard size={18} /><span>Billing</span></button>
           <button type="button" className={activeTab === 'library' ? 'active' : ''} onClick={() => go('library')}><BookOpen size={18} /><span>Library</span></button>
           {canManageAdvisers && <button type="button" className={activeTab === 'advisers' ? 'active' : ''} onClick={() => go('advisers')}><UserRound size={18} /><span>Advisers</span></button>}
@@ -4452,24 +4835,21 @@ function LibraryWorkspace({ entries, caseTypes, saveLibraryEntry, deleteLibraryE
 
   return (
     <section className="library-workspace">
-      <div className="section-title-row">
-        <div>
-          <p className="eyebrow">INZ knowledge library</p>
-          <h1>Policy and forms reference</h1>
-          <p className="muted">Controlled internal reference records with official INZ links, THiS notes and review dates. Use this as a shortcut to source material, not as a substitute for checking current instructions.</p>
-        </div>
-        <div className="button-row">
-          <button className="btn" type="button" onClick={() => startNewEntry('Policy')}><BookOpen size={16} />Policy item</button>
-          <button className="btn dark" type="button" onClick={() => startNewEntry('Form')}><FileText size={16} />Form item</button>
-        </div>
+      <div className="library-heading">
+        <h1>Policy and forms reference</h1>
       </div>
 
-      <div className="library-tabs">
-        {LIBRARY_ENTRY_TYPES.map((type) => (
-          <button key={type} type="button" className={activeType === type ? 'active' : ''} onClick={() => { setActiveType(type); setSelectedId(''); }}>
-            {type === 'Policy' ? <BookOpen size={16} /> : <FileText size={16} />}{type}
-          </button>
-        ))}
+      <div className="library-toolbar">
+        <div className="library-tabs" aria-label="Library item type">
+          {LIBRARY_ENTRY_TYPES.map((type) => (
+            <button key={type} type="button" className={activeType === type ? 'active' : ''} onClick={() => { setActiveType(type); setSelectedId(''); }}>
+              {type === 'Policy' ? <BookOpen size={16} /> : <FileText size={16} />}{type}
+            </button>
+          ))}
+        </div>
+        <button className="btn dark" type="button" onClick={() => startNewEntry(activeType)}>
+          <Plus size={16} />New {activeType.toLowerCase()} item
+        </button>
       </div>
 
       <div className="metric-grid compact library-metrics">
@@ -4775,6 +5155,120 @@ function formatApiError(body, fallback) {
 }
 
 
+
+function makeBlankIntakePayload() {
+  return {
+    firstName: '',
+    lastName: '',
+    preferredName: '',
+    email: '',
+    phone: '',
+    preferredContactMethod: 'Email',
+    consentToContact: false,
+    privacyAcknowledged: false,
+    urgency: 'Standard',
+    targetPathway: '',
+    helpNeeded: '',
+    currentVisaType: '',
+    currentVisaExpiry: '',
+    currentLocation: '',
+    citizenship: '',
+    dateOfBirth: '',
+    passportExpiry: '',
+    relationshipStatus: '',
+    partnerName: '',
+    partnerCitizenship: '',
+    childrenIncluded: '',
+    familyDetails: '',
+    highestQualification: '',
+    qualificationDetails: '',
+    occupation: '',
+    yearsExperience: '',
+    workDetails: '',
+    hasNzJobOffer: '',
+    employerName: '',
+    jobTitle: '',
+    payRate: '',
+    employmentDetails: '',
+    healthIssues: '',
+    healthDetails: '',
+    characterIssues: '',
+    characterDetails: '',
+    englishLevel: '',
+    englishTestDetails: '',
+    availableFunds: '',
+    investmentInterest: '',
+    fundsDetails: '',
+    countriesLived: '',
+    nzTravelHistory: '',
+    additionalInfo: '',
+  };
+}
+
+function normaliseIntakeEnquiry(entry = {}) {
+  const status = INTAKE_STATUSES.includes(entry.status) ? entry.status : 'New';
+  return {
+    id: entry.id || '',
+    status,
+    assignedAdviserId: entry.assignedAdviserId || entry.assigned_adviser_id || '',
+    firstName: entry.firstName || entry.applicantFirstName || entry.applicant_first_name || '',
+    lastName: entry.lastName || entry.applicantLastName || entry.applicant_last_name || '',
+    email: entry.email || '',
+    phone: entry.phone || '',
+    currentLocation: entry.currentLocation || entry.current_location || '',
+    citizenship: entry.citizenship || '',
+    dateOfBirth: entry.dateOfBirth || entry.date_of_birth || '',
+    currentVisaType: entry.currentVisaType || entry.current_visa_type || '',
+    currentVisaExpiry: entry.currentVisaExpiry || entry.current_visa_expiry || '',
+    targetPathway: entry.targetPathway || entry.target_pathway || '',
+    urgency: entry.urgency || '',
+    flags: entry.flags && typeof entry.flags === 'object' ? entry.flags : {},
+    rawPayload: entry.rawPayload && typeof entry.rawPayload === 'object' ? entry.rawPayload : entry.raw_payload && typeof entry.raw_payload === 'object' ? entry.raw_payload : {},
+    adviserAssessmentNotes: entry.adviserAssessmentNotes || entry.adviser_assessment_notes || '',
+    recommendedPathway: entry.recommendedPathway || entry.recommended_pathway || '',
+    consultationOutcome: entry.consultationOutcome || entry.consultation_outcome || '',
+    convertedClientId: entry.convertedClientId || entry.converted_client_id || '',
+    createdAt: entry.createdAt || entry.created_at || '',
+    updatedAt: entry.updatedAt || entry.updated_at || '',
+  };
+}
+
+function intakeLabelForKey(key = '') {
+  const labels = {
+    helpNeeded: 'Help needed',
+    targetPathway: 'Target pathway',
+    currentVisaType: 'Current visa',
+    currentVisaExpiry: 'Visa expiry',
+    relationshipStatus: 'Relationship status',
+    partnerName: 'Partner name',
+    partnerCitizenship: 'Partner citizenship / status',
+    childrenIncluded: 'Children included',
+    familyDetails: 'Family details',
+    highestQualification: 'Highest qualification',
+    occupation: 'Occupation',
+    yearsExperience: 'Experience',
+    hasNzJobOffer: 'NZ job offer',
+    employerName: 'Employer',
+    jobTitle: 'Job title',
+    payRate: 'Pay rate',
+    qualificationDetails: 'Qualification details',
+    employmentDetails: 'Employment details',
+    healthIssues: 'Health issue',
+    healthDetails: 'Health details',
+    characterIssues: 'Character issue',
+    characterDetails: 'Character details',
+    englishLevel: 'English',
+    availableFunds: 'Available funds',
+    investmentInterest: 'Investor interest',
+    fundsDetails: 'Funds details',
+    countriesLived: 'Countries lived in',
+    nzTravelHistory: 'NZ visa/travel history',
+    additionalInfo: 'Additional comments',
+  };
+  return labels[key] || key;
+}
+
+
 function normaliseLibraryEntry(entry = {}) {
   const entryType = LIBRARY_ENTRY_TYPES.includes(entry.entryType || entry.entry_type) ? (entry.entryType || entry.entry_type) : 'Policy';
   const status = LIBRARY_STATUSES.includes(entry.status) ? entry.status : 'Current';
@@ -4891,6 +5385,8 @@ function normaliseData(body) {
     personalTasks: (body.personalTasks || []).map(normalisePersonalTask),
     calendarEntries: (body.calendarEntries || []).map(normaliseCalendarEntry),
     libraryEntries: (body.libraryEntries || []).map(normaliseLibraryEntry),
+    intakeEnquiries: (body.intakeEnquiries || []).map(normaliseIntakeEnquiry),
+    intakeStatuses: body.intakeStatuses || INTAKE_STATUSES,
     securityMode: body.securityMode || 'unknown',
   };
 }

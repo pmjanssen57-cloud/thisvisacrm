@@ -1,7 +1,28 @@
-# Turner Hopkins CRM - Netlify Database v0.10.13
+# Turner Hopkins CRM - Netlify Database v0.11.0
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
+
+
+## v0.11.0 - Intake Form Foundation
+
+- Added a draft public web intake form at `/intake` for road-testing pre-client enquiry capture.
+- Captures structured assessment information across contact/consent, current visa situation, immigration goals, identity, partnership/family, qualifications, work experience, NZ employment, health, character, English, funds/investment, travel history and final comments.
+- No uploads in this first version.
+- Added a new CRM Intake and enquiries workspace for adviser triage.
+- Intake records are kept separate from active client records until an adviser converts them.
+- Added intake status workflow, assigned adviser, risk/urgency flags, adviser assessment notes, recommended pathway and consultation outcome.
+- Added Convert to client action that creates a normal CRM client record from selected intake data and keeps the original intake record linked.
+- Added new migration only: `202606020001_add_intake_enquiries.sql`.
+
+## v0.10.14 - Library Page Tidy
+
+- Moved Library to the far-left position in the main desktop navigation bar.
+- Removed the INZ knowledge library eyebrow label from the Library page.
+- Removed the explanatory helper text above the Library controls to simplify the page header.
+- Removed the duplicate-looking Policy item/Form item button pair.
+- Kept one clear Policy/Form switcher and added a single context-aware New item action for the selected type.
+- No database migration required.
 
 ## v0.10.13 - Client Workspace Overflow Fix
 
