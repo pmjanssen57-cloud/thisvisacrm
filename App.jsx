@@ -3403,6 +3403,23 @@ function PortalDocumentAdminRow({ doc, updatePortalDocument, deletePortalDocumen
 
 function ClientsWorkspace(props) {
   const { clients, selectedClient, advisers, caseTypes, deadlineTypes, clientQuery, setClientQuery, adviserFilter, setAdviserFilter, caseTypeFilter, setCaseTypeFilter, setSelectedClientId, onDirtyChange, saveClient, updatePortalMessageStatus, uploadPortalDocument, updatePortalDocument, deletePortalDocument, deleteClient, saving, calendarEntries = [] } = props;
+  const [popoutOpen, setPopoutOpen] = useState(false);
+  const [popoutDirty, setPopoutDirty] = useState(false);
+
+  function requestPopoutClose(options = {}) {
+    if (!options.force && popoutDirty && !window.confirm('Close the pop-out editor and discard unsaved changes?')) return;
+    setPopoutOpen(false);
+    setPopoutDirty(false);
+    onDirtyChange?.(false);
+  }
+
+  function handlePopoutDirtyChange(dirty) {
+    setPopoutDirty(Boolean(dirty));
+    onDirtyChange?.(Boolean(dirty));
+  }
+
+  const clientName = [selectedClient?.firstName, selectedClient?.lastName].filter(Boolean).join(' ') || 'New client';
+
   return (
     <div className="workspace-grid">
       <aside className="panel list-panel">
@@ -3421,13 +3438,44 @@ function ClientsWorkspace(props) {
         </div>
       </aside>
       <section className="panel detail-panel">
-        <ClientEditor client={selectedClient} advisers={advisers} caseTypes={caseTypes} deadlineTypes={deadlineTypes} calendarEntries={calendarEntries} saveClient={saveClient} updatePortalMessageStatus={updatePortalMessageStatus} uploadPortalDocument={uploadPortalDocument} updatePortalDocument={updatePortalDocument} deletePortalDocument={deletePortalDocument} deleteClient={deleteClient} saving={saving} onDirtyChange={onDirtyChange} />
+        {popoutOpen ? (
+          <div className="client-popout-placeholder">
+            <ExternalLink size={28} />
+            <h2>{clientName} is open in the pop-out editor</h2>
+            <p className="muted">Use the larger editor window to update the client record. Save and close it to return to the standard client view.</p>
+            <button className="btn dark" type="button" onClick={() => setPopoutOpen(true)}><ExternalLink size={16} />Resume pop-out editor</button>
+          </div>
+        ) : (
+          <ClientEditor client={selectedClient} advisers={advisers} caseTypes={caseTypes} deadlineTypes={deadlineTypes} calendarEntries={calendarEntries} saveClient={saveClient} updatePortalMessageStatus={updatePortalMessageStatus} uploadPortalDocument={uploadPortalDocument} updatePortalDocument={updatePortalDocument} deletePortalDocument={deletePortalDocument} deleteClient={deleteClient} saving={saving} onDirtyChange={onDirtyChange} onOpenPopout={() => setPopoutOpen(true)} />
+        )}
       </section>
+      {popoutOpen && (
+        <ClientRecordPopoutModal title={clientName} onClose={requestPopoutClose}>
+          <ClientEditor client={selectedClient} advisers={advisers} caseTypes={caseTypes} deadlineTypes={deadlineTypes} calendarEntries={calendarEntries} saveClient={saveClient} updatePortalMessageStatus={updatePortalMessageStatus} uploadPortalDocument={uploadPortalDocument} updatePortalDocument={updatePortalDocument} deletePortalDocument={deletePortalDocument} deleteClient={deleteClient} saving={saving} onDirtyChange={handlePopoutDirtyChange} popoutMode onRequestClose={requestPopoutClose} />
+        </ClientRecordPopoutModal>
+      )}
     </div>
   );
 }
 
-function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntries = [], saveClient, updatePortalMessageStatus, uploadPortalDocument, updatePortalDocument, deletePortalDocument, deleteClient, saving, onDirtyChange }) {
+function ClientRecordPopoutModal({ title, onClose, children }) {
+  return (
+    <div className="record-popout-overlay" role="dialog" aria-modal="true" aria-label="Pop-out client record editor">
+      <div className="record-popout-dialog">
+        <div className="record-popout-topbar">
+          <div>
+            <span>Pop-out client record</span>
+            <strong>{title}</strong>
+          </div>
+          <button className="icon-btn" type="button" onClick={() => onClose?.()} aria-label="Close pop-out editor"><X size={18} /></button>
+        </div>
+        <div className="record-popout-content">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntries = [], saveClient, updatePortalMessageStatus, uploadPortalDocument, updatePortalDocument, deletePortalDocument, deleteClient, saving, onDirtyChange, onOpenPopout, popoutMode = false, onRequestClose }) {
   const [draft, setDraft] = useState(client);
   const [activeClientSection, setActiveClientSection] = useState('overview');
   const [showActionLog, setShowActionLog] = useState(false);
@@ -3566,22 +3614,24 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
     }));
   }
 
-  function addCustomDocumentItem() {
-    const name = window.prompt('Document name');
+  function addCustomDocumentItem(name) {
     const trimmed = String(name || '').trim();
-    if (!trimmed) return;
-    setDraft((current) => {
-      const checklist = normaliseDocumentChecklist(current.documentChecklist);
-      const duplicate = checklist.some((item) => item.name.toLowerCase() === trimmed.toLowerCase());
-      if (duplicate) {
-        setValidationMessage('That document item already exists in this checklist.');
-        return current;
-      }
-      return {
-        ...current,
-        documentChecklist: [...checklist, { id: makeDocumentItemId(trimmed, checklist), name: trimmed, applied: true, custom: true, expiryDate: '', obtained: false }],
-      };
-    });
+    if (!trimmed) {
+      setValidationMessage('Enter a document name before adding a custom checklist item.');
+      return false;
+    }
+    const checklist = normaliseDocumentChecklist(draft.documentChecklist);
+    const duplicate = checklist.some((item) => item.name.toLowerCase() === trimmed.toLowerCase());
+    if (duplicate) {
+      setValidationMessage('That document item already exists in this checklist.');
+      return false;
+    }
+    setValidationMessage('');
+    setDraft((current) => ({
+      ...current,
+      documentChecklist: [...normaliseDocumentChecklist(current.documentChecklist), { id: makeDocumentItemId(trimmed, checklist), name: trimmed, applied: true, custom: true, expiryDate: '', obtained: false }],
+    }));
+    return true;
   }
 
   function removeCustomDocumentItem(id) {
@@ -3747,10 +3797,25 @@ Turner Hopkins Immigration Specialists`;
       setGeneratedPortalCode('');
       onDirtyChange?.(false);
       setStatusMessage(isNewClient ? 'Saved. A blank new client form is ready for the next entry.' : `Saved ${formatTimeNow()}.`);
+      return body;
     } catch (err) {
       setStatusMessage('');
       setValidationMessage(err.message || 'Client record could not be saved.');
+      return null;
     }
+  }
+
+  function handleOpenPopout() {
+    if (isDirty) {
+      setValidationMessage('Save the current changes before opening the pop-out editor, so no unsaved edits are lost.');
+      return;
+    }
+    onOpenPopout?.();
+  }
+
+  async function handleSaveAndClose() {
+    const body = await handleSaveClient();
+    if (body) onRequestClose?.({ force: true });
   }
 
   function handlePrintClientProfile() {
@@ -3794,8 +3859,10 @@ Turner Hopkins Immigration Specialists`;
           <p>{draft.caseType || 'No case type selected'} · {currentStage} · {progressPercent(draft)}% progress</p>
         </div>
         <div className="button-row">
+          {popoutMode ? <button className="btn" type="button" onClick={() => onRequestClose?.()}><X size={16} />Close</button> : <button className="btn" type="button" onClick={handleOpenPopout}><ExternalLink size={16} />Pop out record</button>}
           <button className="btn danger" onClick={() => deleteClient(draft.id)} disabled={saving || String(draft.id).startsWith('temp-')}><Trash2 size={16} />Delete</button>
           <button className="btn dark" onClick={handleSaveClient} disabled={saving}><Save size={16} />Save client</button>
+          {popoutMode && <button className="btn dark" type="button" onClick={handleSaveAndClose} disabled={saving}><Save size={16} />Save & close</button>}
         </div>
       </div>
 
@@ -4026,8 +4093,14 @@ function ExpandableClientSection({ title, summary, isOpen, onToggle, children, b
 
 
 function DocumentChecklist({ items, updateItem, addCustomItem, removeCustomItem }) {
+  const [customItemName, setCustomItemName] = useState('');
   const includedItems = items.filter((item) => item.applied);
   const obtainedCount = includedItems.filter((item) => item.obtained).length;
+
+  function handleAddCustomItem() {
+    const added = addCustomItem(customItemName);
+    if (added !== false) setCustomItemName('');
+  }
 
   return (
     <section className="sub-panel document-checklist-panel">
@@ -4038,8 +4111,11 @@ function DocumentChecklist({ items, updateItem, addCustomItem, removeCustomItem 
         </div>
         <div className="document-checklist-actions">
           <span className="workload-count">{obtainedCount}/{includedItems.length} obtained</span>
-          <button className="btn" type="button" onClick={addCustomItem}><Plus size={16} />Custom item</button>
         </div>
+      </div>
+      <div className="custom-document-add-row">
+        <input value={customItemName} onChange={(event) => setCustomItemName(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); handleAddCustomItem(); } }} placeholder="Add custom document item" />
+        <button className="btn" type="button" onClick={handleAddCustomItem}><Plus size={16} />Add document</button>
       </div>
       <div className="document-checklist-list">
         {items.map((item) => (

@@ -1,7 +1,15 @@
-# Turner Hopkins CRM - Netlify Database v0.11.16
+# Turner Hopkins CRM - Netlify Database v0.11.17
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
+
+## v0.11.17 - Pop-out Client Record Editor
+
+- Added a Pop out record button to the client workspace so advisers can edit a client record in a larger lightbox-style editor without the client list.
+- The pop-out editor keeps the full client section navigation and editor panels, with Save, Save & close and Close controls.
+- Added a close guard so advisers are warned before closing the pop-out editor with unsaved changes.
+- Replaced the browser prompt for custom document checklist items with an inline Add custom document item field.
+- No database migration required.
 
 ## v0.11.16 - Portal Document and Billing Refresh
 

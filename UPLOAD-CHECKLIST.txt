@@ -1,4 +1,4 @@
-THiS CRM v0.11.15 - Client Workspace and Portal Readability Polish
+THiS CRM v0.11.17 - Pop-out Client Record Editor
 
 Upload checklist
 
@@ -88,3 +88,11 @@ Additional v0.11.16 checks:
 45. Confirm the portal Document checklist shows outstanding items first in a lighter Still required style.
 46. Confirm obtained document checklist items remain green with the Obtained label.
 47. Publish billing milestones with WIP, Invoiced and Overdue statuses and confirm Invoiced items are visibly blue-toned.
+
+Additional v0.11.17 checks:
+48. Open a client record and click Pop out record.
+49. Confirm the larger pop-out editor opens without the left-hand client list.
+50. Confirm all client workspace sections remain available inside the pop-out editor.
+51. Make a test edit, save, and confirm the normal client view reflects the saved change.
+52. Make another test edit and click Close; confirm the unsaved-changes warning appears.
+53. In Documents, add a custom checklist item using the inline field and confirm no browser prompt appears.
