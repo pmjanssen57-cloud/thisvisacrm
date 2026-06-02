@@ -1,4 +1,4 @@
-THiS CRM v0.10.12 - Client Workspace Layout Polish
+THiS CRM v0.10.13 - Client Workspace Overflow Fix
 
 Upload checklist
 
@@ -11,12 +11,13 @@ Upload checklist
 5. Deploy through Netlify with Clear cache and deploy if possible.
 6. Confirm adviser login still works.
 7. Open Clients from Dashboard, Tasks, Calendar, Billing and the main navigation.
-8. Confirm the left client list is narrower and the Client Workspace section navigation remains compact.
-9. Open Key dates and confirm deadline rows fit neatly within the page.
-10. Check Overview, Actions, Documents, Portal, Stages, Billing, Family and Notes & strategy still open and save normally.
-11. Check the Clients view on mobile/tablet width to confirm the layout stacks cleanly.
+8. Open Documents and confirm checklist rows are not clipped.
+9. Open Portal and confirm the portal PDF/admin rows fit inside the section panel.
+10. Open Stages and confirm the progress map and stage rows wrap inside the page without horizontal cut-off.
+11. Check Key dates, Billing, Family and Notes & strategy still open and save normally.
+12. Check the Clients view on mobile/tablet width to confirm the layout stacks cleanly.
 
 Notes:
-- This is a front-end layout polish release.
+- This is a front-end layout/overflow fix release.
 - No database migration required.
 - Existing portal PDF, billing, deadline and document checklist functionality is unchanged.

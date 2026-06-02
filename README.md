@@ -1,6 +1,15 @@
-# Turner Hopkins CRM - Netlify Database v0.10.12
+# Turner Hopkins CRM - Netlify Database v0.10.13
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
+
+
+## v0.10.13 - Client Workspace Overflow Fix
+
+- Fixed remaining clipping/cut-off in the Documents, Portal and Stages client workspace sections.
+- Changed the client progress map to wrap inside the section panel instead of forcing horizontal overflow.
+- Made stage rows, document checklist rows and portal PDF administration rows responsive within the available workspace column.
+- Tightened the client workspace columns slightly to keep the right-hand content tidy.
+- No database migration required.
 
 
 ## v0.10.12 - Client Workspace Layout Polish
