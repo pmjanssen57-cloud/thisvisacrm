@@ -2952,7 +2952,7 @@ Turner Hopkins Immigration Specialists`;
   const outstandingDocuments = requiredDocuments.filter((item) => !item.obtained);
   const upcomingDeadlines = (draft.deadlines || []).filter((item) => item.date).sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
   const linkedAppointments = (calendarEntries || []).filter((entry) => entry.clientId === draft.id && entry.status !== 'Completed');
-  const visiblePortalPdfCount = normalisePortalDocuments(draft.portalDocuments || []).filter((doc) => doc.visibleToClient !== false).length;
+  const visiblePortalPdfCount = (Array.isArray(draft.portalDocuments) ? draft.portalDocuments.map(normalisePortalDocument) : []).filter((doc) => doc.visibleToClient !== false).length;
   const currentStage = currentStageLabel(draft);
   const workspaceSections = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard, summary: `${currentStage} · ${progressPercent(draft)}% progress`, badge: draft.clientStatus || 'Status' },
