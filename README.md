@@ -1,9 +1,17 @@
-# Turner Hopkins CRM - Netlify Database v0.11.26
+# Turner Hopkins CRM - Netlify Database v0.11.27
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
 
 
+
+## v0.11.27 - Intake Status Default Polish
+
+Small intake workspace polish update.
+
+- Intake CRM workspace now loads with All statuses selected by default.
+- New / untouched and Active intake filters remain available from the status dropdown.
+- No database migration required.
 
 ## v0.11.26 - Login, Library and Portal Wording Polish
 

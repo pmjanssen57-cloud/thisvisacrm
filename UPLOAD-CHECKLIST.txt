@@ -1,4 +1,4 @@
-THiS CRM v0.11.26 - Login, Library and Portal Wording Polish
+THiS CRM v0.11.27 - Intake Status Default Polish
 
 Upload checklist
 
@@ -6,16 +6,16 @@ Upload checklist
 2. Preserve the public/ folder.
 3. Upload/commit all files from this ZIP to the GitHub repo root.
 4. Deploy through Netlify.
-5. Confirm the adviser login page no longer shows the temporary access-code fallback.
-6. Confirm the login wording says: Access is restricted to invited THiS users only.
-7. Confirm the CRM header adviser profile/status chip is aligned with the right-side header controls.
-8. Open Library and confirm policy/form items remain on the main page as tidy cards.
-9. Add or edit a Library item and confirm the pop-out editor opens, saves and closes correctly.
-10. Open the client portal login and confirm it refers to application updates/progress rather than matter updates.
+5. Open CRM > Intake.
+6. Confirm the Status filter defaults to All statuses when the Intake page first loads.
+7. Confirm the intake list heading shows All intake records.
+8. Confirm New / untouched and Active intake filters still work from the Status dropdown.
+9. Click Show all and confirm the view returns to All statuses, All advisers and All flags.
+10. Confirm existing intake records, adviser review tools and conversion to client still behave as before.
 
 Notes:
 - No database migration required.
-- This is a UI, wording and workflow polish build.
+- This is a small UI default-state polish build for the Intake workspace.
 
 ---
 
@@ -203,3 +203,8 @@ Additional v0.11.21 checks:
 - Submit a test intake and confirm it appears in CRM → Intake.
 
 - v0.11.25 refines the Assessment Questionnaire employment flow.
+
+
+Build note:
+- Intake CRM workspace now loads with All statuses selected by default.
+- No database migration required.

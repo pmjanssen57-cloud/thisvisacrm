@@ -1500,7 +1500,7 @@ function IntakeFormApp() {
 }
 
 function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, saving, openClientRecord }) {
-  const [statusFilter, setStatusFilter] = useState('New');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [query, setQuery] = useState('');
   const [adviserFilter, setAdviserFilter] = useState('all');
   const [flagFilter, setFlagFilter] = useState('all');
@@ -1615,7 +1615,7 @@ function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, del
       <div className="library-heading intake-heading">
         <div>
           <h1>Intake</h1>
-          <p className="muted">Manage assessment questionnaires as a triage inbox. New, untouched submissions show first by default.</p>
+          <p className="muted">Manage assessment questionnaires as a triage inbox. All intake statuses show by default.</p>
         </div>
         <a className="btn dark" href="/intake" target="_blank" rel="noreferrer"><ExternalLink size={16} />Open web form</a>
       </div>
@@ -1633,7 +1633,7 @@ function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, del
             <span>Search</span>
             <div><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Name, email, phone, pathway, visa..." /></div>
           </label>
-          <label><span>Status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="New">New / untouched</option><option value="active">Active intake</option><option value="all">All statuses</option>{statuses.filter((status) => status !== 'New').map((status) => <option key={status} value={status}>{status}</option>)}</select></label>
+          <label><span>Status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">All statuses</option><option value="New">New / untouched</option><option value="active">Active intake</option>{statuses.filter((status) => status !== 'New').map((status) => <option key={status} value={status}>{status}</option>)}</select></label>
           <label><span>Adviser</span><select value={adviserFilter} onChange={(event) => setAdviserFilter(event.target.value)}><option value="all">All advisers</option><option value="unassigned">Unassigned</option>{advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}</select></label>
           <label><span>Review flag</span><select value={flagFilter} onChange={(event) => setFlagFilter(event.target.value)}><option value="all">All flags</option>{flagOptions.map((flag) => <option key={flag.value} value={flag.value}>{flag.label}</option>)}</select></label>
           <button className="btn" type="button" onClick={clearFilters}>Show all</button>
