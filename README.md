@@ -5,7 +5,7 @@ This package uses the default Netlify Functions directory: `netlify/functions`.
 
 
 
-## v0.11.24 - Intake Employment History and Currency Picker
+## v0.11.25 - Intake Employment Flow Refinement
 
 - Added a Previous work history field to the public Assessment Questionnaire employment section, capturing duration, role/title and main duties.
 - Added currency pickers for current salary/pay rate, New Zealand job offer pay, available funds and investment funds.
@@ -626,3 +626,11 @@ This package-lock uses public npm registry tarball URLs so Netlify can install d
 - Keeps the no-internal-scroll website embed approach while avoiding runaway page growth.
 - No database migration required.
 
+
+
+## v0.11.25 - Intake Employment Flow Refinement
+
+- Moved the New Zealand job offer question below current duties and previous work history.
+- Reframed previous work history as its own subsection under Work and employment.
+- Added clearer placeholder guidance for previous roles, including position, employer, country, duration and duties.
+- Preserved existing intake payload and conversion behaviour.

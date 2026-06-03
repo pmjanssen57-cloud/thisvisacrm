@@ -1,4 +1,4 @@
-THiS CRM v0.11.24 - Intake Employment History and Currency Picker
+THiS CRM v0.11.25 - Intake Employment History and Currency Picker
 
 Upload checklist
 
@@ -180,3 +180,5 @@ Additional v0.11.21 checks:
 - Confirm the iframe expands as conditional sections open, including partner, children, NZ job offer and health/character detail panels.
 - Confirm mobile view does not show a large blank bottom margin and does not use an internal iframe scrollbar.
 - Submit a test intake and confirm it appears in CRM → Intake.
+
+- v0.11.25 refines the Assessment Questionnaire employment flow.

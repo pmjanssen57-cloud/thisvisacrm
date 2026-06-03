@@ -1384,10 +1384,23 @@ function IntakeFormApp() {
               <IntakeField label="Salary or pay rate" value={form.annualSalary} onChange={(v) => setField('annualSalary', v)} />
               <IntakeSelect label="Salary currency" value={form.salaryCurrency} onChange={(v) => setField('salaryCurrency', v)} options={INTAKE_CURRENCY_OPTIONS} />
               <IntakeField label="Years of relevant experience" value={form.yearsExperience} onChange={(v) => setField('yearsExperience', v)} />
-              <IntakeSelect label="Do you have a New Zealand job offer?" value={form.hasNzJobOffer} onChange={(v) => setField('hasNzJobOffer', v)} options={['Yes', 'No', 'In progress', 'Unsure']} />
             </div>
             <IntakeTextarea label="Main duties / work background" value={form.employmentDetails} onChange={(v) => setField('employmentDetails', v)} rows={3} />
-            <IntakeTextarea label="Previous work history" value={form.previousWorkHistory} onChange={(v) => setField('previousWorkHistory', v)} rows={4} placeholder="For each relevant role, please include duration, role/title and main duties." />
+
+            <div className="intake-nested-panel">
+              <h3>Previous work history</h3>
+              <IntakeTextarea
+                label="Relevant previous roles, duties and duration"
+                value={form.previousWorkHistory}
+                onChange={(v) => setField('previousWorkHistory', v)}
+                rows={5}
+                placeholder={"Please list your relevant previous work history. For each role, include:\n- Position / job title\n- Employer or business name\n- Country\n- Dates or length of experience\n- Main duties and responsibilities"}
+              />
+            </div>
+
+            <div className="form-grid">
+              <IntakeSelect label="Do you have a New Zealand job offer?" value={form.hasNzJobOffer} onChange={(v) => setField('hasNzJobOffer', v)} options={['Yes', 'No', 'In progress', 'Unsure']} />
+            </div>
 
             {hasNzJobOffer && (
               <div className="intake-nested-panel">
