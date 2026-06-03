@@ -1,4 +1,4 @@
-THiS CRM v0.11.20 - Client Workspace Summary and Editor Split
+THiS CRM v0.11.21 - Intake Stable Embed Mode
 
 Upload checklist
 
@@ -112,3 +112,10 @@ Additional v0.11.20 checks:
 - Select conditional answers such as partner, children, NZ job offer and investment, and confirm the embed height updates as sections open.
 - Submit a test questionnaire and confirm the thank-you screen height also resizes correctly.
 - Confirm the submitted record appears under CRM > Intake.
+
+Additional v0.11.21 checks:
+- Deploy build and open the website page containing the embedded `/intake` form.
+- Confirm the website page no longer grows endlessly while scrolling.
+- Confirm the iframe expands as conditional sections open, including partner, children, NZ job offer and health/character detail panels.
+- Confirm mobile view does not show a large blank bottom margin and does not use an internal iframe scrollbar.
+- Submit a test intake and confirm it appears in CRM → Intake.

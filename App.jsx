@@ -1130,20 +1130,36 @@ function IntakeFormApp() {
   const isInvestmentMatter = form.investmentInterest === 'Yes' || /invest/i.test(form.targetPathway || '');
 
   useEffect(() => {
+    const embedded = window.parent !== window;
+    document.documentElement.classList.toggle('intake-embed-mode', embedded);
+    document.body.classList.toggle('intake-embed-mode', embedded);
+
+    return () => {
+      document.documentElement.classList.remove('intake-embed-mode');
+      document.body.classList.remove('intake-embed-mode');
+    };
+  }, []);
+
+  useEffect(() => {
     const shell = intakeShellRef.current;
     if (!shell || window.parent === window) return undefined;
 
     let frameId = 0;
+    let lastSentHeight = 0;
+
     const postHeight = () => {
       if (frameId) window.cancelAnimationFrame(frameId);
       frameId = window.requestAnimationFrame(() => {
-        const documentElement = document.documentElement;
-        const body = document.body;
-        const height = Math.ceil(Math.max(
-          shell.getBoundingClientRect().height,
-          body?.scrollHeight || 0,
-          documentElement?.scrollHeight || 0,
-        ));
+        const card = shell.querySelector('.intake-public-card');
+        const shellStyles = window.getComputedStyle(shell);
+        const shellPadding = parseFloat(shellStyles.paddingTop || '0') + parseFloat(shellStyles.paddingBottom || '0');
+        const contentHeight = card
+          ? Math.ceil(card.getBoundingClientRect().height + shellPadding)
+          : Math.ceil(shell.scrollHeight);
+        const height = Math.max(520, contentHeight + 8);
+
+        if (Math.abs(height - lastSentHeight) < 8) return;
+        lastSentHeight = height;
 
         window.parent.postMessage({
           type: 'THIS_INTAKE_EMBED_HEIGHT',
@@ -1154,10 +1170,11 @@ function IntakeFormApp() {
     };
 
     postHeight();
-    const timeoutIds = [150, 500, 1200].map((delay) => window.setTimeout(postHeight, delay));
+    const timeoutIds = [120, 450, 1000].map((delay) => window.setTimeout(postHeight, delay));
     const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(postHeight) : null;
     resizeObserver?.observe(shell);
-    resizeObserver?.observe(document.body);
+    const card = shell.querySelector('.intake-public-card');
+    if (card) resizeObserver?.observe(card);
     window.addEventListener('resize', postHeight);
     window.addEventListener('load', postHeight);
 

@@ -4083,6 +4083,26 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   .intake-panel-title-row { align-items: stretch; display: grid; }
 }
 
+
+/* v0.11.21 stable website embed mode */
+html.intake-embed-mode,
+body.intake-embed-mode {
+  min-height: auto;
+  background: transparent;
+  overflow: hidden;
+}
+body.intake-embed-mode .intake-public-shell {
+  min-height: auto;
+  background: transparent;
+  padding: 18px 0 22px;
+}
+body.intake-embed-mode .intake-public-card {
+  box-shadow: 0 12px 34px rgba(0, 55, 54, 0.08);
+}
+@media (max-width: 760px) {
+  body.intake-embed-mode .intake-public-shell { padding: 10px 0 14px; }
+}
+
 /* v0.11.4 intake inbox management */
 .intake-inbox-workspace { gap: 20px; }
 .intake-inbox-panel { border: 1px solid var(--line); background: #fff; border-radius: 24px; padding: 16px; box-shadow: 0 14px 38px rgba(15, 23, 42, 0.05); display: grid; gap: 16px; min-width: 0; }

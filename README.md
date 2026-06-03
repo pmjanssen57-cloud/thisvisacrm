@@ -594,3 +594,13 @@ This package-lock uses public npm registry tarball URLs so Netlify can install d
 - Adds general `min-width: 0` and max-width safeguards for nested workspace grids to prevent future horizontal overflow.
 - Improves wrapping for editable rows in Documents, Stages, Key dates, Billing and Family sections.
 - No database migration required.
+
+## v0.11.21 - Intake Stable Embed Mode
+
+- Refines the public `/intake` embed auto-resize behaviour for Squarespace and other website embeds.
+- Prevents the iframe height feedback loop caused by measuring viewport-based document height inside an expanding iframe.
+- Adds an embedded intake mode that removes the public form's internal `100vh` minimum height when loaded inside another website.
+- Measures the intake card content directly and only posts height updates when the content height materially changes.
+- Keeps the no-internal-scroll website embed approach while avoiding runaway page growth.
+- No database migration required.
+
