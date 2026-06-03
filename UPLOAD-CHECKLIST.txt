@@ -1,3 +1,23 @@
+THiS CRM v0.11.23 - Pop-out Portal and Stage Alignment Polish
+
+Upload checklist
+
+1. Preserve the netlify/ folder.
+2. Preserve the public/ folder.
+3. Upload/commit all files from this ZIP to the GitHub repo root.
+4. Confirm Netlify environment variables remain set.
+5. Deploy through Netlify.
+6. Open a client record and click Pop out record.
+7. Open the Portal section and confirm Billing milestones now sits beside Document checklist, with Key dates and Appointments below.
+8. Open the Stages section and confirm stage rows align cleanly across reorder controls, applies/mandatory status, stage name, completed status, completion date and delete controls.
+9. Confirm saving, publishing and stage updates still work as before.
+
+Notes:
+- No database migration required.
+- This is a UI/readability polish only.
+
+---
+
 THiS CRM v0.11.22 - Pop-out Portal and Stages Layout Polish
 
 Upload checklist

@@ -1,8 +1,16 @@
-# Turner Hopkins CRM - Netlify Database v0.11.22
+# Turner Hopkins CRM - Netlify Database v0.11.23
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
 
+
+
+## v0.11.23 - Pop-out Portal and Stage Alignment Polish
+
+- Reordered the pop-out Client Portal publishing panels so Billing milestones sits beside Document checklist, with Key dates and Appointments below.
+- Refined the pop-out Stage editor row layout so reorder controls, applies/mandatory status, stage name, completed status, completion date and delete controls align more naturally.
+- Reduced the visual gaps in stage rows and improved responsive stacking for narrower pop-out widths.
+- No database migration required.
 
 ## v0.11.22 - Pop-out Portal and Stages Layout Polish
 

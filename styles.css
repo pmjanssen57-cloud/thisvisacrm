@@ -5772,3 +5772,150 @@ body.intake-embed-mode .intake-public-card {
     justify-self: start;
   }
 }
+
+/* v0.11.23 - Pop-out portal order and stage alignment refinement */
+.record-popout-content .portal-visibility-grid {
+  grid-template-columns: repeat(2, minmax(360px, 1fr));
+  gap: 18px;
+}
+
+.record-popout-content .portal-visibility-box {
+  align-self: start;
+}
+
+.record-popout-content .stage-row.stage-row-refined {
+  grid-template-columns: 96px 132px minmax(260px, 1fr) 150px minmax(180px, 220px) 48px;
+  grid-template-areas: "order apply name completed date remove";
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+}
+
+.record-popout-content .stage-row.stage-row-refined .stage-order-controls {
+  grid-area: order;
+  justify-self: start;
+  align-self: center;
+}
+
+.record-popout-content .stage-row.stage-row-refined .stage-apply-cell {
+  grid-area: apply;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  min-width: 0;
+  color: var(--muted);
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.record-popout-content .stage-row.stage-row-refined .stage-name-cell {
+  grid-area: name;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 0;
+  text-align: left;
+}
+
+.record-popout-content .stage-row.stage-row-refined .stage-name-cell > span {
+  min-width: 0;
+  display: block;
+}
+
+.record-popout-content .stage-row.stage-row-refined .stage-name-cell strong,
+.record-popout-content .stage-row.stage-row-refined .stage-label-input {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  line-height: 1.24;
+  text-align: left;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+}
+
+.record-popout-content .stage-row.stage-row-refined .stage-name-cell small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  line-height: 1.25;
+}
+
+.record-popout-content .stage-row.stage-row-refined .stage-complete-cell {
+  grid-area: completed;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  color: var(--ink);
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.record-popout-content .stage-row.stage-row-refined > input[type="date"] {
+  grid-area: date;
+  width: 100%;
+  justify-self: stretch;
+}
+
+.record-popout-content .stage-row.stage-row-refined > .icon-btn {
+  grid-area: remove;
+  justify-self: end;
+  align-self: center;
+}
+
+@media (max-width: 1320px) {
+  .record-popout-content .stage-row.stage-row-refined {
+    grid-template-columns: 96px 120px minmax(220px, 1fr) 148px 48px;
+    grid-template-areas:
+      "order apply name completed remove"
+      ". . date date .";
+  }
+
+  .record-popout-content .stage-row.stage-row-refined > input[type="date"] {
+    width: min(260px, 100%);
+    justify-self: start;
+  }
+}
+
+@media (max-width: 980px) {
+  .record-popout-content .portal-visibility-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .record-popout-content .stage-row.stage-row-refined {
+    grid-template-columns: 96px minmax(0, 1fr) 48px;
+    grid-template-areas:
+      "order name remove"
+      "apply completed completed"
+      ". date date";
+  }
+
+  .record-popout-content .stage-row.stage-row-refined .stage-apply-cell,
+  .record-popout-content .stage-row.stage-row-refined .stage-complete-cell {
+    justify-self: start;
+  }
+}
+
+@media (max-width: 680px) {
+  .record-popout-content .stage-row.stage-row-refined {
+    grid-template-columns: 1fr !important;
+    grid-template-areas: none;
+  }
+
+  .record-popout-content .stage-row.stage-row-refined .stage-order-controls,
+  .record-popout-content .stage-row.stage-row-refined .stage-apply-cell,
+  .record-popout-content .stage-row.stage-row-refined .stage-name-cell,
+  .record-popout-content .stage-row.stage-row-refined .stage-complete-cell,
+  .record-popout-content .stage-row.stage-row-refined > input[type="date"],
+  .record-popout-content .stage-row.stage-row-refined > .icon-btn {
+    grid-area: auto;
+    justify-self: stretch;
+  }
+
+  .record-popout-content .stage-row.stage-row-refined > .icon-btn {
+    width: 44px;
+    justify-self: start;
+  }
+}
