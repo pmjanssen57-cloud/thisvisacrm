@@ -80,6 +80,7 @@ const INTAKE_YES_NO_OPTIONS = ['Yes', 'No', 'Unsure'];
 const INTAKE_RELATIONSHIP_OPTIONS = ['Single', 'Married', 'De facto / partner', 'Separated', 'Divorced', 'Widowed', 'Other'];
 const INTAKE_QUALIFICATION_OPTIONS = ['No formal qualification', 'Secondary school', 'Trade certificate / diploma', 'Bachelor degree', 'Postgraduate qualification', 'Master degree', 'PhD', 'Other'];
 const INTAKE_EMPLOYMENT_STATUS_OPTIONS = ['Employed', 'Self-employed', 'Not currently employed', 'Studying', 'Other'];
+const INTAKE_CURRENCY_OPTIONS = ['NZD', 'AUD', 'USD', 'GBP', 'EUR', 'CAD', 'CNY', 'INR', 'PHP', 'ZAR', 'SGD', 'HKD', 'JPY', 'KRW', 'MYR', 'THB', 'AED', 'FJD', 'Other'];
 
 const SUPPORT_CONTENT = {
   intake: {
@@ -1381,10 +1382,12 @@ function IntakeFormApp() {
               <IntakeField label="Start date" type="date" value={form.currentJobStartDate} onChange={(v) => setField('currentJobStartDate', v)} />
               <IntakeField label="Hours per week" value={form.hoursPerWeek} onChange={(v) => setField('hoursPerWeek', v)} />
               <IntakeField label="Salary or pay rate" value={form.annualSalary} onChange={(v) => setField('annualSalary', v)} />
+              <IntakeSelect label="Salary currency" value={form.salaryCurrency} onChange={(v) => setField('salaryCurrency', v)} options={INTAKE_CURRENCY_OPTIONS} />
               <IntakeField label="Years of relevant experience" value={form.yearsExperience} onChange={(v) => setField('yearsExperience', v)} />
               <IntakeSelect label="Do you have a New Zealand job offer?" value={form.hasNzJobOffer} onChange={(v) => setField('hasNzJobOffer', v)} options={['Yes', 'No', 'In progress', 'Unsure']} />
             </div>
             <IntakeTextarea label="Main duties / work background" value={form.employmentDetails} onChange={(v) => setField('employmentDetails', v)} rows={3} />
+            <IntakeTextarea label="Previous work history" value={form.previousWorkHistory} onChange={(v) => setField('previousWorkHistory', v)} rows={4} placeholder="For each relevant role, please include duration, role/title and main duties." />
 
             {hasNzJobOffer && (
               <div className="intake-nested-panel">
@@ -1394,6 +1397,7 @@ function IntakeFormApp() {
                   <IntakeField label="Job title" value={form.jobTitle} onChange={(v) => setField('jobTitle', v)} />
                   <IntakeField label="Location in New Zealand" value={form.nzJobLocation} onChange={(v) => setField('nzJobLocation', v)} />
                   <IntakeField label="Pay rate / salary" value={form.payRate} onChange={(v) => setField('payRate', v)} />
+                  <IntakeSelect label="Pay currency" value={form.nzPayCurrency} onChange={(v) => setField('nzPayCurrency', v)} options={INTAKE_CURRENCY_OPTIONS} />
                   <IntakeField label="Hours per week" value={form.nzJobHours} onChange={(v) => setField('nzJobHours', v)} />
                   <IntakeSelect label="Is the employer accredited?" value={form.employerAccredited} onChange={(v) => setField('employerAccredited', v)} options={INTAKE_YES_NO_OPTIONS} />
                   <IntakeSelect label="Employment agreement provided?" value={form.employmentAgreementProvided} onChange={(v) => setField('employmentAgreementProvided', v)} options={INTAKE_YES_NO_OPTIONS} />
@@ -1446,7 +1450,7 @@ function IntakeFormApp() {
             <div className="form-grid">
               <IntakeSelect label="Do you have funds to support your move?" value={form.fundsAvailableSupport} onChange={(v) => setField('fundsAvailableSupport', v)} options={INTAKE_YES_NO_OPTIONS} />
               <IntakeField label="Approximate funds available" value={form.availableFunds} onChange={(v) => setField('availableFunds', v)} />
-              <IntakeField label="Currency" value={form.fundsCurrency} onChange={(v) => setField('fundsCurrency', v)} />
+              <IntakeSelect label="Currency" value={form.fundsCurrency} onChange={(v) => setField('fundsCurrency', v)} options={INTAKE_CURRENCY_OPTIONS} />
               <IntakeField label="Source of funds" value={form.sourceOfFunds} onChange={(v) => setField('sourceOfFunds', v)} />
               <IntakeSelect label="Investment or business migration enquiry?" value={form.investmentInterest} onChange={(v) => setField('investmentInterest', v)} options={INTAKE_YES_NO_OPTIONS} />
             </div>
@@ -1455,6 +1459,7 @@ function IntakeFormApp() {
                 <h3>Investment background</h3>
                 <div className="form-grid">
                   <IntakeField label="Approximate investment funds" value={form.investmentFunds} onChange={(v) => setField('investmentFunds', v)} />
+                  <IntakeSelect label="Investment currency" value={form.investmentCurrency} onChange={(v) => setField('investmentCurrency', v)} options={INTAKE_CURRENCY_OPTIONS} />
                   <IntakeSelect label="Funds held by you?" value={form.fundsHeldByYou} onChange={(v) => setField('fundsHeldByYou', v)} options={INTAKE_YES_NO_OPTIONS} />
                   <IntakeSelect label="Funds transferable to New Zealand?" value={form.fundsTransferableNz} onChange={(v) => setField('fundsTransferableNz', v)} options={INTAKE_YES_NO_OPTIONS} />
                 </div>
@@ -1763,10 +1768,10 @@ function IntakePayloadView({ payload = {} }) {
   const groups = [
     ['Goal and visa situation', ['targetPathway', 'desiredTimeframe', 'urgency', 'urgentDeadline', 'helpNeeded', 'isInNewZealand', 'currentLocation', 'currentVisaType', 'currentVisaExpiry', 'visaConditions', 'previouslyVisitedNz', 'previouslyHeldNzVisa', 'plannedTravelDate', 'passportExpiry']],
     ['Partner and family', ['relationshipStatus', 'hasPartner', 'partnerFullName', 'partnerDateOfBirth', 'partnerCitizenship', 'partnerCurrentCountry', 'partnerVisaStatus', 'partnerNzStatus', 'livingTogether', 'relationshipStarted', 'startedLivingTogether', 'partnerIncluded', 'relationshipBackground', 'hasChildren', 'children', 'moreChildrenDetails']],
-    ['Work and employment', ['currentEmploymentStatus', 'occupation', 'currentEmployer', 'employmentCountry', 'currentJobStartDate', 'hoursPerWeek', 'annualSalary', 'yearsExperience', 'hasNzJobOffer', 'employerName', 'jobTitle', 'nzJobLocation', 'payRate', 'nzJobHours', 'employerAccredited', 'employmentAgreementProvided', 'proposedStartDate', 'employmentDetails']],
+    ['Work and employment', ['currentEmploymentStatus', 'occupation', 'currentEmployer', 'employmentCountry', 'currentJobStartDate', 'hoursPerWeek', 'annualSalary', 'salaryCurrency', 'yearsExperience', 'hasNzJobOffer', 'employerName', 'jobTitle', 'nzJobLocation', 'payRate', 'nzPayCurrency', 'nzJobHours', 'employerAccredited', 'employmentAgreementProvided', 'proposedStartDate', 'employmentDetails', 'previousWorkHistory']],
     ['Qualifications', ['highestQualification', 'qualificationName', 'qualificationInstitution', 'qualificationCountry', 'qualificationYearCompleted', 'qualificationStudyLength', 'taughtInEnglish', 'nzqaAssessed', 'qualificationRelatedToOccupation', 'qualificationDetails']],
     ['Health, character and immigration history', ['healthIssues', 'dependantHealthIssues', 'healthDetails', 'characterConvictions', 'characterPendingCharges', 'deportationRemoval', 'characterDetails', 'visaDeclines', 'immigrationHistoryDetails', 'overstayed', 'falseMisleadingIssue', 'appealOrDeadline', 'countriesLived', 'nzTravelHistory']],
-    ['Funds and final comments', ['fundsAvailableSupport', 'availableFunds', 'fundsCurrency', 'sourceOfFunds', 'investmentInterest', 'investmentFunds', 'fundsHeldByYou', 'fundsTransferableNz', 'fundsDetails', 'additionalInfo']],
+    ['Funds and final comments', ['fundsAvailableSupport', 'availableFunds', 'fundsCurrency', 'sourceOfFunds', 'investmentInterest', 'investmentFunds', 'investmentCurrency', 'fundsHeldByYou', 'fundsTransferableNz', 'fundsDetails', 'additionalInfo']],
   ];
   return (
     <div className="intake-payload-view">
@@ -1826,8 +1831,8 @@ function IntakeSelect({ label, value, onChange, options, required = false }) {
   return <label className="field"><span>{label}{required ? ' *' : ''}</span><select value={value || ''} required={required} onChange={(event) => onChange(event.target.value)}><option value="">Select...</option>{options.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>;
 }
 
-function IntakeTextarea({ label, value, onChange, rows = 4 }) {
-  return <label className="field intake-textarea"><span>{label}</span><textarea rows={rows} value={value || ''} onChange={(event) => onChange(event.target.value)} /></label>;
+function IntakeTextarea({ label, value, onChange, rows = 4, placeholder = '' }) {
+  return <label className="field intake-textarea"><span>{label}</span><textarea rows={rows} value={value || ''} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} /></label>;
 }
 
 function IntakeCheckbox({ label, checked, onChange, required = false }) {
@@ -5989,17 +5994,20 @@ function makeBlankIntakePayload() {
     currentJobStartDate: '',
     hoursPerWeek: '',
     annualSalary: '',
+    salaryCurrency: '',
     yearsExperience: '',
     hasNzJobOffer: '',
     employerName: '',
     jobTitle: '',
     nzJobLocation: '',
     payRate: '',
+    nzPayCurrency: '',
     nzJobHours: '',
     employerAccredited: '',
     employmentAgreementProvided: '',
     proposedStartDate: '',
     employmentDetails: '',
+    previousWorkHistory: '',
     highestQualification: '',
     qualificationName: '',
     qualificationInstitution: '',
@@ -6032,6 +6040,7 @@ function makeBlankIntakePayload() {
     sourceOfFunds: '',
     investmentInterest: '',
     investmentFunds: '',
+    investmentCurrency: '',
     fundsHeldByYou: '',
     fundsTransferableNz: '',
     fundsDetails: '',
@@ -6114,17 +6123,20 @@ function intakeLabelForKey(key = '') {
     currentJobStartDate: 'Current job start date',
     hoursPerWeek: 'Hours per week',
     annualSalary: 'Salary / pay rate',
+    salaryCurrency: 'Salary currency',
     yearsExperience: 'Relevant experience',
     hasNzJobOffer: 'NZ job offer',
     employerName: 'NZ employer',
     jobTitle: 'Job title',
     nzJobLocation: 'NZ job location',
     payRate: 'NZ pay rate',
+    nzPayCurrency: 'NZ pay currency',
     nzJobHours: 'NZ job hours',
     employerAccredited: 'Employer accredited',
     employmentAgreementProvided: 'Employment agreement',
     proposedStartDate: 'Proposed start date',
     employmentDetails: 'Employment details',
+    previousWorkHistory: 'Previous work history',
     highestQualification: 'Highest qualification',
     qualificationName: 'Qualification name',
     qualificationInstitution: 'Institution',
@@ -6156,6 +6168,7 @@ function intakeLabelForKey(key = '') {
     sourceOfFunds: 'Source of funds',
     investmentInterest: 'Investment interest',
     investmentFunds: 'Investment funds',
+    investmentCurrency: 'Investment currency',
     fundsHeldByYou: 'Funds held by applicant',
     fundsTransferableNz: 'Funds transferable to NZ',
     fundsDetails: 'Funds details',

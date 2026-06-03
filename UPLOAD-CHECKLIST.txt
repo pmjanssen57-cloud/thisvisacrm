@@ -1,3 +1,24 @@
+THiS CRM v0.11.24 - Intake Employment History and Currency Picker
+
+Upload checklist
+
+1. Preserve the netlify/ folder.
+2. Preserve the public/ folder.
+3. Upload/commit all files from this ZIP to the GitHub repo root.
+4. Deploy through Netlify.
+5. Open the public /intake Assessment Questionnaire.
+6. In Work and employment, confirm Previous work history appears after Main duties / work background.
+7. Confirm Salary currency and Pay currency use dropdown pickers.
+8. In Funds and investment, confirm Currency and Investment currency use dropdown pickers.
+9. Submit a test intake and confirm the previous work history and currency selections appear in CRM > Intake.
+10. Convert the intake to a client and confirm the employment/funds notes preserve those details.
+
+Notes:
+- No database migration required.
+- This updates the public intake form and adviser-side intake payload display only.
+
+---
+
 THiS CRM v0.11.23 - Pop-out Portal and Stage Alignment Polish
 
 Upload checklist

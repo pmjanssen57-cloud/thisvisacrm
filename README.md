@@ -1,8 +1,16 @@
-# Turner Hopkins CRM - Netlify Database v0.11.23
+# Turner Hopkins CRM - Netlify Database v0.11.24
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
 
+
+
+## v0.11.24 - Intake Employment History and Currency Picker
+
+- Added a Previous work history field to the public Assessment Questionnaire employment section, capturing duration, role/title and main duties.
+- Added currency pickers for current salary/pay rate, New Zealand job offer pay, available funds and investment funds.
+- Preserved the new values in submitted intake records, adviser review payloads and client conversion notes.
+- No database migration required.
 
 
 ## v0.11.23 - Pop-out Portal and Stage Alignment Polish
