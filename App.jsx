@@ -1974,15 +1974,15 @@ function ClientPortalApp() {
       <main className="portal-login-card">
         <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="portal-logo" />
         <LockKeyhole size={34} className="portal-lock" />
-        <h1>Client matter update</h1>
-        <p>Enter your email address and Turner Hopkins portal access code to view the latest read-only update for your matter.</p>
+        <h1>Client application update</h1>
+        <p>Enter your email address and Turner Hopkins portal access code to view the latest read-only update for your application progress.</p>
         <form onSubmit={submit} className="portal-login-form">
           <label><span>Email address</span><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" autoComplete="email" /></label>
           <label><span>Portal access code</span><input value={accessCode} onChange={(event) => setAccessCode(event.target.value)} placeholder="TH-XXXX-XXXX-XXXX" autoComplete="one-time-code" /></label>
-          <button className="btn dark" type="submit" disabled={loading}>{loading ? 'Checking...' : 'View matter update'}</button>
+          <button className="btn dark" type="submit" disabled={loading}>{loading ? 'Checking...' : 'View application update'}</button>
         </form>
         {error && <p className="portal-error">{error}</p>}
-        <p className="portal-smallprint">This portal is read-only for matter information. You can send messages to Turner Hopkins or save your own planning notes inside the portal.</p>
+        <p className="portal-smallprint">This portal is read-only for application updates. You can send messages to Turner Hopkins or save your own planning notes inside the portal.</p>
       </main>
     </div>
   );
@@ -2004,8 +2004,8 @@ function ClientPortalProgressMap({ stagePlan = [], progressPercent = 0 }) {
     <section className="portal-card wide portal-progress-card">
       <div className="portal-section-head">
         <div>
-          <h2>Matter progress</h2>
-          <p>These are the stages selected for your matter. Stages that do not apply are not shown.</p>
+          <h2>Application progress</h2>
+          <p>These are the stages selected for your application. Stages that do not apply are not shown.</p>
         </div>
         <span className="portal-progress-pill">{progressPercent}% complete</span>
       </div>
@@ -2039,7 +2039,7 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
         <div>
           <span>Turner Hopkins client portal</span>
           <h1>{snapshot.clientName}</h1>
-          <p>{snapshot.matterType || 'Matter update'} · Last updated {formatPortalDateTime(snapshot.lastUpdated) || 'not recorded'}</p>
+          <p>{snapshot.matterType || 'Application update'} · Last updated {formatPortalDateTime(snapshot.lastUpdated) || 'not recorded'}</p>
         </div>
         <div className="portal-header-actions">
           <button className="btn" type="button" onClick={onRefresh}><RefreshCw size={16} />Refresh</button>
@@ -2093,7 +2093,7 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
 
         <section className="portal-card wide portal-client-action-card">
           <div className="portal-section-head">
-            <div><h2>Messages and personal notes</h2><p>Send Turner Hopkins a question, or keep your own planning notes beside your matter update.</p></div>
+            <div><h2>Messages and personal notes</h2><p>Send Turner Hopkins a question, or keep your own planning notes beside your application update.</p></div>
             <MessageSquare size={22} />
           </div>
           <div className="portal-message-grid">
@@ -2140,7 +2140,7 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
 
         <section className="portal-card wide portal-download-card">
           <div className="portal-section-head">
-            <div><h2>Forms and instructions</h2><p>Download the standard PDFs Turner Hopkins has made available for your matter.</p></div>
+            <div><h2>Forms and instructions</h2><p>Download the standard PDFs Turner Hopkins has made available for your application.</p></div>
           </div>
           {(snapshot.portalDocuments || []).length ? (
             <div className="portal-document-tile-grid">
@@ -2218,7 +2218,7 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
         <section className="portal-card wide contact-card portal-footer-card">
           <div className="portal-footer-intro">
             <h2>Contact Turner Hopkins</h2>
-            <p>For questions about your matter, contact your adviser or the Turner Hopkins team.</p>
+            <p>For questions about your application, contact your adviser or the Turner Hopkins team.</p>
           </div>
           <div className="portal-contact-grid">
             <p><Phone size={17} /><a href={`tel:${String(snapshot.turnerHopkins.phone || '').replace(/\s+/g, '')}`}>{snapshot.turnerHopkins.phone}</a></p>
@@ -2881,7 +2881,7 @@ function AccessScreen(props) {
         <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="access-logo" />
         <LockKeyhole size={34} />
         <h1>{isInvite ? 'Set your THiS CRM password' : isRecovery ? 'Choose a new password' : 'THiS CRM login'}</h1>
-        <p>{isInvite ? 'Your Netlify Identity invitation has been recognised. Set a password to finish activating your CRM access.' : isRecovery ? 'Enter a new password to complete the reset process.' : 'Access is restricted to invited Turner Hopkins users.'}</p>
+        <p>{isInvite ? 'Your Netlify Identity invitation has been recognised. Set a password to finish activating your CRM access.' : isRecovery ? 'Enter a new password to complete the reset process.' : 'Access is restricted to invited THiS users only.'}</p>
 
         {isInvite && (
           <form className="access-form" onSubmit={handleInviteSubmit}>
@@ -2911,20 +2911,6 @@ function AccessScreen(props) {
         )}
 
         {(message || localError || error) && <small className={message && !localError && !error ? 'success-text' : ''}>{localError || error || message}</small>}
-
-        {!isInvite && !isRecovery && (
-          <div className="legacy-access-box">
-            <button type="button" className="link-button" onClick={() => setLegacyAccessVisible(!legacyAccessVisible)}>
-              {legacyAccessVisible ? 'Hide temporary access code fallback' : 'Use temporary access code fallback'}
-            </button>
-            {legacyAccessVisible && (
-              <form className="access-form" onSubmit={submitAccessCode}>
-                <input type="password" value={pendingCode} onChange={(event) => setPendingCode(event.target.value)} placeholder="CRM access code" />
-                <button className="btn" type="submit" disabled={loading}>Continue with access code</button>
-              </form>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );
@@ -3748,14 +3734,14 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
     const portalEmail = draft.portalEmail || draft.email || '';
     const text = `Kia ora ${draft.firstName || ''},
 
-You can view your Turner Hopkins matter update here:
+You can view your Turner Hopkins application update here:
 ${window.location.origin}/portal
 
 Please log in with:
 Email: ${portalEmail}
 Access code: ${code}
 
-This portal is read-only and shows the latest status update we have published for your matter.
+This portal is read-only and shows the latest status update we have published for your application.
 
 Ngā mihi,
 Turner Hopkins Immigration Specialists`;
@@ -5530,6 +5516,7 @@ function LibraryWorkspace({ entries, caseTypes, saveLibraryEntry, deleteLibraryE
   const [draft, setDraft] = useState(makeBlankLibraryEntry(activeType));
   const [saveMessage, setSaveMessage] = useState('');
   const [copyMessage, setCopyMessage] = useState('');
+  const [editorOpen, setEditorOpen] = useState(false);
 
   const visibleEntries = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -5563,18 +5550,28 @@ function LibraryWorkspace({ entries, caseTypes, saveLibraryEntry, deleteLibraryE
       return;
     }
     const first = visibleEntries[0];
-    if (first) {
+    if (first && !editorOpen) {
       setSelectedId(first.id);
       setDraft(normaliseLibraryEntry(first));
-    } else {
+    } else if (!editorOpen) {
       setSelectedId('');
       setDraft(makeBlankLibraryEntry(activeType));
     }
-  }, [selectedId, activeType, entries, visibleEntries]);
+  }, [selectedId, activeType, entries, visibleEntries, editorOpen]);
 
   function updateDraft(patch) {
     setDraft((current) => ({ ...current, ...patch }));
     setSaveMessage('');
+  }
+
+  function openEntryEditor(entry) {
+    const selected = normaliseLibraryEntry(entry);
+    setSelectedId(selected.id);
+    setActiveType(selected.entryType);
+    setDraft(selected);
+    setSaveMessage('');
+    setCopyMessage('');
+    setEditorOpen(true);
   }
 
   function startNewEntry(type = activeType) {
@@ -5583,9 +5580,10 @@ function LibraryWorkspace({ entries, caseTypes, saveLibraryEntry, deleteLibraryE
     setDraft(makeBlankLibraryEntry(type));
     setSaveMessage('');
     setCopyMessage('');
+    setEditorOpen(true);
   }
 
-  async function saveDraft(event) {
+  async function saveDraft(event, closeAfterSave = false) {
     event?.preventDefault();
     if (!draft.title.trim()) {
       setSaveMessage('Add a title before saving this library item.');
@@ -5597,14 +5595,19 @@ function LibraryWorkspace({ entries, caseTypes, saveLibraryEntry, deleteLibraryE
     setDraft(saved);
     setActiveType(saved.entryType);
     setSaveMessage(`Saved ${formatTimeNow()}.`);
+    if (closeAfterSave) setEditorOpen(false);
   }
 
   async function removeDraft() {
-    if (!isPersistedId(draft.id)) return startNewEntry(activeType);
+    if (!isPersistedId(draft.id)) {
+      startNewEntry(activeType);
+      return;
+    }
     await deleteLibraryEntry(draft.id);
     setSelectedId('');
     setDraft(makeBlankLibraryEntry(activeType));
     setSaveMessage('Library item deleted.');
+    setEditorOpen(false);
   }
 
   async function copyOfficialLink() {
@@ -5622,8 +5625,14 @@ function LibraryWorkspace({ entries, caseTypes, saveLibraryEntry, deleteLibraryE
 
   return (
     <section className="library-workspace">
-      <div className="library-heading">
-        <h1>Policy and forms reference</h1>
+      <div className="library-heading compact-heading">
+        <div>
+          <h1>Policy and forms reference</h1>
+          <p className="muted">Controlled source-linked records for adviser reference.</p>
+        </div>
+        <button className="btn dark" type="button" onClick={() => startNewEntry(activeType)}>
+          <Plus size={16} />New {activeType.toLowerCase()} item
+        </button>
       </div>
 
       <div className="library-toolbar">
@@ -5634,9 +5643,6 @@ function LibraryWorkspace({ entries, caseTypes, saveLibraryEntry, deleteLibraryE
             </button>
           ))}
         </div>
-        <button className="btn dark" type="button" onClick={() => startNewEntry(activeType)}>
-          <Plus size={16} />New {activeType.toLowerCase()} item
-        </button>
       </div>
 
       <div className="metric-grid compact library-metrics">
@@ -5646,91 +5652,113 @@ function LibraryWorkspace({ entries, caseTypes, saveLibraryEntry, deleteLibraryE
         <div className="metric-card"><span>Archived/superseded</span><strong>{stats.archived}</strong><small>Kept for history</small></div>
       </div>
 
-      <div className="library-layout">
-        <aside className="library-list-panel">
-          <div className="filters library-filters">
-            <label><span>Search</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Policy code, form number, title or note" /></label>
-            <label><span>Status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">All statuses</option>{LIBRARY_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}</select></label>
-            <label><span>Category</span><select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}><option value="all">All categories</option>{LIBRARY_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>
-          </div>
-          <div className="library-list">
-            {visibleEntries.map((entry) => (
-              <button key={entry.id} type="button" className={`library-list-item ${selectedId === entry.id ? 'active' : ''}`} onClick={() => setSelectedId(entry.id)}>
+      <div className="library-inbox-panel">
+        <div className="filters library-filters library-filters-row">
+          <label><span>Search</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Policy code, form number, title or note" /></label>
+          <label><span>Status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">All statuses</option>{LIBRARY_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}</select></label>
+          <label><span>Category</span><select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}><option value="all">All categories</option>{LIBRARY_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>
+        </div>
+        <div className="library-card-grid">
+          {visibleEntries.map((entry) => (
+            <article key={entry.id} className={`library-summary-card ${selectedId === entry.id ? 'active' : ''}`}>
+              <div className="library-summary-top">
                 <span className={`library-status ${statusClass(entry.status)}`}>{entry.status}</span>
-                <strong>{entry.referenceCode ? `${entry.referenceCode} - ${entry.title}` : entry.title}</strong>
-                <small>{entry.category || 'General'}{entry.nextReviewDue ? ` · Review ${formatShortDate(entry.nextReviewDue)}` : ''}</small>
                 {isLibraryReviewDue(entry) && <em>Review due</em>}
-              </button>
-            ))}
-            {!visibleEntries.length && <p className="muted center">No {activeType.toLowerCase()} items match the current filters.</p>}
-          </div>
-        </aside>
-
-        <form className="library-editor" onSubmit={saveDraft}>
-          <div className="sub-panel-head">
-            <div>
-              <h2>{isPersistedId(draft.id) ? 'Edit library item' : `New ${draft.entryType.toLowerCase()} item`}</h2>
-              <p className="muted">Attach the official source, record the THiS working note, and keep review dates current.</p>
-            </div>
-            <div className="button-row">
-              <button className="btn" type="button" onClick={copyOfficialLink} disabled={!draft.officialUrl}><Copy size={16} />Copy link</button>
-              <button className="btn" type="button" onClick={() => officialLink && window.open(officialLink, '_blank', 'noopener,noreferrer')} disabled={!officialLink}><ExternalLink size={16} />Open source</button>
-            </div>
-          </div>
-
-          <div className="grid two">
-            <label className="field"><span>Type</span><select value={draft.entryType} onChange={(event) => updateDraft({ entryType: event.target.value, category: event.target.value === 'Form' ? 'Forms' : draft.category })}>{LIBRARY_ENTRY_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
-            <label className="field"><span>Status</span><select value={draft.status} onChange={(event) => updateDraft({ status: event.target.value })}>{LIBRARY_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}</select></label>
-            <label className="field"><span>{draft.entryType === 'Form' ? 'INZ form/reference number' : 'Policy code/reference'}</span><input value={draft.referenceCode} onChange={(event) => updateDraft({ referenceCode: event.target.value })} placeholder={draft.entryType === 'Form' ? 'e.g. INZ 1000' : 'e.g. SM6, F2, A5'} /></label>
-            <label className="field"><span>Category</span><select value={draft.category} onChange={(event) => updateDraft({ category: event.target.value })}>{LIBRARY_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>
-          </div>
-
-          <label className="field"><span>Title</span><input value={draft.title} onChange={(event) => updateDraft({ title: event.target.value })} placeholder={draft.entryType === 'Form' ? 'Form or guide name' : 'Policy title or topic'} /></label>
-          <label className="field"><span>Official INZ source URL</span><input value={draft.officialUrl} onChange={(event) => updateDraft({ officialUrl: event.target.value })} placeholder="Paste the official INZ policy, form, guide or checklist link" /></label>
-
-          {draft.entryType === 'Form' && (
-            <div className="grid two">
-              <label className="field"><span>Version / issue note</span><input value={draft.versionLabel} onChange={(event) => updateDraft({ versionLabel: event.target.value })} placeholder="e.g. May 2026 version" /></label>
-              <label className="field"><span>Previous version acceptable until</span><input type="date" value={draft.acceptableUntil} onChange={(event) => updateDraft({ acceptableUntil: event.target.value })} /></label>
-            </div>
-          )}
-
-          <div className="grid two">
-            <label className="field"><span>Last reviewed</span><input type="date" value={draft.lastReviewed} onChange={(event) => updateDraft({ lastReviewed: event.target.value })} /></label>
-            <label className="field"><span>Next review due</span><input type="date" value={draft.nextReviewDue} onChange={(event) => updateDraft({ nextReviewDue: event.target.value })} /></label>
-            <label className="field"><span>Reviewed by</span><input value={draft.reviewedBy} onChange={(event) => updateDraft({ reviewedBy: event.target.value })} placeholder="Adviser name" /></label>
-            <label className="field"><span>Related document items</span><input value={(draft.relatedDocumentItems || []).join(', ')} onChange={(event) => updateDraft({ relatedDocumentItems: splitCsv(event.target.value) })} placeholder="Passports, Police Clearances, Medicals" /></label>
-          </div>
-
-          <div className="case-chip-grid">
-            <span>Related case types</span>
-            <div>
-              {caseTypes.map((caseType) => {
-                const checked = (draft.relatedCaseTypes || []).includes(caseType);
-                return <button key={caseType} type="button" className={checked ? 'active' : ''} onClick={() => updateDraft({ relatedCaseTypes: toggleArrayValue(draft.relatedCaseTypes || [], caseType) })}>{caseType}</button>;
-              })}
-            </div>
-          </div>
-
-          <label className="field"><span>THiS summary</span><textarea rows={4} value={draft.internalSummary} onChange={(event) => updateDraft({ internalSummary: event.target.value })} placeholder="Plain-English internal summary. Keep it practical and source-linked." /></label>
-          <label className="field"><span>Adviser watch-points / notes</span><textarea rows={4} value={draft.adviserNotes} onChange={(event) => updateDraft({ adviserNotes: event.target.value })} placeholder="Risk points, file handling notes, review comments or accepted-version notes." /></label>
-
-          <div className="client-save-bar library-save-bar">
-            <div>
-              <strong>{saveMessage || copyMessage || (isLibraryReviewDue(draft) ? 'Review due or overdue.' : 'Ready to save.')}</strong>
-              <span>{officialLink ? 'Official source link is available.' : 'Add an official INZ link where possible.'}</span>
-            </div>
-            <div className="button-row">
-              <button className="btn danger" type="button" onClick={removeDraft}>{isPersistedId(draft.id) ? 'Delete' : 'Clear'}</button>
-              <button className="btn dark" type="submit" disabled={saving}><Save size={16} />{saving ? 'Saving...' : 'Save library item'}</button>
-            </div>
-          </div>
-        </form>
+              </div>
+              <strong>{entry.referenceCode ? `${entry.referenceCode} - ${entry.title}` : entry.title}</strong>
+              <small>{entry.category || 'General'}{entry.nextReviewDue ? ` · Review ${formatShortDate(entry.nextReviewDue)}` : ''}</small>
+              <p>{entry.internalSummary || entry.adviserNotes || 'No THiS note recorded yet.'}</p>
+              <div className="library-summary-actions">
+                <button className="btn mini" type="button" onClick={() => openEntryEditor(entry)}><FileText size={14} />Open editor</button>
+                <button className="btn mini" type="button" onClick={() => entry.officialUrl && window.open(normaliseExternalUrl(entry.officialUrl), '_blank', 'noopener,noreferrer')} disabled={!entry.officialUrl}><ExternalLink size={14} />Source</button>
+              </div>
+            </article>
+          ))}
+          {!visibleEntries.length && <p className="muted center">No {activeType.toLowerCase()} items match the current filters.</p>}
+        </div>
       </div>
+
+      {editorOpen && (
+        <div className="library-popout-shell" role="dialog" aria-modal="true" aria-label="Library item editor">
+          <div className="library-popout-dialog">
+            <div className="record-popout-topbar">
+              <div>
+                <span>Library editor</span>
+                <strong>{isPersistedId(draft.id) ? draft.title || 'Edit library item' : `New ${draft.entryType.toLowerCase()} item`}</strong>
+              </div>
+              <div className="button-row">
+                <button className="btn" type="button" onClick={() => setEditorOpen(false)}><X size={16} />Close</button>
+                <button className="btn dark" type="button" onClick={(event) => saveDraft(event, true)} disabled={saving}><Save size={16} />Save & close</button>
+              </div>
+            </div>
+
+            <form className="library-editor library-popout-editor" onSubmit={saveDraft}>
+              <div className="sub-panel-head">
+                <div>
+                  <h2>{isPersistedId(draft.id) ? 'Edit library item' : `New ${draft.entryType.toLowerCase()} item`}</h2>
+                  <p className="muted">Attach the official source, record the THiS working note, and keep review dates current.</p>
+                </div>
+                <div className="button-row">
+                  <button className="btn" type="button" onClick={copyOfficialLink} disabled={!draft.officialUrl}><Copy size={16} />Copy link</button>
+                  <button className="btn" type="button" onClick={() => officialLink && window.open(officialLink, '_blank', 'noopener,noreferrer')} disabled={!officialLink}><ExternalLink size={16} />Open source</button>
+                </div>
+              </div>
+
+              <div className="grid two">
+                <label className="field"><span>Type</span><select value={draft.entryType} onChange={(event) => updateDraft({ entryType: event.target.value, category: event.target.value === 'Form' ? 'Forms' : draft.category })}>{LIBRARY_ENTRY_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
+                <label className="field"><span>Status</span><select value={draft.status} onChange={(event) => updateDraft({ status: event.target.value })}>{LIBRARY_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}</select></label>
+                <label className="field"><span>{draft.entryType === 'Form' ? 'INZ form/reference number' : 'Policy code/reference'}</span><input value={draft.referenceCode} onChange={(event) => updateDraft({ referenceCode: event.target.value })} placeholder={draft.entryType === 'Form' ? 'e.g. INZ 1000' : 'e.g. SM6, F2, A5'} /></label>
+                <label className="field"><span>Category</span><select value={draft.category} onChange={(event) => updateDraft({ category: event.target.value })}>{LIBRARY_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>
+              </div>
+
+              <label className="field"><span>Title</span><input value={draft.title} onChange={(event) => updateDraft({ title: event.target.value })} placeholder={draft.entryType === 'Form' ? 'Form or guide name' : 'Policy title or topic'} /></label>
+              <label className="field"><span>Official INZ source URL</span><input value={draft.officialUrl} onChange={(event) => updateDraft({ officialUrl: event.target.value })} placeholder="Paste the official INZ policy, form, guide or checklist link" /></label>
+
+              {draft.entryType === 'Form' && (
+                <div className="grid two">
+                  <label className="field"><span>Version / issue note</span><input value={draft.versionLabel} onChange={(event) => updateDraft({ versionLabel: event.target.value })} placeholder="e.g. May 2026 version" /></label>
+                  <label className="field"><span>Previous version acceptable until</span><input type="date" value={draft.acceptableUntil} onChange={(event) => updateDraft({ acceptableUntil: event.target.value })} /></label>
+                </div>
+              )}
+
+              <div className="grid two">
+                <label className="field"><span>Last reviewed</span><input type="date" value={draft.lastReviewed} onChange={(event) => updateDraft({ lastReviewed: event.target.value })} /></label>
+                <label className="field"><span>Next review due</span><input type="date" value={draft.nextReviewDue} onChange={(event) => updateDraft({ nextReviewDue: event.target.value })} /></label>
+                <label className="field"><span>Reviewed by</span><input value={draft.reviewedBy} onChange={(event) => updateDraft({ reviewedBy: event.target.value })} placeholder="Adviser name" /></label>
+                <label className="field"><span>Related document items</span><input value={(draft.relatedDocumentItems || []).join(', ')} onChange={(event) => updateDraft({ relatedDocumentItems: splitCsv(event.target.value) })} placeholder="Passports, Police Clearances, Medicals" /></label>
+              </div>
+
+              <div className="case-chip-grid">
+                <span>Related case types</span>
+                <div>
+                  {caseTypes.map((caseType) => {
+                    const checked = (draft.relatedCaseTypes || []).includes(caseType);
+                    return <button key={caseType} type="button" className={checked ? 'active' : ''} onClick={() => updateDraft({ relatedCaseTypes: toggleArrayValue(draft.relatedCaseTypes || [], caseType) })}>{caseType}</button>;
+                  })}
+                </div>
+              </div>
+
+              <label className="field"><span>THiS summary</span><textarea rows={4} value={draft.internalSummary} onChange={(event) => updateDraft({ internalSummary: event.target.value })} placeholder="Plain-English internal summary. Keep it practical and source-linked." /></label>
+              <label className="field"><span>Adviser watch-points / notes</span><textarea rows={4} value={draft.adviserNotes} onChange={(event) => updateDraft({ adviserNotes: event.target.value })} placeholder="Risk points, file handling notes, review comments or accepted-version notes." /></label>
+
+              <div className="client-save-bar library-save-bar">
+                <div>
+                  <strong>{saveMessage || copyMessage || (isLibraryReviewDue(draft) ? 'Review due or overdue.' : 'Ready to save.')}</strong>
+                  <span>{officialLink ? 'Official source link is available.' : 'Add an official INZ link where possible.'}</span>
+                </div>
+                <div className="button-row">
+                  <button className="btn danger" type="button" onClick={removeDraft}>{isPersistedId(draft.id) ? 'Delete' : 'Clear'}</button>
+                  <button className="btn" type="submit" disabled={saving}><Save size={16} />{saving ? 'Saving...' : 'Save item'}</button>
+                  <button className="btn dark" type="button" onClick={(event) => saveDraft(event, true)} disabled={saving}><Save size={16} />Save & close</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
-
 
 function SharePointFolderPanel({ value, onChange }) {
   const link = normaliseExternalUrl(value);

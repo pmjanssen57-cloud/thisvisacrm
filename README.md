@@ -1,8 +1,18 @@
-# Turner Hopkins CRM - Netlify Database v0.11.24
+# Turner Hopkins CRM - Netlify Database v0.11.26
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
 
+
+
+## v0.11.26 - Login, Library and Portal Wording Polish
+
+- Removed the temporary access-code fallback option from the adviser login screen.
+- Updated the adviser login wording to "Access is restricted to invited THiS users only" and polished the login card styling.
+- Aligned the adviser profile/status chip to the right side of the CRM header with the main action buttons.
+- Reworked the Knowledge Library so the main page stays list/card focused, with add/edit work handled in a pop-out editor.
+- Updated client portal login and portal-facing text to refer to application updates/progress rather than matter updates.
+- No database migration required.
 
 
 ## v0.11.25 - Intake Employment Flow Refinement
