@@ -1,8 +1,16 @@
-# Turner Hopkins CRM - Netlify Database v0.11.18
+# Turner Hopkins CRM - Netlify Database v0.11.20
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
 
+
+
+## v0.11.20 - Client Workspace Summary and Editor Split
+
+- Added iframe auto-resize support to the public `/intake` assessment questionnaire.
+- The intake form now posts its live content height to the parent website using `postMessage`, so a Squarespace embed can resize naturally instead of relying on a large fixed mobile height.
+- The height message is layout-only and does not include questionnaire answers or client information.
+- No database migration required.
 
 ## v0.11.18 - Pop-out Save Bar Containment
 

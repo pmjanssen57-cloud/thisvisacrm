@@ -5398,3 +5398,203 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .record-popout-content .client-workspace-nav {
   align-self: start;
 }
+
+/* v0.11.20: client workspace summary/editor split */
+.summary-editor-panel {
+  overflow: hidden;
+}
+
+.summary-editor-panel .sub-panel-head.compact {
+  align-items: center;
+  gap: 18px;
+}
+
+.summary-edit-button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.summary-metric-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.summary-metric-row.four {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.clean-summary-list,
+.summary-timeline-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.summary-list-row,
+.summary-stage-row,
+.portal-summary-status-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.summary-list-row strong,
+.summary-stage-row strong,
+.portal-summary-status-card strong {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+}
+
+.summary-list-row small,
+.summary-stage-row small,
+.portal-summary-status-card small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.summary-list-row b {
+  justify-self: end;
+  max-width: 180px;
+  text-align: right;
+  color: var(--ink);
+  font-size: 0.86rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.summary-status-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #cbd5e1;
+  box-shadow: 0 0 0 5px rgba(203, 213, 225, 0.24);
+}
+
+.summary-status-dot.outstanding,
+.summary-status-dot.date,
+.summary-stage-row.open .summary-status-dot {
+  background: #f59e0b;
+  box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.16);
+}
+
+.summary-status-dot.complete,
+.summary-status-dot.invoiced,
+.summary-stage-row.complete .summary-status-dot {
+  background: var(--accent);
+  box-shadow: 0 0 0 5px rgba(94, 223, 164, 0.18);
+}
+
+.summary-status-dot.wip {
+  background: #64748b;
+  box-shadow: 0 0 0 5px rgba(100, 116, 139, 0.14);
+}
+
+.summary-status-dot.overdue {
+  background: #fb7185;
+  box-shadow: 0 0 0 5px rgba(251, 113, 133, 0.16);
+}
+
+.summary-status-dot.inactive {
+  background: #94a3b8;
+  box-shadow: 0 0 0 5px rgba(148, 163, 184, 0.16);
+}
+
+.summary-stage-row > span:first-child {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #eefdf6;
+  color: var(--ink);
+  font-weight: 900;
+}
+
+.summary-stage-row.open > span:first-child {
+  background: #f8fafc;
+  color: var(--muted);
+}
+
+.summary-stage-row svg {
+  color: var(--muted);
+}
+
+.summary-stage-row.complete svg {
+  color: var(--mint);
+}
+
+.summary-success-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 14px 16px;
+  border: 1px solid rgba(94, 223, 164, 0.45);
+  border-radius: 18px;
+  background: #ecfdf5;
+  color: var(--ink);
+}
+
+.summary-more-note,
+.summary-empty-note {
+  display: block;
+  margin-top: 8px;
+}
+
+.portal-summary-status-card {
+  grid-template-columns: auto minmax(0, 1fr);
+  margin: 14px 0 4px;
+  background: #f8fffc;
+}
+
+.record-popout-content .summary-editor-panel .sub-panel-head.compact {
+  align-items: flex-start;
+}
+
+@media (max-width: 1120px) {
+  .summary-metric-row,
+  .summary-metric-row.four {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .summary-editor-panel .sub-panel-head.compact {
+    align-items: stretch;
+  }
+
+  .summary-edit-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .summary-metric-row,
+  .summary-metric-row.four {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-list-row,
+  .summary-stage-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .summary-list-row b {
+    grid-column: 2;
+    justify-self: start;
+    text-align: left;
+    max-width: none;
+  }
+}

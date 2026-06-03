@@ -1114,6 +1114,7 @@ export default function App() {
 
 
 function IntakeFormApp() {
+  const intakeShellRef = useRef(null);
   const [form, setForm] = useState(makeBlankIntakePayload());
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -1127,6 +1128,47 @@ function IntakeFormApp() {
   const hasCharacterIssue = [form.characterIssues, form.characterConvictions, form.characterPendingCharges, form.deportationRemoval].some((value) => value === 'Yes');
   const hasImmigrationHistoryIssue = [form.visaDeclines, form.overstayed, form.falseMisleadingIssue, form.appealOrDeadline].some((value) => value === 'Yes');
   const isInvestmentMatter = form.investmentInterest === 'Yes' || /invest/i.test(form.targetPathway || '');
+
+  useEffect(() => {
+    const shell = intakeShellRef.current;
+    if (!shell || window.parent === window) return undefined;
+
+    let frameId = 0;
+    const postHeight = () => {
+      if (frameId) window.cancelAnimationFrame(frameId);
+      frameId = window.requestAnimationFrame(() => {
+        const documentElement = document.documentElement;
+        const body = document.body;
+        const height = Math.ceil(Math.max(
+          shell.getBoundingClientRect().height,
+          body?.scrollHeight || 0,
+          documentElement?.scrollHeight || 0,
+        ));
+
+        window.parent.postMessage({
+          type: 'THIS_INTAKE_EMBED_HEIGHT',
+          source: 'this-crm-intake',
+          height,
+        }, '*');
+      });
+    };
+
+    postHeight();
+    const timeoutIds = [150, 500, 1200].map((delay) => window.setTimeout(postHeight, delay));
+    const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(postHeight) : null;
+    resizeObserver?.observe(shell);
+    resizeObserver?.observe(document.body);
+    window.addEventListener('resize', postHeight);
+    window.addEventListener('load', postHeight);
+
+    return () => {
+      if (frameId) window.cancelAnimationFrame(frameId);
+      timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', postHeight);
+      window.removeEventListener('load', postHeight);
+    };
+  }, [form, submitted, error]);
 
   function setField(name, value) {
     setForm((current) => {
@@ -1198,7 +1240,7 @@ function IntakeFormApp() {
 
   if (submitted) {
     return (
-      <div className="intake-public-shell">
+      <div className="intake-public-shell" ref={intakeShellRef}>
         <main className="intake-public-card intake-thanks-card">
           <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="intake-brand-logo" />
           <CheckCircle2 size={40} className="portal-lock" />
@@ -1211,7 +1253,7 @@ function IntakeFormApp() {
   }
 
   return (
-    <div className="intake-public-shell">
+    <div className="intake-public-shell" ref={intakeShellRef}>
       <main className="intake-public-card">
         <div className="intake-public-head compact">
           <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="intake-brand-logo" />
@@ -3405,12 +3447,18 @@ function ClientsWorkspace(props) {
   const { clients, selectedClient, advisers, caseTypes, deadlineTypes, clientQuery, setClientQuery, adviserFilter, setAdviserFilter, caseTypeFilter, setCaseTypeFilter, setSelectedClientId, onDirtyChange, saveClient, updatePortalMessageStatus, uploadPortalDocument, updatePortalDocument, deletePortalDocument, deleteClient, saving, calendarEntries = [] } = props;
   const [popoutOpen, setPopoutOpen] = useState(false);
   const [popoutDirty, setPopoutDirty] = useState(false);
+  const [popoutInitialSection, setPopoutInitialSection] = useState('overview');
 
   function requestPopoutClose(options = {}) {
     if (!options.force && popoutDirty && !window.confirm('Close the pop-out editor and discard unsaved changes?')) return;
     setPopoutOpen(false);
     setPopoutDirty(false);
     onDirtyChange?.(false);
+  }
+
+  function openPopoutEditor(sectionId = 'overview') {
+    setPopoutInitialSection(sectionId || 'overview');
+    setPopoutOpen(true);
   }
 
   function handlePopoutDirtyChange(dirty) {
@@ -3446,12 +3494,12 @@ function ClientsWorkspace(props) {
             <button className="btn dark" type="button" onClick={() => setPopoutOpen(true)}><ExternalLink size={16} />Resume pop-out editor</button>
           </div>
         ) : (
-          <ClientEditor client={selectedClient} advisers={advisers} caseTypes={caseTypes} deadlineTypes={deadlineTypes} calendarEntries={calendarEntries} saveClient={saveClient} updatePortalMessageStatus={updatePortalMessageStatus} uploadPortalDocument={uploadPortalDocument} updatePortalDocument={updatePortalDocument} deletePortalDocument={deletePortalDocument} deleteClient={deleteClient} saving={saving} onDirtyChange={onDirtyChange} onOpenPopout={() => setPopoutOpen(true)} />
+          <ClientEditor client={selectedClient} advisers={advisers} caseTypes={caseTypes} deadlineTypes={deadlineTypes} calendarEntries={calendarEntries} saveClient={saveClient} updatePortalMessageStatus={updatePortalMessageStatus} uploadPortalDocument={uploadPortalDocument} updatePortalDocument={updatePortalDocument} deletePortalDocument={deletePortalDocument} deleteClient={deleteClient} saving={saving} onDirtyChange={onDirtyChange} onOpenPopout={openPopoutEditor} />
         )}
       </section>
       {popoutOpen && (
         <ClientRecordPopoutModal title={clientName} onClose={requestPopoutClose}>
-          <ClientEditor client={selectedClient} advisers={advisers} caseTypes={caseTypes} deadlineTypes={deadlineTypes} calendarEntries={calendarEntries} saveClient={saveClient} updatePortalMessageStatus={updatePortalMessageStatus} uploadPortalDocument={uploadPortalDocument} updatePortalDocument={updatePortalDocument} deletePortalDocument={deletePortalDocument} deleteClient={deleteClient} saving={saving} onDirtyChange={handlePopoutDirtyChange} popoutMode onRequestClose={requestPopoutClose} />
+          <ClientEditor client={selectedClient} advisers={advisers} caseTypes={caseTypes} deadlineTypes={deadlineTypes} calendarEntries={calendarEntries} saveClient={saveClient} updatePortalMessageStatus={updatePortalMessageStatus} uploadPortalDocument={uploadPortalDocument} updatePortalDocument={updatePortalDocument} deletePortalDocument={deletePortalDocument} deleteClient={deleteClient} saving={saving} onDirtyChange={handlePopoutDirtyChange} popoutMode initialSection={popoutInitialSection} onRequestClose={requestPopoutClose} />
         </ClientRecordPopoutModal>
       )}
     </div>
@@ -3475,7 +3523,7 @@ function ClientRecordPopoutModal({ title, onClose, children }) {
   );
 }
 
-function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntries = [], saveClient, updatePortalMessageStatus, uploadPortalDocument, updatePortalDocument, deletePortalDocument, deleteClient, saving, onDirtyChange, onOpenPopout, popoutMode = false, onRequestClose }) {
+function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntries = [], saveClient, updatePortalMessageStatus, uploadPortalDocument, updatePortalDocument, deletePortalDocument, deleteClient, saving, onDirtyChange, onOpenPopout, popoutMode = false, initialSection = 'overview', onRequestClose }) {
   const [draft, setDraft] = useState(client);
   const [activeClientSection, setActiveClientSection] = useState('overview');
   const [showActionLog, setShowActionLog] = useState(false);
@@ -3505,6 +3553,10 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
     onDirtyChange?.(isDirty);
     return () => onDirtyChange?.(false);
   }, [isDirty, onDirtyChange]);
+
+  useEffect(() => {
+    if (popoutMode && initialSection) setActiveClientSection(initialSection);
+  }, [popoutMode, initialSection]);
 
   useEffect(() => {
     function handleBeforeUnload(event) {
@@ -3805,12 +3857,12 @@ Turner Hopkins Immigration Specialists`;
     }
   }
 
-  function handleOpenPopout() {
+  function handleOpenPopout(sectionId = activeClientSection) {
     if (isDirty) {
       setValidationMessage('Save the current changes before opening the pop-out editor, so no unsaved edits are lost.');
       return;
     }
-    onOpenPopout?.();
+    onOpenPopout?.(sectionId || 'overview');
   }
 
   async function handleSaveAndClose() {
@@ -3859,7 +3911,7 @@ Turner Hopkins Immigration Specialists`;
           <p>{draft.caseType || 'No case type selected'} · {currentStage} · {progressPercent(draft)}% progress</p>
         </div>
         <div className="button-row">
-          {popoutMode ? <button className="btn" type="button" onClick={() => onRequestClose?.()}><X size={16} />Close</button> : <button className="btn" type="button" onClick={handleOpenPopout}><ExternalLink size={16} />Pop out record</button>}
+          {popoutMode ? <button className="btn" type="button" onClick={() => onRequestClose?.()}><X size={16} />Close</button> : <button className="btn" type="button" onClick={() => handleOpenPopout(activeClientSection)}><ExternalLink size={16} />Pop out record</button>}
           <button className="btn danger" onClick={() => deleteClient(draft.id)} disabled={saving || String(draft.id).startsWith('temp-')}><Trash2 size={16} />Delete</button>
           <button className="btn dark" onClick={handleSaveClient} disabled={saving}><Save size={16} />Save client</button>
           {popoutMode && <button className="btn dark" type="button" onClick={handleSaveAndClose} disabled={saving}><Save size={16} />Save & close</button>}
@@ -3926,82 +3978,102 @@ Turner Hopkins Immigration Specialists`;
 
         {activeClientSection === 'documents' && (
           <div className="client-workspace-section-stack">
-            <ClientWorkspaceIntro title="Documents" description="Track required evidence and expiry dates. Portal PDFs and client-facing forms are managed in the Portal section." />
-            <DocumentChecklist items={normaliseDocumentChecklist(draft.documentChecklist)} updateItem={updateDocumentItem} addCustomItem={addCustomDocumentItem} removeCustomItem={removeCustomDocumentItem} />
+            <ClientWorkspaceIntro title="Documents" description={popoutMode ? "Track required evidence and expiry dates. Portal PDFs and client-facing forms are managed in the Portal section." : "Summary view only. Open the larger editor when you need to change checklist items, dates or obtained status."} />
+            {popoutMode ? (
+              <DocumentChecklist items={normaliseDocumentChecklist(draft.documentChecklist)} updateItem={updateDocumentItem} addCustomItem={addCustomDocumentItem} removeCustomItem={removeCustomDocumentItem} />
+            ) : (
+              <DocumentsSummaryPanel documents={requiredDocuments} onEdit={() => handleOpenPopout('documents')} />
+            )}
           </div>
         )}
 
         {activeClientSection === 'portal' && (
           <div className="client-workspace-section-stack">
-            <ClientWorkspaceIntro title="Client portal publishing console" description="Manage what the client can see. Internal strategy, file notes and risk comments stay out of the portal." />
-            <ClientPortalPanel client={draft} advisers={advisers} calendarEntries={calendarEntries} generatedPortalCode={generatedPortalCode} setField={setField} updatePortalSelection={updatePortalSelection} generatePortalAccessCode={generatePortalAccessCode} copyPortalInstructions={copyPortalInstructions} publishPortalUpdate={handlePublishPortalUpdate} updatePortalMessageStatus={updatePortalMessageStatus} uploadPortalDocument={handlePortalDocumentUpload} updatePortalDocument={handlePortalDocumentUpdate} deletePortalDocument={handlePortalDocumentDelete} saving={saving} />
+            <ClientWorkspaceIntro title="Client portal" description={popoutMode ? "Manage what the client can see. Internal strategy, file notes and risk comments stay out of the portal." : "Summary view only. Open the larger editor to manage portal publishing, documents, messages and access codes."} />
+            {popoutMode ? (
+              <ClientPortalPanel client={draft} advisers={advisers} calendarEntries={calendarEntries} generatedPortalCode={generatedPortalCode} setField={setField} updatePortalSelection={updatePortalSelection} generatePortalAccessCode={generatePortalAccessCode} copyPortalInstructions={copyPortalInstructions} publishPortalUpdate={handlePublishPortalUpdate} updatePortalMessageStatus={updatePortalMessageStatus} uploadPortalDocument={handlePortalDocumentUpload} updatePortalDocument={handlePortalDocumentUpdate} deletePortalDocument={handlePortalDocumentDelete} saving={saving} />
+            ) : (
+              <PortalSummaryPanel client={draft} documents={requiredDocuments} deadlines={draft.deadlines || []} appointments={linkedAppointments} billing={billingItems} portalNewMessageCount={portalNewMessageCount} visiblePortalPdfCount={visiblePortalPdfCount} onEdit={() => handleOpenPopout('portal')} />
+            )}
           </div>
         )}
 
         {activeClientSection === 'stages' && (
           <div className="client-workspace-section-stack">
-            <ClientWorkspaceIntro title="Matter stages" description="Apply, reorder and complete stages so the file progress map stays accurate." />
+            <ClientWorkspaceIntro title="Matter stages" description={popoutMode ? "Apply, reorder and complete stages so the file progress map stays accurate." : "Summary view only. Open the larger editor to add, remove, reorder or complete stages."} />
             <div className="progress-card"><span>{currentStage}</span><b>{progressPercent(draft)}%</b><ProgressBar value={progressPercent(draft)} /></div>
             <ProgressMap client={draft} />
-            <section className="sub-panel workspace-panel">
-              <div className="sub-panel-head compact"><div><h2>Stage editor</h2><p className="muted">Mandatory stages always apply. Optional and custom stages can be added, removed or reordered before saving the client.</p></div></div>
-              <div className="stage-add-row"><input value={customStageLabel} onChange={(event) => setCustomStageLabel(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addCustomStage(); } }} placeholder="Add custom matter stage" /><button className="btn" type="button" onClick={addCustomStage}><Plus size={16} />Add stage</button></div>
-              <div className="stage-list">
-                {(draft.stages || []).map((stage, index) => (
-                  <div className={`stage-row ${stage.custom ? 'custom-stage' : ''}`} key={stage.id}>
-                    <div className="stage-order-controls"><button className="icon-btn" type="button" disabled={index === 0} onClick={() => moveStage(stage.id, -1)}>↑</button><button className="icon-btn" type="button" disabled={index === (draft.stages || []).length - 1} onClick={() => moveStage(stage.id, 1)}>↓</button></div>
-                    <div className="stage-name-cell"><input type="checkbox" checked={stage.applied} disabled={stage.mandatory} onChange={(event) => updateStage(stage.id, { applied: event.target.checked })} /> <span>{stage.custom ? <input className="stage-label-input" value={stage.label} onChange={(event) => updateStage(stage.id, { label: event.target.value })} /> : <strong>{stage.label}</strong>}<small>{stage.mandatory ? 'Mandatory' : stage.custom ? 'Custom' : 'Optional'}</small></span></div>
-                    <label><input type="checkbox" checked={stage.completed} disabled={!stage.applied} onChange={(event) => updateStage(stage.id, { completed: event.target.checked })} /> Completed</label>
-                    <input type="date" value={stage.completedDate || ''} disabled={!stage.applied || !stage.completed} onChange={(event) => updateStage(stage.id, { completedDate: event.target.value })} />
-                    <button className="icon-btn" type="button" disabled={!stage.custom} onClick={() => removeCustomStage(stage.id)} title={stage.custom ? 'Remove custom stage' : 'Hard-coded stage cannot be removed'}><Trash2 size={16} /></button>
-                  </div>
-                ))}
-              </div>
-            </section>
+            {popoutMode ? (
+              <section className="sub-panel workspace-panel">
+                <div className="sub-panel-head compact"><div><h2>Stage editor</h2><p className="muted">Mandatory stages always apply. Optional and custom stages can be added, removed or reordered before saving the client.</p></div></div>
+                <div className="stage-add-row"><input value={customStageLabel} onChange={(event) => setCustomStageLabel(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addCustomStage(); } }} placeholder="Add custom matter stage" /><button className="btn" type="button" onClick={addCustomStage}><Plus size={16} />Add stage</button></div>
+                <div className="stage-list">
+                  {(draft.stages || []).map((stage, index) => (
+                    <div className={`stage-row ${stage.custom ? 'custom-stage' : ''}`} key={stage.id}>
+                      <div className="stage-order-controls"><button className="icon-btn" type="button" disabled={index === 0} onClick={() => moveStage(stage.id, -1)}>↑</button><button className="icon-btn" type="button" disabled={index === (draft.stages || []).length - 1} onClick={() => moveStage(stage.id, 1)}>↓</button></div>
+                      <div className="stage-name-cell"><input type="checkbox" checked={stage.applied} disabled={stage.mandatory} onChange={(event) => updateStage(stage.id, { applied: event.target.checked })} /> <span>{stage.custom ? <input className="stage-label-input" value={stage.label} onChange={(event) => updateStage(stage.id, { label: event.target.value })} /> : <strong>{stage.label}</strong>}<small>{stage.mandatory ? 'Mandatory' : stage.custom ? 'Custom' : 'Optional'}</small></span></div>
+                      <label><input type="checkbox" checked={stage.completed} disabled={!stage.applied} onChange={(event) => updateStage(stage.id, { completed: event.target.checked })} /> Completed</label>
+                      <input type="date" value={stage.completedDate || ''} disabled={!stage.applied || !stage.completed} onChange={(event) => updateStage(stage.id, { completedDate: event.target.value })} />
+                      <button className="icon-btn" type="button" disabled={!stage.custom} onClick={() => removeCustomStage(stage.id)} title={stage.custom ? 'Remove custom stage' : 'Hard-coded stage cannot be removed'}><Trash2 size={16} /></button>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : (
+              <StagesSummaryPanel client={draft} onEdit={() => handleOpenPopout('stages')} />
+            )}
           </div>
         )}
 
         {activeClientSection === 'dates' && (
           <div className="client-workspace-section-stack">
-            <ClientWorkspaceIntro title="Key dates" description="Record the expiry dates and deadlines that can affect the matter. These feed the task list and dashboard." />
-            <section className="sub-panel workspace-panel">
-              <div className="sub-panel-head"><div><h2>Client deadline dates</h2><p className="muted">Add only the deadline dates that matter for this client.</p></div><button className="btn" onClick={addDeadline}><Plus size={16} />Deadline</button></div>
-              <div className="table-like">
-                {(draft.deadlines || []).map((deadline) => <div className="editable-row deadline-row" key={deadline.id}><select value={deadline.type} onChange={(event) => updateDeadline(deadline.id, { type: event.target.value })}>{deadlineTypes.map((type) => <option key={type}>{type}</option>)}</select><input type="date" value={deadline.date || ''} onChange={(event) => updateDeadline(deadline.id, { date: event.target.value })} /><input value={deadline.note || ''} onChange={(event) => updateDeadline(deadline.id, { note: event.target.value })} placeholder="Optional note" /><button className="icon-btn" type="button" onClick={() => removeDeadline(deadline.id)}><Trash2 size={16} /></button></div>)}
-                {!draft.deadlines?.length && <p className="muted center">No deadlines added yet.</p>}
-              </div>
-            </section>
+            <ClientWorkspaceIntro title="Key dates" description={popoutMode ? "Record the expiry dates and deadlines that can affect the matter. These feed the task list and dashboard." : "Summary view only. Open the larger editor to add or change deadline dates."} />
+            {popoutMode ? (
+              <section className="sub-panel workspace-panel">
+                <div className="sub-panel-head"><div><h2>Client deadline dates</h2><p className="muted">Add only the deadline dates that matter for this client.</p></div><button className="btn" onClick={addDeadline}><Plus size={16} />Deadline</button></div>
+                <div className="table-like">
+                  {(draft.deadlines || []).map((deadline) => <div className="editable-row deadline-row" key={deadline.id}><select value={deadline.type} onChange={(event) => updateDeadline(deadline.id, { type: event.target.value })}>{deadlineTypes.map((type) => <option key={type}>{type}</option>)}</select><input type="date" value={deadline.date || ''} onChange={(event) => updateDeadline(deadline.id, { date: event.target.value })} /><input value={deadline.note || ''} onChange={(event) => updateDeadline(deadline.id, { note: event.target.value })} placeholder="Optional note" /><button className="icon-btn" type="button" onClick={() => removeDeadline(deadline.id)}><Trash2 size={16} /></button></div>)}
+                  {!draft.deadlines?.length && <p className="muted center">No deadlines added yet.</p>}
+                </div>
+              </section>
+            ) : (
+              <KeyDatesSummaryPanel deadlines={draft.deadlines || []} onEdit={() => handleOpenPopout('dates')} />
+            )}
           </div>
         )}
 
         {activeClientSection === 'billing' && (
           <div className="client-workspace-section-stack">
-            <ClientWorkspaceIntro title="Billing" description="Record billing milestones, invoice status and client-visible payment items." />
-            <section className="sub-panel workspace-panel">
-              <div className="sub-panel-head"><div><h2>Billing and invoicing schedule</h2><p className="muted">Record milestones only. No documents are stored here.</p></div><button className="btn" onClick={addBilling}><Plus size={16} />Milestone</button></div>
-              <div className="table-like">
-                {(draft.billing || []).map((rawItem) => {
-                  const item = normaliseBillingItem(rawItem);
-                  const linkedStage = (draft.stages || []).find((stage) => stage.id === item.stageKey);
-                  const linkedStageDue = item.triggerType === 'Milestone' && linkedStage?.completed ? linkedStage.completedDate : '';
-                  const displayedStatus = effectiveBillingStatus(item, draft);
-                  const autoOverdue = displayedStatus === 'Overdue' && item.status === 'WIP';
-                  return (
-                    <div className={`billing-edit-card ${displayedStatus === 'Overdue' ? 'overdue-soft' : ''}`} key={item.id}>
-                      <label className="billing-field billing-description-field"><span>Billing item / description</span><input value={item.milestone || ''} onChange={(event) => updateBilling(item.id, { milestone: event.target.value })} placeholder="e.g. Lodgement fee, professional fee, balance invoice" /></label>
-                      <label className="billing-field billing-trigger-field"><span>Billing based on</span><select value={item.triggerType || 'Date'} onChange={(event) => updateBilling(item.id, { triggerType: event.target.value, stageKey: event.target.value === 'Date' ? '' : item.stageKey })}><option value="Date">Date</option><option value="Milestone">Matter stage / milestone</option></select></label>
-                      {item.triggerType === 'Milestone' ? <label className="billing-field billing-stage-field"><span>Linked matter stage</span><select value={item.stageKey || ''} onChange={(event) => updateBilling(item.id, { stageKey: event.target.value })}><option value="">Select linked stage</option>{(draft.stages || []).filter((stage) => stage.applied).map((stage) => <option key={stage.id} value={stage.id}>{stage.label}</option>)}</select></label> : <label className="billing-field billing-date-field"><span>Billing date</span><input type="date" value={item.dueDate || ''} onChange={(event) => updateBilling(item.id, { dueDate: event.target.value })} /></label>}
-                      <label className="billing-field billing-amount-field"><span>Amount</span><input type="number" value={item.amount || 0} onChange={(event) => updateBilling(item.id, { amount: event.target.value })} /></label>
-                      <label className="billing-field billing-status-field"><span>Status</span><select value={item.status || 'WIP'} onChange={(event) => updateBilling(item.id, { status: event.target.value })}>{BILLING_STATUSES.map((status) => <option key={status}>{status}</option>)}</select></label>
-                      <label className="billing-field billing-invoice-field"><span>Invoice no.</span><input value={item.invoiceNo || ''} onChange={(event) => updateBilling(item.id, { invoiceNo: event.target.value })} placeholder="Invoice no." /></label>
-                      <button className="icon-btn billing-remove-btn" type="button" onClick={() => removeBilling(item.id)} aria-label="Remove billing item"><Trash2 size={16} /></button>
-                      <small className="billing-hint">{autoOverdue ? 'This WIP billing item is displayed as overdue because its reporting date has passed. Change status to Invoiced once raised.' : item.triggerType === 'Milestone' ? (linkedStage ? (linkedStageDue ? `Billing is now due because ${linkedStage.label} was completed on ${linkedStageDue}.` : `This billing item will become due when ${linkedStage.label} is marked completed.`) : 'Choose Matter stage / milestone, then select the linked client stage that triggers this bill.') : 'This billing item will appear in period billing reports based on the billing date.'}</small>
-                    </div>
-                  );
-                })}
-                {!draft.billing?.length && <p className="muted center">No billing milestones added yet.</p>}
-              </div>
-            </section>
+            <ClientWorkspaceIntro title="Billing" description={popoutMode ? "Record billing milestones, invoice status and client-visible payment items." : "Summary view only. Open the larger editor to maintain billing milestones and invoice details."} />
+            {popoutMode ? (
+              <section className="sub-panel workspace-panel">
+                <div className="sub-panel-head"><div><h2>Billing and invoicing schedule</h2><p className="muted">Record milestones only. No documents are stored here.</p></div><button className="btn" onClick={addBilling}><Plus size={16} />Milestone</button></div>
+                <div className="table-like">
+                  {(draft.billing || []).map((rawItem) => {
+                    const item = normaliseBillingItem(rawItem);
+                    const linkedStage = (draft.stages || []).find((stage) => stage.id === item.stageKey);
+                    const linkedStageDue = item.triggerType === 'Milestone' && linkedStage?.completed ? linkedStage.completedDate : '';
+                    const displayedStatus = effectiveBillingStatus(item, draft);
+                    const autoOverdue = displayedStatus === 'Overdue' && item.status === 'WIP';
+                    return (
+                      <div className={`billing-edit-card ${displayedStatus === 'Overdue' ? 'overdue-soft' : ''}`} key={item.id}>
+                        <label className="billing-field billing-description-field"><span>Billing item / description</span><input value={item.milestone || ''} onChange={(event) => updateBilling(item.id, { milestone: event.target.value })} placeholder="e.g. Lodgement fee, professional fee, balance invoice" /></label>
+                        <label className="billing-field billing-trigger-field"><span>Billing based on</span><select value={item.triggerType || 'Date'} onChange={(event) => updateBilling(item.id, { triggerType: event.target.value, stageKey: event.target.value === 'Date' ? '' : item.stageKey })}><option value="Date">Date</option><option value="Milestone">Matter stage / milestone</option></select></label>
+                        {item.triggerType === 'Milestone' ? <label className="billing-field billing-stage-field"><span>Linked matter stage</span><select value={item.stageKey || ''} onChange={(event) => updateBilling(item.id, { stageKey: event.target.value })}><option value="">Select linked stage</option>{(draft.stages || []).filter((stage) => stage.applied).map((stage) => <option key={stage.id} value={stage.id}>{stage.label}</option>)}</select></label> : <label className="billing-field billing-date-field"><span>Billing date</span><input type="date" value={item.dueDate || ''} onChange={(event) => updateBilling(item.id, { dueDate: event.target.value })} /></label>}
+                        <label className="billing-field billing-amount-field"><span>Amount</span><input type="number" value={item.amount || 0} onChange={(event) => updateBilling(item.id, { amount: event.target.value })} /></label>
+                        <label className="billing-field billing-status-field"><span>Status</span><select value={item.status || 'WIP'} onChange={(event) => updateBilling(item.id, { status: event.target.value })}>{BILLING_STATUSES.map((status) => <option key={status}>{status}</option>)}</select></label>
+                        <label className="billing-field billing-invoice-field"><span>Invoice no.</span><input value={item.invoiceNo || ''} onChange={(event) => updateBilling(item.id, { invoiceNo: event.target.value })} placeholder="Invoice no." /></label>
+                        <button className="icon-btn billing-remove-btn" type="button" onClick={() => removeBilling(item.id)} aria-label="Remove billing item"><Trash2 size={16} /></button>
+                        <small className="billing-hint">{autoOverdue ? 'This WIP billing item is displayed as overdue because its reporting date has passed. Change status to Invoiced once raised.' : item.triggerType === 'Milestone' ? (linkedStage ? (linkedStageDue ? `Billing is now due because ${linkedStage.label} was completed on ${linkedStageDue}.` : `This billing item will become due when ${linkedStage.label} is marked completed.`) : 'Choose Matter stage / milestone, then select the linked client stage that triggers this bill.') : 'This billing item will appear in period billing reports based on the billing date.'}</small>
+                      </div>
+                    );
+                  })}
+                  {!draft.billing?.length && <p className="muted center">No billing milestones added yet.</p>}
+                </div>
+              </section>
+            ) : (
+              <BillingSummaryPanel client={draft} billing={billingItems} onEdit={() => handleOpenPopout('billing')} />
+            )}
           </div>
         )}
 
@@ -4024,6 +4096,172 @@ Turner Hopkins Immigration Specialists`;
   );
 }
 
+
+function SummaryActionButton({ children, onClick }) {
+  return <button className="btn dark summary-edit-button" type="button" onClick={onClick}><ExternalLink size={16} />{children}</button>;
+}
+
+function EmptySummaryNote({ children }) {
+  return <p className="muted center summary-empty-note">{children}</p>;
+}
+
+function DocumentsSummaryPanel({ documents = [], onEdit }) {
+  const applied = documents.filter((item) => item.applied !== false);
+  const obtained = applied.filter((item) => item.obtained);
+  const outstanding = applied.filter((item) => !item.obtained);
+  const preview = outstanding.slice(0, 6);
+  return (
+    <section className="sub-panel workspace-panel summary-editor-panel">
+      <div className="sub-panel-head compact">
+        <div><h2>Document checklist summary</h2><p className="muted">The detailed checklist editor is available in the pop-out record view.</p></div>
+        <SummaryActionButton onClick={onEdit}>Edit documents</SummaryActionButton>
+      </div>
+      <div className="summary-metric-row">
+        <WorkspaceStat label="Required" value={applied.length} />
+        <WorkspaceStat label="Obtained" value={obtained.length} />
+        <WorkspaceStat label="Outstanding" value={outstanding.length} />
+      </div>
+      {preview.length ? (
+        <div className="summary-list clean-summary-list">
+          {preview.map((item) => (
+            <div className="summary-list-row" key={item.id}>
+              <span className="summary-status-dot outstanding" aria-hidden="true" />
+              <div><strong>{item.name}</strong><small>{item.expiryDate ? `Expiry ${formatShortDate(item.expiryDate)}` : 'No expiry date recorded'}</small></div>
+              <b>Required</b>
+            </div>
+          ))}
+          {outstanding.length > preview.length && <small className="summary-more-note">+ {outstanding.length - preview.length} more outstanding item{outstanding.length - preview.length === 1 ? '' : 's'}</small>}
+        </div>
+      ) : applied.length ? (
+        <div className="summary-success-card"><CheckCircle2 size={18} /><strong>All required checklist items are marked obtained.</strong></div>
+      ) : <EmptySummaryNote>No checklist items are currently required for this client.</EmptySummaryNote>}
+    </section>
+  );
+}
+
+function StagesSummaryPanel({ client, onEdit }) {
+  const activeStages = appliedStages(client);
+  const completed = completedStages(client);
+  const nextStage = activeStages.find((stage) => !stage.completed);
+  return (
+    <section className="sub-panel workspace-panel summary-editor-panel">
+      <div className="sub-panel-head compact">
+        <div><h2>Matter stage summary</h2><p className="muted">Only applied stages count toward the client progress map.</p></div>
+        <SummaryActionButton onClick={onEdit}>Edit stages</SummaryActionButton>
+      </div>
+      <div className="summary-metric-row">
+        <WorkspaceStat label="Applied stages" value={activeStages.length} />
+        <WorkspaceStat label="Completed" value={completed.length} />
+        <WorkspaceStat label="Progress" value={`${progressPercent(client)}%`} />
+      </div>
+      {activeStages.length ? (
+        <div className="summary-timeline-list">
+          {activeStages.map((stage, index) => (
+            <div className={`summary-stage-row ${stage.completed ? 'complete' : 'open'}`} key={stage.id}>
+              <span>{index + 1}</span>
+              <div><strong>{stage.label}</strong><small>{stage.completed ? `Completed ${stage.completedDate ? formatShortDate(stage.completedDate) : ''}` : stage === nextStage ? 'Next stage' : 'Not completed yet'}</small></div>
+              {stage.completed ? <CheckCircle2 size={18} /> : <Clock size={18} />}
+            </div>
+          ))}
+        </div>
+      ) : <EmptySummaryNote>No stages have been applied to this client yet.</EmptySummaryNote>}
+    </section>
+  );
+}
+
+function KeyDatesSummaryPanel({ deadlines = [], onEdit }) {
+  const dated = [...deadlines].filter((item) => item.date).sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
+  const undated = deadlines.filter((item) => !item.date);
+  return (
+    <section className="sub-panel workspace-panel summary-editor-panel">
+      <div className="sub-panel-head compact">
+        <div><h2>Key dates summary</h2><p className="muted">Dates shown here feed adviser tasks and dashboard bring-ups.</p></div>
+        <SummaryActionButton onClick={onEdit}>Edit key dates</SummaryActionButton>
+      </div>
+      <div className="summary-metric-row">
+        <WorkspaceStat label="Recorded" value={deadlines.length} />
+        <WorkspaceStat label="Dated" value={dated.length} />
+        <WorkspaceStat label="Missing date" value={undated.length} />
+      </div>
+      {dated.length ? (
+        <div className="summary-list clean-summary-list">
+          {dated.slice(0, 6).map((item) => (
+            <div className="summary-list-row" key={item.id}>
+              <span className={`summary-status-dot ${dateDiff(item.date) < 0 ? 'overdue' : 'date'}`} aria-hidden="true" />
+              <div><strong>{item.type}</strong><small>{item.note || 'No note'}</small></div>
+              <b>{formatShortDate(item.date)}</b>
+            </div>
+          ))}
+        </div>
+      ) : <EmptySummaryNote>No dated client deadlines have been recorded.</EmptySummaryNote>}
+    </section>
+  );
+}
+
+function BillingSummaryPanel({ client, billing = [], onEdit }) {
+  const items = billing.map(normaliseBillingItem);
+  const active = items.filter((item) => effectiveBillingStatus(item, client) !== 'Invoiced');
+  const invoiced = items.filter((item) => effectiveBillingStatus(item, client) === 'Invoiced');
+  const activeAmount = active.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  return (
+    <section className="sub-panel workspace-panel summary-editor-panel">
+      <div className="sub-panel-head compact">
+        <div><h2>Billing summary</h2><p className="muted">The detailed billing editor is available in the pop-out record view.</p></div>
+        <SummaryActionButton onClick={onEdit}>Edit billing</SummaryActionButton>
+      </div>
+      <div className="summary-metric-row">
+        <WorkspaceStat label="Milestones" value={items.length} />
+        <WorkspaceStat label="Active amount" value={formatCurrency(activeAmount)} />
+        <WorkspaceStat label="Invoiced" value={invoiced.length} />
+      </div>
+      {items.length ? (
+        <div className="summary-list clean-summary-list">
+          {items.slice(0, 6).map((item) => {
+            const status = effectiveBillingStatus(item, client);
+            return (
+              <div className="summary-list-row" key={item.id}>
+                <span className={`summary-status-dot ${status.toLowerCase()}`} aria-hidden="true" />
+                <div><strong>{item.milestone || 'Billing milestone'}</strong><small>{[formatCurrency(item.amount), billingReportingDate(item, client) ? formatShortDate(billingReportingDate(item, client)) : '', item.invoiceNo ? `Invoice ${item.invoiceNo}` : ''].filter(Boolean).join(' · ') || 'No billing detail'}</small></div>
+                <b>{status}</b>
+              </div>
+            );
+          })}
+        </div>
+      ) : <EmptySummaryNote>No billing milestones have been recorded.</EmptySummaryNote>}
+    </section>
+  );
+}
+
+function PortalSummaryPanel({ client, documents = [], deadlines = [], appointments = [], billing = [], portalNewMessageCount = 0, visiblePortalPdfCount = 0, onEdit }) {
+  const visibleDocs = new Set(client.portalVisibleDocumentIds || []);
+  const visibleDeadlines = new Set(client.portalVisibleDeadlineIds || []);
+  const visibleAppointments = new Set(client.portalVisibleAppointmentIds || []);
+  const visibleBilling = new Set(client.portalVisibleBillingIds || []);
+  const publishedChecklistCount = documents.filter((item) => visibleDocs.has(item.id)).length;
+  const publishedDateCount = deadlines.filter((item) => visibleDeadlines.has(item.id)).length;
+  const publishedAppointmentCount = appointments.filter((item) => visibleAppointments.has(item.id)).length;
+  const publishedBillingCount = billing.filter((item) => visibleBilling.has(item.id)).length;
+  return (
+    <section className="sub-panel workspace-panel summary-editor-panel">
+      <div className="sub-panel-head compact">
+        <div><h2>Portal publishing summary</h2><p className="muted">This view shows the portal position without squeezing the full publishing console into the client page.</p></div>
+        <SummaryActionButton onClick={onEdit}>Edit portal</SummaryActionButton>
+      </div>
+      <div className="portal-summary-status-card">
+        <span className={`summary-status-dot ${client.portalEnabled ? 'complete' : 'inactive'}`} />
+        <div><strong>{client.portalEnabled ? 'Portal active' : 'Portal inactive'}</strong><small>{client.portalEnabled ? `Login email: ${client.portalEmail || client.email || 'not set'}` : 'Open the portal editor to enable access and publish an update.'}</small></div>
+      </div>
+      <div className="summary-metric-row four">
+        <WorkspaceStat label="Checklist items" value={publishedChecklistCount} />
+        <WorkspaceStat label="Key dates" value={publishedDateCount} />
+        <WorkspaceStat label="Appointments" value={publishedAppointmentCount} />
+        <WorkspaceStat label="Billing" value={publishedBillingCount} />
+        <WorkspaceStat label="PDFs" value={visiblePortalPdfCount} />
+        <WorkspaceStat label="Client notes" value={portalNewMessageCount} />
+      </div>
+    </section>
+  );
+}
 
 function ClientWorkspaceShell({ sections, activeSection, onSelect, children }) {
   return (

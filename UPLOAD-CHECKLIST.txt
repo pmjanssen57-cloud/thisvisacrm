@@ -1,4 +1,4 @@
-THiS CRM v0.11.18 - Pop-out Save Bar Containment
+THiS CRM v0.11.20 - Client Workspace Summary and Editor Split
 
 Upload checklist
 
@@ -103,3 +103,12 @@ Additional v0.11.18 checks:
 - Confirm the Save changes status bar sits above the record content and does not hover over the editor panels.
 - Make an edit and confirm the dirty/unsaved state still appears.
 - Save, then close the pop-out editor and confirm the normal client page remains usable.
+
+
+Additional v0.11.20 checks:
+- Embed `/intake` into a Squarespace Code Block using the auto-resize script.
+- Load the website page on desktop and confirm the iframe grows to the full form height without a large blank gap at the bottom.
+- Load the website page on mobile and confirm the iframe grows naturally without using a fixed 4700px minimum height.
+- Select conditional answers such as partner, children, NZ job offer and investment, and confirm the embed height updates as sections open.
+- Submit a test questionnaire and confirm the thank-you screen height also resizes correctly.
+- Confirm the submitted record appears under CRM > Intake.
