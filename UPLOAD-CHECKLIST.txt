@@ -1,3 +1,24 @@
+THiS CRM v0.11.31 - Favicon Polish
+
+Upload checklist
+
+1. Preserve the netlify/ folder.
+2. Preserve the public/ folder.
+3. Upload/commit all files from this ZIP to the GitHub repo root.
+4. Deploy through Netlify.
+5. Open the deployed CRM in a browser and confirm the browser tab shows the new halo-circle favicon.
+6. Hard refresh the page if the old favicon is still cached.
+7. Confirm the new favicon appears on the adviser login page and main CRM route.
+8. Confirm the client portal still loads normally.
+9. Confirm public/favicon.svg, public/favicon.ico and public/apple-touch-icon.png are present in the deployed public assets.
+10. Confirm no CRM workflow behaviour has changed.
+
+Notes:
+- No database migration required.
+- This is a small branding/favicon asset update only.
+
+---
+
 THiS CRM v0.11.30 - Client Editor Save Controls Polish
 
 Upload checklist

@@ -1,7 +1,18 @@
-# Turner Hopkins CRM - Netlify Database v0.11.30
+# Turner Hopkins CRM - Netlify Database v0.11.31
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
+
+
+## v0.11.31 - Favicon Polish
+
+Small CRM branding polish update.
+
+- Replaced the previous lightning-bolt favicon with a simpler halo-circle icon.
+- Added SVG, ICO, Apple touch icon and larger app icon assets in the public folder.
+- Updated index.html favicon references for modern browsers, fallback browser tabs and Apple touch icons.
+- No CRM workflow, portal, database or Netlify Function behaviour changed.
+- No database migration required.
 
 
 ## v0.11.30 - Client Editor Save Controls Polish
