@@ -1,3 +1,45 @@
+THiS CRM v0.11.29 - Client Portal Document Visibility Polish
+
+Upload checklist
+
+1. Preserve the netlify/ folder.
+2. Preserve the public/ folder.
+3. Upload/commit all files from this ZIP to the GitHub repo root.
+4. Deploy through Netlify.
+5. Open a client record with portal stages and document checklist items published.
+6. Log in to the client portal as that client.
+7. Confirm the Document checklist appears directly below the application progress stages.
+8. Confirm Forms and instructions appears immediately with the document area.
+9. Confirm Messages and personal notes now sit below the document panels.
+10. Confirm Open PDF still works for published portal PDFs.
+11. Confirm sending adviser notes and saving personal notes still work as before.
+
+Notes:
+- No database migration required.
+- This is a client portal layout polish update only.
+
+---
+
+THiS CRM v0.11.28 - Portal Invitation Copy Polish
+
+Upload checklist
+
+1. Preserve the netlify/ folder.
+2. Preserve the public/ folder.
+3. Upload/commit all files from this ZIP to the GitHub repo root.
+4. Deploy through Netlify.
+5. Open a client record and go to the Portal section.
+6. Click Copy client instructions.
+7. Paste the copied text into a draft email and confirm there is no Kia ora greeting, Ngā mihi sign-off or Turner Hopkins signature block.
+8. Confirm the text briefly explains the portal, includes the portal link, email and access code, and is suitable to insert into an existing adviser email.
+9. Confirm portal publishing, access-code generation and portal login still work as before.
+
+Notes:
+- No database migration required.
+- This is a copied-text polish update only.
+
+---
+
 THiS CRM v0.11.27 - Intake Status Default Polish
 
 Upload checklist

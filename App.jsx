@@ -2091,33 +2091,6 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
 
         <ClientPortalProgressMap stagePlan={snapshot.stagePlan || []} progressPercent={snapshot.progressPercent || 0} />
 
-        <section className="portal-card wide portal-client-action-card">
-          <div className="portal-section-head">
-            <div><h2>Messages and personal notes</h2><p>Send Turner Hopkins a question, or keep your own planning notes beside your application update.</p></div>
-            <MessageSquare size={22} />
-          </div>
-          <div className="portal-message-grid">
-            <ClientPortalMessageComposer
-              title="Send Turner Hopkins a note or action"
-              description="Use this for a question, update, or item you want your adviser to see."
-              buttonLabel="Send to adviser"
-              messageType="adviser_action"
-              onSubmit={onSubmitPortalMessage}
-            />
-            <ClientPortalMessageComposer
-              title="My planning note"
-              description="Save your own notes, reminders or plans here. These are not sent to your adviser."
-              buttonLabel="Save personal note"
-              messageType="client_note"
-              onSubmit={onSubmitPortalMessage}
-            />
-          </div>
-          <div className="portal-message-history-grid">
-            <ClientPortalMessageList adviserMessages={adviserMessages} />
-            <ClientPortalPersonalNoteList personalNotes={personalNotes} />
-          </div>
-        </section>
-
         <section className="portal-card wide">
           <div className="portal-section-head compact">
             <div>
@@ -2157,6 +2130,33 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
               ))}
             </div>
           ) : <p>No forms or instruction PDFs have been published to your portal yet.</p>}
+        </section>
+
+        <section className="portal-card wide portal-client-action-card">
+          <div className="portal-section-head">
+            <div><h2>Messages and personal notes</h2><p>Send Turner Hopkins a question, or keep your own planning notes beside your application update.</p></div>
+            <MessageSquare size={22} />
+          </div>
+          <div className="portal-message-grid">
+            <ClientPortalMessageComposer
+              title="Send Turner Hopkins a note or action"
+              description="Use this for a question, update, or item you want your adviser to see."
+              buttonLabel="Send to adviser"
+              messageType="adviser_action"
+              onSubmit={onSubmitPortalMessage}
+            />
+            <ClientPortalMessageComposer
+              title="My planning note"
+              description="Save your own notes, reminders or plans here. These are not sent to your adviser."
+              buttonLabel="Save personal note"
+              messageType="client_note"
+              onSubmit={onSubmitPortalMessage}
+            />
+          </div>
+          <div className="portal-message-history-grid">
+            <ClientPortalMessageList adviserMessages={adviserMessages} />
+            <ClientPortalPersonalNoteList personalNotes={personalNotes} />
+          </div>
         </section>
 
         <section className="portal-card">
@@ -3732,19 +3732,16 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
   function copyPortalInstructions() {
     const code = generatedPortalCode || 'ACCESS-CODE-SHOWN-WHEN-GENERATED';
     const portalEmail = draft.portalEmail || draft.email || '';
-    const text = `Kia ora ${draft.firstName || ''},
+    const text = `We have set up your Turner Hopkins client portal so you can view the latest information we have published about your application progress.
 
-You can view your Turner Hopkins application update here:
+You can access the portal here:
 ${window.location.origin}/portal
 
-Please log in with:
+Please log in using:
 Email: ${portalEmail}
 Access code: ${code}
 
-This portal is read-only and shows the latest status update we have published for your application.
-
-Ngā mihi,
-Turner Hopkins Immigration Specialists`;
+The portal is a secure, read-only space where you can check application updates, view any documents we have made available to you, and send notes or questions to your adviser. We will continue to contact you by email as usual when we need anything further.`;
     navigator.clipboard?.writeText(text);
     setStatusMessage('Client portal instructions copied. Check the email before sending.');
   }

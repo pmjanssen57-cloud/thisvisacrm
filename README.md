@@ -1,8 +1,27 @@
-# Turner Hopkins CRM - Netlify Database v0.11.27
+# Turner Hopkins CRM - Netlify Database v0.11.29
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
 
+
+## v0.11.29 - Client Portal Document Visibility Polish
+
+Small client portal layout update.
+
+- Moved the client portal Document checklist and Forms and instructions panels up so they appear directly below the application progress stages.
+- Messages and personal notes now sit below the document panels.
+- No document, portal publishing or database behaviour changed.
+- No database migration required.
+
+
+## v0.11.28 - Portal Invitation Copy Polish
+
+Small client portal copy update.
+
+- Updated the copied client portal invitation text to remove greeting and sign-off wording.
+- Added a warmer explanation of what the client portal is for.
+- Kept the copied text suitable for pasting into existing adviser emails that already include greetings and sign-offs.
+- No database migration required.
 
 
 ## v0.11.27 - Intake Status Default Polish
