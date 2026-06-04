@@ -3456,7 +3456,7 @@ function PortalDocumentAdminRow({ doc, updatePortalDocument, deletePortalDocumen
         <label className="portal-document-toggle"><input type="checkbox" checked={visible} onChange={(event) => setDraft((current) => ({ ...current, visibleToClient: event.target.checked }))} /> Publish to portal</label>
       </div>
       <div className="portal-document-admin-actions">
-        <button className={`btn mini ${dirty ? 'dark' : ''}`} type="button" disabled={!dirty || saving} onClick={() => updatePortalDocument?.(draft)}>{dirty ? 'Save changes' : 'Saved'}</button>
+        <button className={`btn mini ${dirty ? 'dark' : ''}`} type="button" disabled={!dirty || saving} onClick={() => updatePortalDocument?.(draft)}>{dirty ? 'Update PDF' : 'Saved'}</button>
         <button className="icon-btn danger" type="button" disabled={saving} onClick={() => deletePortalDocument?.(doc.id)} aria-label="Remove PDF"><Trash2 size={16} /></button>
       </div>
     </div>
@@ -3931,17 +3931,17 @@ The portal is a secure, read-only space where you can check application updates,
         <div className="button-row">
           {popoutMode ? <button className="btn" type="button" onClick={() => onRequestClose?.()}><X size={16} />Close</button> : <button className="btn" type="button" onClick={() => handleOpenPopout(activeClientSection)}><ExternalLink size={16} />Pop out record</button>}
           <button className="btn danger" onClick={() => deleteClient(draft.id)} disabled={saving || String(draft.id).startsWith('temp-')}><Trash2 size={16} />Delete</button>
-          <button className="btn dark" onClick={handleSaveClient} disabled={saving}><Save size={16} />Save client</button>
+          <button className="btn dark" onClick={handleSaveClient} disabled={saving}><Save size={16} />Save</button>
           {popoutMode && <button className="btn dark" type="button" onClick={handleSaveAndClose} disabled={saving}><Save size={16} />Save & close</button>}
         </div>
       </div>
 
-      <div className={`client-save-bar ${isDirty ? 'dirty' : 'clean'}`}>
+      <div className={`client-save-bar status-only ${isDirty ? 'dirty' : 'clean'}`}>
         <div>
           <strong>{saving ? 'Saving...' : isDirty ? 'Unsaved changes' : 'No unsaved changes'}</strong>
-          <span>{validationMessage || statusMessage || (isDirty ? 'Save before switching clients, changing page, or refreshing.' : 'Client record is aligned with the last saved version.')}</span>
+          <span>{validationMessage || statusMessage || (isDirty ? 'Use Save or Save & close in the header before switching clients, changing page, or refreshing.' : 'Client record is aligned with the last saved version.')}</span>
         </div>
-        <button className="btn dark" type="button" onClick={handleSaveClient} disabled={saving || !isDirty}><Save size={16} />Save changes</button>
+        <span className={`save-state-pill ${saving ? 'saving' : isDirty ? 'dirty' : 'clean'}`}>{saving ? 'Saving' : isDirty ? 'Unsaved' : 'Saved'}</span>
       </div>
 
       {showActionLog && <NextActionLogModal client={draft} onClose={() => setShowActionLog(false)} />}

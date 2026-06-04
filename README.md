@@ -1,7 +1,18 @@
-# Turner Hopkins CRM - Netlify Database v0.11.29
+# Turner Hopkins CRM - Netlify Database v0.11.30
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
+
+
+## v0.11.30 - Client Editor Save Controls Polish
+
+Small client editor layout polish update.
+
+- Removed the duplicate Save changes button from the client editor save/status strip.
+- Renamed the main header action from Save client to Save, leaving Save and Save & close as the clear primary save controls.
+- Kept the unsaved-changes status strip as a quieter status reminder with Saved/Unsaved state.
+- Clarified portal PDF row actions by renaming the per-PDF metadata action to Update PDF.
+- No database migration required.
 
 
 ## v0.11.29 - Client Portal Document Visibility Polish

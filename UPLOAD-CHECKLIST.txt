@@ -1,3 +1,24 @@
+THiS CRM v0.11.30 - Client Editor Save Controls Polish
+
+Upload checklist
+
+1. Preserve the netlify/ folder.
+2. Preserve the public/ folder.
+3. Upload/commit all files from this ZIP to the GitHub repo root.
+4. Deploy through Netlify.
+5. Open a client record and use Pop out record.
+6. Confirm the editor header shows Close, Delete, Save and Save & close.
+7. Confirm the status strip no longer shows a large Save changes button.
+8. Make changes in Documents, Portal, Stages, Key dates, Billing, Family and Notes, then confirm Save and Save & close still save the record.
+9. Confirm the unsaved-changes warning still appears if closing with unsaved changes.
+10. In Portal PDFs and standard forms, edit an uploaded PDF title/note/category and confirm the per-PDF action is labelled Update PDF and still saves PDF metadata.
+
+Notes:
+- No database migration required.
+- This is a client editor UI polish update only.
+
+---
+
 THiS CRM v0.11.29 - Client Portal Document Visibility Polish
 
 Upload checklist

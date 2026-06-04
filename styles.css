@@ -1342,6 +1342,35 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   font-size: 13px;
   margin-top: 3px;
 }
+.client-save-bar.status-only {
+  padding: 11px 14px;
+}
+.client-save-bar.status-only .save-state-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 76px;
+  margin: 0;
+  border-radius: 999px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  background: var(--pale);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+.client-save-bar.status-only .save-state-pill.dirty,
+.client-save-bar.status-only .save-state-pill.saving {
+  border-color: rgba(245, 158, 11, 0.38);
+  background: rgba(255, 251, 235, 0.98);
+  color: #92400e;
+}
+.client-save-bar.status-only .save-state-pill.clean {
+  border-color: rgba(85, 217, 160, 0.44);
+  background: #f0fdf4;
+  color: var(--ink);
+}
 .inline-status {
   margin: 10px 0 0;
   padding: 10px 12px;
