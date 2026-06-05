@@ -1,7 +1,19 @@
-# Turner Hopkins CRM - Netlify Database v0.11.32
+# Turner Hopkins CRM - Netlify Database v0.11.33
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
+
+
+## v0.11.33 - Portal Journey Layout Polish
+
+Client portal layout refinement following first visual review.
+
+- Removed the What needs attention? action board from the client portal.
+- Moved the clickable Application journey map to the top of the client portal content area.
+- Moved the Turner Hopkins team adviser cards directly under the Application journey.
+- Bolded adviser phone numbers on the portal for better visibility.
+- Reworded adviser availability messages so Available/Away status feels more client-friendly.
+- No database migration required beyond the v0.11.32 adviser availability migration already included.
 
 
 ## v0.11.32 - Portal Interactive Journey Polish

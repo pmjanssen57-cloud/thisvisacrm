@@ -1,3 +1,25 @@
+THiS CRM v0.11.33 - Portal Journey Layout Polish
+
+Upload checklist
+
+1. Preserve the netlify/ folder.
+2. Preserve the public/ folder.
+3. Upload/commit all files from this ZIP to the GitHub repo root.
+4. Deploy through Netlify.
+5. Confirm the v0.11.32 adviser availability migration is still present: netlify/database/migrations/202606050001_add_adviser_availability_status.sql.
+6. Log in to a client portal and confirm the What needs attention? board no longer appears.
+7. Confirm Application journey is the first main content card under the portal header/status area.
+8. Confirm the Turner Hopkins team adviser cards appear directly below Application journey.
+9. Confirm adviser phone numbers appear in bold.
+10. Confirm Available/Away wording is client-friendly and still reflects CRM > Advisers status.
+11. Confirm Document checklist, Forms and instructions, messages, key dates, billing and tools still appear underneath.
+
+Notes:
+- No new database migration is required for this layout polish.
+- This package still includes the v0.11.32 adviser availability migration and portal team-card work.
+
+---
+
 THiS CRM v0.11.32 - Portal Interactive Journey Polish
 
 Upload checklist

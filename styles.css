@@ -6328,6 +6328,10 @@ body.intake-embed-mode .intake-public-card {
   align-items: center;
   gap: 7px;
 }
+.portal-adviser-phone strong {
+  color: var(--ink);
+  font-weight: 900;
+}
 .portal-availability-badge {
   display: inline-flex;
   align-items: center;

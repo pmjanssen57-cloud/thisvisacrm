@@ -2145,11 +2145,9 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
       )}
 
       <div className="portal-dashboard-grid">
-        <ClientPortalActionBoard snapshot={snapshot} />
+        <ClientPortalProgressMap stagePlan={snapshot.stagePlan || []} progressPercent={snapshot.progressPercent || 0} />
 
         <ClientPortalAdviserPanel snapshot={snapshot} onSubmitPortalMessage={onSubmitPortalMessage} />
-
-        <ClientPortalProgressMap stagePlan={snapshot.stagePlan || []} progressPercent={snapshot.progressPercent || 0} />
 
         <section className="portal-card wide">
           <div className="portal-section-head compact">
@@ -2293,60 +2291,6 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
 }
 
 
-function ClientPortalActionBoard({ snapshot }) {
-  const outstandingDocuments = Array.isArray(snapshot.documentsStillRequired) ? snapshot.documentsStillRequired : [];
-  const nextKeyDate = (snapshot.keyDates || []).find((item) => item.date) || null;
-  const withInz = isPortalStageWithInz(snapshot.currentStage) || isPortalStageWithInz(snapshot.statusUpdate);
-  const todoItems = [
-    snapshot.nextStep ? { title: 'Next step', text: snapshot.nextStep } : null,
-    outstandingDocuments.length ? { title: `${outstandingDocuments.length} document${outstandingDocuments.length === 1 ? '' : 's'} still required`, text: 'Open the document checklist below to see what is still needed.' } : { title: 'No outstanding documents published', text: 'We will update this if anything further is required.' },
-    nextKeyDate ? { title: `Key date: ${formatPortalDate(nextKeyDate.date)}`, text: [nextKeyDate.type, nextKeyDate.note].filter(Boolean).join(' — ') } : null,
-  ].filter(Boolean);
-  const thItems = [
-    { title: snapshot.currentStage || 'Application stage', text: snapshot.statusUpdate || 'Turner Hopkins will publish a plain-English update when there is something ready to share.' },
-    { title: 'File review', text: 'Your adviser will review information before asking for anything further or moving to the next step.' },
-  ];
-  const inzItems = withInz
-    ? [{ title: 'With INZ or third party', text: 'This stage may involve Immigration New Zealand or another third party. Your adviser will update the portal when there is a change.' }]
-    : [{ title: 'Not currently showing as with INZ', text: 'If the application moves to INZ processing or another third-party step, that will be reflected here.' }];
-  const documentPercent = snapshot.documentsRequired?.length ? Math.round(((snapshot.documentsRequired.length - outstandingDocuments.length) / snapshot.documentsRequired.length) * 100) : 0;
-
-  return (
-    <section className="portal-card wide portal-action-board-card">
-      <div className="portal-section-head">
-        <div>
-          <h2>What needs attention?</h2>
-          <p>A quick board showing whose court the main items are in.</p>
-        </div>
-        <div className="portal-mini-progress" aria-label="Document progress">
-          <strong>{documentPercent}%</strong>
-          <span>documents</span>
-        </div>
-      </div>
-      <div className="portal-action-board">
-        <ClientPortalActionColumn title="Your to-do list" items={todoItems} accent="client" />
-        <ClientPortalActionColumn title="With Turner Hopkins" items={thItems} accent="this" />
-        <ClientPortalActionColumn title="With INZ / third party" items={inzItems} accent="inz" />
-      </div>
-    </section>
-  );
-}
-
-function ClientPortalActionColumn({ title, items = [], accent = '' }) {
-  return (
-    <div className={`portal-action-column ${accent}`}>
-      <h3>{title}</h3>
-      <div className="portal-action-item-list">
-        {items.map((item, index) => (
-          <details className="portal-action-item" key={`${item.title}-${index}`} open={index === 0}>
-            <summary><span>{index + 1}</span><strong>{item.title}</strong><ChevronRight size={16} /></summary>
-            <p>{item.text}</p>
-          </details>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 function ClientPortalAdviserPanel({ snapshot, onSubmitPortalMessage }) {
   const [quickMode, setQuickMode] = useState('question');
@@ -2427,16 +2371,12 @@ function PortalAdviserContactCard({ adviser = {}, label = 'Adviser', fallbackCon
         </div>
       </div>
       {email && <a className="portal-email-link" href={`mailto:${email}`}><Mail size={15} />{email}</a>}
-      {phone && <p><Phone size={15} />{phone}</p>}
-      <small>{availability === 'Away' ? 'This adviser is currently marked as away in the CRM.' : 'This adviser is currently marked as available in the CRM.'}</small>
+      {phone && <p className="portal-adviser-phone"><Phone size={15} /><strong>{phone}</strong></p>}
+      <small>{availability === 'Away' ? 'This adviser is away at the moment. Please use the backup adviser or Turner Hopkins team contact if your query is urgent.' : 'This adviser is available and ready to assist with your application.'}</small>
     </article>
   );
 }
 
-function isPortalStageWithInz(value = '') {
-  const text = String(value || '').toLowerCase();
-  return ['inz', 'lodged', 'submitted', 'processing', 'decision', 'third party'].some((term) => text.includes(term));
-}
 
 
 function ClientPortalMessageComposer({ title, description, buttonLabel, messageType, onSubmit }) {
