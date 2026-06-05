@@ -1,8 +1,19 @@
-# Turner Hopkins CRM - Netlify Database v0.11.31
+# Turner Hopkins CRM - Netlify Database v0.11.32
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
 
+
+## v0.11.32 - Portal Interactive Journey Polish
+
+Client portal engagement update.
+
+- Added a What needs attention? action board showing client to-do items, Turner Hopkins items and INZ / third-party waiting items.
+- Reworked application progress into a clickable Application journey map with plain-English stage detail panels.
+- Added richer Turner Hopkins team cards to the client portal, including primary adviser and backup adviser details.
+- Added adviser availability status: Available or Away. Adviser status is set in CRM > Advisers and shown on the client portal.
+- Added a quick adviser note panel on the portal with Ask a question and Something changed modes.
+- Added adviser availability database support. New migration: 202606050001_add_adviser_availability_status.sql.
 
 ## v0.11.31 - Favicon Polish
 

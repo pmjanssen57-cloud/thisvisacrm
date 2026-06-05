@@ -253,6 +253,7 @@ async function ensureSchema() {
       email TEXT,
       login_email TEXT,
       profile_photo_url TEXT,
+      availability_status TEXT NOT NULL DEFAULT 'Available',
       phone TEXT,
       licence TEXT,
       active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -370,6 +371,8 @@ async function ensureSchema() {
   `;
   await database.sql`ALTER TABLE advisers ADD COLUMN IF NOT EXISTS login_email TEXT`;
   await database.sql`ALTER TABLE advisers ADD COLUMN IF NOT EXISTS profile_photo_url TEXT`;
+  await database.sql`ALTER TABLE advisers ADD COLUMN IF NOT EXISTS availability_status TEXT NOT NULL DEFAULT 'Available'`;
+  await database.sql`UPDATE advisers SET availability_status = 'Available' WHERE availability_status IS NULL OR availability_status = ''`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS case_strategy TEXT`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS date_of_birth DATE`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS family_members JSONB NOT NULL DEFAULT '[]'::jsonb`;
@@ -513,7 +516,7 @@ async function ensureSchema() {
 async function readCrmData() {
   const database = db();
   const [advisers, clients, stages, deadlines, billing, personalTasks, calendarEntries, libraryEntries, portalMessages, portalDocuments, intakeEnquiries] = await Promise.all([
-    database.sql`SELECT id, name, role, email, login_email, profile_photo_url, phone, licence, active FROM advisers ORDER BY name ASC`,
+    database.sql`SELECT id, name, role, email, login_email, profile_photo_url, availability_status, phone, licence, active FROM advisers ORDER BY name ASC`,
     database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, one_law_client_number, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, portal_enabled, portal_email, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_access_code_hash, portal_last_published_at, portal_last_accessed_at, notes, family_members, document_checklist FROM clients ORDER BY updated_at DESC`,
     database.sql`SELECT id, client_id, stage_key, stage_label, mandatory, applied, completed, completed_date, sort_order FROM client_stages ORDER BY sort_order ASC`,
     database.sql`SELECT id, client_id, deadline_type, deadline_date, note FROM client_deadlines ORDER BY deadline_date ASC NULLS LAST`,
@@ -563,6 +566,7 @@ function mapAdviserFromDb(row) {
     loginEmail: row.login_email || '',
     profilePhotoUrl: row.profile_photo_url || '',
     phone: row.phone || '',
+    availability: row.availability_status || row.availability || 'Available',
     licence: row.licence || '',
     active: Boolean(row.active),
   };
@@ -725,6 +729,10 @@ function mapClientFromDb(row, stages, deadlines, billing, portalMessages = [], p
   };
 }
 
+function normaliseAdviserAvailability(value = '') {
+  return String(value || '').toLowerCase() === 'away' ? 'Away' : 'Available';
+}
+
 function normaliseProfilePhotoUrl(value = '') {
   const text = String(value || '').trim();
   if (!text) return '';
@@ -774,20 +782,21 @@ async function saveAdviser(adviser = {}) {
           email = ${adviser.email || ''},
           login_email = ${adviser.loginEmail || adviser.login_email || ''},
           profile_photo_url = ${normaliseProfilePhotoUrl(adviser.profilePhotoUrl || adviser.profile_photo_url || '')},
+          availability_status = ${normaliseAdviserAvailability(adviser.availability || adviser.availabilityStatus || adviser.availability_status)},
           phone = ${adviser.phone || ''},
           licence = ${adviser.licence || ''},
           active = ${adviser.active !== false},
           updated_at = NOW()
       WHERE id = ${id}
-      RETURNING id, name, role, email, login_email, profile_photo_url, phone, licence, active
+      RETURNING id, name, role, email, login_email, profile_photo_url, availability_status, phone, licence, active
     `;
     return mapAdviserFromDb(rows[0]);
   }
 
   const rows = await database.sql`
-    INSERT INTO advisers (name, role, email, login_email, profile_photo_url, phone, licence, active)
-    VALUES (${adviser.name || 'New adviser'}, ${adviser.role || 'Licensed Immigration Adviser'}, ${adviser.email || ''}, ${adviser.loginEmail || adviser.login_email || ''}, ${normaliseProfilePhotoUrl(adviser.profilePhotoUrl || adviser.profile_photo_url || '')}, ${adviser.phone || ''}, ${adviser.licence || ''}, ${adviser.active !== false})
-    RETURNING id, name, role, email, login_email, profile_photo_url, phone, licence, active
+    INSERT INTO advisers (name, role, email, login_email, profile_photo_url, availability_status, phone, licence, active)
+    VALUES (${adviser.name || 'New adviser'}, ${adviser.role || 'Licensed Immigration Adviser'}, ${adviser.email || ''}, ${adviser.loginEmail || adviser.login_email || ''}, ${normaliseProfilePhotoUrl(adviser.profilePhotoUrl || adviser.profile_photo_url || '')}, ${normaliseAdviserAvailability(adviser.availability || adviser.availabilityStatus || adviser.availability_status)}, ${adviser.phone || ''}, ${adviser.licence || ''}, ${adviser.active !== false})
+    RETURNING id, name, role, email, login_email, profile_photo_url, availability_status, phone, licence, active
   `;
   return mapAdviserFromDb(rows[0]);
 }
@@ -1297,7 +1306,7 @@ async function seedSampleData() {
 
 async function insertAdviser(client, values) {
   const result = await client.query(
-    `INSERT INTO advisers (name, role, email, phone, licence, active) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+    `INSERT INTO advisers (name, role, email, phone, licence, active, availability_status) VALUES ($1, $2, $3, $4, $5, $6, 'Available') RETURNING id`,
     values
   );
   return result.rows[0].id;

@@ -91,6 +91,8 @@ async function ensurePortalSchema() {
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_last_accessed_at TIMESTAMPTZ`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_clients_portal_email ON clients (LOWER(portal_email))`;
   await database.sql`ALTER TABLE advisers ADD COLUMN IF NOT EXISTS profile_photo_url TEXT`;
+  await database.sql`ALTER TABLE advisers ADD COLUMN IF NOT EXISTS availability_status TEXT NOT NULL DEFAULT 'Available'`;
+  await database.sql`UPDATE advisers SET availability_status = 'Available' WHERE availability_status IS NULL OR availability_status = ''`;
   await database.sql`
     CREATE TABLE IF NOT EXISTS client_portal_messages (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -212,10 +214,10 @@ async function buildPortalSnapshot(clientId) {
   const database = db();
   const [clientRows, adviserRows, stageRows, deadlineRows, calendarRows, billingRows, messageRows, documentRows] = await Promise.all([
     database.sql`
-      SELECT id, first_name, last_name, email, case_type, primary_adviser_id, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_last_published_at, document_checklist
+      SELECT id, first_name, last_name, email, case_type, primary_adviser_id, backup_adviser_id, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_last_published_at, document_checklist
       FROM clients WHERE id = ${clientId} AND portal_enabled = TRUE LIMIT 1
     `,
-    database.sql`SELECT id, name, email, phone, profile_photo_url FROM advisers`,
+    database.sql`SELECT id, name, email, phone, profile_photo_url, availability_status FROM advisers`,
     database.sql`SELECT id, client_id, stage_key, stage_label, applied, completed, completed_date, sort_order FROM client_stages WHERE client_id = ${clientId} ORDER BY sort_order ASC`,
     database.sql`SELECT id, deadline_type, deadline_date, note FROM client_deadlines WHERE client_id = ${clientId} ORDER BY deadline_date ASC NULLS LAST`,
     database.sql`SELECT id, adviser_id, title, appointment_type, appointment_date, start_time, end_time, location, notes, status FROM calendar_entries WHERE client_id = ${clientId} ORDER BY appointment_date ASC, start_time ASC NULLS LAST`,
@@ -284,7 +286,8 @@ async function buildPortalSnapshot(clientId) {
   return {
     clientName: [client.first_name, client.last_name].filter(Boolean).join(' ') || 'Client',
     matterType: client.case_type || '',
-    adviser: adviser ? { name: adviser.name || '', email: adviser.email || '', phone: adviser.phone || '', profilePhotoUrl: adviser.profile_photo_url || '' } : { name: '', email: '', phone: '', profilePhotoUrl: '' },
+    adviser: mapPortalAdviser(adviser),
+    backupAdviser: mapPortalAdviser(advisers.find((item) => item.id === client.backup_adviser_id) || null),
     currentStage: currentStage?.label || 'Not yet published',
     progressPercent: progress,
     stagePlan: stages.map((stage) => ({ id: stage.id, label: stage.label, completed: stage.completed, completedDate: stage.completedDate })),
@@ -302,6 +305,17 @@ async function buildPortalSnapshot(clientId) {
   };
 }
 
+
+function mapPortalAdviser(adviser) {
+  if (!adviser) return { name: '', email: '', phone: '', profilePhotoUrl: '', availability: 'Available' };
+  return {
+    name: adviser.name || '',
+    email: adviser.email || '',
+    phone: adviser.phone || '',
+    profilePhotoUrl: adviser.profile_photo_url || '',
+    availability: adviser.availability_status || 'Available',
+  };
+}
 
 function effectivePortalBillingStatus(item = {}) {
   const status = String(item.status || 'WIP').trim() || 'WIP';

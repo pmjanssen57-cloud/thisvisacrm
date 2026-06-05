@@ -57,6 +57,7 @@ const DEFAULT_DEADLINE_TYPES = [
 const BILLING_STATUSES = ['WIP', 'Invoiced', 'Overdue'];
 const BILLING_TRIGGER_TYPES = ['Date', 'Milestone'];
 const APPOINTMENT_TYPES = ['Client meeting', 'Adviser review', 'Lodgement target', 'Document follow-up', 'INZ call', 'Billing follow-up', 'Internal review', 'Other'];
+const ADVISER_AVAILABILITY_OPTIONS = ['Available', 'Away'];
 
 const DOCUMENT_CHECKLIST_TEMPLATES = [
   { id: 'passports', name: 'Passports' },
@@ -863,6 +864,7 @@ export default function App() {
       email: '',
       loginEmail: '',
       profilePhotoUrl: '',
+      availability: 'Available',
       phone: '',
       licence: '',
       active: true,
@@ -1992,40 +1994,113 @@ function ClientPortalApp() {
 function ClientPortalProgressMap({ stagePlan = [], progressPercent = 0 }) {
   const stages = Array.isArray(stagePlan) ? stagePlan.filter((stage) => stage && stage.label) : [];
   const nextStage = stages.find((stage) => !stage.completed) || null;
+  const defaultStage = nextStage || stages[stages.length - 1] || stages[0] || null;
+  const [selectedStageKey, setSelectedStageKey] = useState('');
+  const selectedStage = stages.find((stage) => portalStageKey(stage) === selectedStageKey) || defaultStage;
   if (!stages.length) return null;
 
   function stageStatus(stage) {
     if (stage.completed) return 'completed';
-    if (nextStage?.id === stage.id) return 'current';
+    if (nextStage && portalStageKey(nextStage) === portalStageKey(stage)) return 'current';
     return 'upcoming';
   }
 
+  const selectedStatus = selectedStage ? stageStatus(selectedStage) : '';
+  const detail = getPortalStageDetail(selectedStage, selectedStatus);
+
   return (
-    <section className="portal-card wide portal-progress-card">
+    <section className="portal-card wide portal-progress-card portal-journey-card">
       <div className="portal-section-head">
         <div>
-          <h2>Application progress</h2>
-          <p>These are the stages selected for your application. Stages that do not apply are not shown.</p>
+          <h2>Application journey</h2>
+          <p>Click a stage to see what it means, where things sit now, and what usually happens next.</p>
         </div>
         <span className="portal-progress-pill">{progressPercent}% complete</span>
       </div>
-      <div className="portal-stage-track">
+      <div className="portal-stage-track portal-stage-track-interactive">
         {stages.map((stage, index) => {
           const status = stageStatus(stage);
+          const isSelected = selectedStage && portalStageKey(selectedStage) === portalStageKey(stage);
           return (
-            <div className={`portal-stage-tile ${status}`} key={stage.id || stage.label}>
+            <button type="button" className={`portal-stage-tile ${status} ${isSelected ? 'selected' : ''}`} key={portalStageKey(stage)} onClick={() => setSelectedStageKey(portalStageKey(stage))}>
               <div className="portal-stage-marker"><span>{status === 'completed' ? '✓' : index + 1}</span></div>
               <div>
                 <strong>{stage.label}</strong>
                 <small>{status === 'current' ? 'Current / next stage' : status === 'completed' ? (stage.completedDate ? `Completed ${formatPortalDate(stage.completedDate)}` : 'Completed') : 'Upcoming'}</small>
               </div>
-            </div>
+            </button>
           );
         })}
       </div>
+      {selectedStage && (
+        <div className={`portal-stage-detail-panel ${selectedStatus}`}>
+          <div>
+            <span className="portal-stage-detail-kicker">Selected stage</span>
+            <h3>{selectedStage.label}</h3>
+            <p>{detail.summary}</p>
+          </div>
+          <div className="portal-stage-detail-grid">
+            <article><strong>Turner Hopkins is focused on</strong><p>{detail.thiSAction}</p></article>
+            <article><strong>Your part</strong><p>{detail.clientAction}</p></article>
+            <article><strong>What happens next</strong><p>{detail.next}</p></article>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
+
+function portalStageKey(stage = {}) {
+  return String(stage.id || stage.label || '').trim().toLowerCase() || `stage-${Math.random()}`;
+}
+
+function getPortalStageDetail(stage = {}, status = '') {
+  const label = String(stage?.label || '').toLowerCase();
+  const base = status === 'completed'
+    ? 'This stage has been marked as completed in your application pathway.'
+    : status === 'current'
+      ? 'This is the stage your application is currently moving through, or the next practical stage Turner Hopkins is working toward.'
+      : 'This stage is part of the pathway selected for your application and may become relevant later.';
+  if (label.includes('document')) {
+    return {
+      summary: `${base} The main focus is collecting and checking the evidence needed for the next step.`,
+      thiSAction: 'Reviewing what has been received, identifying gaps, and confirming what still needs to be provided.',
+      clientAction: 'Check the document list below and provide any outstanding items when requested.',
+      next: 'Once the evidence is complete, your adviser can move the file into preparation, review or lodgement work.',
+    };
+  }
+  if (label.includes('lodg') || label.includes('ready')) {
+    return {
+      summary: `${base} The file is being prepared for the relevant application step or final adviser checks.`,
+      thiSAction: 'Checking forms, evidence and strategy before the application is moved forward.',
+      clientAction: 'Respond promptly if your adviser asks for final details, signatures or updated evidence.',
+      next: 'The next step is usually lodgement, submission, or a published update confirming the file has moved forward.',
+    };
+  }
+  if (label.includes('approved') || label.includes('decision')) {
+    return {
+      summary: `${base} This stage records the outcome or finalisation step for the application pathway.`,
+      thiSAction: 'Checking the decision details and advising on any final requirements or follow-up steps.',
+      clientAction: 'Read any adviser update carefully and keep copies of important decision or visa documents.',
+      next: 'Your adviser will confirm any remaining practical steps, conditions or future date reminders.',
+    };
+  }
+  if (label.includes('instruction')) {
+    return {
+      summary: `${base} This stage confirms the file has been set up and Turner Hopkins has instructions to assist.`,
+      thiSAction: 'Confirming the scope of work, adviser allocation and the initial pathway for your application.',
+      clientAction: 'Review any instructions from your adviser and make sure your contact details remain current.',
+      next: 'The next step is usually collecting documents and confirming the evidence needed for your pathway.',
+    };
+  }
+  return {
+    summary: base,
+    thiSAction: 'Managing the file, checking the relevant evidence, and updating the portal when there is a client-facing change.',
+    clientAction: 'Use the portal to check for outstanding items, key dates and adviser messages.',
+    next: 'Your adviser will publish the next practical step when it is ready to share.',
+  };
+}
+
 
 function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalMessage, onOpenPortalDocument, portalNotice, portalError }) {
   const [activeTool, setActiveTool] = useState('weather');
@@ -2070,24 +2145,9 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
       )}
 
       <div className="portal-dashboard-grid">
-        <section className="portal-card portal-accent-card portal-adviser-card">
-          <div className="portal-adviser-card-head">
-            <AdviserAvatar adviser={snapshot.adviser} size="lg" />
-            <div>
-              <h2>Your adviser</h2>
-              <strong>{snapshot.adviser.name || 'Turner Hopkins adviser'}</strong>
-            </div>
-          </div>
-          {(snapshot.adviser.email || snapshot.turnerHopkins.email) ? (
-            <p><a className="portal-email-link" href={`mailto:${snapshot.adviser.email || snapshot.turnerHopkins.email}`}><Mail size={15} />{snapshot.adviser.email || snapshot.turnerHopkins.email}</a></p>
-          ) : null}
-          <p>{snapshot.adviser.phone || snapshot.turnerHopkins.phone}</p>
-        </section>
+        <ClientPortalActionBoard snapshot={snapshot} />
 
-        <section className="portal-card portal-accent-card">
-          <h2>Next step</h2>
-          <p>{snapshot.nextStep || 'No specific client action has been published at this stage.'}</p>
-        </section>
+        <ClientPortalAdviserPanel snapshot={snapshot} onSubmitPortalMessage={onSubmitPortalMessage} />
 
         <ClientPortalProgressMap stagePlan={snapshot.stagePlan || []} progressPercent={snapshot.progressPercent || 0} />
 
@@ -2231,6 +2291,153 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
     </div>
   );
 }
+
+
+function ClientPortalActionBoard({ snapshot }) {
+  const outstandingDocuments = Array.isArray(snapshot.documentsStillRequired) ? snapshot.documentsStillRequired : [];
+  const nextKeyDate = (snapshot.keyDates || []).find((item) => item.date) || null;
+  const withInz = isPortalStageWithInz(snapshot.currentStage) || isPortalStageWithInz(snapshot.statusUpdate);
+  const todoItems = [
+    snapshot.nextStep ? { title: 'Next step', text: snapshot.nextStep } : null,
+    outstandingDocuments.length ? { title: `${outstandingDocuments.length} document${outstandingDocuments.length === 1 ? '' : 's'} still required`, text: 'Open the document checklist below to see what is still needed.' } : { title: 'No outstanding documents published', text: 'We will update this if anything further is required.' },
+    nextKeyDate ? { title: `Key date: ${formatPortalDate(nextKeyDate.date)}`, text: [nextKeyDate.type, nextKeyDate.note].filter(Boolean).join(' — ') } : null,
+  ].filter(Boolean);
+  const thItems = [
+    { title: snapshot.currentStage || 'Application stage', text: snapshot.statusUpdate || 'Turner Hopkins will publish a plain-English update when there is something ready to share.' },
+    { title: 'File review', text: 'Your adviser will review information before asking for anything further or moving to the next step.' },
+  ];
+  const inzItems = withInz
+    ? [{ title: 'With INZ or third party', text: 'This stage may involve Immigration New Zealand or another third party. Your adviser will update the portal when there is a change.' }]
+    : [{ title: 'Not currently showing as with INZ', text: 'If the application moves to INZ processing or another third-party step, that will be reflected here.' }];
+  const documentPercent = snapshot.documentsRequired?.length ? Math.round(((snapshot.documentsRequired.length - outstandingDocuments.length) / snapshot.documentsRequired.length) * 100) : 0;
+
+  return (
+    <section className="portal-card wide portal-action-board-card">
+      <div className="portal-section-head">
+        <div>
+          <h2>What needs attention?</h2>
+          <p>A quick board showing whose court the main items are in.</p>
+        </div>
+        <div className="portal-mini-progress" aria-label="Document progress">
+          <strong>{documentPercent}%</strong>
+          <span>documents</span>
+        </div>
+      </div>
+      <div className="portal-action-board">
+        <ClientPortalActionColumn title="Your to-do list" items={todoItems} accent="client" />
+        <ClientPortalActionColumn title="With Turner Hopkins" items={thItems} accent="this" />
+        <ClientPortalActionColumn title="With INZ / third party" items={inzItems} accent="inz" />
+      </div>
+    </section>
+  );
+}
+
+function ClientPortalActionColumn({ title, items = [], accent = '' }) {
+  return (
+    <div className={`portal-action-column ${accent}`}>
+      <h3>{title}</h3>
+      <div className="portal-action-item-list">
+        {items.map((item, index) => (
+          <details className="portal-action-item" key={`${item.title}-${index}`} open={index === 0}>
+            <summary><span>{index + 1}</span><strong>{item.title}</strong><ChevronRight size={16} /></summary>
+            <p>{item.text}</p>
+          </details>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ClientPortalAdviserPanel({ snapshot, onSubmitPortalMessage }) {
+  const [quickMode, setQuickMode] = useState('question');
+  const [quickMessage, setQuickMessage] = useState('');
+  const [quickSending, setQuickSending] = useState(false);
+  const [quickError, setQuickError] = useState('');
+  const backup = snapshot.backupAdviser?.name ? snapshot.backupAdviser : null;
+  const modeLabel = quickMode === 'change' ? 'Tell us something has changed' : 'Ask your adviser a question';
+  const placeholder = quickMode === 'change'
+    ? 'For example: my address, passport, employment, relationship, travel plans or visa situation has changed...'
+    : 'Write your question for Turner Hopkins here...';
+
+  async function submitQuickNote(event) {
+    event.preventDefault();
+    const message = quickMessage.trim();
+    if (!message) {
+      setQuickError('Add a short note before sending.');
+      return;
+    }
+    setQuickSending(true);
+    setQuickError('');
+    try {
+      await onSubmitPortalMessage({ messageType: 'adviser_action', title: modeLabel, message });
+      setQuickMessage('');
+    } catch (err) {
+      setQuickError(err.message || 'Could not send this note.');
+    } finally {
+      setQuickSending(false);
+    }
+  }
+
+  return (
+    <section className="portal-card wide portal-adviser-panel-card">
+      <div className="portal-section-head">
+        <div>
+          <h2>Your Turner Hopkins team</h2>
+          <p>Your primary adviser is shown first. Your backup adviser is included so you know who can assist if your main adviser is away.</p>
+        </div>
+        <UsersRound size={22} />
+      </div>
+      <div className="portal-adviser-panel-grid">
+        <PortalAdviserContactCard adviser={snapshot.adviser} label="Primary adviser" fallbackContact={snapshot.turnerHopkins} />
+        {backup ? <PortalAdviserContactCard adviser={backup} label="Backup adviser" fallbackContact={snapshot.turnerHopkins} /> : (
+          <div className="portal-adviser-contact-card backup-empty">
+            <strong>Backup adviser</strong>
+            <p>No backup adviser has been published for this application yet. Contact the Turner Hopkins team if your adviser is unavailable.</p>
+            <a className="portal-email-link" href={`mailto:${snapshot.turnerHopkins.email}`}><Mail size={15} />{snapshot.turnerHopkins.email}</a>
+          </div>
+        )}
+        <form className="portal-quick-adviser-note" onSubmit={submitQuickNote}>
+          <div className="portal-quick-note-tabs">
+            <button type="button" className={quickMode === 'question' ? 'active' : ''} onClick={() => setQuickMode('question')}>Ask a question</button>
+            <button type="button" className={quickMode === 'change' ? 'active' : ''} onClick={() => setQuickMode('change')}>Something changed</button>
+          </div>
+          <h3>{modeLabel}</h3>
+          <p>This sends a note to Turner Hopkins and keeps it linked to your portal.</p>
+          <textarea value={quickMessage} onChange={(event) => setQuickMessage(event.target.value)} rows={4} placeholder={placeholder} />
+          {quickError && <small className="portal-inline-error">{quickError}</small>}
+          <button className="btn dark" type="submit" disabled={quickSending}><Send size={15} />{quickSending ? 'Sending...' : 'Send note'}</button>
+        </form>
+      </div>
+    </section>
+  );
+}
+
+function PortalAdviserContactCard({ adviser = {}, label = 'Adviser', fallbackContact = {} }) {
+  const email = adviser.email || fallbackContact.email || '';
+  const phone = adviser.phone || fallbackContact.phone || '';
+  const availability = adviser.availability === 'Away' ? 'Away' : 'Available';
+  return (
+    <article className={`portal-adviser-contact-card ${availability.toLowerCase()}`}>
+      <div className="portal-adviser-card-head">
+        <AdviserAvatar adviser={adviser} size="lg" />
+        <div>
+          <span>{label}</span>
+          <strong>{adviser.name || 'Turner Hopkins adviser'}</strong>
+          <b className={`portal-availability-badge ${availability.toLowerCase()}`}>{availability}</b>
+        </div>
+      </div>
+      {email && <a className="portal-email-link" href={`mailto:${email}`}><Mail size={15} />{email}</a>}
+      {phone && <p><Phone size={15} />{phone}</p>}
+      <small>{availability === 'Away' ? 'This adviser is currently marked as away in the CRM.' : 'This adviser is currently marked as available in the CRM.'}</small>
+    </article>
+  );
+}
+
+function isPortalStageWithInz(value = '') {
+  const text = String(value || '').toLowerCase();
+  return ['inz', 'lodged', 'submitted', 'processing', 'decision', 'third party'].some((term) => text.includes(term));
+}
+
 
 function ClientPortalMessageComposer({ title, description, buttonLabel, messageType, onSubmit }) {
   const [messageTitle, setMessageTitle] = useState('');
@@ -4998,7 +5205,8 @@ function AdviserProfiles({ advisers, clients, saveAdviser, saving }) {
                 <Field label="Login Email" value={adviser.loginEmail} onChange={(v) => updateAdviser(adviser.id, { loginEmail: v })} />
                 <Field label="Phone" value={adviser.phone} onChange={(v) => updateAdviser(adviser.id, { phone: v })} />
                 <Field label="LIA licence" value={adviser.licence} onChange={(v) => updateAdviser(adviser.id, { licence: v })} />
-                <SelectField label="Status" value={adviser.active ? 'Active' : 'Inactive'} onChange={(v) => updateAdviser(adviser.id, { active: v === 'Active' })} options={['Active', 'Inactive']} />
+                <SelectField label="Portal availability" value={adviser.availability === 'Away' ? 'Away' : 'Available'} onChange={(v) => updateAdviser(adviser.id, { availability: v })} options={ADVISER_AVAILABILITY_OPTIONS} />
+                <SelectField label="CRM status" value={adviser.active ? 'Active' : 'Inactive'} onChange={(v) => updateAdviser(adviser.id, { active: v === 'Active' })} options={['Active', 'Inactive']} />
               </div>
               <div className="split bottom"><span><b>{primary}</b> Primary matters · <b>{backup}</b> Backup matters</span><button className="btn dark" onClick={() => saveAdviser(adviser)} disabled={saving}><Save size={16} />Save</button></div>
             </div>
@@ -5887,11 +6095,22 @@ function safeJsonParse(value, fallback) {
   try { return JSON.parse(value); } catch { return fallback; }
 }
 
+function normalisePortalAdviser(adviser = {}) {
+  return {
+    name: adviser?.name || '',
+    email: adviser?.email || '',
+    phone: adviser?.phone || '',
+    profilePhotoUrl: adviser?.profilePhotoUrl || adviser?.profile_photo_url || '',
+    availability: adviser?.availability === 'Away' ? 'Away' : 'Available',
+  };
+}
+
 function normalisePortalSnapshot(snapshot = {}) {
   return {
     clientName: snapshot.clientName || 'Client',
     matterType: snapshot.matterType || '',
-    adviser: snapshot.adviser || { name: '', email: '', phone: '' },
+    adviser: normalisePortalAdviser(snapshot.adviser),
+    backupAdviser: normalisePortalAdviser(snapshot.backupAdviser),
     currentStage: snapshot.currentStage || '',
     progressPercent: Number(snapshot.progressPercent || 0),
     statusUpdate: snapshot.statusUpdate || '',
@@ -6324,7 +6543,7 @@ function normalisePortalDocument(doc = {}) {
 
 function normaliseData(body) {
   return {
-    advisers: (body.advisers || []).map((adviser) => ({ ...adviser, loginEmail: adviser.loginEmail || adviser.login_email || '' })),
+    advisers: (body.advisers || []).map((adviser) => ({ ...adviser, loginEmail: adviser.loginEmail || adviser.login_email || '', availability: adviser.availability === 'Away' ? 'Away' : 'Available' })),
     clients: (body.clients || []).map((client) => normaliseClientFromApi(client, body.stageTemplates || DEFAULT_STAGE_TEMPLATES)),
     caseTypes: body.caseTypes || DEFAULT_CASE_TYPES,
     deadlineTypes: body.deadlineTypes || DEFAULT_DEADLINE_TYPES,

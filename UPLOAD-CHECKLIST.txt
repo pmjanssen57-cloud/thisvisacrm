@@ -1,3 +1,28 @@
+THiS CRM v0.11.32 - Portal Interactive Journey Polish
+
+Upload checklist
+
+1. Preserve the netlify/ folder.
+2. Preserve the public/ folder.
+3. Upload/commit all files from this ZIP to the GitHub repo root.
+4. Deploy through Netlify.
+5. Confirm the new migration file exists: netlify/database/migrations/202606050001_add_adviser_availability_status.sql.
+6. Open CRM > Advisers and confirm each adviser has Portal availability: Available or Away.
+7. Set one adviser to Away, save, and confirm the value persists after refresh.
+8. Open a client record with a primary and backup adviser, publish/refresh the portal, and log in as the client.
+9. Confirm the portal shows What needs attention?, the clickable Application journey, and the Turner Hopkins team cards.
+10. Confirm both primary and backup adviser details appear where assigned, with Available/Away status shown.
+11. Use Ask a question and Something changed in the portal team card, then confirm the notes appear back in the CRM portal inbox/messages.
+12. Confirm the Document checklist still appears directly below the Application journey stages.
+13. Confirm Forms and instructions, key dates, appointments, billing, tools and portal PDF opening still work.
+
+Notes:
+- This build adds a small adviser availability database column.
+- No existing client portal access-code behaviour changed.
+- Existing adviser active/inactive status remains separate from portal availability.
+
+---
+
 THiS CRM v0.11.31 - Favicon Polish
 
 Upload checklist
