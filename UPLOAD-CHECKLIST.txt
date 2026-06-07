@@ -1,3 +1,49 @@
+THiS CRM v0.11.37 - Intake Approval Email Exact Copy Polish
+
+Upload checklist
+
+1. Preserve the netlify/ folder.
+2. Preserve the public/ folder.
+3. Upload/commit all files from this ZIP to the GitHub repo root.
+4. Deploy through Netlify.
+5. Open CRM > Intake and expand an intake record with an email address.
+6. Assign the intake to an adviser with an email address, if available.
+7. Click Approve email and confirm Outlook opens a draft addressed to the submitter.
+8. Confirm the approval draft starts directly with "Thank you for completing our online assessment questionnaire".
+9. Confirm the approval draft uses the latest supplied Turner Hopkins wording and includes the allocated adviser email in the "email us directly" line where available.
+10. Click Decline email and confirm the existing decline draft still opens as before.
+11. Confirm Print / save PDF, Save intake review, Convert to client, Open client and Delete still work as before.
+
+Notes:
+- No new database migration is required for this polish build.
+- Outlook drafts open in the signed-in Outlook account. Browsers may require pop-ups to be allowed for the CRM site.
+- Full CRM-sent email automation remains a later Microsoft Graph integration.
+
+---
+
+THiS CRM v0.11.36 - Intake Approval Email Copy Polish
+
+Upload checklist
+
+1. Preserve the netlify/ folder.
+2. Preserve the public/ folder.
+3. Upload/commit all files from this ZIP to the GitHub repo root.
+4. Deploy through Netlify.
+5. Open CRM > Intake and expand an intake record with an email address.
+6. Assign the intake to an adviser with an email address, if available.
+7. Click Approve email and confirm Outlook opens a draft addressed to the submitter.
+8. Confirm the approval draft uses the supplied skilled-migrant pathway consultation wording.
+9. Confirm the "email us directly" line includes the allocated adviser email where available, or the placeholder where no adviser email is available.
+10. Click Decline email and confirm the existing decline draft still opens as before.
+11. Confirm Print / save PDF, Save intake review, Convert to client, Open client and Delete still work as before.
+
+Notes:
+- No new database migration is required for this polish build.
+- Outlook drafts open in the signed-in Outlook account. Browsers may require pop-ups to be allowed for the CRM site.
+- Full CRM-sent email automation remains a later Microsoft Graph integration.
+
+---
+
 THiS CRM v0.11.35 - Intake Outcome Email Draft Polish
 
 Upload checklist

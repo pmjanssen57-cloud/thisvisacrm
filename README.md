@@ -1,8 +1,30 @@
-# Turner Hopkins CRM - Netlify Database v0.11.35
+# Turner Hopkins CRM - Netlify Database v0.11.37
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
 
+
+
+## v0.11.37 - Intake Approval Email Exact Copy Polish
+
+Small intake approval email wording refinement.
+
+- Updated the Approve email draft to use the latest supplied Turner Hopkins approval text.
+- Removed the automatic greeting from the approval draft so the body starts directly with the supplied wording.
+- Kept the allocated adviser email inserted into the "email us directly" line where available.
+- Decline email draft behaviour remains unchanged.
+- No database migration required.
+
+
+## v0.11.36 - Intake Approval Email Copy Polish
+
+Small intake email draft wording update.
+
+- Updated the Approve email draft to use the longer skilled-migrant pathway consultation wording supplied by Turner Hopkins.
+- The approval draft now sets out the two consultation options: 15-minute overview and detailed paid assessment.
+- The allocated adviser field is inserted into the "email us directly" line where an assigned adviser email is available.
+- Decline email draft behaviour remains unchanged.
+- No database migration required.
 
 ## v0.11.35 - Intake Outcome Email Draft Polish
 
