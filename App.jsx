@@ -1679,42 +1679,30 @@ function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, del
                         <h2>{[itemDraft.firstName, itemDraft.lastName].filter(Boolean).join(' ') || 'Unnamed enquiry'}</h2>
                         <p>{itemDraft.email || 'No email'}{itemDraft.phone ? ` · ${itemDraft.phone}` : ''}</p>
                       </div>
-                      <IntakeFlagList flags={itemDraft.flags} />
+                      <div className="intake-expanded-side-actions">
+                        <IntakeFlagList flags={itemDraft.flags} />
+                        <button className="btn" type="button" onClick={() => { if (!printIntakeRecord(itemDraft, advisers)) window.alert('The browser blocked the print window. Allow pop-ups for this CRM, then try again.'); }}><FileText size={16} />Print / save PDF</button>
+                      </div>
                     </div>
 
-                    <div className="form-grid intake-review-grid">
-                      <SelectField label="Status" value={itemDraft.status} onChange={(value) => setDraftField('status', value)} options={statuses} />
-                      <SelectField label="Assigned adviser" value={itemDraft.assignedAdviserId} onChange={(value) => setDraftField('assignedAdviserId', value)} options={advisers.map((adviser) => ({ value: adviser.id, label: adviser.name }))} placeholder="Unassigned" />
-                      <Field label="Recommended pathway" value={itemDraft.recommendedPathway} onChange={(value) => setDraftField('recommendedPathway', value)} />
-                      <Field label="Consultation / outcome" value={itemDraft.consultationOutcome} onChange={(value) => setDraftField('consultationOutcome', value)} />
-                    </div>
-                    <TextArea label="Adviser assessment notes" value={itemDraft.adviserAssessmentNotes} onChange={(value) => setDraftField('adviserAssessmentNotes', value)} rows={5} />
+                    <section className="intake-review-panel">
+                      <div className="intake-section-heading">
+                        <div>
+                          <span className="eyebrow">Adviser review</span>
+                          <h3>Assessment triage</h3>
+                        </div>
+                        <p>Use this area for internal review notes before converting the enquiry into a client record.</p>
+                      </div>
+                      <div className="form-grid intake-review-grid">
+                        <SelectField label="Status" value={itemDraft.status} onChange={(value) => setDraftField('status', value)} options={statuses} />
+                        <SelectField label="Assigned adviser" value={itemDraft.assignedAdviserId} onChange={(value) => setDraftField('assignedAdviserId', value)} options={advisers.map((adviser) => ({ value: adviser.id, label: adviser.name }))} placeholder="Unassigned" />
+                        <Field label="Recommended pathway" value={itemDraft.recommendedPathway} onChange={(value) => setDraftField('recommendedPathway', value)} />
+                        <Field label="Consultation / outcome" value={itemDraft.consultationOutcome} onChange={(value) => setDraftField('consultationOutcome', value)} />
+                      </div>
+                      <TextArea label="Adviser assessment notes" value={itemDraft.adviserAssessmentNotes} onChange={(value) => setDraftField('adviserAssessmentNotes', value)} rows={5} />
+                    </section>
 
-                    <div className="intake-summary-grid">
-                      <IntakeSummaryCard title="Applicant summary" rows={[
-                        ['Name', [itemDraft.firstName, itemDraft.lastName].filter(Boolean).join(' ')],
-                        ['Email', itemDraft.email],
-                        ['Phone', itemDraft.phone],
-                        ['Citizenship', itemDraft.citizenship],
-                        ['Current location', itemDraft.currentLocation],
-                      ]} />
-                      <IntakeSummaryCard title="Current situation" rows={[
-                        ['Pathway', itemDraft.targetPathway],
-                        ['Urgency', itemDraft.urgency],
-                        ['Current visa', itemDraft.currentVisaType],
-                        ['Visa expiry', itemDraft.currentVisaExpiry ? formatPortalDate(itemDraft.currentVisaExpiry) : ''],
-                        ['Submitted', itemDraft.createdAt ? formatPortalDateTime(itemDraft.createdAt) : ''],
-                      ]} />
-                      <IntakeSummaryCard title="Assessment snapshot" rows={intakeSnapshotRows(itemDraft.rawPayload)} />
-                      <IntakeSummaryCard title="Record status" rows={[
-                        ['Status', itemDraft.status],
-                        ['Assigned adviser', adviserName(itemDraft.assignedAdviserId, advisers)],
-                        ['Updated', itemDraft.updatedAt ? formatPortalDateTime(itemDraft.updatedAt) : ''],
-                        ['Converted client', itemDraft.convertedClientId ? 'Yes' : 'No'],
-                      ]} />
-                    </div>
-
-                    <IntakePayloadView payload={itemDraft.rawPayload} />
+                    <IntakeQuestionnaireReview record={itemDraft} advisers={advisers} />
 
                     <div className="library-save-bar intake-save-bar button-row">
                       <button className="btn" type="button" onClick={saveDraft} disabled={saving}><Save size={16} />Save intake review</button>
@@ -1770,33 +1758,133 @@ function IntakeFlagList({ flags = {}, compact = false }) {
   );
 }
 
-function IntakeSummaryCard({ title, rows }) {
+function IntakeQuestionnaireReview({ record = {}, advisers = [] }) {
+  const sections = getIntakeQuestionnaireSections(record);
   return (
-    <div className="intake-summary-card">
-      <h3>{title}</h3>
-      {rows.filter(([, value]) => hasIntakeValue(value)).map(([label, value]) => <p key={label}><span>{label}</span><strong>{formatIntakeValue(value)}</strong></p>)}
+    <div className="intake-questionnaire-review">
+      <div className="intake-questionnaire-title">
+        <div>
+          <span className="eyebrow">Submitted questionnaire</span>
+          <h3>Assessment answers</h3>
+          <p>Set out in the same order as the public assessment questionnaire, so advisers can review the submission against the form flow.</p>
+        </div>
+        <div className="intake-questionnaire-meta">
+          <span>{record.createdAt ? `Submitted ${formatPortalDateTime(record.createdAt)}` : 'Submission date not recorded'}</span>
+          <span>{record.status || 'New'}</span>
+          <span>{adviserName(record.assignedAdviserId, advisers)}</span>
+        </div>
+      </div>
+      {sections.map((section) => (
+        <section className="intake-section intake-readonly-section" key={section.title}>
+          <div className="intake-panel-title-row">
+            <h2>{section.title}</h2>
+            {section.badge && <span className="intake-section-badge">{section.badge}</span>}
+          </div>
+          {section.description && <p>{section.description}</p>}
+          <IntakeAnswerGrid rows={section.rows} />
+          {(section.panels || []).map((panel) => (
+            <div className="intake-nested-panel intake-readonly-nested" key={panel.title}>
+              <h3>{panel.title}</h3>
+              <IntakeAnswerGrid rows={panel.rows} />
+            </div>
+          ))}
+        </section>
+      ))}
     </div>
   );
 }
 
-function IntakePayloadView({ payload = {} }) {
-  const groups = [
-    ['Goal and visa situation', ['targetPathway', 'desiredTimeframe', 'urgency', 'urgentDeadline', 'helpNeeded', 'isInNewZealand', 'currentLocation', 'currentVisaType', 'currentVisaExpiry', 'visaConditions', 'previouslyVisitedNz', 'previouslyHeldNzVisa', 'plannedTravelDate', 'passportExpiry']],
-    ['Partner and family', ['relationshipStatus', 'hasPartner', 'partnerFullName', 'partnerDateOfBirth', 'partnerCitizenship', 'partnerCurrentCountry', 'partnerVisaStatus', 'partnerNzStatus', 'livingTogether', 'relationshipStarted', 'startedLivingTogether', 'partnerIncluded', 'relationshipBackground', 'hasChildren', 'children', 'moreChildrenDetails']],
-    ['Work and employment', ['currentEmploymentStatus', 'occupation', 'currentEmployer', 'employmentCountry', 'currentJobStartDate', 'hoursPerWeek', 'annualSalary', 'salaryCurrency', 'yearsExperience', 'hasNzJobOffer', 'employerName', 'jobTitle', 'nzJobLocation', 'payRate', 'nzPayCurrency', 'nzJobHours', 'employerAccredited', 'employmentAgreementProvided', 'proposedStartDate', 'employmentDetails', 'previousWorkHistory']],
-    ['Qualifications', ['highestQualification', 'qualificationName', 'qualificationInstitution', 'qualificationCountry', 'qualificationYearCompleted', 'qualificationStudyLength', 'taughtInEnglish', 'nzqaAssessed', 'qualificationRelatedToOccupation', 'qualificationDetails']],
-    ['Health, character and immigration history', ['healthIssues', 'dependantHealthIssues', 'healthDetails', 'characterConvictions', 'characterPendingCharges', 'deportationRemoval', 'characterDetails', 'visaDeclines', 'immigrationHistoryDetails', 'overstayed', 'falseMisleadingIssue', 'appealOrDeadline', 'countriesLived', 'nzTravelHistory']],
-    ['Funds and final comments', ['fundsAvailableSupport', 'availableFunds', 'fundsCurrency', 'sourceOfFunds', 'investmentInterest', 'investmentFunds', 'investmentCurrency', 'fundsHeldByYou', 'fundsTransferableNz', 'fundsDetails', 'additionalInfo']],
-  ];
+function IntakeAnswerGrid({ rows = [] }) {
+  if (!rows.length) return <p className="muted">No answers recorded for this section.</p>;
   return (
-    <div className="intake-payload-view">
-      {groups.map(([title, keys]) => {
-        const rows = keys.map((key) => [intakeLabelForKey(key), payload[key]]).filter(([, value]) => hasIntakeValue(value));
-        if (!rows.length) return null;
-        return <IntakeSummaryCard key={title} title={title} rows={rows} />;
+    <div className="intake-answer-grid">
+      {rows.map(([label, value]) => {
+        const formatted = formatIntakeValue(value);
+        const isLong = String(formatted || '').length > 90 || String(formatted || '').includes('\n');
+        return (
+          <div className={`intake-answer-field ${isLong ? 'wide' : ''}`} key={`${label}-${formatted}`}>
+            <span>{label}</span>
+            <strong>{formatted || 'Not answered'}</strong>
+          </div>
+        );
       })}
     </div>
   );
+}
+
+function getIntakeQuestionnaireSections(record = {}) {
+  const payload = intakeAnswerPayload(record);
+  const sections = [
+    {
+      title: 'Your details',
+      rows: intakeRows(payload, ['firstName', 'lastName', 'preferredName', 'email', 'phone', 'preferredContactMethod', 'citizenship', 'dateOfBirth']),
+    },
+    {
+      title: 'Immigration goal',
+      rows: intakeRows(payload, ['targetPathway', 'desiredTimeframe', 'urgency', 'urgentDeadline', 'helpNeeded']),
+    },
+    {
+      title: 'Current visa situation',
+      rows: intakeRows(payload, ['isInNewZealand', 'currentLocation', 'currentVisaType', 'currentVisaExpiry', 'visaConditions', 'previouslyVisitedNz', 'previouslyHeldNzVisa', 'plannedTravelDate', 'passportExpiry']),
+    },
+    {
+      title: 'Partner and family',
+      rows: intakeRows(payload, ['relationshipStatus', 'hasPartner', 'hasChildren']),
+      panels: [
+        { title: 'Partner details', rows: intakeRows(payload, ['partnerFullName', 'partnerDateOfBirth', 'partnerCitizenship', 'partnerCurrentCountry', 'partnerVisaStatus', 'partnerNzStatus', 'livingTogether', 'relationshipStarted', 'startedLivingTogether', 'partnerIncluded', 'relationshipBackground']) },
+        { title: 'Children', rows: intakeRows(payload, ['children', 'moreChildrenDetails']) },
+      ],
+    },
+    {
+      title: 'Work and employment',
+      rows: intakeRows(payload, ['currentEmploymentStatus', 'occupation', 'currentEmployer', 'employmentCountry', 'currentJobStartDate', 'hoursPerWeek', 'annualSalary', 'salaryCurrency', 'yearsExperience', 'employmentDetails']),
+      panels: [
+        { title: 'Previous work history', rows: intakeRows(payload, ['previousWorkHistory']) },
+        { title: 'New Zealand job offer', rows: intakeRows(payload, ['hasNzJobOffer', 'employerName', 'jobTitle', 'nzJobLocation', 'payRate', 'nzPayCurrency', 'nzJobHours', 'employerAccredited', 'employmentAgreementProvided', 'proposedStartDate']) },
+      ],
+    },
+    {
+      title: 'Qualifications',
+      rows: intakeRows(payload, ['highestQualification', 'qualificationName', 'qualificationInstitution', 'qualificationCountry', 'qualificationYearCompleted', 'qualificationStudyLength', 'taughtInEnglish', 'nzqaAssessed', 'qualificationRelatedToOccupation', 'qualificationDetails']),
+    },
+    {
+      title: 'Health and character',
+      rows: intakeRows(payload, ['healthIssues', 'dependantHealthIssues', 'healthDetails', 'characterConvictions', 'characterPendingCharges', 'deportationRemoval', 'characterDetails']),
+    },
+    {
+      title: 'Immigration history',
+      rows: intakeRows(payload, ['visaDeclines', 'overstayed', 'falseMisleadingIssue', 'appealOrDeadline', 'immigrationHistoryDetails', 'countriesLived', 'nzTravelHistory']),
+    },
+    {
+      title: 'Funds and investment',
+      rows: intakeRows(payload, ['fundsAvailableSupport', 'availableFunds', 'fundsCurrency', 'sourceOfFunds', 'investmentInterest']),
+      panels: [
+        { title: 'Investment background', rows: intakeRows(payload, ['investmentFunds', 'investmentCurrency', 'fundsHeldByYou', 'fundsTransferableNz', 'fundsDetails']) },
+      ],
+    },
+    {
+      title: 'Final comments and consent',
+      rows: intakeRows(payload, ['additionalInfo', 'consentToContact', 'privacyAcknowledged']),
+    },
+  ];
+
+  return sections.map((section) => {
+    const panels = (section.panels || []).filter((panel) => panel.rows.length);
+    return { ...section, panels };
+  }).filter((section) => section.rows.length || (section.panels || []).length);
+}
+
+function intakeAnswerPayload(record = {}) {
+  const raw = record.rawPayload && typeof record.rawPayload === 'object' ? record.rawPayload : {};
+  const payload = { ...raw };
+  ['firstName', 'lastName', 'email', 'phone', 'citizenship', 'dateOfBirth', 'currentLocation', 'currentVisaType', 'currentVisaExpiry', 'targetPathway', 'urgency'].forEach((key) => {
+    if (!hasIntakeValue(payload[key]) && hasIntakeValue(record[key])) payload[key] = record[key];
+  });
+  return payload;
+}
+
+function intakeRows(payload = {}, keys = []) {
+  return keys.map((key) => [intakeLabelForKey(key), payload[key]]).filter(([, value]) => hasIntakeValue(value));
 }
 
 function intakeSnapshotRows(payload = {}) {
@@ -1821,16 +1909,25 @@ function hasIntakeValue(value) {
 }
 
 function formatIntakeValue(value) {
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   if (Array.isArray(value)) {
     return value.map((entry, index) => {
       if (entry && typeof entry === 'object') {
-        const parts = [entry.fullName, entry.dateOfBirth, entry.citizenship, entry.currentCountry, entry.includedInApplication ? `Included: ${entry.includedInApplication}` : '', entry.custodyIssues === 'Yes' ? 'Custody issue noted' : ''].filter(Boolean);
+        const parts = [
+          entry.fullName,
+          entry.dateOfBirth ? `Date of birth: ${entry.dateOfBirth}` : '',
+          entry.citizenship ? `Citizenship: ${entry.citizenship}` : '',
+          entry.currentCountry ? `Current country: ${entry.currentCountry}` : '',
+          entry.dependent ? `Dependent: ${entry.dependent}` : '',
+          entry.includedInApplication ? `Included: ${entry.includedInApplication}` : '',
+          entry.custodyIssues ? `Custody / guardianship issue: ${entry.custodyIssues}` : '',
+        ].filter(Boolean);
         return `${index + 1}. ${parts.join(' · ')}`;
       }
       return `${index + 1}. ${entry}`;
     }).join('\n');
   }
-  if (value && typeof value === 'object') return Object.entries(value).filter(([, item]) => hasIntakeValue(item)).map(([key, item]) => `${intakeLabelForKey(key)}: ${item}`).join('\n');
+  if (value && typeof value === 'object') return Object.entries(value).filter(([, item]) => hasIntakeValue(item)).map(([key, item]) => `${intakeLabelForKey(key)}: ${formatIntakeValue(item)}`).join('\n');
   return String(value || '');
 }
 
@@ -5342,6 +5439,117 @@ function ClientSummaryPanel({ draft, setField, onOpenActionLog, onOpenTimeline, 
   );
 }
 
+
+function printIntakeRecord(record = {}, advisers = []) {
+  const printWindow = window.open('about:blank', `this-intake-record-${Date.now()}`, 'width=980,height=900,scrollbars=yes,resizable=yes');
+  if (!printWindow) return false;
+  try {
+    const html = buildIntakePrintHtml(record, advisers);
+    printWindow.document.open('text/html', 'replace');
+    printWindow.document.write(html);
+    printWindow.document.close();
+
+    let printStarted = false;
+    const startPrint = () => {
+      if (printStarted || printWindow.closed) return;
+      printStarted = true;
+      printWindow.focus();
+      printWindow.print();
+    };
+    printWindow.addEventListener?.('load', () => window.setTimeout(startPrint, 450), { once: true });
+    window.setTimeout(startPrint, 900);
+    return true;
+  } catch (err) {
+    console.error('Intake record print window could not be prepared.', err);
+    try { printWindow.close(); } catch {}
+    return false;
+  }
+}
+
+function buildIntakePrintHtml(record = {}, advisers = []) {
+  const applicantName = [record.firstName, record.lastName].filter(Boolean).join(' ') || 'Unnamed intake record';
+  const generatedAt = formatPortalDateTime(new Date().toISOString());
+  const logoUrl = `${window.location.origin}${LOGO_SRC}`;
+  const sections = getIntakeQuestionnaireSections(record);
+  const reviewRows = [
+    ['Status', record.status],
+    ['Assigned adviser', adviserName(record.assignedAdviserId, advisers)],
+    ['Recommended pathway', record.recommendedPathway],
+    ['Consultation / outcome', record.consultationOutcome],
+    ['Submitted', record.createdAt ? formatPortalDateTime(record.createdAt) : ''],
+    ['Updated', record.updatedAt ? formatPortalDateTime(record.updatedAt) : ''],
+    ['Converted client', record.convertedClientId ? 'Yes' : 'No'],
+  ];
+  const flagRows = Object.entries(record.flags || {}).filter(([, value]) => Boolean(value)).map(([key]) => [intakeLabelForKey(key), 'Yes']);
+
+  return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(applicantName)} - intake record</title>
+  <style>
+    :root { --ink:#003736; --muted:#64748b; --line:#d9e6e1; --pale:#f4fbf8; --text:#0f172a; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:#f8fafc; color:var(--text); font-family: Inter, Arial, sans-serif; font-size: 13px; }
+    .page { max-width: 1040px; margin: 0 auto; padding: 28px; }
+    .cover, .section { background:#fff; border:1px solid var(--line); border-radius:18px; padding:18px; margin: 14px 0; break-inside: avoid; }
+    .head { display:flex; align-items:flex-start; justify-content:space-between; gap:24px; border-bottom:1px solid var(--line); padding-bottom:14px; margin-bottom:14px; }
+    .logo { width: 180px; max-height:80px; object-fit:contain; }
+    h1 { color:var(--ink); margin:4px 0 6px; font-size:30px; }
+    h2 { color:var(--ink); margin:0 0 12px; font-size:18px; }
+    h3 { color:var(--ink); margin:14px 0 8px; font-size:15px; }
+    p { line-height:1.45; }
+    .muted { color:var(--muted); }
+    .preline { white-space: pre-wrap; }
+    .badge { display:inline-block; border:1px solid var(--line); border-radius:999px; padding:6px 10px; background:var(--pale); color:var(--ink); font-weight:800; font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
+    .grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px; }
+    .row { border:1px solid #e7f0ec; border-radius:13px; padding:10px 12px; background:#fff; break-inside: avoid; }
+    .row.wide { grid-column:1 / -1; }
+    .row span { display:block; color:var(--muted); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; }
+    .row strong { display:block; color:var(--text); margin-top:4px; white-space:pre-wrap; word-break:break-word; line-height:1.38; }
+    .nested { border:1px solid #d8efe6; background:#f7fcfa; border-radius:15px; padding:12px; margin-top:12px; }
+    .footer { margin-top:26px; color:var(--muted); font-size:11px; border-top:1px solid var(--line); padding-top:12px; }
+    @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background:#fff; } .page { padding:0; max-width:none; } .cover, .section, .nested { break-inside: avoid; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="cover">
+      <div class="head">
+        <div>
+          <span class="badge">Internal intake record</span>
+          <h1>${escapeHtml(applicantName)}</h1>
+          <p class="muted">Generated ${escapeHtml(generatedAt)} from THiS CRM. This printout is for internal review and should be checked against the live CRM record before use.</p>
+        </div>
+        <img class="logo" src="${escapeHtml(logoUrl)}" alt="Turner Hopkins Immigration Specialists" />
+      </div>
+      ${renderIntakePrintRows(reviewRows)}
+    </section>
+
+    ${printSection('Adviser assessment notes', `<p class="preline">${escapeHtml(record.adviserAssessmentNotes || 'No adviser assessment notes recorded.')}</p>`)}
+    ${flagRows.length ? printSection('Review flags', renderIntakePrintRows(flagRows)) : ''}
+    ${sections.map(renderIntakePrintSection).join('')}
+
+    <div class="footer">THiS CRM intake record export. Questionnaire answers are shown in the same order as the public assessment form.</div>
+  </main>
+</body>
+</html>`;
+}
+
+function renderIntakePrintSection(section = {}) {
+  const panels = (section.panels || []).map((panel) => `<div class="nested"><h3>${escapeHtml(panel.title)}</h3>${renderIntakePrintRows(panel.rows)}</div>`).join('');
+  return printSection(section.title, `${renderIntakePrintRows(section.rows)}${panels}`);
+}
+
+function renderIntakePrintRows(rows = []) {
+  const filtered = rows.filter(([, value]) => hasIntakeValue(value));
+  if (!filtered.length) return '<p class="muted">No answers recorded for this section.</p>';
+  return `<div class="grid">${filtered.map(([label, value]) => {
+    const formatted = formatIntakeValue(value);
+    const isLong = String(formatted || '').length > 90 || String(formatted || '').includes('\n');
+    return `<div class="row ${isLong ? 'wide' : ''}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(formatted || 'Not answered')}</strong></div>`;
+  }).join('')}</div>`;
+}
 
 function printClientProfile(client = {}, calendarEntries = [], advisers = []) {
   const printWindow = window.open('about:blank', `this-client-profile-${Date.now()}`, 'width=980,height=900,scrollbars=yes,resizable=yes');

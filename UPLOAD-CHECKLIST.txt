@@ -1,4 +1,27 @@
+THiS CRM v0.11.34 - Intake Record Review Print Polish
+
+Upload checklist
+
+1. Preserve the netlify/ folder.
+2. Preserve the public/ folder.
+3. Upload/commit all files from this ZIP to the GitHub repo root.
+4. Deploy through Netlify.
+5. Open CRM > Intake and expand an intake record.
+6. Confirm the adviser triage fields remain at the top in the Adviser review panel.
+7. Confirm questionnaire answers appear underneath in the same section order as the public Assessment Questionnaire.
+8. Confirm Partner/family, previous work history, New Zealand job offer and investment background answers appear as nested panels when relevant.
+9. Click Print / save PDF and confirm a printable window opens with adviser notes, review flags and questionnaire answers.
+10. From the browser print dialogue, confirm Save to PDF / Print works as expected.
+11. Confirm Save intake review, Convert to client, Open client and Delete still work as before.
+
+Notes:
+- No new database migration is required for this polish build.
+- Browser pop-up blockers may need to allow the CRM site for the print window to open.
+
+---
+
 THiS CRM v0.11.33 - Portal Journey Layout Polish
+
 
 Upload checklist
 

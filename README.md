@@ -1,7 +1,19 @@
-# Turner Hopkins CRM - Netlify Database v0.11.33
+# Turner Hopkins CRM - Netlify Database v0.11.34
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
+
+
+## v0.11.34 - Intake Record Review Print Polish
+
+Intake review workspace refinement.
+
+- Reworked the expanded intake record view so questionnaire answers are shown in the same section order as the public Assessment Questionnaire.
+- Added read-only answer cards under Your details, Immigration goal, Current visa situation, Partner and family, Work and employment, Qualifications, Health and character, Immigration history, Funds and investment, and Final comments and consent.
+- Kept adviser triage fields at the top in a dedicated Adviser review panel.
+- Added a Print / save PDF button to the intake record header so advisers can open the browser print dialogue and save the intake record as a PDF.
+- Printable intake record includes adviser review details, assessment notes, review flags, and questionnaire answers in form order.
+- No database migration required.
 
 
 ## v0.11.33 - Portal Journey Layout Polish
