@@ -1681,7 +1681,11 @@ function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, del
                       </div>
                       <div className="intake-expanded-side-actions">
                         <IntakeFlagList flags={itemDraft.flags} />
-                        <button className="btn" type="button" onClick={() => { if (!printIntakeRecord(itemDraft, advisers)) window.alert('The browser blocked the print window. Allow pop-ups for this CRM, then try again.'); }}><FileText size={16} />Print / save PDF</button>
+                        <div className="intake-expanded-action-buttons">
+                          <button className="btn" type="button" onClick={() => { if (!printIntakeRecord(itemDraft, advisers)) window.alert('The browser blocked the print window. Allow pop-ups for this CRM, then try again.'); }}><FileText size={16} />Print / save PDF</button>
+                          <button className="btn dark" type="button" disabled={!itemDraft.email} onClick={() => openIntakeOutcomeEmailDraft(itemDraft, advisers, 'approve')} title={!itemDraft.email ? 'No submitter email recorded' : 'Open a pre-filled Outlook draft'}><Mail size={16} />Approve email</button>
+                          <button className="btn danger" type="button" disabled={!itemDraft.email} onClick={() => openIntakeOutcomeEmailDraft(itemDraft, advisers, 'decline')} title={!itemDraft.email ? 'No submitter email recorded' : 'Open a pre-filled Outlook draft'}><Mail size={16} />Decline email</button>
+                        </div>
                       </div>
                     </div>
 
@@ -5439,6 +5443,69 @@ function ClientSummaryPanel({ draft, setField, onOpenActionLog, onOpenTimeline, 
   );
 }
 
+
+function openIntakeOutcomeEmailDraft(record = {}, advisers = [], outcome = 'approve') {
+  const draft = buildIntakeOutcomeEmailDraft(record, advisers, outcome);
+  if (!draft.to) {
+    window.alert('No submitter email address is recorded for this intake.');
+    return false;
+  }
+
+  const params = new URLSearchParams({
+    to: draft.to,
+    subject: draft.subject,
+    body: draft.body,
+  });
+  const outlookUrl = `https://outlook.office.com/mail/deeplink/compose?${params.toString()}`;
+  const mailtoUrl = `mailto:${encodeURIComponent(draft.to)}?subject=${encodeURIComponent(draft.subject)}&body=${encodeURIComponent(draft.body)}`;
+
+  const opened = window.open(outlookUrl, `this-intake-email-${outcome}-${Date.now()}`, 'noopener,noreferrer');
+  if (!opened) {
+    window.location.href = mailtoUrl;
+    return false;
+  }
+  return true;
+}
+
+function buildIntakeOutcomeEmailDraft(record = {}, advisers = [], outcome = 'approve') {
+  const firstName = (record.firstName || '').trim() || 'there';
+  const applicantName = [record.firstName, record.lastName].filter(Boolean).join(' ').trim() || 'your enquiry';
+  const adviser = advisers.find((item) => item.id === record.assignedAdviserId) || null;
+  const adviserContext = adviser?.name ? ` Your assigned Turner Hopkins adviser is ${adviser.name}.` : '';
+  const to = String(record.email || '').trim();
+
+  if (outcome === 'decline') {
+    return {
+      to,
+      subject: `Turner Hopkins assessment questionnaire - ${applicantName}`,
+      body: [
+        `Hello ${firstName},`,
+        '',
+        'Thank you for completing the Turner Hopkins assessment questionnaire.',
+        '',
+        'We have reviewed the information you provided. Based on the details supplied, it does not look like we are the right fit to assist with an immigration pathway at this stage.',
+        '',
+        'This is a preliminary response based on the questionnaire only, not a full immigration assessment. If your circumstances change, or if there is important information you think has not been captured, you are welcome to reply with those details and we can reconsider whether a consultation would be useful.',
+      ].join('\n')
+    };
+  }
+
+  return {
+    to,
+    subject: `Turner Hopkins assessment questionnaire - next steps for ${applicantName}`,
+    body: [
+      `Hello ${firstName},`,
+      '',
+      'Thank you for completing the Turner Hopkins assessment questionnaire.',
+      '',
+      `We have reviewed the information you provided and it looks like this is something Turner Hopkins may be able to assist with.${adviserContext}`,
+      '',
+      'The next step is to arrange a consultation so we can review your circumstances in more detail and confirm the best pathway forward. Please reply with a few suitable times, or let us know if there is any urgent timing we should be aware of.',
+      '',
+      'This is a preliminary response only and is not a confirmation that any visa application will be approved. Formal advice depends on a full review of your circumstances and supporting evidence.',
+    ].join('\n')
+  };
+}
 
 function printIntakeRecord(record = {}, advisers = []) {
   const printWindow = window.open('about:blank', `this-intake-record-${Date.now()}`, 'width=980,height=900,scrollbars=yes,resizable=yes');

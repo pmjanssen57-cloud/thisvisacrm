@@ -6533,3 +6533,19 @@ body.intake-embed-mode .intake-public-card {
   .intake-questionnaire-meta { justify-content: flex-start; min-width: 0; }
   .intake-answer-grid { grid-template-columns: 1fr; }
 }
+
+/* v0.11.35 intake outcome email draft buttons */
+.intake-expanded-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.intake-expanded-action-buttons .btn {
+  justify-self: auto;
+}
+@media (max-width: 960px) {
+  .intake-expanded-action-buttons {
+    justify-content: flex-start;
+  }
+}

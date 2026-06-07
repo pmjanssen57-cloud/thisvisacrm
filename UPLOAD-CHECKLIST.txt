@@ -1,3 +1,26 @@
+THiS CRM v0.11.35 - Intake Outcome Email Draft Polish
+
+Upload checklist
+
+1. Preserve the netlify/ folder.
+2. Preserve the public/ folder.
+3. Upload/commit all files from this ZIP to the GitHub repo root.
+4. Deploy through Netlify.
+5. Open CRM > Intake and expand an intake record with an email address.
+6. Confirm Print / save PDF still opens the printable intake record.
+7. Click Approve email and confirm Outlook opens a draft addressed to the submitter with the next-steps wording.
+8. Click Decline email and confirm Outlook opens a draft addressed to the submitter with the preliminary decline wording.
+9. Confirm the draft body has no sign-off, allowing the adviser to use their normal Outlook signature.
+10. Confirm records without a submitter email show disabled email buttons.
+11. Confirm Save intake review, Convert to client, Open client and Delete still work as before.
+
+Notes:
+- No new database migration is required for this polish build.
+- Outlook drafts open in the signed-in Outlook account. Browsers may require pop-ups to be allowed for the CRM site.
+- Full CRM-sent email automation remains a later Microsoft Graph integration.
+
+---
+
 THiS CRM v0.11.34 - Intake Record Review Print Polish
 
 Upload checklist

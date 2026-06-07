@@ -1,7 +1,21 @@
-# Turner Hopkins CRM - Netlify Database v0.11.34
+# Turner Hopkins CRM - Netlify Database v0.11.35
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
+
+
+## v0.11.35 - Intake Outcome Email Draft Polish
+
+Small intake workflow update.
+
+- Added Approve email and Decline email buttons to expanded intake records.
+- Buttons open a pre-filled Outlook web draft addressed to the intake submitter.
+- Draft text is deliberately preliminary and editable by the adviser before sending.
+- Approve draft invites the submitter to arrange a consultation / next steps.
+- Decline draft explains that Turner Hopkins does not appear to be the right fit to assist at this stage, based on the questionnaire only.
+- Drafts do not include a sign-off, so advisers can use their normal Outlook signature.
+- If Outlook pop-up opening is blocked, the app falls back to a standard mailto draft.
+- No database migration required.
 
 
 ## v0.11.34 - Intake Record Review Print Polish
