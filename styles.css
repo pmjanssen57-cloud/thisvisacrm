@@ -6549,3 +6549,84 @@ body.intake-embed-mode .intake-public-card {
     justify-content: flex-start;
   }
 }
+
+/* v0.11.39 - Intake pop-out review editor */
+.intake-open-record-label {
+  color: var(--muted);
+  font-size: .78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.intake-popout-editor {
+  display: grid;
+  gap: 16px;
+  max-width: 1380px;
+  margin: 0 auto;
+}
+
+.intake-popout-actionbar,
+.intake-popout-support-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, .92);
+  box-shadow: 0 12px 30px rgba(0, 55, 54, .06);
+}
+
+.intake-popout-actionbar {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+
+.intake-popout-actionbar h2 {
+  margin: 2px 0 4px;
+  color: var(--ink);
+}
+
+.intake-popout-actionbar p,
+.intake-popout-support-actions p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.intake-popout-support-actions .intake-flags {
+  flex: 1;
+  min-width: 260px;
+}
+
+.intake-questionnaire-editor .intake-section {
+  background: rgba(255, 255, 255, .92);
+}
+
+.intake-questionnaire-editor .intake-section > h2 {
+  margin-top: 0;
+}
+
+.intake-questionnaire-editor .intake-nested-panel {
+  margin-top: 12px;
+}
+
+.intake-questionnaire-editor input[readonly] {
+  color: var(--ink);
+  background: #f4fbf8;
+  font-weight: 900;
+}
+
+@media (max-width: 980px) {
+  .intake-popout-actionbar,
+  .intake-popout-support-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .intake-open-record-label {
+    display: none;
+  }
+}

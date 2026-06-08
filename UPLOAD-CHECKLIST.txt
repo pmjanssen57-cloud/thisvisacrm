@@ -455,3 +455,13 @@ Additional v0.11.21 checks:
 Build note:
 - Intake CRM workspace now loads with All statuses selected by default.
 - No database migration required.
+
+v0.11.39 deployment checks:
+1. Open CRM > Intake and confirm the default Status filter is **New / untouched**.
+2. Click an intake record and confirm it opens in a pop-out editor rather than expanding inline.
+3. Edit adviser review fields, save, refresh and confirm changes persist.
+4. Edit questionnaire fields such as first name, mobile, citizenship, date of birth and current location, save, refresh and confirm changes persist.
+5. Confirm age updates after date of birth changes and remains visible in the adviser review.
+6. Confirm Print / save PDF, Approve email, Decline email and Convert to client still appear in the pop-out.
+7. Confirm Show all still switches the page to all intake statuses.
+8. No database migration is required.

@@ -923,10 +923,24 @@ function normalisePortalDocumentCategory(value = '') {
 async function saveIntakeEnquiry(input = {}) {
   const intake = normaliseIntakeInput(input);
   if (!isUuid(intake.id)) throw new Error('A saved intake enquiry is required.');
+  const flags = buildIntakeFlags(intake.rawPayload);
   const rows = await db().sql`
     UPDATE intake_enquiries
     SET status = ${intake.status},
         assigned_adviser_id = ${nullableUuid(intake.assignedAdviserId)},
+        applicant_first_name = ${intake.firstName},
+        applicant_last_name = ${intake.lastName},
+        email = ${intake.email},
+        phone = ${intake.phone},
+        current_location = ${intake.currentLocation},
+        citizenship = ${intake.citizenship},
+        date_of_birth = ${nullableDate(intake.dateOfBirth)},
+        current_visa_type = ${intake.currentVisaType},
+        current_visa_expiry = ${nullableDate(intake.currentVisaExpiry)},
+        target_pathway = ${intake.targetPathway},
+        urgency = ${intake.urgency},
+        flags = CAST(${JSON.stringify(flags)} AS jsonb),
+        raw_payload = CAST(${JSON.stringify(intake.rawPayload)} AS jsonb),
         adviser_assessment_notes = ${intake.adviserAssessmentNotes},
         recommended_pathway = ${intake.recommendedPathway},
         consultation_outcome = ${intake.consultationOutcome},
@@ -958,13 +972,107 @@ async function convertIntakeToClient(intakeId) {
 }
 
 function normaliseIntakeInput(input = {}) {
+  const rawPayload = normaliseEditableIntakePayload(input);
   return {
     id: input.id,
     status: normaliseIntakeStatus(input.status),
     assignedAdviserId: input.assignedAdviserId || input.assigned_adviser_id || '',
-    adviserAssessmentNotes: String(input.adviserAssessmentNotes || input.adviser_assessment_notes || '').trim().slice(0, 12000),
-    recommendedPathway: String(input.recommendedPathway || input.recommended_pathway || '').trim().slice(0, 4000),
-    consultationOutcome: String(input.consultationOutcome || input.consultation_outcome || '').trim().slice(0, 4000),
+    firstName: cleanIntakeText(rawPayload.firstName || input.firstName || input.applicantFirstName || input.applicant_first_name, 400),
+    lastName: cleanIntakeText(rawPayload.lastName || input.lastName || input.applicantLastName || input.applicant_last_name, 400),
+    email: cleanIntakeText(rawPayload.email || input.email, 400),
+    phone: cleanIntakeText(rawPayload.phone || input.phone, 400),
+    currentLocation: cleanIntakeText(rawPayload.currentLocation || input.currentLocation || input.current_location, 400),
+    citizenship: cleanIntakeText(rawPayload.citizenship || input.citizenship, 400),
+    dateOfBirth: cleanIntakeText(rawPayload.dateOfBirth || input.dateOfBirth || input.date_of_birth, 20),
+    currentVisaType: cleanIntakeText(rawPayload.currentVisaType || input.currentVisaType || input.current_visa_type, 400),
+    currentVisaExpiry: cleanIntakeText(rawPayload.currentVisaExpiry || input.currentVisaExpiry || input.current_visa_expiry, 20),
+    targetPathway: cleanIntakeText(rawPayload.targetPathway || input.targetPathway || input.target_pathway, 400),
+    urgency: cleanIntakeText(rawPayload.urgency || input.urgency, 80),
+    rawPayload,
+    adviserAssessmentNotes: cleanIntakeText(input.adviserAssessmentNotes || input.adviser_assessment_notes, 12000),
+    recommendedPathway: cleanIntakeText(input.recommendedPathway || input.recommended_pathway, 4000),
+    consultationOutcome: cleanIntakeText(input.consultationOutcome || input.consultation_outcome, 4000),
+  };
+}
+
+function normaliseEditableIntakePayload(input = {}) {
+  const source = input.rawPayload && typeof input.rawPayload === 'object'
+    ? input.rawPayload
+    : input.raw_payload && typeof input.raw_payload === 'object'
+      ? input.raw_payload
+      : {};
+  const payload = cleanIntakePayloadValue({ ...source });
+  const topLevel = {
+    firstName: input.firstName || input.applicantFirstName || input.applicant_first_name,
+    lastName: input.lastName || input.applicantLastName || input.applicant_last_name,
+    email: input.email,
+    phone: input.phone,
+    citizenship: input.citizenship,
+    dateOfBirth: input.dateOfBirth || input.date_of_birth,
+    currentLocation: input.currentLocation || input.current_location,
+    currentVisaType: input.currentVisaType || input.current_visa_type,
+    currentVisaExpiry: input.currentVisaExpiry || input.current_visa_expiry,
+    targetPathway: input.targetPathway || input.target_pathway,
+    urgency: input.urgency,
+  };
+  Object.entries(topLevel).forEach(([key, value]) => {
+    if (!payload[key] && value) payload[key] = cleanIntakeText(value, 12000);
+  });
+  if (payload.dateOfBirth) payload.dateOfBirthAge = calculateIntakeAge(payload.dateOfBirth);
+  return payload;
+}
+
+function cleanIntakePayloadValue(value) {
+  if (Array.isArray(value)) return value.slice(0, 50).map((item) => cleanIntakePayloadValue(item));
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [cleanIntakeText(key, 80), cleanIntakePayloadValue(item)]));
+  }
+  if (typeof value === 'boolean') return value;
+  return cleanIntakeText(value, 12000);
+}
+
+function cleanIntakeText(value, max = 12000) {
+  return String(value || '').trim().slice(0, max);
+}
+
+function calculateIntakeAge(value) {
+  const iso = nullableDate(value);
+  if (!iso) return '';
+  const dob = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(dob.getTime())) return '';
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const monthDiff = today.getMonth() - dob.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) age -= 1;
+  return age >= 0 && age < 130 ? String(age) : '';
+}
+
+function daysUntilIntakeDate(value) {
+  const iso = nullableDate(value);
+  if (!iso) return null;
+  const target = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(target.getTime())) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.ceil((target.getTime() - today.getTime()) / 86400000);
+}
+
+function buildIntakeFlags(payload = {}) {
+  const visaDays = daysUntilIntakeDate(payload.currentVisaExpiry);
+  const urgentDays = daysUntilIntakeDate(payload.urgentDeadline);
+  const healthReview = /^yes/i.test(payload.healthIssues || '') || /^yes/i.test(payload.dependantHealthIssues || '');
+  const characterReview = [payload.characterIssues, payload.characterConvictions, payload.characterPendingCharges, payload.deportationRemoval, payload.visaDeclines, payload.overstayed, payload.falseMisleadingIssue, payload.appealOrDeadline].some((value) => /^yes/i.test(value || ''));
+  const hasChildrenWithCustodyIssue = Array.isArray(payload.children) && payload.children.some((child) => /^yes/i.test(child.custodyIssues || ''));
+  return {
+    urgent: payload.urgency === 'Urgent' || (visaDays !== null && visaDays <= 45) || (urgentDays !== null && urgentDays <= 45),
+    visaExpirySoon: visaDays !== null && visaDays <= 60,
+    health: healthReview,
+    character: characterReview,
+    employment: /^yes|in progress/i.test(payload.hasNzJobOffer || '') || Boolean(payload.employerName || payload.jobTitle || payload.currentEmployer || payload.occupation),
+    partnership: /^yes/i.test(payload.hasPartner || '') || /partner|family|married|de facto|relationship/i.test(`${payload.targetPathway} ${payload.relationshipStatus}`),
+    family: /^yes/i.test(payload.hasChildren || '') || hasChildrenWithCustodyIssue,
+    funds: Boolean(payload.availableFunds || payload.investmentFunds || payload.sourceOfFunds || payload.fundsDetails),
+    investor: /investor|investment|business/i.test(`${payload.targetPathway} ${payload.investmentInterest} ${payload.fundsDetails}`),
   };
 }
 

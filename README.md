@@ -779,3 +779,16 @@ This package-lock uses public npm registry tarball URLs so Netlify can install d
 - Reframed previous work history as its own subsection under Work and employment.
 - Added clearer placeholder guidance for previous roles, including position, employer, country, duration and duties.
 - Preserved existing intake payload and conversion behaviour.
+
+## v0.11.39 — Intake Pop-out Review Polish
+
+- Intake page now defaults back to **New / untouched** submissions.
+- Intake records now open in a pop-out editor, matching the cleaner client record editing pattern.
+- The intake list stays visible and uncluttered while advisers review/edit records in the pop-out.
+- Pop-out editor keeps adviser triage controls at the top: status, assigned adviser, recommended pathway, consultation/outcome and assessment notes.
+- Submitted questionnaire answers remain in the same order as the public Assessment Questionnaire, but can now be edited from the intake pop-out.
+- Date of birth age continues to recalculate and display when the date of birth is edited.
+- Existing intake actions remain available: Print / save PDF, Approve email, Decline email, Convert to client, Open client and Delete.
+- The CRM save action now persists edited questionnaire answers back to the intake record raw payload and summary fields.
+- Review flags are refreshed from the edited intake payload when saved.
+- No database migration required.
