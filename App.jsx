@@ -82,6 +82,10 @@ const INTAKE_RELATIONSHIP_OPTIONS = ['Single', 'Married', 'De facto / partner', 
 const INTAKE_QUALIFICATION_OPTIONS = ['No formal qualification', 'Secondary school', 'Trade certificate / diploma', 'Bachelor degree', 'Postgraduate qualification', 'Master degree', 'PhD', 'Other'];
 const INTAKE_EMPLOYMENT_STATUS_OPTIONS = ['Employed', 'Self-employed', 'Not currently employed', 'Studying', 'Other'];
 const INTAKE_CURRENCY_OPTIONS = ['NZD', 'AUD', 'USD', 'GBP', 'EUR', 'CAD', 'CNY', 'INR', 'PHP', 'ZAR', 'SGD', 'HKD', 'JPY', 'KRW', 'MYR', 'THB', 'AED', 'FJD', 'Other'];
+const INTAKE_YES_NO_ONLY_OPTIONS = ['Yes', 'No'];
+const COUNTRY_OPTIONS = [
+  'New Zealand', 'Australia', 'United Kingdom', 'United States', 'Afghanistan', 'Albania', 'Algeria', 'Andorra', 'Angola', 'Antigua and Barbuda', 'Argentina', 'Armenia', 'Austria', 'Azerbaijan', 'Bahamas', 'Bahrain', 'Bangladesh', 'Barbados', 'Belarus', 'Belgium', 'Belize', 'Benin', 'Bhutan', 'Bolivia', 'Bosnia and Herzegovina', 'Botswana', 'Brazil', 'Brunei', 'Bulgaria', 'Burkina Faso', 'Burundi', 'Cambodia', 'Cameroon', 'Canada', 'Cape Verde', 'Central African Republic', 'Chad', 'Chile', 'China', 'Colombia', 'Comoros', 'Congo', 'Costa Rica', 'Croatia', 'Cuba', 'Cyprus', 'Czech Republic', 'Democratic Republic of the Congo', 'Denmark', 'Djibouti', 'Dominica', 'Dominican Republic', 'Ecuador', 'Egypt', 'El Salvador', 'Equatorial Guinea', 'Eritrea', 'Estonia', 'Eswatini', 'Ethiopia', 'Fiji', 'Finland', 'France', 'Gabon', 'Gambia', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Grenada', 'Guatemala', 'Guinea', 'Guinea-Bissau', 'Guyana', 'Haiti', 'Honduras', 'Hong Kong', 'Hungary', 'Iceland', 'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland', 'Israel', 'Italy', 'Ivory Coast', 'Jamaica', 'Japan', 'Jordan', 'Kazakhstan', 'Kenya', 'Kiribati', 'Kosovo', 'Kuwait', 'Kyrgyzstan', 'Laos', 'Latvia', 'Lebanon', 'Lesotho', 'Liberia', 'Libya', 'Liechtenstein', 'Lithuania', 'Luxembourg', 'Macau', 'Madagascar', 'Malawi', 'Malaysia', 'Maldives', 'Mali', 'Malta', 'Marshall Islands', 'Mauritania', 'Mauritius', 'Mexico', 'Micronesia', 'Moldova', 'Monaco', 'Mongolia', 'Montenegro', 'Morocco', 'Mozambique', 'Myanmar', 'Namibia', 'Nauru', 'Nepal', 'Netherlands', 'Nicaragua', 'Niger', 'Nigeria', 'North Korea', 'North Macedonia', 'Norway', 'Oman', 'Pakistan', 'Palau', 'Palestine', 'Panama', 'Papua New Guinea', 'Paraguay', 'Peru', 'Philippines', 'Poland', 'Portugal', 'Qatar', 'Romania', 'Russia', 'Rwanda', 'Saint Kitts and Nevis', 'Saint Lucia', 'Saint Vincent and the Grenadines', 'Samoa', 'San Marino', 'Sao Tome and Principe', 'Saudi Arabia', 'Senegal', 'Serbia', 'Seychelles', 'Sierra Leone', 'Singapore', 'Slovakia', 'Slovenia', 'Solomon Islands', 'Somalia', 'South Africa', 'South Korea', 'South Sudan', 'Spain', 'Sri Lanka', 'Sudan', 'Suriname', 'Sweden', 'Switzerland', 'Syria', 'Taiwan', 'Tajikistan', 'Tanzania', 'Thailand', 'Timor-Leste', 'Togo', 'Tonga', 'Trinidad and Tobago', 'Tunisia', 'Turkey', 'Turkmenistan', 'Tuvalu', 'Uganda', 'Ukraine', 'United Arab Emirates', 'Uruguay', 'Uzbekistan', 'Vanuatu', 'Vatican City', 'Venezuela', 'Vietnam', 'Yemen', 'Zambia', 'Zimbabwe', 'Other'
+];
 
 const SUPPORT_CONTENT = {
   intake: {
@@ -168,203 +172,7 @@ const SUPPORT_CONTENT = {
   },
 };
 
-const COUNTRY_OPTIONS = [
-  "Afghanistan",,
-  "Albania",,
-  "Algeria",,
-  "Andorra",,
-  "Angola",,
-  "Antigua and Barbuda",,
-  "Argentina",,
-  "Armenia",,
-  "Australia",,
-  "Austria",,
-  "Azerbaijan",,
-  "Bahamas",,
-  "Bahrain",,
-  "Bangladesh",,
-  "Barbados",,
-  "Belarus",,
-  "Belgium",,
-  "Belize",,
-  "Benin",,
-  "Bhutan",,
-  "Bolivia",,
-  "Bosnia and Herzegovina",,
-  "Botswana",,
-  "Brazil",,
-  "Brunei",,
-  "Bulgaria",,
-  "Burkina Faso",,
-  "Burundi",,
-  "Cambodia",,
-  "Cameroon",,
-  "Canada",,
-  "Cape Verde",,
-  "Central African Republic",,
-  "Chad",,
-  "Chile",,
-  "China",,
-  "Colombia",,
-  "Comoros",,
-  "Congo",,
-  "Costa Rica",,
-  "Croatia",,
-  "Cuba",,
-  "Cyprus",,
-  "Czech Republic",,
-  "Democratic Republic of the Congo",,
-  "Denmark",,
-  "Djibouti",,
-  "Dominica",,
-  "Dominican Republic",,
-  "Ecuador",,
-  "Egypt",,
-  "El Salvador",,
-  "Equatorial Guinea",,
-  "Eritrea",,
-  "Estonia",,
-  "Eswatini",,
-  "Ethiopia",,
-  "Fiji",,
-  "Finland",,
-  "France",,
-  "Gabon",,
-  "Gambia",,
-  "Georgia",,
-  "Germany",,
-  "Ghana",,
-  "Greece",,
-  "Grenada",,
-  "Guatemala",,
-  "Guinea",,
-  "Guinea-Bissau",,
-  "Guyana",,
-  "Haiti",,
-  "Honduras",,
-  "Hungary",,
-  "Iceland",,
-  "India",,
-  "Indonesia",,
-  "Iran",,
-  "Iraq",,
-  "Ireland",,
-  "Israel",,
-  "Italy",,
-  "Jamaica",,
-  "Japan",,
-  "Jordan",,
-  "Kazakhstan",,
-  "Kenya",,
-  "Kiribati",,
-  "Kuwait",,
-  "Kyrgyzstan",,
-  "Laos",,
-  "Latvia",,
-  "Lebanon",,
-  "Lesotho",,
-  "Liberia",,
-  "Libya",,
-  "Liechtenstein",,
-  "Lithuania",,
-  "Luxembourg",,
-  "Madagascar",,
-  "Malawi",,
-  "Malaysia",,
-  "Maldives",,
-  "Mali",,
-  "Malta",,
-  "Marshall Islands",,
-  "Mauritania",,
-  "Mauritius",,
-  "Mexico",,
-  "Micronesia",,
-  "Moldova",,
-  "Monaco",,
-  "Mongolia",,
-  "Montenegro",,
-  "Morocco",,
-  "Mozambique",,
-  "Myanmar",,
-  "Namibia",,
-  "Nauru",,
-  "Nepal",,
-  "Netherlands",,
-  "New Zealand",,
-  "Nicaragua",,
-  "Niger",,
-  "Nigeria",,
-  "North Korea",,
-  "North Macedonia",,
-  "Norway",,
-  "Oman",,
-  "Pakistan",,
-  "Palau",,
-  "Palestine",,
-  "Panama",,
-  "Papua New Guinea",,
-  "Paraguay",,
-  "Peru",,
-  "Philippines",,
-  "Poland",,
-  "Portugal",,
-  "Qatar",,
-  "Romania",,
-  "Russia",,
-  "Rwanda",,
-  "Saint Kitts and Nevis",,
-  "Saint Lucia",,
-  "Saint Vincent and the Grenadines",,
-  "Samoa",,
-  "San Marino",,
-  "Sao Tome and Principe",,
-  "Saudi Arabia",,
-  "Senegal",,
-  "Serbia",,
-  "Seychelles",,
-  "Sierra Leone",,
-  "Singapore",,
-  "Slovakia",,
-  "Slovenia",,
-  "Solomon Islands",,
-  "Somalia",,
-  "South Africa",,
-  "South Korea",,
-  "South Sudan",,
-  "Spain",,
-  "Sri Lanka",,
-  "Sudan",,
-  "Suriname",,
-  "Sweden",,
-  "Switzerland",,
-  "Syria",,
-  "Taiwan",,
-  "Tajikistan",,
-  "Tanzania",,
-  "Thailand",,
-  "Timor-Leste",,
-  "Togo",,
-  "Tonga",,
-  "Trinidad and Tobago",,
-  "Tunisia",,
-  "Turkey",,
-  "Turkmenistan",,
-  "Tuvalu",,
-  "Uganda",,
-  "Ukraine",,
-  "United Arab Emirates",,
-  "United Kingdom",,
-  "United States",,
-  "Uruguay",,
-  "Uzbekistan",,
-  "Vanuatu",,
-  "Vatican City",,
-  "Venezuela",,
-  "Vietnam",,
-  "Yemen",,
-  "Zambia",,
-  "Zimbabwe",
-];
+
 
 const ADDRESS_LOOKUP_EXAMPLES = [
   'Auckland, New Zealand',
@@ -413,6 +221,7 @@ function makeBlankClient(data) {
     phone: '',
     nationality: '',
     dateOfBirth: '',
+    dateOfBirthAge: '',
     location: '',
     sharepointFolderUrl: '',
     oneLawClientNumber: '',
@@ -1193,6 +1002,7 @@ function IntakeFormApp() {
   function setField(name, value) {
     setForm((current) => {
       const next = { ...current, [name]: value };
+      if (name === 'dateOfBirth') next.dateOfBirthAge = calculateAge(value) ?? '';
       if (name === 'hasPartner' && value !== 'Yes') {
         next.partnerFullName = '';
         next.partnerDateOfBirth = '';
@@ -1245,7 +1055,7 @@ function IntakeFormApp() {
       const response = await fetch('/.netlify/functions/intake', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ payload: form }),
+        body: JSON.stringify({ payload: { ...form, dateOfBirthAge: calculateAge(form.dateOfBirth) ?? '' } }),
       });
       const body = await readJsonResponse(response);
       if (!response.ok) throw new Error(body.error || 'The assessment questionnaire could not be submitted.');
@@ -1288,12 +1098,11 @@ function IntakeFormApp() {
             <div className="form-grid">
               <IntakeField label="First name" value={form.firstName} onChange={(v) => setField('firstName', v)} required />
               <IntakeField label="Last name" value={form.lastName} onChange={(v) => setField('lastName', v)} required />
-              <IntakeField label="Preferred name" value={form.preferredName} onChange={(v) => setField('preferredName', v)} />
               <IntakeField label="Email" type="email" value={form.email} onChange={(v) => setField('email', v)} required />
-              <IntakeField label="Phone / WhatsApp" value={form.phone} onChange={(v) => setField('phone', v)} />
-              <IntakeSelect label="Preferred contact method" value={form.preferredContactMethod} onChange={(v) => setField('preferredContactMethod', v)} options={['Email', 'Phone', 'WhatsApp', 'Video call']} />
-              <IntakeField label="Country of citizenship" value={form.citizenship} onChange={(v) => setField('citizenship', v)} />
-              <IntakeField label="Date of birth" type="date" value={form.dateOfBirth} onChange={(v) => setField('dateOfBirth', v)} />
+              <IntakeField label="Mobile phone" value={form.phone} onChange={(v) => setField('phone', v)} />
+              <IntakeSelect label="Preferred contact method" value={form.preferredContactMethod} onChange={(v) => setField('preferredContactMethod', v)} options={['Email', 'Mobile']} />
+              <IntakeSelect label="Country of citizenship" value={form.citizenship} onChange={(v) => setField('citizenship', v)} options={COUNTRY_OPTIONS} />
+              <DateWithAgeField label="Date of birth" value={form.dateOfBirth} onChange={(v) => setField('dateOfBirth', v)} />
             </div>
           </IntakeSection>
 
@@ -1309,14 +1118,14 @@ function IntakeFormApp() {
 
           <IntakeSection title="Current visa situation">
             <div className="form-grid">
-              <IntakeSelect label="Are you currently in New Zealand?" value={form.isInNewZealand} onChange={(v) => setField('isInNewZealand', v)} options={INTAKE_YES_NO_OPTIONS} />
-              <IntakeField label="Current country / location" value={form.currentLocation} onChange={(v) => setField('currentLocation', v)} />
+              <IntakeSelect label="Are you currently in New Zealand?" value={form.isInNewZealand} onChange={(v) => setField('isInNewZealand', v)} options={INTAKE_YES_NO_ONLY_OPTIONS} />
+              <IntakeSelect label="Current country / location" value={form.currentLocation} onChange={(v) => setField('currentLocation', v)} options={COUNTRY_OPTIONS} />
               {isInNewZealand && <IntakeField label="Current visa type" value={form.currentVisaType} onChange={(v) => setField('currentVisaType', v)} />}
               {isInNewZealand && <IntakeField label="Current visa expiry" type="date" value={form.currentVisaExpiry} onChange={(v) => setField('currentVisaExpiry', v)} />}
               {isInNewZealand && <IntakeField label="Visa conditions" value={form.visaConditions} onChange={(v) => setField('visaConditions', v)} placeholder="e.g. employer, study, section 49 conditions" />}
-              {!isInNewZealand && <IntakeSelect label="Have you previously visited New Zealand?" value={form.previouslyVisitedNz} onChange={(v) => setField('previouslyVisitedNz', v)} options={INTAKE_YES_NO_OPTIONS} />}
-              {!isInNewZealand && <IntakeSelect label="Have you previously held a New Zealand visa?" value={form.previouslyHeldNzVisa} onChange={(v) => setField('previouslyHeldNzVisa', v)} options={INTAKE_YES_NO_OPTIONS} />}
-              {!isInNewZealand && <IntakeField label="Planned travel date" type="date" value={form.plannedTravelDate} onChange={(v) => setField('plannedTravelDate', v)} />}
+              {!isInNewZealand && <IntakeSelect label="Have you previously visited New Zealand?" value={form.previouslyVisitedNz} onChange={(v) => setField('previouslyVisitedNz', v)} options={INTAKE_YES_NO_ONLY_OPTIONS} />}
+              {!isInNewZealand && <IntakeSelect label="Have you previously held a New Zealand visa?" value={form.previouslyHeldNzVisa} onChange={(v) => setField('previouslyHeldNzVisa', v)} options={INTAKE_YES_NO_ONLY_OPTIONS} />}
+              {!isInNewZealand && <IntakeField label="Planned travel date (if known)" type="date" value={form.plannedTravelDate} onChange={(v) => setField('plannedTravelDate', v)} />}
               <IntakeField label="Passport expiry date" type="date" value={form.passportExpiry} onChange={(v) => setField('passportExpiry', v)} />
             </div>
           </IntakeSection>
@@ -1401,7 +1210,7 @@ function IntakeFormApp() {
             </div>
 
             <div className="form-grid">
-              <IntakeSelect label="Do you have a New Zealand job offer?" value={form.hasNzJobOffer} onChange={(v) => setField('hasNzJobOffer', v)} options={['Yes', 'No', 'In progress', 'Unsure']} />
+              <IntakeSelect label="Do you have a New Zealand job offer?" value={form.hasNzJobOffer} onChange={(v) => setField('hasNzJobOffer', v)} options={['Yes', 'No', 'In progress']} />
             </div>
 
             {hasNzJobOffer && (
@@ -1457,7 +1266,8 @@ function IntakeFormApp() {
               <IntakeSelect label="Any current appeal, reconsideration or deadline?" value={form.appealOrDeadline} onChange={(v) => setField('appealOrDeadline', v)} options={INTAKE_YES_NO_OPTIONS} />
             </div>
             {hasImmigrationHistoryIssue && <IntakeTextarea label="Immigration history details" value={form.immigrationHistoryDetails} onChange={(v) => setField('immigrationHistoryDetails', v)} rows={3} />}
-            <IntakeTextarea label="Countries lived in for 12 months or more" value={form.countriesLived} onChange={(v) => setField('countriesLived', v)} rows={3} />
+            <IntakeTextarea label="Countries you have spent a combined total of 12 months or more in" value={form.countriesLived} onChange={(v) => setField('countriesLived', v)} rows={3} />
+            <IntakeTextarea label="Countries you have spent a combined total of five years or more in, since turning 17 years of age" value={form.countriesLivedFiveYearsSince17} onChange={(v) => setField('countriesLivedFiveYearsSince17', v)} rows={3} />
             <IntakeTextarea label="New Zealand travel or visa history" value={form.nzTravelHistory} onChange={(v) => setField('nzTravelHistory', v)} rows={3} />
           </IntakeSection>
 
@@ -1821,7 +1631,7 @@ function getIntakeQuestionnaireSections(record = {}) {
   const sections = [
     {
       title: 'Your details',
-      rows: intakeRows(payload, ['firstName', 'lastName', 'preferredName', 'email', 'phone', 'preferredContactMethod', 'citizenship', 'dateOfBirth']),
+      rows: intakeRows(payload, ['firstName', 'lastName', 'email', 'phone', 'preferredContactMethod', 'citizenship', 'dateOfBirth', 'dateOfBirthAge']),
     },
     {
       title: 'Immigration goal',
@@ -1857,7 +1667,7 @@ function getIntakeQuestionnaireSections(record = {}) {
     },
     {
       title: 'Immigration history',
-      rows: intakeRows(payload, ['visaDeclines', 'overstayed', 'falseMisleadingIssue', 'appealOrDeadline', 'immigrationHistoryDetails', 'countriesLived', 'nzTravelHistory']),
+      rows: intakeRows(payload, ['visaDeclines', 'overstayed', 'falseMisleadingIssue', 'appealOrDeadline', 'immigrationHistoryDetails', 'countriesLived', 'countriesLivedFiveYearsSince17', 'nzTravelHistory']),
     },
     {
       title: 'Funds and investment',
@@ -1884,6 +1694,9 @@ function intakeAnswerPayload(record = {}) {
   ['firstName', 'lastName', 'email', 'phone', 'citizenship', 'dateOfBirth', 'currentLocation', 'currentVisaType', 'currentVisaExpiry', 'targetPathway', 'urgency'].forEach((key) => {
     if (!hasIntakeValue(payload[key]) && hasIntakeValue(record[key])) payload[key] = record[key];
   });
+  if (hasIntakeValue(payload.dateOfBirth) && !hasIntakeValue(payload.dateOfBirthAge)) {
+    payload.dateOfBirthAge = calculateAge(payload.dateOfBirth);
+  }
   return payload;
 }
 
@@ -6431,12 +6244,12 @@ function makeBlankIntakePayload() {
   return {
     firstName: '',
     lastName: '',
-    preferredName: '',
     email: '',
     phone: '',
     preferredContactMethod: 'Email',
     citizenship: '',
     dateOfBirth: '',
+    dateOfBirthAge: '',
     consentToContact: false,
     privacyAcknowledged: false,
     urgency: 'Standard',
@@ -6514,6 +6327,7 @@ function makeBlankIntakePayload() {
     falseMisleadingIssue: '',
     appealOrDeadline: '',
     countriesLived: '',
+    countriesLivedFiveYearsSince17: '',
     nzTravelHistory: '',
     englishLevel: '',
     fundsAvailableSupport: '',
@@ -6562,25 +6376,25 @@ function intakeLabelForKey(key = '') {
   const labels = {
     firstName: 'First name',
     lastName: 'Last name',
-    preferredName: 'Preferred name',
     email: 'Email',
-    phone: 'Phone',
+    phone: 'Mobile phone',
     preferredContactMethod: 'Preferred contact method',
-    citizenship: 'Citizenship',
+    citizenship: 'Country of citizenship',
     dateOfBirth: 'Date of birth',
+    dateOfBirthAge: 'Age',
     targetPathway: 'Main goal',
     desiredTimeframe: 'Preferred timing',
     urgency: 'Urgency',
     urgentDeadline: 'Urgent deadline',
     helpNeeded: 'Help needed',
     isInNewZealand: 'Currently in New Zealand',
-    currentLocation: 'Current location',
+    currentLocation: 'Current country / location',
     currentVisaType: 'Current visa',
     currentVisaExpiry: 'Visa expiry',
     visaConditions: 'Visa conditions',
     previouslyVisitedNz: 'Previously visited NZ',
     previouslyHeldNzVisa: 'Previously held NZ visa',
-    plannedTravelDate: 'Planned travel date',
+    plannedTravelDate: 'Planned travel date (if known)',
     passportExpiry: 'Passport expiry',
     relationshipStatus: 'Relationship status',
     hasPartner: 'Has partner',
@@ -6642,7 +6456,8 @@ function intakeLabelForKey(key = '') {
     overstayed: 'Overstayed',
     falseMisleadingIssue: 'False/misleading information issue',
     appealOrDeadline: 'Appeal/reconsideration/deadline',
-    countriesLived: 'Countries lived in',
+    countriesLived: 'Countries with 12 months or more',
+    countriesLivedFiveYearsSince17: 'Countries with five years or more since age 17',
     nzTravelHistory: 'NZ visa/travel history',
     fundsAvailableSupport: 'Funds to support move',
     availableFunds: 'Available funds',

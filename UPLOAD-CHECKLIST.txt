@@ -1,3 +1,27 @@
+THiS CRM v0.11.38 - Intake Form Field Polish
+
+Upload checklist
+
+1. Preserve the netlify/ folder.
+2. Preserve the public/ folder.
+3. Upload/commit all files from this ZIP to the GitHub repo root.
+4. Deploy through Netlify.
+5. Open /intake and confirm the Your details section shows First name, Last name, Email, Mobile phone, Preferred contact method, Country of citizenship and Date of birth.
+6. Confirm Preferred contact method offers only Email and Mobile.
+7. Confirm Country of citizenship and Current country / location are selectable country lists.
+8. Enter a date of birth and confirm age appears beside the date field.
+9. Confirm the relevant Yes/No questions no longer include Unsure where requested.
+10. Confirm Planned travel date shows "(if known)".
+11. Submit a test intake and confirm the adviser Intake review shows age and the updated country-residence questions.
+12. Confirm Print / save PDF still includes the updated intake labels.
+
+Notes:
+- No new database migration is required for this polish build.
+- Age is calculated from the date of birth at submission time and also derived in the adviser review where possible.
+- The raw intake payload includes the new five-years-since-age-17 country residence field.
+
+---
+
 THiS CRM v0.11.37 - Intake Approval Email Exact Copy Polish
 
 Upload checklist

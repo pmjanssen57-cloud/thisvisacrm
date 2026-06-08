@@ -1,9 +1,24 @@
-# Turner Hopkins CRM - Netlify Database v0.11.37
+# Turner Hopkins CRM - Netlify Database v0.11.38
 
 This package uses the default Netlify Functions directory: `netlify/functions`.
 
 
 
+
+## v0.11.38 - Intake Form Field Polish
+
+Small public intake form and adviser review refinement.
+
+- Removed Preferred name from the public intake form and adviser questionnaire review.
+- Renamed Phone / WhatsApp to Mobile phone.
+- Limited Preferred contact method to Email or Mobile.
+- Changed Country of citizenship and Current country / location to country selection dropdowns.
+- Date of birth now displays calculated age beside the date field once entered.
+- Calculated age is stored in the intake raw payload and shown to advisers in the intake review.
+- Removed Unsure from the currently-in-New-Zealand, previously-visited-NZ, previously-held-NZ-visa and NZ-job-offer questions.
+- Changed Planned travel date to Planned travel date (if known).
+- Updated the immigration history country residence labels, including the new five-years-since-age-17 field.
+- No database migration required.
 
 ## v0.11.37 - Intake Approval Email Exact Copy Polish
 

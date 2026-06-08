@@ -78,12 +78,12 @@ function normalisePayload(input = {}) {
   const payload = {
     firstName: clean(input.firstName),
     lastName: clean(input.lastName),
-    preferredName: clean(input.preferredName),
     email: clean(input.email).toLowerCase(),
     phone: clean(input.phone),
     preferredContactMethod: clean(input.preferredContactMethod) || 'Email',
     citizenship: clean(input.citizenship),
     dateOfBirth: clean(input.dateOfBirth),
+    dateOfBirthAge: calculateAge(input.dateOfBirth),
     consentToContact: Boolean(input.consentToContact),
     privacyAcknowledged: Boolean(input.privacyAcknowledged),
     urgency: clean(input.urgency) || 'Standard',
@@ -161,6 +161,7 @@ function normalisePayload(input = {}) {
     falseMisleadingIssue: clean(input.falseMisleadingIssue),
     appealOrDeadline: clean(input.appealOrDeadline),
     countriesLived: clean(input.countriesLived),
+    countriesLivedFiveYearsSince17: clean(input.countriesLivedFiveYearsSince17),
     nzTravelHistory: clean(input.nzTravelHistory),
     englishLevel: clean(input.englishLevel),
     englishTestDetails: clean(input.englishTestDetails),
@@ -176,7 +177,7 @@ function normalisePayload(input = {}) {
     fundsDetails: clean(input.fundsDetails),
     additionalInfo: clean(input.additionalInfo),
     submittedVia: 'THiS assessment questionnaire',
-    intakeVersion: 'v0.11.3',
+    intakeVersion: 'v0.11.38',
   };
   return payload;
 }
@@ -222,6 +223,18 @@ function nullableDate(value) {
   const text = clean(value);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return null;
   return text;
+}
+
+function calculateAge(value) {
+  const iso = nullableDate(value);
+  if (!iso) return '';
+  const dob = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(dob.getTime())) return '';
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const monthDiff = today.getMonth() - dob.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) age -= 1;
+  return age >= 0 && age < 130 ? String(age) : '';
 }
 
 function daysUntil(value) {
