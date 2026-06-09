@@ -465,3 +465,12 @@ v0.11.39 deployment checks:
 6. Confirm Print / save PDF, Approve email, Decline email and Convert to client still appear in the pop-out.
 7. Confirm Show all still switches the page to all intake statuses.
 8. No database migration is required.
+
+
+v0.11.40 deployment checks:
+- Deploy package: this-crm-v1140-partner-intake-field-polish.zip
+- No database migration required.
+- Confirm /intake shows partner work/experience and partner qualifications only when “Do you have a partner?” is Yes.
+- Submit a test partner intake and confirm the intake pop-out editor shows the new partner sections.
+- Confirm Print / save PDF includes Partner work and experience and Partner qualifications.
+- Run through save/save & close in the intake pop-out editor after editing partner fields.

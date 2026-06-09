@@ -792,3 +792,13 @@ This package-lock uses public npm registry tarball URLs so Netlify can install d
 - The CRM save action now persists edited questionnaire answers back to the intake record raw payload and summary fields.
 - Review flags are refreshed from the edited intake payload when saved.
 - No database migration required.
+
+## v0.11.40 — Partner Qualification and Experience Intake Polish
+
+- Added conditional partner work/experience questions to the public assessment questionnaire when the applicant indicates they have a partner.
+- Added conditional partner qualification questions to the public assessment questionnaire when the applicant indicates they have a partner.
+- Added the same partner work/experience and qualification fields to the intake pop-out editor for adviser review and correction.
+- Updated intake questionnaire review and printable PDF output so partner experience and qualification details appear in the Partner and family section.
+- Updated intake payload normalisation so new partner fields are stored in the raw intake payload.
+- No database migration required; the new answers are stored in the existing raw_payload JSON field.
+

@@ -1015,6 +1015,27 @@ function IntakeFormApp() {
         next.startedLivingTogether = '';
         next.partnerIncluded = '';
         next.relationshipBackground = '';
+        next.partnerCurrentEmploymentStatus = '';
+        next.partnerOccupation = '';
+        next.partnerCurrentEmployer = '';
+        next.partnerEmploymentCountry = '';
+        next.partnerCurrentJobStartDate = '';
+        next.partnerHoursPerWeek = '';
+        next.partnerAnnualSalary = '';
+        next.partnerSalaryCurrency = '';
+        next.partnerYearsExperience = '';
+        next.partnerEmploymentDetails = '';
+        next.partnerPreviousWorkHistory = '';
+        next.partnerHighestQualification = '';
+        next.partnerQualificationName = '';
+        next.partnerQualificationInstitution = '';
+        next.partnerQualificationCountry = '';
+        next.partnerQualificationYearCompleted = '';
+        next.partnerQualificationStudyLength = '';
+        next.partnerTaughtInEnglish = '';
+        next.partnerNzqaAssessed = '';
+        next.partnerQualificationRelatedToOccupation = '';
+        next.partnerQualificationDetails = '';
       }
       if (name === 'hasChildren') {
         next.children = value === 'Yes' ? (current.children?.length ? current.children : [makeBlankIntakeChild()]) : [];
@@ -1143,8 +1164,8 @@ function IntakeFormApp() {
                 <div className="form-grid">
                   <IntakeField label="Partner full name" value={form.partnerFullName} onChange={(v) => setField('partnerFullName', v)} />
                   <IntakeField label="Partner date of birth" type="date" value={form.partnerDateOfBirth} onChange={(v) => setField('partnerDateOfBirth', v)} />
-                  <IntakeField label="Partner citizenship" value={form.partnerCitizenship} onChange={(v) => setField('partnerCitizenship', v)} />
-                  <IntakeField label="Partner current country" value={form.partnerCurrentCountry} onChange={(v) => setField('partnerCurrentCountry', v)} />
+                  <IntakeSelect label="Partner citizenship" value={form.partnerCitizenship} onChange={(v) => setField('partnerCitizenship', v)} options={COUNTRY_OPTIONS} />
+                  <IntakeSelect label="Partner current country" value={form.partnerCurrentCountry} onChange={(v) => setField('partnerCurrentCountry', v)} options={COUNTRY_OPTIONS} />
                   <IntakeField label="Partner NZ visa status" value={form.partnerVisaStatus} onChange={(v) => setField('partnerVisaStatus', v)} />
                   <IntakeSelect label="Is your partner a NZ citizen or resident?" value={form.partnerNzStatus} onChange={(v) => setField('partnerNzStatus', v)} options={INTAKE_YES_NO_OPTIONS} />
                   <IntakeSelect label="Are you living together?" value={form.livingTogether} onChange={(v) => setField('livingTogether', v)} options={INTAKE_YES_NO_OPTIONS} />
@@ -1153,6 +1174,43 @@ function IntakeFormApp() {
                   <IntakeSelect label="Include partner in assessment?" value={form.partnerIncluded} onChange={(v) => setField('partnerIncluded', v)} options={INTAKE_YES_NO_OPTIONS} />
                 </div>
                 <IntakeTextarea label="Brief relationship background" value={form.relationshipBackground} onChange={(v) => setField('relationshipBackground', v)} rows={3} />
+              </div>
+            )}
+
+            {hasPartner && (
+              <div className="intake-nested-panel">
+                <h3>Partner work and experience</h3>
+                <div className="form-grid">
+                  <IntakeSelect label="Partner current employment status" value={form.partnerCurrentEmploymentStatus} onChange={(v) => setField('partnerCurrentEmploymentStatus', v)} options={INTAKE_EMPLOYMENT_STATUS_OPTIONS} />
+                  <IntakeField label="Partner occupation / profession" value={form.partnerOccupation} onChange={(v) => setField('partnerOccupation', v)} />
+                  <IntakeField label="Partner current employer / business" value={form.partnerCurrentEmployer} onChange={(v) => setField('partnerCurrentEmployer', v)} />
+                  <IntakeSelect label="Partner country of employment" value={form.partnerEmploymentCountry} onChange={(v) => setField('partnerEmploymentCountry', v)} options={COUNTRY_OPTIONS} />
+                  <IntakeField label="Partner current job start date" type="date" value={form.partnerCurrentJobStartDate} onChange={(v) => setField('partnerCurrentJobStartDate', v)} />
+                  <IntakeField label="Partner hours per week" value={form.partnerHoursPerWeek} onChange={(v) => setField('partnerHoursPerWeek', v)} />
+                  <IntakeField label="Partner salary or pay rate" value={form.partnerAnnualSalary} onChange={(v) => setField('partnerAnnualSalary', v)} />
+                  <IntakeSelect label="Partner salary currency" value={form.partnerSalaryCurrency} onChange={(v) => setField('partnerSalaryCurrency', v)} options={INTAKE_CURRENCY_OPTIONS} />
+                  <IntakeField label="Partner years of relevant experience" value={form.partnerYearsExperience} onChange={(v) => setField('partnerYearsExperience', v)} />
+                </div>
+                <IntakeTextarea label="Partner current employment details" value={form.partnerEmploymentDetails} onChange={(v) => setField('partnerEmploymentDetails', v)} rows={3} />
+                <IntakeTextarea label="Partner previous work history" value={form.partnerPreviousWorkHistory} onChange={(v) => setField('partnerPreviousWorkHistory', v)} rows={4} placeholder={"Please include relevant previous roles, employers, countries, dates or length of experience, and main duties."} />
+              </div>
+            )}
+
+            {hasPartner && (
+              <div className="intake-nested-panel">
+                <h3>Partner qualifications</h3>
+                <div className="form-grid">
+                  <IntakeSelect label="Partner highest qualification" value={form.partnerHighestQualification} onChange={(v) => setField('partnerHighestQualification', v)} options={INTAKE_QUALIFICATION_OPTIONS} />
+                  <IntakeField label="Partner qualification name" value={form.partnerQualificationName} onChange={(v) => setField('partnerQualificationName', v)} />
+                  <IntakeField label="Partner institution" value={form.partnerQualificationInstitution} onChange={(v) => setField('partnerQualificationInstitution', v)} />
+                  <IntakeSelect label="Partner qualification country" value={form.partnerQualificationCountry} onChange={(v) => setField('partnerQualificationCountry', v)} options={COUNTRY_OPTIONS} />
+                  <IntakeField label="Partner year completed" value={form.partnerQualificationYearCompleted} onChange={(v) => setField('partnerQualificationYearCompleted', v)} />
+                  <IntakeField label="Partner length of study" value={form.partnerQualificationStudyLength} onChange={(v) => setField('partnerQualificationStudyLength', v)} />
+                  <IntakeSelect label="Partner qualification taught in English?" value={form.partnerTaughtInEnglish} onChange={(v) => setField('partnerTaughtInEnglish', v)} options={INTAKE_YES_NO_OPTIONS} />
+                  <IntakeSelect label="Partner qualification assessed by NZQA?" value={form.partnerNzqaAssessed} onChange={(v) => setField('partnerNzqaAssessed', v)} options={INTAKE_YES_NO_OPTIONS} />
+                  <IntakeSelect label="Partner qualification related to occupation?" value={form.partnerQualificationRelatedToOccupation} onChange={(v) => setField('partnerQualificationRelatedToOccupation', v)} options={INTAKE_YES_NO_OPTIONS} />
+                </div>
+                <IntakeTextarea label="Partner other qualifications or training" value={form.partnerQualificationDetails} onChange={(v) => setField('partnerQualificationDetails', v)} rows={3} />
               </div>
             )}
 
@@ -1171,8 +1229,8 @@ function IntakeFormApp() {
                     <div className="form-grid">
                       <IntakeField label="Full name" value={child.fullName} onChange={(v) => setChildField(index, 'fullName', v)} />
                       <IntakeField label="Date of birth" type="date" value={child.dateOfBirth} onChange={(v) => setChildField(index, 'dateOfBirth', v)} />
-                      <IntakeField label="Citizenship" value={child.citizenship} onChange={(v) => setChildField(index, 'citizenship', v)} />
-                      <IntakeField label="Current country" value={child.currentCountry} onChange={(v) => setChildField(index, 'currentCountry', v)} />
+                      <IntakeSelect label="Citizenship" value={child.citizenship} onChange={(v) => setChildField(index, 'citizenship', v)} options={COUNTRY_OPTIONS} />
+                      <IntakeSelect label="Current country" value={child.currentCountry} onChange={(v) => setChildField(index, 'currentCountry', v)} options={COUNTRY_OPTIONS} />
                       <IntakeSelect label="Financially dependent?" value={child.dependent} onChange={(v) => setChildField(index, 'dependent', v)} options={INTAKE_YES_NO_OPTIONS} />
                       <IntakeSelect label="Include in visa application?" value={child.includedInApplication} onChange={(v) => setChildField(index, 'includedInApplication', v)} options={INTAKE_YES_NO_OPTIONS} />
                       <IntakeSelect label="Any custody / guardianship issue?" value={child.custodyIssues} onChange={(v) => setChildField(index, 'custodyIssues', v)} options={INTAKE_YES_NO_OPTIONS} />
@@ -1189,7 +1247,7 @@ function IntakeFormApp() {
               <IntakeSelect label="Current employment status" value={form.currentEmploymentStatus} onChange={(v) => setField('currentEmploymentStatus', v)} options={INTAKE_EMPLOYMENT_STATUS_OPTIONS} />
               <IntakeField label="Occupation / profession" value={form.occupation} onChange={(v) => setField('occupation', v)} />
               <IntakeField label="Current employer / business" value={form.currentEmployer} onChange={(v) => setField('currentEmployer', v)} />
-              <IntakeField label="Country of employment" value={form.employmentCountry} onChange={(v) => setField('employmentCountry', v)} />
+              <IntakeSelect label="Country of employment" value={form.employmentCountry} onChange={(v) => setField('employmentCountry', v)} options={COUNTRY_OPTIONS} />
               <IntakeField label="Start date" type="date" value={form.currentJobStartDate} onChange={(v) => setField('currentJobStartDate', v)} />
               <IntakeField label="Hours per week" value={form.hoursPerWeek} onChange={(v) => setField('hoursPerWeek', v)} />
               <IntakeField label="Salary or pay rate" value={form.annualSalary} onChange={(v) => setField('annualSalary', v)} />
@@ -1236,7 +1294,7 @@ function IntakeFormApp() {
               <IntakeSelect label="Highest qualification" value={form.highestQualification} onChange={(v) => setField('highestQualification', v)} options={INTAKE_QUALIFICATION_OPTIONS} />
               <IntakeField label="Qualification name" value={form.qualificationName} onChange={(v) => setField('qualificationName', v)} />
               <IntakeField label="Institution" value={form.qualificationInstitution} onChange={(v) => setField('qualificationInstitution', v)} />
-              <IntakeField label="Country" value={form.qualificationCountry} onChange={(v) => setField('qualificationCountry', v)} />
+              <IntakeSelect label="Country" value={form.qualificationCountry} onChange={(v) => setField('qualificationCountry', v)} options={COUNTRY_OPTIONS} />
               <IntakeField label="Year completed" value={form.qualificationYearCompleted} onChange={(v) => setField('qualificationYearCompleted', v)} />
               <IntakeField label="Length of study" value={form.qualificationStudyLength} onChange={(v) => setField('qualificationStudyLength', v)} />
               <IntakeSelect label="Taught in English?" value={form.taughtInEnglish} onChange={(v) => setField('taughtInEnglish', v)} options={INTAKE_YES_NO_OPTIONS} />
@@ -1685,6 +1743,37 @@ function IntakeQuestionnaireEditor({ record = {}, onChange }) {
           <IntakeTextarea label="Relationship background" value={fieldValue('relationshipBackground')} onChange={(v) => set('relationshipBackground', v)} rows={3} />
         </div>
         <div className="intake-nested-panel">
+          <h3>Partner work and experience</h3>
+          <div className="form-grid">
+            <IntakeSelect label="Partner current employment status" value={fieldValue('partnerCurrentEmploymentStatus')} onChange={(v) => set('partnerCurrentEmploymentStatus', v)} options={INTAKE_EMPLOYMENT_STATUS_OPTIONS} />
+            <IntakeField label="Partner occupation / profession" value={fieldValue('partnerOccupation')} onChange={(v) => set('partnerOccupation', v)} />
+            <IntakeField label="Partner current employer / business" value={fieldValue('partnerCurrentEmployer')} onChange={(v) => set('partnerCurrentEmployer', v)} />
+            <IntakeSelect label="Partner country of employment" value={fieldValue('partnerEmploymentCountry')} onChange={(v) => set('partnerEmploymentCountry', v)} options={COUNTRY_OPTIONS} />
+            <IntakeField label="Partner current job start date" type="date" value={fieldValue('partnerCurrentJobStartDate')} onChange={(v) => set('partnerCurrentJobStartDate', v)} />
+            <IntakeField label="Partner hours per week" value={fieldValue('partnerHoursPerWeek')} onChange={(v) => set('partnerHoursPerWeek', v)} />
+            <IntakeField label="Partner salary or pay rate" value={fieldValue('partnerAnnualSalary')} onChange={(v) => set('partnerAnnualSalary', v)} />
+            <IntakeSelect label="Partner salary currency" value={fieldValue('partnerSalaryCurrency')} onChange={(v) => set('partnerSalaryCurrency', v)} options={INTAKE_CURRENCY_OPTIONS} />
+            <IntakeField label="Partner years of relevant experience" value={fieldValue('partnerYearsExperience')} onChange={(v) => set('partnerYearsExperience', v)} />
+          </div>
+          <IntakeTextarea label="Partner current employment details" value={fieldValue('partnerEmploymentDetails')} onChange={(v) => set('partnerEmploymentDetails', v)} rows={3} />
+          <IntakeTextarea label="Partner previous work history" value={fieldValue('partnerPreviousWorkHistory')} onChange={(v) => set('partnerPreviousWorkHistory', v)} rows={3} />
+        </div>
+        <div className="intake-nested-panel">
+          <h3>Partner qualifications</h3>
+          <div className="form-grid">
+            <IntakeSelect label="Partner highest qualification" value={fieldValue('partnerHighestQualification')} onChange={(v) => set('partnerHighestQualification', v)} options={INTAKE_QUALIFICATION_OPTIONS} />
+            <IntakeField label="Partner qualification name" value={fieldValue('partnerQualificationName')} onChange={(v) => set('partnerQualificationName', v)} />
+            <IntakeField label="Partner institution" value={fieldValue('partnerQualificationInstitution')} onChange={(v) => set('partnerQualificationInstitution', v)} />
+            <IntakeSelect label="Partner qualification country" value={fieldValue('partnerQualificationCountry')} onChange={(v) => set('partnerQualificationCountry', v)} options={COUNTRY_OPTIONS} />
+            <IntakeField label="Partner year completed" value={fieldValue('partnerQualificationYearCompleted')} onChange={(v) => set('partnerQualificationYearCompleted', v)} />
+            <IntakeField label="Partner length of study" value={fieldValue('partnerQualificationStudyLength')} onChange={(v) => set('partnerQualificationStudyLength', v)} />
+            <IntakeSelect label="Partner qualification taught in English?" value={fieldValue('partnerTaughtInEnglish')} onChange={(v) => set('partnerTaughtInEnglish', v)} options={INTAKE_YES_NO_OPTIONS} />
+            <IntakeSelect label="Partner qualification assessed by NZQA?" value={fieldValue('partnerNzqaAssessed')} onChange={(v) => set('partnerNzqaAssessed', v)} options={INTAKE_YES_NO_OPTIONS} />
+            <IntakeSelect label="Partner qualification related to occupation?" value={fieldValue('partnerQualificationRelatedToOccupation')} onChange={(v) => set('partnerQualificationRelatedToOccupation', v)} options={INTAKE_YES_NO_OPTIONS} />
+          </div>
+          <IntakeTextarea label="Partner other qualifications or training" value={fieldValue('partnerQualificationDetails')} onChange={(v) => set('partnerQualificationDetails', v)} rows={3} />
+        </div>
+        <div className="intake-nested-panel">
           <h3>Children</h3>
           <IntakeTextarea label="Children details" value={fieldValue('children')} onChange={(v) => set('children', v)} rows={3} />
           <IntakeTextarea label="Additional child / custody details" value={fieldValue('moreChildrenDetails')} onChange={(v) => set('moreChildrenDetails', v)} rows={3} />
@@ -1892,6 +1981,8 @@ function getIntakeQuestionnaireSections(record = {}) {
       rows: intakeRows(payload, ['relationshipStatus', 'hasPartner', 'hasChildren']),
       panels: [
         { title: 'Partner details', rows: intakeRows(payload, ['partnerFullName', 'partnerDateOfBirth', 'partnerCitizenship', 'partnerCurrentCountry', 'partnerVisaStatus', 'partnerNzStatus', 'livingTogether', 'relationshipStarted', 'startedLivingTogether', 'partnerIncluded', 'relationshipBackground']) },
+        { title: 'Partner work and experience', rows: intakeRows(payload, ['partnerCurrentEmploymentStatus', 'partnerOccupation', 'partnerCurrentEmployer', 'partnerEmploymentCountry', 'partnerCurrentJobStartDate', 'partnerHoursPerWeek', 'partnerAnnualSalary', 'partnerSalaryCurrency', 'partnerYearsExperience', 'partnerEmploymentDetails', 'partnerPreviousWorkHistory']) },
+        { title: 'Partner qualifications', rows: intakeRows(payload, ['partnerHighestQualification', 'partnerQualificationName', 'partnerQualificationInstitution', 'partnerQualificationCountry', 'partnerQualificationYearCompleted', 'partnerQualificationStudyLength', 'partnerTaughtInEnglish', 'partnerNzqaAssessed', 'partnerQualificationRelatedToOccupation', 'partnerQualificationDetails']) },
         { title: 'Children', rows: intakeRows(payload, ['children', 'moreChildrenDetails']) },
       ],
     },
@@ -6525,6 +6616,27 @@ function makeBlankIntakePayload() {
     startedLivingTogether: '',
     partnerIncluded: '',
     relationshipBackground: '',
+    partnerCurrentEmploymentStatus: '',
+    partnerOccupation: '',
+    partnerCurrentEmployer: '',
+    partnerEmploymentCountry: '',
+    partnerCurrentJobStartDate: '',
+    partnerHoursPerWeek: '',
+    partnerAnnualSalary: '',
+    partnerSalaryCurrency: '',
+    partnerYearsExperience: '',
+    partnerEmploymentDetails: '',
+    partnerPreviousWorkHistory: '',
+    partnerHighestQualification: '',
+    partnerQualificationName: '',
+    partnerQualificationInstitution: '',
+    partnerQualificationCountry: '',
+    partnerQualificationYearCompleted: '',
+    partnerQualificationStudyLength: '',
+    partnerTaughtInEnglish: '',
+    partnerNzqaAssessed: '',
+    partnerQualificationRelatedToOccupation: '',
+    partnerQualificationDetails: '',
     hasChildren: '',
     children: [],
     moreChildrenDetails: '',
@@ -6655,6 +6767,27 @@ function intakeLabelForKey(key = '') {
     startedLivingTogether: 'Started living together',
     partnerIncluded: 'Partner included',
     relationshipBackground: 'Relationship background',
+    partnerCurrentEmploymentStatus: 'Partner employment status',
+    partnerOccupation: 'Partner occupation',
+    partnerCurrentEmployer: 'Partner current employer',
+    partnerEmploymentCountry: 'Partner employment country',
+    partnerCurrentJobStartDate: 'Partner current job start date',
+    partnerHoursPerWeek: 'Partner hours per week',
+    partnerAnnualSalary: 'Partner salary / pay rate',
+    partnerSalaryCurrency: 'Partner salary currency',
+    partnerYearsExperience: 'Partner relevant experience',
+    partnerEmploymentDetails: 'Partner employment details',
+    partnerPreviousWorkHistory: 'Partner previous work history',
+    partnerHighestQualification: 'Partner highest qualification',
+    partnerQualificationName: 'Partner qualification name',
+    partnerQualificationInstitution: 'Partner institution',
+    partnerQualificationCountry: 'Partner qualification country',
+    partnerQualificationYearCompleted: 'Partner year completed',
+    partnerQualificationStudyLength: 'Partner length of study',
+    partnerTaughtInEnglish: 'Partner taught in English',
+    partnerNzqaAssessed: 'Partner NZQA assessed',
+    partnerQualificationRelatedToOccupation: 'Partner qualification related to occupation',
+    partnerQualificationDetails: 'Partner qualification details',
     hasChildren: 'Has children',
     children: 'Children',
     moreChildrenDetails: 'More children details',
