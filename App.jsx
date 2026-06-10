@@ -204,6 +204,8 @@ const emptyData = {
   libraryEntries: [],
   intakeEnquiries: [],
   intakeStatuses: INTAKE_STATUSES,
+  emailLogs: [],
+  emailConfig: { configured: false, fromEmail: '', fromName: '' },
   securityMode: 'unknown',
 };
 
@@ -589,6 +591,10 @@ export default function App() {
     await callApi('saveAdviser', { adviser });
   }
 
+  async function sendTestEmail(email) {
+    return callApi('sendTestEmail', { email });
+  }
+
   async function savePersonalTask(task) {
     await callApi('savePersonalTask', { task });
   }
@@ -901,7 +907,7 @@ export default function App() {
         )}
       </main>
       <SupportDrawer open={supportOpen} onOpen={() => { setToolsOpen(false); setSupportOpen(true); }} onClose={() => setSupportOpen(false)} tab={tab} />
-      <ToolsDrawer open={toolsOpen} onOpen={() => { setSupportOpen(false); setToolsOpen(true); }} onClose={() => setToolsOpen(false)} />
+      <ToolsDrawer open={toolsOpen} onOpen={() => { setSupportOpen(false); setToolsOpen(true); }} onClose={() => setToolsOpen(false)} sendTestEmail={sendTestEmail} emailLogs={data.emailLogs || []} emailConfig={data.emailConfig || emptyData.emailConfig} saving={saving} />
       <MobileBottomNav activeTab={tab} onNavigate={switchTab} onOpenMore={() => setMobileMoreOpen(true)} />
       <MobileMoreSheet
         open={mobileMoreOpen}
@@ -2805,8 +2811,8 @@ const TOOL_TIMEZONES = [
   { value: 'America/New_York', label: 'New York, USA' },
 ];
 
-function ToolsDrawer({ open, onOpen, onClose }) {
-  const [activeTool, setActiveTool] = useState('weather');
+function ToolsDrawer({ open, onOpen, onClose, sendTestEmail, emailLogs = [], emailConfig = {}, saving = false }) {
+  const [activeTool, setActiveTool] = useState('email');
 
   return (
     <>
@@ -2828,8 +2834,10 @@ function ToolsDrawer({ open, onOpen, onClose }) {
           <button type="button" className={activeTool === 'timezone' ? 'active' : ''} onClick={() => setActiveTool('timezone')}><Globe2 size={16} />Time</button>
           <button type="button" className={activeTool === 'currency' ? 'active' : ''} onClick={() => setActiveTool('currency')}><DollarSign size={16} />Currency</button>
           <button type="button" className={activeTool === 'calculator' ? 'active' : ''} onClick={() => setActiveTool('calculator')}><Calculator size={16} />Calc</button>
+          <button type="button" className={activeTool === 'email' ? 'active' : ''} onClick={() => setActiveTool('email')}><Mail size={16} />Email</button>
         </div>
         <div className="tool-panel">
+          {activeTool === 'email' && <EmailTestTool sendTestEmail={sendTestEmail} emailLogs={emailLogs} emailConfig={emailConfig} saving={saving} />}
           {activeTool === 'weather' && <WeatherTool />}
           {activeTool === 'timezone' && <TimezoneTool />}
           {activeTool === 'currency' && <CurrencyTool />}
@@ -2837,6 +2845,82 @@ function ToolsDrawer({ open, onOpen, onClose }) {
         </div>
       </aside>
     </>
+  );
+}
+
+function EmailTestTool({ sendTestEmail, emailLogs = [], emailConfig = {}, saving = false }) {
+  const [toEmail, setToEmail] = useState('');
+  const [subject, setSubject] = useState('THiS CRM test email');
+  const [message, setMessage] = useState('This is a test email sent from THiS CRM through the Turner Hopkins Microsoft 365 mailbox.');
+  const [result, setResult] = useState(null);
+  const [localError, setLocalError] = useState('');
+  const configured = Boolean(emailConfig?.configured);
+  const recentLogs = [...emailLogs].slice(0, 6);
+
+  async function submit(event) {
+    event.preventDefault();
+    setLocalError('');
+    setResult(null);
+    if (!toEmail.trim()) {
+      setLocalError('Enter a test recipient email address.');
+      return;
+    }
+    try {
+      const response = await sendTestEmail({ toEmail, subject, message });
+      setResult(response.emailLog || { status: 'Sent', toEmail, subject });
+    } catch (error) {
+      setLocalError(error?.message || 'The test email could not be sent.');
+    }
+  }
+
+  return (
+    <div className="stack compact-stack">
+      <div className="tool-result-card">
+        <div className="split">
+          <div>
+            <strong>Email sending test</strong>
+            <span>Send a controlled test email from the CRM before connecting client templates.</span>
+          </div>
+          <span className={`status-chip ${configured ? 'ok' : 'warning'}`}>{configured ? 'Configured' : 'Not configured'}</span>
+        </div>
+        <p className="muted">Sending mailbox: <b>{emailConfig?.fromName || 'Turner Hopkins Immigration Specialists'}</b>{emailConfig?.fromEmail ? ` <${emailConfig.fromEmail}>` : ''}</p>
+        {!configured && <p className="error-text">Microsoft email environment variables are not fully configured in Netlify.</p>}
+      </div>
+
+      <form className="tool-form" onSubmit={submit}>
+        <label>Test recipient email
+          <input value={toEmail} onChange={(event) => setToEmail(event.target.value)} placeholder="name@example.com" type="email" />
+        </label>
+        <label>Subject
+          <input value={subject} onChange={(event) => setSubject(event.target.value)} />
+        </label>
+        <label>Message
+          <textarea value={message} onChange={(event) => setMessage(event.target.value)} rows={5} />
+        </label>
+        <button className="btn dark" type="submit" disabled={saving || !configured}><Send size={16} />{saving ? 'Sending...' : 'Send test email'}</button>
+      </form>
+
+      {localError && <div className="error-banner"><AlertTriangle size={16} />{localError}</div>}
+      {result && (
+        <div className={`tool-result-card ${result.status === 'Failed' ? 'warning' : ''}`}>
+          <strong>{result.status === 'Failed' ? 'Email failed' : 'Email sent'}</strong>
+          <span>{result.subject || subject}</span>
+          {result.failureMessage && <small>{result.failureMessage}</small>}
+        </div>
+      )}
+
+      <div className="tool-result-card">
+        <strong>Recent email tests</strong>
+        {!recentLogs.length && <span>No email tests logged yet.</span>}
+        {recentLogs.map((log) => (
+          <div className="email-log-row" key={log.id}>
+            <span><b>{log.status}</b> · {log.toEmail}</span>
+            <small>{log.subject} {log.createdAt ? `· ${formatDateTime(log.createdAt)}` : ''}</small>
+            {log.failureMessage && <small className="error-text">{log.failureMessage}</small>}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -6972,6 +7056,8 @@ function normaliseData(body) {
     libraryEntries: (body.libraryEntries || []).map(normaliseLibraryEntry),
     intakeEnquiries: (body.intakeEnquiries || []).map(normaliseIntakeEnquiry),
     intakeStatuses: body.intakeStatuses || INTAKE_STATUSES,
+    emailLogs: (body.emailLogs || []).map(normaliseEmailLog),
+    emailConfig: normaliseEmailConfig(body.emailConfig || {}),
     securityMode: body.securityMode || 'unknown',
   };
 }
@@ -6985,6 +7071,32 @@ function makeBlankPersonalTask(adviserId = '') {
     dueDate: todayIso(),
     status: 'Open',
     note: '',
+  };
+}
+
+
+function normaliseEmailConfig(config = {}) {
+  return {
+    configured: Boolean(config.configured),
+    fromEmail: config.fromEmail || '',
+    fromName: config.fromName || 'Turner Hopkins Immigration Specialists',
+  };
+}
+
+function normaliseEmailLog(log = {}) {
+  return {
+    id: log.id || `email-${Date.now()}`,
+    toEmail: log.toEmail || log.to_email || '',
+    fromEmail: log.fromEmail || log.from_email || '',
+    fromName: log.fromName || log.from_name || '',
+    subject: log.subject || '',
+    status: log.status || 'Unknown',
+    templateKey: log.templateKey || log.template_key || 'test',
+    failureMessage: log.failureMessage || log.failure_message || '',
+    sentBy: log.sentBy || log.sent_by || '',
+    sentAt: log.sentAt || log.sent_at || '',
+    failedAt: log.failedAt || log.failed_at || '',
+    createdAt: log.createdAt || log.created_at || '',
   };
 }
 

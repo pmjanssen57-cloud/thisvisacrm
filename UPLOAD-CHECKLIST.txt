@@ -1,3 +1,23 @@
+THiS CRM v0.12.0 — Email Sending Test Foundation
+
+Before deploying:
+[ ] Confirm Microsoft environment variables exist in Netlify.
+[ ] Confirm MICROSOFT_NOTIFICATION_FROM_EMAIL is THiS@turnerhopkins.co.nz.
+[ ] Confirm Microsoft Graph Mail.Send permission has been granted.
+[ ] Confirm, if possible, that sending is scoped to the THiS shared mailbox only.
+[ ] Deploy the full package, including netlify/database/migrations/202606100001_add_email_notifications.sql.
+
+After deploying:
+[ ] Open CRM > Tools > Email.
+[ ] Confirm the email panel shows Configured.
+[ ] Send a test email to an internal address.
+[ ] Confirm the email arrives from THiS@turnerhopkins.co.nz.
+[ ] Confirm the email appears in the shared mailbox Sent Items.
+[ ] Confirm the CRM email log shows Sent.
+[ ] Test a deliberately invalid recipient later and confirm the CRM records Failed.
+
+---
+
 THiS CRM v0.11.38 - Intake Form Field Polish
 
 Upload checklist

@@ -1,3 +1,42 @@
+# THiS CRM v0.12.0 — Email Sending Test Foundation
+
+This build adds the first controlled Microsoft 365 email sending step. It does not automate client emails yet. It adds a test email panel in **Adviser tools > Email** so Turner Hopkins can confirm that THiS CRM can send through the shared mailbox before client templates are connected.
+
+## v0.12.0 changes
+
+- Added Microsoft Graph test email sending from the configured shared mailbox.
+- Added **Tools > Email** test panel with recipient, subject and message fields.
+- Added basic email sending status feedback: configured / not configured, sent, failed.
+- Added recent email test log in the CRM tools panel.
+- Added `email_notifications` database table for future email logging.
+- Added migration `202606100001_add_email_notifications.sql`.
+- Uses these Netlify environment variables:
+  - `MICROSOFT_TENANT_ID`
+  - `MICROSOFT_CLIENT_ID`
+  - `MICROSOFT_CLIENT_SECRET`
+  - `MICROSOFT_NOTIFICATION_FROM_EMAIL`
+  - `MICROSOFT_NOTIFICATION_FROM_NAME`
+- First sending mailbox is expected to be `THiS@turnerhopkins.co.nz`.
+
+## Test process
+
+1. Deploy this package to Netlify.
+2. Open THiS CRM and sign in as an adviser.
+3. Open **Tools > Email**.
+4. Confirm the panel says **Configured**.
+5. Send a test email to an internal Turner Hopkins email address.
+6. Confirm the email arrives from `THiS@turnerhopkins.co.nz`.
+7. Confirm the email appears in the shared mailbox Sent Items.
+8. Confirm the CRM recent email log shows **Sent**.
+
+## Notes
+
+- This build sends test emails only.
+- Client-facing templates, intake approve/decline sending and portal notification sending should be connected after the test button is confirmed working.
+- Do not commit real Microsoft secrets to GitHub. Keep secrets in Netlify environment variables.
+
+---
+
 # Turner Hopkins CRM - Netlify Database v0.11.38
 
 This package uses the default Netlify Functions directory: `netlify/functions`.

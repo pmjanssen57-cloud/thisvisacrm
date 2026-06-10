@@ -188,6 +188,11 @@ async function handleCrmEvent(event) {
       return json(await readCrmData());
     }
 
+    if (action === 'sendTestEmail') {
+      const emailLog = await sendTestEmail(body.email || {}, auth.user);
+      return json({ emailLog, ...(await readCrmData()) });
+    }
+
     return json({ error: `Unknown action: ${action}` }, 400);
   } catch (error) {
     console.error(error);
@@ -508,6 +513,34 @@ async function ensureSchema() {
   await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_enquiries_created_at ON intake_enquiries(created_at DESC)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_enquiries_assigned_adviser ON intake_enquiries(assigned_adviser_id)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_enquiries_email ON intake_enquiries(LOWER(email))`;
+  await database.sql`
+    CREATE TABLE IF NOT EXISTS email_notifications (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      related_record_type TEXT NOT NULL DEFAULT 'test',
+      related_record_id UUID,
+      client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
+      intake_id UUID REFERENCES intake_enquiries(id) ON DELETE SET NULL,
+      template_key TEXT NOT NULL DEFAULT 'test',
+      from_email TEXT,
+      from_name TEXT,
+      to_email TEXT NOT NULL,
+      cc TEXT,
+      bcc TEXT,
+      subject TEXT NOT NULL,
+      body_text TEXT,
+      body_html TEXT,
+      status TEXT NOT NULL DEFAULT 'Draft',
+      sent_by TEXT,
+      sent_at TIMESTAMPTZ,
+      failed_at TIMESTAMPTZ,
+      failure_message TEXT,
+      provider TEXT NOT NULL DEFAULT 'microsoft_graph',
+      provider_request_id TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_email_notifications_created_at ON email_notifications(created_at DESC)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_email_notifications_status ON email_notifications(status)`;
 }
 
 
@@ -515,7 +548,7 @@ async function ensureSchema() {
 
 async function readCrmData() {
   const database = db();
-  const [advisers, clients, stages, deadlines, billing, personalTasks, calendarEntries, libraryEntries, portalMessages, portalDocuments, intakeEnquiries] = await Promise.all([
+  const [advisers, clients, stages, deadlines, billing, personalTasks, calendarEntries, libraryEntries, portalMessages, portalDocuments, intakeEnquiries, emailLogs] = await Promise.all([
     database.sql`SELECT id, name, role, email, login_email, profile_photo_url, availability_status, phone, licence, active FROM advisers ORDER BY name ASC`,
     database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, one_law_client_number, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, portal_enabled, portal_email, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_access_code_hash, portal_last_published_at, portal_last_accessed_at, notes, family_members, document_checklist FROM clients ORDER BY updated_at DESC`,
     database.sql`SELECT id, client_id, stage_key, stage_label, mandatory, applied, completed, completed_date, sort_order FROM client_stages ORDER BY sort_order ASC`,
@@ -527,6 +560,7 @@ async function readCrmData() {
     database.sql`SELECT id, client_id, portal_email, message_type, title, message, status, created_at FROM client_portal_messages ORDER BY created_at DESC`,
     database.sql`SELECT id, client_id, title, category, description, file_name, file_type, file_size, blob_key, visible_to_client, uploaded_by, uploaded_at FROM client_portal_documents ORDER BY uploaded_at DESC`,
     database.sql`SELECT id, status, assigned_adviser_id, applicant_first_name, applicant_last_name, email, phone, current_location, citizenship, date_of_birth, current_visa_type, current_visa_expiry, target_pathway, urgency, flags, raw_payload, adviser_assessment_notes, recommended_pathway, consultation_outcome, converted_client_id, created_at, updated_at FROM intake_enquiries ORDER BY created_at DESC`,
+    database.sql`SELECT id, template_key, from_email, from_name, to_email, subject, status, sent_by, sent_at, failed_at, failure_message, created_at FROM email_notifications ORDER BY created_at DESC LIMIT 50`,
   ]);
 
   return {
@@ -537,6 +571,8 @@ async function readCrmData() {
     libraryEntries: libraryEntries.map(mapLibraryEntryFromDb),
     intakeEnquiries: intakeEnquiries.map(mapIntakeEnquiryFromDb),
     intakeStatuses: INTAKE_STATUSES,
+    emailLogs: emailLogs.map(mapEmailLogFromDb),
+    emailConfig: getEmailConfigStatus(),
     caseTypes: CASE_TYPES,
     deadlineTypes: DEADLINE_TYPES,
     stageTemplates: STAGE_TEMPLATES,
@@ -569,6 +605,36 @@ function mapAdviserFromDb(row) {
     availability: row.availability_status || row.availability || 'Available',
     licence: row.licence || '',
     active: Boolean(row.active),
+  };
+}
+
+function mapEmailLogFromDb(row) {
+  return {
+    id: row.id,
+    templateKey: row.template_key || 'test',
+    fromEmail: row.from_email || '',
+    fromName: row.from_name || '',
+    toEmail: row.to_email || '',
+    subject: row.subject || '',
+    status: row.status || '',
+    sentBy: row.sent_by || '',
+    sentAt: row.sent_at || '',
+    failedAt: row.failed_at || '',
+    failureMessage: row.failure_message || '',
+    createdAt: row.created_at || '',
+  };
+}
+
+function getEmailConfigStatus() {
+  const tenantId = String(process.env.MICROSOFT_TENANT_ID || '').trim();
+  const clientId = String(process.env.MICROSOFT_CLIENT_ID || '').trim();
+  const clientSecret = String(process.env.MICROSOFT_CLIENT_SECRET || '').trim();
+  const fromEmail = String(process.env.MICROSOFT_NOTIFICATION_FROM_EMAIL || 'THiS@turnerhopkins.co.nz').trim();
+  const fromName = String(process.env.MICROSOFT_NOTIFICATION_FROM_NAME || 'Turner Hopkins Immigration Specialists').trim();
+  return {
+    configured: Boolean(tenantId && clientId && clientSecret && fromEmail),
+    fromEmail,
+    fromName,
   };
 }
 
@@ -1367,6 +1433,128 @@ async function deletePersonalTask(taskId) {
 async function deleteClient(clientId) {
   if (!isUuid(clientId)) return;
   await db().sql`DELETE FROM clients WHERE id = ${clientId}`;
+}
+
+async function sendTestEmail(input = {}, authUser = null) {
+  const toEmail = String(input.toEmail || input.to_email || '').trim();
+  const subject = String(input.subject || 'THiS CRM test email').trim() || 'THiS CRM test email';
+  const bodyText = String(input.message || input.bodyText || input.body || '').trim() || 'This is a test email sent from THiS CRM.';
+  if (!isValidEmailAddress(toEmail)) throw new Error('Enter a valid recipient email address.');
+
+  const config = requireMicrosoftEmailConfig();
+  const database = db();
+  const sentBy = authUser?.email || authUser?.name || 'CRM adviser';
+  const [created] = await database.sql`
+    INSERT INTO email_notifications (related_record_type, template_key, from_email, from_name, to_email, subject, body_text, body_html, status, sent_by)
+    VALUES ('test', 'test', ${config.fromEmail}, ${config.fromName}, ${toEmail}, ${subject}, ${bodyText}, ${textToHtml(bodyText)}, 'Sending', ${sentBy})
+    RETURNING id, template_key, from_email, from_name, to_email, subject, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+
+  try {
+    const token = await getMicrosoftGraphAccessToken(config);
+    const sendResult = await sendMicrosoftGraphEmail({ config, token, toEmail, subject, bodyText, bodyHtml: textToHtml(bodyText) });
+    const [updated] = await database.sql`
+      UPDATE email_notifications
+         SET status = 'Sent', sent_at = NOW(), provider_request_id = ${sendResult.requestId || ''}, updated_at = NOW()
+       WHERE id = ${created.id}
+       RETURNING id, template_key, from_email, from_name, to_email, subject, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+    return mapEmailLogFromDb(updated);
+  } catch (error) {
+    const message = String(error?.message || error).slice(0, 1000);
+    const [failed] = await database.sql`
+      UPDATE email_notifications
+         SET status = 'Failed', failed_at = NOW(), failure_message = ${message}, updated_at = NOW()
+       WHERE id = ${created.id}
+       RETURNING id, template_key, from_email, from_name, to_email, subject, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+    return mapEmailLogFromDb(failed);
+  }
+}
+
+function requireMicrosoftEmailConfig() {
+  const tenantId = String(process.env.MICROSOFT_TENANT_ID || '').trim();
+  const clientId = String(process.env.MICROSOFT_CLIENT_ID || '').trim();
+  const clientSecret = String(process.env.MICROSOFT_CLIENT_SECRET || '').trim();
+  const fromEmail = String(process.env.MICROSOFT_NOTIFICATION_FROM_EMAIL || 'THiS@turnerhopkins.co.nz').trim();
+  const fromName = String(process.env.MICROSOFT_NOTIFICATION_FROM_NAME || 'Turner Hopkins Immigration Specialists').trim();
+  const missing = [];
+  if (!tenantId) missing.push('MICROSOFT_TENANT_ID');
+  if (!clientId) missing.push('MICROSOFT_CLIENT_ID');
+  if (!clientSecret) missing.push('MICROSOFT_CLIENT_SECRET');
+  if (!fromEmail) missing.push('MICROSOFT_NOTIFICATION_FROM_EMAIL');
+  if (missing.length) throw new Error(`Missing Microsoft email environment variables: ${missing.join(', ')}`);
+  return { tenantId, clientId, clientSecret, fromEmail, fromName };
+}
+
+async function getMicrosoftGraphAccessToken(config) {
+  const tokenUrl = `https://login.microsoftonline.com/${encodeURIComponent(config.tenantId)}/oauth2/v2.0/token`;
+  const body = new URLSearchParams({
+    client_id: config.clientId,
+    client_secret: config.clientSecret,
+    scope: 'https://graph.microsoft.com/.default',
+    grant_type: 'client_credentials',
+  });
+  const response = await fetch(tokenUrl, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.access_token) {
+    throw new Error(payload.error_description || payload.error || `Microsoft token request failed with status ${response.status}`);
+  }
+  return payload.access_token;
+}
+
+async function sendMicrosoftGraphEmail({ config, token, toEmail, subject, bodyText, bodyHtml }) {
+  const endpoint = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(config.fromEmail)}/sendMail`;
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${token}`,
+      'content-type': 'application/json',
+      prefer: 'outlook.timezone="Pacific/Auckland"',
+    },
+    body: JSON.stringify({
+      message: {
+        subject,
+        body: {
+          contentType: 'HTML',
+          content: bodyHtml || textToHtml(bodyText),
+        },
+        toRecipients: [{ emailAddress: { address: toEmail } }],
+      },
+      saveToSentItems: true,
+    }),
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    let detail = text;
+    try {
+      const json = JSON.parse(text);
+      detail = json?.error?.message || json?.error_description || text;
+    } catch {}
+    throw new Error(detail || `Microsoft Graph sendMail failed with status ${response.status}`);
+  }
+  return { requestId: response.headers.get('request-id') || response.headers.get('client-request-id') || '' };
+}
+
+function textToHtml(value = '') {
+  return String(value || '')
+    .split(/\n{2,}/)
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, '<br>')}</p>`)
+    .join('');
+}
+
+function escapeHtml(value = '') {
+  return String(value || '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function isValidEmailAddress(value = '') {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
 }
 
 async function seedSampleData() {
