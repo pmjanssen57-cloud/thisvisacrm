@@ -1381,6 +1381,16 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   font-size: 13px;
   font-weight: 750;
 }
+.inline-error {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #9f1239;
+  font-size: 13px;
+  font-weight: 750;
+}
 .no-action-panel {
   border-color: #fde68a;
   background: linear-gradient(180deg, #ffffff 0%, #fffbeb 100%);

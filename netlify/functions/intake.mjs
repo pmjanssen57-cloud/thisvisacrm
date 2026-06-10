@@ -23,10 +23,17 @@ export default async function intakeRequestHandler(request) {
     const rows = await db().sql`
       INSERT INTO intake_enquiries (applicant_first_name, applicant_last_name, email, phone, current_location, citizenship, date_of_birth, current_visa_type, current_visa_expiry, target_pathway, urgency, flags, raw_payload)
       VALUES (${payload.firstName}, ${payload.lastName}, ${payload.email}, ${payload.phone}, ${payload.currentLocation}, ${payload.citizenship}, ${nullableDate(payload.dateOfBirth)}, ${payload.currentVisaType}, ${nullableDate(payload.currentVisaExpiry)}, ${payload.targetPathway}, ${payload.urgency}, CAST(${JSON.stringify(flags)} AS jsonb), CAST(${JSON.stringify(payload)} AS jsonb))
-      RETURNING id
+      RETURNING id, created_at
     `;
 
-    return json({ ok: true, intakeId: rows[0]?.id || '' });
+    const intakeId = rows[0]?.id || '';
+    try {
+      await sendNewIntakeNotificationEmail({ intakeId, payload, flags, createdAt: rows[0]?.created_at });
+    } catch (notifyError) {
+      console.warn('New intake notification email failed', notifyError?.message || notifyError);
+    }
+
+    return json({ ok: true, intakeId });
   } catch (error) {
     console.error(error);
     return json({ error: 'Intake submission failed', detail: String(error?.message || error) }, 500);
@@ -266,6 +273,214 @@ function daysUntil(value) {
   const date = new Date(`${iso}T00:00:00`);
   if (Number.isNaN(date.getTime())) return null;
   return Math.ceil((date.getTime() - today.getTime()) / 86400000);
+}
+
+
+async function sendNewIntakeNotificationEmail({ intakeId = '', payload = {}, flags = {}, createdAt = '' } = {}) {
+  const config = requireMicrosoftEmailConfig();
+  const toEmails = getIntakeNotificationRecipients();
+  if (!toEmails.length) return null;
+
+  await ensureEmailNotificationSchema();
+  const subject = `New intake questionnaire submitted - ${[payload.firstName, payload.lastName].filter(Boolean).join(' ') || 'Unnamed enquiry'}`;
+  const bodyText = buildNewIntakeNotificationBody({ intakeId, payload, flags, createdAt });
+  const bodyHtml = textToHtml(bodyText);
+  const database = db();
+  const toEmailLog = toEmails.join(', ');
+  const [created] = await database.sql`
+    INSERT INTO email_notifications (related_record_type, related_record_id, intake_id, template_key, from_email, from_name, to_email, subject, body_text, body_html, status, sent_by)
+    VALUES ('intake', ${nullableUuidValue(intakeId)}, ${nullableUuidValue(intakeId)}, 'new_intake_adviser_notification', ${config.fromEmail}, ${config.fromName}, ${toEmailLog}, ${subject}, ${bodyText}, ${bodyHtml}, 'Sending', 'THiS CRM intake form')
+    RETURNING id`;
+
+  try {
+    const token = await getMicrosoftGraphAccessToken(config);
+    const sendResult = await sendMicrosoftGraphEmail({ config, token, toEmail: toEmails, subject, bodyText, bodyHtml });
+    await database.sql`
+      UPDATE email_notifications
+         SET status = 'Sent', sent_at = NOW(), provider_request_id = ${sendResult.requestId || ''}, updated_at = NOW()
+       WHERE id = ${created.id}`;
+    return true;
+  } catch (error) {
+    const message = String(error?.message || error).slice(0, 1000);
+    await database.sql`
+      UPDATE email_notifications
+         SET status = 'Failed', failed_at = NOW(), failure_message = ${message}, updated_at = NOW()
+       WHERE id = ${created.id}`;
+    return false;
+  }
+}
+
+function buildNewIntakeNotificationBody({ intakeId = '', payload = {}, flags = {}, createdAt = '' } = {}) {
+  const yesFlags = Object.entries(flags || {}).filter(([, value]) => Boolean(value)).map(([key]) => key).join(', ') || 'None';
+  const crmUrl = String(process.env.URL || process.env.DEPLOY_URL || '').trim();
+  const reviewLine = crmUrl ? `${crmUrl}/` : 'Open THiS CRM and go to Intake.';
+  return [
+    'A new assessment questionnaire has been submitted through the THiS intake form.',
+    '',
+    `Applicant: ${[payload.firstName, payload.lastName].filter(Boolean).join(' ') || 'Not recorded'}`,
+    `Email: ${payload.email || 'Not recorded'}`,
+    `Mobile: ${payload.phone || 'Not recorded'}`,
+    `Preferred contact: ${payload.preferredContactMethod || 'Not recorded'}`,
+    `Citizenship: ${payload.citizenship || 'Not recorded'}`,
+    `Date of birth / age: ${payload.dateOfBirth || 'Not recorded'}${payload.dateOfBirthAge ? ` (${payload.dateOfBirthAge})` : ''}`,
+    `Current location: ${payload.currentLocation || 'Not recorded'}`,
+    `Currently in New Zealand: ${payload.isInNewZealand || 'Not recorded'}`,
+    `Current visa: ${payload.currentVisaType || 'Not recorded'}`,
+    `Visa expiry: ${payload.currentVisaExpiry || 'Not recorded'}`,
+    `Immigration goal: ${payload.targetPathway || 'Not recorded'}`,
+    `Timeframe: ${payload.desiredTimeframe || 'Not recorded'}`,
+    `Urgency: ${payload.urgency || 'Standard'}${payload.urgentDeadline ? ` - ${payload.urgentDeadline}` : ''}`,
+    `Partner included: ${payload.hasPartner || 'Not recorded'}`,
+    `NZ job offer: ${payload.hasNzJobOffer || 'Not recorded'}`,
+    `Occupation: ${payload.occupation || payload.jobTitle || 'Not recorded'}`,
+    `Review flags: ${yesFlags}`,
+    `Submitted: ${createdAt ? new Date(createdAt).toLocaleString('en-NZ', { timeZone: 'Pacific/Auckland' }) : 'Just now'}`,
+    `Intake ID: ${intakeId || 'Not recorded'}`,
+    '',
+    'Please review this enquiry in THiS CRM > Intake.',
+    reviewLine,
+  ].join('\n');
+}
+
+function getIntakeNotificationRecipients() {
+  const configured = String(process.env.INTAKE_NOTIFICATION_RECIPIENTS || '').trim();
+  const value = configured || 'paul.janssen@turnerhopkins.co.nz,sejoo.han@turnerhopkins.co.nz';
+  return value.split(/[;,]/).map((email) => email.trim()).filter(isValidEmailAddress);
+}
+
+async function ensureEmailNotificationSchema() {
+  const database = db();
+  await database.sql`CREATE EXTENSION IF NOT EXISTS pgcrypto`;
+  await database.sql`
+    CREATE TABLE IF NOT EXISTS email_notifications (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      related_record_type TEXT NOT NULL DEFAULT 'test',
+      related_record_id UUID,
+      client_id UUID,
+      intake_id UUID,
+      template_key TEXT NOT NULL DEFAULT 'test',
+      from_email TEXT,
+      from_name TEXT,
+      to_email TEXT NOT NULL,
+      cc TEXT,
+      bcc TEXT,
+      subject TEXT NOT NULL,
+      body_text TEXT,
+      body_html TEXT,
+      status TEXT NOT NULL DEFAULT 'Draft',
+      sent_by TEXT,
+      sent_at TIMESTAMPTZ,
+      failed_at TIMESTAMPTZ,
+      failure_message TEXT,
+      provider TEXT NOT NULL DEFAULT 'microsoft_graph',
+      provider_request_id TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_email_notifications_created_at ON email_notifications(created_at DESC)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_email_notifications_status ON email_notifications(status)`;
+}
+
+function requireMicrosoftEmailConfig() {
+  const tenantId = String(process.env.MICROSOFT_TENANT_ID || '').trim();
+  const clientId = String(process.env.MICROSOFT_CLIENT_ID || '').trim();
+  const clientSecret = String(process.env.MICROSOFT_CLIENT_SECRET || '').trim();
+  const fromEmail = String(process.env.MICROSOFT_NOTIFICATION_FROM_EMAIL || 'THiS@turnerhopkins.co.nz').trim();
+  const fromName = String(process.env.MICROSOFT_NOTIFICATION_FROM_NAME || 'Turner Hopkins Immigration Specialists').trim();
+  const missing = [];
+  if (!tenantId) missing.push('MICROSOFT_TENANT_ID');
+  if (!clientId) missing.push('MICROSOFT_CLIENT_ID');
+  if (!clientSecret) missing.push('MICROSOFT_CLIENT_SECRET');
+  if (!fromEmail) missing.push('MICROSOFT_NOTIFICATION_FROM_EMAIL');
+  if (missing.length) throw new Error(`Missing Microsoft email environment variables: ${missing.join(', ')}`);
+  return { tenantId, clientId, clientSecret, fromEmail, fromName };
+}
+
+async function getMicrosoftGraphAccessToken(config) {
+  const tokenUrl = `https://login.microsoftonline.com/${encodeURIComponent(config.tenantId)}/oauth2/v2.0/token`;
+  const body = new URLSearchParams({
+    client_id: config.clientId,
+    client_secret: config.clientSecret,
+    scope: 'https://graph.microsoft.com/.default',
+    grant_type: 'client_credentials',
+  });
+  const response = await fetch(tokenUrl, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+  const tokenPayload = await response.json().catch(() => ({}));
+  if (!response.ok || !tokenPayload.access_token) {
+    throw new Error(tokenPayload.error_description || tokenPayload.error || `Microsoft token request failed with status ${response.status}`);
+  }
+  return tokenPayload.access_token;
+}
+
+async function sendMicrosoftGraphEmail({ config, token, toEmail, ccEmail = '', subject, bodyText, bodyHtml }) {
+  const toRecipients = normaliseEmailRecipientList(toEmail);
+  const ccRecipients = normaliseEmailRecipientList(ccEmail);
+  if (!toRecipients.length) throw new Error('At least one valid recipient is required.');
+  const message = {
+    subject,
+    body: {
+      contentType: 'HTML',
+      content: bodyHtml || textToHtml(bodyText),
+    },
+    toRecipients,
+  };
+  if (ccRecipients.length) message.ccRecipients = ccRecipients;
+
+  const response = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(config.fromEmail)}/sendMail`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${token}`,
+      'content-type': 'application/json',
+      prefer: 'outlook.timezone="Pacific/Auckland"',
+    },
+    body: JSON.stringify({ message, saveToSentItems: true }),
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    let detail = text;
+    try {
+      const json = JSON.parse(text);
+      detail = json?.error?.message || json?.error_description || text;
+    } catch {}
+    throw new Error(detail || `Microsoft Graph sendMail failed with status ${response.status}`);
+  }
+  return { requestId: response.headers.get('request-id') || response.headers.get('client-request-id') || '' };
+}
+
+function normaliseEmailRecipientList(value = '') {
+  const list = Array.isArray(value) ? value : String(value || '').split(/[;,]/);
+  return list
+    .map((address) => String(address || '').trim())
+    .filter(isValidEmailAddress)
+    .map((address) => ({ emailAddress: { address } }));
+}
+
+function textToHtml(value = '') {
+  return `<div style="font-family: Aptos, Arial, sans-serif; font-size: 11pt; line-height:1.25; color:#1f2933;">${String(value || '')
+    .split(/\n{2,}/)
+    .map((paragraph) => `<p style="margin:0 0 8px 0;">${escapeHtml(paragraph).replace(/\n/g, '<br>')}</p>`)
+    .join('')}</div>`;
+}
+
+function escapeHtml(value = '') {
+  return String(value || '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function isValidEmailAddress(value = '') {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+}
+
+function nullableUuidValue(value = '') {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || '').trim()) ? String(value).trim() : null;
 }
 
 function corsHeaders() {

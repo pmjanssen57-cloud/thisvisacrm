@@ -496,7 +496,15 @@ v0.11.40 deployment checks:
 - Run through save/save & close in the intake pop-out editor after editing partner fields.
 
 
-v0.12.2 notes:
+v0.12.3 notes:
 - Deploy over v0.12.1 or v0.12.0.
 - No new migration.
 - Re-test Tools > Email with an internal recipient.
+
+
+v0.12.3 intake email notification checks
+- Deploy after v0.12.0+ so the email_notifications migration exists.
+- Confirm Microsoft email environment variables remain set in Netlify.
+- Submit a test intake form and confirm Paul and Sejoo receive the internal notification email.
+- Open the intake record, assign an adviser with an email address, then send a test approval/decline email to an internal test applicant address before using with clients.
+- Confirm sent/failed entries appear in Tools > Email.

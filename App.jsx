@@ -603,6 +603,18 @@ export default function App() {
     return body;
   }
 
+  async function sendIntakeOutcomeEmail(intake, outcome) {
+    const body = await callApi('sendIntakeOutcomeEmail', { intake, outcome }, { skipDataUpdate: true });
+    if (body.emailLog) {
+      setData((current) => ({
+        ...current,
+        emailLogs: [normaliseEmailLog(body.emailLog), ...(current.emailLogs || [])].slice(0, 20),
+        emailConfig: body.emailConfig ? normaliseEmailConfig(body.emailConfig) : current.emailConfig,
+      }));
+    }
+    return body;
+  }
+
   async function savePersonalTask(task) {
     await callApi('savePersonalTask', { task });
   }
@@ -859,7 +871,7 @@ export default function App() {
             </nav>
 
             {tab === 'intake' && (
-              <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} statuses={data.intakeStatuses || INTAKE_STATUSES} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} convertIntakeToClient={convertIntakeToClient} saving={saving} openClientRecord={openClientRecord} />
+              <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} statuses={data.intakeStatuses || INTAKE_STATUSES} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} saving={saving} openClientRecord={openClientRecord} />
             )}
 
             {tab === 'dashboard' && (
@@ -1383,7 +1395,7 @@ function IntakeFormApp() {
   );
 }
 
-function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, saving, openClientRecord }) {
+function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, saving, openClientRecord }) {
   const [statusFilter, setStatusFilter] = useState('New');
   const [query, setQuery] = useState('');
   const [adviserFilter, setAdviserFilter] = useState('all');
@@ -1592,6 +1604,7 @@ function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, del
             onClose={() => requestCloseIntakeEditor()}
             onDelete={deleteDraft}
             onConvert={convertDraft}
+            sendIntakeOutcomeEmail={sendIntakeOutcomeEmail}
             openClientRecord={openClientRecord}
           />
         </ClientRecordPopoutModal>
@@ -1623,8 +1636,31 @@ function intakeCompareSnapshot(item = {}) {
   };
 }
 
-function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, setDraftPayloadField, onSave, onSaveAndClose, onClose, onDelete, onConvert, openClientRecord }) {
+function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, setDraftPayloadField, onSave, onSaveAndClose, onClose, onDelete, onConvert, sendIntakeOutcomeEmail, openClientRecord }) {
   const applicantName = [draft.firstName, draft.lastName].filter(Boolean).join(' ') || 'Unnamed enquiry';
+  const [outcomeSending, setOutcomeSending] = useState('');
+  const [outcomeMessage, setOutcomeMessage] = useState('');
+
+  async function sendOutcomeEmail(outcome) {
+    if (!draft.email) return;
+    const label = outcome === 'decline' ? 'decline' : 'approval';
+    if (!window.confirm(`Send the ${label} email to ${draft.email}?`)) return;
+    setOutcomeSending(outcome);
+    setOutcomeMessage('');
+    try {
+      const body = await sendIntakeOutcomeEmail?.(draft, outcome);
+      if (body?.emailLog?.status === 'Failed') {
+        setOutcomeMessage(`${outcome === 'decline' ? 'Decline' : 'Approval'} email failed: ${body.emailLog.failureMessage || 'Microsoft did not accept the send request.'}`);
+      } else {
+        setOutcomeMessage(`${outcome === 'decline' ? 'Decline' : 'Approval'} email sent to ${draft.email}.`);
+      }
+    } catch (err) {
+      setOutcomeMessage(err.message || 'Email could not be sent.');
+    } finally {
+      setOutcomeSending('');
+    }
+  }
+
   return (
     <div className="intake-popout-editor">
       <div className="intake-popout-actionbar">
@@ -1645,11 +1681,12 @@ function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, 
         <IntakeFlagList flags={draft.flags} />
         <div className="button-row">
           <button className="btn" type="button" onClick={() => { if (!printIntakeRecord(draft, advisers)) window.alert('The browser blocked the print window. Allow pop-ups for this CRM, then try again.'); }}><FileText size={16} />Print / save PDF</button>
-          <button className="btn" type="button" disabled={!draft.email} onClick={() => openIntakeOutcomeEmailDraft(draft, advisers, 'approve')} title={!draft.email ? 'No submitter email recorded' : 'Open a pre-filled Outlook draft'}><Mail size={16} />Approve email</button>
-          <button className="btn danger" type="button" disabled={!draft.email} onClick={() => openIntakeOutcomeEmailDraft(draft, advisers, 'decline')} title={!draft.email ? 'No submitter email recorded' : 'Open a pre-filled Outlook draft'}><Mail size={16} />Decline email</button>
+          <button className="btn" type="button" disabled={!draft.email || Boolean(outcomeSending) || saving} onClick={() => sendOutcomeEmail('approve')} title={!draft.email ? 'No submitter email recorded' : 'Send the approval email from the CRM'}><Mail size={16} />{outcomeSending === 'approve' ? 'Sending...' : 'Send approval email'}</button>
+          <button className="btn danger" type="button" disabled={!draft.email || Boolean(outcomeSending) || saving} onClick={() => sendOutcomeEmail('decline')} title={!draft.email ? 'No submitter email recorded' : 'Send the decline email from the CRM'}><Mail size={16} />{outcomeSending === 'decline' ? 'Sending...' : 'Send decline email'}</button>
           <button className="btn dark" type="button" onClick={onConvert} disabled={saving || Boolean(draft.convertedClientId)}><UsersRound size={16} />Convert to client</button>
           {draft.convertedClientId && <button className="btn" type="button" onClick={() => openClientRecord(draft.convertedClientId)}><ExternalLink size={16} />Open client</button>}
         </div>
+        {outcomeMessage && <p className={outcomeMessage.includes('failed') || outcomeMessage.includes('could not') ? 'inline-error' : 'inline-status'}>{outcomeMessage}</p>}
       </div>
 
       <section className="intake-review-panel">

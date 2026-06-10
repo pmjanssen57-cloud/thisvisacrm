@@ -193,6 +193,11 @@ async function handleCrmEvent(event) {
       return json({ emailLog, ...(await readCrmData()) });
     }
 
+    if (action === 'sendIntakeOutcomeEmail') {
+      const emailLog = await sendIntakeOutcomeEmail(body.intake || {}, body.outcome || 'approve', auth.user);
+      return json({ emailLog, emailConfig: getEmailConfigStatus() });
+    }
+
     return json({ error: `Unknown action: ${action}` }, 400);
   } catch (error) {
     console.error(error);
@@ -560,7 +565,7 @@ async function readCrmData() {
     database.sql`SELECT id, client_id, portal_email, message_type, title, message, status, created_at FROM client_portal_messages ORDER BY created_at DESC`,
     database.sql`SELECT id, client_id, title, category, description, file_name, file_type, file_size, blob_key, visible_to_client, uploaded_by, uploaded_at FROM client_portal_documents ORDER BY uploaded_at DESC`,
     database.sql`SELECT id, status, assigned_adviser_id, applicant_first_name, applicant_last_name, email, phone, current_location, citizenship, date_of_birth, current_visa_type, current_visa_expiry, target_pathway, urgency, flags, raw_payload, adviser_assessment_notes, recommended_pathway, consultation_outcome, converted_client_id, created_at, updated_at FROM intake_enquiries ORDER BY created_at DESC`,
-    database.sql`SELECT id, template_key, from_email, from_name, to_email, subject, status, sent_by, sent_at, failed_at, failure_message, created_at FROM email_notifications ORDER BY created_at DESC LIMIT 50`,
+    database.sql`SELECT id, template_key, from_email, from_name, to_email, cc, subject, status, sent_by, sent_at, failed_at, failure_message, created_at FROM email_notifications ORDER BY created_at DESC LIMIT 50`,
   ]);
 
   return {
@@ -615,6 +620,7 @@ function mapEmailLogFromDb(row) {
     fromEmail: row.from_email || '',
     fromName: row.from_name || '',
     toEmail: row.to_email || '',
+    cc: row.cc || '',
     subject: row.subject || '',
     status: row.status || '',
     sentBy: row.sent_by || '',
@@ -1469,6 +1475,144 @@ async function sendTestEmail(input = {}, authUser = null) {
   }
 }
 
+
+async function sendIntakeOutcomeEmail(input = {}, outcome = 'approve', authUser = null) {
+  const intake = normaliseIntakeInput(input);
+  if (!isValidEmailAddress(intake.email)) throw new Error('This intake record does not have a valid applicant email address.');
+
+  const advisers = await db().sql`SELECT id, name, email FROM advisers ORDER BY name ASC`;
+  const adviser = advisers.find((item) => String(item.id || '') === String(intake.assignedAdviserId || '')) || null;
+  const adviserEmail = String(adviser?.email || '').trim();
+  const emailDraft = buildIntakeOutcomeEmailContent(intake, adviser, outcome);
+  const config = requireMicrosoftEmailConfig();
+  const database = db();
+  const sentBy = authUser?.email || authUser?.name || 'CRM adviser';
+  const templateKey = outcome === 'decline' ? 'intake_decline' : 'intake_approve';
+  const ccEmail = isValidEmailAddress(adviserEmail) ? adviserEmail : '';
+
+  const [created] = await database.sql`
+    INSERT INTO email_notifications (related_record_type, related_record_id, intake_id, template_key, from_email, from_name, to_email, cc, subject, body_text, body_html, status, sent_by)
+    VALUES ('intake', ${nullableUuid(intake.id)}, ${nullableUuid(intake.id)}, ${templateKey}, ${config.fromEmail}, ${config.fromName}, ${emailDraft.to}, ${ccEmail}, ${emailDraft.subject}, ${emailDraft.bodyText}, ${emailDraft.bodyHtml}, 'Sending', ${sentBy})
+    RETURNING id, template_key, from_email, from_name, to_email, cc, subject, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+
+  try {
+    const token = await getMicrosoftGraphAccessToken(config);
+    const sendResult = await sendMicrosoftGraphEmail({
+      config,
+      token,
+      toEmail: emailDraft.to,
+      ccEmail,
+      subject: emailDraft.subject,
+      bodyText: emailDraft.bodyText,
+      bodyHtml: emailDraft.bodyHtml,
+    });
+    const [updated] = await database.sql`
+      UPDATE email_notifications
+         SET status = 'Sent', sent_at = NOW(), provider_request_id = ${sendResult.requestId || ''}, updated_at = NOW()
+       WHERE id = ${created.id}
+       RETURNING id, template_key, from_email, from_name, to_email, cc, subject, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+    return mapEmailLogFromDb(updated);
+  } catch (error) {
+    const message = String(error?.message || error).slice(0, 1000);
+    const [failed] = await database.sql`
+      UPDATE email_notifications
+         SET status = 'Failed', failed_at = NOW(), failure_message = ${message}, updated_at = NOW()
+       WHERE id = ${created.id}
+       RETURNING id, template_key, from_email, from_name, to_email, cc, subject, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+    return mapEmailLogFromDb(failed);
+  }
+}
+
+function buildIntakeOutcomeEmailContent(intake = {}, adviser = null, outcome = 'approve') {
+  const applicantName = [intake.firstName, intake.lastName].filter(Boolean).join(' ').trim() || 'your enquiry';
+  const firstName = String(intake.firstName || '').trim() || 'there';
+  const allocatedTo = String(adviser?.email || adviser?.name || '[Allocated To]').trim();
+  const to = String(intake.email || '').trim();
+
+  if (outcome === 'decline') {
+    const bodyLines = [
+      `Hello ${firstName},`,
+      '',
+      'Thank you for completing the Turner Hopkins assessment questionnaire.',
+      '',
+      'We have reviewed the information you provided. Based on the details supplied, it does not look like we are the right fit to assist with an immigration pathway at this stage.',
+      '',
+      'This is a preliminary response based on the questionnaire only, not a full immigration assessment. If your circumstances change, or if there is important information you think has not been captured, you are welcome to reply with those details and we can reconsider whether a consultation would be useful.',
+    ];
+    const bodyText = bodyLines.join('\n');
+    return {
+      to,
+      subject: `Turner Hopkins assessment questionnaire - ${applicantName}`,
+      bodyText,
+      bodyHtml: compactEmailHtml(bodyText),
+    };
+  }
+
+  const bodyText = [
+    'Thank you for completing our online assessment questionnaire, which we have now received and reviewed, along with your CV and attachments.',
+    '',
+    'It does appear, based on the information you have provided, that there is potentially a pathway available to you under one of our skilled migrant pathways, however this would be dependent on several things including the following:',
+    '',
+    '• A review of your information to explore the various details including your skills and experience and the need for those to be assessed here in NZ, your employability and potential earnings as well as your personal data and health and character details.',
+    '• Establishing the timelines involved and how each step fits together - this includes discussing, the documentation required, the criteria you need to meet and a road map as to how all of these steps will fit together.',
+    '• Discussing the process to secure an offer of skilled employment in New Zealand to qualify under one of our various skilled migration pathways (most application pathways are dependent on being able to secure the right kind of employment in New Zealand)',
+    '',
+    'For us to be able to outline this process in detail, including the steps mentioned above, as well as being able to establish the right strategy for you, we would need to book you in for a one-to-one consultation.',
+    'This consultation process will allow us to work through your information in greater detail, ask some additional questions and then outline a clear pathway for you and your family (if applicable) to make the move. It also gives you an opportunity to ask questions of me and for us to explore the process together, so you can make an informed decision as to whether to proceed further.',
+    '',
+    'We have two options available for the consultation process:',
+    '',
+    '- A brief 15-minute overview (at no charge) of the process via Teams or Zoom, which will give you a very basic summary as to your eligibility. We stick to a very strict 15-minute timeframe for these discussions.',
+    '- A more detailed assessment over Teams or Zoom, usually lasting for at least an hour, during which we map out the process for you and explain the various steps, costs and timelines. This assessment comes with a charge of NZD$400.00, which can be paid online.',
+    '',
+    'Moving to another country is a complex process, particularly in the current environment as the demand for Visas and opportunities in New Zealand continues to increase. If you are seriously considering the move, then having a well laid out plan is vital.',
+    `If you wish to move ahead with this assessment, please email us directly: ${allocatedTo} (do not reply to this email) and indicate which assessment option you would prefer to take.`,
+    'I look forward to hearing from you in due course.',
+  ].join('\n');
+
+  return {
+    to,
+    subject: `Turner Hopkins assessment questionnaire - next steps for ${applicantName}`,
+    bodyText,
+    bodyHtml: buildApprovalEmailHtml(allocatedTo),
+  };
+}
+
+function compactEmailHtml(bodyText = '') {
+  return `<div style="font-family: Aptos, Arial, sans-serif; font-size: 11pt; line-height: 1.15; color: #1f2933;">${String(bodyText || '')
+    .split(/\n{2,}/)
+    .map((paragraph) => `<p style="margin: 0; padding: 0;">${escapeHtml(paragraph).replace(/\n/g, '<br>')}</p>`)
+    .join('')}</div>`;
+}
+
+function buildApprovalEmailHtml(allocatedTo = '[Allocated To]') {
+  const p = (text) => `<p style="margin:0; padding:0;">${escapeHtml(text)}</p>`;
+  const li = (text) => `<li style="margin:0; padding:0;">${escapeHtml(text)}</li>`;
+  return `<div style="font-family: Aptos, Arial, sans-serif; font-size: 11pt; line-height: 1.15; color: #1f2933;">
+${p('Thank you for completing our online assessment questionnaire, which we have now received and reviewed, along with your CV and attachments.')}
+${p('')}
+${p('It does appear, based on the information you have provided, that there is potentially a pathway available to you under one of our skilled migrant pathways, however this would be dependent on several things including the following:')}
+<ul style="margin:0; padding-left:20px;">
+${li('A review of your information to explore the various details including your skills and experience and the need for those to be assessed here in NZ, your employability and potential earnings as well as your personal data and health and character details.')}
+${li('Establishing the timelines involved and how each step fits together - this includes discussing, the documentation required, the criteria you need to meet and a road map as to how all of these steps will fit together.')}
+${li('Discussing the process to secure an offer of skilled employment in New Zealand to qualify under one of our various skilled migration pathways (most application pathways are dependent on being able to secure the right kind of employment in New Zealand)')}
+</ul>
+${p('')}
+${p('For us to be able to outline this process in detail, including the steps mentioned above, as well as being able to establish the right strategy for you, we would need to book you in for a one-to-one consultation.')}
+${p('This consultation process will allow us to work through your information in greater detail, ask some additional questions and then outline a clear pathway for you and your family (if applicable) to make the move. It also gives you an opportunity to ask questions of me and for us to explore the process together, so you can make an informed decision as to whether to proceed further.')}
+${p('')}
+${p('We have two options available for the consultation process:')}
+<ul style="margin:0; padding-left:20px;">
+${li('A brief 15-minute overview (at no charge) of the process via Teams or Zoom, which will give you a very basic summary as to your eligibility. We stick to a very strict 15-minute timeframe for these discussions.')}
+${li('A more detailed assessment over Teams or Zoom, usually lasting for at least an hour, during which we map out the process for you and explain the various steps, costs and timelines. This assessment comes with a charge of NZD$400.00, which can be paid online.')}
+</ul>
+${p('')}
+${p('Moving to another country is a complex process, particularly in the current environment as the demand for Visas and opportunities in New Zealand continues to increase. If you are seriously considering the move, then having a well laid out plan is vital.')}
+${p(`If you wish to move ahead with this assessment, please email us directly: ${allocatedTo} (do not reply to this email) and indicate which assessment option you would prefer to take.`)}
+${p('I look forward to hearing from you in due course.')}
+</div>`;
+}
+
 function requireMicrosoftEmailConfig() {
   const tenantId = String(process.env.MICROSOFT_TENANT_ID || '').trim();
   const clientId = String(process.env.MICROSOFT_CLIENT_ID || '').trim();
@@ -1504,8 +1648,23 @@ async function getMicrosoftGraphAccessToken(config) {
   return payload.access_token;
 }
 
-async function sendMicrosoftGraphEmail({ config, token, toEmail, subject, bodyText, bodyHtml }) {
+async function sendMicrosoftGraphEmail({ config, token, toEmail, ccEmail = '', bccEmail = '', subject, bodyText, bodyHtml }) {
   const endpoint = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(config.fromEmail)}/sendMail`;
+  const toRecipients = normaliseEmailRecipientList(toEmail);
+  const ccRecipients = normaliseEmailRecipientList(ccEmail);
+  const bccRecipients = normaliseEmailRecipientList(bccEmail);
+  if (!toRecipients.length) throw new Error('At least one valid email recipient is required.');
+  const message = {
+    subject,
+    body: {
+      contentType: 'HTML',
+      content: bodyHtml || textToHtml(bodyText),
+    },
+    toRecipients,
+  };
+  if (ccRecipients.length) message.ccRecipients = ccRecipients;
+  if (bccRecipients.length) message.bccRecipients = bccRecipients;
+
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
@@ -1514,14 +1673,7 @@ async function sendMicrosoftGraphEmail({ config, token, toEmail, subject, bodyTe
       prefer: 'outlook.timezone="Pacific/Auckland"',
     },
     body: JSON.stringify({
-      message: {
-        subject,
-        body: {
-          contentType: 'HTML',
-          content: bodyHtml || textToHtml(bodyText),
-        },
-        toRecipients: [{ emailAddress: { address: toEmail } }],
-      },
+      message,
       saveToSentItems: true,
     }),
   });
@@ -1535,6 +1687,15 @@ async function sendMicrosoftGraphEmail({ config, token, toEmail, subject, bodyTe
     throw new Error(detail || `Microsoft Graph sendMail failed with status ${response.status}`);
   }
   return { requestId: response.headers.get('request-id') || response.headers.get('client-request-id') || '' };
+}
+
+
+function normaliseEmailRecipientList(value = '') {
+  const list = Array.isArray(value) ? value : String(value || '').split(/[;,]/);
+  return list
+    .map((address) => String(address || '').trim())
+    .filter((address) => isValidEmailAddress(address))
+    .map((address) => ({ emailAddress: { address } }));
 }
 
 function textToHtml(value = '') {
