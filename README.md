@@ -1,8 +1,8 @@
-# THiS CRM v0.12.1 — Email Test Page Stability Polish
+# THiS CRM v0.12.2 — Email Test Page Recovery Polish
 
 This build adds the first controlled Microsoft 365 email sending step. It does not automate client emails yet. It adds a test email panel in **Adviser tools > Email** so Turner Hopkins can confirm that THiS CRM can send through the shared mailbox before client templates are connected.
 
-## v0.12.1 changes
+## v0.12.0 changes
 
 - Added Microsoft Graph test email sending from the configured shared mailbox.
 - Added **Tools > Email** test panel with recipient, subject and message fields.
@@ -841,3 +841,10 @@ This package-lock uses public npm registry tarball URLs so Netlify can install d
 - Updated intake payload normalisation so new partner fields are stored in the raw intake payload.
 - No database migration required; the new answers are stored in the existing raw_payload JSON field.
 
+
+
+## v0.12.2 — Email Test Page Recovery Polish
+- Fixes the Email test tool so sending a test email does not replace the main CRM data state.
+- Adds a missing date/time formatter used by the recent email log.
+- Keeps the Email tool on-screen after a successful send and updates the recent log locally.
+- No database migration required beyond the v0.12.0 email_notifications table.

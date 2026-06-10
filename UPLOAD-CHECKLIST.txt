@@ -1,4 +1,4 @@
-THiS CRM v0.12.1 — Email Test Page Stability Polish
+THiS CRM v0.12.0 — Email Sending Test Foundation
 
 Before deploying:
 [ ] Confirm Microsoft environment variables exist in Netlify.
@@ -494,3 +494,9 @@ v0.11.40 deployment checks:
 - Submit a test partner intake and confirm the intake pop-out editor shows the new partner sections.
 - Confirm Print / save PDF includes Partner work and experience and Partner qualifications.
 - Run through save/save & close in the intake pop-out editor after editing partner fields.
+
+
+v0.12.2 notes:
+- Deploy over v0.12.1 or v0.12.0.
+- No new migration.
+- Re-test Tools > Email with an internal recipient.
