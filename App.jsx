@@ -592,7 +592,15 @@ export default function App() {
   }
 
   async function sendTestEmail(email) {
-    return callApi('sendTestEmail', { email });
+    const body = await callApi('sendTestEmail', { email }, { skipDataUpdate: true });
+    if (body.emailLog) {
+      setData((current) => ({
+        ...current,
+        emailLogs: [normaliseEmailLog(body.emailLog), ...(current.emailLogs || [])].slice(0, 20),
+        emailConfig: body.emailConfig ? normaliseEmailConfig(body.emailConfig) : current.emailConfig,
+      }));
+    }
+    return body;
   }
 
   async function savePersonalTask(task) {
@@ -1075,7 +1083,7 @@ function IntakeFormApp() {
   }
 
   async function submit(event) {
-    event.preventDefault();
+    event?.preventDefault?.();
     setSubmitting(true);
     setError('');
     try {
@@ -2158,7 +2166,7 @@ function ClientPortalApp() {
   }
 
   async function submit(event) {
-    event.preventDefault();
+    event?.preventDefault?.();
     setLoading(true);
     setError('');
     setPortalNotice('');
@@ -2643,7 +2651,7 @@ function ClientPortalMessageComposer({ title, description, buttonLabel, messageT
   const [error, setError] = useState('');
 
   async function submit(event) {
-    event.preventDefault();
+    event?.preventDefault?.();
     const cleanMessage = message.trim();
     if (!cleanMessage) return setError('Add a note before saving.');
     setSending(true);
@@ -2858,7 +2866,7 @@ function EmailTestTool({ sendTestEmail, emailLogs = [], emailConfig = {}, saving
   const recentLogs = [...emailLogs].slice(0, 6);
 
   async function submit(event) {
-    event.preventDefault();
+    event?.preventDefault?.();
     setLocalError('');
     setResult(null);
     if (!toEmail.trim()) {
@@ -2887,7 +2895,7 @@ function EmailTestTool({ sendTestEmail, emailLogs = [], emailConfig = {}, saving
         {!configured && <p className="error-text">Microsoft email environment variables are not fully configured in Netlify.</p>}
       </div>
 
-      <form className="tool-form" onSubmit={submit}>
+      <div className="tool-form">
         <label>Test recipient email
           <input value={toEmail} onChange={(event) => setToEmail(event.target.value)} placeholder="name@example.com" type="email" />
         </label>
@@ -2897,8 +2905,8 @@ function EmailTestTool({ sendTestEmail, emailLogs = [], emailConfig = {}, saving
         <label>Message
           <textarea value={message} onChange={(event) => setMessage(event.target.value)} rows={5} />
         </label>
-        <button className="btn dark" type="submit" disabled={saving || !configured}><Send size={16} />{saving ? 'Sending...' : 'Send test email'}</button>
-      </form>
+        <button className="btn dark" type="button" disabled={saving || !configured} onClick={submit}><Send size={16} />{saving ? 'Sending...' : 'Send test email'}</button>
+      </div>
 
       {localError && <div className="error-banner"><AlertTriangle size={16} />{localError}</div>}
       {result && (
@@ -3870,7 +3878,7 @@ function PortalDocumentsManager({ client, uploadPortalDocument, updatePortalDocu
   }
 
   async function submit(event) {
-    event.preventDefault();
+    event?.preventDefault?.();
     await uploadPortalDocument?.({ title, category, description, visibleToClient }, file);
     setFile(null);
     setTitle('');
@@ -5007,7 +5015,7 @@ function PersonalTasksPanel({ personalTasks, allClients, advisers, dashboardAdvi
     [personalTasks, showCompleted]);
 
   async function submit(event) {
-    event.preventDefault();
+    event?.preventDefault?.();
     if (!draft.title.trim()) {
       setFormMessage('Enter a task title first.');
       return;

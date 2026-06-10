@@ -1,4 +1,4 @@
-THiS CRM v0.12.0 — Email Sending Test Foundation
+THiS CRM v0.12.1 — Email Test Page Stability Polish
 
 Before deploying:
 [ ] Confirm Microsoft environment variables exist in Netlify.

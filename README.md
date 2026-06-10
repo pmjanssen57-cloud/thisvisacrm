@@ -1,8 +1,8 @@
-# THiS CRM v0.12.0 — Email Sending Test Foundation
+# THiS CRM v0.12.1 — Email Test Page Stability Polish
 
 This build adds the first controlled Microsoft 365 email sending step. It does not automate client emails yet. It adds a test email panel in **Adviser tools > Email** so Turner Hopkins can confirm that THiS CRM can send through the shared mailbox before client templates are connected.
 
-## v0.12.0 changes
+## v0.12.1 changes
 
 - Added Microsoft Graph test email sending from the configured shared mailbox.
 - Added **Tools > Email** test panel with recipient, subject and message fields.
