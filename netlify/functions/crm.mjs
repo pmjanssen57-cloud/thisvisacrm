@@ -1526,7 +1526,8 @@ async function sendIntakeOutcomeEmail(input = {}, outcome = 'approve', authUser 
 function buildIntakeOutcomeEmailContent(intake = {}, adviser = null, outcome = 'approve') {
   const applicantName = [intake.firstName, intake.lastName].filter(Boolean).join(' ').trim() || 'your enquiry';
   const firstName = String(intake.firstName || '').trim() || 'there';
-  const allocatedTo = String(adviser?.email || adviser?.name || '[Allocated To]').trim();
+  const adviserEmail = String(adviser?.email || '').trim();
+  const allocatedTo = isValidEmailAddress(adviserEmail) ? adviserEmail : '[Allocated To]';
   const to = String(intake.email || '').trim();
 
   if (outcome === 'decline') {
@@ -1549,24 +1550,30 @@ function buildIntakeOutcomeEmailContent(intake = {}, adviser = null, outcome = '
   }
 
   const bodyText = [
+    `Dear ${firstName},`,
+    '',
     'Thank you for completing our online assessment questionnaire, which we have now received and reviewed, along with your CV and attachments.',
     '',
     'It does appear, based on the information you have provided, that there is potentially a pathway available to you under one of our skilled migrant pathways, however this would be dependent on several things including the following:',
     '',
-    '• A review of your information to explore the various details including your skills and experience and the need for those to be assessed here in NZ, your employability and potential earnings as well as your personal data and health and character details.',
-    '• Establishing the timelines involved and how each step fits together - this includes discussing, the documentation required, the criteria you need to meet and a road map as to how all of these steps will fit together.',
-    '• Discussing the process to secure an offer of skilled employment in New Zealand to qualify under one of our various skilled migration pathways (most application pathways are dependent on being able to secure the right kind of employment in New Zealand)',
+    '•\tA review of your information to explore the various details including your skills and experience and the need for those to be assessed here in NZ, your employability and potential earnings as well as your personal data and health and character details.',
+    '•\tEstablishing the timelines involved and how each step fits together - this includes discussing, the documentation required, the criteria you need to meet and a road map as to how all of these steps will fit together.',
+    '•\tDiscussing the process to secure an offer of skilled employment in New Zealand to qualify under one of our various skilled migration pathways (most application pathways are dependent on being able to secure the right kind of employment in New Zealand)',
+    '',
     '',
     'For us to be able to outline this process in detail, including the steps mentioned above, as well as being able to establish the right strategy for you, we would need to book you in for a one-to-one consultation.',
+    '',
     'This consultation process will allow us to work through your information in greater detail, ask some additional questions and then outline a clear pathway for you and your family (if applicable) to make the move. It also gives you an opportunity to ask questions of me and for us to explore the process together, so you can make an informed decision as to whether to proceed further.',
     '',
     'We have two options available for the consultation process:',
     '',
-    '- A brief 15-minute overview (at no charge) of the process via Teams or Zoom, which will give you a very basic summary as to your eligibility. We stick to a very strict 15-minute timeframe for these discussions.',
-    '- A more detailed assessment over Teams or Zoom, usually lasting for at least an hour, during which we map out the process for you and explain the various steps, costs and timelines. This assessment comes with a charge of NZD$400.00, which can be paid online.',
+    '•\tA brief 15-minute overview (at no charge) of the process via Teams or Zoom, which will give you a very basic summary as to your eligibility. We stick to a very strict 15-minute timeframe for these discussions.',
+    '•\tA more detailed assessment over Teams or Zoom, usually lasting for at least an hour, during which we map out the process for you and explain the various steps, costs and timelines. This assessment comes with a charge of NZD$400.00, which can be paid online.',
+    '',
     '',
     'Moving to another country is a complex process, particularly in the current environment as the demand for Visas and opportunities in New Zealand continues to increase. If you are seriously considering the move, then having a well laid out plan is vital.',
     `If you wish to move ahead with this assessment, please email us directly: ${allocatedTo} (do not reply to this email) and indicate which assessment option you would prefer to take.`,
+    '',
     'I look forward to hearing from you in due course.',
   ].join('\n');
 
@@ -1574,41 +1581,48 @@ function buildIntakeOutcomeEmailContent(intake = {}, adviser = null, outcome = '
     to,
     subject: `Turner Hopkins assessment questionnaire - next steps for ${applicantName}`,
     bodyText,
-    bodyHtml: buildApprovalEmailHtml(allocatedTo),
+    bodyHtml: buildApprovalEmailHtml(firstName, allocatedTo),
   };
 }
 
 function compactEmailHtml(bodyText = '') {
   return `<div style="font-family: Aptos, Arial, sans-serif; font-size: 11pt; line-height: 1.15; color: #1f2933;">${String(bodyText || '')
     .split(/\n{2,}/)
-    .map((paragraph) => `<p style="margin: 0; padding: 0;">${escapeHtml(paragraph).replace(/\n/g, '<br>')}</p>`)
+    .map((paragraph) => `<p style="margin: 0; padding: 0; line-height: 1.15;">${escapeHtml(paragraph).replace(/\n/g, '<br>')}</p>`)
     .join('')}</div>`;
 }
 
-function buildApprovalEmailHtml(allocatedTo = '[Allocated To]') {
-  const p = (text) => `<p style="margin:0; padding:0;">${escapeHtml(text)}</p>`;
-  const li = (text) => `<li style="margin:0; padding:0;">${escapeHtml(text)}</li>`;
+function buildApprovalEmailHtml(firstName = 'there', allocatedTo = '[Allocated To]') {
+  const p = (text) => `<p style="margin:0; padding:0; line-height:1.15;">${escapeHtml(text)}</p>`;
+  const gap = (height = 12) => `<div style="height:${height}px; line-height:${height}px; font-size:${height}px;">&nbsp;</div>`;
+  const li = (text) => `<li style="margin:0; padding:0 0 0 2px; line-height:1.15;">${escapeHtml(text)}</li>`;
   return `<div style="font-family: Aptos, Arial, sans-serif; font-size: 11pt; line-height: 1.15; color: #1f2933;">
+${p(`Dear ${firstName},`)}
+${gap(14)}
 ${p('Thank you for completing our online assessment questionnaire, which we have now received and reviewed, along with your CV and attachments.')}
-${p('')}
+${gap(14)}
 ${p('It does appear, based on the information you have provided, that there is potentially a pathway available to you under one of our skilled migrant pathways, however this would be dependent on several things including the following:')}
-<ul style="margin:0; padding-left:20px;">
+${gap(8)}
+<ul style="margin:0; padding-left:24px; line-height:1.15;">
 ${li('A review of your information to explore the various details including your skills and experience and the need for those to be assessed here in NZ, your employability and potential earnings as well as your personal data and health and character details.')}
 ${li('Establishing the timelines involved and how each step fits together - this includes discussing, the documentation required, the criteria you need to meet and a road map as to how all of these steps will fit together.')}
 ${li('Discussing the process to secure an offer of skilled employment in New Zealand to qualify under one of our various skilled migration pathways (most application pathways are dependent on being able to secure the right kind of employment in New Zealand)')}
 </ul>
-${p('')}
+${gap(20)}
 ${p('For us to be able to outline this process in detail, including the steps mentioned above, as well as being able to establish the right strategy for you, we would need to book you in for a one-to-one consultation.')}
+${gap(14)}
 ${p('This consultation process will allow us to work through your information in greater detail, ask some additional questions and then outline a clear pathway for you and your family (if applicable) to make the move. It also gives you an opportunity to ask questions of me and for us to explore the process together, so you can make an informed decision as to whether to proceed further.')}
-${p('')}
+${gap(14)}
 ${p('We have two options available for the consultation process:')}
-<ul style="margin:0; padding-left:20px;">
+${gap(8)}
+<ul style="margin:0; padding-left:24px; line-height:1.15;">
 ${li('A brief 15-minute overview (at no charge) of the process via Teams or Zoom, which will give you a very basic summary as to your eligibility. We stick to a very strict 15-minute timeframe for these discussions.')}
 ${li('A more detailed assessment over Teams or Zoom, usually lasting for at least an hour, during which we map out the process for you and explain the various steps, costs and timelines. This assessment comes with a charge of NZD$400.00, which can be paid online.')}
 </ul>
-${p('')}
+${gap(20)}
 ${p('Moving to another country is a complex process, particularly in the current environment as the demand for Visas and opportunities in New Zealand continues to increase. If you are seriously considering the move, then having a well laid out plan is vital.')}
 ${p(`If you wish to move ahead with this assessment, please email us directly: ${allocatedTo} (do not reply to this email) and indicate which assessment option you would prefer to take.`)}
+${gap(14)}
 ${p('I look forward to hearing from you in due course.')}
 </div>`;
 }

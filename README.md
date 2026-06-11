@@ -1,4 +1,4 @@
-# THiS CRM v0.12.3 — Email Test Page Recovery Polish
+# THiS CRM v0.12.4 — Intake Approval Email Formatting Polish
 
 This build adds the first controlled Microsoft 365 email sending step. It does not automate client emails yet. It adds a test email panel in **Adviser tools > Email** so Turner Hopkins can confirm that THiS CRM can send through the shared mailbox before client templates are connected.
 
@@ -859,3 +859,12 @@ This package-lock uses public npm registry tarball URLs so Netlify can install d
 - Approval email HTML uses compact single line spacing with zero before/after paragraph spacing.
 - Emails are logged in the existing email_notifications table.
 - No new database migration is required beyond the existing v0.12.0 email_notifications migration.
+
+## v0.12.4 — Intake Approval Email Formatting Polish
+
+- Approval email now starts with `Dear [first name],` using the first name submitted in the intake questionnaire.
+- Approval email uses the allocated adviser's email address in the `please email us directly` line.
+- Approval email formatting has been adjusted to match the supplied paragraph and bullet layout more closely.
+- Approval email HTML keeps compact single line-height and uses explicit spacer blocks so Outlook does not add excessive paragraph spacing.
+- Decline email behaviour is unchanged.
+- No database migration required.

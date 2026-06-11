@@ -508,3 +508,13 @@ v0.12.3 intake email notification checks
 - Submit a test intake form and confirm Paul and Sejoo receive the internal notification email.
 - Open the intake record, assign an adviser with an email address, then send a test approval/decline email to an internal test applicant address before using with clients.
 - Confirm sent/failed entries appear in Tools > Email.
+
+
+v0.12.4 notes:
+- Deploy over v0.12.3.
+- No new migration is required for this build.
+- Test an intake approval email using an internal applicant/test address.
+- Confirm the email starts with Dear [first name].
+- Confirm the line "please email us directly" uses the allocated adviser's email address.
+- Confirm the applicant receives the email and the allocated adviser is CC'd.
+- Confirm paragraph and bullet spacing is tidy in Outlook.
