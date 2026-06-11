@@ -4929,9 +4929,16 @@ function TasksDashboard({ taskRows, personalTasks, allClients, advisers, dashboa
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [taskSearch, setTaskSearch] = useState('');
+  const [selectedPersonalTask, setSelectedPersonalTask] = useState(null);
 
   const scopeLabel = dashboardAdviserFilter === 'all' ? 'All advisers' : advisers.find((adviser) => adviser.id === dashboardAdviserFilter)?.name || 'Selected adviser';
   const types = useMemo(() => Array.from(new Set(taskRows.map((row) => row.type))).sort(), [taskRows]);
+
+  useEffect(() => {
+    if (!selectedPersonalTask?.id) return;
+    const freshTask = personalTasks.find((task) => task.id === selectedPersonalTask.id);
+    if (freshTask) setSelectedPersonalTask(freshTask);
+  }, [personalTasks, selectedPersonalTask?.id]);
 
   const visibleTasks = useMemo(() => {
     const q = taskSearch.trim().toLowerCase();
@@ -4954,9 +4961,21 @@ function TasksDashboard({ taskRows, personalTasks, allClients, advisers, dashboa
   }, { total: 0, overdue: 0, today: 0, next7: 0, next30: 0, personal: 0, calendar: 0 });
 
   function openTask(row) {
+    if (row.source === 'personal-task' && row.personalTask) {
+      setSelectedPersonalTask(row.personalTask);
+      return;
+    }
     if (!row.client) return;
     if (openClientRecord) return openClientRecord(row.client.id);
     setSelectedClientId(row.client.id);
+    setTab('clients');
+  }
+
+  function openLinkedClient(clientId) {
+    if (!clientId) return;
+    setSelectedPersonalTask(null);
+    if (openClientRecord) return openClientRecord(clientId);
+    setSelectedClientId(clientId);
     setTab('clients');
   }
 
@@ -4965,7 +4984,7 @@ function TasksDashboard({ taskRows, personalTasks, allClients, advisers, dashboa
       <section className="panel dashboard-heading">
         <div>
           <h2>Task list</h2>
-          <p className="muted">Deadlines, expiry dates, next-action dates, calendar appointments, billing tasks and personal adviser tasks for the current view: {scopeLabel}.</p>
+          <p className="muted">Deadlines, expiry dates, next-action dates, calendar appointments and adviser reminders for the current view: {scopeLabel}.</p>
         </div>
         <span>{visibleTasks.length} task{visibleTasks.length === 1 ? '' : 's'} shown</span>
       </section>
@@ -4974,10 +4993,8 @@ function TasksDashboard({ taskRows, personalTasks, allClients, advisers, dashboa
         <MetricCard label="Total tasks" value={counts.total} note="All dated active tasks in this view" icon={ListChecks} />
         <MetricCard label="Overdue" value={counts.overdue} note="Past due dates" icon={AlertTriangle} warning />
         <MetricCard label="Due today" value={counts.today} note="Needs action now" icon={Clock} />
-        <MetricCard label="Calendar items" value={counts.calendar} note="Open linked appointments" icon={CalendarDays} />
+        <MetricCard label="Personal tasks" value={counts.personal} note="Internal adviser reminders" icon={UserRound} />
       </div>
-
-      <PersonalTasksPanel personalTasks={personalTasks} allClients={allClients} advisers={advisers} dashboardAdviserFilter={dashboardAdviserFilter} savePersonalTask={savePersonalTask} deletePersonalTask={deletePersonalTask} saving={saving} />
 
       <section className="panel">
         <div className="task-toolbar">
@@ -5018,20 +5035,39 @@ function TasksDashboard({ taskRows, personalTasks, allClients, advisers, dashboa
         <div className="task-table">
           <div className="task-head"><span>Preference</span><span>Client / task</span><span>Task / date</span><span>Adviser</span><span>Note</span><span></span></div>
           {visibleTasks.map((row) => {
+            const isPersonal = row.source === 'personal-task';
             return (
-              <div className={`task-line ${taskStatusKey(row)}`} key={row.id}>
+              <div className={`task-line ${taskStatusKey(row)} ${isPersonal ? 'personal-task-line' : ''}`} key={row.id}>
                 <span><DeadlineBadge diff={row.diff} /></span>
-                <span><strong>{taskDisplayName(row)}</strong><small>{taskContextLabel(row)}</small><small>{row.client?.caseStrategy ? 'Strategy added' : row.source === 'personal-task' ? 'Personal adviser task' : 'No case strategy yet'}</small></span>
+                <span><strong>{taskDisplayName(row)}</strong><small>{taskContextLabel(row)}</small><small>{row.client?.caseStrategy ? 'Strategy added' : isPersonal ? 'Internal adviser reminder' : 'No case strategy yet'}</small></span>
                 <span><strong>{row.type}</strong><small>{row.date}</small></span>
                 <span>{taskAdviserName(row, advisers)}</span>
                 <span>{row.note || '—'}</span>
-                <button className="btn ghost" disabled={!row.client} onClick={() => openTask(row)}>{row.client ? 'Open' : 'Personal'}</button>
+                <button className="btn ghost" type="button" disabled={!row.client && !isPersonal} onClick={() => openTask(row)}>{isPersonal ? 'Open task' : row.client ? 'Open' : 'Open'}</button>
               </div>
             );
           })}
           {!visibleTasks.length && <p className="muted center">No tasks match the selected filters.</p>}
         </div>
       </section>
+
+      <PersonalTasksPanel personalTasks={personalTasks} allClients={allClients} advisers={advisers} dashboardAdviserFilter={dashboardAdviserFilter} savePersonalTask={savePersonalTask} deletePersonalTask={deletePersonalTask} saving={saving} />
+
+      {selectedPersonalTask && (
+        <PersonalTaskModal
+          task={selectedPersonalTask}
+          allClients={allClients}
+          advisers={advisers}
+          saving={saving}
+          onClose={() => setSelectedPersonalTask(null)}
+          onSave={savePersonalTask}
+          onDelete={async (taskId) => {
+            await deletePersonalTask(taskId);
+            setSelectedPersonalTask(null);
+          }}
+          onOpenClient={openLinkedClient}
+        />
+      )}
     </div>
   );
 }
@@ -5040,6 +5076,7 @@ function PersonalTasksPanel({ personalTasks, allClients, advisers, dashboardAdvi
   const defaultAdviserId = dashboardAdviserFilter !== 'all' ? dashboardAdviserFilter : advisers[0]?.id || '';
   const [draft, setDraft] = useState(() => makeBlankPersonalTask(defaultAdviserId));
   const [showCompleted, setShowCompleted] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [formMessage, setFormMessage] = useState('');
 
   useEffect(() => {
@@ -5050,6 +5087,8 @@ function PersonalTasksPanel({ personalTasks, allClients, advisers, dashboardAdvi
     .filter((task) => showCompleted || task.status !== 'Completed')
     .sort((a, b) => (a.dueDate || '9999-12-31').localeCompare(b.dueDate || '9999-12-31')),
     [personalTasks, showCompleted]);
+
+  const openCount = personalTasks.filter((task) => task.status !== 'Completed').length;
 
   async function submit(event) {
     event.preventDefault();
@@ -5068,44 +5107,117 @@ function PersonalTasksPanel({ personalTasks, allClients, advisers, dashboardAdvi
 
   return (
     <section className="panel personal-task-panel">
-      <div className="sub-panel-head">
+      <div className="sub-panel-head personal-task-centre-head">
         <div>
-          <h2>Personal adviser tasks</h2>
-          <p className="muted">Create adviser-specific tasks. Link them to a client where useful, or leave them unlinked for general internal work.</p>
+          <h2>Personal task centre</h2>
+          <p className="muted">Internal adviser reminders sit here, away from the main client workflow. Open personal tasks directly from the task list, or manage them here.</p>
         </div>
-        <label className="compact-check"><input type="checkbox" checked={showCompleted} onChange={(event) => setShowCompleted(event.target.checked)} />Show completed</label>
+        <div className="personal-task-actions">
+          <span className="mini-pill">{openCount} open</span>
+          <button className="btn ghost" type="button" onClick={() => setExpanded((value) => !value)}>{expanded ? 'Hide personal tasks' : 'Manage personal tasks'}</button>
+        </div>
       </div>
 
-      <form className="personal-task-form" onSubmit={submit}>
-        <label><span>Task</span><input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} placeholder="e.g. Call client, review file, follow up INZ" /></label>
-        <label><span>Adviser</span><select value={draft.adviserId} onChange={(event) => setDraft((current) => ({ ...current, adviserId: event.target.value }))}><option value="">Unassigned</option>{advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}</select></label>
-        <label><span>Linked client</span><select value={draft.clientId} onChange={(event) => setDraft((current) => ({ ...current, clientId: event.target.value }))}><option value="">No linked client</option>{allClients.map((client) => <option key={client.id} value={client.id}>{client.firstName} {client.lastName}</option>)}</select></label>
-        <label><span>Due date</span><input type="date" value={draft.dueDate} onChange={(event) => setDraft((current) => ({ ...current, dueDate: event.target.value }))} /></label>
-        <label className="personal-task-note"><span>Note</span><input value={draft.note} onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))} placeholder="Optional detail" /></label>
-        <button className="btn dark" type="submit" disabled={saving}><Plus size={16} />Add task</button>
-      </form>
+      {expanded && (
+        <>
+          <div className="personal-task-options-row">
+            <label className="compact-check"><input type="checkbox" checked={showCompleted} onChange={(event) => setShowCompleted(event.target.checked)} />Show completed</label>
+          </div>
 
-      {formMessage && <p className="inline-status">{formMessage}</p>}
+          <form className="personal-task-form" onSubmit={submit}>
+            <label><span>Task</span><input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} placeholder="e.g. Call client, review file, follow up INZ" /></label>
+            <label><span>Adviser</span><select value={draft.adviserId} onChange={(event) => setDraft((current) => ({ ...current, adviserId: event.target.value }))}><option value="">Unassigned</option>{advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}</select></label>
+            <label><span>Linked client</span><select value={draft.clientId} onChange={(event) => setDraft((current) => ({ ...current, clientId: event.target.value }))}><option value="">No linked client</option>{allClients.map((client) => <option key={client.id} value={client.id}>{client.firstName} {client.lastName}</option>)}</select></label>
+            <label><span>Due date</span><input type="date" value={draft.dueDate} onChange={(event) => setDraft((current) => ({ ...current, dueDate: event.target.value }))} /></label>
+            <label className="personal-task-note"><span>Note</span><input value={draft.note} onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))} placeholder="Optional detail" /></label>
+            <button className="btn dark" type="submit" disabled={saving}><Plus size={16} />Add task</button>
+          </form>
 
-      <div className="personal-task-list">
-        {visiblePersonalTasks.map((task) => {
-          const adviser = advisers.find((item) => item.id === task.adviserId);
-          const client = allClients.find((item) => item.id === task.clientId);
-          const diff = dateDiff(task.dueDate);
-          return (
-            <div className={`personal-task-row ${task.status === 'Completed' ? 'completed' : taskStatusKey({ diff })}`} key={task.id}>
-              <span><DeadlineBadge diff={diff} /></span>
-              <span><strong>{task.title}</strong><small>{task.note || 'No note'}</small></span>
-              <span>{adviser?.name || 'Unassigned'}<small>{client ? `${client.firstName} ${client.lastName}` : 'No linked client'}</small></span>
-              <span><input type="date" value={task.dueDate || ''} onChange={(event) => quickUpdate(task, { dueDate: event.target.value })} /></span>
-              <span><select value={task.status || 'Open'} onChange={(event) => quickUpdate(task, { status: event.target.value })}><option>Open</option><option>Completed</option></select></span>
-              <button className="icon-btn" type="button" onClick={() => deletePersonalTask(task.id)} aria-label="Delete personal task"><Trash2 size={16} /></button>
-            </div>
-          );
-        })}
-        {!visiblePersonalTasks.length && <p className="muted center">No personal tasks in this adviser view.</p>}
-      </div>
+          {formMessage && <p className="inline-status">{formMessage}</p>}
+
+          <div className="personal-task-list">
+            {visiblePersonalTasks.map((task) => {
+              const adviser = advisers.find((item) => item.id === task.adviserId);
+              const client = allClients.find((item) => item.id === task.clientId);
+              const diff = dateDiff(task.dueDate);
+              return (
+                <div className={`personal-task-row ${task.status === 'Completed' ? 'completed' : taskStatusKey({ diff })}`} key={task.id}>
+                  <span><DeadlineBadge diff={diff} /></span>
+                  <span><strong>{task.title}</strong><small>{task.note || 'No note'}</small></span>
+                  <span>{adviser?.name || 'Unassigned'}<small>{client ? `${client.firstName} ${client.lastName}` : 'No linked client'}</small></span>
+                  <span><input type="date" value={task.dueDate || ''} onChange={(event) => quickUpdate(task, { dueDate: event.target.value })} /></span>
+                  <span><select value={task.status || 'Open'} onChange={(event) => quickUpdate(task, { status: event.target.value })}><option>Open</option><option>Completed</option></select></span>
+                  <button className="icon-btn" type="button" onClick={() => deletePersonalTask(task.id)} aria-label="Delete personal task"><Trash2 size={16} /></button>
+                </div>
+              );
+            })}
+            {!visiblePersonalTasks.length && <p className="muted center">No personal tasks in this adviser view.</p>}
+          </div>
+        </>
+      )}
     </section>
+  );
+}
+
+function PersonalTaskModal({ task, allClients, advisers, saving, onClose, onSave, onDelete, onOpenClient }) {
+  const [draft, setDraft] = useState(() => normalisePersonalTask(task));
+  const linkedClient = allClients.find((client) => client.id === draft.clientId);
+
+  useEffect(() => {
+    setDraft(normalisePersonalTask(task));
+  }, [task?.id]);
+
+  async function saveAndClose(event) {
+    event.preventDefault();
+    if (!draft.title.trim()) return;
+    await onSave({ ...draft, title: draft.title.trim() });
+    onClose();
+  }
+
+  async function completeTask() {
+    await onSave({ ...draft, status: 'Completed' });
+    onClose();
+  }
+
+  return (
+    <div className="modal-layer" role="dialog" aria-modal="true" aria-label="Personal task editor">
+      <button className="modal-backdrop" type="button" aria-label="Close personal task editor" onClick={onClose}></button>
+      <form className="modal-card personal-task-editor" onSubmit={saveAndClose}>
+        <div className="modal-head">
+          <div>
+            <span>Personal adviser task</span>
+            <h2>{draft.title || 'Personal task'}</h2>
+            <p className="muted">Edit, complete or remove this internal reminder without leaving the task list.</p>
+          </div>
+          <button className="icon-btn" type="button" onClick={onClose} aria-label="Close personal task editor"><X size={18} /></button>
+        </div>
+
+        <div className="form-grid two personal-task-editor-grid">
+          <label className="field"><span>Task</span><input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} /></label>
+          <label className="field"><span>Due date</span><input type="date" value={draft.dueDate || ''} onChange={(event) => setDraft((current) => ({ ...current, dueDate: event.target.value }))} /></label>
+          <label className="field"><span>Adviser</span><select value={draft.adviserId} onChange={(event) => setDraft((current) => ({ ...current, adviserId: event.target.value }))}><option value="">Unassigned</option>{advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}</select></label>
+          <label className="field"><span>Status</span><select value={draft.status || 'Open'} onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value }))}><option>Open</option><option>Completed</option></select></label>
+          <label className="field"><span>Linked client</span><select value={draft.clientId || ''} onChange={(event) => setDraft((current) => ({ ...current, clientId: event.target.value }))}><option value="">No linked client</option>{allClients.map((client) => <option key={client.id} value={client.id}>{client.firstName} {client.lastName}</option>)}</select></label>
+          <label className="field personal-task-editor-note"><span>Note</span><textarea rows={4} value={draft.note || ''} onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))} /></label>
+        </div>
+
+        {linkedClient && (
+          <div className="current-action-card personal-linked-client-card">
+            <span>Linked client</span>
+            <strong>{linkedClient.firstName} {linkedClient.lastName}</strong>
+            <small>{linkedClient.caseType || 'No case type set'}</small>
+            <button className="btn ghost" type="button" onClick={() => onOpenClient(linkedClient.id)}>Open linked client</button>
+          </div>
+        )}
+
+        <div className="modal-actions personal-task-modal-actions">
+          <button className="btn ghost" type="button" onClick={onClose}>Close</button>
+          <button className="btn danger" type="button" disabled={saving} onClick={() => onDelete(draft.id)}><Trash2 size={16} />Delete</button>
+          <button className="btn ghost" type="button" disabled={saving || draft.status === 'Completed'} onClick={completeTask}><CheckCircle2 size={16} />Complete & remove from list</button>
+          <button className="btn dark" type="submit" disabled={saving || !draft.title.trim()}><Save size={16} />Save task</button>
+        </div>
+      </form>
+    </div>
   );
 }
 

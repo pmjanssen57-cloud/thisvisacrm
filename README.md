@@ -1,3 +1,31 @@
+# THiS CRM v0.12.5 — Personal Task Navigation Polish
+
+This build improves adviser personal task handling on the dashboard without changing client task behaviour.
+
+## v0.12.5 changes
+
+- Personal adviser tasks can now be opened directly from the main task list.
+- The disabled **Personal** button has been replaced with **Open task** for personal tasks.
+- Added a pop-out personal task editor for reviewing, editing, completing or deleting personal tasks.
+- Added **Complete & remove from list** to clear a personal task from the active task register without deleting the record.
+- Linked personal tasks can still open the related client from the task editor.
+- Moved personal task management into a quieter, collapsible **Personal task centre** below the main task list, so client-related workflow stays cleaner.
+- Updated dashboard metric card to show the number of active personal tasks.
+- No database migration required.
+
+## Test process
+
+1. Deploy this package to Netlify.
+2. Open **Tasks**.
+3. Find or create a personal adviser task.
+4. Confirm the main task list shows **Open task**.
+5. Open the personal task, edit it, save it, and confirm the change persists after refresh.
+6. Open it again and click **Complete & remove from list**.
+7. Confirm it disappears from the active task list.
+8. Expand **Personal task centre** and turn on **Show completed** to confirm completed tasks can still be reviewed.
+
+---
+
 # THiS CRM v0.12.4 — Intake Approval Email Formatting Polish
 
 This build adds the first controlled Microsoft 365 email sending step. It does not automate client emails yet. It adds a test email panel in **Adviser tools > Email** so Turner Hopkins can confirm that THiS CRM can send through the shared mailbox before client templates are connected.

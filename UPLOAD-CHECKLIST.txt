@@ -518,3 +518,13 @@ v0.12.4 notes:
 - Confirm the line "please email us directly" uses the allocated adviser's email address.
 - Confirm the applicant receives the email and the allocated adviser is CC'd.
 - Confirm paragraph and bullet spacing is tidy in Outlook.
+
+
+v0.12.5 personal task navigation checks:
+- Deploy package: this-crm-v1205-personal-task-navigation-polish.zip
+- No database migration required.
+- Open the Tasks page and confirm personal tasks show an Open task button rather than a disabled Personal button.
+- Open a personal task from the main task list, edit it, save and refresh to confirm it persists.
+- Click Complete & remove from list and confirm it disappears from active tasks.
+- Expand Personal task centre and confirm personal tasks can still be created, completed, shown and deleted there.
+- Confirm normal client task Open buttons still open the client record as before.
