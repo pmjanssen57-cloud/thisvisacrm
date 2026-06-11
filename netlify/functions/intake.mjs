@@ -282,9 +282,10 @@ async function sendNewIntakeNotificationEmail({ intakeId = '', payload = {}, fla
   if (!toEmails.length) return null;
 
   await ensureEmailNotificationSchema();
+  await pruneOldEmailNotifications();
   const subject = `New intake questionnaire submitted - ${[payload.firstName, payload.lastName].filter(Boolean).join(' ') || 'Unnamed enquiry'}`;
   const bodyText = buildNewIntakeNotificationBody({ intakeId, payload, flags, createdAt });
-  const bodyHtml = textToHtml(bodyText);
+  const bodyHtml = buildNewIntakeNotificationHtml({ intakeId, payload, flags, createdAt });
   const database = db();
   const toEmailLog = toEmails.join(', ');
   const [created] = await database.sql`
@@ -311,36 +312,188 @@ async function sendNewIntakeNotificationEmail({ intakeId = '', payload = {}, fla
 }
 
 function buildNewIntakeNotificationBody({ intakeId = '', payload = {}, flags = {}, createdAt = '' } = {}) {
-  const yesFlags = Object.entries(flags || {}).filter(([, value]) => Boolean(value)).map(([key]) => key).join(', ') || 'None';
-  const crmUrl = String(process.env.URL || process.env.DEPLOY_URL || '').trim();
-  const reviewLine = crmUrl ? `${crmUrl}/` : 'Open THiS CRM and go to Intake.';
-  return [
+  const yesFlags = reviewFlagLabels(flags).join(', ') || 'None';
+  const submitted = createdAt ? formatNzDateTime(createdAt) : 'Just now';
+  const sections = intakeSummarySections(payload);
+  const lines = [
     'A new assessment questionnaire has been submitted through the THiS intake form.',
     '',
-    `Applicant: ${[payload.firstName, payload.lastName].filter(Boolean).join(' ') || 'Not recorded'}`,
+    `Applicant: ${fullName(payload) || 'Not recorded'}`,
     `Email: ${payload.email || 'Not recorded'}`,
     `Mobile: ${payload.phone || 'Not recorded'}`,
-    `Preferred contact: ${payload.preferredContactMethod || 'Not recorded'}`,
-    `Citizenship: ${payload.citizenship || 'Not recorded'}`,
-    `Date of birth / age: ${payload.dateOfBirth || 'Not recorded'}${payload.dateOfBirthAge ? ` (${payload.dateOfBirthAge})` : ''}`,
-    `Current location: ${payload.currentLocation || 'Not recorded'}`,
-    `Currently in New Zealand: ${payload.isInNewZealand || 'Not recorded'}`,
-    `Current visa: ${payload.currentVisaType || 'Not recorded'}`,
-    `Visa expiry: ${payload.currentVisaExpiry || 'Not recorded'}`,
     `Immigration goal: ${payload.targetPathway || 'Not recorded'}`,
-    `Timeframe: ${payload.desiredTimeframe || 'Not recorded'}`,
+    `Current location: ${payload.currentLocation || 'Not recorded'}`,
     `Urgency: ${payload.urgency || 'Standard'}${payload.urgentDeadline ? ` - ${payload.urgentDeadline}` : ''}`,
-    `Partner included: ${payload.hasPartner || 'Not recorded'}`,
-    `NZ job offer: ${payload.hasNzJobOffer || 'Not recorded'}`,
-    `Occupation: ${payload.occupation || payload.jobTitle || 'Not recorded'}`,
     `Review flags: ${yesFlags}`,
-    `Submitted: ${createdAt ? new Date(createdAt).toLocaleString('en-NZ', { timeZone: 'Pacific/Auckland' }) : 'Just now'}`,
+    `Submitted: ${submitted}`,
     `Intake ID: ${intakeId || 'Not recorded'}`,
     '',
-    'Please review this enquiry in THiS CRM > Intake.',
-    reviewLine,
-  ].join('\n');
+    'Full questionnaire summary',
+    '--------------------------',
+  ];
+
+  sections.forEach((section) => {
+    lines.push('', section.title.toUpperCase());
+    section.rows.forEach(([label, value]) => {
+      lines.push(`${label}: ${formatSummaryValue(value) || 'Not answered'}`);
+    });
+    (section.panels || []).forEach((panel) => {
+      lines.push('', `  ${panel.title}`);
+      panel.rows.forEach(([label, value]) => {
+        lines.push(`  ${label}: ${formatSummaryValue(value) || 'Not answered'}`);
+      });
+    });
+  });
+
+  const crmUrl = String(process.env.URL || process.env.DEPLOY_URL || '').trim();
+  lines.push('', 'Please review this enquiry in THiS CRM > Intake.', crmUrl ? `${crmUrl}/` : 'Open THiS CRM and go to Intake.');
+  return lines.join('\n');
 }
+
+function buildNewIntakeNotificationHtml({ intakeId = '', payload = {}, flags = {}, createdAt = '' } = {}) {
+  const yesFlags = reviewFlagLabels(flags);
+  const sections = intakeSummarySections(payload);
+  const submitted = createdAt ? formatNzDateTime(createdAt) : 'Just now';
+  const crmUrl = String(process.env.URL || process.env.DEPLOY_URL || '').trim();
+  const summaryRows = [
+    ['Applicant', fullName(payload)],
+    ['Email', payload.email],
+    ['Mobile', payload.phone],
+    ['Preferred contact', payload.preferredContactMethod],
+    ['Immigration goal', payload.targetPathway],
+    ['Current location', payload.currentLocation],
+    ['Urgency', `${payload.urgency || 'Standard'}${payload.urgentDeadline ? ` - ${payload.urgentDeadline}` : ''}`],
+    ['Review flags', yesFlags.join(', ') || 'None'],
+    ['Submitted', submitted],
+    ['Intake ID', intakeId],
+  ];
+
+  return `<div style="font-family:Aptos,Arial,sans-serif;font-size:11pt;line-height:1.35;color:#1f2933;">
+    <h2 style="margin:0 0 8px;color:#003736;font-size:20px;">New THiS intake questionnaire</h2>
+    <p style="margin:0 0 14px;">A new assessment questionnaire has been submitted through the THiS intake form. Key details and the full questionnaire summary are below.</p>
+    ${summaryTable(summaryRows)}
+    ${yesFlags.length ? `<p style="margin:12px 0 6px;"><strong>Review flags</strong></p><p style="margin:0 0 14px;">${yesFlags.map((flag) => `<span style="display:inline-block;margin:0 6px 6px 0;padding:5px 9px;border:1px solid #b9d8ce;border-radius:999px;background:#f4fbf8;color:#003736;font-weight:700;font-size:10pt;">${escapeHtml(flag)}</span>`).join('')}</p>` : ''}
+    <h3 style="margin:18px 0 8px;color:#003736;font-size:16px;">Full questionnaire summary</h3>
+    ${sections.map(summarySectionHtml).join('')}
+    <p style="margin:18px 0 4px;"><strong>Please review this enquiry in THiS CRM &gt; Intake.</strong></p>
+    ${crmUrl ? `<p style="margin:0;"><a href="${escapeHtml(crmUrl)}">Open THiS CRM</a></p>` : ''}
+  </div>`;
+}
+
+function intakeSummarySections(payload = {}) {
+  const sections = [
+    { title: 'Your details', rows: rows(payload, ['firstName', 'lastName', 'email', 'phone', 'preferredContactMethod', 'citizenship', 'dateOfBirth', 'dateOfBirthAge']) },
+    { title: 'Immigration goal', rows: rows(payload, ['targetPathway', 'desiredTimeframe', 'urgency', 'urgentDeadline', 'helpNeeded']) },
+    { title: 'Current visa situation', rows: rows(payload, ['isInNewZealand', 'currentLocation', 'currentVisaType', 'currentVisaExpiry', 'visaConditions', 'previouslyVisitedNz', 'previouslyHeldNzVisa', 'plannedTravelDate', 'passportExpiry']) },
+    {
+      title: 'Partner and family',
+      rows: rows(payload, ['relationshipStatus', 'hasPartner', 'hasChildren']),
+      panels: [
+        { title: 'Partner details', rows: rows(payload, ['partnerFullName', 'partnerDateOfBirth', 'partnerCitizenship', 'partnerCurrentCountry', 'partnerVisaStatus', 'partnerNzStatus', 'livingTogether', 'relationshipStarted', 'startedLivingTogether', 'partnerIncluded', 'relationshipBackground']) },
+        { title: 'Partner work and experience', rows: rows(payload, ['partnerCurrentEmploymentStatus', 'partnerOccupation', 'partnerCurrentEmployer', 'partnerEmploymentCountry', 'partnerCurrentJobStartDate', 'partnerHoursPerWeek', 'partnerAnnualSalary', 'partnerSalaryCurrency', 'partnerYearsExperience', 'partnerEmploymentDetails', 'partnerPreviousWorkHistory']) },
+        { title: 'Partner qualifications', rows: rows(payload, ['partnerHighestQualification', 'partnerQualificationName', 'partnerQualificationInstitution', 'partnerQualificationCountry', 'partnerQualificationYearCompleted', 'partnerQualificationStudyLength', 'partnerTaughtInEnglish', 'partnerNzqaAssessed', 'partnerQualificationRelatedToOccupation', 'partnerQualificationDetails']) },
+        { title: 'Children', rows: rows(payload, ['children', 'moreChildrenDetails']) },
+      ],
+    },
+    {
+      title: 'Work and employment',
+      rows: rows(payload, ['currentEmploymentStatus', 'occupation', 'currentEmployer', 'employmentCountry', 'currentJobStartDate', 'hoursPerWeek', 'annualSalary', 'salaryCurrency', 'yearsExperience', 'employmentDetails']),
+      panels: [
+        { title: 'Previous work history', rows: rows(payload, ['previousWorkHistory']) },
+        { title: 'New Zealand job offer', rows: rows(payload, ['hasNzJobOffer', 'employerName', 'jobTitle', 'nzJobLocation', 'payRate', 'nzPayCurrency', 'nzJobHours', 'employerAccredited', 'employmentAgreementProvided', 'proposedStartDate']) },
+      ],
+    },
+    { title: 'Qualifications', rows: rows(payload, ['highestQualification', 'qualificationName', 'qualificationInstitution', 'qualificationCountry', 'qualificationYearCompleted', 'qualificationStudyLength', 'taughtInEnglish', 'nzqaAssessed', 'qualificationRelatedToOccupation', 'qualificationDetails']) },
+    { title: 'Health and character', rows: rows(payload, ['healthIssues', 'dependantHealthIssues', 'healthDetails', 'characterConvictions', 'characterPendingCharges', 'deportationRemoval', 'characterDetails']) },
+    { title: 'Immigration history', rows: rows(payload, ['visaDeclines', 'overstayed', 'falseMisleadingIssue', 'appealOrDeadline', 'immigrationHistoryDetails', 'countriesLived', 'countriesLivedFiveYearsSince17', 'nzTravelHistory']) },
+    { title: 'Funds and investment', rows: rows(payload, ['fundsAvailableSupport', 'availableFunds', 'fundsCurrency', 'sourceOfFunds', 'investmentInterest']), panels: [{ title: 'Investment background', rows: rows(payload, ['investmentFunds', 'investmentCurrency', 'fundsHeldByYou', 'fundsTransferableNz', 'fundsDetails']) }] },
+    { title: 'Final comments and consent', rows: rows(payload, ['additionalInfo', 'consentToContact', 'privacyAcknowledged']) },
+  ];
+  return sections.map((section) => ({ ...section, panels: (section.panels || []).filter((panel) => panel.rows.length) })).filter((section) => section.rows.length || (section.panels || []).length);
+}
+
+function rows(payload = {}, keys = []) {
+  return keys.map((key) => [labelForKey(key), payload[key]]).filter(([, value]) => hasSummaryValue(value));
+}
+
+function summarySectionHtml(section = {}) {
+  return `<div style="border:1px solid #d9e6e1;border-radius:14px;margin:0 0 12px;overflow:hidden;">
+    <h4 style="margin:0;padding:10px 12px;background:#003736;color:#ffffff;font-size:13px;letter-spacing:.02em;">${escapeHtml(section.title)}</h4>
+    ${summaryTable(section.rows, false)}
+    ${(section.panels || []).map((panel) => `<div style="padding:10px 12px 0;"><strong style="color:#003736;">${escapeHtml(panel.title)}</strong></div>${summaryTable(panel.rows, false)}`).join('')}
+  </div>`;
+}
+
+function summaryTable(items = [], outer = true) {
+  if (!items.length) return '<p style="margin:8px 12px;color:#64748b;">No answers recorded.</p>';
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;${outer ? 'margin:10px 0 14px;' : ''}">
+    ${items.map(([label, value]) => `<tr><td style="border:1px solid #d9e6e1;padding:7px 9px;background:#f4fbf8;font-weight:700;width:34%;vertical-align:top;color:#475569;">${escapeHtml(label)}</td><td style="border:1px solid #d9e6e1;padding:7px 9px;vertical-align:top;white-space:pre-line;">${escapeHtml(formatSummaryValue(value) || 'Not answered')}</td></tr>`).join('')}
+  </table>`;
+}
+
+function fullName(payload = {}) {
+  return [payload.firstName, payload.lastName].filter(Boolean).join(' ').trim();
+}
+
+function hasSummaryValue(value) {
+  if (Array.isArray(value)) return value.some(hasSummaryValue);
+  if (value && typeof value === 'object') return Object.values(value).some(hasSummaryValue);
+  return String(value || '').trim().length > 0;
+}
+
+function formatSummaryValue(value) {
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (Array.isArray(value)) {
+    return value.map((entry, index) => {
+      if (entry && typeof entry === 'object') {
+        const parts = [
+          entry.fullName,
+          entry.dateOfBirth ? `Date of birth: ${entry.dateOfBirth}` : '',
+          entry.citizenship ? `Citizenship: ${entry.citizenship}` : '',
+          entry.currentCountry ? `Current country: ${entry.currentCountry}` : '',
+          entry.dependent ? `Dependent: ${entry.dependent}` : '',
+          entry.includedInApplication ? `Included: ${entry.includedInApplication}` : '',
+          entry.custodyIssues ? `Custody / guardianship issue: ${entry.custodyIssues}` : '',
+        ].filter(Boolean);
+        return `${index + 1}. ${parts.join(' · ')}`;
+      }
+      return `${index + 1}. ${entry}`;
+    }).join('\n');
+  }
+  if (value && typeof value === 'object') {
+    return Object.entries(value).filter(([, item]) => hasSummaryValue(item)).map(([key, item]) => `${labelForKey(key)}: ${formatSummaryValue(item)}`).join('\n');
+  }
+  return String(value || '');
+}
+
+function reviewFlagLabels(flags = {}) {
+  const labels = {
+    urgent: 'Urgent timing',
+    visaExpirySoon: 'Visa expiry',
+    health: 'Health review',
+    character: 'Character review',
+    employment: 'Employment details',
+    partnership: 'Partnership/family',
+    family: 'Children/family',
+    funds: 'Funds/investment',
+    investor: 'Investor interest',
+  };
+  return Object.entries(flags || {}).filter(([, value]) => Boolean(value)).map(([key]) => labels[key] || key);
+}
+
+function formatNzDateTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value || '');
+  return date.toLocaleString('en-NZ', { timeZone: 'Pacific/Auckland' });
+}
+
+function labelForKey(key = '') {
+  return INTAKE_LABELS[key] || String(key || '').replace(/([A-Z])/g, ' $1').replace(/^./, (char) => char.toUpperCase());
+}
+
+const INTAKE_LABELS = {
+  firstName: 'First name', lastName: 'Last name', email: 'Email', phone: 'Mobile phone', preferredContactMethod: 'Preferred contact', citizenship: 'Country of citizenship', dateOfBirth: 'Date of birth', dateOfBirthAge: 'Age', consentToContact: 'Consent to contact', privacyAcknowledged: 'Questionnaire acknowledgement', urgency: 'Urgency', urgentDeadline: 'Important deadline', targetPathway: 'Main goal', desiredTimeframe: 'Desired timeframe', helpNeeded: 'Help needed', isInNewZealand: 'Currently in New Zealand', currentVisaType: 'Current visa type', currentVisaExpiry: 'Current visa expiry', visaConditions: 'Visa conditions', currentLocation: 'Current country / location', previouslyVisitedNz: 'Previously visited New Zealand', previouslyHeldNzVisa: 'Previously held a New Zealand visa', plannedTravelDate: 'Planned travel date (if known)', passportExpiry: 'Passport expiry', relationshipStatus: 'Relationship status', hasPartner: 'Partner included', partnerFullName: 'Partner full name', partnerDateOfBirth: 'Partner date of birth', partnerCitizenship: 'Partner citizenship', partnerCurrentCountry: 'Partner current country', partnerVisaStatus: 'Partner visa status', partnerNzStatus: 'Partner NZ status', livingTogether: 'Living together', relationshipStarted: 'Relationship started', startedLivingTogether: 'Started living together', partnerIncluded: 'Partner included in application', relationshipBackground: 'Relationship / family background', partnerCurrentEmploymentStatus: 'Partner employment status', partnerOccupation: 'Partner occupation', partnerCurrentEmployer: 'Partner employer / business', partnerEmploymentCountry: 'Partner employment country', partnerCurrentJobStartDate: 'Partner current job start date', partnerHoursPerWeek: 'Partner hours per week', partnerAnnualSalary: 'Partner salary / pay rate', partnerSalaryCurrency: 'Partner salary currency', partnerYearsExperience: 'Partner years of relevant experience', partnerEmploymentDetails: 'Partner current employment details', partnerPreviousWorkHistory: 'Partner previous work history', partnerHighestQualification: 'Partner highest qualification', partnerQualificationName: 'Partner qualification name', partnerQualificationInstitution: 'Partner institution', partnerQualificationCountry: 'Partner qualification country', partnerQualificationYearCompleted: 'Partner year completed', partnerQualificationStudyLength: 'Partner length of study', partnerTaughtInEnglish: 'Partner taught in English', partnerNzqaAssessed: 'Partner NZQA assessed', partnerQualificationRelatedToOccupation: 'Partner qualification related to occupation', partnerQualificationDetails: 'Partner other qualifications/training', hasChildren: 'Children', children: 'Children details', moreChildrenDetails: 'More children / family details', currentEmploymentStatus: 'Current employment status', occupation: 'Occupation / profession', currentEmployer: 'Current employer / business', employmentCountry: 'Employment country', currentJobStartDate: 'Current job start date', hoursPerWeek: 'Hours per week', annualSalary: 'Salary / pay rate', salaryCurrency: 'Salary currency', yearsExperience: 'Years of relevant experience', hasNzJobOffer: 'New Zealand job offer', employerName: 'Employer name', jobTitle: 'Job title', nzJobLocation: 'NZ job location', payRate: 'Pay rate', nzPayCurrency: 'NZ pay currency', nzJobHours: 'NZ job hours', employerAccredited: 'Employer accredited', employmentAgreementProvided: 'Employment agreement provided', proposedStartDate: 'Proposed start date', employmentDetails: 'Current employment details', previousWorkHistory: 'Previous work history', highestQualification: 'Highest qualification', qualificationName: 'Qualification name', qualificationInstitution: 'Institution', qualificationCountry: 'Qualification country', qualificationYearCompleted: 'Year completed', qualificationStudyLength: 'Length of study', taughtInEnglish: 'Taught in English', nzqaAssessed: 'NZQA assessed', qualificationRelatedToOccupation: 'Qualification related to occupation', qualificationDetails: 'Other qualifications/training', healthIssues: 'Health issues', dependantHealthIssues: 'Dependant health issues', healthDetails: 'Health details', characterIssues: 'Character issues', characterConvictions: 'Convictions', characterPendingCharges: 'Pending charges', deportationRemoval: 'Deportation/removal', characterDetails: 'Character details', visaDeclines: 'Visa declines', immigrationHistoryDetails: 'Immigration history details', overstayed: 'Overstayed', falseMisleadingIssue: 'False/misleading information issue', appealOrDeadline: 'Appeal or deadline', countriesLived: 'Countries spent 12 months or more in', countriesLivedFiveYearsSince17: 'Countries spent five years or more in since age 17', nzTravelHistory: 'NZ travel history', englishLevel: 'English level', englishTestDetails: 'English test details', fundsAvailableSupport: 'Funds available to support move', availableFunds: 'Available funds', fundsCurrency: 'Funds currency', sourceOfFunds: 'Source of funds', investmentInterest: 'Investment interest', investmentFunds: 'Investment funds', investmentCurrency: 'Investment currency', fundsHeldByYou: 'Funds held by applicant', fundsTransferableNz: 'Funds transferable to NZ', fundsDetails: 'Funds / investment details', additionalInfo: 'Additional information'
+};
 
 function getIntakeNotificationRecipients() {
   const configured = String(process.env.INTAKE_NOTIFICATION_RECIPIENTS || '').trim();
@@ -379,6 +532,10 @@ async function ensureEmailNotificationSchema() {
     )`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_email_notifications_created_at ON email_notifications(created_at DESC)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_email_notifications_status ON email_notifications(status)`;
+}
+
+async function pruneOldEmailNotifications() {
+  await db().sql`DELETE FROM email_notifications WHERE created_at < NOW() - INTERVAL '60 days'`;
 }
 
 function requireMicrosoftEmailConfig() {

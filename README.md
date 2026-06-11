@@ -1,3 +1,37 @@
+# THiS CRM v0.12.6 — Intake and Portal Email Log Polish
+
+This build expands the first CRM email workflow now that Microsoft 365 sending is working.
+
+## v0.12.6 changes
+
+- New intake notification emails now include a fuller adviser-friendly questionnaire summary, laid out in the same broad order as the intake form.
+- Intake notification emails still go to Paul and Sejoo by default, with support for `INTAKE_NOTIFICATION_RECIPIENTS` if this needs to be overridden later.
+- When portal access is published with a newly generated access code, the CRM automatically emails the client their portal access details.
+- Portal access email includes:
+  - portal link;
+  - login email / username;
+  - access code.
+- The portal access email is sent from the configured Microsoft 365 mailbox and logged in the CRM email log.
+- Added a proper **Email log and testing** lightbox from the Tools menu.
+- The Email tool now opens as a pop-out review window instead of sitting inside the Tools drawer.
+- Email log supports status/type/search filtering and viewing the stored sent body text.
+- Email logs are retained for 60 days; older logs are pruned automatically when the CRM email log is loaded or when intake emails are sent.
+- No new database migration required. This build uses the existing `email_notifications` table from v0.12.0.
+
+## Test process
+
+1. Deploy this package to Netlify.
+2. Confirm Microsoft email environment variables remain set in Netlify.
+3. Open **Tools > Email log** and confirm the pop-out opens.
+4. Send an internal test email and confirm it appears in the email log.
+5. Submit a dummy `/intake` form and confirm Paul and Sejoo receive the full-summary intake notification.
+6. Open the new intake record, assign an adviser and send approval/decline emails to an internal test applicant address.
+7. Open a client record, generate/reset a portal access code, then click **Publish portal update**.
+8. Confirm the client receives the portal access email with portal link, login email / username and access code.
+9. Confirm all sent/failed records appear in the Email log lightbox.
+
+---
+
 # THiS CRM v0.12.5 — Personal Task Navigation Polish
 
 This build improves adviser personal task handling on the dashboard without changing client task behaviour.

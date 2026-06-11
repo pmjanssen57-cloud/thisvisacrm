@@ -1,3 +1,23 @@
+THiS CRM v0.12.6 — Intake and Portal Email Log Polish
+
+Before deploying:
+[ ] Confirm Microsoft environment variables are still present in Netlify.
+[ ] Confirm MICROSOFT_NOTIFICATION_FROM_EMAIL is THiS@turnerhopkins.co.nz.
+[ ] Confirm the v0.12.0 email_notifications migration has already deployed.
+[ ] No new migration is required for this package.
+
+After deploying:
+[ ] Open CRM > Tools > Email log and confirm the lightbox opens.
+[ ] Send a test email to an internal Turner Hopkins address.
+[ ] Confirm the email arrives and appears in the Email log.
+[ ] Submit a dummy intake and confirm Paul and Sejoo receive the expanded intake summary email.
+[ ] Open that intake and test approval/decline emails to an internal recipient.
+[ ] Open a client record, generate/reset a portal code and publish portal access.
+[ ] Confirm the client receives the portal access email with portal link, login email / username and access code.
+[ ] Confirm old email records remain visible in the log and that filtering/search works.
+
+---
+
 THiS CRM v0.12.0 — Email Sending Test Foundation
 
 Before deploying:

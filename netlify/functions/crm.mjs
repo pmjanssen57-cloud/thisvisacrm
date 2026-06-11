@@ -159,8 +159,8 @@ async function handleCrmEvent(event) {
     }
 
     if (action === 'saveClient') {
-      const client = await saveClient(body.client);
-      return json({ client: await readSingleClient(client.id) });
+      const client = await saveClient(body.client, auth.user);
+      return json({ client: await readSingleClient(client.id), emailLog: client.portalAccessEmailLog || null });
     }
 
     if (action === 'updatePortalMessageStatus') {
@@ -553,6 +553,7 @@ async function ensureSchema() {
 
 async function readCrmData() {
   const database = db();
+  await pruneOldEmailNotifications(database);
   const [advisers, clients, stages, deadlines, billing, personalTasks, calendarEntries, libraryEntries, portalMessages, portalDocuments, intakeEnquiries, emailLogs] = await Promise.all([
     database.sql`SELECT id, name, role, email, login_email, profile_photo_url, availability_status, phone, licence, active FROM advisers ORDER BY name ASC`,
     database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, one_law_client_number, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, portal_enabled, portal_email, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_access_code_hash, portal_last_published_at, portal_last_accessed_at, notes, family_members, document_checklist FROM clients ORDER BY updated_at DESC`,
@@ -565,7 +566,7 @@ async function readCrmData() {
     database.sql`SELECT id, client_id, portal_email, message_type, title, message, status, created_at FROM client_portal_messages ORDER BY created_at DESC`,
     database.sql`SELECT id, client_id, title, category, description, file_name, file_type, file_size, blob_key, visible_to_client, uploaded_by, uploaded_at FROM client_portal_documents ORDER BY uploaded_at DESC`,
     database.sql`SELECT id, status, assigned_adviser_id, applicant_first_name, applicant_last_name, email, phone, current_location, citizenship, date_of_birth, current_visa_type, current_visa_expiry, target_pathway, urgency, flags, raw_payload, adviser_assessment_notes, recommended_pathway, consultation_outcome, converted_client_id, created_at, updated_at FROM intake_enquiries ORDER BY created_at DESC`,
-    database.sql`SELECT id, template_key, from_email, from_name, to_email, cc, subject, status, sent_by, sent_at, failed_at, failure_message, created_at FROM email_notifications ORDER BY created_at DESC LIMIT 50`,
+    database.sql`SELECT id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at FROM email_notifications WHERE created_at >= NOW() - INTERVAL '60 days' ORDER BY created_at DESC LIMIT 200`,
   ]);
 
   return {
@@ -621,7 +622,10 @@ function mapEmailLogFromDb(row) {
     fromName: row.from_name || '',
     toEmail: row.to_email || '',
     cc: row.cc || '',
+    bcc: row.bcc || '',
     subject: row.subject || '',
+    bodyText: row.body_text || '',
+    bodyHtml: row.body_html || '',
     status: row.status || '',
     sentBy: row.sent_by || '',
     sentAt: row.sent_at || '',
@@ -629,6 +633,10 @@ function mapEmailLogFromDb(row) {
     failureMessage: row.failure_message || '',
     createdAt: row.created_at || '',
   };
+}
+
+async function pruneOldEmailNotifications(database = db()) {
+  await database.sql`DELETE FROM email_notifications WHERE created_at < NOW() - INTERVAL '60 days'`;
 }
 
 function getEmailConfigStatus() {
@@ -1259,7 +1267,7 @@ function inferCaseTypeFromIntake(intake = {}) {
   return CASE_TYPES[0];
 }
 
-async function saveClient(input = {}) {
+async function saveClient(input = {}, authUser = null) {
   const database = db();
   const client = normaliseClientInput(input);
   const poolClient = await database.pool.connect();
@@ -1355,7 +1363,17 @@ async function saveClient(input = {}) {
     }
 
     await poolClient.query('COMMIT');
-    return { ...client, id: clientId, nextActionLog };
+
+    let portalAccessEmailLog = null;
+    if (client.portalPublishNow && client.portalEnabled && client.portalNewAccessCode && isValidEmailAddress(client.portalEmail || client.email)) {
+      try {
+        portalAccessEmailLog = await sendPortalAccessEmail({ ...client, id: clientId }, client.portalNewAccessCode, authUser);
+      } catch (emailError) {
+        console.warn('Portal access email failed', emailError?.message || emailError);
+      }
+    }
+
+    return { ...client, id: clientId, nextActionLog, portalAccessEmailLog };
   } catch (error) {
     await poolClient.query('ROLLBACK');
     throw error;
@@ -1453,7 +1471,7 @@ async function sendTestEmail(input = {}, authUser = null) {
   const [created] = await database.sql`
     INSERT INTO email_notifications (related_record_type, template_key, from_email, from_name, to_email, subject, body_text, body_html, status, sent_by)
     VALUES ('test', 'test', ${config.fromEmail}, ${config.fromName}, ${toEmail}, ${subject}, ${bodyText}, ${textToHtml(bodyText)}, 'Sending', ${sentBy})
-    RETURNING id, template_key, from_email, from_name, to_email, subject, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+    RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
 
   try {
     const token = await getMicrosoftGraphAccessToken(config);
@@ -1462,7 +1480,7 @@ async function sendTestEmail(input = {}, authUser = null) {
       UPDATE email_notifications
          SET status = 'Sent', sent_at = NOW(), provider_request_id = ${sendResult.requestId || ''}, updated_at = NOW()
        WHERE id = ${created.id}
-       RETURNING id, template_key, from_email, from_name, to_email, subject, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+       RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
     return mapEmailLogFromDb(updated);
   } catch (error) {
     const message = String(error?.message || error).slice(0, 1000);
@@ -1470,7 +1488,7 @@ async function sendTestEmail(input = {}, authUser = null) {
       UPDATE email_notifications
          SET status = 'Failed', failed_at = NOW(), failure_message = ${message}, updated_at = NOW()
        WHERE id = ${created.id}
-       RETURNING id, template_key, from_email, from_name, to_email, subject, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+       RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
     return mapEmailLogFromDb(failed);
   }
 }
@@ -1493,7 +1511,7 @@ async function sendIntakeOutcomeEmail(input = {}, outcome = 'approve', authUser 
   const [created] = await database.sql`
     INSERT INTO email_notifications (related_record_type, related_record_id, intake_id, template_key, from_email, from_name, to_email, cc, subject, body_text, body_html, status, sent_by)
     VALUES ('intake', ${nullableUuid(intake.id)}, ${nullableUuid(intake.id)}, ${templateKey}, ${config.fromEmail}, ${config.fromName}, ${emailDraft.to}, ${ccEmail}, ${emailDraft.subject}, ${emailDraft.bodyText}, ${emailDraft.bodyHtml}, 'Sending', ${sentBy})
-    RETURNING id, template_key, from_email, from_name, to_email, cc, subject, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+    RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
 
   try {
     const token = await getMicrosoftGraphAccessToken(config);
@@ -1510,7 +1528,7 @@ async function sendIntakeOutcomeEmail(input = {}, outcome = 'approve', authUser 
       UPDATE email_notifications
          SET status = 'Sent', sent_at = NOW(), provider_request_id = ${sendResult.requestId || ''}, updated_at = NOW()
        WHERE id = ${created.id}
-       RETURNING id, template_key, from_email, from_name, to_email, cc, subject, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+       RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
     return mapEmailLogFromDb(updated);
   } catch (error) {
     const message = String(error?.message || error).slice(0, 1000);
@@ -1518,7 +1536,7 @@ async function sendIntakeOutcomeEmail(input = {}, outcome = 'approve', authUser 
       UPDATE email_notifications
          SET status = 'Failed', failed_at = NOW(), failure_message = ${message}, updated_at = NOW()
        WHERE id = ${created.id}
-       RETURNING id, template_key, from_email, from_name, to_email, cc, subject, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+       RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
     return mapEmailLogFromDb(failed);
   }
 }
@@ -1625,6 +1643,69 @@ ${p(`If you wish to move ahead with this assessment, please email us directly: $
 ${gap(14)}
 ${p('I look forward to hearing from you in due course.')}
 </div>`;
+}
+
+async function sendPortalAccessEmail(client = {}, accessCode = '', authUser = null) {
+  const portalEmail = String(client.portalEmail || client.email || '').trim();
+  if (!isValidEmailAddress(portalEmail)) throw new Error('Client portal email is not valid.');
+  if (!String(accessCode || '').trim()) throw new Error('A new portal access code is required before sending portal access details.');
+
+  const config = requireMicrosoftEmailConfig();
+  const database = db();
+  await pruneOldEmailNotifications(database);
+  const sentBy = authUser?.email || authUser?.name || 'CRM adviser';
+  const firstName = String(client.firstName || '').trim() || 'there';
+  const baseUrl = String(process.env.URL || process.env.DEPLOY_URL || '').replace(/\/$/, '') || 'https://this-crm.netlify.app';
+  const portalLink = `${baseUrl}/portal`;
+  const subject = 'Your Turner Hopkins client portal access';
+  const bodyText = [
+    `Dear ${firstName},`,
+    '',
+    'We have set up your Turner Hopkins client portal so you can view the latest information we have published about your application progress.',
+    '',
+    `Portal link: ${portalLink}`,
+    `Login email / username: ${portalEmail}`,
+    `Access code: ${accessCode}`,
+    '',
+    'The portal is a secure, read-only space where you can check application updates, view documents we have made available to you, and send notes or questions to your adviser.',
+    '',
+    'We will continue to contact you by email as usual when we need anything further.',
+  ].join('\n');
+  const bodyHtml = `<div style="font-family: Aptos, Arial, sans-serif; font-size: 11pt; line-height: 1.35; color: #1f2933;">
+    <p>Dear ${escapeHtml(firstName)},</p>
+    <p>We have set up your Turner Hopkins client portal so you can view the latest information we have published about your application progress.</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse; margin:12px 0; width:100%; max-width:620px;">
+      <tr><td style="border:1px solid #d9e6e1; padding:8px 10px; font-weight:700; background:#f4fbf8; width:190px;">Portal link</td><td style="border:1px solid #d9e6e1; padding:8px 10px;"><a href="${escapeHtml(portalLink)}">${escapeHtml(portalLink)}</a></td></tr>
+      <tr><td style="border:1px solid #d9e6e1; padding:8px 10px; font-weight:700; background:#f4fbf8;">Login email / username</td><td style="border:1px solid #d9e6e1; padding:8px 10px;">${escapeHtml(portalEmail)}</td></tr>
+      <tr><td style="border:1px solid #d9e6e1; padding:8px 10px; font-weight:700; background:#f4fbf8;">Access code</td><td style="border:1px solid #d9e6e1; padding:8px 10px;"><strong>${escapeHtml(accessCode)}</strong></td></tr>
+    </table>
+    <p>The portal is a secure, read-only space where you can check application updates, view documents we have made available to you, and send notes or questions to your adviser.</p>
+    <p>We will continue to contact you by email as usual when we need anything further.</p>
+  </div>`;
+
+  const [created] = await database.sql`
+    INSERT INTO email_notifications (related_record_type, related_record_id, client_id, template_key, from_email, from_name, to_email, subject, body_text, body_html, status, sent_by)
+    VALUES ('client', ${nullableUuid(client.id)}, ${nullableUuid(client.id)}, 'portal_access', ${config.fromEmail}, ${config.fromName}, ${portalEmail}, ${subject}, ${bodyText}, ${bodyHtml}, 'Sending', ${sentBy})
+    RETURNING id`;
+
+  try {
+    const token = await getMicrosoftGraphAccessToken(config);
+    const sendResult = await sendMicrosoftGraphEmail({ config, token, toEmail: portalEmail, subject, bodyText, bodyHtml });
+    const [updated] = await database.sql`
+      UPDATE email_notifications
+         SET status = 'Sent', sent_at = NOW(), provider_request_id = ${sendResult.requestId || ''}, updated_at = NOW()
+       WHERE id = ${created.id}
+       RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+    return mapEmailLogFromDb(updated);
+  } catch (error) {
+    const message = String(error?.message || error).slice(0, 1000);
+    const [failed] = await database.sql`
+      UPDATE email_notifications
+         SET status = 'Failed', failed_at = NOW(), failure_message = ${message}, updated_at = NOW()
+       WHERE id = ${created.id}
+       RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+    return mapEmailLogFromDb(failed);
+  }
 }
 
 function requireMicrosoftEmailConfig() {

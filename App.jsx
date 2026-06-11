@@ -554,6 +554,12 @@ export default function App() {
       setSelectedClientId(nextSelectedId);
       if (wasNewClient && options.resetNewClientForm) setTab('clients');
     }
+    if (body.emailLog) {
+      setData((current) => ({
+        ...current,
+        emailLogs: [normaliseEmailLog(body.emailLog), ...(current.emailLogs || [])].slice(0, 200),
+      }));
+    }
     return body;
   }
 
@@ -596,7 +602,7 @@ export default function App() {
     if (body.emailLog) {
       setData((current) => ({
         ...current,
-        emailLogs: [normaliseEmailLog(body.emailLog), ...(current.emailLogs || [])].slice(0, 20),
+        emailLogs: [normaliseEmailLog(body.emailLog), ...(current.emailLogs || [])].slice(0, 200),
         emailConfig: body.emailConfig ? normaliseEmailConfig(body.emailConfig) : current.emailConfig,
       }));
     }
@@ -608,7 +614,7 @@ export default function App() {
     if (body.emailLog) {
       setData((current) => ({
         ...current,
-        emailLogs: [normaliseEmailLog(body.emailLog), ...(current.emailLogs || [])].slice(0, 20),
+        emailLogs: [normaliseEmailLog(body.emailLog), ...(current.emailLogs || [])].slice(0, 200),
         emailConfig: body.emailConfig ? normaliseEmailConfig(body.emailConfig) : current.emailConfig,
       }));
     }
@@ -2857,7 +2863,8 @@ const TOOL_TIMEZONES = [
 ];
 
 function ToolsDrawer({ open, onOpen, onClose, sendTestEmail, emailLogs = [], emailConfig = {}, saving = false }) {
-  const [activeTool, setActiveTool] = useState('email');
+  const [activeTool, setActiveTool] = useState('weather');
+  const [emailLogOpen, setEmailLogOpen] = useState(false);
 
   return (
     <>
@@ -2873,34 +2880,58 @@ function ToolsDrawer({ open, onOpen, onClose, sendTestEmail, emailLogs = [], ema
           </div>
           <button className="icon-btn" type="button" onClick={onClose} aria-label="Close adviser tools"><X size={18} /></button>
         </div>
-        <p className="support-summary">Quick tools for client calls, international matters and day-to-day file work. Results are practical aids only and should be checked before being used in formal advice.</p>
+        <p className="support-summary">Quick tools for client calls, international matters and day-to-day file work. Email testing and logs open in a separate review window.</p>
         <div className="tool-tabs" role="tablist" aria-label="Adviser tools">
           <button type="button" className={activeTool === 'weather' ? 'active' : ''} onClick={() => setActiveTool('weather')}><CloudSun size={16} />Weather</button>
           <button type="button" className={activeTool === 'timezone' ? 'active' : ''} onClick={() => setActiveTool('timezone')}><Globe2 size={16} />Time</button>
           <button type="button" className={activeTool === 'currency' ? 'active' : ''} onClick={() => setActiveTool('currency')}><DollarSign size={16} />Currency</button>
           <button type="button" className={activeTool === 'calculator' ? 'active' : ''} onClick={() => setActiveTool('calculator')}><Calculator size={16} />Calc</button>
-          <button type="button" className={activeTool === 'email' ? 'active' : ''} onClick={() => setActiveTool('email')}><Mail size={16} />Email</button>
+          <button type="button" onClick={() => setEmailLogOpen(true)}><Mail size={16} />Email log</button>
         </div>
         <div className="tool-panel">
-          {activeTool === 'email' && <EmailTestTool sendTestEmail={sendTestEmail} emailLogs={emailLogs} emailConfig={emailConfig} saving={saving} />}
           {activeTool === 'weather' && <WeatherTool />}
           {activeTool === 'timezone' && <TimezoneTool />}
           {activeTool === 'currency' && <CurrencyTool />}
           {activeTool === 'calculator' && <CalculatorTool />}
         </div>
       </aside>
+      <EmailLogLightbox open={emailLogOpen} onClose={() => setEmailLogOpen(false)} sendTestEmail={sendTestEmail} emailLogs={emailLogs} emailConfig={emailConfig} saving={saving} />
     </>
   );
 }
 
-function EmailTestTool({ sendTestEmail, emailLogs = [], emailConfig = {}, saving = false }) {
+function EmailLogLightbox({ open, onClose, sendTestEmail, emailLogs = [], emailConfig = {}, saving = false }) {
   const [toEmail, setToEmail] = useState('');
   const [subject, setSubject] = useState('THiS CRM test email');
   const [message, setMessage] = useState('This is a test email sent from THiS CRM through the Turner Hopkins Microsoft 365 mailbox.');
   const [result, setResult] = useState(null);
   const [localError, setLocalError] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [typeFilter, setTypeFilter] = useState('All');
+  const [search, setSearch] = useState('');
+  const [selectedLog, setSelectedLog] = useState(null);
   const configured = Boolean(emailConfig?.configured);
-  const recentLogs = [...emailLogs].slice(0, 6);
+
+  useEffect(() => {
+    if (!open) {
+      setResult(null);
+      setLocalError('');
+      setSelectedLog(null);
+    }
+  }, [open]);
+
+  const logs = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return [...emailLogs].filter((log) => {
+      const matchesStatus = statusFilter === 'All' || log.status === statusFilter;
+      const typeLabel = emailTemplateLabel(log.templateKey);
+      const matchesType = typeFilter === 'All' || typeLabel === typeFilter;
+      const haystack = `${log.toEmail} ${log.cc} ${log.subject} ${log.templateKey} ${log.status}`.toLowerCase();
+      return matchesStatus && matchesType && (!term || haystack.includes(term));
+    });
+  }, [emailLogs, statusFilter, typeFilter, search]);
+
+  const typeOptions = useMemo(() => ['All', ...Array.from(new Set((emailLogs || []).map((log) => emailTemplateLabel(log.templateKey))))], [emailLogs]);
 
   async function submit(event) {
     event.preventDefault();
@@ -2918,55 +2949,112 @@ function EmailTestTool({ sendTestEmail, emailLogs = [], emailConfig = {}, saving
     }
   }
 
+  if (!open) return null;
+
   return (
-    <div className="stack compact-stack">
-      <div className="tool-result-card">
-        <div className="split">
+    <div className="modal-layer email-log-modal-layer">
+      <div className="modal-backdrop" onClick={onClose} />
+      <div className="modal-card email-log-modal">
+        <div className="modal-head">
           <div>
-            <strong>Email sending test</strong>
-            <span>Send a controlled test email from the CRM before connecting client templates.</span>
+            <span>Tools</span>
+            <h2>Email log and testing</h2>
+            <p className="muted">Review CRM-sent emails, resend test messages and check failures. Logs are retained for 60 days.</p>
           </div>
-          <span className={`status-chip ${configured ? 'ok' : 'warning'}`}>{configured ? 'Configured' : 'Not configured'}</span>
+          <button className="icon-btn" type="button" onClick={onClose} aria-label="Close email log"><X size={18} /></button>
         </div>
-        <p className="muted">Sending mailbox: <b>{emailConfig?.fromName || 'Turner Hopkins Immigration Specialists'}</b>{emailConfig?.fromEmail ? ` <${emailConfig.fromEmail}>` : ''}</p>
-        {!configured && <p className="error-text">Microsoft email environment variables are not fully configured in Netlify.</p>}
-      </div>
 
-      <form className="tool-form" onSubmit={submit}>
-        <label>Test recipient email
-          <input value={toEmail} onChange={(event) => setToEmail(event.target.value)} placeholder="name@example.com" type="email" />
-        </label>
-        <label>Subject
-          <input value={subject} onChange={(event) => setSubject(event.target.value)} />
-        </label>
-        <label>Message
-          <textarea value={message} onChange={(event) => setMessage(event.target.value)} rows={5} />
-        </label>
-        <button className="btn dark" type="submit" disabled={saving || !configured}><Send size={16} />{saving ? 'Sending...' : 'Send test email'}</button>
-      </form>
+        <div className="email-log-grid">
+          <section className="tool-result-card email-test-panel">
+            <div className="split">
+              <div>
+                <strong>Send test email</strong>
+                <span>Use this to confirm the Microsoft 365 sending mailbox is working.</span>
+              </div>
+              <span className={`status-chip ${configured ? 'ok' : 'warning'}`}>{configured ? 'Configured' : 'Not configured'}</span>
+            </div>
+            <p className="muted">Sending mailbox: <b>{emailConfig?.fromName || 'Turner Hopkins Immigration Specialists'}</b>{emailConfig?.fromEmail ? ` <${emailConfig.fromEmail}>` : ''}</p>
+            {!configured && <p className="error-text">Microsoft email environment variables are not fully configured in Netlify.</p>}
+            <form className="tool-form" onSubmit={submit}>
+              <label>Test recipient email
+                <input value={toEmail} onChange={(event) => setToEmail(event.target.value)} placeholder="name@example.com" type="email" />
+              </label>
+              <label>Subject
+                <input value={subject} onChange={(event) => setSubject(event.target.value)} />
+              </label>
+              <label>Message
+                <textarea value={message} onChange={(event) => setMessage(event.target.value)} rows={5} />
+              </label>
+              <button className="btn dark" type="submit" disabled={saving || !configured}><Send size={16} />{saving ? 'Sending...' : 'Send test email'}</button>
+            </form>
+            {localError && <div className="error-banner"><AlertTriangle size={16} />{localError}</div>}
+            {result && (
+              <div className={`tool-result-card ${result.status === 'Failed' ? 'warning' : ''}`}>
+                <strong>{result.status === 'Failed' ? 'Email failed' : 'Email sent'}</strong>
+                <span>{result.subject || subject}</span>
+                {result.failureMessage && <small>{result.failureMessage}</small>}
+              </div>
+            )}
+          </section>
 
-      {localError && <div className="error-banner"><AlertTriangle size={16} />{localError}</div>}
-      {result && (
-        <div className={`tool-result-card ${result.status === 'Failed' ? 'warning' : ''}`}>
-          <strong>{result.status === 'Failed' ? 'Email failed' : 'Email sent'}</strong>
-          <span>{result.subject || subject}</span>
-          {result.failureMessage && <small>{result.failureMessage}</small>}
+          <section className="tool-result-card email-log-panel">
+            <div className="split">
+              <div>
+                <strong>Email log</strong>
+                <span>{logs.length} shown · {emailLogs.length} retained</span>
+              </div>
+              <span className="count-pill">60 days</span>
+            </div>
+            <div className="email-log-filters">
+              <label>Status<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option>All</option><option>Sent</option><option>Failed</option><option>Sending</option><option>Draft</option></select></label>
+              <label>Type<select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>{typeOptions.map((option) => <option key={option}>{option}</option>)}</select></label>
+              <label>Search<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Recipient, subject, type..." /></label>
+            </div>
+            <div className="email-log-table">
+              {!logs.length && <p className="muted center">No email logs match the current filters.</p>}
+              {logs.map((log) => (
+                <button className="email-log-entry" type="button" key={log.id} onClick={() => setSelectedLog(log)}>
+                  <span className={`status-chip ${log.status === 'Sent' ? 'ok' : log.status === 'Failed' ? 'warning' : ''}`}>{log.status || 'Unknown'}</span>
+                  <span><b>{emailTemplateLabel(log.templateKey)}</b><small>{formatDateTime(log.sentAt || log.failedAt || log.createdAt)} · {log.toEmail}</small></span>
+                  <strong>{log.subject || 'No subject'}</strong>
+                </button>
+              ))}
+            </div>
+          </section>
         </div>
-      )}
 
-      <div className="tool-result-card">
-        <strong>Recent email tests</strong>
-        {!recentLogs.length && <span>No email tests logged yet.</span>}
-        {recentLogs.map((log) => (
-          <div className="email-log-row" key={log.id}>
-            <span><b>{log.status}</b> · {log.toEmail}</span>
-            <small>{log.subject} {log.createdAt ? `· ${formatDateTime(log.createdAt)}` : ''}</small>
-            {log.failureMessage && <small className="error-text">{log.failureMessage}</small>}
+        {selectedLog && (
+          <div className="email-log-detail">
+            <div className="split">
+              <strong>{selectedLog.subject || 'No subject'}</strong>
+              <button className="btn mini" type="button" onClick={() => setSelectedLog(null)}>Close detail</button>
+            </div>
+            <dl>
+              <dt>Status</dt><dd>{selectedLog.status}</dd>
+              <dt>Type</dt><dd>{emailTemplateLabel(selectedLog.templateKey)}</dd>
+              <dt>To</dt><dd>{selectedLog.toEmail || 'Not recorded'}</dd>
+              <dt>CC</dt><dd>{selectedLog.cc || 'None'}</dd>
+              <dt>Sent by</dt><dd>{selectedLog.sentBy || 'CRM'}</dd>
+              <dt>Date</dt><dd>{formatDateTime(selectedLog.sentAt || selectedLog.failedAt || selectedLog.createdAt)}</dd>
+            </dl>
+            {selectedLog.failureMessage && <p className="error-text">{selectedLog.failureMessage}</p>}
+            {selectedLog.bodyText && <pre>{selectedLog.bodyText}</pre>}
           </div>
-        ))}
+        )}
       </div>
     </div>
   );
+}
+
+function emailTemplateLabel(key = '') {
+  const labels = {
+    test: 'Test',
+    new_intake_adviser_notification: 'New intake',
+    intake_approve: 'Intake approval',
+    intake_decline: 'Intake decline',
+    portal_access: 'Portal access',
+  };
+  return labels[key] || String(key || 'Other').replace(/_/g, ' ').replace(/^./, (char) => char.toUpperCase());
 }
 
 function WeatherTool() {
@@ -4293,7 +4381,8 @@ The portal is a secure, read-only space where you can check application updates,
       setGeneratedPortalCode('');
       setActiveClientSection('portal');
       onDirtyChange?.(false);
-      setStatusMessage(`Client portal update published ${formatTimeNow()}.`);
+      const emailStatus = body?.emailLog ? ` Portal access email ${body.emailLog.status === 'Sent' ? 'sent' : 'logged as failed'}.` : '';
+      setStatusMessage(`Client portal update published ${formatTimeNow()}.${emailStatus}`);
     } catch (err) {
       setStatusMessage('');
       setValidationMessage(err.message || 'Client portal update could not be published.');
