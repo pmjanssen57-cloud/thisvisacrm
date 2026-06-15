@@ -1,3 +1,20 @@
+THiS CRM v0.12.7 — Intake Email Spacing Polish
+
+Before deploying:
+[ ] Confirm Microsoft environment variables are still present in Netlify.
+[ ] No new database migration is required for this package.
+
+After deploying:
+[ ] Open or submit a dummy intake record with an applicant email.
+[ ] Assign an adviser with an email address.
+[ ] Send a decline email to an internal test recipient.
+[ ] Confirm the decline email has readable paragraph spacing and a clean gap before the shared mailbox signature.
+[ ] Send an approval email to an internal test recipient.
+[ ] Confirm the approval email has the same clean spacing and signature gap.
+[ ] Confirm both sends appear in Tools > Email log.
+
+---
+
 THiS CRM v0.12.6 — Intake and Portal Email Log Polish
 
 Before deploying:

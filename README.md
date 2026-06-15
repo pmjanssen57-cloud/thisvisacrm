@@ -1,3 +1,26 @@
+# THiS CRM v0.12.7 — Intake Email Spacing Polish
+
+This build tidies the Microsoft 365 HTML formatting for intake approval and decline emails.
+
+## v0.12.7 changes
+
+- Improved paragraph spacing in the intake decline email so the message no longer appears compressed into one block.
+- Added a clean spacer before the Microsoft 365 shared mailbox signature is appended.
+- Applied the same controlled spacing/signature gap to the intake approval email.
+- Kept the applicant first-name greeting and allocated adviser email behaviour unchanged.
+- No database migration required.
+
+## Test process
+
+1. Deploy this package to Netlify.
+2. Submit or open a dummy intake record with an applicant email.
+3. Assign the intake to an adviser with an email address.
+4. Send a decline email to an internal test address and confirm paragraph spacing and signature gap look correct.
+5. Send an approval email to an internal test address and confirm the same spacing improvements apply.
+6. Confirm the CRM Email log records both messages.
+
+---
+
 # THiS CRM v0.12.6 — Intake and Portal Email Log Polish
 
 This build expands the first CRM email workflow now that Microsoft 365 sending is working.
