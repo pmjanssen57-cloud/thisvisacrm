@@ -6887,3 +6887,61 @@ body.intake-embed-mode .intake-public-card {
     grid-column: auto;
   }
 }
+
+/* v0.12.8 intake CV upload polish */
+.intake-file-field {
+  border: 1px dashed var(--line, #d9e6e1);
+  border-radius: 18px;
+  padding: 14px;
+  background: #f8fcfa;
+  margin-top: 14px;
+}
+
+.intake-file-field .field {
+  margin: 0;
+}
+
+.intake-file-field input[type="file"] {
+  padding: 12px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.intake-upload-pill,
+.intake-upload-download {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line, #d9e6e1);
+  border-radius: 16px;
+  padding: 10px 12px;
+  background: #fff;
+  margin-top: 10px;
+}
+
+.intake-upload-pill span,
+.intake-upload-download strong {
+  color: var(--ink, #003736);
+  font-weight: 800;
+}
+
+.intake-upload-download {
+  margin-top: 14px;
+  background: #f8fcfa;
+}
+
+.intake-upload-download.has-file {
+  border-color: #b9d8ce;
+  background: #f4fbf8;
+}
+
+.intake-upload-download div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.intake-upload-download small {
+  color: #64748b;
+}

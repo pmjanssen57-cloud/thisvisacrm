@@ -10,6 +10,8 @@ const BRAND = {
 };
 
 const LOGO_SRC = '/turner-hopkins-logo.png';
+const MAX_INTAKE_CV_BYTES = 5 * 1024 * 1024;
+const INTAKE_CV_ACCEPT = '.pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
 const DEFAULT_STAGE_TEMPLATES = [
   { id: 'instruction-sent', label: 'Instruction Sent', mandatory: true, sortOrder: 1 },
@@ -621,6 +623,12 @@ export default function App() {
     return body;
   }
 
+  async function downloadIntakeUpload(intakeId, kind) {
+    const body = await callApi('downloadIntakeUpload', { intakeId, kind }, { skipDataUpdate: true });
+    if (body.upload?.dataBase64) downloadBase64File(body.upload);
+    return body;
+  }
+
   async function savePersonalTask(task) {
     await callApi('savePersonalTask', { task });
   }
@@ -877,7 +885,7 @@ export default function App() {
             </nav>
 
             {tab === 'intake' && (
-              <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} statuses={data.intakeStatuses || INTAKE_STATUSES} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} saving={saving} openClientRecord={openClientRecord} />
+              <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} statuses={data.intakeStatuses || INTAKE_STATUSES} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} downloadIntakeUpload={downloadIntakeUpload} saving={saving} openClientRecord={openClientRecord} />
             )}
 
             {tab === 'dashboard' && (
@@ -963,6 +971,8 @@ function IntakeFormApp() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const [applicantCvFile, setApplicantCvFile] = useState(null);
+  const [partnerCvFile, setPartnerCvFile] = useState(null);
 
   const hasPartner = form.hasPartner === 'Yes';
   const hasChildren = form.hasChildren === 'Yes';
@@ -1032,6 +1042,7 @@ function IntakeFormApp() {
   }, [form, submitted, error]);
 
   function setField(name, value) {
+    if (name === 'hasPartner' && value !== 'Yes') setPartnerCvFile(null);
     setForm((current) => {
       const next = { ...current, [name]: value };
       if (name === 'dateOfBirth') next.dateOfBirthAge = calculateAge(value) ?? '';
@@ -1068,6 +1079,7 @@ function IntakeFormApp() {
         next.partnerNzqaAssessed = '';
         next.partnerQualificationRelatedToOccupation = '';
         next.partnerQualificationDetails = '';
+        next.partnerCvExpected = false;
       }
       if (name === 'hasChildren') {
         next.children = value === 'Yes' ? (current.children?.length ? current.children : [makeBlankIntakeChild()]) : [];
@@ -1100,19 +1112,45 @@ function IntakeFormApp() {
     });
   }
 
+  function handleCvFile(kind, file) {
+    try {
+      const selected = file || null;
+      if (selected) validateIntakeCvFile(selected);
+      if (kind === 'partnerCv') setPartnerCvFile(selected);
+      else setApplicantCvFile(selected);
+      setError('');
+    } catch (err) {
+      if (kind === 'partnerCv') setPartnerCvFile(null);
+      else setApplicantCvFile(null);
+      setError(err.message || 'That CV file cannot be uploaded.');
+    }
+  }
+
   async function submit(event) {
     event.preventDefault();
     setSubmitting(true);
     setError('');
     try {
+      if (applicantCvFile) validateIntakeCvFile(applicantCvFile);
+      if (hasPartner && partnerCvFile) validateIntakeCvFile(partnerCvFile);
+      const submitPayload = {
+        ...form,
+        dateOfBirthAge: calculateAge(form.dateOfBirth) ?? '',
+        applicantCvExpected: Boolean(applicantCvFile),
+        partnerCvExpected: Boolean(hasPartner && partnerCvFile),
+      };
       const response = await fetch('/.netlify/functions/intake', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ payload: { ...form, dateOfBirthAge: calculateAge(form.dateOfBirth) ?? '' } }),
+        body: JSON.stringify({ payload: submitPayload }),
       });
       const body = await readJsonResponse(response);
       if (!response.ok) throw new Error(body.error || 'The assessment questionnaire could not be submitted.');
+      if (applicantCvFile) await uploadIntakeCvFile(body.intakeId, body.uploadToken, 'applicantCv', applicantCvFile);
+      if (hasPartner && partnerCvFile) await uploadIntakeCvFile(body.intakeId, body.uploadToken, 'partnerCv', partnerCvFile);
       setSubmitted(true);
+      setApplicantCvFile(null);
+      setPartnerCvFile(null);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       setError(err.message || String(err));
@@ -1129,7 +1167,7 @@ function IntakeFormApp() {
           <CheckCircle2 size={40} className="portal-lock" />
           <h1>Thank you. Your assessment questionnaire has been received.</h1>
           <p className="muted">Turner Hopkins will review the information and come back to you if we can assist. This questionnaire is for initial assessment only and does not create an adviser-client relationship.</p>
-          <button className="btn dark" type="button" onClick={() => { setForm(makeBlankIntakePayload()); setSubmitted(false); }}>Start another questionnaire</button>
+          <button className="btn dark" type="button" onClick={() => { setForm(makeBlankIntakePayload()); setApplicantCvFile(null); setPartnerCvFile(null); setSubmitted(false); }}>Start another questionnaire</button>
         </main>
       </div>
     );
@@ -1157,6 +1195,7 @@ function IntakeFormApp() {
               <IntakeSelect label="Country of citizenship" value={form.citizenship} onChange={(v) => setField('citizenship', v)} options={COUNTRY_OPTIONS} />
               <DateWithAgeField label="Date of birth" value={form.dateOfBirth} onChange={(v) => setField('dateOfBirth', v)} />
             </div>
+            <IntakeFileField label="Upload CV" file={applicantCvFile} onChange={(file) => handleCvFile('applicantCv', file)} />
           </IntakeSection>
 
           <IntakeSection title="Immigration goal">
@@ -1243,6 +1282,7 @@ function IntakeFormApp() {
                   <IntakeSelect label="Partner qualification related to occupation?" value={form.partnerQualificationRelatedToOccupation} onChange={(v) => setField('partnerQualificationRelatedToOccupation', v)} options={INTAKE_YES_NO_OPTIONS} />
                 </div>
                 <IntakeTextarea label="Partner other qualifications or training" value={form.partnerQualificationDetails} onChange={(v) => setField('partnerQualificationDetails', v)} rows={3} />
+                <IntakeFileField label="Upload partner CV" file={partnerCvFile} onChange={(file) => handleCvFile('partnerCv', file)} />
               </div>
             )}
 
@@ -1401,7 +1441,7 @@ function IntakeFormApp() {
   );
 }
 
-function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, saving, openClientRecord }) {
+function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, downloadIntakeUpload, saving, openClientRecord }) {
   const [statusFilter, setStatusFilter] = useState('New');
   const [query, setQuery] = useState('');
   const [adviserFilter, setAdviserFilter] = useState('all');
@@ -1611,6 +1651,7 @@ function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, del
             onDelete={deleteDraft}
             onConvert={convertDraft}
             sendIntakeOutcomeEmail={sendIntakeOutcomeEmail}
+            downloadIntakeUpload={downloadIntakeUpload}
             openClientRecord={openClientRecord}
           />
         </ClientRecordPopoutModal>
@@ -1642,7 +1683,7 @@ function intakeCompareSnapshot(item = {}) {
   };
 }
 
-function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, setDraftPayloadField, onSave, onSaveAndClose, onClose, onDelete, onConvert, sendIntakeOutcomeEmail, openClientRecord }) {
+function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, setDraftPayloadField, onSave, onSaveAndClose, onClose, onDelete, onConvert, sendIntakeOutcomeEmail, downloadIntakeUpload, openClientRecord }) {
   const applicantName = [draft.firstName, draft.lastName].filter(Boolean).join(' ') || 'Unnamed enquiry';
   const [outcomeSending, setOutcomeSending] = useState('');
   const [outcomeMessage, setOutcomeMessage] = useState('');
@@ -1712,12 +1753,12 @@ function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, 
         <TextArea label="Adviser assessment notes" value={draft.adviserAssessmentNotes} onChange={(value) => setDraftField('adviserAssessmentNotes', value)} rows={5} />
       </section>
 
-      <IntakeQuestionnaireEditor record={draft} onChange={setDraftPayloadField} advisers={advisers} />
+      <IntakeQuestionnaireEditor record={draft} onChange={setDraftPayloadField} downloadIntakeUpload={downloadIntakeUpload} />
     </div>
   );
 }
 
-function IntakeQuestionnaireEditor({ record = {}, onChange }) {
+function IntakeQuestionnaireEditor({ record = {}, onChange, downloadIntakeUpload }) {
   const payload = intakeAnswerPayload(record);
   const set = (key, value) => onChange?.(key, value);
   const fieldValue = (key) => {
@@ -1751,6 +1792,7 @@ function IntakeQuestionnaireEditor({ record = {}, onChange }) {
           <IntakeField label="Date of birth" type="date" value={fieldValue('dateOfBirth')} onChange={(v) => set('dateOfBirth', v)} />
           <label className="field"><span>Age</span><input value={fieldValue('dateOfBirthAge') || (fieldValue('dateOfBirth') ? calculateAge(fieldValue('dateOfBirth')) : '')} readOnly /></label>
         </div>
+        <IntakeUploadDownloadCard label="Applicant CV" upload={payload.intakeUploads?.applicantCv || payload.applicantCv} onDownload={() => downloadIntakeUpload?.(record.id, 'applicantCv')} />
       </IntakeSection>
 
       <IntakeSection title="Immigration goal">
@@ -1829,6 +1871,7 @@ function IntakeQuestionnaireEditor({ record = {}, onChange }) {
             <IntakeSelect label="Partner qualification related to occupation?" value={fieldValue('partnerQualificationRelatedToOccupation')} onChange={(v) => set('partnerQualificationRelatedToOccupation', v)} options={INTAKE_YES_NO_OPTIONS} />
           </div>
           <IntakeTextarea label="Partner other qualifications or training" value={fieldValue('partnerQualificationDetails')} onChange={(v) => set('partnerQualificationDetails', v)} rows={3} />
+          <IntakeUploadDownloadCard label="Partner CV" upload={payload.intakeUploads?.partnerCv || payload.partnerCv} onDownload={() => downloadIntakeUpload?.(record.id, 'partnerCv')} />
         </div>
         <div className="intake-nested-panel">
           <h3>Children</h3>
@@ -2023,7 +2066,7 @@ function getIntakeQuestionnaireSections(record = {}) {
   const sections = [
     {
       title: 'Your details',
-      rows: intakeRows(payload, ['firstName', 'lastName', 'email', 'phone', 'preferredContactMethod', 'citizenship', 'dateOfBirth', 'dateOfBirthAge']),
+      rows: intakeRows(payload, ['firstName', 'lastName', 'email', 'phone', 'preferredContactMethod', 'citizenship', 'dateOfBirth', 'dateOfBirthAge', 'applicantCv']),
     },
     {
       title: 'Immigration goal',
@@ -2037,7 +2080,7 @@ function getIntakeQuestionnaireSections(record = {}) {
       title: 'Partner and family',
       rows: intakeRows(payload, ['relationshipStatus', 'hasPartner', 'hasChildren']),
       panels: [
-        { title: 'Partner details', rows: intakeRows(payload, ['partnerFullName', 'partnerDateOfBirth', 'partnerCitizenship', 'partnerCurrentCountry', 'partnerVisaStatus', 'partnerNzStatus', 'livingTogether', 'relationshipStarted', 'startedLivingTogether', 'partnerIncluded', 'relationshipBackground']) },
+        { title: 'Partner details', rows: intakeRows(payload, ['partnerFullName', 'partnerDateOfBirth', 'partnerCitizenship', 'partnerCurrentCountry', 'partnerVisaStatus', 'partnerNzStatus', 'livingTogether', 'relationshipStarted', 'startedLivingTogether', 'partnerIncluded', 'relationshipBackground', 'partnerCv']) },
         { title: 'Partner work and experience', rows: intakeRows(payload, ['partnerCurrentEmploymentStatus', 'partnerOccupation', 'partnerCurrentEmployer', 'partnerEmploymentCountry', 'partnerCurrentJobStartDate', 'partnerHoursPerWeek', 'partnerAnnualSalary', 'partnerSalaryCurrency', 'partnerYearsExperience', 'partnerEmploymentDetails', 'partnerPreviousWorkHistory']) },
         { title: 'Partner qualifications', rows: intakeRows(payload, ['partnerHighestQualification', 'partnerQualificationName', 'partnerQualificationInstitution', 'partnerQualificationCountry', 'partnerQualificationYearCompleted', 'partnerQualificationStudyLength', 'partnerTaughtInEnglish', 'partnerNzqaAssessed', 'partnerQualificationRelatedToOccupation', 'partnerQualificationDetails']) },
         { title: 'Children', rows: intakeRows(payload, ['children', 'moreChildrenDetails']) },
@@ -2138,7 +2181,10 @@ function formatIntakeValue(value) {
       return `${index + 1}. ${entry}`;
     }).join('\n');
   }
-  if (value && typeof value === 'object') return Object.entries(value).filter(([, item]) => hasIntakeValue(item)).map(([key, item]) => `${intakeLabelForKey(key)}: ${formatIntakeValue(item)}`).join('\n');
+  if (value && typeof value === 'object') {
+    if (value.fileName) return `${value.fileName}${value.fileSize ? ` (${formatFileSize(value.fileSize)})` : ''}`;
+    return Object.entries(value).filter(([, item]) => hasIntakeValue(item)).map(([key, item]) => `${intakeLabelForKey(key)}: ${formatIntakeValue(item)}`).join('\n');
+  }
   return String(value || '');
 }
 
@@ -2152,6 +2198,40 @@ function IntakeField({ label, value, onChange, type = 'text', required = false, 
 
 function IntakeSelect({ label, value, onChange, options, required = false }) {
   return <label className="field"><span>{label}{required ? ' *' : ''}</span><select value={value || ''} required={required} onChange={(event) => onChange(event.target.value)}><option value="">Select...</option>{options.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>;
+}
+
+function IntakeFileField({ label, file, onChange }) {
+  const inputId = `intake-file-${label.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
+  return (
+    <div className="intake-file-field">
+      <label className="field" htmlFor={inputId}>
+        <span>{label}</span>
+        <input id={inputId} type="file" accept={INTAKE_CV_ACCEPT} onChange={(event) => onChange(event.target.files?.[0] || null)} />
+      </label>
+      <p className="muted">PDF, DOC or DOCX only. Maximum 5 MB. One file only.</p>
+      {file && (
+        <div className="intake-upload-pill">
+          <FileText size={15} />
+          <span>{file.name} · {formatFileSize(file.size)}</span>
+          <button type="button" className="btn mini" onClick={() => onChange(null)}>Remove</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function IntakeUploadDownloadCard({ label, upload, onDownload }) {
+  const hasUpload = upload && typeof upload === 'object' && upload.fileName;
+  return (
+    <div className={`intake-upload-download ${hasUpload ? 'has-file' : ''}`}>
+      <div>
+        <span className="eyebrow">{label}</span>
+        <strong>{hasUpload ? upload.fileName : 'No CV uploaded'}</strong>
+        {hasUpload && <small>{formatFileSize(upload.fileSize)}{upload.uploadedAt ? ` · Uploaded ${formatPortalDateTime(upload.uploadedAt)}` : ''}</small>}
+      </div>
+      {hasUpload && <button className="btn" type="button" onClick={onDownload}><FileText size={16} />Download</button>}
+    </div>
+  );
 }
 
 function IntakeTextarea({ label, value, onChange, rows = 4, placeholder = '' }) {
@@ -5771,6 +5851,52 @@ function resizeProfilePhoto(file, maxSize = 420) {
   });
 }
 
+function validateIntakeCvFile(file) {
+  if (!file) return;
+  const name = String(file.name || '').toLowerCase();
+  const type = normaliseCvMimeType(file.type, name);
+  const allowed = (name.endsWith('.pdf') || name.endsWith('.doc') || name.endsWith('.docx')) && ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(type);
+  if (!allowed) throw new Error('CV uploads must be PDF, DOC or DOCX files.');
+  if (Number(file.size || 0) > MAX_INTAKE_CV_BYTES) throw new Error('CV uploads must be 5 MB or smaller.');
+}
+
+function normaliseCvMimeType(value = '', fileName = '') {
+  const type = String(value || '').split(';')[0].trim().toLowerCase();
+  if (type) return type;
+  if (String(fileName || '').endsWith('.pdf')) return 'application/pdf';
+  if (String(fileName || '').endsWith('.doc')) return 'application/msword';
+  if (String(fileName || '').endsWith('.docx')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  return '';
+}
+
+async function uploadIntakeCvFile(intakeId, uploadToken, kind, file) {
+  if (!intakeId || !uploadToken || !file) return null;
+  validateIntakeCvFile(file);
+  const params = new URLSearchParams({ upload: '1', intakeId, token: uploadToken, kind, fileName: file.name || 'uploaded-cv.pdf' });
+  const response = await fetch(`/.netlify/functions/intake?${params.toString()}`, {
+    method: 'POST',
+    headers: { 'content-type': normaliseCvMimeType(file.type, file.name) || 'application/octet-stream' },
+    body: file,
+  });
+  const body = await readJsonResponse(response);
+  if (!response.ok) throw new Error(body.error || 'The CV upload could not be completed.');
+  return body;
+}
+
+function downloadBase64File(file = {}) {
+  if (!file.dataBase64) return;
+  const byteCharacters = atob(file.dataBase64);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i += 1) byteNumbers[i] = byteCharacters.charCodeAt(i);
+  const blob = new Blob([new Uint8Array(byteNumbers)], { type: file.fileType || 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = file.fileName || 'intake-cv.pdf';
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
 function readFileAsBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -6929,6 +7055,9 @@ function makeBlankIntakePayload() {
     dateOfBirthAge: '',
     consentToContact: false,
     privacyAcknowledged: false,
+    applicantCvExpected: false,
+    partnerCvExpected: false,
+    intakeUploads: {},
     urgency: 'Standard',
     urgentDeadline: '',
     targetPathway: '',
@@ -7080,6 +7209,7 @@ function intakeLabelForKey(key = '') {
     citizenship: 'Country of citizenship',
     dateOfBirth: 'Date of birth',
     dateOfBirthAge: 'Age',
+    applicantCv: 'Applicant CV',
     targetPathway: 'Main goal',
     desiredTimeframe: 'Preferred timing',
     urgency: 'Urgency',
@@ -7128,6 +7258,7 @@ function intakeLabelForKey(key = '') {
     partnerNzqaAssessed: 'Partner NZQA assessed',
     partnerQualificationRelatedToOccupation: 'Partner qualification related to occupation',
     partnerQualificationDetails: 'Partner qualification details',
+    partnerCv: 'Partner CV',
     hasChildren: 'Has children',
     children: 'Children',
     moreChildrenDetails: 'More children details',

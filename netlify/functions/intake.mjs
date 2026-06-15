@@ -1,6 +1,19 @@
 import { getDatabase } from '@netlify/database';
+import { getStore } from '@netlify/blobs';
+import crypto from 'node:crypto';
 
 const MAX_TEXT = 6000;
+const INTAKE_UPLOAD_STORE = 'intake-uploads';
+const MAX_INTAKE_UPLOAD_BYTES = 5 * 1024 * 1024;
+const INTAKE_UPLOAD_KINDS = {
+  applicantCv: 'Applicant CV',
+  partnerCv: 'Partner CV',
+};
+const INTAKE_UPLOAD_TYPES = new Set([
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+]);
 
 export default async function intakeRequestHandler(request) {
   const method = String(request.method || 'GET').toUpperCase();
@@ -9,6 +22,9 @@ export default async function intakeRequestHandler(request) {
 
   try {
     await ensureIntakeSchema();
+    const url = new URL(request.url);
+    if (url.searchParams.get('upload') === '1') return await handleIntakeUpload(request, url);
+
     const body = await request.json().catch(() => ({}));
     const payload = normalisePayload(body.payload || body);
 
@@ -19,6 +35,13 @@ export default async function intakeRequestHandler(request) {
       return json({ error: 'First name, last name and email are required.' }, 400);
     }
 
+    const expectedUploads = [];
+    if (payload.applicantCvExpected) expectedUploads.push('applicantCv');
+    if (payload.partnerCvExpected && /^yes/i.test(payload.hasPartner || '')) expectedUploads.push('partnerCv');
+    payload.intakeExpectedUploads = expectedUploads;
+    payload.intakeUploadToken = expectedUploads.length ? crypto.randomUUID() : '';
+    payload.intakeUploads = {};
+
     const flags = buildIntakeFlags(payload);
     const rows = await db().sql`
       INSERT INTO intake_enquiries (applicant_first_name, applicant_last_name, email, phone, current_location, citizenship, date_of_birth, current_visa_type, current_visa_expiry, target_pathway, urgency, flags, raw_payload)
@@ -27,17 +50,132 @@ export default async function intakeRequestHandler(request) {
     `;
 
     const intakeId = rows[0]?.id || '';
-    try {
-      await sendNewIntakeNotificationEmail({ intakeId, payload, flags, createdAt: rows[0]?.created_at });
-    } catch (notifyError) {
-      console.warn('New intake notification email failed', notifyError?.message || notifyError);
+    if (!expectedUploads.length) {
+      try {
+        await markAndSendNewIntakeNotification({ intakeId, payload, flags, createdAt: rows[0]?.created_at });
+      } catch (notifyError) {
+        console.warn('New intake notification email failed', notifyError?.message || notifyError);
+      }
     }
 
-    return json({ ok: true, intakeId });
+    return json({ ok: true, intakeId, uploadToken: payload.intakeUploadToken, expectedUploads });
   } catch (error) {
     console.error(error);
     return json({ error: 'Intake submission failed', detail: String(error?.message || error) }, 500);
   }
+}
+
+async function handleIntakeUpload(request, url) {
+  const intakeId = clean(url.searchParams.get('intakeId'));
+  const token = clean(url.searchParams.get('token'));
+  const kind = clean(url.searchParams.get('kind'));
+  if (!nullableUuidValue(intakeId) || !INTAKE_UPLOAD_KINDS[kind]) return json({ error: 'Invalid intake upload request.' }, 400);
+  if (!token) return json({ error: 'The upload token was not supplied.' }, 400);
+
+  const rawName = clean(url.searchParams.get('fileName')) || 'uploaded-cv.pdf';
+  const fileName = sanitiseFileName(decodeURIComponentSafe(rawName));
+  const headerType = clean(request.headers.get('content-type'));
+  const fileType = normaliseUploadMimeType(headerType, fileName);
+  if (!isAllowedIntakeUpload(fileName, fileType)) {
+    return json({ error: 'CV uploads must be PDF, DOC or DOCX files.' }, 400);
+  }
+
+  const arrayBuffer = await request.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  if (!buffer.length) return json({ error: 'The uploaded file was empty.' }, 400);
+  if (buffer.length > MAX_INTAKE_UPLOAD_BYTES) return json({ error: 'CV uploads must be 5 MB or smaller.' }, 400);
+
+  const database = db();
+  const rows = await database.sql`SELECT id, flags, raw_payload, created_at FROM intake_enquiries WHERE id = ${intakeId} LIMIT 1`;
+  const row = rows[0];
+  if (!row) return json({ error: 'The intake record was not found.' }, 404);
+  const payload = row.raw_payload && typeof row.raw_payload === 'object' ? row.raw_payload : {};
+  if (payload.intakeUploadToken !== token) return json({ error: 'The intake upload token was not accepted.' }, 403);
+  const expected = Array.isArray(payload.intakeExpectedUploads) ? payload.intakeExpectedUploads : [];
+  if (!expected.includes(kind)) return json({ error: 'That CV upload is not expected for this intake record.' }, 400);
+
+  const uploadId = crypto.randomUUID();
+  const blobKey = `intake/${intakeId}/${kind}/${uploadId}-${fileName}`;
+  const metadata = {
+    kind,
+    label: INTAKE_UPLOAD_KINDS[kind],
+    fileName,
+    fileType,
+    fileSize: buffer.length,
+    blobKey,
+    uploadedAt: new Date().toISOString(),
+  };
+  const store = getStore({ name: INTAKE_UPLOAD_STORE, consistency: 'strong' });
+  await store.set(blobKey, buffer, { metadata: { intakeId, kind, fileName, fileType } });
+
+  const uploads = { ...(payload.intakeUploads || {}), [kind]: metadata };
+  const nextPayload = { ...payload, intakeUploads: uploads, [kind]: metadata };
+  await database.sql`UPDATE intake_enquiries SET raw_payload = CAST(${JSON.stringify(nextPayload)} AS jsonb), updated_at = NOW() WHERE id = ${intakeId}`;
+
+  await maybeSendIntakeNotificationAfterUploads({ intakeId, payload: nextPayload, flags: row.flags || buildIntakeFlags(nextPayload), createdAt: row.created_at });
+  return json({ ok: true, upload: publicUploadMetadata(metadata) });
+}
+
+function normaliseStoredUploads(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return Object.fromEntries(Object.entries(value).filter(([kind]) => Boolean(INTAKE_UPLOAD_KINDS[kind])).map(([kind, item]) => [kind, publicUploadMetadata(item)]));
+}
+
+function publicUploadMetadata(item = {}) {
+  if (!item || typeof item !== 'object') return {};
+  return {
+    kind: clean(item.kind),
+    label: clean(item.label),
+    fileName: clean(item.fileName),
+    fileType: clean(item.fileType),
+    fileSize: Number(item.fileSize || 0) || 0,
+    blobKey: clean(item.blobKey),
+    uploadedAt: clean(item.uploadedAt),
+  };
+}
+
+function sanitiseFileName(value = '') {
+  const cleaned = String(value || '').trim().replace(/[\\/]+/g, '-').replace(/[^a-zA-Z0-9._ -]/g, '').replace(/\s+/g, ' ').slice(0, 180);
+  return cleaned || 'uploaded-cv.pdf';
+}
+
+function decodeURIComponentSafe(value = '') {
+  try { return decodeURIComponent(value); } catch { return value; }
+}
+
+function normaliseUploadMimeType(value = '', fileName = '') {
+  const lower = String(fileName || '').toLowerCase();
+  const type = String(value || '').split(';')[0].trim().toLowerCase();
+  if (INTAKE_UPLOAD_TYPES.has(type)) return type;
+  if (lower.endsWith('.pdf')) return 'application/pdf';
+  if (lower.endsWith('.doc')) return 'application/msword';
+  if (lower.endsWith('.docx')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  return type;
+}
+
+function isAllowedIntakeUpload(fileName = '', fileType = '') {
+  const lower = String(fileName || '').toLowerCase();
+  const hasAllowedExtension = lower.endsWith('.pdf') || lower.endsWith('.doc') || lower.endsWith('.docx');
+  return hasAllowedExtension && INTAKE_UPLOAD_TYPES.has(fileType);
+}
+
+async function maybeSendIntakeNotificationAfterUploads({ intakeId = '', payload = {}, flags = {}, createdAt = '' } = {}) {
+  const expected = Array.isArray(payload.intakeExpectedUploads) ? payload.intakeExpectedUploads : [];
+  if (!expected.length) return false;
+  if (payload.intakeNotificationSentAt) return false;
+  const uploads = payload.intakeUploads || {};
+  const complete = expected.every((kind) => uploads[kind]?.blobKey);
+  if (!complete) return false;
+  return await markAndSendNewIntakeNotification({ intakeId, payload, flags, createdAt });
+}
+
+async function markAndSendNewIntakeNotification({ intakeId = '', payload = {}, flags = {}, createdAt = '' } = {}) {
+  const sent = await sendNewIntakeNotificationEmail({ intakeId, payload, flags, createdAt });
+  if (sent && nullableUuidValue(intakeId)) {
+    const nextPayload = { ...payload, intakeNotificationSentAt: new Date().toISOString() };
+    await db().sql`UPDATE intake_enquiries SET raw_payload = CAST(${JSON.stringify(nextPayload)} AS jsonb), updated_at = NOW() WHERE id = ${intakeId}`;
+  }
+  return sent;
 }
 
 function db() {
@@ -93,6 +231,9 @@ function normalisePayload(input = {}) {
     dateOfBirthAge: calculateAge(input.dateOfBirth),
     consentToContact: Boolean(input.consentToContact),
     privacyAcknowledged: Boolean(input.privacyAcknowledged),
+    applicantCvExpected: Boolean(input.applicantCvExpected),
+    partnerCvExpected: Boolean(input.partnerCvExpected),
+    intakeUploads: normaliseStoredUploads(input.intakeUploads),
     urgency: clean(input.urgency) || 'Standard',
     urgentDeadline: clean(input.urgentDeadline),
     targetPathway: clean(input.targetPathway),
@@ -205,7 +346,7 @@ function normalisePayload(input = {}) {
     fundsDetails: clean(input.fundsDetails),
     additionalInfo: clean(input.additionalInfo),
     submittedVia: 'THiS assessment questionnaire',
-    intakeVersion: 'v0.11.40',
+    intakeVersion: 'v0.12.8',
   };
   return payload;
 }
@@ -382,14 +523,14 @@ function buildNewIntakeNotificationHtml({ intakeId = '', payload = {}, flags = {
 
 function intakeSummarySections(payload = {}) {
   const sections = [
-    { title: 'Your details', rows: rows(payload, ['firstName', 'lastName', 'email', 'phone', 'preferredContactMethod', 'citizenship', 'dateOfBirth', 'dateOfBirthAge']) },
+    { title: 'Your details', rows: rows(payload, ['firstName', 'lastName', 'email', 'phone', 'preferredContactMethod', 'citizenship', 'dateOfBirth', 'dateOfBirthAge', 'applicantCv']) },
     { title: 'Immigration goal', rows: rows(payload, ['targetPathway', 'desiredTimeframe', 'urgency', 'urgentDeadline', 'helpNeeded']) },
     { title: 'Current visa situation', rows: rows(payload, ['isInNewZealand', 'currentLocation', 'currentVisaType', 'currentVisaExpiry', 'visaConditions', 'previouslyVisitedNz', 'previouslyHeldNzVisa', 'plannedTravelDate', 'passportExpiry']) },
     {
       title: 'Partner and family',
       rows: rows(payload, ['relationshipStatus', 'hasPartner', 'hasChildren']),
       panels: [
-        { title: 'Partner details', rows: rows(payload, ['partnerFullName', 'partnerDateOfBirth', 'partnerCitizenship', 'partnerCurrentCountry', 'partnerVisaStatus', 'partnerNzStatus', 'livingTogether', 'relationshipStarted', 'startedLivingTogether', 'partnerIncluded', 'relationshipBackground']) },
+        { title: 'Partner details', rows: rows(payload, ['partnerFullName', 'partnerDateOfBirth', 'partnerCitizenship', 'partnerCurrentCountry', 'partnerVisaStatus', 'partnerNzStatus', 'livingTogether', 'relationshipStarted', 'startedLivingTogether', 'partnerIncluded', 'relationshipBackground', 'partnerCv']) },
         { title: 'Partner work and experience', rows: rows(payload, ['partnerCurrentEmploymentStatus', 'partnerOccupation', 'partnerCurrentEmployer', 'partnerEmploymentCountry', 'partnerCurrentJobStartDate', 'partnerHoursPerWeek', 'partnerAnnualSalary', 'partnerSalaryCurrency', 'partnerYearsExperience', 'partnerEmploymentDetails', 'partnerPreviousWorkHistory']) },
         { title: 'Partner qualifications', rows: rows(payload, ['partnerHighestQualification', 'partnerQualificationName', 'partnerQualificationInstitution', 'partnerQualificationCountry', 'partnerQualificationYearCompleted', 'partnerQualificationStudyLength', 'partnerTaughtInEnglish', 'partnerNzqaAssessed', 'partnerQualificationRelatedToOccupation', 'partnerQualificationDetails']) },
         { title: 'Children', rows: rows(payload, ['children', 'moreChildrenDetails']) },
@@ -461,6 +602,7 @@ function formatSummaryValue(value) {
     }).join('\n');
   }
   if (value && typeof value === 'object') {
+    if (value.fileName) return `${value.fileName}${value.fileSize ? ` (${formatFileSize(value.fileSize)})` : ''}`;
     return Object.entries(value).filter(([, item]) => hasSummaryValue(item)).map(([key, item]) => `${labelForKey(key)}: ${formatSummaryValue(item)}`).join('\n');
   }
   return String(value || '');
@@ -492,8 +634,15 @@ function labelForKey(key = '') {
 }
 
 const INTAKE_LABELS = {
-  firstName: 'First name', lastName: 'Last name', email: 'Email', phone: 'Mobile phone', preferredContactMethod: 'Preferred contact', citizenship: 'Country of citizenship', dateOfBirth: 'Date of birth', dateOfBirthAge: 'Age', consentToContact: 'Consent to contact', privacyAcknowledged: 'Questionnaire acknowledgement', urgency: 'Urgency', urgentDeadline: 'Important deadline', targetPathway: 'Main goal', desiredTimeframe: 'Desired timeframe', helpNeeded: 'Help needed', isInNewZealand: 'Currently in New Zealand', currentVisaType: 'Current visa type', currentVisaExpiry: 'Current visa expiry', visaConditions: 'Visa conditions', currentLocation: 'Current country / location', previouslyVisitedNz: 'Previously visited New Zealand', previouslyHeldNzVisa: 'Previously held a New Zealand visa', plannedTravelDate: 'Planned travel date (if known)', passportExpiry: 'Passport expiry', relationshipStatus: 'Relationship status', hasPartner: 'Partner included', partnerFullName: 'Partner full name', partnerDateOfBirth: 'Partner date of birth', partnerCitizenship: 'Partner citizenship', partnerCurrentCountry: 'Partner current country', partnerVisaStatus: 'Partner visa status', partnerNzStatus: 'Partner NZ status', livingTogether: 'Living together', relationshipStarted: 'Relationship started', startedLivingTogether: 'Started living together', partnerIncluded: 'Partner included in application', relationshipBackground: 'Relationship / family background', partnerCurrentEmploymentStatus: 'Partner employment status', partnerOccupation: 'Partner occupation', partnerCurrentEmployer: 'Partner employer / business', partnerEmploymentCountry: 'Partner employment country', partnerCurrentJobStartDate: 'Partner current job start date', partnerHoursPerWeek: 'Partner hours per week', partnerAnnualSalary: 'Partner salary / pay rate', partnerSalaryCurrency: 'Partner salary currency', partnerYearsExperience: 'Partner years of relevant experience', partnerEmploymentDetails: 'Partner current employment details', partnerPreviousWorkHistory: 'Partner previous work history', partnerHighestQualification: 'Partner highest qualification', partnerQualificationName: 'Partner qualification name', partnerQualificationInstitution: 'Partner institution', partnerQualificationCountry: 'Partner qualification country', partnerQualificationYearCompleted: 'Partner year completed', partnerQualificationStudyLength: 'Partner length of study', partnerTaughtInEnglish: 'Partner taught in English', partnerNzqaAssessed: 'Partner NZQA assessed', partnerQualificationRelatedToOccupation: 'Partner qualification related to occupation', partnerQualificationDetails: 'Partner other qualifications/training', hasChildren: 'Children', children: 'Children details', moreChildrenDetails: 'More children / family details', currentEmploymentStatus: 'Current employment status', occupation: 'Occupation / profession', currentEmployer: 'Current employer / business', employmentCountry: 'Employment country', currentJobStartDate: 'Current job start date', hoursPerWeek: 'Hours per week', annualSalary: 'Salary / pay rate', salaryCurrency: 'Salary currency', yearsExperience: 'Years of relevant experience', hasNzJobOffer: 'New Zealand job offer', employerName: 'Employer name', jobTitle: 'Job title', nzJobLocation: 'NZ job location', payRate: 'Pay rate', nzPayCurrency: 'NZ pay currency', nzJobHours: 'NZ job hours', employerAccredited: 'Employer accredited', employmentAgreementProvided: 'Employment agreement provided', proposedStartDate: 'Proposed start date', employmentDetails: 'Current employment details', previousWorkHistory: 'Previous work history', highestQualification: 'Highest qualification', qualificationName: 'Qualification name', qualificationInstitution: 'Institution', qualificationCountry: 'Qualification country', qualificationYearCompleted: 'Year completed', qualificationStudyLength: 'Length of study', taughtInEnglish: 'Taught in English', nzqaAssessed: 'NZQA assessed', qualificationRelatedToOccupation: 'Qualification related to occupation', qualificationDetails: 'Other qualifications/training', healthIssues: 'Health issues', dependantHealthIssues: 'Dependant health issues', healthDetails: 'Health details', characterIssues: 'Character issues', characterConvictions: 'Convictions', characterPendingCharges: 'Pending charges', deportationRemoval: 'Deportation/removal', characterDetails: 'Character details', visaDeclines: 'Visa declines', immigrationHistoryDetails: 'Immigration history details', overstayed: 'Overstayed', falseMisleadingIssue: 'False/misleading information issue', appealOrDeadline: 'Appeal or deadline', countriesLived: 'Countries spent 12 months or more in', countriesLivedFiveYearsSince17: 'Countries spent five years or more in since age 17', nzTravelHistory: 'NZ travel history', englishLevel: 'English level', englishTestDetails: 'English test details', fundsAvailableSupport: 'Funds available to support move', availableFunds: 'Available funds', fundsCurrency: 'Funds currency', sourceOfFunds: 'Source of funds', investmentInterest: 'Investment interest', investmentFunds: 'Investment funds', investmentCurrency: 'Investment currency', fundsHeldByYou: 'Funds held by applicant', fundsTransferableNz: 'Funds transferable to NZ', fundsDetails: 'Funds / investment details', additionalInfo: 'Additional information'
+  firstName: 'First name', lastName: 'Last name', email: 'Email', phone: 'Mobile phone', preferredContactMethod: 'Preferred contact', citizenship: 'Country of citizenship', dateOfBirth: 'Date of birth', dateOfBirthAge: 'Age', consentToContact: 'Consent to contact', privacyAcknowledged: 'Questionnaire acknowledgement', urgency: 'Urgency', urgentDeadline: 'Important deadline', targetPathway: 'Main goal', desiredTimeframe: 'Desired timeframe', helpNeeded: 'Help needed', isInNewZealand: 'Currently in New Zealand', currentVisaType: 'Current visa type', currentVisaExpiry: 'Current visa expiry', visaConditions: 'Visa conditions', currentLocation: 'Current country / location', previouslyVisitedNz: 'Previously visited New Zealand', previouslyHeldNzVisa: 'Previously held a New Zealand visa', plannedTravelDate: 'Planned travel date (if known)', passportExpiry: 'Passport expiry', relationshipStatus: 'Relationship status', hasPartner: 'Partner included', partnerFullName: 'Partner full name', partnerDateOfBirth: 'Partner date of birth', partnerCitizenship: 'Partner citizenship', partnerCurrentCountry: 'Partner current country', partnerVisaStatus: 'Partner visa status', partnerNzStatus: 'Partner NZ status', livingTogether: 'Living together', relationshipStarted: 'Relationship started', startedLivingTogether: 'Started living together', partnerIncluded: 'Partner included in application', relationshipBackground: 'Relationship / family background', partnerCurrentEmploymentStatus: 'Partner employment status', partnerOccupation: 'Partner occupation', partnerCurrentEmployer: 'Partner employer / business', partnerEmploymentCountry: 'Partner employment country', partnerCurrentJobStartDate: 'Partner current job start date', partnerHoursPerWeek: 'Partner hours per week', partnerAnnualSalary: 'Partner salary / pay rate', partnerSalaryCurrency: 'Partner salary currency', partnerYearsExperience: 'Partner years of relevant experience', partnerEmploymentDetails: 'Partner current employment details', partnerPreviousWorkHistory: 'Partner previous work history', partnerHighestQualification: 'Partner highest qualification', partnerQualificationName: 'Partner qualification name', partnerQualificationInstitution: 'Partner institution', partnerQualificationCountry: 'Partner qualification country', partnerQualificationYearCompleted: 'Partner year completed', partnerQualificationStudyLength: 'Partner length of study', partnerTaughtInEnglish: 'Partner taught in English', partnerNzqaAssessed: 'Partner NZQA assessed', partnerQualificationRelatedToOccupation: 'Partner qualification related to occupation', partnerQualificationDetails: 'Partner other qualifications/training', hasChildren: 'Children', children: 'Children details', moreChildrenDetails: 'More children / family details', currentEmploymentStatus: 'Current employment status', occupation: 'Occupation / profession', currentEmployer: 'Current employer / business', employmentCountry: 'Employment country', currentJobStartDate: 'Current job start date', hoursPerWeek: 'Hours per week', annualSalary: 'Salary / pay rate', salaryCurrency: 'Salary currency', yearsExperience: 'Years of relevant experience', hasNzJobOffer: 'New Zealand job offer', employerName: 'Employer name', jobTitle: 'Job title', nzJobLocation: 'NZ job location', payRate: 'Pay rate', nzPayCurrency: 'NZ pay currency', nzJobHours: 'NZ job hours', employerAccredited: 'Employer accredited', employmentAgreementProvided: 'Employment agreement provided', proposedStartDate: 'Proposed start date', employmentDetails: 'Current employment details', previousWorkHistory: 'Previous work history', highestQualification: 'Highest qualification', qualificationName: 'Qualification name', qualificationInstitution: 'Institution', qualificationCountry: 'Qualification country', qualificationYearCompleted: 'Year completed', qualificationStudyLength: 'Length of study', taughtInEnglish: 'Taught in English', nzqaAssessed: 'NZQA assessed', qualificationRelatedToOccupation: 'Qualification related to occupation', qualificationDetails: 'Other qualifications/training', healthIssues: 'Health issues', dependantHealthIssues: 'Dependant health issues', healthDetails: 'Health details', characterIssues: 'Character issues', characterConvictions: 'Convictions', characterPendingCharges: 'Pending charges', deportationRemoval: 'Deportation/removal', characterDetails: 'Character details', visaDeclines: 'Visa declines', immigrationHistoryDetails: 'Immigration history details', overstayed: 'Overstayed', falseMisleadingIssue: 'False/misleading information issue', appealOrDeadline: 'Appeal or deadline', countriesLived: 'Countries spent 12 months or more in', countriesLivedFiveYearsSince17: 'Countries spent five years or more in since age 17', nzTravelHistory: 'NZ travel history', englishLevel: 'English level', englishTestDetails: 'English test details', fundsAvailableSupport: 'Funds available to support move', availableFunds: 'Available funds', fundsCurrency: 'Funds currency', sourceOfFunds: 'Source of funds', investmentInterest: 'Investment interest', investmentFunds: 'Investment funds', investmentCurrency: 'Investment currency', fundsHeldByYou: 'Funds held by applicant', fundsTransferableNz: 'Funds transferable to NZ', fundsDetails: 'Funds / investment details', additionalInfo: 'Additional information', applicantCv: 'Applicant CV', partnerCv: 'Partner CV'
 };
+
+function formatFileSize(value = 0) {
+  const bytes = Number(value || 0);
+  if (!bytes) return '';
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 function getIntakeNotificationRecipients() {
   const configured = String(process.env.INTAKE_NOTIFICATION_RECIPIENTS || '').trim();

@@ -1,8 +1,8 @@
-# THiS CRM v0.12.7 — Intake Email Spacing Polish
+# THiS CRM v0.12.8 — Intake CV Upload Polish
 
 This build tidies the Microsoft 365 HTML formatting for intake approval and decline emails.
 
-## v0.12.7 changes
+## v0.12.8 changes
 
 - Improved paragraph spacing in the intake decline email so the message no longer appears compressed into one block.
 - Added a clean spacer before the Microsoft 365 shared mailbox signature is appended.

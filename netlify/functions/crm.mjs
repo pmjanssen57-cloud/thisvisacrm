@@ -66,6 +66,7 @@ const LIBRARY_STATUSES = ['Current', 'Watch', 'Superseded', 'Archived', 'Accepta
 const LIBRARY_CATEGORIES = ['Work', 'Residence', 'Family', 'Student', 'Visitor', 'Investor', 'Health', 'Character', 'Compliance', 'Forms', 'General'];
 const INTAKE_STATUSES = ['New', 'Reviewing', 'Contacted', 'Consultation booked', 'Agreement sent', 'Signed client', 'Converted', 'Not proceeding', 'Archived'];
 const PORTAL_DOCUMENT_STORE = 'client-portal-documents';
+const INTAKE_UPLOAD_STORE = 'intake-uploads';
 
 export default async function crmRequestHandler(request, context = {}) {
   const method = String(request.method || 'GET').toUpperCase();
@@ -196,6 +197,11 @@ async function handleCrmEvent(event) {
     if (action === 'sendIntakeOutcomeEmail') {
       const emailLog = await sendIntakeOutcomeEmail(body.intake || {}, body.outcome || 'approve', auth.user);
       return json({ emailLog, emailConfig: getEmailConfigStatus() });
+    }
+
+    if (action === 'downloadIntakeUpload') {
+      const upload = await downloadIntakeUpload(body.intakeId, body.kind);
+      return json({ upload });
     }
 
     return json({ error: `Unknown action: ${action}` }, 400);
@@ -1030,6 +1036,28 @@ async function saveIntakeEnquiry(input = {}) {
   `;
   if (!rows[0]) throw new Error('Intake enquiry was not found.');
   return mapIntakeEnquiryFromDb(rows[0]);
+}
+
+
+async function downloadIntakeUpload(intakeId, kind) {
+  if (!isUuid(intakeId)) throw new Error('A saved intake record is required.');
+  const uploadKind = String(kind || '').trim();
+  if (!['applicantCv', 'partnerCv'].includes(uploadKind)) throw new Error('That intake upload type is not available.');
+  const rows = await db().sql`SELECT raw_payload FROM intake_enquiries WHERE id = ${intakeId} LIMIT 1`;
+  const payload = rows[0]?.raw_payload && typeof rows[0].raw_payload === 'object' ? rows[0].raw_payload : {};
+  const metadata = payload.intakeUploads?.[uploadKind] || payload[uploadKind] || null;
+  if (!metadata?.blobKey) throw new Error('No uploaded CV is recorded for this intake.');
+  const store = getStore({ name: INTAKE_UPLOAD_STORE, consistency: 'strong' });
+  const blob = await store.get(metadata.blobKey);
+  if (!blob) throw new Error('The uploaded CV could not be found in storage.');
+  const arrayBuffer = await blob.arrayBuffer();
+  return {
+    kind: uploadKind,
+    fileName: metadata.fileName || 'intake-cv.pdf',
+    fileType: metadata.fileType || 'application/octet-stream',
+    fileSize: metadata.fileSize || arrayBuffer.byteLength,
+    dataBase64: Buffer.from(arrayBuffer).toString('base64'),
+  };
 }
 
 async function deleteIntakeEnquiry(intakeId) {

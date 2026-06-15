@@ -1,4 +1,4 @@
-THiS CRM v0.12.7 — Intake Email Spacing Polish
+THiS CRM v0.12.8 — Intake CV Upload Polish
 
 Before deploying:
 [ ] Confirm Microsoft environment variables are still present in Netlify.
