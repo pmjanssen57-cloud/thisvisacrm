@@ -1,3 +1,15 @@
+THiS CRM v0.12.14 — CRM Interface and Client Workspace Polish
+
+Changes:
+- Combined the planned v0.12.13 interface polish and v0.12.14 client workspace polish into one build.
+- Refined the overall CRM visual system: cleaner surfaces, softer shadows, sharper button hierarchy and calmer status treatment.
+- Standardised primary, secondary, quiet and danger button behaviour across the CRM.
+- Improved dashboard, task list, workload, modal, drawer and form spacing without changing underlying workflows.
+- Widened and polished the client workspace so the section navigator and summary panels feel more deliberate on desktop screens.
+- Refined client workspace wording from matter/stage language toward application/client-record language where appropriate.
+- Added stronger focus states and hover states for more professional day-to-day use.
+- No database migration required.
+
 v0.12.11 - Intake CV Download Polish
 
 - Deploy this package after v0.12.10 if direct CV downloads are required from intake records.

@@ -92,13 +92,13 @@ const COUNTRY_OPTIONS = [
 const SUPPORT_CONTENT = {
   intake: {
     title: 'Intake help',
-    summary: 'The Intake page is for pre-client enquiries submitted through the draft website assessment form. Keep these records separate from active clients until Turner Hopkins decides to proceed and the matter should be converted.',
+    summary: 'The Intake page is for pre-client enquiries submitted through the draft website assessment form. Keep these records separate from active clients until Turner Hopkins decides to proceed and the enquiry should be converted.',
     sections: [
       { heading: 'Reviewing enquiries', text: 'Use status, adviser assignment, flags and assessment notes to triage new enquiries before contacting the person or sending an agreement.' },
-      { heading: 'Conversion', text: 'Convert only suitable or signed matters. The conversion creates a normal client record using selected contact, visa and assessment information while keeping the original intake record for reference.' },
+      { heading: 'Conversion', text: 'Convert only suitable or signed client records. The conversion creates a normal client record using selected contact, visa and assessment information while keeping the original intake record for reference.' },
       { heading: 'Form testing', text: 'Use /intake to road-test the public-facing draft web form. The first version captures structured data only and does not accept uploads.' },
     ],
-    tips: ['Do not use intake records as active client files.', 'Check health, character, urgency and visa expiry flags first.', 'Convert only once the matter should enter the live CRM workflow.'],
+    tips: ['Do not use intake records as active client files.', 'Check health, character, urgency and visa expiry flags first.', 'Convert only once the enquiry should enter the live CRM workflow.'],
   },
   dashboard: {
     title: 'Dashboard help',
@@ -2974,7 +2974,7 @@ function ToolsDrawer({ open, onOpen, onClose, sendTestEmail, emailLogs = [], ema
           </div>
           <button className="icon-btn" type="button" onClick={onClose} aria-label="Close adviser tools"><X size={18} /></button>
         </div>
-        <p className="support-summary">Quick tools for client calls, international matters and day-to-day file work. Email testing and logs open in a separate review window.</p>
+        <p className="support-summary">Quick tools for client calls, international client work and day-to-day file work. Email testing and logs open in a separate review window.</p>
         <div className="tool-tabs" role="tablist" aria-label="Adviser tools">
           <button type="button" className={activeTool === 'weather' ? 'active' : ''} onClick={() => setActiveTool('weather')}><CloudSun size={16} />Weather</button>
           <button type="button" className={activeTool === 'timezone' ? 'active' : ''} onClick={() => setActiveTool('timezone')}><Globe2 size={16} />Time</button>
@@ -3464,7 +3464,7 @@ function SupportDrawer({ open, onOpen, onClose, tab }) {
 
 function ViewToolbar({ advisers, dashboardAdviserFilter, setDashboardAdviserFilter, clientQuery, setClientQuery, matchingClientCount, setTab, setAdviserFilter, setCaseTypeFilter, canViewAllAdvisers = true }) {
   const selectedAdviser = advisers.find((adviser) => adviser.id === dashboardAdviserFilter);
-  const viewLabel = selectedAdviser ? `${selectedAdviser.name}'s matters` : 'All advisers';
+  const viewLabel = selectedAdviser ? `${selectedAdviser.name}'s client records` : 'All advisers';
 
   function submitSearch(event) {
     event.preventDefault();
@@ -3650,7 +3650,7 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
         <span>{clients.length} client{clients.length === 1 ? '' : 's'} in view</span>
       </section>
       <div className="metric-grid">
-        <MetricCard label="Active clients" value={activeClients.length} note="Open matters" icon={UsersRound} />
+        <MetricCard label="Active clients" value={activeClients.length} note="Live client records" icon={UsersRound} />
         <MetricCard label="Deadlines next 14 days" value={next14.length} note="Expiry, PPI, filing and actions" icon={CalendarDays} />
         <MetricCard label="Overdue items" value={overdueRows.length} note="Needs attention" icon={AlertTriangle} warning />
         <MetricCard label="Overdue calendar" value={overdueCalendarItems.length} note="Open appointments in the past" icon={CalendarDays} warning={overdueCalendarItems.length > 0} />
@@ -4647,7 +4647,7 @@ The portal is a secure, read-only space where you can check application updates,
           <p>{draft.caseType || 'No case type selected'} · {currentStage} · {progressPercent(draft)}% progress</p>
         </div>
         <div className="button-row">
-          {popoutMode ? <button className="btn" type="button" onClick={() => onRequestClose?.()}><X size={16} />Close</button> : <button className="btn" type="button" onClick={() => handleOpenPopout(activeClientSection)}><ExternalLink size={16} />Pop out record</button>}
+          {popoutMode ? <button className="btn" type="button" onClick={() => onRequestClose?.()}><X size={16} />Close</button> : <button className="btn" type="button" onClick={() => handleOpenPopout(activeClientSection)}><ExternalLink size={16} />Open full editor</button>}
           <button className="btn danger" onClick={() => deleteClient(draft.id)} disabled={saving || String(draft.id).startsWith('temp-')}><Trash2 size={16} />Delete</button>
           <button className="btn dark" onClick={handleSaveClient} disabled={saving}><Save size={16} />Save</button>
           {popoutMode && <button className="btn dark" type="button" onClick={handleSaveAndClose} disabled={saving}><Save size={16} />Save & close</button>}
@@ -4736,13 +4736,13 @@ The portal is a secure, read-only space where you can check application updates,
 
         {activeClientSection === 'stages' && (
           <div className="client-workspace-section-stack">
-            <ClientWorkspaceIntro title="Matter stages" description={popoutMode ? "Apply, reorder and complete stages so the file progress map stays accurate." : "Summary view only. Open the larger editor to add, remove, reorder or complete stages."} />
+            <ClientWorkspaceIntro title="Application stages" description={popoutMode ? "Apply, reorder and complete stages so the file progress map stays accurate." : "Summary view only. Open the larger editor to add, remove, reorder or complete stages."} />
             <div className="progress-card"><span>{currentStage}</span><b>{progressPercent(draft)}%</b><ProgressBar value={progressPercent(draft)} /></div>
             <ProgressMap client={draft} />
             {popoutMode ? (
               <section className="sub-panel workspace-panel">
                 <div className="sub-panel-head compact"><div><h2>Stage editor</h2><p className="muted">Mandatory stages always apply. Optional and custom stages can be added, removed or reordered before saving the client.</p></div></div>
-                <div className="stage-add-row"><input value={customStageLabel} onChange={(event) => setCustomStageLabel(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addCustomStage(); } }} placeholder="Add custom matter stage" /><button className="btn" type="button" onClick={addCustomStage}><Plus size={16} />Add stage</button></div>
+                <div className="stage-add-row"><input value={customStageLabel} onChange={(event) => setCustomStageLabel(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addCustomStage(); } }} placeholder="Add custom application stage" /><button className="btn" type="button" onClick={addCustomStage}><Plus size={16} />Add stage</button></div>
                 <div className="stage-list">
                   {(draft.stages || []).map((stage, index) => (
                     <div className={`stage-row stage-row-refined ${stage.custom ? 'custom-stage' : ''}`} key={stage.id}>
@@ -4795,13 +4795,13 @@ The portal is a secure, read-only space where you can check application updates,
                     return (
                       <div className={`billing-edit-card ${displayedStatus === 'Overdue' ? 'overdue-soft' : ''}`} key={item.id}>
                         <label className="billing-field billing-description-field"><span>Billing item / description</span><input value={item.milestone || ''} onChange={(event) => updateBilling(item.id, { milestone: event.target.value })} placeholder="e.g. Lodgement fee, professional fee, balance invoice" /></label>
-                        <label className="billing-field billing-trigger-field"><span>Billing based on</span><select value={item.triggerType || 'Date'} onChange={(event) => updateBilling(item.id, { triggerType: event.target.value, stageKey: event.target.value === 'Date' ? '' : item.stageKey })}><option value="Date">Date</option><option value="Milestone">Matter stage / milestone</option></select></label>
-                        {item.triggerType === 'Milestone' ? <label className="billing-field billing-stage-field"><span>Linked matter stage</span><select value={item.stageKey || ''} onChange={(event) => updateBilling(item.id, { stageKey: event.target.value })}><option value="">Select linked stage</option>{(draft.stages || []).filter((stage) => stage.applied).map((stage) => <option key={stage.id} value={stage.id}>{stage.label}</option>)}</select></label> : <label className="billing-field billing-date-field"><span>Billing date</span><input type="date" value={item.dueDate || ''} onChange={(event) => updateBilling(item.id, { dueDate: event.target.value })} /></label>}
+                        <label className="billing-field billing-trigger-field"><span>Billing based on</span><select value={item.triggerType || 'Date'} onChange={(event) => updateBilling(item.id, { triggerType: event.target.value, stageKey: event.target.value === 'Date' ? '' : item.stageKey })}><option value="Date">Date</option><option value="Milestone">Application stage / milestone</option></select></label>
+                        {item.triggerType === 'Milestone' ? <label className="billing-field billing-stage-field"><span>Linked application stage</span><select value={item.stageKey || ''} onChange={(event) => updateBilling(item.id, { stageKey: event.target.value })}><option value="">Select linked stage</option>{(draft.stages || []).filter((stage) => stage.applied).map((stage) => <option key={stage.id} value={stage.id}>{stage.label}</option>)}</select></label> : <label className="billing-field billing-date-field"><span>Billing date</span><input type="date" value={item.dueDate || ''} onChange={(event) => updateBilling(item.id, { dueDate: event.target.value })} /></label>}
                         <label className="billing-field billing-amount-field"><span>Amount</span><input type="number" value={item.amount || 0} onChange={(event) => updateBilling(item.id, { amount: event.target.value })} /></label>
                         <label className="billing-field billing-status-field"><span>Status</span><select value={item.status || 'WIP'} onChange={(event) => updateBilling(item.id, { status: event.target.value })}>{BILLING_STATUSES.map((status) => <option key={status}>{status}</option>)}</select></label>
                         <label className="billing-field billing-invoice-field"><span>Invoice no.</span><input value={item.invoiceNo || ''} onChange={(event) => updateBilling(item.id, { invoiceNo: event.target.value })} placeholder="Invoice no." /></label>
                         <button className="icon-btn billing-remove-btn" type="button" onClick={() => removeBilling(item.id)} aria-label="Remove billing item"><Trash2 size={16} /></button>
-                        <small className="billing-hint">{autoOverdue ? 'This WIP billing item is displayed as overdue because its reporting date has passed. Change status to Invoiced once raised.' : item.triggerType === 'Milestone' ? (linkedStage ? (linkedStageDue ? `Billing is now due because ${linkedStage.label} was completed on ${linkedStageDue}.` : `This billing item will become due when ${linkedStage.label} is marked completed.`) : 'Choose Matter stage / milestone, then select the linked client stage that triggers this bill.') : 'This billing item will appear in period billing reports based on the billing date.'}</small>
+                        <small className="billing-hint">{autoOverdue ? 'This WIP billing item is displayed as overdue because its reporting date has passed. Change status to Invoiced once raised.' : item.triggerType === 'Milestone' ? (linkedStage ? (linkedStageDue ? `Billing is now due because ${linkedStage.label} was completed on ${linkedStageDue}.` : `This billing item will become due when ${linkedStage.label} is marked complete.`) : 'Choose Application stage / milestone, then select the linked client stage that triggers this bill.') : 'This billing item will appear in period billing reports based on the billing date.'}</small>
                       </div>
                     );
                   })}
@@ -4816,7 +4816,7 @@ The portal is a secure, read-only space where you can check application updates,
 
         {activeClientSection === 'family' && (
           <div className="client-workspace-section-stack">
-            <ClientWorkspaceIntro title="Family and dependants" description="Record family members relevant to the matter, including partners and dependants." />
+            <ClientWorkspaceIntro title="Family and dependants" description="Record family members relevant to the application, including partners and dependants." />
             <FamilyDetails members={draft.familyMembers || []} addFamilyMember={addFamilyMember} updateFamilyMember={updateFamilyMember} removeFamilyMember={removeFamilyMember} />
           </div>
         )}
@@ -4883,7 +4883,7 @@ function StagesSummaryPanel({ client, onEdit }) {
   return (
     <section className="sub-panel workspace-panel summary-editor-panel">
       <div className="sub-panel-head compact">
-        <div><h2>Matter stage summary</h2><p className="muted">Only applied stages count toward the client progress map.</p></div>
+        <div><h2>Application stage summary</h2><p className="muted">Only applied stages count toward the client progress map.</p></div>
         <SummaryActionButton onClick={onEdit}>Edit stages</SummaryActionButton>
       </div>
       <div className="summary-metric-row">
@@ -5105,7 +5105,7 @@ function DocumentChecklist({ items, updateItem, addCustomItem, removeCustomItem 
           ) : (
             <div className="document-checklist-row muted-row document-checklist-row-hidden" key={item.id}>
               <label className="doc-include"><input type="checkbox" checked={item.applied} onChange={(event) => updateItem(item.id, { applied: event.target.checked })} /><span>Required</span></label>
-              <div className="doc-hidden-name"><span>Document</span><strong>{item.name}</strong><small>Not required for this matter</small></div>
+              <div className="doc-hidden-name"><span>Document</span><strong>{item.name}</strong><small>Not required for this application</small></div>
               {item.custom ? <button className="icon-btn" type="button" onClick={() => removeCustomItem(item.id)} title="Remove custom checklist item"><Trash2 size={16} /></button> : <span className="doc-hidden-spacer" aria-hidden="true" />}
             </div>
           )
@@ -6550,7 +6550,7 @@ function renderRows(rows = []) {
 }
 
 function renderStageTable(stages = []) {
-  if (!stages.length) return '<p class="muted">No matter stages are applied to this client.</p>';
+  if (!stages.length) return '<p class="muted">No application stages are applied to this client.</p>';
   return `<table><thead><tr><th>Stage</th><th>Status</th><th>Completed date</th></tr></thead><tbody>${stages.map((stage) => `<tr><td>${escapeHtml(stage.label)}</td><td>${stage.completed ? 'Completed' : 'Open'}</td><td>${escapeHtml(profileDate(stage.completedDate))}</td></tr>`).join('')}</tbody></table>`;
 }
 
@@ -8226,7 +8226,7 @@ function buildClientTimelineItems(client = {}, calendarEntries = [], advisers = 
         date: stage.completedDate,
         category: 'Matter stage',
         title: `${stage.label} completed`,
-        detail: stage.custom ? 'Custom matter stage' : (stage.mandatory ? 'Mandatory stage' : 'Optional stage'),
+        detail: stage.custom ? 'Custom application stage' : (stage.mandatory ? 'Mandatory stage' : 'Optional stage'),
         badge: 'Completed',
         statusKey: 'completed',
       });
