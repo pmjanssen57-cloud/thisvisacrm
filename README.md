@@ -1,8 +1,55 @@
-# THiS CRM v0.12.8 — Intake CV Upload Polish
+# v0.12.11 - Intake CV Download Polish
+
+- Replaced the intake pop-out questionnaire download focus with direct uploaded CV download actions.
+- Intake pop-out action bar now shows **Download applicant CV** when an applicant CV has been uploaded.
+- Intake pop-out action bar now shows **Download partner CV** when a partner CV has been uploaded.
+- CV cards inside the questionnaire layout now use clearer **Download CV** wording.
+- Existing CV storage remains unchanged: applicant and partner CV files are still stored in Netlify Blobs and downloaded through the secured CRM function.
+- Existing Print / save PDF remains available for advisers who need a PDF copy of the questionnaire answers.
+- No database migration required.
+
+## Test process
+
+1. Deploy this package to Netlify.
+2. Submit a dummy intake with an applicant CV and, if partner is selected, a partner CV.
+3. Open CRM > Intake and open the submitted record.
+4. Confirm **Download applicant CV** appears in the intake pop-out action bar.
+5. Confirm **Download partner CV** appears if a partner CV was supplied.
+6. Click each CV download and confirm the original PDF/DOC/DOCX downloads and opens.
+7. Confirm Print / save PDF still works for the questionnaire record.
+
+---
+# v0.12.10 - Intake Questionnaire Download Polish
+
+- Added a Download questionnaire button to the intake pop-out editor.
+- Advisers can now download a self-contained HTML copy of the intake questionnaire record, laid out in the same questionnaire-style format as the print/save PDF view.
+- Existing Print / save PDF remains available.
+- Download includes adviser review details, assessment notes, review flags and all captured questionnaire sections, including CV upload details where present.
+- No database migration required.
+
+## Test process
+
+1. Deploy this package to Netlify.
+2. Open CRM > Intake.
+3. Open a submitted intake record.
+4. Click Download questionnaire.
+5. Confirm an HTML file downloads using the applicant name in the filename.
+6. Open the downloaded file and confirm the questionnaire layout, adviser review information and uploaded CV references are visible.
+7. Confirm Print / save PDF still works from the same intake pop-out.
+
+---
+# v0.12.9 - Task List Appointment Access Polish
+
+- Calendar appointment rows in the Tasks list now open an appointment editor instead of becoming dead/disabled rows.
+- Adviser-only appointments with no linked client can be marked Completed & removed from the task list, edited, or deleted.
+- Linked appointment rows still allow opening the linked client from inside the appointment editor.
+- No database migration required.
+
+# THiS CRM v0.12.9 — Intake CV Upload Polish
 
 This build tidies the Microsoft 365 HTML formatting for intake approval and decline emails.
 
-## v0.12.8 changes
+## v0.12.9 changes
 
 - Improved paragraph spacing in the intake decline email so the message no longer appears compressed into one block.
 - Added a clean spacer before the Microsoft 365 shared mailbox signature is appended.
@@ -952,4 +999,11 @@ This package-lock uses public npm registry tarball URLs so Netlify can install d
 - Approval email formatting has been adjusted to match the supplied paragraph and bullet layout more closely.
 - Approval email HTML keeps compact single line-height and uses explicit spacer blocks so Outlook does not add excessive paragraph spacing.
 - Decline email behaviour is unchanged.
+- No database migration required.
+
+
+## v0.12.12 — Intake CV Download Blob Fix
+
+- Fixed the CV download function to request uploaded CV blobs as array buffers directly from Netlify Blobs.
+- Resolves the `blob.arrayBuffer is not a function` CRM function error when downloading applicant or partner CVs.
 - No database migration required.

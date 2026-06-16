@@ -6945,3 +6945,21 @@ body.intake-embed-mode .intake-public-card {
 .intake-upload-download small {
   color: #64748b;
 }
+
+/* v0.12.9: task list appointment access polish */
+.calendar-task-line { border-left: 4px solid #c8f0e4; }
+.calendar-task-editor { width: min(900px, 96vw); }
+.calendar-unlinked-card {
+  margin-top: 14px;
+  display: grid;
+  gap: 4px;
+}
+.calendar-unlinked-card span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.calendar-unlinked-card strong { color: var(--ink); }
+.calendar-unlinked-card small { color: var(--muted); }

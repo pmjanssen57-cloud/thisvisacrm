@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { acceptInvite, getUser, handleAuthCallback, login, logout, onAuthChange, requestPasswordRecovery, updateUser } from '@netlify/identity';
-import { AlertTriangle, ArrowUpDown, BookOpen, Calculator, CalendarDays, CheckCircle2, ChevronRight, Clock, CloudSun, Copy, CreditCard, ClipboardList, Database, DollarSign, ExternalLink, FileText, Globe2, HelpCircle, LayoutDashboard, Link2, ListChecks, LockKeyhole, Mail, MessageSquare, Phone, Plus, RefreshCw, Save, Search, Send, ShieldCheck, Trash2, UserRound, UsersRound, Wrench, X } from 'lucide-react';
+import { AlertTriangle, ArrowUpDown, BookOpen, Calculator, CalendarDays, CheckCircle2, ChevronRight, Clock, CloudSun, Copy, CreditCard, ClipboardList, Database, DollarSign, Download, ExternalLink, FileText, Globe2, HelpCircle, LayoutDashboard, Link2, ListChecks, LockKeyhole, Mail, MessageSquare, Phone, Plus, RefreshCw, Save, Search, Send, ShieldCheck, Trash2, UserRound, UsersRound, Wrench, X } from 'lucide-react';
 
 const BRAND = {
   ink: '#003736',
@@ -893,7 +893,7 @@ export default function App() {
             )}
 
             {tab === 'tasks' && (
-              <TasksDashboard taskRows={taskRows} personalTasks={scopedPersonalTasks} allClients={data.clients} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} savePersonalTask={savePersonalTask} deletePersonalTask={deletePersonalTask} saving={saving} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} />
+              <TasksDashboard taskRows={taskRows} personalTasks={scopedPersonalTasks} allClients={data.clients} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} savePersonalTask={savePersonalTask} deletePersonalTask={deletePersonalTask} saveCalendarEntry={saveCalendarEntry} deleteCalendarEntry={deleteCalendarEntry} saving={saving} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} />
             )}
 
             {tab === 'calendar' && (
@@ -1685,8 +1685,20 @@ function intakeCompareSnapshot(item = {}) {
 
 function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, setDraftPayloadField, onSave, onSaveAndClose, onClose, onDelete, onConvert, sendIntakeOutcomeEmail, downloadIntakeUpload, openClientRecord }) {
   const applicantName = [draft.firstName, draft.lastName].filter(Boolean).join(' ') || 'Unnamed enquiry';
+  const uploadPayload = intakeAnswerPayload(draft);
+  const applicantCvUpload = uploadPayload.intakeUploads?.applicantCv || uploadPayload.applicantCv;
+  const partnerCvUpload = uploadPayload.intakeUploads?.partnerCv || uploadPayload.partnerCv;
   const [outcomeSending, setOutcomeSending] = useState('');
   const [outcomeMessage, setOutcomeMessage] = useState('');
+
+  async function downloadCv(kind, label) {
+    setOutcomeMessage('');
+    try {
+      await downloadIntakeUpload?.(draft.id, kind);
+    } catch (err) {
+      setOutcomeMessage(`${label} could not be downloaded: ${err.message || 'file not available.'}`);
+    }
+  }
 
   async function sendOutcomeEmail(outcome) {
     if (!draft.email) return;
@@ -1728,6 +1740,8 @@ function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, 
         <IntakeFlagList flags={draft.flags} />
         <div className="button-row">
           <button className="btn" type="button" onClick={() => { if (!printIntakeRecord(draft, advisers)) window.alert('The browser blocked the print window. Allow pop-ups for this CRM, then try again.'); }}><FileText size={16} />Print / save PDF</button>
+          {applicantCvUpload?.fileName && <button className="btn" type="button" onClick={() => downloadCv('applicantCv', 'Applicant CV')}><Download size={16} />Download applicant CV</button>}
+          {partnerCvUpload?.fileName && <button className="btn" type="button" onClick={() => downloadCv('partnerCv', 'Partner CV')}><Download size={16} />Download partner CV</button>}
           <button className="btn" type="button" disabled={!draft.email || Boolean(outcomeSending) || saving} onClick={() => sendOutcomeEmail('approve')} title={!draft.email ? 'No submitter email recorded' : 'Send the approval email from the CRM'}><Mail size={16} />{outcomeSending === 'approve' ? 'Sending...' : 'Send approval email'}</button>
           <button className="btn danger" type="button" disabled={!draft.email || Boolean(outcomeSending) || saving} onClick={() => sendOutcomeEmail('decline')} title={!draft.email ? 'No submitter email recorded' : 'Send the decline email from the CRM'}><Mail size={16} />{outcomeSending === 'decline' ? 'Sending...' : 'Send decline email'}</button>
           <button className="btn dark" type="button" onClick={onConvert} disabled={saving || Boolean(draft.convertedClientId)}><UsersRound size={16} />Convert to client</button>
@@ -2229,7 +2243,7 @@ function IntakeUploadDownloadCard({ label, upload, onDownload }) {
         <strong>{hasUpload ? upload.fileName : 'No CV uploaded'}</strong>
         {hasUpload && <small>{formatFileSize(upload.fileSize)}{upload.uploadedAt ? ` · Uploaded ${formatPortalDateTime(upload.uploadedAt)}` : ''}</small>}
       </div>
-      {hasUpload && <button className="btn" type="button" onClick={onDownload}><FileText size={16} />Download</button>}
+      {hasUpload && <button className="btn" type="button" onClick={onDownload}><Download size={16} />Download CV</button>}
     </div>
   );
 }
@@ -3753,6 +3767,10 @@ function DailyBringUpPanel({ taskRows, advisers, setTab, setSelectedClientId, op
     .sort((a, b) => taskDisplayName(a).localeCompare(taskDisplayName(b))), [taskRows]);
 
   function openTask(row) {
+    if (row.source === 'calendar-entry' && row.calendarEntry) {
+      setSelectedCalendarEntry(row.calendarEntry);
+      return;
+    }
     if (!row.client) return;
     if (openClientRecord) return openClientRecord(row.client.id);
     setSelectedClientId(row.client.id);
@@ -3804,6 +3822,10 @@ function QuickTaskPanel({ taskRows, advisers, setTab, setSelectedClientId, openC
   }, { overdue: 0, today: 0, next7: 0 });
 
   function openTask(row) {
+    if (row.source === 'calendar-entry' && row.calendarEntry) {
+      setSelectedCalendarEntry(row.calendarEntry);
+      return;
+    }
     if (!row.client) return;
     if (openClientRecord) return openClientRecord(row.client.id);
     setSelectedClientId(row.client.id);
@@ -5093,12 +5115,13 @@ function DocumentChecklist({ items, updateItem, addCustomItem, removeCustomItem 
   );
 }
 
-function TasksDashboard({ taskRows, personalTasks, allClients, advisers, dashboardAdviserFilter, savePersonalTask, deletePersonalTask, saving, setTab, setSelectedClientId, openClientRecord }) {
+function TasksDashboard({ taskRows, personalTasks, allClients, advisers, dashboardAdviserFilter, savePersonalTask, deletePersonalTask, saveCalendarEntry, deleteCalendarEntry, saving, setTab, setSelectedClientId, openClientRecord }) {
   const [sortMode, setSortMode] = useState('priority');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [taskSearch, setTaskSearch] = useState('');
   const [selectedPersonalTask, setSelectedPersonalTask] = useState(null);
+  const [selectedCalendarEntry, setSelectedCalendarEntry] = useState(null);
 
   const scopeLabel = dashboardAdviserFilter === 'all' ? 'All advisers' : advisers.find((adviser) => adviser.id === dashboardAdviserFilter)?.name || 'Selected adviser';
   const types = useMemo(() => Array.from(new Set(taskRows.map((row) => row.type))).sort(), [taskRows]);
@@ -5108,6 +5131,12 @@ function TasksDashboard({ taskRows, personalTasks, allClients, advisers, dashboa
     const freshTask = personalTasks.find((task) => task.id === selectedPersonalTask.id);
     if (freshTask) setSelectedPersonalTask(freshTask);
   }, [personalTasks, selectedPersonalTask?.id]);
+
+  useEffect(() => {
+    if (!selectedCalendarEntry?.id) return;
+    const freshEntry = taskRows.find((row) => row.source === 'calendar-entry' && row.calendarEntry?.id === selectedCalendarEntry.id)?.calendarEntry;
+    if (freshEntry) setSelectedCalendarEntry(freshEntry);
+  }, [taskRows, selectedCalendarEntry?.id]);
 
   const visibleTasks = useMemo(() => {
     const q = taskSearch.trim().toLowerCase();
@@ -5134,6 +5163,10 @@ function TasksDashboard({ taskRows, personalTasks, allClients, advisers, dashboa
       setSelectedPersonalTask(row.personalTask);
       return;
     }
+    if (row.source === 'calendar-entry' && row.calendarEntry) {
+      setSelectedCalendarEntry(row.calendarEntry);
+      return;
+    }
     if (!row.client) return;
     if (openClientRecord) return openClientRecord(row.client.id);
     setSelectedClientId(row.client.id);
@@ -5143,6 +5176,7 @@ function TasksDashboard({ taskRows, personalTasks, allClients, advisers, dashboa
   function openLinkedClient(clientId) {
     if (!clientId) return;
     setSelectedPersonalTask(null);
+    setSelectedCalendarEntry(null);
     if (openClientRecord) return openClientRecord(clientId);
     setSelectedClientId(clientId);
     setTab('clients');
@@ -5205,14 +5239,15 @@ function TasksDashboard({ taskRows, personalTasks, allClients, advisers, dashboa
           <div className="task-head"><span>Preference</span><span>Client / task</span><span>Task / date</span><span>Adviser</span><span>Note</span><span></span></div>
           {visibleTasks.map((row) => {
             const isPersonal = row.source === 'personal-task';
+            const isCalendar = row.source === 'calendar-entry';
             return (
-              <div className={`task-line ${taskStatusKey(row)} ${isPersonal ? 'personal-task-line' : ''}`} key={row.id}>
+              <div className={`task-line ${taskStatusKey(row)} ${isPersonal ? 'personal-task-line' : ''} ${isCalendar ? 'calendar-task-line' : ''}`} key={row.id}>
                 <span><DeadlineBadge diff={row.diff} /></span>
-                <span><strong>{taskDisplayName(row)}</strong><small>{taskContextLabel(row)}</small><small>{row.client?.caseStrategy ? 'Strategy added' : isPersonal ? 'Internal adviser reminder' : 'No case strategy yet'}</small></span>
+                <span><strong>{taskDisplayName(row)}</strong><small>{taskContextLabel(row)}</small><small>{row.client?.caseStrategy ? 'Strategy added' : isPersonal ? 'Internal adviser reminder' : isCalendar ? 'Calendar appointment' : 'No case strategy yet'}</small></span>
                 <span><strong>{row.type}</strong><small>{row.date}</small></span>
                 <span>{taskAdviserName(row, advisers)}</span>
                 <span>{row.note || '—'}</span>
-                <button className="btn ghost" type="button" disabled={!row.client && !isPersonal} onClick={() => openTask(row)}>{isPersonal ? 'Open task' : row.client ? 'Open' : 'Open'}</button>
+                <button className="btn ghost" type="button" disabled={!row.client && !isPersonal && !isCalendar} onClick={() => openTask(row)}>{isPersonal ? 'Open task' : isCalendar ? 'Open appointment' : 'Open'}</button>
               </div>
             );
           })}
@@ -5233,6 +5268,25 @@ function TasksDashboard({ taskRows, personalTasks, allClients, advisers, dashboa
           onDelete={async (taskId) => {
             await deletePersonalTask(taskId);
             setSelectedPersonalTask(null);
+          }}
+          onOpenClient={openLinkedClient}
+        />
+      )}
+
+      {selectedCalendarEntry && (
+        <CalendarTaskModal
+          entry={selectedCalendarEntry}
+          allClients={allClients}
+          advisers={advisers}
+          saving={saving}
+          onClose={() => setSelectedCalendarEntry(null)}
+          onSave={async (entry) => {
+            await saveCalendarEntry(entry);
+            setSelectedCalendarEntry(null);
+          }}
+          onDelete={async (entryId) => {
+            await deleteCalendarEntry(entryId);
+            setSelectedCalendarEntry(null);
           }}
           onOpenClient={openLinkedClient}
         />
@@ -5384,6 +5438,83 @@ function PersonalTaskModal({ task, allClients, advisers, saving, onClose, onSave
           <button className="btn danger" type="button" disabled={saving} onClick={() => onDelete(draft.id)}><Trash2 size={16} />Delete</button>
           <button className="btn ghost" type="button" disabled={saving || draft.status === 'Completed'} onClick={completeTask}><CheckCircle2 size={16} />Complete & remove from list</button>
           <button className="btn dark" type="submit" disabled={saving || !draft.title.trim()}><Save size={16} />Save task</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+
+function CalendarTaskModal({ entry, allClients, advisers, saving, onClose, onSave, onDelete, onOpenClient }) {
+  const [draft, setDraft] = useState(() => normaliseCalendarEntry(entry));
+  const linkedClient = allClients.find((client) => client.id === draft.clientId);
+
+  useEffect(() => {
+    setDraft(normaliseCalendarEntry(entry));
+  }, [entry?.id]);
+
+  function update(field, value) {
+    setDraft((current) => ({ ...current, [field]: value }));
+  }
+
+  async function saveAndClose(event) {
+    event.preventDefault();
+    if (!draft.title.trim() || !draft.appointmentDate) return;
+    await onSave({ ...draft, title: draft.title.trim() });
+  }
+
+  async function completeAppointment() {
+    await onSave({ ...draft, status: 'Completed' });
+  }
+
+  return (
+    <div className="modal-layer" role="dialog" aria-modal="true" aria-label="Calendar appointment editor">
+      <button className="modal-backdrop" type="button" aria-label="Close calendar appointment editor" onClick={onClose}></button>
+      <form className="modal-card personal-task-editor calendar-task-editor" onSubmit={saveAndClose}>
+        <div className="modal-head">
+          <div>
+            <span>Calendar appointment</span>
+            <h2>{draft.title || 'Appointment'}</h2>
+            <p className="muted">Edit, complete or remove this appointment without leaving the task list. Open appointments continue to appear as bring-up items.</p>
+          </div>
+          <button className="icon-btn" type="button" onClick={onClose} aria-label="Close calendar appointment editor"><X size={18} /></button>
+        </div>
+
+        <div className="form-grid two personal-task-editor-grid">
+          <label className="field"><span>Title</span><input value={draft.title} onChange={(event) => update('title', event.target.value)} /></label>
+          <label className="field"><span>Appointment type</span><select value={draft.appointmentType || APPOINTMENT_TYPES[0]} onChange={(event) => update('appointmentType', event.target.value)}>{APPOINTMENT_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
+          <label className="field"><span>Date</span><input type="date" value={draft.appointmentDate || ''} onChange={(event) => update('appointmentDate', event.target.value)} /></label>
+          <label className="field"><span>Status</span><select value={draft.status || 'Open'} onChange={(event) => update('status', event.target.value)}><option>Open</option><option>Completed</option></select></label>
+          <label className="field"><span>Start time</span><input type="time" value={draft.startTime || ''} onChange={(event) => update('startTime', event.target.value)} /></label>
+          <label className="field"><span>End time</span><input type="time" value={draft.endTime || ''} onChange={(event) => update('endTime', event.target.value)} /></label>
+          <label className="field"><span>Adviser</span><select value={draft.adviserId || ''} onChange={(event) => update('adviserId', event.target.value)}><option value="">Unassigned</option>{advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}</select></label>
+          <label className="field"><span>Linked client</span><select value={draft.clientId || ''} onChange={(event) => update('clientId', event.target.value)}><option value="">No linked client</option>{allClients.map((client) => <option key={client.id} value={client.id}>{client.firstName} {client.lastName}</option>)}</select></label>
+          <label className="field"><span>Location</span><input value={draft.location || ''} onChange={(event) => update('location', event.target.value)} placeholder="Office, Teams, Zoom, phone" /></label>
+          <label className="field personal-task-editor-note"><span>Notes</span><textarea rows={4} value={draft.notes || ''} onChange={(event) => update('notes', event.target.value)} /></label>
+        </div>
+
+        {linkedClient && (
+          <div className="current-action-card personal-linked-client-card">
+            <span>Linked client</span>
+            <strong>{linkedClient.firstName} {linkedClient.lastName}</strong>
+            <small>{linkedClient.caseType || 'No case type set'}</small>
+            <button className="btn ghost" type="button" onClick={() => onOpenClient(linkedClient.id)}>Open linked client</button>
+          </div>
+        )}
+
+        {!linkedClient && (
+          <div className="current-action-card calendar-unlinked-card">
+            <span>No linked client</span>
+            <strong>This appointment is adviser-only.</strong>
+            <small>Mark it completed to remove it from the task list, or delete it if it was created in error.</small>
+          </div>
+        )}
+
+        <div className="modal-actions personal-task-modal-actions">
+          <button className="btn ghost" type="button" onClick={onClose}>Close</button>
+          <button className="btn danger" type="button" disabled={saving} onClick={() => onDelete(draft.id)}><Trash2 size={16} />Delete</button>
+          <button className="btn ghost" type="button" disabled={saving || draft.status === 'Completed'} onClick={completeAppointment}><CheckCircle2 size={16} />Complete & remove from list</button>
+          <button className="btn dark" type="submit" disabled={saving || !draft.title.trim() || !draft.appointmentDate}><Save size={16} />Save appointment</button>
         </div>
       </form>
     </div>
@@ -6127,6 +6258,38 @@ function buildIntakeOutcomeEmailDraft(record = {}, advisers = [], outcome = 'app
       'I look forward to hearing from you in due course.',
     ].join('\n')
   };
+}
+
+function downloadIntakeQuestionnaire(record = {}, advisers = []) {
+  try {
+    const applicantName = [record.firstName, record.lastName].filter(Boolean).join(' ') || 'intake-questionnaire';
+    const fileName = `${safeDownloadFileName(applicantName)}-questionnaire.html`;
+    const html = buildIntakePrintHtml(record, advisers);
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1200);
+    return true;
+  } catch (err) {
+    console.error('Intake questionnaire download could not be prepared.', err);
+    window.alert('The questionnaire download could not be prepared. Please try Print / save PDF instead.');
+    return false;
+  }
+}
+
+function safeDownloadFileName(value = '') {
+  const cleaned = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+  return cleaned || 'intake-questionnaire';
 }
 
 function printIntakeRecord(record = {}, advisers = []) {

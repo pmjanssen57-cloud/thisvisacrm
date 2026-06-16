@@ -1048,9 +1048,8 @@ async function downloadIntakeUpload(intakeId, kind) {
   const metadata = payload.intakeUploads?.[uploadKind] || payload[uploadKind] || null;
   if (!metadata?.blobKey) throw new Error('No uploaded CV is recorded for this intake.');
   const store = getStore({ name: INTAKE_UPLOAD_STORE, consistency: 'strong' });
-  const blob = await store.get(metadata.blobKey);
-  if (!blob) throw new Error('The uploaded CV could not be found in storage.');
-  const arrayBuffer = await blob.arrayBuffer();
+  const arrayBuffer = await store.get(metadata.blobKey, { type: 'arrayBuffer', consistency: 'strong' });
+  if (!arrayBuffer) throw new Error('The uploaded CV could not be found in storage.');
   return {
     kind: uploadKind,
     fileName: metadata.fileName || 'intake-cv.pdf',

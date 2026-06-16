@@ -1,4 +1,26 @@
-THiS CRM v0.12.8 — Intake CV Upload Polish
+v0.12.11 - Intake CV Download Polish
+
+- Deploy this package after v0.12.10 if direct CV downloads are required from intake records.
+- Test with one applicant CV and one partner CV.
+- Confirm no new database migration is required.
+
+---
+THiS CRM v0.12.10 — Intake Questionnaire Download Polish
+
+Before deploying:
+[ ] No new database migration is required for this package.
+[ ] Preserve existing Microsoft email environment variables in Netlify.
+
+After deploying:
+[ ] Open CRM > Intake.
+[ ] Open a submitted intake record.
+[ ] Click Download questionnaire.
+[ ] Confirm the HTML questionnaire file downloads.
+[ ] Open the downloaded file and confirm it shows the questionnaire-style layout.
+[ ] Confirm Print / save PDF still works.
+
+---
+THiS CRM v0.12.9 — Intake CV Upload Polish
 
 Before deploying:
 [ ] Confirm Microsoft environment variables are still present in Netlify.
@@ -565,3 +587,5 @@ v0.12.5 personal task navigation checks:
 - Click Complete & remove from list and confirm it disappears from active tasks.
 - Expand Personal task centre and confirm personal tasks can still be created, completed, shown and deleted there.
 - Confirm normal client task Open buttons still open the client record as before.
+
+- CV download blob fix included: Netlify Blob downloads now use arrayBuffer type directly.
