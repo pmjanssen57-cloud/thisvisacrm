@@ -1,4 +1,4 @@
-THiS CRM v0.12.15 — Contact Form Intake Foundation
+THiS CRM v0.12.16 — Contact Form Embed Polish
 
 Before deploying:
 [ ] No new database migration is required for this package.
@@ -619,3 +619,10 @@ v0.12.5 personal task navigation checks:
 - Confirm normal client task Open buttons still open the client record as before.
 
 - CV download blob fix included: Netlify Blob downloads now use arrayBuffer type directly.
+
+
+Contact form embed polish:
+- Deploy over v0.12.15.
+- Confirm /contact no longer shows the Turner Hopkins logo or Contact Turner Hopkins heading.
+- Confirm the short enquiry explanation still appears.
+- No database migration required.

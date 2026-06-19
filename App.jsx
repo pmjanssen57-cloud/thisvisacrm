@@ -1165,7 +1165,6 @@ function IntakeFormApp() {
     return (
       <div className="intake-public-shell" ref={intakeShellRef}>
         <main className="intake-public-card intake-thanks-card">
-          <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="intake-brand-logo" />
           <CheckCircle2 size={40} className="portal-lock" />
           <h1>Thank you. Your assessment questionnaire has been received.</h1>
           <p className="muted">Turner Hopkins will review the information and come back to you if we can assist. This questionnaire is for initial assessment only and does not create an adviser-client relationship.</p>
@@ -1545,7 +1544,6 @@ function ContactFormApp() {
     return (
       <div className="intake-public-shell" ref={contactShellRef}>
         <main className="intake-public-card intake-thanks-card">
-          <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="intake-brand-logo" />
           <CheckCircle2 size={40} className="portal-lock" />
           <h1>Thank you. Your message has been received.</h1>
           <p className="muted">Turner Hopkins will review your enquiry and come back to you if we can assist. This contact form is for initial enquiries only and does not create an adviser-client relationship.</p>
@@ -1558,12 +1556,8 @@ function ContactFormApp() {
   return (
     <div className="intake-public-shell contact-public-shell" ref={contactShellRef}>
       <main className="intake-public-card contact-public-card">
-        <div className="intake-public-head compact">
-          <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="intake-brand-logo" />
-          <div>
-            <h1>Contact Turner Hopkins</h1>
-            <p>Send us a short enquiry and our team will review how we may be able to assist.</p>
-          </div>
+        <div className="intake-public-head compact contact-public-intro">
+          <p>Send us a short enquiry and our team will review how we may be able to assist.</p>
         </div>
         {error && <div className="error-banner"><AlertTriangle size={18} />{error}</div>}
         <form className="intake-form contact-form" onSubmit={submit}>

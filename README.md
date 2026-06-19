@@ -1,4 +1,14 @@
-# THiS CRM v0.12.15 — Contact Form Intake Foundation
+# THiS CRM v0.12.16 — Contact Form Embed Polish
+
+## v0.12.16 changes
+- Removed the Turner Hopkins logo from the public contact form.
+- Removed the “Contact Turner Hopkins” heading from the public contact form.
+- Kept the short enquiry explanation sentence at the top of the form.
+- Removed the logo from the contact form thank-you screen.
+- No database migration required.
+
+
+---
 
 ## v0.12.15 changes
 - Added a new short public contact form at `/contact`.
