@@ -1,3 +1,27 @@
+# THiS CRM v0.12.15 — Contact Form Intake Foundation
+
+## v0.12.15 changes
+- Added a new short public contact form at `/contact`.
+- Contact form uses the requested fields: situation, first name, last name, email, phone, location, best time to call and question/details.
+- Contact form submissions feed into the existing CRM > Intake list.
+- Contact form records are clearly marked with a **Contact form** badge in the intake list.
+- Added an Intake type filter for **All types**, **Assessment forms** and **Contact forms**.
+- Contact enquiries open in the same intake pop-out editor, with a simplified contact-enquiry layout.
+- Internal new-enquiry notification emails distinguish contact forms from full assessment questionnaires.
+- Added an **Open contact form** button beside the existing assessment form button.
+- No database migration required. Contact form answers are stored in the existing intake raw payload.
+
+## Test process
+1. Deploy this package to Netlify.
+2. Open `/contact` and submit a dummy contact enquiry.
+3. Confirm Paul and Sejoo receive a new contact enquiry notification email.
+4. Open CRM > Intake and confirm the record appears with a **Contact form** badge.
+5. Use the Type filter to show only Contact forms.
+6. Open the contact enquiry pop-out, edit details, save and refresh.
+7. Confirm the detailed `/intake` assessment form still works as before.
+
+---
+
 # THiS CRM v0.12.14 — CRM Interface and Client Workspace Polish
 
 ## v0.12.14 changes

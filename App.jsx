@@ -79,6 +79,7 @@ const LIBRARY_STATUSES = ['Current', 'Watch', 'Superseded', 'Archived', 'Accepta
 const LIBRARY_CATEGORIES = ['Work', 'Residence', 'Family', 'Student', 'Visitor', 'Investor', 'Health', 'Character', 'Compliance', 'Forms', 'General'];
 const INTAKE_STATUSES = ['New', 'Reviewing', 'Contacted', 'Consultation booked', 'Agreement sent', 'Signed client', 'Converted', 'Not proceeding', 'Archived'];
 const INTAKE_PATHWAY_OPTIONS = ['Live in New Zealand permanently', 'Work in New Zealand', 'Join my partner or family', 'Study in New Zealand', 'Invest in New Zealand', 'Bring staff to New Zealand', 'Resolve a visa issue', 'Visit New Zealand', 'Become a New Zealand citizen', 'Not sure yet'];
+const CONTACT_SITUATION_OPTIONS = ['I am in New Zealand and would like to stay longer or permanently', 'I am not in NZ but exploring the big move', 'I have a job offer and need to secure a Work Visa', 'I have a Visa issue, that I need help with', 'I am a NZ based employer looking for assistance'];
 const INTAKE_YES_NO_OPTIONS = ['Yes', 'No', 'Unsure'];
 const INTAKE_RELATIONSHIP_OPTIONS = ['Single', 'Married', 'De facto / partner', 'Separated', 'Divorced', 'Widowed', 'Other'];
 const INTAKE_QUALIFICATION_OPTIONS = ['No formal qualification', 'Secondary school', 'Trade certificate / diploma', 'Bachelor degree', 'Postgraduate qualification', 'Master degree', 'PhD', 'Other'];
@@ -261,6 +262,7 @@ function makeBlankClient(data) {
 }
 
 export default function App() {
+  if (window.location.pathname.startsWith('/contact')) return <ContactFormApp />;
   if (window.location.pathname.startsWith('/intake')) return <IntakeFormApp />;
   if (window.location.pathname.startsWith('/portal')) return <ClientPortalApp />;
   const [data, setData] = useState(emptyData);
@@ -1441,11 +1443,161 @@ function IntakeFormApp() {
   );
 }
 
+function ContactFormApp() {
+  const contactShellRef = useRef(null);
+  const [form, setForm] = useState({
+    contactSituation: '',
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    contactLocation: '',
+    bestTimeToCall: '',
+    helpNeeded: '',
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const embedded = window.parent !== window;
+    document.documentElement.classList.toggle('intake-embed-mode', embedded);
+    document.body.classList.toggle('intake-embed-mode', embedded);
+    return () => {
+      document.documentElement.classList.remove('intake-embed-mode');
+      document.body.classList.remove('intake-embed-mode');
+    };
+  }, []);
+
+  useEffect(() => {
+    const shell = contactShellRef.current;
+    if (!shell || window.parent === window) return undefined;
+    let frameId = 0;
+    let lastSentHeight = 0;
+    const postHeight = () => {
+      if (frameId) window.cancelAnimationFrame(frameId);
+      frameId = window.requestAnimationFrame(() => {
+        const card = shell.querySelector('.intake-public-card');
+        const shellStyles = window.getComputedStyle(shell);
+        const shellPadding = parseFloat(shellStyles.paddingTop || '0') + parseFloat(shellStyles.paddingBottom || '0');
+        const contentHeight = card ? Math.ceil(card.getBoundingClientRect().height + shellPadding) : Math.ceil(shell.scrollHeight);
+        const height = Math.max(520, contentHeight + 8);
+        if (Math.abs(height - lastSentHeight) < 8) return;
+        lastSentHeight = height;
+        window.parent.postMessage({ type: 'THIS_INTAKE_EMBED_HEIGHT', source: 'this-crm-intake', height }, '*');
+      });
+    };
+    postHeight();
+    const timeoutIds = [120, 450, 1000].map((delay) => window.setTimeout(postHeight, delay));
+    const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(postHeight) : null;
+    resizeObserver?.observe(shell);
+    const card = shell.querySelector('.intake-public-card');
+    if (card) resizeObserver?.observe(card);
+    window.addEventListener('resize', postHeight);
+    window.addEventListener('load', postHeight);
+    return () => {
+      if (frameId) window.cancelAnimationFrame(frameId);
+      timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', postHeight);
+      window.removeEventListener('load', postHeight);
+    };
+  }, [form, submitted, error]);
+
+  function setField(name, value) {
+    setForm((current) => ({ ...current, [name]: value }));
+  }
+
+  async function submit(event) {
+    event.preventDefault();
+    setSubmitting(true);
+    setError('');
+    try {
+      const submitPayload = {
+        ...form,
+        formType: 'contact',
+        targetPathway: form.contactSituation,
+        currentLocation: form.contactLocation,
+        preferredContactMethod: 'Email',
+        urgency: 'Standard',
+        consentToContact: true,
+        privacyAcknowledged: true,
+        submittedVia: 'THiS contact form',
+        intakeVersion: 'v0.12.15',
+      };
+      const response = await fetch('/.netlify/functions/intake', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ payload: submitPayload }),
+      });
+      const body = await readJsonResponse(response);
+      if (!response.ok) throw new Error(body.error || 'The contact enquiry could not be submitted.');
+      setSubmitted(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (submitted) {
+    return (
+      <div className="intake-public-shell" ref={contactShellRef}>
+        <main className="intake-public-card intake-thanks-card">
+          <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="intake-brand-logo" />
+          <CheckCircle2 size={40} className="portal-lock" />
+          <h1>Thank you. Your message has been received.</h1>
+          <p className="muted">Turner Hopkins will review your enquiry and come back to you if we can assist. This contact form is for initial enquiries only and does not create an adviser-client relationship.</p>
+          <button className="btn dark" type="button" onClick={() => { setForm({ contactSituation: '', firstName: '', lastName: '', email: '', phone: '', contactLocation: '', bestTimeToCall: '', helpNeeded: '' }); setSubmitted(false); }}>Send another question</button>
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="intake-public-shell contact-public-shell" ref={contactShellRef}>
+      <main className="intake-public-card contact-public-card">
+        <div className="intake-public-head compact">
+          <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="intake-brand-logo" />
+          <div>
+            <h1>Contact Turner Hopkins</h1>
+            <p>Send us a short enquiry and our team will review how we may be able to assist.</p>
+          </div>
+        </div>
+        {error && <div className="error-banner"><AlertTriangle size={18} />{error}</div>}
+        <form className="intake-form contact-form" onSubmit={submit}>
+          <IntakeSelect label="Your situation" value={form.contactSituation} onChange={(v) => setField('contactSituation', v)} options={CONTACT_SITUATION_OPTIONS} required />
+          <div className="form-grid">
+            <IntakeField label="First Name" value={form.firstName} onChange={(v) => setField('firstName', v)} required />
+            <IntakeField label="Last Name" value={form.lastName} onChange={(v) => setField('lastName', v)} required />
+            <IntakeField label="Email Address" type="email" value={form.email} onChange={(v) => setField('email', v)} required placeholder="Enter your email address" />
+            <IntakeField label="Phone (+area code)" value={form.phone} onChange={(v) => setField('phone', v)} required placeholder="Enter phone number including country code" />
+            <IntakeField label="Where are you located? (if outside NZ)" value={form.contactLocation} onChange={(v) => setField('contactLocation', v)} />
+            <IntakeField label="Best time to call (if needed)?" value={form.bestTimeToCall} onChange={(v) => setField('bestTimeToCall', v)} />
+          </div>
+          <IntakeTextarea label="How can we help?" value={form.helpNeeded} onChange={(v) => setField('helpNeeded', v)} rows={6} placeholder="Please describe the assistance you need, with as much detail as possible." />
+          <p className="muted small">By submitting this form, you agree that Turner Hopkins may contact you about this enquiry. This is an initial enquiry only and does not create an adviser-client relationship.</p>
+          <div className="intake-submit-bar">
+            <button className="btn dark" type="submit" disabled={submitting}>{submitting ? 'Sending...' : 'Send enquiry'}</button>
+          </div>
+        </form>
+      </main>
+    </div>
+  );
+}
+
+function isContactIntake(record = {}) {
+  const payload = intakeAnswerPayload(record);
+  return String(payload.formType || '').toLowerCase() === 'contact' || String(payload.submittedVia || '').toLowerCase().includes('contact form');
+}
+
 function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, downloadIntakeUpload, saving, openClientRecord }) {
   const [statusFilter, setStatusFilter] = useState('New');
   const [query, setQuery] = useState('');
   const [adviserFilter, setAdviserFilter] = useState('all');
   const [flagFilter, setFlagFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
   const [expandedId, setExpandedId] = useState('');
   const [draft, setDraft] = useState(null);
   const activeStatuses = ['New', 'Reviewing', 'Contacted', 'Consultation booked', 'Agreement sent', 'Signed client'];
@@ -1478,17 +1630,24 @@ function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, del
       item.citizenship,
       item.urgency,
       item.recommendedPathway,
+      item.rawPayload?.formType,
+      item.rawPayload?.contactSituation,
+      item.rawPayload?.bestTimeToCall,
+      item.rawPayload?.helpNeeded,
     ].join(' ').toLowerCase();
     const matchesQuery = !q || searchText.includes(q);
     const matchesStatus = statusFilter === 'all' || (statusFilter === 'active' ? activeStatuses.includes(item.status) : item.status === statusFilter);
     const matchesAdviser = adviserFilter === 'all' || (adviserFilter === 'unassigned' ? !item.assignedAdviserId : item.assignedAdviserId === adviserFilter);
     const matchesFlag = flagFilter === 'all' || Boolean(item.flags?.[flagFilter]);
-    return matchesQuery && matchesStatus && matchesAdviser && matchesFlag;
+    const itemIsContact = isContactIntake(item);
+    const matchesType = typeFilter === 'all' || (typeFilter === 'contact' ? itemIsContact : !itemIsContact);
+    return matchesQuery && matchesStatus && matchesAdviser && matchesFlag && matchesType;
   });
 
   const newCount = normalisedEnquiries.filter((item) => item.status === 'New').length;
   const activeCount = normalisedEnquiries.filter((item) => activeStatuses.includes(item.status)).length;
   const reviewFlagCount = normalisedEnquiries.filter((item) => hasAnyIntakeFlag(item.flags)).length;
+  const contactCount = normalisedEnquiries.filter((item) => isContactIntake(item)).length;
   const convertedCount = normalisedEnquiries.filter((item) => item.convertedClientId || item.status === 'Converted').length;
   const expandedItem = expandedId ? normalisedEnquiries.find((item) => item.id === expandedId) : null;
   const draftDirty = Boolean(draft && expandedItem && JSON.stringify(intakeCompareSnapshot(draft)) !== JSON.stringify(intakeCompareSnapshot(expandedItem)));
@@ -1545,6 +1704,7 @@ function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, del
     setStatusFilter('all');
     setAdviserFilter('all');
     setFlagFilter('all');
+    setTypeFilter('all');
     setQuery('');
   }
 
@@ -1573,16 +1733,16 @@ function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, del
       <div className="library-heading intake-heading">
         <div>
           <h1>Intake</h1>
-          <p className="muted">Manage assessment questionnaires as a triage inbox. New, untouched submissions show by default.</p>
+          <p className="muted">Manage detailed assessment questionnaires and shorter contact form enquiries in one triage inbox. New, untouched submissions show by default.</p>
         </div>
-        <a className="btn dark" href="/intake" target="_blank" rel="noreferrer"><ExternalLink size={16} />Open web form</a>
+        <div className="button-row"><a className="btn" href="/contact" target="_blank" rel="noreferrer"><ExternalLink size={16} />Open contact form</a><a className="btn dark" href="/intake" target="_blank" rel="noreferrer"><ExternalLink size={16} />Open assessment form</a></div>
       </div>
 
       <div className="metric-grid four intake-metrics">
         <MetricCard label="New" value={newCount} note="Untouched questionnaires" icon={ClipboardList} />
         <MetricCard label="Active" value={activeCount} note="Open intake workflow" icon={Clock} />
         <MetricCard label="Review flags" value={reviewFlagCount} note="Need adviser attention" icon={AlertTriangle} />
-        <MetricCard label="Converted" value={convertedCount} note="Moved into clients" icon={CheckCircle2} />
+        <MetricCard label="Contact forms" value={contactCount} note="Short enquiries" icon={MessageSquare} />
       </div>
 
       <section className="intake-inbox-panel">
@@ -1594,12 +1754,13 @@ function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, del
           <label><span>Status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="New">New / untouched</option><option value="all">All statuses</option><option value="active">Active intake</option>{statuses.filter((status) => status !== 'New').map((status) => <option key={status} value={status}>{status}</option>)}</select></label>
           <label><span>Adviser</span><select value={adviserFilter} onChange={(event) => setAdviserFilter(event.target.value)}><option value="all">All advisers</option><option value="unassigned">Unassigned</option>{advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}</select></label>
           <label><span>Review flag</span><select value={flagFilter} onChange={(event) => setFlagFilter(event.target.value)}><option value="all">All flags</option>{flagOptions.map((flag) => <option key={flag.value} value={flag.value}>{flag.label}</option>)}</select></label>
+          <label><span>Type</span><select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}><option value="all">All types</option><option value="assessment">Assessment forms</option><option value="contact">Contact forms</option></select></label>
           <button className="btn" type="button" onClick={clearFilters}>Show all</button>
         </div>
 
         <div className="intake-inbox-summary-row">
           <div>
-            <span className="eyebrow">Assessment questionnaires</span>
+            <span className="eyebrow">Intake and contact enquiries</span>
             <h2>{statusFilter === 'New' ? 'New submissions' : statusFilter === 'active' ? 'Active intake' : statusFilter === 'all' ? 'All intake records' : statusFilter}</h2>
           </div>
           <strong>{filtered.length} shown</strong>
@@ -1610,10 +1771,10 @@ function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, del
             <article key={item.id} className="intake-inbox-card">
               <button className="intake-inbox-card-head" type="button" onClick={() => openIntakeEditor(item)}>
                 <div className="intake-inbox-person">
-                  <strong>{[item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unnamed enquiry'}</strong>
+                  <strong>{[item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unnamed enquiry'} {isContactIntake(item) && <span className="intake-type-badge contact">Contact form</span>}</strong>
                   <small>{item.email || 'No email'}{item.phone ? ` · ${item.phone}` : ''}</small>
                 </div>
-                <div className="intake-inbox-detail"><span>Goal</span><strong>{item.targetPathway || 'Not selected'}</strong></div>
+                <div className="intake-inbox-detail"><span>{isContactIntake(item) ? 'Situation' : 'Goal'}</span><strong>{item.targetPathway || item.rawPayload?.contactSituation || (isContactIntake(item) ? 'Basic question' : 'Not selected')}</strong></div>
                 <div className="intake-inbox-detail"><span>Location</span><strong>{item.currentLocation || item.citizenship || 'Not recorded'}</strong></div>
                 <div className="intake-inbox-detail"><span>Submitted</span><strong>{item.createdAt ? formatPortalDateTime(item.createdAt) : 'No date'}</strong></div>
                 <div className="intake-inbox-status-block">
@@ -1630,7 +1791,7 @@ function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, del
             <div className="empty-state slim intake-inbox-empty">
               <ClipboardList size={34} />
               <h2>No intake records match this view</h2>
-              <p>The default view shows new, untouched assessment questionnaires. Use Show all or adjust the filters to see older records.</p>
+              <p>The default view shows new, untouched enquiries. Use Show all or adjust the filters to see older records.</p>
             </div>
           )}
         </div>
@@ -1724,7 +1885,7 @@ function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, 
     <div className="intake-popout-editor">
       <div className="intake-popout-actionbar">
         <div>
-          <span className="eyebrow">Assessment questionnaire</span>
+          <span className="eyebrow">{isContactIntake(draft) ? 'Contact form enquiry' : 'Assessment questionnaire'}</span>
           <h2>{applicantName}</h2>
           <p>{draft.email || 'No email'}{draft.phone ? ` · ${draft.phone}` : ''}</p>
         </div>
@@ -1740,10 +1901,10 @@ function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, 
         <IntakeFlagList flags={draft.flags} />
         <div className="button-row">
           <button className="btn" type="button" onClick={() => { if (!printIntakeRecord(draft, advisers)) window.alert('The browser blocked the print window. Allow pop-ups for this CRM, then try again.'); }}><FileText size={16} />Print / save PDF</button>
-          {applicantCvUpload?.fileName && <button className="btn" type="button" onClick={() => downloadCv('applicantCv', 'Applicant CV')}><Download size={16} />Download applicant CV</button>}
-          {partnerCvUpload?.fileName && <button className="btn" type="button" onClick={() => downloadCv('partnerCv', 'Partner CV')}><Download size={16} />Download partner CV</button>}
-          <button className="btn" type="button" disabled={!draft.email || Boolean(outcomeSending) || saving} onClick={() => sendOutcomeEmail('approve')} title={!draft.email ? 'No submitter email recorded' : 'Send the approval email from the CRM'}><Mail size={16} />{outcomeSending === 'approve' ? 'Sending...' : 'Send approval email'}</button>
-          <button className="btn danger" type="button" disabled={!draft.email || Boolean(outcomeSending) || saving} onClick={() => sendOutcomeEmail('decline')} title={!draft.email ? 'No submitter email recorded' : 'Send the decline email from the CRM'}><Mail size={16} />{outcomeSending === 'decline' ? 'Sending...' : 'Send decline email'}</button>
+          {!isContactIntake(draft) && applicantCvUpload?.fileName && <button className="btn" type="button" onClick={() => downloadCv('applicantCv', 'Applicant CV')}><Download size={16} />Download applicant CV</button>}
+          {!isContactIntake(draft) && partnerCvUpload?.fileName && <button className="btn" type="button" onClick={() => downloadCv('partnerCv', 'Partner CV')}><Download size={16} />Download partner CV</button>}
+          {!isContactIntake(draft) && <button className="btn" type="button" disabled={!draft.email || Boolean(outcomeSending) || saving} onClick={() => sendOutcomeEmail('approve')} title={!draft.email ? 'No submitter email recorded' : 'Send the approval email from the CRM'}><Mail size={16} />{outcomeSending === 'approve' ? 'Sending...' : 'Send approval email'}</button>}
+          {!isContactIntake(draft) && <button className="btn danger" type="button" disabled={!draft.email || Boolean(outcomeSending) || saving} onClick={() => sendOutcomeEmail('decline')} title={!draft.email ? 'No submitter email recorded' : 'Send the decline email from the CRM'}><Mail size={16} />{outcomeSending === 'decline' ? 'Sending...' : 'Send decline email'}</button>}
           <button className="btn dark" type="button" onClick={onConvert} disabled={saving || Boolean(draft.convertedClientId)}><UsersRound size={16} />Convert to client</button>
           {draft.convertedClientId && <button className="btn" type="button" onClick={() => openClientRecord(draft.convertedClientId)}><ExternalLink size={16} />Open client</button>}
         </div>
@@ -1767,7 +1928,52 @@ function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, 
         <TextArea label="Adviser assessment notes" value={draft.adviserAssessmentNotes} onChange={(value) => setDraftField('adviserAssessmentNotes', value)} rows={5} />
       </section>
 
-      <IntakeQuestionnaireEditor record={draft} onChange={setDraftPayloadField} downloadIntakeUpload={downloadIntakeUpload} />
+      {isContactIntake(draft) ? <ContactEnquiryEditor record={draft} onChange={setDraftPayloadField} /> : <IntakeQuestionnaireEditor record={draft} onChange={setDraftPayloadField} downloadIntakeUpload={downloadIntakeUpload} />}
+    </div>
+  );
+}
+
+function ContactEnquiryEditor({ record = {}, onChange }) {
+  const payload = intakeAnswerPayload(record);
+  const set = (key, value) => onChange?.(key, value);
+  const fieldValue = (key) => {
+    const value = payload[key];
+    if (Array.isArray(value) || (value && typeof value === 'object')) return formatIntakeValue(value);
+    return value || '';
+  };
+  function setSituation(value) {
+    set('contactSituation', value);
+    set('targetPathway', value);
+  }
+  function setLocation(value) {
+    set('contactLocation', value);
+    set('currentLocation', value);
+  }
+  return (
+    <div className="intake-questionnaire-review intake-questionnaire-editor contact-enquiry-editor">
+      <div className="intake-questionnaire-title">
+        <div>
+          <span className="eyebrow">Editable contact enquiry</span>
+          <h3>Short contact form details</h3>
+          <p>This enquiry came from the shorter contact form, rather than the full assessment questionnaire.</p>
+        </div>
+        <div className="intake-questionnaire-meta">
+          <span>{record.createdAt ? `Submitted ${formatPortalDateTime(record.createdAt)}` : 'Submission date not recorded'}</span>
+          <span>{record.status || 'New'}</span>
+        </div>
+      </div>
+      <IntakeSection title="Contact enquiry">
+        <IntakeSelect label="Your situation" value={fieldValue('contactSituation') || fieldValue('targetPathway')} onChange={setSituation} options={CONTACT_SITUATION_OPTIONS} />
+        <div className="form-grid">
+          <IntakeField label="First Name" value={fieldValue('firstName')} onChange={(v) => set('firstName', v)} />
+          <IntakeField label="Last Name" value={fieldValue('lastName')} onChange={(v) => set('lastName', v)} />
+          <IntakeField label="Email Address" type="email" value={fieldValue('email')} onChange={(v) => set('email', v)} />
+          <IntakeField label="Phone (+area code)" value={fieldValue('phone')} onChange={(v) => set('phone', v)} />
+          <IntakeField label="Where are you located? (if outside NZ)" value={fieldValue('contactLocation') || fieldValue('currentLocation')} onChange={setLocation} />
+          <IntakeField label="Best time to call (if needed)?" value={fieldValue('bestTimeToCall')} onChange={(v) => set('bestTimeToCall', v)} />
+        </div>
+        <IntakeTextarea label="How can we help?" value={fieldValue('helpNeeded')} onChange={(v) => set('helpNeeded', v)} rows={6} />
+      </IntakeSection>
     </div>
   );
 }
@@ -2077,6 +2283,13 @@ function IntakeAnswerGrid({ rows = [] }) {
 
 function getIntakeQuestionnaireSections(record = {}) {
   const payload = intakeAnswerPayload(record);
+  if (isContactIntake(record)) {
+    return [{
+      title: 'Contact enquiry',
+      badge: 'Contact form',
+      rows: intakeRows(payload, ['contactSituation', 'firstName', 'lastName', 'email', 'phone', 'contactLocation', 'bestTimeToCall', 'helpNeeded', 'consentToContact', 'privacyAcknowledged']),
+    }];
+  }
   const sections = [
     {
       title: 'Your details',

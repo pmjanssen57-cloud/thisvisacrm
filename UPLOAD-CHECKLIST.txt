@@ -1,3 +1,21 @@
+THiS CRM v0.12.15 — Contact Form Intake Foundation
+
+Before deploying:
+[ ] No new database migration is required for this package.
+[ ] Preserve existing Microsoft email environment variables in Netlify.
+
+After deploying:
+[ ] Open /contact and confirm the short contact form loads.
+[ ] Confirm the situation dropdown shows the five requested options.
+[ ] Submit a dummy contact enquiry.
+[ ] Confirm it appears in CRM > Intake with a Contact form badge.
+[ ] Confirm the Type filter can show Contact forms separately from Assessment forms.
+[ ] Open the record and confirm the simplified contact enquiry pop-out appears.
+[ ] Save an edit and confirm it persists after refresh.
+[ ] Confirm /intake and existing CV upload/download workflows still work.
+
+---
+
 THiS CRM v0.12.14 — CRM Interface and Client Workspace Polish
 
 Changes:

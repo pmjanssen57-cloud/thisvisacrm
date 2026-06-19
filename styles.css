@@ -7385,3 +7385,35 @@ textarea:focus-visible {
   .client-workspace-body,
   .client-workspace-section-stack { max-width: none; }
 }
+
+.intake-type-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line, #d9e6e1);
+  background: #f4fbf8;
+  color: #003736;
+  font-size: 0.72rem;
+  font-weight: 800;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.intake-type-badge.contact {
+  background: #eefdf6;
+  border-color: #a7e8ce;
+}
+
+.contact-public-card .intake-public-head {
+  margin-bottom: 18px;
+}
+
+.contact-form .intake-textarea textarea {
+  min-height: 150px;
+}
+
+.contact-enquiry-editor .intake-section > .field:first-child {
+  margin-bottom: 14px;
+}
