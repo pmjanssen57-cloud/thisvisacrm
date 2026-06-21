@@ -64,7 +64,7 @@ const DOCUMENT_CHECKLIST_TEMPLATES = [
 const LIBRARY_ENTRY_TYPES = ['Policy', 'Form'];
 const LIBRARY_STATUSES = ['Current', 'Watch', 'Superseded', 'Archived', 'Acceptable until'];
 const LIBRARY_CATEGORIES = ['Work', 'Residence', 'Family', 'Student', 'Visitor', 'Investor', 'Health', 'Character', 'Compliance', 'Forms', 'General'];
-const INTAKE_STATUSES = ['New', 'Reviewing', 'Contacted', 'Consultation booked', 'Agreement sent', 'Signed client', 'Converted', 'Not proceeding', 'Archived'];
+const INTAKE_STATUSES = ['New', 'Contacted', 'Converted', 'Spam / Duplicate'];
 const PORTAL_DOCUMENT_STORE = 'client-portal-documents';
 const INTAKE_UPLOAD_STORE = 'intake-uploads';
 
@@ -1185,7 +1185,11 @@ function buildIntakeFlags(payload = {}) {
 
 function normaliseIntakeStatus(value) {
   const text = String(value || '').trim();
-  return INTAKE_STATUSES.includes(text) ? text : 'New';
+  if (INTAKE_STATUSES.includes(text)) return text;
+  if (/converted|signed client/i.test(text)) return 'Converted';
+  if (['Reviewing', 'Consultation booked', 'Agreement sent', 'Not proceeding', 'Archived'].includes(text)) return 'Contacted';
+  if (/spam|duplicate/i.test(text)) return 'Spam / Duplicate';
+  return 'New';
 }
 
 function buildClientFromIntake(intake = {}) {

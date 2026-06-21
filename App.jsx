@@ -77,7 +77,7 @@ const DOCUMENT_CHECKLIST_TEMPLATES = [
 const LIBRARY_ENTRY_TYPES = ['Policy', 'Form'];
 const LIBRARY_STATUSES = ['Current', 'Watch', 'Superseded', 'Archived', 'Acceptable until'];
 const LIBRARY_CATEGORIES = ['Work', 'Residence', 'Family', 'Student', 'Visitor', 'Investor', 'Health', 'Character', 'Compliance', 'Forms', 'General'];
-const INTAKE_STATUSES = ['New', 'Reviewing', 'Contacted', 'Consultation booked', 'Agreement sent', 'Signed client', 'Converted', 'Not proceeding', 'Archived'];
+const INTAKE_STATUSES = ['New', 'Contacted', 'Converted', 'Spam / Duplicate'];
 const INTAKE_PATHWAY_OPTIONS = ['Live in New Zealand permanently', 'Work in New Zealand', 'Join my partner or family', 'Study in New Zealand', 'Invest in New Zealand', 'Bring staff to New Zealand', 'Resolve a visa issue', 'Visit New Zealand', 'Become a New Zealand citizen', 'Not sure yet'];
 const CONTACT_SITUATION_OPTIONS = ['I am in New Zealand and would like to stay longer or permanently', 'I am not in NZ but exploring the big move', 'I have a job offer and need to secure a Work Visa', 'I have a Visa issue, that I need help with', 'I am a NZ based employer looking for assistance'];
 const INTAKE_YES_NO_OPTIONS = ['Yes', 'No', 'Unsure'];
@@ -92,14 +92,14 @@ const COUNTRY_OPTIONS = [
 
 const SUPPORT_CONTENT = {
   intake: {
-    title: 'Intake help',
-    summary: 'The Intake page is for pre-client enquiries submitted through the draft website assessment form. Keep these records separate from active clients until Turner Hopkins decides to proceed and the enquiry should be converted.',
+    title: 'Enquiries & Intake help',
+    summary: 'The Enquiries & Intake page keeps pre-client submissions away from active client records. Contact forms are a simple reference list; full intake forms are a light triage queue.',
     sections: [
-      { heading: 'Reviewing enquiries', text: 'Use status, adviser assignment, flags and assessment notes to triage new enquiries before contacting the person or sending an agreement.' },
-      { heading: 'Conversion', text: 'Convert only suitable or signed client records. The conversion creates a normal client record using selected contact, visa and assessment information while keeping the original intake record for reference.' },
-      { heading: 'Form testing', text: 'Use /intake to road-test the public-facing draft web form. The first version captures structured data only and does not accept uploads.' },
+      { heading: 'Contact forms', text: 'Short contact forms are handled from the email notification. Use this page to check the basic details and delete them once they no longer need to sit in the CRM.' },
+      { heading: 'Intake forms', text: 'Full assessment questionnaires use a simple status set: New, Contacted, Converted, or Spam / Duplicate.' },
+      { heading: 'Conversion', text: 'Convert only when the enquiry should become an active client record. The original intake record remains linked for reference.' },
     ],
-    tips: ['Do not use intake records as active client files.', 'Check health, character, urgency and visa expiry flags first.', 'Convert only once the enquiry should enter the live CRM workflow.'],
+    tips: ['Keep contact forms light-touch.', 'Use New as the weekend triage queue.', 'Mark contacted or spam promptly so the active queue stays clean.'],
   },
   dashboard: {
     title: 'Dashboard help',
@@ -880,7 +880,7 @@ export default function App() {
               <div className="main-nav-group main-nav-secondary">
                 <TabButton active={tab === 'calendar'} onClick={() => switchTab('calendar')} icon={CalendarDays} label="Calendar" />
                 <TabButton active={tab === 'billing'} onClick={() => switchTab('billing')} icon={CreditCard} label="Billing" />
-                <TabButton active={tab === 'intake'} onClick={() => switchTab('intake')} icon={ClipboardList} label="Intake" />
+                <TabButton active={tab === 'intake'} onClick={() => switchTab('intake')} icon={ClipboardList} label="Enquiries & Intake" />
                 <TabButton active={tab === 'library'} onClick={() => switchTab('library')} icon={BookOpen} label="Library" />
                 {canManageAdvisers && <TabButton active={tab === 'advisers'} onClick={() => switchTab('advisers')} icon={UsersRound} label="Advisers" />}
               </div>
@@ -891,7 +891,7 @@ export default function App() {
             )}
 
             {tab === 'dashboard' && (
-              <Dashboard clients={scopedClients} activeClients={activeClients} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} deadlineRows={deadlineRows} taskRows={taskRows} stageTemplates={data.stageTemplates} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} />
+              <Dashboard clients={scopedClients} activeClients={activeClients} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} deadlineRows={deadlineRows} taskRows={taskRows} stageTemplates={data.stageTemplates} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} intakeEnquiries={data.intakeEnquiries || []} />
             )}
 
             {tab === 'tasks' && (
@@ -1587,14 +1587,12 @@ function isContactIntake(record = {}) {
 }
 
 function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, downloadIntakeUpload, saving, openClientRecord }) {
+  const simplifiedStatuses = (statuses || INTAKE_STATUSES).filter((status) => INTAKE_STATUSES.includes(status));
+  const [workspaceTab, setWorkspaceTab] = useState('contact');
   const [statusFilter, setStatusFilter] = useState('New');
   const [query, setQuery] = useState('');
-  const [adviserFilter, setAdviserFilter] = useState('all');
-  const [flagFilter, setFlagFilter] = useState('all');
-  const [typeFilter, setTypeFilter] = useState('all');
   const [expandedId, setExpandedId] = useState('');
   const [draft, setDraft] = useState(null);
-  const activeStatuses = ['New', 'Reviewing', 'Contacted', 'Consultation booked', 'Agreement sent', 'Signed client'];
   const flagOptions = [
     { value: 'urgent', label: 'Urgent timing' },
     { value: 'visaExpirySoon', label: 'Visa expiry' },
@@ -1611,7 +1609,20 @@ function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, del
     .map((item) => normaliseIntakeEnquiry(item))
     .sort((a, b) => intakeSortTime(b) - intakeSortTime(a));
 
-  const filtered = normalisedEnquiries.filter((item) => {
+  const contactEnquiries = normalisedEnquiries.filter((item) => isContactIntake(item));
+  const intakeEnquiries = normalisedEnquiries.filter((item) => !isContactIntake(item));
+
+  const contactFiltered = contactEnquiries.filter((item) => {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    const payload = intakeAnswerPayload(item);
+    return [item.firstName, item.lastName, item.email, item.phone, item.targetPathway, item.currentLocation, payload.contactSituation, payload.contactLocation, payload.bestTimeToCall, payload.helpNeeded]
+      .join(' ')
+      .toLowerCase()
+      .includes(q);
+  });
+
+  const intakeFiltered = intakeEnquiries.filter((item) => {
     const q = query.trim().toLowerCase();
     const searchText = [
       item.firstName,
@@ -1624,26 +1635,20 @@ function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, del
       item.citizenship,
       item.urgency,
       item.recommendedPathway,
-      item.rawPayload?.formType,
-      item.rawPayload?.contactSituation,
-      item.rawPayload?.bestTimeToCall,
       item.rawPayload?.helpNeeded,
     ].join(' ').toLowerCase();
     const matchesQuery = !q || searchText.includes(q);
-    const matchesStatus = statusFilter === 'all' || (statusFilter === 'active' ? activeStatuses.includes(item.status) : item.status === statusFilter);
-    const matchesAdviser = adviserFilter === 'all' || (adviserFilter === 'unassigned' ? !item.assignedAdviserId : item.assignedAdviserId === adviserFilter);
-    const matchesFlag = flagFilter === 'all' || Boolean(item.flags?.[flagFilter]);
-    const itemIsContact = isContactIntake(item);
-    const matchesType = typeFilter === 'all' || (typeFilter === 'contact' ? itemIsContact : !itemIsContact);
-    return matchesQuery && matchesStatus && matchesAdviser && matchesFlag && matchesType;
+    const matchesStatus = statusFilter === 'All' || item.status === statusFilter;
+    return matchesQuery && matchesStatus;
   });
 
-  const newCount = normalisedEnquiries.filter((item) => item.status === 'New').length;
-  const activeCount = normalisedEnquiries.filter((item) => activeStatuses.includes(item.status)).length;
-  const reviewFlagCount = normalisedEnquiries.filter((item) => hasAnyIntakeFlag(item.flags)).length;
-  const contactCount = normalisedEnquiries.filter((item) => isContactIntake(item)).length;
-  const convertedCount = normalisedEnquiries.filter((item) => item.convertedClientId || item.status === 'Converted').length;
-  const expandedItem = expandedId ? normalisedEnquiries.find((item) => item.id === expandedId) : null;
+  const contactCount = contactEnquiries.length;
+  const newIntakeCount = intakeEnquiries.filter((item) => item.status === 'New').length;
+  const contactedCount = intakeEnquiries.filter((item) => item.status === 'Contacted').length;
+  const convertedCount = intakeEnquiries.filter((item) => item.status === 'Converted' || item.convertedClientId).length;
+  const spamCount = intakeEnquiries.filter((item) => item.status === 'Spam / Duplicate').length;
+  const flaggedCount = intakeEnquiries.filter((item) => hasAnyIntakeFlag(item.flags)).length;
+  const expandedItem = expandedId ? intakeEnquiries.find((item) => item.id === expandedId) : null;
   const draftDirty = Boolean(draft && expandedItem && JSON.stringify(intakeCompareSnapshot(draft)) !== JSON.stringify(intakeCompareSnapshot(expandedItem)));
 
   useEffect(() => {
@@ -1651,7 +1656,7 @@ function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, del
       setDraft(null);
       return;
     }
-    const next = normalisedEnquiries.find((item) => item.id === expandedId);
+    const next = intakeEnquiries.find((item) => item.id === expandedId);
     if (!next) {
       setExpandedId('');
       setDraft(null);
@@ -1694,12 +1699,9 @@ function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, del
     setDraft(null);
   }
 
-  function clearFilters() {
-    setStatusFilter('all');
-    setAdviserFilter('all');
-    setFlagFilter('all');
-    setTypeFilter('all');
+  function clearSearch() {
     setQuery('');
+    setStatusFilter('New');
   }
 
   async function saveDraft(options = {}) {
@@ -1715,80 +1717,160 @@ function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, del
     setDraft(null);
   }
 
+  async function deleteContactForm(item) {
+    if (!item?.id) return;
+    const name = [item.firstName, item.lastName].filter(Boolean).join(' ') || 'this contact form';
+    if (!window.confirm(`Delete ${name} from the CRM? This should only be done once it has been dealt with from the email notification.`)) return;
+    await deleteIntakeEnquiry(item.id);
+  }
+
+  async function updateIntakeStatus(item, status) {
+    if (!item?.id || !INTAKE_STATUSES.includes(status)) return;
+    await saveIntakeEnquiry({ ...item, status });
+  }
+
+  async function convertIntake(item) {
+    if (!item?.id) return;
+    await convertIntakeToClient(item.id);
+  }
+
   async function convertDraft() {
     if (!draft?.id) return;
     await convertIntakeToClient(draft.id);
   }
 
-  const intakeTitle = draft ? ([draft.firstName, draft.lastName].filter(Boolean).join(' ') || 'Unnamed enquiry') : 'Intake record';
+  const intakeTitle = draft ? ([draft.firstName, draft.lastName].filter(Boolean).join(' ') || 'Unnamed intake') : 'Intake record';
+  const visibleRecords = workspaceTab === 'contact' ? contactFiltered : intakeFiltered;
 
   return (
-    <div className="intake-workspace intake-inbox-workspace">
-      <div className="library-heading intake-heading">
+    <div className="intake-workspace intake-inbox-workspace enquiries-intake-workspace">
+      <div className="library-heading intake-heading enquiries-heading">
         <div>
-          <h1>Intake</h1>
-          <p className="muted">Manage detailed assessment questionnaires and shorter contact form enquiries in one triage inbox. New, untouched submissions show by default.</p>
+          <h1>Enquiries & Intake</h1>
+          <p className="muted">Keep short contact forms and full assessment questionnaires separate from active client work. Contact forms are a reference list only; intake forms are the pre-client triage queue.</p>
         </div>
         <div className="button-row"><a className="btn" href="/contact" target="_blank" rel="noreferrer"><ExternalLink size={16} />Open contact form</a><a className="btn dark" href="/intake" target="_blank" rel="noreferrer"><ExternalLink size={16} />Open assessment form</a></div>
       </div>
 
-      <div className="metric-grid four intake-metrics">
-        <MetricCard label="New" value={newCount} note="Untouched questionnaires" icon={ClipboardList} />
-        <MetricCard label="Active" value={activeCount} note="Open intake workflow" icon={Clock} />
-        <MetricCard label="Review flags" value={reviewFlagCount} note="Need adviser attention" icon={AlertTriangle} />
-        <MetricCard label="Contact forms" value={contactCount} note="Short enquiries" icon={MessageSquare} />
+      <div className="metric-grid four intake-metrics enquiries-metrics">
+        <MetricCard label="Contact forms" value={contactCount} note="Reference only" icon={MessageSquare} />
+        <MetricCard label="New intake" value={newIntakeCount} note="Awaiting triage" icon={ClipboardList} warning={newIntakeCount > 0} />
+        <MetricCard label="Contacted" value={contactedCount} note="Followed up" icon={Phone} />
+        <MetricCard label="Converted" value={convertedCount} note="Client records created" icon={UsersRound} />
       </div>
 
-      <section className="intake-inbox-panel">
-        <div className="intake-inbox-toolbar">
+      <section className="intake-inbox-panel enquiries-panel">
+        <div className="enquiries-tab-row" role="tablist" aria-label="Enquiries and intake sections">
+          <button type="button" className={workspaceTab === 'contact' ? 'active' : ''} onClick={() => setWorkspaceTab('contact')}><MessageSquare size={16} />Contact Forms <span>{contactCount}</span></button>
+          <button type="button" className={workspaceTab === 'intake' ? 'active' : ''} onClick={() => setWorkspaceTab('intake')}><ClipboardList size={16} />Intake Forms <span>{intakeEnquiries.length}</span></button>
+        </div>
+
+        <div className="intake-inbox-toolbar enquiries-toolbar">
           <label className="intake-search-field">
             <span>Search</span>
-            <div><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Name, email, phone, pathway, visa..." /></div>
+            <div><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={workspaceTab === 'contact' ? 'Name, email, phone, message...' : 'Name, email, phone, pathway, visa...'} /></div>
           </label>
-          <label><span>Status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="New">New / untouched</option><option value="all">All statuses</option><option value="active">Active intake</option>{statuses.filter((status) => status !== 'New').map((status) => <option key={status} value={status}>{status}</option>)}</select></label>
-          <label><span>Adviser</span><select value={adviserFilter} onChange={(event) => setAdviserFilter(event.target.value)}><option value="all">All advisers</option><option value="unassigned">Unassigned</option>{advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}</select></label>
-          <label><span>Review flag</span><select value={flagFilter} onChange={(event) => setFlagFilter(event.target.value)}><option value="all">All flags</option>{flagOptions.map((flag) => <option key={flag.value} value={flag.value}>{flag.label}</option>)}</select></label>
-          <label><span>Type</span><select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}><option value="all">All types</option><option value="assessment">Assessment forms</option><option value="contact">Contact forms</option></select></label>
-          <button className="btn" type="button" onClick={clearFilters}>Show all</button>
-        </div>
-
-        <div className="intake-inbox-summary-row">
-          <div>
-            <span className="eyebrow">Intake and contact enquiries</span>
-            <h2>{statusFilter === 'New' ? 'New submissions' : statusFilter === 'active' ? 'Active intake' : statusFilter === 'all' ? 'All intake records' : statusFilter}</h2>
-          </div>
-          <strong>{filtered.length} shown</strong>
-        </div>
-
-        <div className="intake-inbox-list">
-          {filtered.map((item) => (
-            <article key={item.id} className="intake-inbox-card">
-              <button className="intake-inbox-card-head" type="button" onClick={() => openIntakeEditor(item)}>
-                <div className="intake-inbox-person">
-                  <strong>{[item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unnamed enquiry'} {isContactIntake(item) && <span className="intake-type-badge contact">Contact form</span>}</strong>
-                  <small>{item.email || 'No email'}{item.phone ? ` · ${item.phone}` : ''}</small>
-                </div>
-                <div className="intake-inbox-detail"><span>{isContactIntake(item) ? 'Situation' : 'Goal'}</span><strong>{item.targetPathway || item.rawPayload?.contactSituation || (isContactIntake(item) ? 'Basic question' : 'Not selected')}</strong></div>
-                <div className="intake-inbox-detail"><span>Location</span><strong>{item.currentLocation || item.citizenship || 'Not recorded'}</strong></div>
-                <div className="intake-inbox-detail"><span>Submitted</span><strong>{item.createdAt ? formatPortalDateTime(item.createdAt) : 'No date'}</strong></div>
-                <div className="intake-inbox-status-block">
-                  <span className={`library-status ${statusClass(item.status)}`}>{item.status}</span>
-                  <small>{adviserName(item.assignedAdviserId, advisers)}</small>
-                </div>
-                <span className="intake-open-record-label">Open</span>
-                <ChevronRight size={18} className="intake-expand-icon" />
-              </button>
-              <div className="intake-inbox-flags-row"><IntakeFlagList flags={item.flags} compact /></div>
-            </article>
-          ))}
-          {!filtered.length && (
-            <div className="empty-state slim intake-inbox-empty">
-              <ClipboardList size={34} />
-              <h2>No intake records match this view</h2>
-              <p>The default view shows new, untouched enquiries. Use Show all or adjust the filters to see older records.</p>
+          {workspaceTab === 'intake' && (
+            <div className="enquiries-status-pills" aria-label="Intake status filter">
+              {['New', 'Contacted', 'Converted', 'Spam / Duplicate', 'All'].map((status) => (
+                <button key={status} type="button" className={statusFilter === status ? 'active' : ''} onClick={() => setStatusFilter(status)}>
+                  {status}
+                  <span>{status === 'All' ? intakeEnquiries.length : intakeEnquiries.filter((item) => item.status === status).length}</span>
+                </button>
+              ))}
             </div>
           )}
+          <button className="btn" type="button" onClick={clearSearch}>Reset view</button>
         </div>
+
+        <div className="intake-inbox-summary-row enquiries-summary-row">
+          <div>
+            <span className="eyebrow">{workspaceTab === 'contact' ? 'Short website enquiries' : 'Full assessment questionnaires'}</span>
+            <h2>{workspaceTab === 'contact' ? 'Contact forms' : `${statusFilter} intake forms`}</h2>
+            <p className="muted">{workspaceTab === 'contact' ? 'Handled from the email notification. Delete from here once no longer needed.' : 'Use the simple statuses to keep the pre-client queue tidy.'}</p>
+          </div>
+          <strong>{visibleRecords.length} shown</strong>
+        </div>
+
+        {workspaceTab === 'contact' ? (
+          <div className="contact-review-list">
+            {contactFiltered.map((item) => {
+              const payload = intakeAnswerPayload(item);
+              const name = [item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unnamed contact';
+              const situation = payload.contactSituation || item.targetPathway || 'Not selected';
+              const location = payload.contactLocation || item.currentLocation || 'Not recorded';
+              const bestTime = payload.bestTimeToCall || 'Not recorded';
+              const message = payload.helpNeeded || 'No message recorded.';
+              return (
+                <article key={item.id} className="contact-review-card">
+                  <div className="contact-review-main">
+                    <div className="contact-review-head">
+                      <div>
+                        <span className="intake-type-badge contact">Contact form</span>
+                        <h3>{name}</h3>
+                        <p>{item.createdAt ? formatPortalDateTime(item.createdAt) : 'Submission date not recorded'}</p>
+                      </div>
+                      <button className="btn danger" type="button" onClick={() => deleteContactForm(item)} disabled={saving}><Trash2 size={16} />Delete</button>
+                    </div>
+                    <div className="contact-review-grid">
+                      <div><span>Email</span><strong>{item.email || 'Not provided'}</strong></div>
+                      <div><span>Phone</span><strong>{item.phone || 'Not provided'}</strong></div>
+                      <div><span>Situation</span><strong>{situation}</strong></div>
+                      <div><span>Location</span><strong>{location}</strong></div>
+                      <div><span>Best time to call</span><strong>{bestTime}</strong></div>
+                    </div>
+                    <div className="contact-review-message"><span>Message</span><p>{message}</p></div>
+                  </div>
+                </article>
+              );
+            })}
+            {!contactFiltered.length && (
+              <div className="empty-state slim intake-inbox-empty">
+                <MessageSquare size={34} />
+                <h2>No contact forms in this view</h2>
+                <p>Short website enquiries will appear here after the public contact form is submitted.</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="intake-inbox-list intake-review-list">
+            {intakeFiltered.map((item) => (
+              <article key={item.id} className="intake-inbox-card intake-review-card">
+                <button className="intake-inbox-card-head" type="button" onClick={() => openIntakeEditor(item)}>
+                  <div className="intake-inbox-person">
+                    <strong>{[item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unnamed intake'}</strong>
+                    <small>{item.email || 'No email'}{item.phone ? ` · ${item.phone}` : ''}</small>
+                  </div>
+                  <div className="intake-inbox-detail"><span>Goal</span><strong>{item.targetPathway || item.rawPayload?.helpNeeded || 'Not selected'}</strong></div>
+                  <div className="intake-inbox-detail"><span>Location</span><strong>{item.currentLocation || item.citizenship || 'Not recorded'}</strong></div>
+                  <div className="intake-inbox-detail"><span>Submitted</span><strong>{item.createdAt ? formatPortalDateTime(item.createdAt) : 'No date'}</strong></div>
+                  <div className="intake-inbox-status-block">
+                    <span className={`library-status ${statusClass(item.status)}`}>{item.status}</span>
+                    <small>{item.convertedClientId ? 'Client record created' : `${Object.values(item.flags || {}).filter(Boolean).length} flag${Object.values(item.flags || {}).filter(Boolean).length === 1 ? '' : 's'}`}</small>
+                  </div>
+                  <span className="intake-open-record-label">View</span>
+                  <ChevronRight size={18} className="intake-expand-icon" />
+                </button>
+                <div className="intake-inbox-flags-row"><IntakeFlagList flags={item.flags} compact /></div>
+                <div className="intake-card-actions">
+                  <button className="btn" type="button" onClick={() => openIntakeEditor(item)}>View</button>
+                  {item.status !== 'Contacted' && <button className="btn" type="button" onClick={() => updateIntakeStatus(item, 'Contacted')} disabled={saving}>Mark contacted</button>}
+                  {item.status !== 'Converted' && <button className="btn dark" type="button" onClick={() => convertIntake(item)} disabled={saving || Boolean(item.convertedClientId)}>Convert</button>}
+                  {item.status !== 'Spam / Duplicate' && <button className="btn danger" type="button" onClick={() => updateIntakeStatus(item, 'Spam / Duplicate')} disabled={saving}>Spam / Duplicate</button>}
+                  {item.status === 'Spam / Duplicate' && <button className="btn" type="button" onClick={() => updateIntakeStatus(item, 'New')} disabled={saving}>Restore to New</button>}
+                  {item.convertedClientId && <button className="btn" type="button" onClick={() => openClientRecord(item.convertedClientId)}><ExternalLink size={16} />Open client</button>}
+                </div>
+              </article>
+            ))}
+            {!intakeFiltered.length && (
+              <div className="empty-state slim intake-inbox-empty">
+                <ClipboardList size={34} />
+                <h2>No intake forms match this view</h2>
+                <p>The default view shows new, untouched full intake forms. Use another status filter to see older records.</p>
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
       {draft && expandedId && (
@@ -1796,7 +1878,7 @@ function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, del
           <IntakePopoutEditor
             draft={draft}
             advisers={advisers}
-            statuses={statuses}
+            statuses={simplifiedStatuses.length ? simplifiedStatuses : INTAKE_STATUSES}
             saving={saving}
             setDraftField={setDraftField}
             setDraftPayloadField={setDraftPayloadField}
@@ -3131,7 +3213,7 @@ function MobileMoreSheet({ open, onClose, onNavigate, activeTab, onOpenHelp, onO
           <button className="icon-btn" type="button" onClick={onClose} aria-label="Close mobile menu"><X size={18} /></button>
         </div>
         <div className="mobile-more-grid">
-          <button type="button" className={activeTab === 'intake' ? 'active' : ''} onClick={() => go('intake')}><ClipboardList size={18} /><span>Intake</span></button>
+          <button type="button" className={activeTab === 'intake' ? 'active' : ''} onClick={() => go('intake')}><ClipboardList size={18} /><span>Enquiries</span></button>
           <button type="button" className={activeTab === 'billing' ? 'active' : ''} onClick={() => go('billing')}><CreditCard size={18} /><span>Billing</span></button>
           <button type="button" className={activeTab === 'library' ? 'active' : ''} onClick={() => go('library')}><BookOpen size={18} /><span>Library</span></button>
           {canManageAdvisers && <button type="button" className={activeTab === 'advisers' ? 'active' : ''} onClick={() => go('advisers')}><UserRound size={18} /><span>Advisers</span></button>}
@@ -3832,7 +3914,7 @@ function AccessScreen(props) {
   );
 }
 
-function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, deadlineRows, taskRows, stageTemplates, setTab, setSelectedClientId, openClientRecord }) {
+function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, deadlineRows, taskRows, stageTemplates, setTab, setSelectedClientId, openClientRecord, intakeEnquiries = [] }) {
   const pendingInvoices = clients.flatMap((client) => (client.billing || []).map((item) => ({ item, client }))).filter(({ item, client }) => effectiveBillingStatus(item, client) !== 'Invoiced');
   const overdueRows = deadlineRows.filter((row) => dateDiff(row.date) < 0);
   const next14 = deadlineRows.filter((row) => dateDiff(row.date) >= 0 && dateDiff(row.date) <= 14);
@@ -3845,6 +3927,9 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
 
   const visibleAdvisers = dashboardAdviserFilter === 'all' ? advisers : advisers.filter((adviser) => adviser.id === dashboardAdviserFilter);
   const viewTitle = dashboardAdviserFilter === 'all' ? 'Whole-practice dashboard' : `${advisers.find((adviser) => adviser.id === dashboardAdviserFilter)?.name || 'Adviser'} dashboard`;
+  const normalisedIntake = (intakeEnquiries || []).map(normaliseIntakeEnquiry);
+  const dashboardContactForms = normalisedIntake.filter((item) => isContactIntake(item));
+  const dashboardNewIntakes = normalisedIntake.filter((item) => !isContactIntake(item) && item.status === 'New');
 
 
   return (
@@ -3864,6 +3949,19 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
         <MetricCard label="Client portal notes" value={newPortalMessages.length} note="New client-submitted items" icon={MessageSquare} warning={newPortalMessages.length > 0} />
         <MetricCard label="WIP / overdue billing" value={formatCurrency(pendingInvoices.reduce((sum, row) => sum + Number(row.item.amount || 0), 0))} note="Billing not yet invoiced" icon={CreditCard} />
       </div>
+
+      <section className="panel dashboard-enquiries-card">
+        <div>
+          <span className="eyebrow">Pre-client queue</span>
+          <h2>Enquiries & Intake</h2>
+          <p className="muted">Contact forms and full assessment questionnaires now sit in their own review workspace, away from active client records.</p>
+        </div>
+        <div className="dashboard-enquiries-counts">
+          <span><b>{dashboardContactForms.length}</b> contact form{dashboardContactForms.length === 1 ? '' : 's'}</span>
+          <span><b>{dashboardNewIntakes.length}</b> new intake form{dashboardNewIntakes.length === 1 ? '' : 's'}</span>
+        </div>
+        <button className="btn dark" type="button" onClick={() => setTab('intake')}><ClipboardList size={16} />Open Enquiries & Intake</button>
+      </section>
 
       <DailyBringUpPanel taskRows={taskRows} advisers={advisers} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} />
 
@@ -7541,8 +7639,17 @@ function makeBlankIntakePayload() {
   };
 }
 
+function normaliseSimplifiedIntakeStatus(value) {
+  const status = String(value || '').trim();
+  if (INTAKE_STATUSES.includes(status)) return status;
+  if (/converted|signed client/i.test(status)) return 'Converted';
+  if (['Reviewing', 'Consultation booked', 'Agreement sent', 'Not proceeding', 'Archived'].includes(status)) return 'Contacted';
+  if (/spam|duplicate/i.test(status)) return 'Spam / Duplicate';
+  return 'New';
+}
+
 function normaliseIntakeEnquiry(entry = {}) {
-  const status = INTAKE_STATUSES.includes(entry.status) ? entry.status : 'New';
+  const status = normaliseSimplifiedIntakeStatus(entry.status);
   return {
     id: entry.id || '',
     status,

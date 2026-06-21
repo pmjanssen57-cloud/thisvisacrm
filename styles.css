@@ -7417,3 +7417,171 @@ textarea:focus-visible {
 .contact-enquiry-editor .intake-section > .field:first-child {
   margin-bottom: 14px;
 }
+
+/* v0.12.17: Enquiries & Intake split review workspace */
+.dashboard-enquiries-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 16px;
+}
+.dashboard-enquiries-card h2 { margin: 2px 0 6px; }
+.dashboard-enquiries-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+.dashboard-enquiries-counts span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  border: 1px solid var(--line, #d9e6e1);
+  background: #f7fbfa;
+  border-radius: 999px;
+  padding: 8px 12px;
+  color: var(--muted, #64748b);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.dashboard-enquiries-counts b { color: var(--ink, #003736); font-size: 1.05rem; }
+.enquiries-heading p { max-width: 880px; }
+.enquiries-panel { display: grid; gap: 16px; }
+.enquiries-tab-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  border-bottom: 1px solid var(--line, #d9e6e1);
+  padding-bottom: 12px;
+}
+.enquiries-tab-row button,
+.enquiries-status-pills button {
+  border: 1px solid var(--line, #d9e6e1);
+  background: #ffffff;
+  color: var(--ink, #003736);
+  border-radius: 999px;
+  padding: 9px 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 850;
+  cursor: pointer;
+}
+.enquiries-tab-row button span,
+.enquiries-status-pills button span {
+  display: inline-flex;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 7px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #f3f8f6;
+  color: var(--ink, #003736);
+  font-size: 0.78rem;
+}
+.enquiries-tab-row button.active,
+.enquiries-status-pills button.active {
+  background: var(--ink, #003736);
+  color: #ffffff;
+  border-color: var(--ink, #003736);
+}
+.enquiries-tab-row button.active span,
+.enquiries-status-pills button.active span {
+  background: rgba(255,255,255,0.18);
+  color: #ffffff;
+}
+.enquiries-toolbar {
+  align-items: end;
+}
+.enquiries-status-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.enquiries-summary-row {
+  align-items: flex-start;
+}
+.enquiries-summary-row h2 { margin-bottom: 4px; }
+.contact-review-list,
+.intake-review-list {
+  display: grid;
+  gap: 12px;
+}
+.contact-review-card {
+  border: 1px solid var(--line, #d9e6e1);
+  border-radius: 22px;
+  background: #ffffff;
+  box-shadow: var(--shadow-sm, 0 10px 30px rgba(15, 23, 42, 0.05));
+  padding: 16px;
+}
+.contact-review-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+}
+.contact-review-head h3 {
+  margin: 8px 0 2px;
+  color: var(--ink, #003736);
+}
+.contact-review-head p { margin: 0; color: var(--muted, #64748b); }
+.contact-review-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+.contact-review-grid div,
+.contact-review-message {
+  border: 1px solid #e6efeb;
+  background: #f8fbfa;
+  border-radius: 16px;
+  padding: 12px;
+}
+.contact-review-grid span,
+.contact-review-message span {
+  display: block;
+  color: var(--muted, #64748b);
+  font-size: 0.73rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 900;
+  margin-bottom: 5px;
+}
+.contact-review-grid strong {
+  display: block;
+  color: var(--text, #172b2a);
+  overflow-wrap: anywhere;
+}
+.contact-review-message {
+  margin-top: 10px;
+}
+.contact-review-message p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text, #172b2a);
+}
+.intake-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 14px 14px;
+}
+.library-status.new { background: #eefdf6; color: #047857; border-color: #a7e8ce; }
+.library-status.contacted { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+.library-status.converted { background: #ecfdf5; color: #166534; border-color: #bbf7d0; }
+.library-status.spam-duplicate { background: #fff7ed; color: #9a3412; border-color: #fed7aa; }
+
+@media (max-width: 1120px) {
+  .dashboard-enquiries-card { grid-template-columns: 1fr; }
+  .dashboard-enquiries-counts { justify-content: flex-start; }
+  .contact-review-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 680px) {
+  .contact-review-head { display: grid; }
+  .contact-review-grid { grid-template-columns: 1fr; }
+  .enquiries-status-pills button { flex: 1 1 auto; justify-content: center; }
+}
