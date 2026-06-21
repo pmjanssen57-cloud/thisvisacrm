@@ -1595,8 +1595,6 @@ function buildContactIntakeInviteEmailContent(contact = {}) {
     'Please include as much detail as you can, especially around your current visa situation, immigration goal, employment, qualifications, partnership/family circumstances, and any health or character matters that may be relevant.',
     '',
     'Kind regards,',
-    '',
-    'Turner Hopkins Immigration Specialists',
   ].join('\n');
 
   return {
@@ -1617,8 +1615,7 @@ ${p('Based on the information you have sent through, the best next step is for y
 <p style="margin:0 0 10px 0; padding:0; line-height:1.3; mso-margin-top-alt:0; mso-margin-bottom-alt:10px;">You can complete the assessment form here:<br><a href="${safeLink}" style="color:#003736; font-weight:700;">${safeLink}</a></p>
 ${p('Once we receive your completed form, one of our team will review the information and come back to you about the next steps.', 10)}
 ${p('Please include as much detail as you can, especially around your current visa situation, immigration goal, employment, qualifications, partnership/family circumstances, and any health or character matters that may be relevant.', 10)}
-${p('Kind regards,', 10)}
-${p('Turner Hopkins Immigration Specialists', 0)}
+${p('Kind regards,', 0)}
 ${buildEmailSignatureSpacer(18)}
 </div>`;
 }

@@ -1,3 +1,13 @@
+# THiS CRM v0.12.20 — Contact Intake Email Sign-off
+
+## v0.12.20 changes
+
+- Removed the final “Turner Hopkins Immigration Specialists” line from the contact-form intake invite email because the standard email signature already contains the firm name.
+- Kept the “Kind regards,” sign-off and the existing Arial 10pt email styling.
+- No database migration required.
+
+---
+
 # THiS CRM v0.12.19 — Contact Intake Invite Email URL
 
 ## v0.12.19 changes
