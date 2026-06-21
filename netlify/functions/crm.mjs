@@ -199,6 +199,11 @@ async function handleCrmEvent(event) {
       return json({ emailLog, emailConfig: getEmailConfigStatus() });
     }
 
+    if (action === 'sendContactIntakeInviteEmail') {
+      const emailLog = await sendContactIntakeInviteEmail(body.contact || {}, auth.user);
+      return json({ emailLog, emailConfig: getEmailConfigStatus() });
+    }
+
     if (action === 'downloadIntakeUpload') {
       const upload = await downloadIntakeUpload(body.intakeId, body.kind);
       return json({ upload });
@@ -1524,6 +1529,99 @@ async function sendTestEmail(input = {}, authUser = null) {
   }
 }
 
+
+async function sendContactIntakeInviteEmail(input = {}, authUser = null) {
+  const contact = normaliseIntakeInput(input);
+  if (!isValidEmailAddress(contact.email)) throw new Error('This contact form does not have a valid email address.');
+
+  const advisers = await db().sql`SELECT id, name, email FROM advisers ORDER BY name ASC`;
+  const adviser = advisers.find((item) => String(item.id || '') === String(contact.assignedAdviserId || '')) || null;
+  const adviserEmail = String(adviser?.email || '').trim();
+  const ccEmail = isValidEmailAddress(adviserEmail) ? adviserEmail : '';
+  const emailDraft = buildContactIntakeInviteEmailContent(contact);
+  const config = requireMicrosoftEmailConfig();
+  const database = db();
+  const sentBy = authUser?.email || authUser?.name || 'CRM adviser';
+
+  const [created] = await database.sql`
+    INSERT INTO email_notifications (related_record_type, related_record_id, intake_id, template_key, from_email, from_name, to_email, cc, subject, body_text, body_html, status, sent_by)
+    VALUES ('intake', ${nullableUuid(contact.id)}, ${nullableUuid(contact.id)}, 'contact_intake_invite', ${config.fromEmail}, ${config.fromName}, ${emailDraft.to}, ${ccEmail}, ${emailDraft.subject}, ${emailDraft.bodyText}, ${emailDraft.bodyHtml}, 'Sending', ${sentBy})
+    RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+
+  try {
+    const token = await getMicrosoftGraphAccessToken(config);
+    const sendResult = await sendMicrosoftGraphEmail({
+      config,
+      token,
+      toEmail: emailDraft.to,
+      ccEmail,
+      subject: emailDraft.subject,
+      bodyText: emailDraft.bodyText,
+      bodyHtml: emailDraft.bodyHtml,
+    });
+    const [updated] = await database.sql`
+      UPDATE email_notifications
+         SET status = 'Sent', sent_at = NOW(), provider_request_id = ${sendResult.requestId || ''}, updated_at = NOW()
+       WHERE id = ${created.id}
+       RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+    return mapEmailLogFromDb(updated);
+  } catch (error) {
+    const message = String(error?.message || error).slice(0, 1000);
+    const [failed] = await database.sql`
+      UPDATE email_notifications
+         SET status = 'Failed', failed_at = NOW(), failure_message = ${message}, updated_at = NOW()
+       WHERE id = ${created.id}
+       RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+    return mapEmailLogFromDb(failed);
+  }
+}
+
+function buildContactIntakeInviteEmailContent(contact = {}) {
+  const firstName = String(contact.firstName || '').trim() || 'there';
+  const to = String(contact.email || '').trim();
+  const intakeFormLink = String(process.env.PUBLIC_INTAKE_FORM_URL || '').trim()
+    || 'https://www.turnerhopkinsimmigration.co.nz/assessment';
+  const bodyText = [
+    `Hi ${firstName},`,
+    '',
+    'Thank you for contacting Turner Hopkins Immigration Specialists.',
+    '',
+    'Based on the information you have sent through, the best next step is for you to complete our full immigration assessment form. This gives us the details we need to properly consider your circumstances and identify the most suitable visa pathway.',
+    '',
+    `You can complete the assessment form here: ${intakeFormLink}`,
+    '',
+    'Once we receive your completed form, one of our team will review the information and come back to you about the next steps.',
+    '',
+    'Please include as much detail as you can, especially around your current visa situation, immigration goal, employment, qualifications, partnership/family circumstances, and any health or character matters that may be relevant.',
+    '',
+    'Kind regards,',
+    '',
+    'Turner Hopkins Immigration Specialists',
+  ].join('\n');
+
+  return {
+    to,
+    subject: 'Next step: please complete our full immigration assessment form',
+    bodyText,
+    bodyHtml: buildContactIntakeInviteEmailHtml(firstName, intakeFormLink),
+  };
+}
+
+function buildContactIntakeInviteEmailHtml(firstName = 'there', intakeFormLink = '') {
+  const p = (text, marginBottom = 10) => `<p style="margin:0 0 ${marginBottom}px 0; padding:0; line-height:1.3; mso-margin-top-alt:0; mso-margin-bottom-alt:${marginBottom}px;">${escapeHtml(text)}</p>`;
+  const safeLink = escapeHtml(intakeFormLink);
+  return `<div style="font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.3; color: #1f2933;">
+${p(`Hi ${firstName},`, 10)}
+${p('Thank you for contacting Turner Hopkins Immigration Specialists.', 10)}
+${p('Based on the information you have sent through, the best next step is for you to complete our full immigration assessment form. This gives us the details we need to properly consider your circumstances and identify the most suitable visa pathway.', 10)}
+<p style="margin:0 0 10px 0; padding:0; line-height:1.3; mso-margin-top-alt:0; mso-margin-bottom-alt:10px;">You can complete the assessment form here:<br><a href="${safeLink}" style="color:#003736; font-weight:700;">${safeLink}</a></p>
+${p('Once we receive your completed form, one of our team will review the information and come back to you about the next steps.', 10)}
+${p('Please include as much detail as you can, especially around your current visa situation, immigration goal, employment, qualifications, partnership/family circumstances, and any health or character matters that may be relevant.', 10)}
+${p('Kind regards,', 10)}
+${p('Turner Hopkins Immigration Specialists', 0)}
+${buildEmailSignatureSpacer(18)}
+</div>`;
+}
 
 async function sendIntakeOutcomeEmail(input = {}, outcome = 'approve', authUser = null) {
   const intake = normaliseIntakeInput(input);

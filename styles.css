@@ -7585,3 +7585,86 @@ textarea:focus-visible {
   .contact-review-grid { grid-template-columns: 1fr; }
   .enquiries-status-pills button { flex: 1 1 auto; justify-content: center; }
 }
+
+/* v0.12.18: tidy Enquiries & Intake filters and contact invite actions */
+.enquiries-toolbar {
+  grid-template-columns: minmax(260px, 380px) minmax(0, 1fr) auto;
+  align-items: end;
+}
+.enquiries-toolbar .intake-search-field {
+  grid-column: 1;
+}
+.enquiries-toolbar .enquiries-status-pills {
+  grid-column: 2;
+  min-width: 0;
+}
+.enquiries-toolbar > .btn {
+  grid-column: 3;
+  justify-self: end;
+}
+.enquiries-status-pills {
+  justify-content: flex-start;
+  row-gap: 8px;
+}
+.enquiries-status-pills button {
+  min-height: 42px;
+  padding: 8px 12px;
+  flex: 0 0 auto;
+}
+.success-banner.compact,
+.error-banner.compact {
+  padding: 10px 12px;
+  border-radius: 14px;
+  font-weight: 750;
+}
+.success-banner.compact {
+  border: 1px solid #a7e8ce;
+  background: #eefdf6;
+  color: #047857;
+}
+.contact-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: end;
+  gap: 8px;
+}
+.contact-adviser-select {
+  display: grid;
+  gap: 5px;
+  min-width: 190px;
+}
+.contact-adviser-select span {
+  color: var(--muted, #64748b);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.contact-adviser-select select {
+  min-height: 42px;
+  border: 1px solid var(--line, #d9e6e1);
+  border-radius: 14px;
+  padding: 9px 38px 9px 11px;
+  background: #fff;
+  color: var(--ink, #003736);
+  font-weight: 750;
+}
+
+@media (max-width: 980px) {
+  .enquiries-toolbar {
+    grid-template-columns: 1fr;
+  }
+  .enquiries-toolbar .intake-search-field,
+  .enquiries-toolbar .enquiries-status-pills,
+  .enquiries-toolbar > .btn {
+    grid-column: 1;
+    justify-self: stretch;
+  }
+  .enquiries-toolbar > .btn {
+    justify-content: center;
+  }
+  .contact-review-actions {
+    justify-content: flex-start;
+  }
+}

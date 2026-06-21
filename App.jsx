@@ -625,6 +625,18 @@ export default function App() {
     return body;
   }
 
+  async function sendContactIntakeInviteEmail(contact) {
+    const body = await callApi('sendContactIntakeInviteEmail', { contact }, { skipDataUpdate: true });
+    if (body.emailLog) {
+      setData((current) => ({
+        ...current,
+        emailLogs: [normaliseEmailLog(body.emailLog), ...(current.emailLogs || [])].slice(0, 200),
+        emailConfig: body.emailConfig ? normaliseEmailConfig(body.emailConfig) : current.emailConfig,
+      }));
+    }
+    return body;
+  }
+
   async function downloadIntakeUpload(intakeId, kind) {
     const body = await callApi('downloadIntakeUpload', { intakeId, kind }, { skipDataUpdate: true });
     if (body.upload?.dataBase64) downloadBase64File(body.upload);
@@ -887,7 +899,7 @@ export default function App() {
             </nav>
 
             {tab === 'intake' && (
-              <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} statuses={data.intakeStatuses || INTAKE_STATUSES} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} downloadIntakeUpload={downloadIntakeUpload} saving={saving} openClientRecord={openClientRecord} />
+              <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} statuses={data.intakeStatuses || INTAKE_STATUSES} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} downloadIntakeUpload={downloadIntakeUpload} saving={saving} openClientRecord={openClientRecord} />
             )}
 
             {tab === 'dashboard' && (
@@ -1586,13 +1598,15 @@ function isContactIntake(record = {}) {
   return String(payload.formType || '').toLowerCase() === 'contact' || String(payload.submittedVia || '').toLowerCase().includes('contact form');
 }
 
-function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, downloadIntakeUpload, saving, openClientRecord }) {
+function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, sendContactIntakeInviteEmail, downloadIntakeUpload, saving, openClientRecord }) {
   const simplifiedStatuses = (statuses || INTAKE_STATUSES).filter((status) => INTAKE_STATUSES.includes(status));
   const [workspaceTab, setWorkspaceTab] = useState('contact');
   const [statusFilter, setStatusFilter] = useState('New');
   const [query, setQuery] = useState('');
   const [expandedId, setExpandedId] = useState('');
   const [draft, setDraft] = useState(null);
+  const [contactInviteSendingId, setContactInviteSendingId] = useState('');
+  const [contactInviteNotice, setContactInviteNotice] = useState('');
   const flagOptions = [
     { value: 'urgent', label: 'Urgent timing' },
     { value: 'visaExpirySoon', label: 'Visa expiry' },
@@ -1717,6 +1731,38 @@ function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, del
     setDraft(null);
   }
 
+  function assignedAdviserFor(item) {
+    return advisers.find((adviser) => String(adviser.id || '') === String(item.assignedAdviserId || '')) || null;
+  }
+
+  async function assignContactAdviser(item, adviserId) {
+    if (!item?.id) return;
+    await saveIntakeEnquiry({ ...item, assignedAdviserId: adviserId });
+  }
+
+  async function sendIntakeInviteForContact(item) {
+    if (!item?.id || contactInviteSendingId) return;
+    const name = [item.firstName, item.lastName].filter(Boolean).join(' ') || 'this contact';
+    const adviser = assignedAdviserFor(item);
+    const ccText = adviser?.email ? `\n\nThe email will be copied to ${adviser.name || 'the assigned adviser'} (${adviser.email}).` : '\n\nNo assigned adviser email is recorded, so no adviser copy will be sent.';
+    if (!window.confirm(`Send the full assessment form email to ${name}?${ccText}`)) return;
+    setContactInviteNotice('');
+    setContactInviteSendingId(item.id);
+    try {
+      const body = await sendContactIntakeInviteEmail?.(item);
+      const log = body?.emailLog;
+      if (log?.status === 'Sent') {
+        setContactInviteNotice(`Assessment form email sent to ${item.email}.`);
+      } else {
+        setContactInviteNotice(`Assessment form email could not be sent: ${log?.failureMessage || 'Microsoft did not accept the send request.'}`);
+      }
+    } catch (error) {
+      setContactInviteNotice(error?.message || 'Assessment form email could not be sent.');
+    } finally {
+      setContactInviteSendingId('');
+    }
+  }
+
   async function deleteContactForm(item) {
     if (!item?.id) return;
     const name = [item.firstName, item.lastName].filter(Boolean).join(' ') || 'this contact form';
@@ -1783,6 +1829,12 @@ function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, del
           <button className="btn" type="button" onClick={clearSearch}>Reset view</button>
         </div>
 
+        {contactInviteNotice && (
+          <div className={contactInviteNotice.includes('could not') ? 'error-banner compact' : 'success-banner compact'}>
+            {contactInviteNotice}
+          </div>
+        )}
+
         <div className="intake-inbox-summary-row enquiries-summary-row">
           <div>
             <span className="eyebrow">{workspaceTab === 'contact' ? 'Short website enquiries' : 'Full assessment questionnaires'}</span>
@@ -1810,7 +1862,21 @@ function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, del
                         <h3>{name}</h3>
                         <p>{item.createdAt ? formatPortalDateTime(item.createdAt) : 'Submission date not recorded'}</p>
                       </div>
-                      <button className="btn danger" type="button" onClick={() => deleteContactForm(item)} disabled={saving}><Trash2 size={16} />Delete</button>
+                      <div className="contact-review-actions">
+                        <label className="contact-adviser-select">
+                          <span>Managed by</span>
+                          <select value={item.assignedAdviserId || ''} onChange={(event) => assignContactAdviser(item, event.target.value)} disabled={saving}>
+                            <option value="">Unassigned</option>
+                            {advisers.filter((adviser) => adviser.active !== false).map((adviser) => (
+                              <option key={adviser.id} value={adviser.id}>{adviser.name}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <button className="btn dark" type="button" onClick={() => sendIntakeInviteForContact(item)} disabled={saving || !item.email || Boolean(contactInviteSendingId)} title={!item.email ? 'No contact email recorded' : 'Send the full assessment form email from the CRM'}>
+                          <Mail size={16} />{contactInviteSendingId === item.id ? 'Sending...' : 'Send intake form email'}
+                        </button>
+                        <button className="btn danger" type="button" onClick={() => deleteContactForm(item)} disabled={saving}><Trash2 size={16} />Delete</button>
+                      </div>
                     </div>
                     <div className="contact-review-grid">
                       <div><span>Email</span><strong>{item.email || 'Not provided'}</strong></div>

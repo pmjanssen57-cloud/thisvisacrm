@@ -1,3 +1,21 @@
+# THiS CRM v0.12.19 — Contact Intake Invite Email URL
+
+## v0.12.19 changes
+
+- Contact-form intake invite emails now default to the public Turner Hopkins assessment URL: https://www.turnerhopkinsimmigration.co.nz/assessment.
+- The `PUBLIC_INTAKE_FORM_URL` environment variable can still override the link if needed.
+
+## v0.12.18 changes
+- Tidied the Enquiries & Intake status filter row so the intake categories sit cleanly in a single toolbar where space allows.
+- Added a **Managed by** adviser selector to contact form cards.
+- Added **Send intake form email** to contact form cards.
+- The CRM now sends the polished assessment-form invitation email directly through the existing Microsoft Graph email setup.
+- The email is CC'd to the adviser selected in **Managed by**, where that adviser has a valid email address.
+- The email body uses Arial 10pt styling.
+- No database migration required.
+
+---
+
 # THiS CRM v0.12.16 — Contact Form Embed Polish
 
 ## v0.12.16 changes
