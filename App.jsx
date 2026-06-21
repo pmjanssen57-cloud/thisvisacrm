@@ -175,6 +175,134 @@ const SUPPORT_CONTENT = {
   },
 };
 
+const PORTAL_RESOURCE_PAGES = [
+  {
+    key: 'jobSearchCv',
+    title: 'Job Search / CV Preparation',
+    shortTitle: 'Job Search / CV',
+    audience: 'For skilled applicants and clients preparing for the New Zealand employment market.',
+    summary: 'Practical guidance for preparing a New Zealand-style CV, approaching employers, and understanding how job search activity can support a skilled visa strategy.',
+    sections: [
+      {
+        heading: 'New Zealand-style CV preparation',
+        text: 'New Zealand CVs are usually direct, role-focused and evidence-based. Keep the CV easy to scan, lead with relevant experience, and make sure job titles, dates and responsibilities are clear.',
+        items: ['Use a short professional profile rather than a long personal statement.', 'List recent and relevant work experience first.', 'Include measurable achievements where possible.', 'Make qualifications and professional registrations easy to find.'],
+      },
+      {
+        heading: 'Job search approach',
+        text: 'A focused job search is usually more effective than sending generic applications. Target employers, roles and regions that match the visa pathway and the client’s actual skills.',
+        items: ['Keep a record of applications and employer responses.', 'Tailor the CV and cover letter for each serious role.', 'Check whether employer accreditation or occupation settings may be relevant before relying on a job offer for visa purposes.'],
+      },
+      {
+        heading: 'Interview preparation',
+        text: 'Interviews in New Zealand are commonly practical and behaviour-based. Prepare examples that show competence, reliability, communication and workplace judgement.',
+        items: ['Prepare examples using situation, action and result.', 'Be ready to explain overseas experience in New Zealand terms.', 'Check salary, duties, hours and location before accepting an offer.'],
+      },
+    ],
+    links: [
+      { label: 'SEEK New Zealand', url: 'https://www.seek.co.nz/', note: 'Large New Zealand job board.' },
+      { label: 'Trade Me Jobs', url: 'https://www.trademe.co.nz/a/jobs', note: 'New Zealand job listings across many sectors.' },
+      { label: 'Careers.govt.nz', url: 'https://www.careers.govt.nz/', note: 'Government career information and CV guidance.' },
+      { label: 'LinkedIn Jobs', url: 'https://www.linkedin.com/jobs/', note: 'Professional networking and job search.' },
+      { label: 'Immigration New Zealand employer accreditation search', url: 'https://www.immigration.govt.nz/new-zealand-visas/preparing-a-visa-application/working-in-nz/accredited-employers-list', note: 'Check whether an employer is listed as accredited.' },
+    ],
+  },
+  {
+    key: 'lifeInNz',
+    title: 'Life in New Zealand',
+    shortTitle: 'Life in NZ',
+    audience: 'For clients planning to live, work, study or settle in New Zealand.',
+    summary: 'General settlement information covering everyday practical steps such as tax, healthcare, schools, driving, banking and accommodation.',
+    sections: [
+      {
+        heading: 'Getting set up',
+        text: 'Most new arrivals need to organise several practical matters soon after arrival. Timing will depend on visa status, work plans and family circumstances.',
+        items: ['Apply for an IRD number if required.', 'Open a New Zealand bank account.', 'Arrange a local mobile number and internet connection.', 'Keep copies of key identity and visa documents accessible.'],
+      },
+      {
+        heading: 'Healthcare, schools and transport',
+        text: 'Eligibility for publicly funded services can depend on visa type and duration. Check the current rules before assuming access to healthcare, education or social services.',
+        items: ['Check healthcare eligibility before relying on public services.', 'Research school zones if moving with children.', 'Review driver licence conversion or testing requirements.'],
+      },
+      {
+        heading: 'Working and living well',
+        text: 'New Zealand workplaces may be less formal than some clients expect, but employment rights and obligations are still important. Clients should understand their employment agreement and keep clear records.',
+        items: ['Read the employment agreement before signing.', 'Understand minimum employment standards.', 'Keep payslips and work records, especially where employment supports a visa.'],
+      },
+    ],
+    links: [
+      { label: 'New Zealand Now', url: 'https://www.live-work.immigration.govt.nz/', note: 'Settlement and living information.' },
+      { label: 'IRD', url: 'https://www.ird.govt.nz/', note: 'Tax and IRD number information.' },
+      { label: 'Health New Zealand', url: 'https://www.tewhatuora.govt.nz/', note: 'Health system information.' },
+      { label: 'Employment New Zealand', url: 'https://www.employment.govt.nz/', note: 'Employment rights and obligations.' },
+      { label: 'Waka Kotahi NZTA', url: 'https://www.nzta.govt.nz/', note: 'Driving and transport information.' },
+    ],
+  },
+  {
+    key: 'usefulLinks',
+    title: 'Useful Links',
+    shortTitle: 'Useful Links',
+    audience: 'For clients who need quick access to common immigration and New Zealand government resources.',
+    summary: 'A central place for common external websites clients may need during an immigration matter.',
+    sections: [
+      {
+        heading: 'Immigration and identity',
+        text: 'These links are commonly used during visa preparation, lodgement or settlement planning.',
+        items: ['Use official government websites for current rules and forms.', 'Check with your adviser before relying on a general webpage for case-specific decisions.', 'Keep copies of applications, forms and official correspondence.'],
+      },
+      {
+        heading: 'Qualifications and documents',
+        text: 'Some applications require third-party checks, translations, qualification assessments or police certificates. Timing can vary by country and organisation.',
+        items: ['Start document requests early where possible.', 'Check name spelling and document consistency.', 'Tell your adviser about any document issue before lodgement.'],
+      },
+    ],
+    links: [
+      { label: 'Immigration New Zealand', url: 'https://www.immigration.govt.nz/', note: 'Official visa information and online services.' },
+      { label: 'RealMe', url: 'https://www.realme.govt.nz/', note: 'Secure access for some New Zealand government services.' },
+      { label: 'NZQA', url: 'https://www2.nzqa.govt.nz/', note: 'Qualification recognition and assessment information.' },
+      { label: 'NZ Police vetting and certificates', url: 'https://www.police.govt.nz/advice-services/criminal-records', note: 'New Zealand criminal record information.' },
+      { label: 'Education New Zealand', url: 'https://www.studywithnewzealand.govt.nz/', note: 'Study and education information.' },
+    ],
+  },
+  {
+    key: 'relocationResources',
+    title: 'Relocation Resources',
+    shortTitle: 'Relocation',
+    audience: 'For offshore clients and families preparing to move to New Zealand.',
+    summary: 'Planning information for the practical move to New Zealand, including accommodation, shipping, pets, schools and the first few weeks after arrival.',
+    sections: [
+      {
+        heading: 'Planning the move',
+        text: 'Relocation is easier when the practical steps are planned alongside the visa process. Do not make irreversible commitments until your adviser has confirmed the immigration position.',
+        items: ['Prepare a realistic move timeline.', 'Check passport validity and travel requirements for all family members.', 'Keep important records in both digital and hard copy form.'],
+      },
+      {
+        heading: 'Accommodation and first weeks',
+        text: 'Many clients use temporary accommodation while they arrange work, schooling and a longer-term rental. Availability and cost can vary significantly by city and season.',
+        items: ['Research rental markets before arrival.', 'Budget for bond, initial rent and setup costs.', 'Confirm school zones before committing to a long-term address.'],
+      },
+      {
+        heading: 'Shipping, pets and household setup',
+        text: 'Shipping belongings and bringing pets into New Zealand can involve significant lead times. Check requirements early and use specialist providers where appropriate.',
+        items: ['Check biosecurity requirements before shipping belongings.', 'Start pet import planning early if relevant.', 'Arrange power, internet, phone and insurance shortly after arrival.'],
+      },
+    ],
+    links: [
+      { label: 'New Zealand Now - move to New Zealand', url: 'https://www.live-work.immigration.govt.nz/move-to-new-zealand', note: 'Settlement planning guidance.' },
+      { label: 'Tenancy Services', url: 'https://www.tenancy.govt.nz/', note: 'Renting rules and tenancy information.' },
+      { label: 'MPI biosecurity', url: 'https://www.mpi.govt.nz/bring-send-to-nz/', note: 'Rules for bringing or sending items to New Zealand.' },
+      { label: 'Auckland Transport', url: 'https://at.govt.nz/', note: 'Auckland public transport information.' },
+      { label: 'Metlink Wellington', url: 'https://www.metlink.org.nz/', note: 'Wellington public transport information.' },
+    ],
+  },
+];
+
+const DEFAULT_PORTAL_RESOURCE_SETTINGS = PORTAL_RESOURCE_PAGES.reduce((settings, page) => {
+  settings[page.key] = { enabled: false, clientNote: '' };
+  return settings;
+}, {});
+
+
 
 
 const ADDRESS_LOOKUP_EXAMPLES = [
@@ -248,6 +376,7 @@ function makeBlankClient(data) {
     portalVisibleDeadlineIds: [],
     portalVisibleAppointmentIds: [],
     portalVisibleBillingIds: [],
+    portalResourceSettings: normalisePortalResourceSettings(),
     portalDocuments: [],
     portalAccessCodeSet: false,
     portalLastPublishedAt: '',
@@ -2889,6 +3018,7 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
             <b><span className="portal-hero-chip-number">{snapshot.keyDates.length}</span> Key Date{snapshot.keyDates.length === 1 ? '' : 's'}</b>
             <b><span className="portal-hero-chip-number">{snapshot.billingMilestones.length}</span> Billing Milestone{snapshot.billingMilestones.length === 1 ? '' : 's'}</b>
             <b><span className="portal-hero-chip-number">{(snapshot.portalDocuments || []).length}</span> Form{(snapshot.portalDocuments || []).length === 1 ? '' : 's'} Published</b>
+            <b><span className="portal-hero-chip-number">{(snapshot.portalResources || []).length}</span> Resource{(snapshot.portalResources || []).length === 1 ? '' : 's'} Available</b>
           </div>
         </div>
         <div className="portal-progress-dial">
@@ -2946,6 +3076,8 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
             </div>
           ) : <p>No forms or instruction PDFs have been published to your portal yet.</p>}
         </section>
+
+        {(snapshot.portalResources || []).length > 0 && <ClientPortalResources resources={snapshot.portalResources} />}
 
         <section className="portal-card wide portal-client-action-card">
           <div className="portal-section-head">
@@ -3048,6 +3180,77 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
 }
 
 
+
+
+function ClientPortalResources({ resources = [] }) {
+  const visibleResources = resources
+    .map((resource) => {
+      const page = PORTAL_RESOURCE_PAGES.find((item) => item.key === resource.key);
+      return page ? { ...page, clientNote: resource.clientNote || '' } : null;
+    })
+    .filter(Boolean);
+
+  if (!visibleResources.length) return null;
+
+  return (
+    <section className="portal-card wide portal-resources-card">
+      <div className="portal-section-head">
+        <div>
+          <h2>Resources</h2>
+          <p>Your adviser has made these information pages available for your application and settlement planning.</p>
+        </div>
+        <BookOpen size={22} />
+      </div>
+      <div className="portal-resource-grid">
+        {visibleResources.map((resource) => <ClientPortalResourceCard key={resource.key} resource={resource} />)}
+      </div>
+    </section>
+  );
+}
+
+function ClientPortalResourceCard({ resource }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <article className={`portal-resource-card ${open ? 'open' : ''}`}>
+      <button type="button" className="portal-resource-card-head" onClick={() => setOpen((current) => !current)} aria-expanded={open}>
+        <span className="portal-resource-icon"><BookOpen size={20} /></span>
+        <span>
+          <strong>{resource.title}</strong>
+          <small>{resource.audience}</small>
+        </span>
+        <ChevronRight size={18} />
+      </button>
+      <p>{resource.summary}</p>
+      {resource.clientNote && <div className="portal-resource-note"><strong>Note from your adviser</strong><span>{resource.clientNote}</span></div>}
+      {open && (
+        <div className="portal-resource-detail">
+          {(resource.sections || []).map((section) => (
+            <div className="portal-resource-section" key={section.heading}>
+              <h3>{section.heading}</h3>
+              <p>{section.text}</p>
+              {Array.isArray(section.items) && section.items.length > 0 && (
+                <ul>{section.items.map((item) => <li key={item}>{item}</li>)}</ul>
+              )}
+            </div>
+          ))}
+          {Array.isArray(resource.links) && resource.links.length > 0 && (
+            <div className="portal-resource-links">
+              <h3>Useful links</h3>
+              <div className="portal-resource-link-list">
+                {resource.links.map((link) => (
+                  <a key={link.url} href={link.url} target="_blank" rel="noreferrer">
+                    <span><ExternalLink size={15} />{link.label}</span>
+                    {link.note && <small>{link.note}</small>}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </article>
+  );
+}
 
 function ClientPortalAdviserPanel({ snapshot, onSubmitPortalMessage }) {
   const [quickMode, setQuickMode] = useState('question');
@@ -4371,6 +4574,8 @@ function ClientPortalPanel({ client, advisers, calendarEntries, generatedPortalC
   const visibleAppointments = new Set(client.portalVisibleAppointmentIds || []);
   const billingItems = normaliseBillingItems(client.billing || []).map((item) => ({ ...item, status: effectiveBillingStatus(item, client) }));
   const visibleBilling = new Set(client.portalVisibleBillingIds || []);
+  const portalResourceSettings = normalisePortalResourceSettings(client.portalResourceSettings);
+  const enabledPortalResources = PORTAL_RESOURCE_PAGES.filter((page) => portalResourceSettings[page.key]?.enabled);
   const portalMessages = (client.portalMessages || []).slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
   const newMessages = portalMessages.filter((message) => message.status === 'New');
 
@@ -4405,6 +4610,12 @@ function ClientPortalPanel({ client, advisers, calendarEntries, generatedPortalC
         <PortalVisibilityBox title="Upcoming key dates" empty="No client deadlines recorded." items={deadlines} selected={visibleDeadlines} onToggle={(id, checked) => updatePortalSelection('portalVisibleDeadlineIds', id, checked)} renderLabel={(item) => item.type} renderMeta={(item) => [item.date, item.note].filter(Boolean).join(' · ') || 'No date'} />
         <PortalVisibilityBox title="Appointments" empty="No open linked appointments." items={appointments} selected={visibleAppointments} onToggle={(id, checked) => updatePortalSelection('portalVisibleAppointmentIds', id, checked)} renderLabel={(item) => item.title || 'Appointment'} renderMeta={(item) => [item.appointmentDate, calendarEntryTimeLabel(item), item.location].filter(Boolean).join(' · ') || 'No date'} />
       </div>
+
+      <PortalResourcesManager
+        settings={portalResourceSettings}
+        enabledCount={enabledPortalResources.length}
+        setField={setField}
+      />
 
       <PortalDocumentsManager
         client={client}
@@ -4456,6 +4667,51 @@ function PortalVisibilityBox({ title, empty, items, selected, onToggle, renderLa
         </label>
       ))}
       {!items.length && <p className="muted">{empty}</p>}
+    </div>
+  );
+}
+
+
+function PortalResourcesManager({ settings, enabledCount, setField }) {
+  const normalisedSettings = normalisePortalResourceSettings(settings);
+
+  function updateResource(key, patch) {
+    const current = normalisePortalResourceSettings(normalisedSettings);
+    setField('portalResourceSettings', {
+      ...current,
+      [key]: {
+        ...(current[key] || { enabled: false, clientNote: '' }),
+        ...patch,
+      },
+    });
+  }
+
+  return (
+    <div className="portal-resources-admin">
+      <div className="sub-panel-head compact">
+        <div>
+          <h3>Portal resource pages</h3>
+          <p className="muted">Choose which information pages this client can see. Standard content is managed centrally; these switches are client-specific.</p>
+        </div>
+        <span className="count-pill">{enabledCount} visible</span>
+      </div>
+      <div className="portal-resource-admin-grid">
+        {PORTAL_RESOURCE_PAGES.map((resource) => {
+          const item = normalisedSettings[resource.key] || { enabled: false, clientNote: '' };
+          return (
+            <div className={`portal-resource-admin-card ${item.enabled ? 'enabled' : ''}`} key={resource.key}>
+              <label className="portal-resource-toggle">
+                <input type="checkbox" checked={Boolean(item.enabled)} onChange={(event) => updateResource(resource.key, { enabled: event.target.checked })} />
+                <span><strong>{resource.title}</strong><small>{resource.audience}</small></span>
+              </label>
+              <label className="field portal-resource-note-field">
+                <span>Optional client-facing note</span>
+                <textarea rows={3} value={item.clientNote || ''} onChange={(event) => updateResource(resource.key, { clientNote: event.target.value })} placeholder="Optional short note shown above this resource page" />
+              </label>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -5349,6 +5605,7 @@ function PortalSummaryPanel({ client, documents = [], deadlines = [], appointmen
   const publishedDateCount = deadlines.filter((item) => visibleDeadlines.has(item.id)).length;
   const publishedAppointmentCount = appointments.filter((item) => visibleAppointments.has(item.id)).length;
   const publishedBillingCount = billing.filter((item) => visibleBilling.has(item.id)).length;
+  const publishedResourceCount = PORTAL_RESOURCE_PAGES.filter((page) => normalisePortalResourceSettings(client.portalResourceSettings)[page.key]?.enabled).length;
   return (
     <section className="sub-panel workspace-panel summary-editor-panel">
       <div className="sub-panel-head compact">
@@ -5365,6 +5622,7 @@ function PortalSummaryPanel({ client, documents = [], deadlines = [], appointmen
         <WorkspaceStat label="Appointments" value={publishedAppointmentCount} />
         <WorkspaceStat label="Billing" value={publishedBillingCount} />
         <WorkspaceStat label="PDFs" value={visiblePortalPdfCount} />
+        <WorkspaceStat label="Resources" value={publishedResourceCount} />
         <WorkspaceStat label="Client notes" value={portalNewMessageCount} />
       </div>
     </section>
@@ -7493,6 +7751,7 @@ function normalisePortalSnapshot(snapshot = {}) {
     appointments: Array.isArray(snapshot.appointments) ? snapshot.appointments : [],
     billingMilestones: Array.isArray(snapshot.billingMilestones) ? snapshot.billingMilestones : [],
     portalDocuments: Array.isArray(snapshot.portalDocuments) ? snapshot.portalDocuments.map(normalisePortalDocument) : [],
+    portalResources: Array.isArray(snapshot.portalResources) ? snapshot.portalResources.map(normalisePortalResource).filter((resource) => resource.enabled) : [],
     portalMessages: Array.isArray(snapshot.portalMessages) ? snapshot.portalMessages.map(normalisePortalMessage) : [],
     turnerHopkins: snapshot.turnerHopkins || { name: 'Turner Hopkins Immigration Specialists', phone: '+64 9 486 2169', email: 'immigration@turnerhopkins.co.nz', website: 'www.turnerhopkinsimmigration.co.nz' },
     lastUpdated: snapshot.lastUpdated || '',
@@ -7935,6 +8194,7 @@ function normaliseClientFromApi(client = {}, stageTemplates = DEFAULT_STAGE_TEMP
     portalVisibleDeadlineIds: Array.isArray(client.portalVisibleDeadlineIds) ? client.portalVisibleDeadlineIds : [],
     portalVisibleAppointmentIds: Array.isArray(client.portalVisibleAppointmentIds) ? client.portalVisibleAppointmentIds : [],
     portalVisibleBillingIds: Array.isArray(client.portalVisibleBillingIds) ? client.portalVisibleBillingIds : [],
+    portalResourceSettings: normalisePortalResourceSettings(client.portalResourceSettings),
     portalAccessCodeSet: Boolean(client.portalAccessCodeSet),
     portalLastPublishedAt: client.portalLastPublishedAt || '',
     portalLastAccessedAt: client.portalLastAccessedAt || '',
@@ -7944,6 +8204,37 @@ function normaliseClientFromApi(client = {}, stageTemplates = DEFAULT_STAGE_TEMP
     documentChecklist: normaliseDocumentChecklist(client.documentChecklist),
     billing: normaliseBillingItems(client.billing || []),
     stages: normaliseStages(client.stages, stageTemplates),
+  };
+}
+
+
+function normalisePortalResourceSettings(value = {}) {
+  let input = value;
+  if (typeof input === 'string') input = safeJsonParse(input, {});
+  if (!input || typeof input !== 'object' || Array.isArray(input)) input = {};
+  return PORTAL_RESOURCE_PAGES.reduce((settings, page) => {
+    const raw = input[page.key];
+    if (typeof raw === 'boolean') {
+      settings[page.key] = { enabled: raw, clientNote: '' };
+    } else if (raw && typeof raw === 'object') {
+      settings[page.key] = {
+        enabled: Boolean(raw.enabled),
+        clientNote: String(raw.clientNote || raw.client_note || raw.note || '').trim(),
+      };
+    } else {
+      settings[page.key] = { ...(DEFAULT_PORTAL_RESOURCE_SETTINGS[page.key] || { enabled: false, clientNote: '' }) };
+    }
+    return settings;
+  }, {});
+}
+
+function normalisePortalResource(resource = {}) {
+  const key = String(resource.key || '').trim();
+  const page = PORTAL_RESOURCE_PAGES.find((item) => item.key === key);
+  return {
+    key,
+    enabled: Boolean(resource.enabled) && Boolean(page),
+    clientNote: String(resource.clientNote || resource.client_note || '').trim(),
   };
 }
 

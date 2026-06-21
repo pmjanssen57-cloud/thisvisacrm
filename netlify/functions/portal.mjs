@@ -3,6 +3,7 @@ import { getStore } from '@netlify/blobs';
 import crypto from 'node:crypto';
 
 const PORTAL_DOCUMENT_STORE = 'client-portal-documents';
+const PORTAL_RESOURCE_KEYS = ['jobSearchCv', 'lifeInNz', 'usefulLinks', 'relocationResources'];
 
 const TURNER_HOPKINS_CONTACT = {
   name: 'Turner Hopkins Immigration Specialists',
@@ -86,6 +87,7 @@ async function ensurePortalSchema() {
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_visible_deadline_ids JSONB NOT NULL DEFAULT '[]'::jsonb`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_visible_appointment_ids JSONB NOT NULL DEFAULT '[]'::jsonb`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_visible_billing_ids JSONB NOT NULL DEFAULT '[]'::jsonb`;
+  await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_resource_settings JSONB NOT NULL DEFAULT '{}'::jsonb`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_access_code_hash TEXT`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_last_published_at TIMESTAMPTZ`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_last_accessed_at TIMESTAMPTZ`;
@@ -214,7 +216,7 @@ async function buildPortalSnapshot(clientId) {
   const database = db();
   const [clientRows, adviserRows, stageRows, deadlineRows, calendarRows, billingRows, messageRows, documentRows] = await Promise.all([
     database.sql`
-      SELECT id, first_name, last_name, email, case_type, primary_adviser_id, backup_adviser_id, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_last_published_at, document_checklist
+      SELECT id, first_name, last_name, email, case_type, primary_adviser_id, backup_adviser_id, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_resource_settings, portal_last_published_at, document_checklist
       FROM clients WHERE id = ${clientId} AND portal_enabled = TRUE LIMIT 1
     `,
     database.sql`SELECT id, name, email, phone, profile_photo_url, availability_status FROM advisers`,
@@ -298,6 +300,7 @@ async function buildPortalSnapshot(clientId) {
     keyDates,
     appointments,
     billingMilestones,
+    portalResources: getVisiblePortalResources(client.portal_resource_settings),
     portalDocuments: (documentRows || []).filter(isPortalDocumentVisible).map(mapPortalDocumentForClient),
     portalMessages: (messageRows || []).map(mapPortalMessageFromDb),
     turnerHopkins: TURNER_HOPKINS_CONTACT,
@@ -362,6 +365,36 @@ function portalAccessCodeVariants(code) {
   const normalised = raw.replace(/[\u2010-\u2015]/g, '-').replace(/\s+/g, '').toUpperCase();
   const compact = normalised.replace(/-/g, '');
   return Array.from(new Set([raw, normalised, compact].filter(Boolean)));
+}
+
+
+function getVisiblePortalResources(value) {
+  const settings = parsePortalResourceSettings(value);
+  return PORTAL_RESOURCE_KEYS
+    .map((key) => ({ key, ...(settings[key] || { enabled: false, clientNote: '' }) }))
+    .filter((item) => item.enabled)
+    .map((item) => ({ key: item.key, enabled: true, clientNote: item.clientNote || '' }));
+}
+
+function parsePortalResourceSettings(value) {
+  let input = value;
+  if (!input) input = {};
+  if (typeof input === 'string') input = safeJson(input, {});
+  if (!input || typeof input !== 'object' || Array.isArray(input)) input = {};
+  return PORTAL_RESOURCE_KEYS.reduce((settings, key) => {
+    const raw = input[key];
+    if (typeof raw === 'boolean') {
+      settings[key] = { enabled: raw, clientNote: '' };
+    } else if (raw && typeof raw === 'object') {
+      settings[key] = {
+        enabled: Boolean(raw.enabled),
+        clientNote: String(raw.clientNote || raw.client_note || raw.note || '').trim().slice(0, 1200),
+      };
+    } else {
+      settings[key] = { enabled: false, clientNote: '' };
+    }
+    return settings;
+  }, {});
 }
 
 function parseJsonArray(value) {

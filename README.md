@@ -1081,3 +1081,15 @@ This package-lock uses public npm registry tarball URLs so Netlify can install d
 - Fixed the CV download function to request uploaded CV blobs as array buffers directly from Netlify Blobs.
 - Resolves the `blob.arrayBuffer is not a function` CRM function error when downloading applicant or partner CVs.
 - No database migration required.
+
+
+## v0.12.21 - Client portal resource sections
+
+Adds four client-specific portal resource sections that can be switched on or off per client from the Client Portal editor:
+
+- Job Search / CV Preparation
+- Life in New Zealand
+- Useful Links
+- Relocation Resources
+
+The resource content is centralised in the frontend so it can later be replaced by an editable CRM resource library without changing the per-client visibility model. Each client record now stores `portal_resource_settings` as JSONB.
