@@ -1,3 +1,25 @@
+# THiS CRM v0.12.32 - Email Template Cursor Fix
+
+This build fixes the rich-text email template editor cursor issue. The Design editor now behaves as an uncontrolled editing surface while typing, so React no longer rewrites the editor HTML on every keystroke and moves the cursor back to the start.
+
+## v0.12.32 changes
+
+- Removed the controlled `dangerouslySetInnerHTML` render path from the live Design editor.
+- Kept the editor body initialisation when selecting templates and switching back from HTML mode.
+- Continued syncing the editor content to the template draft for Preview, HTML mode, and Save.
+- No database migration required.
+
+## Test process
+
+1. Deploy this package to Netlify.
+2. Hard refresh the CRM after deployment.
+3. Open **Tools > Templates**.
+4. Select any template.
+5. Click inside the Design editor, type in the middle or end of a paragraph, and confirm the cursor stays where it should.
+6. Save a small test change and reopen the template to confirm the wording persists.
+
+---
+
 # THiS CRM v0.12.31 - Email Template Editor Key Fix
 
 This build fixes the template editor more directly by preserving each email template key from the CRM API and preventing the frontend from treating every template as the same selected record. It also forces the Design editor to mount with the selected template body already inserted, rather than relying only on a later DOM sync.

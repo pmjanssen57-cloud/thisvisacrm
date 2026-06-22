@@ -4054,6 +4054,7 @@ function EmailTemplateLightbox({ open, onClose, emailTemplates = [], saveEmailTe
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const editorRef = useRef(null);
+  const editorHtmlRef = useRef('');
 
   useEffect(() => {
     if (!sortedTemplates.length) {
@@ -4068,28 +4069,35 @@ function EmailTemplateLightbox({ open, onClose, emailTemplates = [], saveEmailTe
   useEffect(() => {
     if (selected) {
       const bodyHtml = resolveTemplateEditorHtml(selected);
+      editorHtmlRef.current = bodyHtml;
       setDraft({ subject: selected.subject || '', bodyText: selected.bodyText || htmlToTemplateText(bodyHtml), bodyHtml });
       setEditorMode('design');
       setMessage('');
       setError('');
+      window.requestAnimationFrame?.(() => {
+        if (editorRef.current && editorRef.current.innerHTML !== bodyHtml) {
+          editorRef.current.innerHTML = bodyHtml || '<p><br></p>';
+        }
+      });
     }
   }, [selected?.key, selected?.subject, selected?.bodyText, selected?.bodyHtml]);
 
   useEffect(() => {
     if (editorMode === 'design' && editorRef.current) {
-      const nextHtml = draft.bodyHtml || '<p><br></p>';
+      const nextHtml = editorHtmlRef.current || draft.bodyHtml || '<p><br></p>';
       if (editorRef.current.innerHTML !== nextHtml) {
         editorRef.current.innerHTML = nextHtml;
       }
     }
-  }, [selected?.key, editorMode, draft.bodyHtml]);
+  }, [selected?.key, editorMode]);
 
   function currentHtml() {
     if (editorMode === 'design' && editorRef.current) return editorRef.current.innerHTML || '';
-    return draft.bodyHtml || '';
+    return editorHtmlRef.current || draft.bodyHtml || '';
   }
 
   function updateBodyHtml(html) {
+    editorHtmlRef.current = html;
     setDraft((current) => ({ ...current, bodyHtml: html, bodyText: htmlToTemplateText(html) }));
   }
 
@@ -4136,6 +4144,7 @@ function EmailTemplateLightbox({ open, onClose, emailTemplates = [], saveEmailTe
       const body = await saveEmailTemplate?.({ key: selected.key, subject: draft.subject, bodyText, bodyHtml });
       if (body?.emailTemplate) {
         const savedHtml = body.emailTemplate.bodyHtml || textTemplateToEditorHtml(body.emailTemplate.bodyText || bodyText);
+        editorHtmlRef.current = savedHtml;
         setDraft({ subject: body.emailTemplate.subject || draft.subject, bodyText: body.emailTemplate.bodyText || bodyText, bodyHtml: savedHtml });
         if (editorRef.current) editorRef.current.innerHTML = savedHtml;
       }
@@ -4154,6 +4163,7 @@ function EmailTemplateLightbox({ open, onClose, emailTemplates = [], saveEmailTe
       const body = await resetEmailTemplate?.(selected.key);
       if (body?.emailTemplate) {
         const bodyHtml = body.emailTemplate.bodyHtml || textTemplateToEditorHtml(body.emailTemplate.bodyText || '');
+        editorHtmlRef.current = bodyHtml;
         setDraft({ subject: body.emailTemplate.subject || '', bodyText: body.emailTemplate.bodyText || '', bodyHtml });
         if (editorRef.current) editorRef.current.innerHTML = bodyHtml;
       }
@@ -4247,7 +4257,6 @@ function EmailTemplateLightbox({ open, onClose, emailTemplates = [], saveEmailTe
                       className="html-template-editor"
                       contentEditable
                       suppressContentEditableWarning
-                      dangerouslySetInnerHTML={{ __html: draft.bodyHtml || '<p><br></p>' }}
                       onInput={() => updateBodyHtml(editorRef.current?.innerHTML || '')}
                       onBlur={() => updateBodyHtml(editorRef.current?.innerHTML || '')}
                     />
