@@ -7979,3 +7979,81 @@ body.intake-embed-mode .seminar-public-shell .intake-public-card,
 body.intake-embed-mode .seminar-public-card {
   box-shadow: none !important;
 }
+
+/* v0.12.25 seminar setup moved into pop-out editor */
+.seminar-summary-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: .6rem;
+  flex-wrap: wrap;
+}
+
+.seminar-active-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  background: linear-gradient(180deg, #f4fbf8 0%, #ffffff 100%);
+  border: 1px solid var(--border, #d9e6e1);
+  border-radius: 18px;
+  padding: 1rem;
+}
+
+.seminar-active-strip h3 {
+  margin: .35rem 0 .25rem;
+  color: #003736;
+}
+
+.seminar-active-strip p {
+  margin: .25rem 0 0;
+}
+
+.seminar-active-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: .55rem;
+  flex-wrap: wrap;
+  min-width: 260px;
+}
+
+.seminar-filter-control {
+  min-width: min(360px, 100%);
+  flex: 1 1 320px;
+}
+
+.seminar-filter-control .field {
+  margin: 0;
+}
+
+.seminar-setup-modal {
+  width: min(980px, 96vw);
+  max-height: 92vh;
+  overflow: auto;
+}
+
+.seminar-setup-intro {
+  border: 1px solid var(--border, #d9e6e1);
+  background: #f4fbf8;
+  border-radius: 14px;
+  padding: .85rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.seminar-setup-intro p {
+  margin: 0;
+  color: #36534d;
+}
+
+@media (max-width: 860px) {
+  .seminar-active-strip,
+  .seminar-summary-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .seminar-active-actions {
+    justify-content: flex-start;
+    min-width: 0;
+  }
+}

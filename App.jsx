@@ -2341,6 +2341,8 @@ function SeminarManagementPanel({ seminars = [], registrations = [], saveSeminar
   const activeSeminar = sortedSeminars.find((item) => item.status === 'Active') || sortedSeminars[0] || null;
   const [selectedSeminarId, setSelectedSeminarId] = useState(activeSeminar?.id || 'new');
   const [seminarDraft, setSeminarDraft] = useState(activeSeminar || makeBlankSeminar());
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [registrationSeminarFilter, setRegistrationSeminarFilter] = useState(activeSeminar?.id || 'all');
   const [registrationFilter, setRegistrationFilter] = useState('New');
   const [notice, setNotice] = useState('');
   const [sendingId, setSendingId] = useState('');
@@ -2354,9 +2356,28 @@ function SeminarManagementPanel({ seminars = [], registrations = [], saveSeminar
     }
   }, [seminars, selectedSeminarId]);
 
+  useEffect(() => {
+    if (registrationSeminarFilter !== 'all' && !sortedSeminars.some((item) => item.id === registrationSeminarFilter)) {
+      setRegistrationSeminarFilter(activeSeminar?.id || 'all');
+    }
+  }, [seminars, registrationSeminarFilter]);
+
   function startNewSeminar() {
     setSelectedSeminarId('new');
     setSeminarDraft(makeBlankSeminar());
+    setSetupOpen(true);
+  }
+
+  function openSeminarSetup() {
+    if (selectedSeminarId === 'new' && activeSeminar?.id) {
+      setSelectedSeminarId(activeSeminar.id);
+      setSeminarDraft(activeSeminar);
+    }
+    if (!activeSeminar && selectedSeminarId !== 'new') {
+      setSelectedSeminarId('new');
+      setSeminarDraft(makeBlankSeminar());
+    }
+    setSetupOpen(true);
   }
 
   function selectSeminar(id) {
@@ -2364,6 +2385,10 @@ function SeminarManagementPanel({ seminars = [], registrations = [], saveSeminar
     const next = sortedSeminars.find((item) => item.id === id);
     setSelectedSeminarId(id);
     setSeminarDraft(next || makeBlankSeminar());
+  }
+
+  function selectRegistrationSeminar(id) {
+    setRegistrationSeminarFilter(id || 'all');
   }
 
   function setSeminarField(name, value) {
@@ -2379,7 +2404,10 @@ function SeminarManagementPanel({ seminars = [], registrations = [], saveSeminar
     const saved = result?.seminar ? normaliseSeminar(result.seminar) : null;
     if (saved?.id) {
       setSelectedSeminarId(saved.id);
+      setRegistrationSeminarFilter(saved.id);
       setSeminarDraft(saved);
+      setNotice('Seminar details saved.');
+      setSetupOpen(false);
     }
   }
 
@@ -2408,7 +2436,7 @@ function SeminarManagementPanel({ seminars = [], registrations = [], saveSeminar
 
   const selectedRegistrations = registrations
     .map(normaliseSeminarRegistration)
-    .filter((item) => !seminarDraft?.id || selectedSeminarId === 'new' || item.seminarId === selectedSeminarId)
+    .filter((item) => registrationSeminarFilter === 'all' || item.seminarId === registrationSeminarFilter)
     .sort((a, b) => Date.parse(b.createdAt || '') - Date.parse(a.createdAt || ''));
   const visibleRegistrations = registrationFilter === 'All'
     ? selectedRegistrations
@@ -2416,59 +2444,43 @@ function SeminarManagementPanel({ seminars = [], registrations = [], saveSeminar
 
   const newCount = registrations.filter((item) => normaliseSeminarRegistration(item).status === 'New').length;
   const activeLabel = activeSeminar ? `${activeSeminar.seminarDate || 'No date'} ${activeSeminar.seminarTime || ''}`.trim() : 'No active seminar';
+  const seminarFilterOptions = [{ value: 'all', label: 'All seminars' }, ...sortedSeminars.map((item) => ({ value: item.id, label: `${item.status}: ${item.seminarDate || 'No date'} ${item.seminarTime || ''} - ${item.presenterName || item.title || 'Seminar'}` }))];
+  const setupSelectOptions = [{ value: 'new', label: 'New seminar' }, ...sortedSeminars.map((item) => ({ value: item.id, label: `${item.status}: ${item.seminarDate || 'No date'} ${item.seminarTime || ''} - ${item.presenterName || item.title || 'Seminar'}` }))];
 
   return (
     <div className="seminar-management-panel">
       <div className="intake-inbox-summary-row enquiries-summary-row seminar-summary-row">
         <div>
           <span className="eyebrow">Seminar registrations</span>
-          <h2>Seminar setup and review</h2>
-          <p className="muted">Create the next seminar, publish the public registration form, then approve or decline incoming registrations.</p>
+          <h2>Seminar registrations</h2>
+          <p className="muted">Review incoming seminar registrations and send approval or decline emails from this queue.</p>
         </div>
-        <strong>{newCount} new</strong>
+        <div className="seminar-summary-actions">
+          <strong>{newCount} new</strong>
+          <button className="btn" type="button" onClick={openSeminarSetup}><Wrench size={16} />Seminar setup</button>
+          <button className="btn" type="button" onClick={startNewSeminar}><Plus size={16} />New seminar</button>
+        </div>
       </div>
 
-      <div className="seminar-admin-grid">
-        <section className="seminar-admin-card">
-          <div className="section-title-row">
-            <div>
-              <span className="eyebrow">Active session</span>
-              <h3>Seminar details</h3>
-              <p className="muted">The public Squarespace form shows the next active/open seminar. Zoom details stay internal until approval.</p>
-            </div>
-            <button className="btn" type="button" onClick={startNewSeminar}><Plus size={16} />New seminar</button>
-          </div>
-          <div className="form-grid">
-            <SelectField label="Select seminar" value={selectedSeminarId} onChange={selectSeminar} options={[{ value: 'new', label: 'New seminar' }, ...sortedSeminars.map((item) => ({ value: item.id, label: `${item.status}: ${item.seminarDate || 'No date'} ${item.seminarTime || ''} - ${item.presenterName || item.title || 'Seminar'}` }))]} />
-            <SelectField label="Status" value={seminarDraft.status} onChange={(v) => setSeminarField('status', v)} options={SEMINAR_STATUSES} />
-            <Field label="Seminar title" value={seminarDraft.title} onChange={(v) => setSeminarField('title', v)} />
-            <Field label="Presenter name" value={seminarDraft.presenterName} onChange={(v) => setSeminarField('presenterName', v)} />
-            <DateField label="Seminar date (NZ time)" value={seminarDraft.seminarDate} onChange={(v) => setSeminarField('seminarDate', v)} />
-            <TimeField label="Seminar time" value={seminarDraft.seminarTime} onChange={(v) => setSeminarField('seminarTime', v)} />
-            <SelectField label="Reference timezone" value={seminarDraft.timezone || 'Pacific/Auckland'} onChange={(v) => setSeminarField('timezone', v)} options={SEMINAR_TIMEZONE_OPTIONS} />
-            <Field label="Zoom link" value={seminarDraft.zoomLink} onChange={(v) => setSeminarField('zoomLink', v)} />
-            <Field label="Zoom password" value={seminarDraft.zoomPassword} onChange={(v) => setSeminarField('zoomPassword', v)} />
-          </div>
-          <TextArea label="Internal notes" value={seminarDraft.internalNotes} onChange={(v) => setSeminarField('internalNotes', v)} rows={3} />
-          <div className="button-row seminar-action-row">
-            <button className="btn dark" type="button" onClick={saveCurrentSeminar} disabled={saving}><Save size={16} />Save seminar</button>
-            {seminarDraft.id && <button className="btn danger" type="button" onClick={() => deleteSeminar?.(seminarDraft.id)} disabled={saving}><Trash2 size={16} />Delete seminar</button>}
-            <a className="btn" href="/seminar" target="_blank" rel="noreferrer"><ExternalLink size={16} />Open public form</a>
-          </div>
-        </section>
-
-        <section className="seminar-admin-card seminar-status-card">
+      <section className="seminar-active-strip">
+        <div>
           <span className="eyebrow">Current public seminar</span>
           <h3>{activeSeminar?.title || 'No active seminar'}</h3>
-          <p><strong>{activeLabel}</strong></p>
-          <p className="muted">Presenter: {activeSeminar?.presenterName || 'Not set'}</p>
-          <p className="muted">Registrations shown below are for the selected seminar. Use Active/Closed to roll forward after a seminar ends.</p>
-        </section>
-      </div>
+          <p><strong>{activeLabel}</strong>{activeSeminar?.presenterName ? ` · Presenter: ${activeSeminar.presenterName}` : ''}</p>
+          <p className="muted">The public Squarespace form shows the next active/open seminar. Zoom details remain internal until a registration is approved.</p>
+        </div>
+        <div className="seminar-active-actions">
+          <button className="btn dark" type="button" onClick={openSeminarSetup}><Wrench size={16} />Edit seminar setup</button>
+          <a className="btn" href="/seminar" target="_blank" rel="noreferrer"><ExternalLink size={16} />Open public form</a>
+        </div>
+      </section>
 
       {notice && <div className={notice.includes('could not') ? 'error-banner compact' : 'success-banner compact'}>{notice}</div>}
 
       <div className="seminar-registration-toolbar">
+        <div className="seminar-filter-control">
+          <SelectField label="Showing registrations for" value={registrationSeminarFilter} onChange={selectRegistrationSeminar} options={seminarFilterOptions} />
+        </div>
         <div className="enquiries-status-pills" aria-label="Seminar registration status filter">
           {[...SEMINAR_REGISTRATION_STATUSES, 'All'].map((status) => (
             <button key={status} type="button" className={registrationFilter === status ? 'active' : ''} onClick={() => setRegistrationFilter(status)}>
@@ -2517,6 +2529,44 @@ function SeminarManagementPanel({ seminars = [], registrations = [], saveSeminar
           </div>
         )}
       </div>
+
+      {setupOpen && (
+        <div className="modal-layer" role="dialog" aria-modal="true" aria-label="Seminar setup editor">
+          <button className="modal-backdrop" type="button" aria-label="Close seminar setup" onClick={() => setSetupOpen(false)}></button>
+          <section className="modal-card seminar-setup-modal">
+            <div className="modal-head">
+              <div>
+                <span>Seminar setup</span>
+                <h2>Create or edit seminar details</h2>
+              </div>
+              <button className="icon-button" type="button" onClick={() => setSetupOpen(false)} aria-label="Close seminar setup"><X size={18} /></button>
+            </div>
+
+            <div className="seminar-setup-intro">
+              <p>The public Squarespace form shows the next active/open seminar. Zoom details stay internal until you approve a registration.</p>
+            </div>
+
+            <div className="form-grid">
+              <SelectField label="Select seminar" value={selectedSeminarId} onChange={selectSeminar} options={setupSelectOptions} />
+              <SelectField label="Status" value={seminarDraft.status} onChange={(v) => setSeminarField('status', v)} options={SEMINAR_STATUSES} />
+              <Field label="Seminar title" value={seminarDraft.title} onChange={(v) => setSeminarField('title', v)} />
+              <Field label="Presenter name" value={seminarDraft.presenterName} onChange={(v) => setSeminarField('presenterName', v)} />
+              <DateField label="Seminar date (NZ time)" value={seminarDraft.seminarDate} onChange={(v) => setSeminarField('seminarDate', v)} />
+              <TimeField label="Seminar time" value={seminarDraft.seminarTime} onChange={(v) => setSeminarField('seminarTime', v)} />
+              <SelectField label="Reference timezone" value={seminarDraft.timezone || 'Pacific/Auckland'} onChange={(v) => setSeminarField('timezone', v)} options={SEMINAR_TIMEZONE_OPTIONS} />
+              <Field label="Zoom link" value={seminarDraft.zoomLink} onChange={(v) => setSeminarField('zoomLink', v)} />
+              <Field label="Zoom password" value={seminarDraft.zoomPassword} onChange={(v) => setSeminarField('zoomPassword', v)} />
+            </div>
+            <TextArea label="Internal notes" value={seminarDraft.internalNotes} onChange={(v) => setSeminarField('internalNotes', v)} rows={3} />
+            <div className="modal-actions seminar-action-row">
+              <button className="btn dark" type="button" onClick={saveCurrentSeminar} disabled={saving}><Save size={16} />Save seminar</button>
+              {seminarDraft.id && <button className="btn danger" type="button" onClick={() => deleteSeminar?.(seminarDraft.id)} disabled={saving}><Trash2 size={16} />Delete seminar</button>}
+              <a className="btn" href="/seminar" target="_blank" rel="noreferrer"><ExternalLink size={16} />Open public form</a>
+              <button className="btn" type="button" onClick={() => setSetupOpen(false)}>Close</button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,3 +1,24 @@
+# THiS CRM v0.12.25 — Seminar Setup Pop-out
+
+## v0.12.25 changes
+
+- Moved the internal **Seminar setup** form into a pop-out editor so the Seminar Registrations page opens directly on the review queue.
+- Added a compact current-seminar summary card with **Edit seminar setup**, **New seminar**, and **Open public form** actions.
+- Added a seminar selector above the registration queue so advisers can review registrations for the active seminar or all seminars without opening the setup form.
+- Kept the existing time-picker and seminar email behaviour from v0.12.24.
+- No database migration required.
+
+## Test process
+
+1. Deploy this package to Netlify.
+2. Open CRM > Enquiries & Intake > Seminar Registrations.
+3. Confirm the page shows the registration queue first, with the setup form hidden.
+4. Click **Edit seminar setup** and confirm the seminar setup pop-out opens.
+5. Save a seminar and confirm the pop-out closes and the current seminar summary updates.
+6. Submit or review a test registration and confirm approval/decline emails still work.
+
+---
+
 # THiS CRM v0.12.24 — Seminar Time Picker
 
 ## v0.12.24 changes
