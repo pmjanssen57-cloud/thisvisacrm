@@ -4449,7 +4449,8 @@ function HeaderLocalSnapshot({ adviser }) {
 }
 
 function normaliseHeaderWeatherLocation(adviser = {}) {
-  const value = adviser.weatherLocation || adviser.weather_location || adviser.city || adviser.officeLocation || adviser.office_location || adviser.location || '';
+  const source = adviser || {};
+  const value = source.weatherLocation || source.weather_location || source.city || source.officeLocation || source.office_location || source.location || '';
   return String(value || '').trim() || 'Auckland';
 }
 
