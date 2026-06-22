@@ -1089,7 +1089,7 @@ export default function App() {
             </nav>
 
             {tab === 'intake' && (
-              <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} statuses={data.intakeStatuses || INTAKE_STATUSES} seminars={data.seminars || []} seminarRegistrations={data.seminarRegistrations || []} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} downloadIntakeUpload={downloadIntakeUpload} saveSeminar={saveSeminar} deleteSeminar={deleteSeminar} saveSeminarRegistration={saveSeminarRegistration} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail} saving={saving} openClientRecord={openClientRecord} />
+              <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} statuses={data.intakeStatuses || INTAKE_STATUSES} seminars={data.seminars || []} seminarRegistrations={data.seminarRegistrations || []} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} downloadIntakeUpload={downloadIntakeUpload} saveSeminar={saveSeminar} deleteSeminar={deleteSeminar} saveSeminarRegistration={saveSeminarRegistration} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail} saving={saving} openClientRecord={openClientRecord} />
             )}
 
             {tab === 'dashboard' && (
@@ -1947,7 +1947,12 @@ function isContactIntake(record = {}) {
   return String(payload.formType || '').toLowerCase() === 'contact' || String(payload.submittedVia || '').toLowerCase().includes('contact form');
 }
 
-function IntakeWorkspace({ enquiries, advisers, statuses, seminars = [], seminarRegistrations = [], saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, sendContactIntakeInviteEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saving, openClientRecord }) {
+function matchesIntakeAdviserScope(item = {}, adviserScope = 'all') {
+  if (!adviserScope || adviserScope === 'all') return true;
+  return String(item.assignedAdviserId || '') === String(adviserScope);
+}
+
+function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', statuses, seminars = [], seminarRegistrations = [], saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, sendContactIntakeInviteEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saving, openClientRecord }) {
   const simplifiedStatuses = (statuses || INTAKE_STATUSES).filter((status) => INTAKE_STATUSES.includes(status));
   const [workspaceTab, setWorkspaceTab] = useState('contact');
   const [statusFilter, setStatusFilter] = useState('New');
@@ -1972,8 +1977,14 @@ function IntakeWorkspace({ enquiries, advisers, statuses, seminars = [], seminar
     .map((item) => normaliseIntakeEnquiry(item))
     .sort((a, b) => intakeSortTime(b) - intakeSortTime(a));
 
-  const contactEnquiries = normalisedEnquiries.filter((item) => isContactIntake(item));
-  const intakeEnquiries = normalisedEnquiries.filter((item) => !isContactIntake(item));
+  const activeAdvisers = advisers.filter((adviser) => adviser.active !== false);
+  const selectedScopeAdviser = dashboardAdviserFilter === 'all' ? null : advisers.find((adviser) => adviser.id === dashboardAdviserFilter);
+  const contactEnquiries = normalisedEnquiries
+    .filter((item) => isContactIntake(item))
+    .filter((item) => matchesIntakeAdviserScope(item, dashboardAdviserFilter));
+  const intakeEnquiries = normalisedEnquiries
+    .filter((item) => !isContactIntake(item))
+    .filter((item) => matchesIntakeAdviserScope(item, dashboardAdviserFilter));
 
   const contactFiltered = contactEnquiries.filter((item) => {
     const q = query.trim().toLowerCase();
@@ -2086,7 +2097,7 @@ function IntakeWorkspace({ enquiries, advisers, statuses, seminars = [], seminar
     return advisers.find((adviser) => String(adviser.id || '') === String(item.assignedAdviserId || '')) || null;
   }
 
-  async function assignContactAdviser(item, adviserId) {
+  async function assignIntakeAdviser(item, adviserId) {
     if (!item?.id) return;
     await saveIntakeEnquiry({ ...item, assignedAdviserId: adviserId });
   }
@@ -2203,7 +2214,7 @@ function IntakeWorkspace({ enquiries, advisers, statuses, seminars = [], seminar
           <div>
             <span className="eyebrow">{workspaceTab === 'contact' ? 'Short website enquiries' : 'Full assessment questionnaires'}</span>
             <h2>{workspaceTab === 'contact' ? 'Contact forms' : `${statusFilter} intake forms`}</h2>
-            <p className="muted">{workspaceTab === 'contact' ? 'Handled from the email notification. Delete from here once no longer needed.' : 'Use the simple statuses to keep the pre-client queue tidy.'}</p>
+            <p className="muted">{workspaceTab === 'contact' ? 'Handled from the email notification. Delete from here once no longer needed.' : `Use the simple statuses to keep the pre-client queue tidy.${selectedScopeAdviser ? ` Showing records assigned to ${selectedScopeAdviser.name}.` : ''}`}</p>
           </div>
           <strong>{visibleRecords.length} shown</strong>
         </div>
@@ -2229,9 +2240,9 @@ function IntakeWorkspace({ enquiries, advisers, statuses, seminars = [], seminar
                       <div className="contact-review-actions">
                         <label className="contact-adviser-select">
                           <span>Managed by</span>
-                          <select value={item.assignedAdviserId || ''} onChange={(event) => assignContactAdviser(item, event.target.value)} disabled={saving}>
+                          <select value={item.assignedAdviserId || ''} onChange={(event) => assignIntakeAdviser(item, event.target.value)} disabled={saving}>
                             <option value="">Unassigned</option>
-                            {advisers.filter((adviser) => adviser.active !== false).map((adviser) => (
+                            {activeAdvisers.map((adviser) => (
                               <option key={adviser.id} value={adviser.id}>{adviser.name}</option>
                             ))}
                           </select>
@@ -2278,12 +2289,19 @@ function IntakeWorkspace({ enquiries, advisers, statuses, seminars = [], seminar
                     <span className={`library-status ${statusClass(item.status)}`}>{item.status}</span>
                     <small>{item.convertedClientId ? 'Client record created' : `${Object.values(item.flags || {}).filter(Boolean).length} flag${Object.values(item.flags || {}).filter(Boolean).length === 1 ? '' : 's'}`}</small>
                   </div>
-                  <span className="intake-open-record-label">View</span>
-                  <ChevronRight size={18} className="intake-expand-icon" />
                 </button>
                 <div className="intake-inbox-flags-row"><IntakeFlagList flags={item.flags} compact /></div>
-                <div className="intake-card-actions">
-                  <button className="btn" type="button" onClick={() => openIntakeEditor(item)}>View</button>
+                <div className="intake-card-actions intake-card-actions-polished">
+                  <label className="contact-adviser-select intake-card-adviser-select">
+                    <span>Assigned to</span>
+                    <select value={item.assignedAdviserId || ''} onClick={(event) => event.stopPropagation()} onChange={(event) => assignIntakeAdviser(item, event.target.value)} disabled={saving}>
+                      <option value="">Unassigned</option>
+                      {activeAdvisers.map((adviser) => (
+                        <option key={adviser.id} value={adviser.id}>{adviser.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <button className="btn dark intake-view-button" type="button" onClick={() => openIntakeEditor(item)}>View intake</button>
                   {item.status !== 'Contacted' && <button className="btn" type="button" onClick={() => updateIntakeStatus(item, 'Contacted')} disabled={saving}>Mark contacted</button>}
                   {item.status !== 'Converted' && <button className="btn dark" type="button" onClick={() => convertIntake(item)} disabled={saving || Boolean(item.convertedClientId)}>Convert</button>}
                   {item.status !== 'Spam / Duplicate' && <button className="btn danger" type="button" onClick={() => updateIntakeStatus(item, 'Spam / Duplicate')} disabled={saving}>Spam / Duplicate</button>}

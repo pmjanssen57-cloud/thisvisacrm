@@ -4185,7 +4185,7 @@ body.intake-embed-mode .intake-public-card {
 .intake-inbox-list { display: grid; gap: 12px; }
 .intake-inbox-card { border: 1px solid var(--line); border-radius: 20px; background: #fff; overflow: hidden; min-width: 0; }
 .intake-inbox-card.expanded { border-color: #cfe3df; box-shadow: 0 12px 32px rgba(0, 55, 54, 0.08); }
-.intake-inbox-card-head { width: 100%; border: 0; background: #fff; display: grid; grid-template-columns: minmax(190px, 1.25fr) minmax(150px, 0.95fr) minmax(130px, 0.8fr) minmax(145px, 0.8fr) minmax(125px, 0.7fr) 28px; gap: 12px; align-items: center; text-align: left; padding: 14px 16px 8px; cursor: pointer; color: inherit; }
+.intake-inbox-card-head { width: 100%; border: 0; background: #fff; display: grid; grid-template-columns: minmax(190px, 1.25fr) minmax(150px, 0.95fr) minmax(130px, 0.8fr) minmax(145px, 0.8fr) minmax(125px, 0.7fr); gap: 12px; align-items: center; text-align: left; padding: 14px 16px 8px; cursor: pointer; color: inherit; }
 .intake-inbox-card-head:hover { background: #fbfdfc; }
 .intake-inbox-person, .intake-inbox-detail, .intake-inbox-status-block { display: grid; gap: 4px; min-width: 0; }
 .intake-inbox-person strong { color: var(--ink); font-size: 1rem; overflow-wrap: anywhere; }
@@ -4205,7 +4205,7 @@ body.intake-embed-mode .intake-public-card {
 
 @media (max-width: 1250px) {
   .intake-inbox-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .intake-inbox-card-head { grid-template-columns: minmax(190px, 1fr) minmax(150px, 0.9fr) minmax(130px, 0.8fr) minmax(120px, 0.7fr) 28px; }
+  .intake-inbox-card-head { grid-template-columns: minmax(190px, 1fr) minmax(150px, 0.9fr) minmax(130px, 0.8fr) minmax(120px, 0.7fr); }
   .intake-inbox-card-head .intake-inbox-detail:nth-of-type(4) { display: none; }
   .intake-review-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -8894,5 +8894,29 @@ body.intake-embed-mode .seminar-public-card {
 @media (min-width: 1200px) {
   .crm-main-nav-polished.nav-expanded-row {
     flex-wrap: nowrap;
+  }
+}
+
+
+/* v0.12.39: Intake card assignment polish */
+.intake-card-actions-polished {
+  align-items: end;
+}
+.intake-card-adviser-select {
+  min-width: 220px;
+  margin-right: auto;
+}
+.intake-view-button {
+  min-width: 116px;
+  justify-content: center;
+}
+@media (max-width: 760px) {
+  .intake-card-actions-polished {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .intake-card-actions-polished .btn,
+  .intake-card-adviser-select {
+    width: 100%;
   }
 }
