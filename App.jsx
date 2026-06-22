@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { acceptInvite, getUser, handleAuthCallback, login, logout, onAuthChange, requestPasswordRecovery, updateUser } from '@netlify/identity';
-import { AlertTriangle, ArrowUpDown, BookOpen, Calculator, CalendarDays, CheckCircle2, ChevronRight, Clock, CloudSun, Copy, CreditCard, ClipboardList, Database, DollarSign, Download, ExternalLink, FileText, Globe2, HelpCircle, LayoutDashboard, Link2, ListChecks, LockKeyhole, Mail, MessageSquare, Phone, Plus, RefreshCw, Save, Search, Send, ShieldCheck, Trash2, UserRound, UsersRound, Wrench, X } from 'lucide-react';
+import { AlertTriangle, ArrowUpDown, BookOpen, Calculator, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Clock, CloudSun, Copy, CreditCard, ClipboardList, Database, DollarSign, Download, ExternalLink, FileText, Globe2, HelpCircle, LayoutDashboard, Link2, ListChecks, LockKeyhole, Mail, MessageSquare, MoreHorizontal, Phone, Plus, RefreshCw, Save, Search, Send, ShieldCheck, SlidersHorizontal, Trash2, UserRound, UsersRound, Wrench, X } from 'lucide-react';
 
 const BRAND = {
   ink: '#003736',
@@ -440,6 +440,8 @@ export default function App() {
   const [error, setError] = useState('');
   const [supportOpen, setSupportOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [newMenuOpen, setNewMenuOpen] = useState(false);
+  const [mainNavMoreOpen, setMainNavMoreOpen] = useState(false);
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const [clientEditorDirty, setClientEditorDirty] = useState(false);
   const [calendarEditorDirty, setCalendarEditorDirty] = useState(false);
@@ -1025,17 +1027,21 @@ export default function App() {
         </div>
         <AuthStatus user={identityUser} adviser={identityAdviser} accessCodeActive={Boolean(accessCode)} onLogout={logoutIdentityUser} />
         <div className="top-actions desktop-only">
-          <button className="btn ghost" onClick={() => { setToolsOpen(false); setSupportOpen(true); }}><HelpCircle size={16} />Help</button>
-          <button className="btn ghost" onClick={() => { setSupportOpen(false); setToolsOpen(true); }}><Wrench size={16} />Tools</button>
-          <button className="btn ghost" onClick={refreshData} disabled={loading}><RefreshCw size={16} />Refresh</button>
-          {(identityUser || accessCode) && <button className="btn danger" onClick={logoutIdentityUser}><LockKeyhole size={16} />Sign out</button>}
-          <button className="btn dark" onClick={addClient}><Plus size={16} />Client</button>
-          {canManageAdvisers && <button className="btn" onClick={addAdviser}><Plus size={16} />Adviser</button>}
+          <button className="btn ghost compact-action" onClick={() => { setSupportOpen(false); setToolsOpen(true); setNewMenuOpen(false); }}><Wrench size={16} />Tools</button>
+          <div className="dropdown-shell new-action-shell">
+            <button className="btn dark" type="button" onClick={() => setNewMenuOpen((open) => !open)}><Plus size={16} />New <ChevronDown size={15} /></button>
+            {newMenuOpen && (
+              <div className="dropdown-menu action-dropdown-menu">
+                <button type="button" onClick={() => { setNewMenuOpen(false); addClient(); }}><UsersRound size={16} /><span><strong>New client</strong><small>Create an active client record</small></span></button>
+                <button type="button" onClick={() => { setNewMenuOpen(false); setTab('intake'); }}><ClipboardList size={16} /><span><strong>New enquiry / intake</strong><small>Open the enquiry workspace</small></span></button>
+                <button type="button" onClick={() => { setNewMenuOpen(false); setTab('intake'); }}><CalendarDays size={16} /><span><strong>New seminar</strong><small>Use seminar setup in Enquiries & Intake</small></span></button>
+                {canManageAdvisers && <button type="button" onClick={() => { setNewMenuOpen(false); addAdviser(); }}><UserRound size={16} /><span><strong>New adviser</strong><small>Add a team profile</small></span></button>}
+              </div>
+            )}
+          </div>
         </div>
         <div className="mobile-header-actions mobile-only">
-          <button className="btn ghost" onClick={() => { setToolsOpen(false); setSupportOpen(true); }}><HelpCircle size={16} />Help</button>
           <button className="btn ghost" onClick={() => { setSupportOpen(false); setToolsOpen(true); }}><Wrench size={16} />Tools</button>
-          <button className="btn ghost" onClick={refreshData} disabled={loading}><RefreshCw size={16} />Refresh</button>
         </div>
       </header>
 
@@ -1071,19 +1077,21 @@ export default function App() {
               setCaseTypeFilter={setCaseTypeFilter}
               canViewAllAdvisers={canViewAllAdvisers}
             />
-            <nav className="tabs desktop-tabs main-nav" aria-label="Main CRM navigation">
-              <div className="main-nav-group main-nav-primary">
-                <TabButton active={tab === 'dashboard'} onClick={() => switchTab('dashboard')} icon={LayoutDashboard} label="Dashboard" />
-                <TabButton active={tab === 'tasks'} onClick={() => switchTab('tasks')} icon={ListChecks} label="Tasks" />
-                <TabButton active={tab === 'clients'} onClick={() => switchTab('clients')} icon={UsersRound} label="Clients" />
-              </div>
-              <div className="main-nav-divider" aria-hidden="true" />
-              <div className="main-nav-group main-nav-secondary">
-                <TabButton active={tab === 'calendar'} onClick={() => switchTab('calendar')} icon={CalendarDays} label="Calendar" />
-                <TabButton active={tab === 'billing'} onClick={() => switchTab('billing')} icon={CreditCard} label="Billing" />
-                <TabButton active={tab === 'intake'} onClick={() => switchTab('intake')} icon={ClipboardList} label="Enquiries & Intake" />
-                <TabButton active={tab === 'library'} onClick={() => switchTab('library')} icon={BookOpen} label="Library" />
-                {canManageAdvisers && <TabButton active={tab === 'advisers'} onClick={() => switchTab('advisers')} icon={UsersRound} label="Advisers" />}
+            <nav className="tabs desktop-tabs main-nav crm-main-nav-polished" aria-label="Main CRM navigation">
+              <TabButton active={tab === 'dashboard'} onClick={() => { setMainNavMoreOpen(false); switchTab('dashboard'); }} icon={LayoutDashboard} label="Dashboard" />
+              <TabButton active={tab === 'tasks'} onClick={() => { setMainNavMoreOpen(false); switchTab('tasks'); }} icon={ListChecks} label="Tasks" />
+              <TabButton active={tab === 'clients'} onClick={() => { setMainNavMoreOpen(false); switchTab('clients'); }} icon={UsersRound} label="Clients" />
+              <TabButton active={tab === 'intake'} onClick={() => { setMainNavMoreOpen(false); switchTab('intake'); }} icon={ClipboardList} label="Enquiries & Intake" />
+              <div className="dropdown-shell main-nav-more-shell">
+                <button className={`tab nav-more-button ${['calendar', 'billing', 'library', 'advisers'].includes(tab) ? 'active' : ''}`} type="button" onClick={() => setMainNavMoreOpen((open) => !open)}><MoreHorizontal size={17} />More <ChevronDown size={15} /></button>
+                {mainNavMoreOpen && (
+                  <div className="dropdown-menu nav-more-menu">
+                    <button type="button" className={tab === 'calendar' ? 'active' : ''} onClick={() => { setMainNavMoreOpen(false); switchTab('calendar'); }}><CalendarDays size={16} />Calendar</button>
+                    <button type="button" className={tab === 'billing' ? 'active' : ''} onClick={() => { setMainNavMoreOpen(false); switchTab('billing'); }}><CreditCard size={16} />Billing</button>
+                    <button type="button" className={tab === 'library' ? 'active' : ''} onClick={() => { setMainNavMoreOpen(false); switchTab('library'); }}><BookOpen size={16} />Library</button>
+                    {canManageAdvisers && <button type="button" className={tab === 'advisers' ? 'active' : ''} onClick={() => { setMainNavMoreOpen(false); switchTab('advisers'); }}><UsersRound size={16} />Advisers</button>}
+                  </div>
+                )}
               </div>
             </nav>
 
@@ -1144,7 +1152,7 @@ export default function App() {
         )}
       </main>
       <SupportDrawer open={supportOpen} onOpen={() => { setToolsOpen(false); setSupportOpen(true); }} onClose={() => setSupportOpen(false)} tab={tab} />
-      <ToolsDrawer open={toolsOpen} onOpen={() => { setSupportOpen(false); setToolsOpen(true); }} onClose={() => setToolsOpen(false)} sendTestEmail={sendTestEmail} saveEmailTemplate={saveEmailTemplate} resetEmailTemplate={resetEmailTemplate} emailLogs={data.emailLogs || []} emailTemplates={data.emailTemplates || []} emailConfig={data.emailConfig || emptyData.emailConfig} saving={saving} />
+      <ToolsDrawer open={toolsOpen} onOpen={() => { setSupportOpen(false); setToolsOpen(true); }} onClose={() => setToolsOpen(false)} onOpenHelp={() => { setToolsOpen(false); setSupportOpen(true); }} onRefresh={refreshData} loading={loading} sendTestEmail={sendTestEmail} saveEmailTemplate={saveEmailTemplate} resetEmailTemplate={resetEmailTemplate} emailLogs={data.emailLogs || []} emailTemplates={data.emailTemplates || []} emailConfig={data.emailConfig || emptyData.emailConfig} saving={saving} />
       <MobileBottomNav activeTab={tab} onNavigate={switchTab} onOpenMore={() => setMobileMoreOpen(true)} />
       <MobileMoreSheet
         open={mobileMoreOpen}
@@ -3959,7 +3967,7 @@ function MobileBottomNav({ activeTab, onNavigate, onOpenMore }) {
     { tab: 'dashboard', label: 'Home', icon: LayoutDashboard },
     { tab: 'tasks', label: 'Tasks', icon: ListChecks },
     { tab: 'clients', label: 'Clients', icon: UsersRound },
-    { tab: 'calendar', label: 'Calendar', icon: CalendarDays },
+    { tab: 'intake', label: 'Enquiries', icon: ClipboardList },
   ];
   const moreActive = ['billing', 'advisers', 'library', 'intake'].includes(activeTab);
   return (
@@ -4028,7 +4036,7 @@ const TOOL_TIMEZONES = [
   { value: 'America/New_York', label: 'New York, USA' },
 ];
 
-function ToolsDrawer({ open, onOpen, onClose, sendTestEmail, saveEmailTemplate, resetEmailTemplate, emailLogs = [], emailTemplates = [], emailConfig = {}, saving = false }) {
+function ToolsDrawer({ open, onOpen, onClose, onOpenHelp, onRefresh, loading = false, sendTestEmail, saveEmailTemplate, resetEmailTemplate, emailLogs = [], emailTemplates = [], emailConfig = {}, saving = false }) {
   const [activeTool, setActiveTool] = useState('weather');
   const [emailLogOpen, setEmailLogOpen] = useState(false);
   const [templateEditorOpen, setTemplateEditorOpen] = useState(false);
@@ -4053,6 +4061,8 @@ function ToolsDrawer({ open, onOpen, onClose, sendTestEmail, saveEmailTemplate, 
           <button type="button" className={activeTool === 'timezone' ? 'active' : ''} onClick={() => setActiveTool('timezone')}><Globe2 size={16} />Time</button>
           <button type="button" className={activeTool === 'currency' ? 'active' : ''} onClick={() => setActiveTool('currency')}><DollarSign size={16} />Currency</button>
           <button type="button" className={activeTool === 'calculator' ? 'active' : ''} onClick={() => setActiveTool('calculator')}><Calculator size={16} />Calc</button>
+          <button type="button" onClick={onOpenHelp}><HelpCircle size={16} />Help</button>
+          <button type="button" onClick={onRefresh} disabled={loading}><RefreshCw size={16} />Refresh</button>
           <button type="button" onClick={() => setTemplateEditorOpen(true)}><Mail size={16} />Templates</button>
           <button type="button" onClick={() => setEmailLogOpen(true)}><Mail size={16} />Email log</button>
         </div>
@@ -4860,7 +4870,7 @@ function SupportDrawer({ open, onOpen, onClose, tab }) {
 
 function ViewToolbar({ advisers, dashboardAdviserFilter, setDashboardAdviserFilter, clientQuery, setClientQuery, matchingClientCount, setTab, setAdviserFilter, setCaseTypeFilter, canViewAllAdvisers = true }) {
   const selectedAdviser = advisers.find((adviser) => adviser.id === dashboardAdviserFilter);
-  const viewLabel = selectedAdviser ? `${selectedAdviser.name}'s client records` : 'All advisers';
+  const viewLabel = selectedAdviser ? selectedAdviser.name : 'All advisers';
 
   function submitSearch(event) {
     event.preventDefault();
@@ -4875,33 +4885,24 @@ function ViewToolbar({ advisers, dashboardAdviserFilter, setDashboardAdviserFilt
   }
 
   return (
-    <section className="view-toolbar">
-      <div className="view-copy">
-        <UserRound size={18} />
-        <div>
-          <strong>Current view: {viewLabel}</strong>
-          <span>Use this to switch between whole-practice reporting and an individual adviser view.</span>
-        </div>
+    <section className="view-toolbar compact-view-toolbar">
+      <label className="scope-select compact-scope-select">
+        <span>Viewing</span>
+        <select value={dashboardAdviserFilter} onChange={(event) => setDashboardAdviserFilter(event.target.value)}>
+          {canViewAllAdvisers && <option value="all">All advisers</option>}
+          {advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}
+        </select>
+      </label>
+      <form className="global-search compact-global-search" onSubmit={submitSearch}>
+        <Search size={16} />
+        <input value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} placeholder="Search clients, citizenship, case type, strategy..." />
+        <button className="btn dark" type="submit">Search</button>
+      </form>
+      <div className="view-result compact-view-result" title={`${matchingClientCount} matching clients in ${viewLabel} view`}>
+        <strong>{matchingClientCount}</strong>
+        <span>result{matchingClientCount === 1 ? '' : 's'}</span>
       </div>
-      <div className="view-controls">
-        <label>
-          <span>Adviser scope</span>
-          <select value={dashboardAdviserFilter} onChange={(event) => setDashboardAdviserFilter(event.target.value)}>
-            {canViewAllAdvisers && <option value="all">All advisers</option>}
-            {advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}
-          </select>
-        </label>
-        <form className="global-search" onSubmit={submitSearch}>
-          <Search size={16} />
-          <input value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} placeholder="Search clients, citizenship, address, case type, strategy..." />
-          <button className="btn dark" type="submit">Search</button>
-        </form>
-        <div className="view-result">
-          <strong>{matchingClientCount}</strong>
-          <span>matching client{matchingClientCount === 1 ? '' : 's'}</span>
-        </div>
-        <button className="btn ghost" type="button" onClick={clearView}><X size={16} />Clear</button>
-      </div>
+      <button className="btn ghost compact-clear-btn" type="button" onClick={clearView}><X size={16} />Clear</button>
     </section>
   );
 }
@@ -5649,6 +5650,7 @@ function PortalDocumentAdminRow({ doc, updatePortalDocument, deletePortalDocumen
 function ClientsWorkspace(props) {
   const { clients, selectedClient, advisers, caseTypes, deadlineTypes, clientQuery, setClientQuery, adviserFilter, setAdviserFilter, caseTypeFilter, setCaseTypeFilter, setSelectedClientId, onDirtyChange, saveClient, updatePortalMessageStatus, uploadPortalDocument, updatePortalDocument, deletePortalDocument, deleteClient, saving, calendarEntries = [] } = props;
   const [popoutOpen, setPopoutOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [popoutDirty, setPopoutDirty] = useState(false);
   const [popoutInitialSection, setPopoutInitialSection] = useState('overview');
 
@@ -5674,10 +5676,17 @@ function ClientsWorkspace(props) {
   return (
     <div className="workspace-grid">
       <aside className="panel list-panel">
-        <h2>Clients</h2>
+        <div className="client-list-head">
+          <h2>Clients</h2>
+          <button className={`btn mini filter-toggle ${filtersOpen ? 'active' : ''}`} type="button" onClick={() => setFiltersOpen((open) => !open)}><SlidersHorizontal size={14} />Filters</button>
+        </div>
         <div className="search-box"><Search size={16} /><input value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} placeholder="Search clients" /></div>
-        <select value={adviserFilter} onChange={(event) => setAdviserFilter(event.target.value)}><option value="all">All advisers</option>{advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}</select>
-        <select value={caseTypeFilter} onChange={(event) => setCaseTypeFilter(event.target.value)}><option value="all">All case types</option>{caseTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select>
+        {filtersOpen && (
+          <div className="client-filter-panel">
+            <label><span>Adviser</span><select value={adviserFilter} onChange={(event) => setAdviserFilter(event.target.value)}><option value="all">All advisers</option>{advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}</select></label>
+            <label><span>Case type</span><select value={caseTypeFilter} onChange={(event) => setCaseTypeFilter(event.target.value)}><option value="all">All case types</option>{caseTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
+          </div>
+        )}
         <div className="client-list">
           {clients.map((client) => (
             <button className={`client-card ${selectedClient.id === client.id ? 'active' : ''}`} key={client.id} onClick={() => setSelectedClientId(client.id)}>
@@ -5731,6 +5740,7 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
   const [activeClientSection, setActiveClientSection] = useState('overview');
   const [showActionLog, setShowActionLog] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
+  const [clientActionsOpen, setClientActionsOpen] = useState(false);
   const [customStageLabel, setCustomStageLabel] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
   const [validationMessage, setValidationMessage] = useState('');
@@ -6111,11 +6121,18 @@ The portal is a secure, read-only space where you can check application updates,
           <h1>{draft.firstName || 'New'} {draft.lastName || 'client'}</h1>
           <p>{draft.caseType || 'No case type selected'} · {currentStage} · {progressPercent(draft)}% progress</p>
         </div>
-        <div className="button-row">
-          {popoutMode ? <button className="btn" type="button" onClick={() => onRequestClose?.()}><X size={16} />Close</button> : <button className="btn" type="button" onClick={() => handleOpenPopout(activeClientSection)}><ExternalLink size={16} />Open full editor</button>}
-          <button className="btn danger" onClick={() => deleteClient(draft.id)} disabled={saving || String(draft.id).startsWith('temp-')}><Trash2 size={16} />Delete</button>
+        <div className="button-row client-header-actions">
           <button className="btn dark" onClick={handleSaveClient} disabled={saving}><Save size={16} />Save</button>
           {popoutMode && <button className="btn dark" type="button" onClick={handleSaveAndClose} disabled={saving}><Save size={16} />Save & close</button>}
+          <div className="dropdown-shell client-actions-menu-shell">
+            <button className="btn ghost" type="button" onClick={() => setClientActionsOpen((open) => !open)}><MoreHorizontal size={16} />More <ChevronDown size={14} /></button>
+            {clientActionsOpen && (
+              <div className="dropdown-menu client-actions-menu">
+                {popoutMode ? <button type="button" onClick={() => { setClientActionsOpen(false); onRequestClose?.(); }}><X size={16} />Close editor</button> : <button type="button" onClick={() => { setClientActionsOpen(false); handleOpenPopout(activeClientSection); }}><ExternalLink size={16} />Open full editor</button>}
+                <button type="button" className="danger-option" onClick={() => { setClientActionsOpen(false); deleteClient(draft.id); }} disabled={saving || String(draft.id).startsWith('temp-')}><Trash2 size={16} />Delete client</button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

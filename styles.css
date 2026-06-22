@@ -8548,3 +8548,248 @@ body.intake-embed-mode .seminar-public-card {
 .portal-document-checklist-card .portal-collapsible-icon-chip {
   background: rgba(0, 55, 54, 0.055);
 }
+
+/* v0.12.36 CRM top-level polish */
+.top-actions.desktop-only {
+  gap: 8px;
+}
+
+.compact-action {
+  padding-inline: 12px;
+}
+
+.dropdown-shell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 60;
+  min-width: 220px;
+  padding: 8px;
+  border: 1px solid rgba(85, 217, 160, 0.28);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 18px 45px rgba(0, 55, 54, 0.14);
+  backdrop-filter: blur(10px);
+}
+
+.dropdown-menu button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  border-radius: 13px;
+  padding: 10px 11px;
+  font-weight: 800;
+}
+
+.dropdown-menu button:hover,
+.dropdown-menu button.active {
+  background: var(--pale);
+}
+
+.dropdown-menu button:disabled {
+  opacity: 0.52;
+}
+
+.dropdown-menu button span {
+  display: grid;
+  gap: 2px;
+}
+
+.dropdown-menu button small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.action-dropdown-menu {
+  min-width: 270px;
+}
+
+.crm-main-nav-polished {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  grid-template-columns: none;
+}
+
+.crm-main-nav-polished .tab {
+  min-width: 132px;
+  padding-inline: 16px;
+}
+
+.crm-main-nav-polished .main-nav-more-shell {
+  margin-left: auto;
+}
+
+.nav-more-button {
+  border: 0;
+}
+
+.nav-more-menu {
+  min-width: 190px;
+}
+
+.compact-view-toolbar {
+  display: grid;
+  grid-template-columns: minmax(210px, 0.75fr) minmax(360px, 1.5fr) auto auto;
+  align-items: end;
+  gap: 12px;
+  padding: 16px 18px;
+}
+
+.compact-view-toolbar .scope-select,
+.compact-view-toolbar .global-search,
+.compact-view-toolbar .view-result,
+.compact-view-toolbar .btn {
+  margin: 0;
+}
+
+.compact-scope-select {
+  display: grid;
+  gap: 7px;
+}
+
+.compact-scope-select span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.compact-global-search {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.compact-view-result {
+  min-width: 96px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  background: var(--pale);
+  border-radius: 16px;
+  display: grid;
+  line-height: 1.1;
+}
+
+.compact-view-result strong {
+  color: var(--ink);
+  font-size: 18px;
+}
+
+.compact-view-result span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.compact-clear-btn {
+  align-self: stretch;
+}
+
+.client-list-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.client-list-head h2 {
+  margin: 0;
+}
+
+.filter-toggle.active {
+  color: var(--ink);
+  background: var(--pale);
+  border-color: rgba(85, 217, 160, 0.46);
+}
+
+.client-filter-panel {
+  display: grid;
+  gap: 10px;
+  margin: 10px 0 12px;
+  padding: 12px;
+  border: 1px solid rgba(85, 217, 160, 0.25);
+  border-radius: 18px;
+  background: linear-gradient(135deg, #fbfffd, #f6fbf8);
+}
+
+.client-filter-panel label {
+  display: grid;
+  gap: 6px;
+}
+
+.client-filter-panel label span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.client-header-actions {
+  align-items: center;
+}
+
+.client-actions-menu {
+  min-width: 190px;
+}
+
+.dropdown-menu .danger-option {
+  color: #b45309;
+}
+
+.dropdown-menu .danger-option:hover {
+  background: #fff7ed;
+}
+
+.tools-drawer .tool-tabs button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 1100px) {
+  .compact-view-toolbar {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+  .compact-global-search {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .compact-global-search .btn {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
+  .compact-clear-btn {
+    justify-content: center;
+  }
+  .crm-main-nav-polished {
+    overflow-x: auto;
+  }
+  .crm-main-nav-polished .main-nav-more-shell {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .dropdown-menu {
+    right: auto;
+    left: 0;
+  }
+}
