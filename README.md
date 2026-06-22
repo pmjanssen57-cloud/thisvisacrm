@@ -1,7 +1,14 @@
-# THiS CRM v0.13.3 - Search Actions Alignment Polish
+# THiS CRM v0.13.4 - Portal Contact Footer Polish
 
 This build adds the first native consultation booking module to THiS CRM. The module is intentionally separate from the daily adviser workflow so it can be configured and tested without cluttering the dashboard, client workspace, or Enquiries & Intake screens.
 
+
+## v0.13.4 changes
+
+- Replaced the collapsible client portal **Contact Turner Hopkins** card with a fixed dark green footer.
+- Restored strong light text contrast for phone, email, website and last-updated details.
+- Removed the footer chevron/collapse behaviour so the contact details are always visible.
+- No database migration required.
 
 ## v0.13.3 changes
 

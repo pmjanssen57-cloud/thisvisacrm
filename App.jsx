@@ -4143,25 +4143,35 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
           </div>
         </PortalAccordionCard>
 
-        <PortalAccordionCard
-          title="Contact Turner Hopkins"
-          description="For questions about your application, contact your adviser or the Turner Hopkins team."
-          className="wide contact-card portal-footer-card"
-          icon={<Phone size={22} />}
-        >
-          <div className="portal-contact-grid">
-            <p><Phone size={17} /><a href={`tel:${String(snapshot.turnerHopkins.phone || '').replace(/\s+/g, '')}`}>{snapshot.turnerHopkins.phone}</a></p>
-            <p><Mail size={17} /><a href={`mailto:${snapshot.turnerHopkins.email}`}>{snapshot.turnerHopkins.email}</a></p>
-            <p><Globe2 size={17} /><a href={`https://${String(snapshot.turnerHopkins.website || '').replace(/^https?:\/\//, '')}`} target="_blank" rel="noreferrer">{snapshot.turnerHopkins.website}</a></p>
-          </div>
-          <span className="portal-last-updated">Last updated: {formatPortalDateTime(snapshot.lastUpdated) || 'Not recorded'}</span>
-        </PortalAccordionCard>
+        <ClientPortalContactFooter snapshot={snapshot} />
       </div>
     </div>
   );
 }
 
 
+function ClientPortalContactFooter({ snapshot }) {
+  const contact = snapshot.turnerHopkins || {};
+  const cleanPhone = String(contact.phone || '').replace(/\s+/g, '');
+  const cleanWebsite = String(contact.website || '').replace(/^https?:\/\//, '');
+  return (
+    <footer className="portal-contact-footer wide" aria-label="Turner Hopkins contact details">
+      <div className="portal-contact-footer-head">
+        <span className="portal-contact-footer-icon"><Phone size={22} /></span>
+        <div>
+          <h2>Contact Turner Hopkins</h2>
+          <p>For questions about your application, contact your adviser or the Turner Hopkins team.</p>
+        </div>
+      </div>
+      <div className="portal-contact-grid">
+        {contact.phone && <p><Phone size={17} /><a href={`tel:${cleanPhone}`}>{contact.phone}</a></p>}
+        {contact.email && <p><Mail size={17} /><a href={`mailto:${contact.email}`}>{contact.email}</a></p>}
+        {cleanWebsite && <p><Globe2 size={17} /><a href={`https://${cleanWebsite}`} target="_blank" rel="noreferrer">{cleanWebsite}</a></p>}
+      </div>
+      <span className="portal-last-updated">Last updated: {formatPortalDateTime(snapshot.lastUpdated) || 'Not recorded'}</span>
+    </footer>
+  );
+}
 
 
 function ClientPortalResources({ resources = [] }) {
