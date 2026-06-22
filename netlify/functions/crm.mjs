@@ -937,17 +937,30 @@ function mapEmailLogFromDb(row) {
 function mapEmailTemplateFromDb(row = {}) {
   const fallback = getDefaultEmailTemplate(row.template_key || row.templateKey || '');
   const placeholders = Array.isArray(row.placeholders) ? row.placeholders : fallback?.placeholders || [];
+  const rowBodyHtml = row.body_html || row.bodyHtml || '';
+  const fallbackBodyHtml = fallback?.bodyHtml || '';
   return {
     key: row.template_key || row.templateKey || fallback?.key || '',
     name: row.name || fallback?.name || emailTemplateTitle(row.template_key || row.templateKey || ''),
     description: row.description || fallback?.description || '',
     subject: row.subject || fallback?.subject || '',
     bodyText: row.body_text || row.bodyText || fallback?.bodyText || '',
-    bodyHtml: row.body_html || row.bodyHtml || fallback?.bodyHtml || '',
+    bodyHtml: hasMeaningfulTemplateHtml(rowBodyHtml) ? rowBodyHtml : (hasMeaningfulTemplateHtml(fallbackBodyHtml) ? fallbackBodyHtml : ''),
     placeholders,
     updatedAt: row.updated_at || row.updatedAt || '',
     updatedBy: row.updated_by || row.updatedBy || '',
   };
+}
+
+
+function hasMeaningfulTemplateHtml(html = '') {
+  const text = String(html || '')
+    .replace(/<br\s*\/?\s*>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;|&#160;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .trim();
+  return Boolean(text);
 }
 
 function getDefaultEmailTemplate(key = '') {

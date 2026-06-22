@@ -4061,7 +4061,7 @@ function EmailTemplateLightbox({ open, onClose, emailTemplates = [], saveEmailTe
 
   useEffect(() => {
     if (selected) {
-      const bodyHtml = selected.bodyHtml || textTemplateToEditorHtml(selected.bodyText || '');
+      const bodyHtml = hasMeaningfulTemplateHtml(selected.bodyHtml) ? selected.bodyHtml : textTemplateToEditorHtml(selected.bodyText || '');
       setDraft({ subject: selected.subject || '', bodyText: selected.bodyText || '', bodyHtml });
       setEditorMode('design');
       setMessage('');
@@ -4272,6 +4272,17 @@ function EmailTemplateLightbox({ open, onClose, emailTemplates = [], saveEmailTe
       </div>
     </div>
   );
+}
+
+
+function hasMeaningfulTemplateHtml(html = '') {
+  const text = String(html || '')
+    .replace(/<br\s*\/?\s*>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;|&#160;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .trim();
+  return Boolean(text);
 }
 
 function textTemplateToEditorHtml(value = '') {
@@ -9162,7 +9173,7 @@ function normaliseEmailTemplate(template = {}) {
     description: template.description || '',
     subject: template.subject || '',
     bodyText: template.bodyText || template.body_text || '',
-    bodyHtml: template.bodyHtml || template.body_html || '',
+    bodyHtml: hasMeaningfulTemplateHtml(template.bodyHtml || template.body_html || '') ? (template.bodyHtml || template.body_html || '') : '',
     placeholders: Array.isArray(template.placeholders) ? template.placeholders : [],
     updatedAt: template.updatedAt || template.updated_at || '',
     updatedBy: template.updatedBy || template.updated_by || '',

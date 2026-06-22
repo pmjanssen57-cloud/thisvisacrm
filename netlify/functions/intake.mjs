@@ -806,11 +806,28 @@ async function ensureEmailTemplateSchema(database = db()) {
   }
 }
 
+
+function hasMeaningfulTemplateHtml(html = '') {
+  const text = String(html || '')
+    .replace(/<br\s*\/?\s*>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;|&#160;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .trim();
+  return Boolean(text);
+}
+
 async function getEmailTemplate(templateKey = '') {
   await ensureEmailTemplateSchema();
   const fallback = DEFAULT_EMAIL_TEMPLATES.find((template) => template.key === templateKey) || DEFAULT_EMAIL_TEMPLATES[0];
   const rows = await db().sql`SELECT template_key, subject, body_text, body_html FROM email_templates WHERE template_key = ${templateKey} LIMIT 1`;
-  return { subject: rows[0]?.subject || fallback.subject, bodyText: rows[0]?.body_text || fallback.bodyText, bodyHtml: rows[0]?.body_html || fallback.bodyHtml || '' };
+  const rowBodyHtml = rows[0]?.body_html || '';
+  const fallbackBodyHtml = fallback.bodyHtml || '';
+  return {
+    subject: rows[0]?.subject || fallback.subject,
+    bodyText: rows[0]?.body_text || fallback.bodyText,
+    bodyHtml: hasMeaningfulTemplateHtml(rowBodyHtml) ? rowBodyHtml : (hasMeaningfulTemplateHtml(fallbackBodyHtml) ? fallbackBodyHtml : ''),
+  };
 }
 
 async function buildEmailFromTemplate(templateKey, context = {}, fallback = {}) {

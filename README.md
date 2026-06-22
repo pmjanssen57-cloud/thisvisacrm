@@ -1,6 +1,9 @@
-# THiS CRM v0.12.29 — Email Template Internal Notifications
+# THiS CRM v0.12.30 - Email Template Body Fallback Fix
 
-## v0.12.29 changes
+This build fixes the email template editor body display by treating blank saved HTML such as `<p><br></p>` as empty and falling back to the template text/default content. It also applies the same fallback when automated emails are rendered.
+
+
+## v0.12.30 changes
 
 - Split the combined contact/intake internal notification template into two visible templates:
   - **Assessment form - internal notification**
