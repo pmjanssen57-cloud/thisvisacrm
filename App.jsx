@@ -1949,7 +1949,8 @@ function isContactIntake(record = {}) {
 
 function matchesIntakeAdviserScope(item = {}, adviserScope = 'all') {
   if (!adviserScope || adviserScope === 'all') return true;
-  return String(item.assignedAdviserId || '') === String(adviserScope);
+  const assignedAdviserId = String(item.assignedAdviserId || '');
+  return !assignedAdviserId || assignedAdviserId === String(adviserScope);
 }
 
 function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', statuses, seminars = [], seminarRegistrations = [], saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, sendContactIntakeInviteEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saving, openClientRecord }) {
@@ -2157,7 +2158,6 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
           <h1>Enquiries & Intake</h1>
           <p className="muted">Review contact forms, assessment questionnaires and seminar registrations separately from active client work.</p>
         </div>
-        <div className="button-row enquiries-form-buttons"><a className="btn" href="/contact" target="_blank" rel="noreferrer"><ExternalLink size={16} />Contact form</a><a className="btn dark" href="/intake" target="_blank" rel="noreferrer"><ExternalLink size={16} />Assessment form</a><a className="btn" href="/seminar" target="_blank" rel="noreferrer"><ExternalLink size={16} />Seminar form</a></div>
       </div>
 
       <div className="metric-grid four intake-metrics enquiries-metrics">
@@ -2214,7 +2214,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
           <div>
             <span className="eyebrow">{workspaceTab === 'contact' ? 'Short website enquiries' : 'Full assessment questionnaires'}</span>
             <h2>{workspaceTab === 'contact' ? 'Contact forms' : `${statusFilter} intake forms`}</h2>
-            <p className="muted">{workspaceTab === 'contact' ? 'Handled from the email notification. Delete from here once no longer needed.' : `Use the simple statuses to keep the pre-client queue tidy.${selectedScopeAdviser ? ` Showing records assigned to ${selectedScopeAdviser.name}.` : ''}`}</p>
+            <p className="muted">{workspaceTab === 'contact' ? 'Handled from the email notification. Delete from here once no longer needed.' : `Use the simple statuses to keep the pre-client queue tidy.${selectedScopeAdviser ? ` Showing unassigned records and records assigned to ${selectedScopeAdviser.name}.` : ''}`}</p>
           </div>
           <strong>{visibleRecords.length} shown</strong>
         </div>
