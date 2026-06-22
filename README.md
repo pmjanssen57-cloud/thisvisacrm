@@ -1120,3 +1120,8 @@ Adds four client-specific portal resource sections that can be switched on or of
 - Relocation Resources
 
 The resource content is centralised in the frontend so it can later be replaced by an editable CRM resource library without changing the per-client visibility model. Each client record now stores `portal_resource_settings` as JSONB.
+
+
+## v0.12.23 seminar embed polish
+
+- Removed the internal card shadow from the public seminar registration form, including iframe/embed mode, so Squarespace embeds display without the pale green drop shadow.

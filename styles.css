@@ -7971,3 +7971,11 @@ textarea:focus-visible {
     flex-direction: column;
   }
 }
+
+/* v0.12.23 seminar embed polish: remove embedded form shadow */
+.seminar-public-shell .intake-public-card,
+.seminar-public-card,
+body.intake-embed-mode .seminar-public-shell .intake-public-card,
+body.intake-embed-mode .seminar-public-card {
+  box-shadow: none !important;
+}
