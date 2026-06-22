@@ -3350,18 +3350,45 @@ function ClientPortalApp() {
     <div className="portal-shell">
       <main className="portal-login-card">
         <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="portal-logo" />
-        <LockKeyhole size={34} className="portal-lock" />
-        <h1>Client application update</h1>
-        <p>Enter your email address and Turner Hopkins portal access code to view the latest read-only update for your application progress.</p>
+        <div className="portal-login-icon-wrap"><LockKeyhole size={28} className="portal-lock" /></div>
+        <span className="portal-login-eyebrow">Secure client portal</span>
+        <h1>Welcome to your portal</h1>
+        <p>Sign in to check your latest application update, documents, messages and helpful resources from Turner Hopkins.</p>
+        <div className="portal-login-benefits" aria-label="Portal features">
+          <span>Progress updates</span>
+          <span>Documents</span>
+          <span>Messages</span>
+        </div>
         <form onSubmit={submit} className="portal-login-form">
           <label><span>Email address</span><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" autoComplete="email" /></label>
           <label><span>Portal access code</span><input value={accessCode} onChange={(event) => setAccessCode(event.target.value)} placeholder="TH-XXXX-XXXX-XXXX" autoComplete="one-time-code" /></label>
-          <button className="btn dark" type="submit" disabled={loading}>{loading ? 'Checking...' : 'View application update'}</button>
+          <button className="btn dark" type="submit" disabled={loading}>{loading ? 'Checking...' : 'Open my portal'}</button>
         </form>
         {error && <p className="portal-error">{error}</p>}
-        <p className="portal-smallprint">This portal is read-only for application updates. You can send messages to Turner Hopkins or save your own planning notes inside the portal.</p>
+        <p className="portal-smallprint">Use the access code sent by Turner Hopkins. You can also send us a note or keep your own planning notes once you are inside.</p>
       </main>
     </div>
+  );
+}
+
+
+function PortalAccordionCard({ title, description, icon = null, children, className = '', defaultOpen = false, badge = null }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <section className={`portal-card portal-collapsible-card ${className} ${open ? 'open' : 'collapsed'}`}>
+      <button type="button" className="portal-collapsible-head" onClick={() => setOpen((current) => !current)} aria-expanded={open}>
+        <div>
+          <h2>{title}</h2>
+          {description && <p>{description}</p>}
+        </div>
+        <span className="portal-collapsible-actions">
+          {badge}
+          {icon}
+          <ChevronRight size={20} className="portal-collapsible-chevron" />
+        </span>
+      </button>
+      {open && <div className="portal-collapsible-body">{children}</div>}
+    </section>
   );
 }
 
@@ -3384,14 +3411,13 @@ function ClientPortalProgressMap({ stagePlan = [], progressPercent = 0 }) {
   const detail = getPortalStageDetail(selectedStage, selectedStatus);
 
   return (
-    <section className="portal-card wide portal-progress-card portal-journey-card">
-      <div className="portal-section-head">
-        <div>
-          <h2>Application journey</h2>
-          <p>Click a stage to see what it means, where things sit now, and what usually happens next.</p>
-        </div>
-        <span className="portal-progress-pill">{progressPercent}% complete</span>
-      </div>
+    <PortalAccordionCard
+      title="Application journey"
+      description="Open this section to see what each stage means, where things sit now, and what usually happens next."
+      className="wide portal-progress-card portal-journey-card"
+      defaultOpen
+      badge={<span className="portal-progress-pill">{progressPercent}% complete</span>}
+    >
       <div className="portal-stage-track portal-stage-track-interactive">
         {stages.map((stage, index) => {
           const status = stageStatus(stage);
@@ -3421,7 +3447,7 @@ function ClientPortalProgressMap({ stagePlan = [], progressPercent = 0 }) {
           </div>
         </div>
       )}
-    </section>
+    </PortalAccordionCard>
   );
 }
 
@@ -3525,13 +3551,12 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
 
         <ClientPortalAdviserPanel snapshot={snapshot} onSubmitPortalMessage={onSubmitPortalMessage} />
 
-        <section className="portal-card wide">
-          <div className="portal-section-head compact">
-            <div>
-              <h2>Document checklist</h2>
-              <p>Outstanding items are shown first. Completed items are marked as obtained.</p>
-            </div>
-          </div>
+        <PortalAccordionCard
+          title="Document checklist"
+          description="Outstanding items are shown first. Completed items are marked as obtained."
+          className="wide"
+          defaultOpen
+        >
           {documentsRequired.length ? (
             <div className="portal-document-checklist">
               {documentsRequired.map((item) => (
@@ -3543,12 +3568,14 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
               ))}
             </div>
           ) : <p>No document checklist items have been published to your portal yet.</p>}
-        </section>
+        </PortalAccordionCard>
 
-        <section className="portal-card wide portal-download-card">
-          <div className="portal-section-head">
-            <div><h2>Forms and instructions</h2><p>Download the standard PDFs Turner Hopkins has made available for your application.</p></div>
-          </div>
+        <PortalAccordionCard
+          title="Forms and instructions"
+          description="Download the standard PDFs Turner Hopkins has made available for your application."
+          className="wide portal-download-card"
+          icon={<FileText size={22} />}
+        >
           {(snapshot.portalDocuments || []).length ? (
             <div className="portal-document-tile-grid">
               {snapshot.portalDocuments.map((doc) => (
@@ -3564,15 +3591,16 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
               ))}
             </div>
           ) : <p>No forms or instruction PDFs have been published to your portal yet.</p>}
-        </section>
+        </PortalAccordionCard>
 
         {(snapshot.portalResources || []).length > 0 && <ClientPortalResources resources={snapshot.portalResources} />}
 
-        <section className="portal-card wide portal-client-action-card">
-          <div className="portal-section-head">
-            <div><h2>Messages and personal notes</h2><p>Send Turner Hopkins a question, or keep your own planning notes beside your application update.</p></div>
-            <MessageSquare size={22} />
-          </div>
+        <PortalAccordionCard
+          title="Messages and personal notes"
+          description="Send Turner Hopkins a question, or keep your own planning notes beside your application update."
+          className="wide portal-client-action-card"
+          icon={<MessageSquare size={22} />}
+        >
           <div className="portal-message-grid">
             <ClientPortalMessageComposer
               title="Send Turner Hopkins a note or action"
@@ -3593,28 +3621,25 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
             <ClientPortalMessageList adviserMessages={adviserMessages} />
             <ClientPortalPersonalNoteList personalNotes={personalNotes} />
           </div>
-        </section>
+        </PortalAccordionCard>
 
-        <section className="portal-card">
-          <h2>Upcoming key dates</h2>
+        <PortalAccordionCard title="Upcoming key dates" className="" icon={<CalendarDays size={22} />}>
           {snapshot.keyDates.length ? (
             <div className="portal-list compact">
               {snapshot.keyDates.map((item) => <div key={item.id}><strong>{formatPortalDate(item.date)}</strong><span>{item.type}{item.note ? ` — ${item.note}` : ''}</span></div>)}
             </div>
           ) : <p>No key dates have been published.</p>}
-        </section>
+        </PortalAccordionCard>
 
-        <section className="portal-card">
-          <h2>Upcoming appointments</h2>
+        <PortalAccordionCard title="Upcoming appointments" className="" icon={<Clock size={22} />}>
           {snapshot.appointments.length ? (
             <div className="portal-list compact">
               {snapshot.appointments.map((item) => <div key={item.id}><strong>{formatPortalDate(item.date)} {item.time}</strong><span>{item.title}{item.location ? ` — ${item.location}` : ''}</span></div>)}
             </div>
           ) : <p>No appointments have been published.</p>}
-        </section>
+        </PortalAccordionCard>
 
-        <section className="portal-card wide">
-          <h2>Billing milestones</h2>
+        <PortalAccordionCard title="Billing milestones" className="wide" icon={<CreditCard size={22} />}>
           {snapshot.billingMilestones.length ? (
             <div className="portal-list billing-portal-list">
               {snapshot.billingMilestones.map((item) => {
@@ -3630,13 +3655,14 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
               })}
             </div>
           ) : <p>No billing milestones have been published.</p>}
-        </section>
+        </PortalAccordionCard>
 
-        <section className="portal-card wide portal-tools-card">
-          <div className="portal-section-head">
-            <div><h2>Useful tools</h2><p>Quick tools for client planning. Results are indicative only.</p></div>
-            <Wrench size={22} />
-          </div>
+        <PortalAccordionCard
+          title="Useful tools"
+          description="Quick tools for client planning. Results are indicative only."
+          className="wide portal-tools-card"
+          icon={<Wrench size={22} />}
+        >
           <div className="tool-tabs portal-tool-tabs" role="tablist" aria-label="Client portal tools">
             <button type="button" className={activeTool === 'weather' ? 'active' : ''} onClick={() => setActiveTool('weather')}><CloudSun size={16} />Weather</button>
             <button type="button" className={activeTool === 'timezone' ? 'active' : ''} onClick={() => setActiveTool('timezone')}><Globe2 size={16} />Time</button>
@@ -3649,20 +3675,21 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
             {activeTool === 'currency' && <CurrencyTool />}
             {activeTool === 'calculator' && <CalculatorTool />}
           </div>
-        </section>
+        </PortalAccordionCard>
 
-        <section className="portal-card wide contact-card portal-footer-card">
-          <div className="portal-footer-intro">
-            <h2>Contact Turner Hopkins</h2>
-            <p>For questions about your application, contact your adviser or the Turner Hopkins team.</p>
-          </div>
+        <PortalAccordionCard
+          title="Contact Turner Hopkins"
+          description="For questions about your application, contact your adviser or the Turner Hopkins team."
+          className="wide contact-card portal-footer-card"
+          icon={<Phone size={22} />}
+        >
           <div className="portal-contact-grid">
             <p><Phone size={17} /><a href={`tel:${String(snapshot.turnerHopkins.phone || '').replace(/\s+/g, '')}`}>{snapshot.turnerHopkins.phone}</a></p>
             <p><Mail size={17} /><a href={`mailto:${snapshot.turnerHopkins.email}`}>{snapshot.turnerHopkins.email}</a></p>
             <p><Globe2 size={17} /><a href={`https://${String(snapshot.turnerHopkins.website || '').replace(/^https?:\/\//, '')}`} target="_blank" rel="noreferrer">{snapshot.turnerHopkins.website}</a></p>
           </div>
           <span className="portal-last-updated">Last updated: {formatPortalDateTime(snapshot.lastUpdated) || 'Not recorded'}</span>
-        </section>
+        </PortalAccordionCard>
       </div>
     </div>
   );
@@ -3682,18 +3709,16 @@ function ClientPortalResources({ resources = [] }) {
   if (!visibleResources.length) return null;
 
   return (
-    <section className="portal-card wide portal-resources-card">
-      <div className="portal-section-head">
-        <div>
-          <h2>Resources</h2>
-          <p>Your adviser has made these information pages available for your application and settlement planning.</p>
-        </div>
-        <BookOpen size={22} />
-      </div>
+    <PortalAccordionCard
+      title="Resources"
+      description="Your adviser has made these information pages available for your application and settlement planning."
+      className="wide portal-resources-card"
+      icon={<BookOpen size={22} />}
+    >
       <div className="portal-resource-grid">
         {visibleResources.map((resource) => <ClientPortalResourceCard key={resource.key} resource={resource} />)}
       </div>
-    </section>
+    </PortalAccordionCard>
   );
 }
 
@@ -3772,14 +3797,13 @@ function ClientPortalAdviserPanel({ snapshot, onSubmitPortalMessage }) {
   }
 
   return (
-    <section className="portal-card wide portal-adviser-panel-card">
-      <div className="portal-section-head">
-        <div>
-          <h2>Your Turner Hopkins team</h2>
-          <p>Your primary adviser is shown first. Your backup adviser is included so you know who can assist if your main adviser is away.</p>
-        </div>
-        <UsersRound size={22} />
-      </div>
+    <PortalAccordionCard
+      title="Your Turner Hopkins team"
+      description="Your primary adviser is shown first. Your backup adviser is included so you know who can assist if your main adviser is away."
+      className="wide portal-adviser-panel-card"
+      icon={<UsersRound size={22} />}
+      defaultOpen
+    >
       <div className="portal-adviser-panel-grid">
         <PortalAdviserContactCard adviser={snapshot.adviser} label="Primary adviser" fallbackContact={snapshot.turnerHopkins} />
         {backup ? <PortalAdviserContactCard adviser={backup} label="Backup adviser" fallbackContact={snapshot.turnerHopkins} /> : (
@@ -3801,7 +3825,7 @@ function ClientPortalAdviserPanel({ snapshot, onSubmitPortalMessage }) {
           <button className="btn dark" type="submit" disabled={quickSending}><Send size={15} />{quickSending ? 'Sending...' : 'Send note'}</button>
         </form>
       </div>
-    </section>
+    </PortalAccordionCard>
   );
 }
 

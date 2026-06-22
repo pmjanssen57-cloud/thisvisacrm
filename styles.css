@@ -8357,3 +8357,141 @@ body.intake-embed-mode .seminar-public-card {
     max-height: none;
   }
 }
+
+/* v0.12.34 - Client portal welcome and collapsible sections */
+.portal-login-card {
+  width: min(100%, 520px);
+  padding: 38px;
+}
+
+.portal-login-icon-wrap {
+  width: 58px;
+  height: 58px;
+  border-radius: 20px;
+  margin: 4px auto 12px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, rgba(85, 217, 160, 0.2), #ffffff);
+  border: 1px solid rgba(85, 217, 160, 0.36);
+}
+
+.portal-login-icon-wrap .portal-lock {
+  margin: 0;
+  color: var(--ink);
+}
+
+.portal-login-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+  color: var(--mint-dark, #0d7d66);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.portal-login-benefits {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 18px 0 4px;
+}
+
+.portal-login-benefits span {
+  border: 1px solid rgba(85, 217, 160, 0.38);
+  background: #f6fffb;
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 7px 11px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.portal-collapsible-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.portal-collapsible-head {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 20px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.portal-collapsible-head h2 {
+  margin: 0 0 5px;
+}
+
+.portal-collapsible-head p {
+  margin: 0;
+}
+
+.portal-collapsible-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  flex-shrink: 0;
+}
+
+.portal-collapsible-chevron {
+  transition: transform 0.18s ease;
+}
+
+.portal-collapsible-card.open .portal-collapsible-chevron {
+  transform: rotate(90deg);
+}
+
+.portal-collapsible-body {
+  padding: 0 20px 20px;
+}
+
+.portal-collapsible-card.collapsed .portal-collapsible-head {
+  border-bottom: 0;
+}
+
+.portal-collapsible-card.open .portal-collapsible-head {
+  border-bottom: 1px solid #edf4f1;
+  margin-bottom: 18px;
+}
+
+.portal-collapsible-card.open .portal-collapsible-body {
+  padding-top: 0;
+}
+
+.portal-collapsible-card .portal-progress-pill {
+  margin-left: 0;
+}
+
+.portal-collapsible-card .portal-section-head {
+  margin-bottom: 12px;
+}
+
+@media (max-width: 760px) {
+  .portal-login-card {
+    padding: 28px 22px;
+  }
+
+  .portal-collapsible-head {
+    padding: 16px;
+  }
+
+  .portal-collapsible-actions {
+    gap: 7px;
+  }
+
+  .portal-collapsible-body {
+    padding: 0 16px 16px;
+  }
+}
