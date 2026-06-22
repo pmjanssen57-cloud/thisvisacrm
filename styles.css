@@ -4133,13 +4133,44 @@ body.intake-embed-mode {
 body.intake-embed-mode .intake-public-shell {
   min-height: auto;
   background: transparent;
-  padding: 18px 0 22px;
+  padding: 18px 12px 22px;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+  box-sizing: border-box;
 }
 body.intake-embed-mode .intake-public-card {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   box-shadow: 0 12px 34px rgba(0, 55, 54, 0.08);
+  box-sizing: border-box;
+  overflow-x: clip;
+}
+body.intake-embed-mode .contact-public-shell {
+  padding-left: 12px;
+  padding-right: 12px;
+}
+body.intake-embed-mode .contact-public-card,
+body.intake-embed-mode .contact-public-card *,
+body.intake-embed-mode .contact-form,
+body.intake-embed-mode .contact-form .form-grid,
+body.intake-embed-mode .contact-form .field,
+body.intake-embed-mode .contact-form input,
+body.intake-embed-mode .contact-form select,
+body.intake-embed-mode .contact-form textarea {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+body.intake-embed-mode .contact-form input,
+body.intake-embed-mode .contact-form select,
+body.intake-embed-mode .contact-form textarea {
+  width: 100%;
 }
 @media (max-width: 760px) {
-  body.intake-embed-mode .intake-public-shell { padding: 10px 0 14px; }
+  body.intake-embed-mode .intake-public-shell { padding: 10px 10px 14px; }
+  body.intake-embed-mode .contact-public-shell { padding-left: 10px; padding-right: 10px; }
 }
 
 /* v0.11.4 intake inbox management */
@@ -9402,4 +9433,29 @@ body.intake-embed-mode .seminar-public-card {
   .portal-contact-footer .portal-contact-grid {
     grid-template-columns: 1fr;
   }
+}
+
+
+/* v0.13.5 - Contact form iframe containment polish */
+html.intake-embed-mode,
+body.intake-embed-mode {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+body.intake-embed-mode .contact-public-card {
+  margin-left: auto;
+  margin-right: auto;
+}
+body.intake-embed-mode .contact-public-card .intake-public-head,
+body.intake-embed-mode .contact-public-intro,
+body.intake-embed-mode .contact-form,
+body.intake-embed-mode .contact-form .form-grid,
+body.intake-embed-mode .contact-form .intake-textarea,
+body.intake-embed-mode .contact-form .intake-submit-bar {
+  width: 100%;
+  max-width: 100%;
+}
+body.intake-embed-mode .contact-form select {
+  text-overflow: ellipsis;
 }
