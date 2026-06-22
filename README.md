@@ -1,3 +1,23 @@
+# THiS CRM v0.12.24 — Seminar Time Picker
+
+## v0.12.24 changes
+
+- Changed the internal seminar setup **Seminar time** field to a browser time picker so seminar times are saved in a consistent `HH:MM` format.
+- Added frontend time normalisation for older seminar records where a time may previously have been entered manually.
+- Added backend seminar-time normalisation before saving and before approval-email timezone calculations.
+- Improved public seminar time display so stored 24-hour values are shown in a cleaner client-facing format.
+- No database migration required.
+
+## Test process
+
+1. Deploy this package to Netlify.
+2. Open CRM > Enquiries & Intake > Seminar Registrations.
+3. Edit or create a seminar and use the time picker to set the seminar time.
+4. Submit a test seminar registration from `/seminar`.
+5. Approve the registration and confirm the email shows the correct New Zealand time and the correct local time for the selected timezone.
+
+---
+
 # THiS CRM v0.12.22 — Seminar Registrations
 
 ## v0.12.22 changes

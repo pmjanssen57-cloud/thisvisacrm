@@ -1927,7 +1927,7 @@ function SeminarRegistrationFormApp() {
 
 function formatSeminarPublicDate(seminar = {}) {
   const date = seminar.seminarDate || seminar.date || '';
-  const time = seminar.seminarTime || seminar.time || '';
+  const time = formatSeminarTimeDisplay(seminar.seminarTime || seminar.time || '');
   if (!date && !time) return 'Date and time to be confirmed';
   return `${date || 'Date to be confirmed'}${time ? ` at ${time}` : ''} NZ time`;
 }
@@ -2444,7 +2444,7 @@ function SeminarManagementPanel({ seminars = [], registrations = [], saveSeminar
             <Field label="Seminar title" value={seminarDraft.title} onChange={(v) => setSeminarField('title', v)} />
             <Field label="Presenter name" value={seminarDraft.presenterName} onChange={(v) => setSeminarField('presenterName', v)} />
             <DateField label="Seminar date (NZ time)" value={seminarDraft.seminarDate} onChange={(v) => setSeminarField('seminarDate', v)} />
-            <Field label="Seminar time" value={seminarDraft.seminarTime} onChange={(v) => setSeminarField('seminarTime', v)} />
+            <TimeField label="Seminar time" value={seminarDraft.seminarTime} onChange={(v) => setSeminarField('seminarTime', v)} />
             <SelectField label="Reference timezone" value={seminarDraft.timezone || 'Pacific/Auckland'} onChange={(v) => setSeminarField('timezone', v)} options={SEMINAR_TIMEZONE_OPTIONS} />
             <Field label="Zoom link" value={seminarDraft.zoomLink} onChange={(v) => setSeminarField('zoomLink', v)} />
             <Field label="Zoom password" value={seminarDraft.zoomPassword} onChange={(v) => setSeminarField('zoomPassword', v)} />
@@ -8116,6 +8116,10 @@ function DateField({ label, value, onChange }) {
   return <label className="field"><span>{label}</span><input type="date" value={value || ''} onChange={(event) => onChange(event.target.value)} /></label>;
 }
 
+function TimeField({ label, value, onChange }) {
+  return <label className="field"><span>{label}</span><input type="time" value={timeInputValue(value)} onChange={(event) => onChange(event.target.value)} /></label>;
+}
+
 function SelectField({ label, value, onChange, options, placeholder = 'Select...' }) {
   const normalised = options.map((option) => typeof option === 'string' ? { label: option, value: option } : option);
   return <label className="field"><span>{label}</span><select value={value || ''} onChange={(event) => onChange(event.target.value)}><option value="">{placeholder}</option>{normalised.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>;
@@ -8123,6 +8127,35 @@ function SelectField({ label, value, onChange, options, placeholder = 'Select...
 
 function TextArea({ label, value, onChange, rows = 4 }) {
   return <label className="field"><span>{label}</span><textarea rows={rows} value={value || ''} onChange={(event) => onChange(event.target.value)} /></label>;
+}
+
+function normaliseTimeValue(value = '') {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return '';
+  const match = raw.match(/^(\d{1,2})(?::|\.)?(\d{2})?\s*(am|pm)?$/);
+  if (!match) return /^\d{2}:\d{2}$/.test(raw) ? raw : '';
+  let hour = Number(match[1]);
+  const minute = Number(match[2] || '0');
+  const marker = match[3] || '';
+  if (!Number.isFinite(hour) || !Number.isFinite(minute) || minute < 0 || minute > 59) return '';
+  if (marker === 'pm' && hour < 12) hour += 12;
+  if (marker === 'am' && hour === 12) hour = 0;
+  if (hour < 0 || hour > 23) return '';
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function timeInputValue(value = '') {
+  return normaliseTimeValue(value);
+}
+
+function formatSeminarTimeDisplay(value = '') {
+  const time = normaliseTimeValue(value);
+  if (!time) return '';
+  const [hourText, minute] = time.split(':');
+  const hour = Number(hourText);
+  const suffix = hour >= 12 ? 'pm' : 'am';
+  const displayHour = hour % 12 || 12;
+  return `${displayHour}:${minute}${suffix}`;
 }
 
 function ProgressBar({ value }) {
@@ -8721,7 +8754,7 @@ function normaliseSeminar(input = {}) {
     id: input.id || '',
     title: input.title || 'Turner Hopkins immigration seminar',
     seminarDate: input.seminarDate || input.seminar_date || '',
-    seminarTime: input.seminarTime || input.seminar_time || '',
+    seminarTime: normaliseTimeValue(input.seminarTime || input.seminar_time || ''),
     timezone: input.timezone || 'Pacific/Auckland',
     presenterName: input.presenterName || input.presenter_name || '',
     zoomLink: input.zoomLink || input.zoom_link || '',

@@ -1655,7 +1655,7 @@ function normaliseSeminarInput(input = {}) {
     id: String(input.id || '').trim(),
     title: cleanIntakeText(input.title || 'Turner Hopkins immigration seminar', 400),
     seminarDate: cleanIntakeText(input.seminarDate || input.seminar_date, 20),
-    seminarTime: cleanIntakeText(input.seminarTime || input.seminar_time, 40),
+    seminarTime: normaliseSeminarTimeInput(input.seminarTime || input.seminar_time),
     timezone: cleanIntakeText(input.timezone || 'Pacific/Auckland', 80),
     presenterName: cleanIntakeText(input.presenterName || input.presenter_name, 400),
     zoomLink: cleanIntakeText(input.zoomLink || input.zoom_link, 2000),
@@ -1808,10 +1808,26 @@ function firstNameFromFullName(value = '') {
   return String(value || '').trim().split(/\s+/)[0] || '';
 }
 
+
+function normaliseSeminarTimeInput(value = '') {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return '';
+  const match = raw.match(/^(\d{1,2})(?::|\.)?(\d{2})?\s*(am|pm)?$/);
+  if (!match) return /^\d{2}:\d{2}$/.test(raw) ? raw : cleanIntakeText(value, 40);
+  let hour = Number(match[1]);
+  const minute = Number(match[2] || '0');
+  const marker = match[3] || '';
+  if (!Number.isFinite(hour) || !Number.isFinite(minute) || minute < 0 || minute > 59) return cleanIntakeText(value, 40);
+  if (marker === 'pm' && hour < 12) hour += 12;
+  if (marker === 'am' && hour === 12) hour = 0;
+  if (hour < 0 || hour > 23) return cleanIntakeText(value, 40);
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
 function buildSeminarTimeSummary(seminar = {}, registrantTimezone = '') {
   const zone = seminar.timezone || 'Pacific/Auckland';
   const date = seminar.seminarDate || '';
-  const time = seminar.seminarTime || '';
+  const time = normaliseSeminarTimeInput(seminar.seminarTime || '');
   if (!date || !time) return { nzTime: 'To be confirmed', localTime: 'To be confirmed' };
   const instant = zonedDateTimeToDate(date, time, zone);
   const nzTime = formatDateInZone(instant, zone, 'New Zealand time');
