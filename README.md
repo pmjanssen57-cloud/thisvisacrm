@@ -1,3 +1,27 @@
+# THiS CRM v0.12.31 - Email Template Editor Key Fix
+
+This build fixes the template editor more directly by preserving each email template key from the CRM API and preventing the frontend from treating every template as the same selected record. It also forces the Design editor to mount with the selected template body already inserted, rather than relying only on a later DOM sync.
+
+## v0.12.31 changes
+
+- Fixed email template API mapping so template keys are preserved correctly after loading.
+- Stopped the CRM data loader from double-mapping email templates, which could strip the template key and confuse the editor selection state.
+- Improved the email template editor selection logic so it selects the first valid template only when needed.
+- Forced the Design editor to mount with the selected template body using the selected template key.
+- Kept the v0.12.30 blank-body fallback logic.
+- No database migration required.
+
+## Test process
+
+1. Deploy this package to Netlify.
+2. Hard refresh the CRM after deployment.
+3. Open **Tools > Templates**.
+4. Click several templates on the left.
+5. Confirm the subject and body both change and the body text appears in **Design**, **HTML**, and **Preview** modes.
+6. Save a minor wording change to one template and reopen it to confirm it persists.
+
+---
+
 # THiS CRM v0.12.30 - Email Template Body Fallback Fix
 
 This build fixes the email template editor body display by treating blank saved HTML such as `<p><br></p>` as empty and falling back to the template text/default content. It also applies the same fallback when automated emails are rendered.

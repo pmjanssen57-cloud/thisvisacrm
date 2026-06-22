@@ -876,7 +876,7 @@ async function readCrmData() {
     seminars: seminars.map(mapSeminarFromDb),
     seminarRegistrations: seminarRegistrations.map(mapSeminarRegistrationFromDb),
     emailLogs: emailLogs.map(mapEmailLogFromDb),
-    emailTemplates: emailTemplates.map(mapEmailTemplateFromDb),
+    emailTemplates,
     emailConfig: getEmailConfigStatus(),
     caseTypes: CASE_TYPES,
     deadlineTypes: DEADLINE_TYPES,
@@ -935,13 +935,14 @@ function mapEmailLogFromDb(row) {
 }
 
 function mapEmailTemplateFromDb(row = {}) {
-  const fallback = getDefaultEmailTemplate(row.template_key || row.templateKey || '');
+  const templateKey = row.template_key || row.templateKey || row.key || '';
+  const fallback = getDefaultEmailTemplate(templateKey);
   const placeholders = Array.isArray(row.placeholders) ? row.placeholders : fallback?.placeholders || [];
   const rowBodyHtml = row.body_html || row.bodyHtml || '';
   const fallbackBodyHtml = fallback?.bodyHtml || '';
   return {
-    key: row.template_key || row.templateKey || fallback?.key || '',
-    name: row.name || fallback?.name || emailTemplateTitle(row.template_key || row.templateKey || ''),
+    key: templateKey || fallback?.key || '',
+    name: row.name || fallback?.name || emailTemplateTitle(templateKey),
     description: row.description || fallback?.description || '',
     subject: row.subject || fallback?.subject || '',
     bodyText: row.body_text || row.bodyText || fallback?.bodyText || '',

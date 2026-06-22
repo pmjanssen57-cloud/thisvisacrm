@@ -4056,13 +4056,19 @@ function EmailTemplateLightbox({ open, onClose, emailTemplates = [], saveEmailTe
   const editorRef = useRef(null);
 
   useEffect(() => {
-    if (!selectedKey && sortedTemplates[0]?.key) setSelectedKey(sortedTemplates[0].key);
+    if (!sortedTemplates.length) {
+      if (selectedKey) setSelectedKey('');
+      return;
+    }
+    if (!selectedKey || !sortedTemplates.some((template) => template.key === selectedKey)) {
+      setSelectedKey(sortedTemplates[0].key);
+    }
   }, [selectedKey, sortedTemplates]);
 
   useEffect(() => {
     if (selected) {
-      const bodyHtml = hasMeaningfulTemplateHtml(selected.bodyHtml) ? selected.bodyHtml : textTemplateToEditorHtml(selected.bodyText || '');
-      setDraft({ subject: selected.subject || '', bodyText: selected.bodyText || '', bodyHtml });
+      const bodyHtml = resolveTemplateEditorHtml(selected);
+      setDraft({ subject: selected.subject || '', bodyText: selected.bodyText || htmlToTemplateText(bodyHtml), bodyHtml });
       setEditorMode('design');
       setMessage('');
       setError('');
@@ -4236,10 +4242,12 @@ function EmailTemplateLightbox({ open, onClose, emailTemplates = [], saveEmailTe
 
                   {editorMode === 'design' && (
                     <div
+                      key={`design-editor-${selected.key}`}
                       ref={editorRef}
                       className="html-template-editor"
                       contentEditable
                       suppressContentEditableWarning
+                      dangerouslySetInnerHTML={{ __html: draft.bodyHtml || '<p><br></p>' }}
                       onInput={() => updateBodyHtml(editorRef.current?.innerHTML || '')}
                       onBlur={() => updateBodyHtml(editorRef.current?.innerHTML || '')}
                     />
@@ -4272,6 +4280,15 @@ function EmailTemplateLightbox({ open, onClose, emailTemplates = [], saveEmailTe
       </div>
     </div>
   );
+}
+
+
+function resolveTemplateEditorHtml(template = {}) {
+  const bodyHtml = template.bodyHtml || template.body_html || '';
+  if (hasMeaningfulTemplateHtml(bodyHtml)) return bodyHtml;
+  const bodyText = template.bodyText || template.body_text || '';
+  if (String(bodyText || '').trim()) return textTemplateToEditorHtml(bodyText);
+  return '<p><br></p>';
 }
 
 
