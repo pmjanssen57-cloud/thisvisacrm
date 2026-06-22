@@ -2148,12 +2148,12 @@ function IntakeWorkspace({ enquiries, advisers, statuses, seminars = [], seminar
 
   return (
     <div className="intake-workspace intake-inbox-workspace enquiries-intake-workspace">
-      <div className="library-heading intake-heading enquiries-heading">
-        <div>
+      <div className="library-heading intake-heading enquiries-heading enquiries-heading-polished">
+        <div className="enquiries-heading-copy">
           <h1>Enquiries & Intake</h1>
-          <p className="muted">Keep short contact forms and full assessment questionnaires separate from active client work. Contact forms are a reference list only; intake forms are the pre-client triage queue.</p>
+          <p className="muted">Review contact forms, assessment questionnaires and seminar registrations separately from active client work.</p>
         </div>
-        <div className="button-row"><a className="btn" href="/contact" target="_blank" rel="noreferrer"><ExternalLink size={16} />Open contact form</a><a className="btn" href="/seminar" target="_blank" rel="noreferrer"><ExternalLink size={16} />Open seminar form</a><a className="btn dark" href="/intake" target="_blank" rel="noreferrer"><ExternalLink size={16} />Open assessment form</a></div>
+        <div className="button-row enquiries-form-buttons"><a className="btn" href="/contact" target="_blank" rel="noreferrer"><ExternalLink size={16} />Contact form</a><a className="btn dark" href="/intake" target="_blank" rel="noreferrer"><ExternalLink size={16} />Assessment form</a><a className="btn" href="/seminar" target="_blank" rel="noreferrer"><ExternalLink size={16} />Seminar form</a></div>
       </div>
 
       <div className="metric-grid four intake-metrics enquiries-metrics">

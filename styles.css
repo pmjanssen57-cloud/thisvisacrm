@@ -8793,3 +8793,85 @@ body.intake-embed-mode .seminar-public-card {
     left: 0;
   }
 }
+
+/* v0.12.37 tidy: scope dropdown + enquiries header buttons */
+.compact-scope-select select {
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid var(--line, #d9e6e1);
+  border-radius: 16px;
+  background:
+    linear-gradient(135deg, #ffffff 0%, #f9fffc 100%);
+  color: var(--ink, #003736);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 750;
+  padding: 12px 42px 12px 15px;
+  outline: none;
+  box-shadow: 0 8px 22px rgba(0, 55, 54, 0.05);
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #003736 50%),
+    linear-gradient(135deg, #003736 50%, transparent 50%),
+    linear-gradient(135deg, #ffffff 0%, #f9fffc 100%);
+  background-position:
+    calc(100% - 20px) 50%,
+    calc(100% - 14px) 50%,
+    0 0;
+  background-size: 6px 6px, 6px 6px, 100% 100%;
+  background-repeat: no-repeat;
+}
+
+.compact-scope-select select:focus {
+  border-color: rgba(85, 217, 160, 0.72);
+  box-shadow: 0 0 0 4px rgba(85, 217, 160, 0.15), 0 8px 22px rgba(0, 55, 54, 0.06);
+}
+
+.enquiries-heading-polished {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 20px;
+  align-items: start;
+}
+
+.enquiries-heading-polished .enquiries-heading-copy p {
+  max-width: 640px;
+}
+
+.enquiries-form-buttons {
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  min-width: max-content;
+}
+
+.enquiries-form-buttons .btn {
+  min-width: 156px;
+  justify-content: center;
+  white-space: nowrap;
+  padding-inline: 16px;
+}
+
+@media (max-width: 1180px) {
+  .enquiries-heading-polished {
+    grid-template-columns: 1fr;
+  }
+
+  .enquiries-form-buttons {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .compact-scope-select select {
+    min-height: 48px;
+  }
+
+  .enquiries-form-buttons .btn {
+    width: 100%;
+    min-width: 0;
+  }
+}
