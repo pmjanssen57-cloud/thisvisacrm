@@ -1,7 +1,13 @@
-# THiS CRM v0.13.2 - Header Snapshot Hotfix
+# THiS CRM v0.13.3 - Search Actions Alignment Polish
 
 This build adds the first native consultation booking module to THiS CRM. The module is intentionally separate from the daily adviser workflow so it can be configured and tested without cluttering the dashboard, client workspace, or Enquiries & Intake screens.
 
+
+## v0.13.3 changes
+
+- Aligned the right-hand search row controls so the **Search**, **Results**, and **Clear** controls sit on the same visual baseline.
+- Standardised the compact result pill and Clear button height.
+- No database migration required.
 
 ## v0.13.2 changes
 

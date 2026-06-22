@@ -9261,6 +9261,35 @@ body.intake-embed-mode .seminar-public-card {
   align-self: center;
 }
 
+
+/* v0.13.3: align search row action controls */
+.compact-view-toolbar {
+  align-items: end;
+}
+
+.compact-view-toolbar .global-search,
+.compact-view-toolbar .compact-view-result,
+.compact-view-toolbar .compact-clear-btn {
+  align-self: end;
+}
+
+.compact-view-toolbar .compact-view-result,
+.compact-view-toolbar .compact-clear-btn {
+  min-height: 44px;
+  height: 44px;
+}
+
+.compact-view-toolbar .compact-view-result {
+  align-content: center;
+}
+
+.compact-view-toolbar .compact-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
 @media (max-width: 1180px) {
   .header-local-snapshot {
     display: none;
