@@ -65,6 +65,8 @@ const LIBRARY_ENTRY_TYPES = ['Policy', 'Form'];
 const LIBRARY_STATUSES = ['Current', 'Watch', 'Superseded', 'Archived', 'Acceptable until'];
 const LIBRARY_CATEGORIES = ['Work', 'Residence', 'Family', 'Student', 'Visitor', 'Investor', 'Health', 'Character', 'Compliance', 'Forms', 'General'];
 const INTAKE_STATUSES = ['New', 'Contacted', 'Converted', 'Spam / Duplicate'];
+const SEMINAR_STATUSES = ['Active', 'Closed'];
+const SEMINAR_REGISTRATION_STATUSES = ['New', 'Approved', 'Declined', 'Spam / Duplicate'];
 const PORTAL_RESOURCE_KEYS = ['jobSearchCv', 'lifeInNz', 'usefulLinks', 'relocationResources'];
 const PORTAL_DOCUMENT_STORE = 'client-portal-documents';
 const INTAKE_UPLOAD_STORE = 'intake-uploads';
@@ -203,6 +205,27 @@ async function handleCrmEvent(event) {
     if (action === 'sendContactIntakeInviteEmail') {
       const emailLog = await sendContactIntakeInviteEmail(body.contact || {}, auth.user);
       return json({ emailLog, emailConfig: getEmailConfigStatus() });
+    }
+
+    if (action === 'saveSeminar') {
+      const seminar = await saveSeminar(body.seminar || {});
+      return json({ seminar, ...(await readCrmData()) });
+    }
+
+    if (action === 'deleteSeminar') {
+      await deleteSeminar(body.seminarId);
+      return json(await readCrmData());
+    }
+
+    if (action === 'saveSeminarRegistration') {
+      const registration = await saveSeminarRegistration(body.registration || {}, auth.user);
+      return json({ seminarRegistration: registration, ...(await readCrmData()) });
+    }
+
+    if (action === 'sendSeminarRegistrationEmail') {
+      const emailLog = await sendSeminarRegistrationEmail(body.registrationId, body.outcome || 'approve', auth.user);
+      const data = await readCrmData();
+      return json({ emailLog, seminarRegistrations: data.seminarRegistrations, emailConfig: getEmailConfigStatus() });
     }
 
     if (action === 'downloadIntakeUpload') {
@@ -533,6 +556,50 @@ async function ensureSchema() {
   await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_enquiries_assigned_adviser ON intake_enquiries(assigned_adviser_id)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_enquiries_email ON intake_enquiries(LOWER(email))`;
   await database.sql`
+    CREATE TABLE IF NOT EXISTS seminars (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      title TEXT,
+      seminar_date DATE,
+      seminar_time TEXT,
+      timezone TEXT NOT NULL DEFAULT 'Pacific/Auckland',
+      presenter_name TEXT,
+      zoom_link TEXT,
+      zoom_password TEXT,
+      status TEXT NOT NULL DEFAULT 'Active',
+      registration_open BOOLEAN NOT NULL DEFAULT TRUE,
+      internal_notes TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_seminars_status_date ON seminars(status, seminar_date DESC)`;
+  await database.sql`
+    CREATE TABLE IF NOT EXISTS seminar_registrations (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      seminar_id UUID NOT NULL REFERENCES seminars(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'New',
+      full_name TEXT,
+      date_of_birth DATE,
+      citizenship_country TEXT,
+      residence_country TEXT,
+      timezone TEXT,
+      email TEXT,
+      partnership_status TEXT,
+      highest_qualification TEXT,
+      current_occupation TEXT,
+      work_history TEXT,
+      health_character_issues TEXT,
+      english_ability TEXT,
+      raw_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+      reviewed_by TEXT,
+      approved_at TIMESTAMPTZ,
+      declined_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_seminar_registrations_seminar ON seminar_registrations(seminar_id, created_at DESC)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_seminar_registrations_status ON seminar_registrations(status)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_seminar_registrations_email ON seminar_registrations(LOWER(email))`;
+  await database.sql`
     CREATE TABLE IF NOT EXISTS email_notifications (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       related_record_type TEXT NOT NULL DEFAULT 'test',
@@ -568,7 +635,7 @@ async function ensureSchema() {
 async function readCrmData() {
   const database = db();
   await pruneOldEmailNotifications(database);
-  const [advisers, clients, stages, deadlines, billing, personalTasks, calendarEntries, libraryEntries, portalMessages, portalDocuments, intakeEnquiries, emailLogs] = await Promise.all([
+  const [advisers, clients, stages, deadlines, billing, personalTasks, calendarEntries, libraryEntries, portalMessages, portalDocuments, intakeEnquiries, seminars, seminarRegistrations, emailLogs] = await Promise.all([
     database.sql`SELECT id, name, role, email, login_email, profile_photo_url, availability_status, phone, licence, active FROM advisers ORDER BY name ASC`,
     database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, one_law_client_number, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, portal_enabled, portal_email, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_resource_settings, portal_access_code_hash, portal_last_published_at, portal_last_accessed_at, notes, family_members, document_checklist FROM clients ORDER BY updated_at DESC`,
     database.sql`SELECT id, client_id, stage_key, stage_label, mandatory, applied, completed, completed_date, sort_order FROM client_stages ORDER BY sort_order ASC`,
@@ -580,6 +647,8 @@ async function readCrmData() {
     database.sql`SELECT id, client_id, portal_email, message_type, title, message, status, created_at FROM client_portal_messages ORDER BY created_at DESC`,
     database.sql`SELECT id, client_id, title, category, description, file_name, file_type, file_size, blob_key, visible_to_client, uploaded_by, uploaded_at FROM client_portal_documents ORDER BY uploaded_at DESC`,
     database.sql`SELECT id, status, assigned_adviser_id, applicant_first_name, applicant_last_name, email, phone, current_location, citizenship, date_of_birth, current_visa_type, current_visa_expiry, target_pathway, urgency, flags, raw_payload, adviser_assessment_notes, recommended_pathway, consultation_outcome, converted_client_id, created_at, updated_at FROM intake_enquiries ORDER BY created_at DESC`,
+    database.sql`SELECT id, title, seminar_date, seminar_time, timezone, presenter_name, zoom_link, zoom_password, status, registration_open, internal_notes, created_at, updated_at FROM seminars ORDER BY seminar_date DESC NULLS LAST, created_at DESC`,
+    database.sql`SELECT id, seminar_id, status, full_name, date_of_birth, citizenship_country, residence_country, timezone, email, partnership_status, highest_qualification, current_occupation, work_history, health_character_issues, english_ability, raw_payload, reviewed_by, approved_at, declined_at, created_at, updated_at FROM seminar_registrations ORDER BY created_at DESC`,
     database.sql`SELECT id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at FROM email_notifications WHERE created_at >= NOW() - INTERVAL '60 days' ORDER BY created_at DESC LIMIT 200`,
   ]);
 
@@ -591,6 +660,8 @@ async function readCrmData() {
     libraryEntries: libraryEntries.map(mapLibraryEntryFromDb),
     intakeEnquiries: intakeEnquiries.map(mapIntakeEnquiryFromDb),
     intakeStatuses: INTAKE_STATUSES,
+    seminars: seminars.map(mapSeminarFromDb),
+    seminarRegistrations: seminarRegistrations.map(mapSeminarRegistrationFromDb),
     emailLogs: emailLogs.map(mapEmailLogFromDb),
     emailConfig: getEmailConfigStatus(),
     caseTypes: CASE_TYPES,
@@ -739,6 +810,52 @@ function mapIntakeEnquiryFromDb(row = {}) {
     recommendedPathway: row.recommended_pathway || '',
     consultationOutcome: row.consultation_outcome || '',
     convertedClientId: row.converted_client_id || '',
+    createdAt: toDateTimeLabel(row.created_at),
+    updatedAt: toDateTimeLabel(row.updated_at),
+  };
+}
+
+
+function mapSeminarFromDb(row = {}) {
+  return {
+    id: row.id,
+    title: row.title || 'Turner Hopkins immigration seminar',
+    seminarDate: toDateOnly(row.seminar_date),
+    seminarTime: row.seminar_time || '',
+    timezone: row.timezone || 'Pacific/Auckland',
+    presenterName: row.presenter_name || '',
+    zoomLink: row.zoom_link || '',
+    zoomPassword: row.zoom_password || '',
+    status: SEMINAR_STATUSES.includes(row.status) ? row.status : 'Active',
+    registrationOpen: row.registration_open !== false,
+    internalNotes: row.internal_notes || '',
+    createdAt: toDateTimeLabel(row.created_at),
+    updatedAt: toDateTimeLabel(row.updated_at),
+  };
+}
+
+function mapSeminarRegistrationFromDb(row = {}) {
+  const status = SEMINAR_REGISTRATION_STATUSES.includes(row.status) ? row.status : 'New';
+  return {
+    id: row.id,
+    seminarId: row.seminar_id || '',
+    status,
+    fullName: row.full_name || '',
+    dateOfBirth: toDateOnly(row.date_of_birth),
+    citizenshipCountry: row.citizenship_country || '',
+    residenceCountry: row.residence_country || '',
+    timezone: row.timezone || 'UTC',
+    email: row.email || '',
+    partnershipStatus: row.partnership_status || '',
+    highestQualification: row.highest_qualification || '',
+    currentOccupation: row.current_occupation || '',
+    workHistory: row.work_history || '',
+    healthCharacterIssues: row.health_character_issues || '',
+    englishAbility: row.english_ability || '',
+    rawPayload: parseJsonObject(row.raw_payload),
+    reviewedBy: row.reviewed_by || '',
+    approvedAt: toDateTimeLabel(row.approved_at),
+    declinedAt: toDateTimeLabel(row.declined_at),
     createdAt: toDateTimeLabel(row.created_at),
     updatedAt: toDateTimeLabel(row.updated_at),
   };
@@ -1495,9 +1612,253 @@ async function deletePersonalTask(taskId) {
   await db().sql`DELETE FROM personal_tasks WHERE id = ${taskId}`;
 }
 
+
+async function saveSeminar(input = {}) {
+  const seminar = normaliseSeminarInput(input);
+  const database = db();
+  if (isUuid(seminar.id)) {
+    const rows = await database.sql`
+      UPDATE seminars
+         SET title = ${seminar.title}, seminar_date = ${nullableDate(seminar.seminarDate)}, seminar_time = ${seminar.seminarTime}, timezone = ${seminar.timezone}, presenter_name = ${seminar.presenterName}, zoom_link = ${seminar.zoomLink}, zoom_password = ${seminar.zoomPassword}, status = ${seminar.status}, registration_open = ${seminar.registrationOpen}, internal_notes = ${seminar.internalNotes}, updated_at = NOW()
+       WHERE id = ${seminar.id}
+       RETURNING id, title, seminar_date, seminar_time, timezone, presenter_name, zoom_link, zoom_password, status, registration_open, internal_notes, created_at, updated_at`;
+    return mapSeminarFromDb(rows[0]);
+  }
+  const rows = await database.sql`
+    INSERT INTO seminars (title, seminar_date, seminar_time, timezone, presenter_name, zoom_link, zoom_password, status, registration_open, internal_notes)
+    VALUES (${seminar.title}, ${nullableDate(seminar.seminarDate)}, ${seminar.seminarTime}, ${seminar.timezone}, ${seminar.presenterName}, ${seminar.zoomLink}, ${seminar.zoomPassword}, ${seminar.status}, ${seminar.registrationOpen}, ${seminar.internalNotes})
+    RETURNING id, title, seminar_date, seminar_time, timezone, presenter_name, zoom_link, zoom_password, status, registration_open, internal_notes, created_at, updated_at`;
+  return mapSeminarFromDb(rows[0]);
+}
+
+async function deleteSeminar(seminarId) {
+  if (!isUuid(seminarId)) return;
+  await db().sql`DELETE FROM seminars WHERE id = ${seminarId}`;
+}
+
+async function saveSeminarRegistration(input = {}, authUser = null) {
+  const registration = normaliseSeminarRegistrationInput(input);
+  if (!isUuid(registration.id)) throw new Error('Registration ID is required.');
+  const reviewedBy = authUser?.email || authUser?.name || input.reviewedBy || input.reviewed_by || '';
+  const rows = await db().sql`
+    UPDATE seminar_registrations
+       SET status = ${registration.status}, reviewed_by = ${reviewedBy}, updated_at = NOW()
+     WHERE id = ${registration.id}
+     RETURNING id, seminar_id, status, full_name, date_of_birth, citizenship_country, residence_country, timezone, email, partnership_status, highest_qualification, current_occupation, work_history, health_character_issues, english_ability, raw_payload, reviewed_by, approved_at, declined_at, created_at, updated_at`;
+  if (!rows[0]) throw new Error('Seminar registration not found.');
+  return mapSeminarRegistrationFromDb(rows[0]);
+}
+
+function normaliseSeminarInput(input = {}) {
+  const status = SEMINAR_STATUSES.includes(input.status) ? input.status : 'Active';
+  return {
+    id: String(input.id || '').trim(),
+    title: cleanIntakeText(input.title || 'Turner Hopkins immigration seminar', 400),
+    seminarDate: cleanIntakeText(input.seminarDate || input.seminar_date, 20),
+    seminarTime: cleanIntakeText(input.seminarTime || input.seminar_time, 40),
+    timezone: cleanIntakeText(input.timezone || 'Pacific/Auckland', 80),
+    presenterName: cleanIntakeText(input.presenterName || input.presenter_name, 400),
+    zoomLink: cleanIntakeText(input.zoomLink || input.zoom_link, 2000),
+    zoomPassword: cleanIntakeText(input.zoomPassword || input.zoom_password, 400),
+    status,
+    registrationOpen: input.registrationOpen ?? input.registration_open ?? true,
+    internalNotes: cleanIntakeText(input.internalNotes || input.internal_notes, 4000),
+  };
+}
+
+function normaliseSeminarRegistrationInput(input = {}) {
+  const status = SEMINAR_REGISTRATION_STATUSES.includes(input.status) ? input.status : 'New';
+  return {
+    id: String(input.id || '').trim(),
+    seminarId: String(input.seminarId || input.seminar_id || '').trim(),
+    status,
+  };
+}
+
 async function deleteClient(clientId) {
   if (!isUuid(clientId)) return;
   await db().sql`DELETE FROM clients WHERE id = ${clientId}`;
+}
+
+
+async function sendSeminarRegistrationEmail(registrationId, outcome = 'approve', authUser = null) {
+  if (!isUuid(registrationId)) throw new Error('Seminar registration ID is required.');
+  const database = db();
+  const rows = await database.sql`
+    SELECT r.id, r.seminar_id, r.status, r.full_name, r.date_of_birth, r.citizenship_country, r.residence_country, r.timezone, r.email, r.partnership_status, r.highest_qualification, r.current_occupation, r.work_history, r.health_character_issues, r.english_ability, r.raw_payload, r.reviewed_by, r.approved_at, r.declined_at, r.created_at, r.updated_at,
+           s.title, s.seminar_date, s.seminar_time, s.timezone AS seminar_timezone, s.presenter_name, s.zoom_link, s.zoom_password
+      FROM seminar_registrations r
+      JOIN seminars s ON s.id = r.seminar_id
+     WHERE r.id = ${registrationId}
+     LIMIT 1`;
+  const row = rows[0];
+  if (!row) throw new Error('Seminar registration not found.');
+  const registration = mapSeminarRegistrationFromDb(row);
+  registration.seminar = {
+    id: row.seminar_id,
+    title: row.title || 'Turner Hopkins immigration seminar',
+    seminarDate: toDateOnly(row.seminar_date),
+    seminarTime: row.seminar_time || '',
+    timezone: row.seminar_timezone || 'Pacific/Auckland',
+    presenterName: row.presenter_name || '',
+    zoomLink: row.zoom_link || '',
+    zoomPassword: row.zoom_password || '',
+  };
+  if (!isValidEmailAddress(registration.email)) throw new Error('This seminar registration does not have a valid email address.');
+  const isDecline = String(outcome || '').toLowerCase() === 'decline';
+  const emailDraft = buildSeminarRegistrationEmailContent(registration, isDecline ? 'decline' : 'approve');
+  const config = requireMicrosoftEmailConfig();
+  const sentBy = authUser?.email || authUser?.name || 'CRM adviser';
+  const templateKey = isDecline ? 'seminar_decline' : 'seminar_approve';
+
+  const [created] = await database.sql`
+    INSERT INTO email_notifications (related_record_type, related_record_id, template_key, from_email, from_name, to_email, subject, body_text, body_html, status, sent_by)
+    VALUES ('seminar_registration', ${registration.id}, ${templateKey}, ${config.fromEmail}, ${config.fromName}, ${emailDraft.to}, ${emailDraft.subject}, ${emailDraft.bodyText}, ${emailDraft.bodyHtml}, 'Sending', ${sentBy})
+    RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+
+  try {
+    const token = await getMicrosoftGraphAccessToken(config);
+    const sendResult = await sendMicrosoftGraphEmail({ config, token, toEmail: emailDraft.to, subject: emailDraft.subject, bodyText: emailDraft.bodyText, bodyHtml: emailDraft.bodyHtml });
+    const nextStatus = isDecline ? 'Declined' : 'Approved';
+    await database.sql`
+      UPDATE seminar_registrations
+         SET status = ${nextStatus}, reviewed_by = ${sentBy}, approved_at = CASE WHEN ${nextStatus} = 'Approved' THEN NOW() ELSE approved_at END, declined_at = CASE WHEN ${nextStatus} = 'Declined' THEN NOW() ELSE declined_at END, updated_at = NOW()
+       WHERE id = ${registration.id}`;
+    const [updated] = await database.sql`
+      UPDATE email_notifications
+         SET status = 'Sent', sent_at = NOW(), provider_request_id = ${sendResult.requestId || ''}, updated_at = NOW()
+       WHERE id = ${created.id}
+       RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+    return mapEmailLogFromDb(updated);
+  } catch (error) {
+    const message = String(error?.message || error).slice(0, 1000);
+    const [failed] = await database.sql`
+      UPDATE email_notifications
+         SET status = 'Failed', failed_at = NOW(), failure_message = ${message}, updated_at = NOW()
+       WHERE id = ${created.id}
+       RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+    return mapEmailLogFromDb(failed);
+  }
+}
+
+function buildSeminarRegistrationEmailContent(registration = {}, outcome = 'approve') {
+  const firstName = firstNameFromFullName(registration.fullName) || 'there';
+  const to = String(registration.email || '').trim();
+  const seminar = registration.seminar || {};
+  if (outcome === 'decline') {
+    const bodyText = [
+      `Hi ${firstName},`,
+      '',
+      'Thank you for registering your interest in our upcoming seminar.',
+      '',
+      'After reviewing the information provided, we are not able to offer you a place in this session.',
+      '',
+      'We appreciate your interest and wish you all the best.',
+      '',
+      'Kind regards,',
+    ].join('\n');
+    return {
+      to,
+      subject: 'Turner Hopkins seminar registration',
+      bodyText,
+      bodyHtml: seminarEmailHtml(bodyText),
+    };
+  }
+  const timeSummary = buildSeminarTimeSummary(seminar, registration.timezone);
+  const bodyText = [
+    `Hi ${firstName},`,
+    '',
+    'Thank you for registering for our upcoming Turner Hopkins immigration seminar.',
+    '',
+    'We are pleased to confirm that your registration has been approved. The seminar details are below:',
+    '',
+    `Seminar: ${seminar.title || 'Turner Hopkins immigration seminar'}`,
+    `Presenter: ${seminar.presenterName || 'Turner Hopkins adviser'}`,
+    `New Zealand time: ${timeSummary.nzTime}`,
+    `Your local time: ${timeSummary.localTime}`,
+    '',
+    `Zoom link: ${seminar.zoomLink || 'To be confirmed'}`,
+    `Zoom password: ${seminar.zoomPassword || 'To be confirmed'}`,
+    '',
+    'Please keep these details handy and join a few minutes before the seminar is due to start.',
+    '',
+    'Kind regards,',
+  ].join('\n');
+  return {
+    to,
+    subject: 'Your Turner Hopkins seminar invitation',
+    bodyText,
+    bodyHtml: seminarEmailHtml(bodyText),
+  };
+}
+
+function seminarEmailHtml(bodyText = '') {
+  const paragraphs = String(bodyText || '').split(/\n{2,}/).map((paragraph) => {
+    const escaped = escapeHtml(paragraph).replace(/\n/g, '<br>');
+    return `<p style="margin:0 0 10px 0; padding:0; line-height:1.3;">${linkifyHtml(escaped)}</p>`;
+  }).join('');
+  return `<div style="font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.3; color: #1f2933;">${paragraphs}${buildEmailSignatureSpacer(18)}</div>`;
+}
+
+function linkifyHtml(html = '') {
+  return String(html).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" style="color:#003736; font-weight:700;">$1</a>');
+}
+
+function firstNameFromFullName(value = '') {
+  return String(value || '').trim().split(/\s+/)[0] || '';
+}
+
+function buildSeminarTimeSummary(seminar = {}, registrantTimezone = '') {
+  const zone = seminar.timezone || 'Pacific/Auckland';
+  const date = seminar.seminarDate || '';
+  const time = seminar.seminarTime || '';
+  if (!date || !time) return { nzTime: 'To be confirmed', localTime: 'To be confirmed' };
+  const instant = zonedDateTimeToDate(date, time, zone);
+  const nzTime = formatDateInZone(instant, zone, 'New Zealand time');
+  const localZone = isUsableTimeZone(registrantTimezone) ? registrantTimezone : '';
+  const localTime = localZone ? formatDateInZone(instant, localZone, localZone) : 'Could not be calculated from the timezone provided';
+  return { nzTime, localTime };
+}
+
+function zonedDateTimeToDate(dateValue = '', timeValue = '', timeZone = 'Pacific/Auckland') {
+  const [year, month, day] = String(dateValue).split('-').map((value) => Number(value));
+  const [hour, minute] = String(timeValue).split(':').map((value) => Number(value));
+  if (!year || !month || !day) return new Date();
+  let utc = Date.UTC(year, month - 1, day, Number.isFinite(hour) ? hour : 0, Number.isFinite(minute) ? minute : 0, 0);
+  for (let i = 0; i < 3; i += 1) {
+    const offset = timeZoneOffsetMs(timeZone, new Date(utc));
+    utc = Date.UTC(year, month - 1, day, Number.isFinite(hour) ? hour : 0, Number.isFinite(minute) ? minute : 0, 0) - offset;
+  }
+  return new Date(utc);
+}
+
+function timeZoneOffsetMs(timeZone, date) {
+  try {
+    const parts = new Intl.DateTimeFormat('en-NZ', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).formatToParts(date);
+    const data = Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
+    return Date.UTC(Number(data.year), Number(data.month) - 1, Number(data.day), Number(data.hour), Number(data.minute), Number(data.second)) - date.getTime();
+  } catch {
+    return 0;
+  }
+}
+
+function formatDateInZone(date, timeZone, label = '') {
+  try {
+    const formatted = new Intl.DateTimeFormat('en-NZ', { timeZone, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }).format(date);
+    return label && label !== timeZone ? `${formatted} (${label})` : formatted;
+  } catch {
+    return 'Could not be calculated from the timezone provided';
+  }
+}
+
+function isUsableTimeZone(value = '') {
+  try {
+    if (!value) return false;
+    new Intl.DateTimeFormat('en-NZ', { timeZone: value }).format(new Date());
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function sendTestEmail(input = {}, authUser = null) {

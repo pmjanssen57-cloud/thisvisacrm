@@ -78,6 +78,28 @@ const LIBRARY_ENTRY_TYPES = ['Policy', 'Form'];
 const LIBRARY_STATUSES = ['Current', 'Watch', 'Superseded', 'Archived', 'Acceptable until'];
 const LIBRARY_CATEGORIES = ['Work', 'Residence', 'Family', 'Student', 'Visitor', 'Investor', 'Health', 'Character', 'Compliance', 'Forms', 'General'];
 const INTAKE_STATUSES = ['New', 'Contacted', 'Converted', 'Spam / Duplicate'];
+const SEMINAR_STATUSES = ['Active', 'Closed'];
+const SEMINAR_REGISTRATION_STATUSES = ['New', 'Approved', 'Declined', 'Spam / Duplicate'];
+const SEMINAR_ENGLISH_OPTIONS = ['Fluent', 'Medium', 'None'];
+const SEMINAR_TIMEZONE_OPTIONS = [
+  { value: 'Pacific/Auckland', label: 'New Zealand - Pacific/Auckland' },
+  { value: 'Australia/Sydney', label: 'Australia Eastern - Australia/Sydney' },
+  { value: 'Australia/Brisbane', label: 'Australia Queensland - Australia/Brisbane' },
+  { value: 'Pacific/Fiji', label: 'Fiji - Pacific/Fiji' },
+  { value: 'Pacific/Apia', label: 'Samoa - Pacific/Apia' },
+  { value: 'Pacific/Tongatapu', label: 'Tonga - Pacific/Tongatapu' },
+  { value: 'Asia/Kolkata', label: 'India - Asia/Kolkata' },
+  { value: 'Asia/Manila', label: 'Philippines - Asia/Manila' },
+  { value: 'Asia/Singapore', label: 'Singapore / Malaysia - Asia/Singapore' },
+  { value: 'Asia/Shanghai', label: 'China - Asia/Shanghai' },
+  { value: 'Asia/Dubai', label: 'United Arab Emirates - Asia/Dubai' },
+  { value: 'Europe/London', label: 'United Kingdom - Europe/London' },
+  { value: 'Europe/Berlin', label: 'Central Europe - Europe/Berlin' },
+  { value: 'Africa/Johannesburg', label: 'South Africa - Africa/Johannesburg' },
+  { value: 'America/New_York', label: 'US Eastern - America/New_York' },
+  { value: 'America/Los_Angeles', label: 'US Pacific - America/Los_Angeles' },
+  { value: 'UTC', label: 'UTC / not sure' },
+];
 const INTAKE_PATHWAY_OPTIONS = ['Live in New Zealand permanently', 'Work in New Zealand', 'Join my partner or family', 'Study in New Zealand', 'Invest in New Zealand', 'Bring staff to New Zealand', 'Resolve a visa issue', 'Visit New Zealand', 'Become a New Zealand citizen', 'Not sure yet'];
 const CONTACT_SITUATION_OPTIONS = ['I am in New Zealand and would like to stay longer or permanently', 'I am not in NZ but exploring the big move', 'I have a job offer and need to secure a Work Visa', 'I have a Visa issue, that I need help with', 'I am a NZ based employer looking for assistance'];
 const INTAKE_YES_NO_OPTIONS = ['Yes', 'No', 'Unsure'];
@@ -335,6 +357,8 @@ const emptyData = {
   libraryEntries: [],
   intakeEnquiries: [],
   intakeStatuses: INTAKE_STATUSES,
+  seminars: [],
+  seminarRegistrations: [],
   emailLogs: [],
   emailConfig: { configured: false, fromEmail: '', fromName: '' },
   securityMode: 'unknown',
@@ -393,6 +417,7 @@ function makeBlankClient(data) {
 export default function App() {
   if (window.location.pathname.startsWith('/contact')) return <ContactFormApp />;
   if (window.location.pathname.startsWith('/intake')) return <IntakeFormApp />;
+  if (window.location.pathname.startsWith('/seminar')) return <SeminarRegistrationFormApp />;
   if (window.location.pathname.startsWith('/portal')) return <ClientPortalApp />;
   const [data, setData] = useState(emptyData);
   const [tab, setTab] = useState('dashboard');
@@ -803,6 +828,32 @@ export default function App() {
     return await callApi('saveIntakeEnquiry', { intake });
   }
 
+  async function saveSeminar(seminar) {
+    return await callApi('saveSeminar', { seminar });
+  }
+
+  async function deleteSeminar(seminarId) {
+    if (!window.confirm('Delete this seminar? Registrations linked to this seminar will also be removed.')) return;
+    return await callApi('deleteSeminar', { seminarId });
+  }
+
+  async function saveSeminarRegistration(registration) {
+    return await callApi('saveSeminarRegistration', { registration });
+  }
+
+  async function sendSeminarRegistrationEmail(registrationId, outcome) {
+    const body = await callApi('sendSeminarRegistrationEmail', { registrationId, outcome }, { skipDataUpdate: true });
+    if (body.emailLog) {
+      setData((current) => ({
+        ...current,
+        seminarRegistrations: (body.seminarRegistrations || current.seminarRegistrations || []).map(normaliseSeminarRegistration),
+        emailLogs: [normaliseEmailLog(body.emailLog), ...(current.emailLogs || [])].slice(0, 200),
+        emailConfig: body.emailConfig ? normaliseEmailConfig(body.emailConfig) : current.emailConfig,
+      }));
+    }
+    return body;
+  }
+
   async function deleteIntakeEnquiry(intakeId) {
     if (!window.confirm('Delete this intake enquiry? Converted enquiries cannot be deleted.')) return;
     return await callApi('deleteIntakeEnquiry', { intakeId });
@@ -988,7 +1039,7 @@ export default function App() {
         {error && <div className="error-banner"><AlertTriangle size={18} />{error}</div>}
         {loading && <div className="loading-card"><Database size={18} />Loading database-backed CRM data...</div>}
 
-        {!loading && !data.clients.length && !data.advisers.length && !data.intakeEnquiries.length && (
+        {!loading && !data.clients.length && !data.advisers.length && !data.intakeEnquiries.length && !data.seminars.length && !data.seminarRegistrations.length && (
           <section className="empty-state">
             <Database size={40} />
             <h1>Database is connected, but no CRM records exist yet.</h1>
@@ -997,7 +1048,7 @@ export default function App() {
           </section>
         )}
 
-        {(data.clients.length > 0 || data.advisers.length > 0 || data.libraryEntries.length > 0 || data.intakeEnquiries.length > 0) && (
+        {(data.clients.length > 0 || data.advisers.length > 0 || data.libraryEntries.length > 0 || data.intakeEnquiries.length > 0 || data.seminars.length > 0 || data.seminarRegistrations.length > 0) && (
           <>
             <ViewToolbar
               advisers={scopeAdvisers}
@@ -1028,7 +1079,7 @@ export default function App() {
             </nav>
 
             {tab === 'intake' && (
-              <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} statuses={data.intakeStatuses || INTAKE_STATUSES} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} downloadIntakeUpload={downloadIntakeUpload} saving={saving} openClientRecord={openClientRecord} />
+              <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} statuses={data.intakeStatuses || INTAKE_STATUSES} seminars={data.seminars || []} seminarRegistrations={data.seminarRegistrations || []} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} downloadIntakeUpload={downloadIntakeUpload} saveSeminar={saveSeminar} deleteSeminar={deleteSeminar} saveSeminarRegistration={saveSeminarRegistration} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail} saving={saving} openClientRecord={openClientRecord} />
             )}
 
             {tab === 'dashboard' && (
@@ -1722,12 +1773,171 @@ function ContactFormApp() {
   );
 }
 
+
+function SeminarRegistrationFormApp() {
+  const [seminar, setSeminar] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState('');
+  const [form, setForm] = useState({
+    fullName: '',
+    dateOfBirth: '',
+    citizenshipCountry: '',
+    residenceCountry: '',
+    timezone: 'UTC',
+    email: '',
+    partnershipStatus: '',
+    highestQualification: '',
+    currentOccupation: '',
+    workHistory: '',
+    healthCharacterIssues: '',
+    englishAbility: '',
+    consentToContact: false,
+    privacyAcknowledged: false,
+  });
+
+  useEffect(() => {
+    let active = true;
+    async function loadSeminar() {
+      setLoading(true);
+      setError('');
+      try {
+        const response = await fetch('/.netlify/functions/seminar', { method: 'GET' });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body.error || 'The seminar form could not be loaded.');
+        if (active) setSeminar(body.seminar || null);
+      } catch (err) {
+        if (active) setError(err.message || 'The seminar form could not be loaded.');
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    loadSeminar();
+    return () => { active = false; };
+  }, []);
+
+  function setField(name, value) {
+    setForm((current) => ({ ...current, [name]: value }));
+  }
+
+  async function submit(event) {
+    event.preventDefault();
+    setError('');
+    if (!seminar?.id) {
+      setError('There is no active seminar available for registration.');
+      return;
+    }
+    if (!form.consentToContact || !form.privacyAcknowledged) {
+      setError('Please confirm the consent and privacy acknowledgements before submitting.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const response = await fetch('/.netlify/functions/seminar', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ seminarId: seminar.id, registration: form }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || 'The registration could not be submitted.');
+      setSubmitted(true);
+    } catch (err) {
+      setError(err.message || 'The registration could not be submitted.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (submitted) {
+    return (
+      <div className="intake-public-shell seminar-public-shell">
+        <main className="intake-public-card intake-thanks-card">
+          <CheckCircle2 size={40} className="portal-lock" />
+          <h1>Thank you. Your registration has been received.</h1>
+          <p className="muted">We will review your details and confirm whether we are able to invite you to the seminar. If approved, you will receive the Zoom details by email.</p>
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="intake-public-shell seminar-public-shell">
+      <main className="intake-public-card seminar-public-card">
+        <div className="intake-public-head compact contact-public-intro">
+          <p>Register your interest in the next Turner Hopkins immigration seminar. Registrations are reviewed before Zoom details are issued.</p>
+        </div>
+        {loading && <div className="loading-card"><Database size={18} />Loading seminar details...</div>}
+        {error && <div className="error-banner"><AlertTriangle size={18} />{error}</div>}
+        {!loading && !seminar && !error && (
+          <div className="empty-state slim intake-inbox-empty">
+            <CalendarDays size={34} />
+            <h2>No seminar is currently open</h2>
+            <p>Please check back later for the next available session.</p>
+          </div>
+        )}
+        {seminar && (
+          <>
+            <section className="seminar-public-summary">
+              <span className="eyebrow">Next seminar</span>
+              <h1>{seminar.title || 'Upcoming immigration seminar'}</h1>
+              <p><strong>{formatSeminarPublicDate(seminar)}</strong></p>
+              <p className="muted">Presenter: {seminar.presenterName || 'Turner Hopkins adviser'}</p>
+            </section>
+            <form className="intake-form seminar-form" onSubmit={submit}>
+              <IntakeSection title="Your details">
+                <div className="form-grid">
+                  <IntakeField label="Full name" value={form.fullName} onChange={(v) => setField('fullName', v)} required />
+                  <IntakeField label="Date of birth" type="date" value={form.dateOfBirth} onChange={(v) => setField('dateOfBirth', v)} required />
+                  <IntakeSelect label="Country of citizenship" value={form.citizenshipCountry} onChange={(v) => setField('citizenshipCountry', v)} options={COUNTRY_OPTIONS} required />
+                  <IntakeSelect label="Current country of residence" value={form.residenceCountry} onChange={(v) => setField('residenceCountry', v)} options={COUNTRY_OPTIONS} required />
+                  <IntakeSelect label="Your current timezone" value={form.timezone} onChange={(v) => setField('timezone', v)} options={SEMINAR_TIMEZONE_OPTIONS} required />
+                  <IntakeField label="Email address" type="email" value={form.email} onChange={(v) => setField('email', v)} required />
+                </div>
+              </IntakeSection>
+
+              <IntakeSection title="Background information">
+                <div className="form-grid">
+                  <IntakeSelect label="Partnership status" value={form.partnershipStatus} onChange={(v) => setField('partnershipStatus', v)} options={INTAKE_RELATIONSHIP_OPTIONS} required />
+                  <IntakeSelect label="Highest qualification" value={form.highestQualification} onChange={(v) => setField('highestQualification', v)} options={INTAKE_QUALIFICATION_OPTIONS} required />
+                  <IntakeField label="Current occupation" value={form.currentOccupation} onChange={(v) => setField('currentOccupation', v)} required />
+                  <IntakeSelect label="English ability" value={form.englishAbility} onChange={(v) => setField('englishAbility', v)} options={SEMINAR_ENGLISH_OPTIONS} required />
+                </div>
+                <IntakeTextarea label="Relevant work history" value={form.workHistory} onChange={(v) => setField('workHistory', v)} rows={4} placeholder="Please summarise your main roles, years of experience, and industry." />
+                <IntakeTextarea label="Any health or character issues" value={form.healthCharacterIssues} onChange={(v) => setField('healthCharacterIssues', v)} rows={4} placeholder="Please mention any health concerns, convictions, charges, visa declines, deportation/removal matters, or write None." />
+              </IntakeSection>
+
+              <IntakeSection title="Consent">
+                <div className="intake-consent-grid">
+                  <IntakeCheckbox label="I agree Turner Hopkins may contact me about this seminar registration." checked={form.consentToContact} onChange={(v) => setField('consentToContact', v)} required />
+                  <IntakeCheckbox label="I understand this registration is reviewed before Zoom details are issued and does not create an adviser-client relationship." checked={form.privacyAcknowledged} onChange={(v) => setField('privacyAcknowledged', v)} required />
+                </div>
+              </IntakeSection>
+
+              <div className="intake-submit-bar">
+                <button className="btn dark" type="submit" disabled={submitting}>{submitting ? 'Submitting...' : 'Submit registration'}</button>
+              </div>
+            </form>
+          </>
+        )}
+      </main>
+    </div>
+  );
+}
+
+function formatSeminarPublicDate(seminar = {}) {
+  const date = seminar.seminarDate || seminar.date || '';
+  const time = seminar.seminarTime || seminar.time || '';
+  if (!date && !time) return 'Date and time to be confirmed';
+  return `${date || 'Date to be confirmed'}${time ? ` at ${time}` : ''} NZ time`;
+}
+
 function isContactIntake(record = {}) {
   const payload = intakeAnswerPayload(record);
   return String(payload.formType || '').toLowerCase() === 'contact' || String(payload.submittedVia || '').toLowerCase().includes('contact form');
 }
 
-function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, sendContactIntakeInviteEmail, downloadIntakeUpload, saving, openClientRecord }) {
+function IntakeWorkspace({ enquiries, advisers, statuses, seminars = [], seminarRegistrations = [], saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, sendContactIntakeInviteEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saving, openClientRecord }) {
   const simplifiedStatuses = (statuses || INTAKE_STATUSES).filter((status) => INTAKE_STATUSES.includes(status));
   const [workspaceTab, setWorkspaceTab] = useState('contact');
   const [statusFilter, setStatusFilter] = useState('New');
@@ -1790,6 +2000,8 @@ function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, del
   const contactedCount = intakeEnquiries.filter((item) => item.status === 'Contacted').length;
   const convertedCount = intakeEnquiries.filter((item) => item.status === 'Converted' || item.convertedClientId).length;
   const spamCount = intakeEnquiries.filter((item) => item.status === 'Spam / Duplicate').length;
+  const activeSeminar = (seminars || []).find((item) => item.status === 'Active') || (seminars || [])[0] || null;
+  const newSeminarRegistrationCount = (seminarRegistrations || []).filter((item) => item.status === 'New').length;
   const flaggedCount = intakeEnquiries.filter((item) => hasAnyIntakeFlag(item.flags)).length;
   const expandedItem = expandedId ? intakeEnquiries.find((item) => item.id === expandedId) : null;
   const draftDirty = Boolean(draft && expandedItem && JSON.stringify(intakeCompareSnapshot(draft)) !== JSON.stringify(intakeCompareSnapshot(expandedItem)));
@@ -1915,7 +2127,7 @@ function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, del
   }
 
   const intakeTitle = draft ? ([draft.firstName, draft.lastName].filter(Boolean).join(' ') || 'Unnamed intake') : 'Intake record';
-  const visibleRecords = workspaceTab === 'contact' ? contactFiltered : intakeFiltered;
+  const visibleRecords = workspaceTab === 'contact' ? contactFiltered : workspaceTab === 'intake' ? intakeFiltered : (seminarRegistrations || []);
 
   return (
     <div className="intake-workspace intake-inbox-workspace enquiries-intake-workspace">
@@ -1924,7 +2136,7 @@ function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, del
           <h1>Enquiries & Intake</h1>
           <p className="muted">Keep short contact forms and full assessment questionnaires separate from active client work. Contact forms are a reference list only; intake forms are the pre-client triage queue.</p>
         </div>
-        <div className="button-row"><a className="btn" href="/contact" target="_blank" rel="noreferrer"><ExternalLink size={16} />Open contact form</a><a className="btn dark" href="/intake" target="_blank" rel="noreferrer"><ExternalLink size={16} />Open assessment form</a></div>
+        <div className="button-row"><a className="btn" href="/contact" target="_blank" rel="noreferrer"><ExternalLink size={16} />Open contact form</a><a className="btn" href="/seminar" target="_blank" rel="noreferrer"><ExternalLink size={16} />Open seminar form</a><a className="btn dark" href="/intake" target="_blank" rel="noreferrer"><ExternalLink size={16} />Open assessment form</a></div>
       </div>
 
       <div className="metric-grid four intake-metrics enquiries-metrics">
@@ -1938,8 +2150,21 @@ function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, del
         <div className="enquiries-tab-row" role="tablist" aria-label="Enquiries and intake sections">
           <button type="button" className={workspaceTab === 'contact' ? 'active' : ''} onClick={() => setWorkspaceTab('contact')}><MessageSquare size={16} />Contact Forms <span>{contactCount}</span></button>
           <button type="button" className={workspaceTab === 'intake' ? 'active' : ''} onClick={() => setWorkspaceTab('intake')}><ClipboardList size={16} />Intake Forms <span>{intakeEnquiries.length}</span></button>
+          <button type="button" className={workspaceTab === 'seminars' ? 'active' : ''} onClick={() => setWorkspaceTab('seminars')}><CalendarDays size={16} />Seminar Registrations <span>{newSeminarRegistrationCount}</span></button>
         </div>
 
+        {workspaceTab === 'seminars' ? (
+          <SeminarManagementPanel
+            seminars={seminars || []}
+            registrations={seminarRegistrations || []}
+            saveSeminar={saveSeminar}
+            deleteSeminar={deleteSeminar}
+            saveSeminarRegistration={saveSeminarRegistration}
+            sendSeminarRegistrationEmail={sendSeminarRegistrationEmail}
+            saving={saving}
+          />
+        ) : (
+          <>
         <div className="intake-inbox-toolbar enquiries-toolbar">
           <label className="intake-search-field">
             <span>Search</span>
@@ -2066,6 +2291,9 @@ function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, del
             )}
           </div>
         )}
+
+          </>
+        )}
       </section>
 
       {draft && expandedId && (
@@ -2088,6 +2316,207 @@ function IntakeWorkspace({ enquiries, advisers, statuses, saveIntakeEnquiry, del
           />
         </ClientRecordPopoutModal>
       )}
+    </div>
+  );
+}
+
+
+function makeBlankSeminar() {
+  return {
+    title: 'Turner Hopkins immigration seminar',
+    seminarDate: '',
+    seminarTime: '',
+    timezone: 'Pacific/Auckland',
+    presenterName: '',
+    zoomLink: '',
+    zoomPassword: '',
+    status: 'Active',
+    registrationOpen: true,
+    internalNotes: '',
+  };
+}
+
+function SeminarManagementPanel({ seminars = [], registrations = [], saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saving }) {
+  const sortedSeminars = [...seminars].map(normaliseSeminar).sort((a, b) => String(b.seminarDate || '').localeCompare(String(a.seminarDate || '')) || String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  const activeSeminar = sortedSeminars.find((item) => item.status === 'Active') || sortedSeminars[0] || null;
+  const [selectedSeminarId, setSelectedSeminarId] = useState(activeSeminar?.id || 'new');
+  const [seminarDraft, setSeminarDraft] = useState(activeSeminar || makeBlankSeminar());
+  const [registrationFilter, setRegistrationFilter] = useState('New');
+  const [notice, setNotice] = useState('');
+  const [sendingId, setSendingId] = useState('');
+
+  useEffect(() => {
+    if (selectedSeminarId === 'new') return;
+    const next = sortedSeminars.find((item) => item.id === selectedSeminarId) || activeSeminar;
+    if (next) {
+      setSelectedSeminarId(next.id);
+      setSeminarDraft(next);
+    }
+  }, [seminars, selectedSeminarId]);
+
+  function startNewSeminar() {
+    setSelectedSeminarId('new');
+    setSeminarDraft(makeBlankSeminar());
+  }
+
+  function selectSeminar(id) {
+    if (id === 'new') return startNewSeminar();
+    const next = sortedSeminars.find((item) => item.id === id);
+    setSelectedSeminarId(id);
+    setSeminarDraft(next || makeBlankSeminar());
+  }
+
+  function setSeminarField(name, value) {
+    setSeminarDraft((current) => ({ ...(current || makeBlankSeminar()), [name]: value }));
+  }
+
+  async function saveCurrentSeminar() {
+    if (!seminarDraft.seminarDate || !seminarDraft.seminarTime) {
+      window.alert('Add the seminar date and time before saving.');
+      return;
+    }
+    const result = await saveSeminar?.(seminarDraft);
+    const saved = result?.seminar ? normaliseSeminar(result.seminar) : null;
+    if (saved?.id) {
+      setSelectedSeminarId(saved.id);
+      setSeminarDraft(saved);
+    }
+  }
+
+  async function sendRegistrationEmail(registration, outcome) {
+    if (!registration?.id || sendingId) return;
+    const label = outcome === 'decline' ? 'decline' : 'approval';
+    if (!window.confirm(`Send the seminar ${label} email to ${registration.email}?`)) return;
+    setNotice('');
+    setSendingId(registration.id);
+    try {
+      const body = await sendSeminarRegistrationEmail?.(registration.id, outcome);
+      const log = body?.emailLog;
+      if (log?.status === 'Sent') setNotice(`Seminar ${label} email sent to ${registration.email}.`);
+      else setNotice(`Seminar ${label} email could not be sent: ${log?.failureMessage || 'Microsoft did not accept the send request.'}`);
+    } catch (error) {
+      setNotice(error?.message || 'Seminar email could not be sent.');
+    } finally {
+      setSendingId('');
+    }
+  }
+
+  async function markRegistration(registration, status) {
+    if (!registration?.id) return;
+    await saveSeminarRegistration?.({ ...registration, status });
+  }
+
+  const selectedRegistrations = registrations
+    .map(normaliseSeminarRegistration)
+    .filter((item) => !seminarDraft?.id || selectedSeminarId === 'new' || item.seminarId === selectedSeminarId)
+    .sort((a, b) => Date.parse(b.createdAt || '') - Date.parse(a.createdAt || ''));
+  const visibleRegistrations = registrationFilter === 'All'
+    ? selectedRegistrations
+    : selectedRegistrations.filter((item) => item.status === registrationFilter);
+
+  const newCount = registrations.filter((item) => normaliseSeminarRegistration(item).status === 'New').length;
+  const activeLabel = activeSeminar ? `${activeSeminar.seminarDate || 'No date'} ${activeSeminar.seminarTime || ''}`.trim() : 'No active seminar';
+
+  return (
+    <div className="seminar-management-panel">
+      <div className="intake-inbox-summary-row enquiries-summary-row seminar-summary-row">
+        <div>
+          <span className="eyebrow">Seminar registrations</span>
+          <h2>Seminar setup and review</h2>
+          <p className="muted">Create the next seminar, publish the public registration form, then approve or decline incoming registrations.</p>
+        </div>
+        <strong>{newCount} new</strong>
+      </div>
+
+      <div className="seminar-admin-grid">
+        <section className="seminar-admin-card">
+          <div className="section-title-row">
+            <div>
+              <span className="eyebrow">Active session</span>
+              <h3>Seminar details</h3>
+              <p className="muted">The public Squarespace form shows the next active/open seminar. Zoom details stay internal until approval.</p>
+            </div>
+            <button className="btn" type="button" onClick={startNewSeminar}><Plus size={16} />New seminar</button>
+          </div>
+          <div className="form-grid">
+            <SelectField label="Select seminar" value={selectedSeminarId} onChange={selectSeminar} options={[{ value: 'new', label: 'New seminar' }, ...sortedSeminars.map((item) => ({ value: item.id, label: `${item.status}: ${item.seminarDate || 'No date'} ${item.seminarTime || ''} - ${item.presenterName || item.title || 'Seminar'}` }))]} />
+            <SelectField label="Status" value={seminarDraft.status} onChange={(v) => setSeminarField('status', v)} options={SEMINAR_STATUSES} />
+            <Field label="Seminar title" value={seminarDraft.title} onChange={(v) => setSeminarField('title', v)} />
+            <Field label="Presenter name" value={seminarDraft.presenterName} onChange={(v) => setSeminarField('presenterName', v)} />
+            <DateField label="Seminar date (NZ time)" value={seminarDraft.seminarDate} onChange={(v) => setSeminarField('seminarDate', v)} />
+            <Field label="Seminar time" value={seminarDraft.seminarTime} onChange={(v) => setSeminarField('seminarTime', v)} />
+            <SelectField label="Reference timezone" value={seminarDraft.timezone || 'Pacific/Auckland'} onChange={(v) => setSeminarField('timezone', v)} options={SEMINAR_TIMEZONE_OPTIONS} />
+            <Field label="Zoom link" value={seminarDraft.zoomLink} onChange={(v) => setSeminarField('zoomLink', v)} />
+            <Field label="Zoom password" value={seminarDraft.zoomPassword} onChange={(v) => setSeminarField('zoomPassword', v)} />
+          </div>
+          <TextArea label="Internal notes" value={seminarDraft.internalNotes} onChange={(v) => setSeminarField('internalNotes', v)} rows={3} />
+          <div className="button-row seminar-action-row">
+            <button className="btn dark" type="button" onClick={saveCurrentSeminar} disabled={saving}><Save size={16} />Save seminar</button>
+            {seminarDraft.id && <button className="btn danger" type="button" onClick={() => deleteSeminar?.(seminarDraft.id)} disabled={saving}><Trash2 size={16} />Delete seminar</button>}
+            <a className="btn" href="/seminar" target="_blank" rel="noreferrer"><ExternalLink size={16} />Open public form</a>
+          </div>
+        </section>
+
+        <section className="seminar-admin-card seminar-status-card">
+          <span className="eyebrow">Current public seminar</span>
+          <h3>{activeSeminar?.title || 'No active seminar'}</h3>
+          <p><strong>{activeLabel}</strong></p>
+          <p className="muted">Presenter: {activeSeminar?.presenterName || 'Not set'}</p>
+          <p className="muted">Registrations shown below are for the selected seminar. Use Active/Closed to roll forward after a seminar ends.</p>
+        </section>
+      </div>
+
+      {notice && <div className={notice.includes('could not') ? 'error-banner compact' : 'success-banner compact'}>{notice}</div>}
+
+      <div className="seminar-registration-toolbar">
+        <div className="enquiries-status-pills" aria-label="Seminar registration status filter">
+          {[...SEMINAR_REGISTRATION_STATUSES, 'All'].map((status) => (
+            <button key={status} type="button" className={registrationFilter === status ? 'active' : ''} onClick={() => setRegistrationFilter(status)}>
+              {status}
+              <span>{status === 'All' ? selectedRegistrations.length : selectedRegistrations.filter((item) => item.status === status).length}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="seminar-registration-list">
+        {visibleRegistrations.map((registration) => (
+          <article key={registration.id} className="intake-inbox-card seminar-registration-card">
+            <div className="seminar-registration-head">
+              <div>
+                <span className={`library-status ${statusClass(registration.status)}`}>{registration.status}</span>
+                <h3>{registration.fullName || 'Unnamed registrant'}</h3>
+                <p>{registration.email || 'No email'} · Submitted {registration.createdAt ? formatPortalDateTime(registration.createdAt) : 'No date'}</p>
+              </div>
+              <div className="button-row">
+                <button className="btn dark" type="button" onClick={() => sendRegistrationEmail(registration, 'approve')} disabled={saving || sendingId === registration.id || !registration.email}><Mail size={16} />{sendingId === registration.id ? 'Sending...' : 'Approve + email'}</button>
+                <button className="btn danger" type="button" onClick={() => sendRegistrationEmail(registration, 'decline')} disabled={saving || sendingId === registration.id || !registration.email}><Mail size={16} />Decline + email</button>
+                {registration.status !== 'Spam / Duplicate' && <button className="btn" type="button" onClick={() => markRegistration(registration, 'Spam / Duplicate')} disabled={saving}>Spam / Duplicate</button>}
+                {registration.status === 'Spam / Duplicate' && <button className="btn" type="button" onClick={() => markRegistration(registration, 'New')} disabled={saving}>Restore</button>}
+              </div>
+            </div>
+            <div className="contact-review-grid seminar-registration-grid">
+              <div><span>Date of birth</span><strong>{registration.dateOfBirth || 'Not provided'}</strong></div>
+              <div><span>Citizenship</span><strong>{registration.citizenshipCountry || 'Not provided'}</strong></div>
+              <div><span>Current country</span><strong>{registration.residenceCountry || 'Not provided'}</strong></div>
+              <div><span>Timezone</span><strong>{registration.timezone || 'Not provided'}</strong></div>
+              <div><span>Partnership</span><strong>{registration.partnershipStatus || 'Not provided'}</strong></div>
+              <div><span>Qualification</span><strong>{registration.highestQualification || 'Not provided'}</strong></div>
+              <div><span>Occupation</span><strong>{registration.currentOccupation || 'Not provided'}</strong></div>
+              <div><span>English</span><strong>{registration.englishAbility || 'Not provided'}</strong></div>
+            </div>
+            <div className="contact-review-message"><span>Relevant work history</span><p>{registration.workHistory || 'Not provided.'}</p></div>
+            <div className="contact-review-message"><span>Health / character issues</span><p>{registration.healthCharacterIssues || 'Not provided.'}</p></div>
+          </article>
+        ))}
+        {!visibleRegistrations.length && (
+          <div className="empty-state slim intake-inbox-empty">
+            <CalendarDays size={34} />
+            <h2>No seminar registrations in this view</h2>
+            <p>New registrations will appear here after the public seminar form is submitted.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -2695,7 +3124,8 @@ function IntakeField({ label, value, onChange, type = 'text', required = false, 
 }
 
 function IntakeSelect({ label, value, onChange, options, required = false }) {
-  return <label className="field"><span>{label}{required ? ' *' : ''}</span><select value={value || ''} required={required} onChange={(event) => onChange(event.target.value)}><option value="">Select...</option>{options.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>;
+  const normalised = (options || []).map((option) => typeof option === 'string' ? { label: option, value: option } : option);
+  return <label className="field"><span>{label}{required ? ' *' : ''}</span><select value={value || ''} required={required} onChange={(event) => onChange(event.target.value)}><option value="">Select...</option>{normalised.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>;
 }
 
 function IntakeFileField({ label, file, onChange }) {
@@ -8277,9 +8707,57 @@ function normaliseData(body) {
     libraryEntries: (body.libraryEntries || []).map(normaliseLibraryEntry),
     intakeEnquiries: (body.intakeEnquiries || []).map(normaliseIntakeEnquiry),
     intakeStatuses: body.intakeStatuses || INTAKE_STATUSES,
+    seminars: (body.seminars || []).map(normaliseSeminar),
+    seminarRegistrations: (body.seminarRegistrations || []).map(normaliseSeminarRegistration),
     emailLogs: (body.emailLogs || []).map(normaliseEmailLog),
     emailConfig: normaliseEmailConfig(body.emailConfig || {}),
     securityMode: body.securityMode || 'unknown',
+  };
+}
+
+
+function normaliseSeminar(input = {}) {
+  return {
+    id: input.id || '',
+    title: input.title || 'Turner Hopkins immigration seminar',
+    seminarDate: input.seminarDate || input.seminar_date || '',
+    seminarTime: input.seminarTime || input.seminar_time || '',
+    timezone: input.timezone || 'Pacific/Auckland',
+    presenterName: input.presenterName || input.presenter_name || '',
+    zoomLink: input.zoomLink || input.zoom_link || '',
+    zoomPassword: input.zoomPassword || input.zoom_password || '',
+    status: SEMINAR_STATUSES.includes(input.status) ? input.status : 'Active',
+    registrationOpen: input.registrationOpen ?? input.registration_open ?? true,
+    internalNotes: input.internalNotes || input.internal_notes || '',
+    createdAt: input.createdAt || input.created_at || '',
+    updatedAt: input.updatedAt || input.updated_at || '',
+  };
+}
+
+function normaliseSeminarRegistration(input = {}) {
+  const status = input.status || 'New';
+  return {
+    id: input.id || '',
+    seminarId: input.seminarId || input.seminar_id || '',
+    status: SEMINAR_REGISTRATION_STATUSES.includes(status) ? status : 'New',
+    fullName: input.fullName || input.full_name || '',
+    dateOfBirth: input.dateOfBirth || input.date_of_birth || '',
+    citizenshipCountry: input.citizenshipCountry || input.citizenship_country || '',
+    residenceCountry: input.residenceCountry || input.residence_country || '',
+    timezone: input.timezone || 'UTC',
+    email: input.email || '',
+    partnershipStatus: input.partnershipStatus || input.partnership_status || '',
+    highestQualification: input.highestQualification || input.highest_qualification || '',
+    currentOccupation: input.currentOccupation || input.current_occupation || '',
+    workHistory: input.workHistory || input.work_history || '',
+    healthCharacterIssues: input.healthCharacterIssues || input.health_character_issues || '',
+    englishAbility: input.englishAbility || input.english_ability || '',
+    rawPayload: input.rawPayload || input.raw_payload || {},
+    reviewedBy: input.reviewedBy || input.reviewed_by || '',
+    approvedAt: input.approvedAt || input.approved_at || '',
+    declinedAt: input.declinedAt || input.declined_at || '',
+    createdAt: input.createdAt || input.created_at || '',
+    updatedAt: input.updatedAt || input.updated_at || '',
   };
 }
 

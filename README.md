@@ -1,3 +1,30 @@
+# THiS CRM v0.12.22 — Seminar Registrations
+
+## v0.12.22 changes
+
+- Added a new **Seminar Registrations** stream inside **Enquiries & Intake**.
+- Added an internal seminar setup form for date, time, presenter, Zoom link, Zoom password, status and notes.
+- Added a public `/seminar` registration form suitable for Squarespace embedding.
+- The public seminar form shows the next active seminar and collects full name, date of birth, citizenship, current country, timezone, email, partnership status, highest qualification, current occupation, work history summary, health/character issues and English ability.
+- Removed the CV upload requirement from the seminar registration workflow.
+- Added seminar registration notification emails to the internal team.
+- Added CRM approval/decline actions that email registrants directly. The approval email includes the Zoom link, password, New Zealand time and calculated local time where a valid timezone is provided.
+- Added the `seminars` and `seminar_registrations` database tables.
+- Added optional `SEMINAR_NOTIFICATION_RECIPIENTS` environment variable.
+
+## Test process
+
+1. Deploy this package to Netlify and run the included database migration.
+2. Open CRM > Enquiries & Intake > Seminar Registrations.
+3. Create a new active seminar with date, time, presenter, Zoom link and password.
+4. Open `/seminar` and confirm the public form shows the active seminar only, without Zoom details.
+5. Submit a test registration.
+6. Confirm the registration appears in the Seminar Registrations queue and the internal notification email is sent.
+7. Click **Approve + email** and confirm the registrant receives the Zoom details and local-time wording.
+8. Submit another test registration and click **Decline + email** to confirm the decline template.
+
+---
+
 # THiS CRM v0.12.20 — Contact Intake Email Sign-off
 
 ## v0.12.20 changes
