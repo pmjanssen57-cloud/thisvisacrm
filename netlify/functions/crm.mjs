@@ -70,6 +70,12 @@ const SEMINAR_REGISTRATION_STATUSES = ['New', 'Approved', 'Declined', 'Spam / Du
 const PORTAL_RESOURCE_KEYS = ['jobSearchCv', 'lifeInNz', 'usefulLinks', 'relocationResources'];
 const PORTAL_DOCUMENT_STORE = 'client-portal-documents';
 const INTAKE_UPLOAD_STORE = 'intake-uploads';
+const CONSULTATION_BOOKING_STATUSES = ['Confirmed', 'Cancelled', 'Completed', 'No-show'];
+const CONSULTATION_LINK_STATUSES = ['Active', 'Used', 'Expired', 'Cancelled'];
+const DEFAULT_CONSULTATION_TYPES = [
+  { name: 'Free 15-minute consultation', durationMinutes: 15, priceNzd: 0, paid: false, description: 'A brief preliminary call to discuss the enquiry and next steps.', active: true, sortOrder: 1, bufferMinutes: 15 },
+  { name: 'Paid 60-minute consultation', durationMinutes: 60, priceNzd: 400, paid: true, description: 'A detailed immigration consultation. Payment is handled manually at this stage.', active: true, sortOrder: 2, bufferMinutes: 15 },
+];
 
 const DEFAULT_EMAIL_TEMPLATES = [
   {
@@ -437,6 +443,51 @@ async function handleCrmEvent(event) {
       const emailLog = await sendSeminarRegistrationEmail(body.registrationId, body.outcome || 'approve', auth.user);
       const data = await readCrmData();
       return json({ emailLog, seminarRegistrations: data.seminarRegistrations, emailConfig: getEmailConfigStatus() });
+    }
+
+    if (action === 'saveConsultationType') {
+      const consultationType = await saveConsultationType(body.consultationType || body.type || {});
+      return json({ consultationType, ...(await readCrmData()) });
+    }
+
+    if (action === 'deleteConsultationType') {
+      await deleteConsultationType(body.consultationTypeId || body.typeId);
+      return json(await readCrmData());
+    }
+
+    if (action === 'saveBookingAvailability') {
+      const bookingAvailabilityItem = await saveBookingAvailability(body.availability || {});
+      return json({ bookingAvailabilityItem, ...(await readCrmData()) });
+    }
+
+    if (action === 'deleteBookingAvailability') {
+      await deleteBookingAvailability(body.availabilityId);
+      return json(await readCrmData());
+    }
+
+    if (action === 'saveBookingBlock') {
+      const bookingBlock = await saveBookingBlock(body.block || {});
+      return json({ bookingBlock, ...(await readCrmData()) });
+    }
+
+    if (action === 'deleteBookingBlock') {
+      await deleteBookingBlock(body.blockId);
+      return json(await readCrmData());
+    }
+
+    if (action === 'saveBookingLink') {
+      const bookingLink = await saveBookingLink(body.link || {});
+      return json({ bookingLink, ...(await readCrmData()) });
+    }
+
+    if (action === 'deleteBookingLink') {
+      await deleteBookingLink(body.linkId);
+      return json(await readCrmData());
+    }
+
+    if (action === 'saveConsultationBooking') {
+      const consultationBooking = await saveConsultationBooking(body.booking || {});
+      return json({ consultationBooking, ...(await readCrmData()) });
     }
 
     if (action === 'downloadIntakeUpload') {
@@ -838,16 +889,103 @@ async function ensureSchema() {
     )`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_email_notifications_created_at ON email_notifications(created_at DESC)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_email_notifications_status ON email_notifications(status)`;
+  await ensureConsultationBookingSchema(database);
   await ensureEmailTemplateSchema(database);
 }
 
-
-
+async function ensureConsultationBookingSchema(database = db()) {
+  await database.sql`CREATE EXTENSION IF NOT EXISTS pgcrypto`;
+  await database.sql`
+    CREATE TABLE IF NOT EXISTS consultation_types (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      name TEXT NOT NULL,
+      duration_minutes INTEGER NOT NULL DEFAULT 15,
+      price_nzd NUMERIC(10,2) NOT NULL DEFAULT 0,
+      paid BOOLEAN NOT NULL DEFAULT FALSE,
+      description TEXT,
+      active BOOLEAN NOT NULL DEFAULT TRUE,
+      sort_order INTEGER NOT NULL DEFAULT 100,
+      buffer_minutes INTEGER NOT NULL DEFAULT 15,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`;
+  await database.sql`
+    CREATE TABLE IF NOT EXISTS adviser_booking_availability (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      adviser_id UUID REFERENCES advisers(id) ON DELETE CASCADE,
+      day_of_week INTEGER NOT NULL DEFAULT 1,
+      start_time TEXT NOT NULL DEFAULT '09:00',
+      end_time TEXT NOT NULL DEFAULT '17:00',
+      consultation_type_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+      active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`;
+  await database.sql`
+    CREATE TABLE IF NOT EXISTS adviser_booking_blocks (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      adviser_id UUID REFERENCES advisers(id) ON DELETE CASCADE,
+      block_date DATE NOT NULL,
+      start_time TEXT,
+      end_time TEXT,
+      all_day BOOLEAN NOT NULL DEFAULT FALSE,
+      reason TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`;
+  await database.sql`
+    CREATE TABLE IF NOT EXISTS consultation_booking_links (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      token TEXT NOT NULL UNIQUE DEFAULT encode(gen_random_bytes(18), 'hex'),
+      intake_id UUID REFERENCES intake_enquiries(id) ON DELETE SET NULL,
+      adviser_id UUID REFERENCES advisers(id) ON DELETE SET NULL,
+      applicant_name TEXT,
+      applicant_email TEXT,
+      applicant_phone TEXT,
+      allowed_type_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+      expires_at TIMESTAMPTZ,
+      status TEXT NOT NULL DEFAULT 'Active',
+      notes TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`;
+  await database.sql`
+    CREATE TABLE IF NOT EXISTS consultation_bookings (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      booking_link_id UUID REFERENCES consultation_booking_links(id) ON DELETE SET NULL,
+      intake_id UUID REFERENCES intake_enquiries(id) ON DELETE SET NULL,
+      adviser_id UUID REFERENCES advisers(id) ON DELETE SET NULL,
+      consultation_type_id UUID REFERENCES consultation_types(id) ON DELETE SET NULL,
+      booking_date DATE NOT NULL,
+      start_time TEXT NOT NULL,
+      end_time TEXT NOT NULL,
+      applicant_name TEXT,
+      applicant_email TEXT,
+      applicant_phone TEXT,
+      notes TEXT,
+      status TEXT NOT NULL DEFAULT 'Confirmed',
+      payment_status TEXT NOT NULL DEFAULT 'Not required',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_booking_availability_adviser_day ON adviser_booking_availability(adviser_id, day_of_week)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_booking_blocks_adviser_date ON adviser_booking_blocks(adviser_id, block_date)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_booking_links_token ON consultation_booking_links(token)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_consultation_bookings_adviser_date ON consultation_bookings(adviser_id, booking_date)`;
+  const existingTypes = await database.sql`SELECT COUNT(*)::int AS count FROM consultation_types`;
+  if (Number(existingTypes[0]?.count || 0) === 0) {
+    for (const type of DEFAULT_CONSULTATION_TYPES) {
+      await database.sql`
+        INSERT INTO consultation_types (name, duration_minutes, price_nzd, paid, description, active, sort_order, buffer_minutes)
+        VALUES (${type.name}, ${type.durationMinutes}, ${type.priceNzd}, ${type.paid}, ${type.description}, ${type.active}, ${type.sortOrder}, ${type.bufferMinutes})`;
+    }
+  }
+}
 
 async function readCrmData() {
   const database = db();
   await pruneOldEmailNotifications(database);
-  const [advisers, clients, stages, deadlines, billing, personalTasks, calendarEntries, libraryEntries, portalMessages, portalDocuments, intakeEnquiries, seminars, seminarRegistrations, emailLogs, emailTemplates] = await Promise.all([
+  const [advisers, clients, stages, deadlines, billing, personalTasks, calendarEntries, libraryEntries, portalMessages, portalDocuments, intakeEnquiries, seminars, seminarRegistrations, emailLogs, emailTemplates, consultationTypes, bookingAvailability, bookingBlocks, bookingLinks, consultationBookings] = await Promise.all([
     database.sql`SELECT id, name, role, email, login_email, profile_photo_url, availability_status, phone, licence, active FROM advisers ORDER BY name ASC`,
     database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, one_law_client_number, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, portal_enabled, portal_email, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_resource_settings, portal_access_code_hash, portal_last_published_at, portal_last_accessed_at, notes, family_members, document_checklist FROM clients ORDER BY updated_at DESC`,
     database.sql`SELECT id, client_id, stage_key, stage_label, mandatory, applied, completed, completed_date, sort_order FROM client_stages ORDER BY sort_order ASC`,
@@ -863,6 +1001,11 @@ async function readCrmData() {
     database.sql`SELECT id, seminar_id, status, full_name, date_of_birth, citizenship_country, residence_country, timezone, email, partnership_status, highest_qualification, current_occupation, work_history, health_character_issues, english_ability, raw_payload, reviewed_by, approved_at, declined_at, created_at, updated_at FROM seminar_registrations ORDER BY created_at DESC`,
     database.sql`SELECT id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at FROM email_notifications WHERE created_at >= NOW() - INTERVAL '60 days' ORDER BY created_at DESC LIMIT 200`,
     getEmailTemplates(database),
+    database.sql`SELECT id, name, duration_minutes, price_nzd, paid, description, active, sort_order, buffer_minutes, created_at, updated_at FROM consultation_types ORDER BY sort_order ASC, name ASC`,
+    database.sql`SELECT id, adviser_id, day_of_week, start_time, end_time, consultation_type_ids, active, created_at, updated_at FROM adviser_booking_availability ORDER BY adviser_id ASC, day_of_week ASC, start_time ASC`,
+    database.sql`SELECT id, adviser_id, block_date, start_time, end_time, all_day, reason, created_at, updated_at FROM adviser_booking_blocks ORDER BY block_date DESC, start_time ASC`,
+    database.sql`SELECT id, token, intake_id, adviser_id, applicant_name, applicant_email, applicant_phone, allowed_type_ids, expires_at, status, notes, created_at, updated_at FROM consultation_booking_links ORDER BY created_at DESC`,
+    database.sql`SELECT id, booking_link_id, intake_id, adviser_id, consultation_type_id, booking_date, start_time, end_time, applicant_name, applicant_email, applicant_phone, notes, status, payment_status, created_at, updated_at FROM consultation_bookings ORDER BY booking_date DESC, start_time DESC`,
   ]);
 
   return {
@@ -877,6 +1020,11 @@ async function readCrmData() {
     seminarRegistrations: seminarRegistrations.map(mapSeminarRegistrationFromDb),
     emailLogs: emailLogs.map(mapEmailLogFromDb),
     emailTemplates,
+    consultationTypes: consultationTypes.map(mapConsultationTypeFromDb),
+    bookingAvailability: bookingAvailability.map(mapBookingAvailabilityFromDb),
+    bookingBlocks: bookingBlocks.map(mapBookingBlockFromDb),
+    bookingLinks: bookingLinks.map(mapBookingLinkFromDb),
+    consultationBookings: consultationBookings.map(mapConsultationBookingFromDb),
     emailConfig: getEmailConfigStatus(),
     caseTypes: CASE_TYPES,
     deadlineTypes: DEADLINE_TYPES,
@@ -911,6 +1059,96 @@ function mapAdviserFromDb(row) {
     licence: row.licence || '',
     active: Boolean(row.active),
   };
+}
+
+
+function mapConsultationTypeFromDb(row = {}) {
+  return {
+    id: row.id || '',
+    name: row.name || '',
+    durationMinutes: Number(row.duration_minutes || 15),
+    priceNzd: Number(row.price_nzd || 0),
+    paid: Boolean(row.paid),
+    description: row.description || '',
+    active: row.active !== false,
+    sortOrder: Number(row.sort_order || 100),
+    bufferMinutes: Number(row.buffer_minutes || 0),
+    createdAt: row.created_at || '',
+    updatedAt: row.updated_at || '',
+  };
+}
+
+function mapBookingAvailabilityFromDb(row = {}) {
+  return {
+    id: row.id || '',
+    adviserId: row.adviser_id || '',
+    dayOfWeek: Number(row.day_of_week || 1),
+    startTime: row.start_time || '09:00',
+    endTime: row.end_time || '17:00',
+    consultationTypeIds: Array.isArray(row.consultation_type_ids) ? row.consultation_type_ids : [],
+    active: row.active !== false,
+    createdAt: row.created_at || '',
+    updatedAt: row.updated_at || '',
+  };
+}
+
+function mapBookingBlockFromDb(row = {}) {
+  return {
+    id: row.id || '',
+    adviserId: row.adviser_id || '',
+    blockDate: toDateOnly(row.block_date),
+    startTime: row.start_time || '',
+    endTime: row.end_time || '',
+    allDay: Boolean(row.all_day),
+    reason: row.reason || '',
+    createdAt: row.created_at || '',
+    updatedAt: row.updated_at || '',
+  };
+}
+
+function mapBookingLinkFromDb(row = {}) {
+  return {
+    id: row.id || '',
+    token: row.token || '',
+    intakeId: row.intake_id || '',
+    adviserId: row.adviser_id || '',
+    applicantName: row.applicant_name || '',
+    applicantEmail: row.applicant_email || '',
+    applicantPhone: row.applicant_phone || '',
+    allowedTypeIds: Array.isArray(row.allowed_type_ids) ? row.allowed_type_ids : [],
+    expiresAt: row.expires_at || '',
+    status: row.status || 'Active',
+    notes: row.notes || '',
+    bookingUrl: buildBookingUrl(row.token || ''),
+    createdAt: row.created_at || '',
+    updatedAt: row.updated_at || '',
+  };
+}
+
+function mapConsultationBookingFromDb(row = {}) {
+  return {
+    id: row.id || '',
+    bookingLinkId: row.booking_link_id || '',
+    intakeId: row.intake_id || '',
+    adviserId: row.adviser_id || '',
+    consultationTypeId: row.consultation_type_id || '',
+    bookingDate: toDateOnly(row.booking_date),
+    startTime: row.start_time || '',
+    endTime: row.end_time || '',
+    applicantName: row.applicant_name || '',
+    applicantEmail: row.applicant_email || '',
+    applicantPhone: row.applicant_phone || '',
+    notes: row.notes || '',
+    status: row.status || 'Confirmed',
+    paymentStatus: row.payment_status || 'Not required',
+    createdAt: row.created_at || '',
+    updatedAt: row.updated_at || '',
+  };
+}
+
+function buildBookingUrl(token = '') {
+  const baseUrl = String(process.env.URL || process.env.DEPLOY_URL || '').replace(/\/$/, '') || '';
+  return token ? `${baseUrl}/book?token=${encodeURIComponent(token)}` : '';
 }
 
 function mapEmailLogFromDb(row) {
@@ -2083,6 +2321,217 @@ function normaliseSeminarRegistrationInput(input = {}) {
     seminarId: String(input.seminarId || input.seminar_id || '').trim(),
     status,
   };
+}
+
+
+async function saveConsultationType(input = {}) {
+  const item = normaliseConsultationTypeInput(input);
+  const database = db();
+  if (isUuid(item.id)) {
+    const rows = await database.sql`
+      UPDATE consultation_types
+         SET name = ${item.name}, duration_minutes = ${item.durationMinutes}, price_nzd = ${item.priceNzd}, paid = ${item.paid}, description = ${item.description}, active = ${item.active}, sort_order = ${item.sortOrder}, buffer_minutes = ${item.bufferMinutes}, updated_at = NOW()
+       WHERE id = ${item.id}
+       RETURNING id, name, duration_minutes, price_nzd, paid, description, active, sort_order, buffer_minutes, created_at, updated_at`;
+    return mapConsultationTypeFromDb(rows[0]);
+  }
+  const rows = await database.sql`
+    INSERT INTO consultation_types (name, duration_minutes, price_nzd, paid, description, active, sort_order, buffer_minutes)
+    VALUES (${item.name}, ${item.durationMinutes}, ${item.priceNzd}, ${item.paid}, ${item.description}, ${item.active}, ${item.sortOrder}, ${item.bufferMinutes})
+    RETURNING id, name, duration_minutes, price_nzd, paid, description, active, sort_order, buffer_minutes, created_at, updated_at`;
+  return mapConsultationTypeFromDb(rows[0]);
+}
+
+async function deleteConsultationType(typeId) {
+  if (!isUuid(typeId)) return;
+  await db().sql`UPDATE consultation_types SET active = FALSE, updated_at = NOW() WHERE id = ${typeId}`;
+}
+
+async function saveBookingAvailability(input = {}) {
+  const item = normaliseBookingAvailabilityInput(input);
+  const database = db();
+  if (!isUuid(item.adviserId)) throw new Error('Choose an adviser for this availability row.');
+  if (isUuid(item.id)) {
+    const rows = await database.sql`
+      UPDATE adviser_booking_availability
+         SET adviser_id = ${item.adviserId}, day_of_week = ${item.dayOfWeek}, start_time = ${item.startTime}, end_time = ${item.endTime}, consultation_type_ids = CAST(${JSON.stringify(item.consultationTypeIds)} AS jsonb), active = ${item.active}, updated_at = NOW()
+       WHERE id = ${item.id}
+       RETURNING id, adviser_id, day_of_week, start_time, end_time, consultation_type_ids, active, created_at, updated_at`;
+    return mapBookingAvailabilityFromDb(rows[0]);
+  }
+  const rows = await database.sql`
+    INSERT INTO adviser_booking_availability (adviser_id, day_of_week, start_time, end_time, consultation_type_ids, active)
+    VALUES (${item.adviserId}, ${item.dayOfWeek}, ${item.startTime}, ${item.endTime}, CAST(${JSON.stringify(item.consultationTypeIds)} AS jsonb), ${item.active})
+    RETURNING id, adviser_id, day_of_week, start_time, end_time, consultation_type_ids, active, created_at, updated_at`;
+  return mapBookingAvailabilityFromDb(rows[0]);
+}
+
+async function deleteBookingAvailability(availabilityId) {
+  if (!isUuid(availabilityId)) return;
+  await db().sql`DELETE FROM adviser_booking_availability WHERE id = ${availabilityId}`;
+}
+
+async function saveBookingBlock(input = {}) {
+  const item = normaliseBookingBlockInput(input);
+  const database = db();
+  if (!isUuid(item.adviserId)) throw new Error('Choose an adviser for this block.');
+  if (!nullableDate(item.blockDate)) throw new Error('Choose a date for this block.');
+  if (isUuid(item.id)) {
+    const rows = await database.sql`
+      UPDATE adviser_booking_blocks
+         SET adviser_id = ${item.adviserId}, block_date = ${nullableDate(item.blockDate)}, start_time = ${item.startTime}, end_time = ${item.endTime}, all_day = ${item.allDay}, reason = ${item.reason}, updated_at = NOW()
+       WHERE id = ${item.id}
+       RETURNING id, adviser_id, block_date, start_time, end_time, all_day, reason, created_at, updated_at`;
+    return mapBookingBlockFromDb(rows[0]);
+  }
+  const rows = await database.sql`
+    INSERT INTO adviser_booking_blocks (adviser_id, block_date, start_time, end_time, all_day, reason)
+    VALUES (${item.adviserId}, ${nullableDate(item.blockDate)}, ${item.startTime}, ${item.endTime}, ${item.allDay}, ${item.reason})
+    RETURNING id, adviser_id, block_date, start_time, end_time, all_day, reason, created_at, updated_at`;
+  return mapBookingBlockFromDb(rows[0]);
+}
+
+async function deleteBookingBlock(blockId) {
+  if (!isUuid(blockId)) return;
+  await db().sql`DELETE FROM adviser_booking_blocks WHERE id = ${blockId}`;
+}
+
+async function saveBookingLink(input = {}) {
+  const item = normaliseBookingLinkInput(input);
+  const database = db();
+  if (!isUuid(item.adviserId)) throw new Error('Choose an adviser for this booking link.');
+  if (!item.applicantEmail && !item.applicantName) throw new Error('Add an applicant name or email for this booking link.');
+  if (isUuid(item.id)) {
+    const rows = await database.sql`
+      UPDATE consultation_booking_links
+         SET intake_id = ${nullableUuid(item.intakeId)}, adviser_id = ${item.adviserId}, applicant_name = ${item.applicantName}, applicant_email = ${item.applicantEmail}, applicant_phone = ${item.applicantPhone}, allowed_type_ids = CAST(${JSON.stringify(item.allowedTypeIds)} AS jsonb), expires_at = ${nullableTimestamp(item.expiresAt)}, status = ${normaliseBookingLinkStatus(item.status)}, notes = ${item.notes}, updated_at = NOW()
+       WHERE id = ${item.id}
+       RETURNING id, token, intake_id, adviser_id, applicant_name, applicant_email, applicant_phone, allowed_type_ids, expires_at, status, notes, created_at, updated_at`;
+    return mapBookingLinkFromDb(rows[0]);
+  }
+  const rows = await database.sql`
+    INSERT INTO consultation_booking_links (intake_id, adviser_id, applicant_name, applicant_email, applicant_phone, allowed_type_ids, expires_at, status, notes)
+    VALUES (${nullableUuid(item.intakeId)}, ${item.adviserId}, ${item.applicantName}, ${item.applicantEmail}, ${item.applicantPhone}, CAST(${JSON.stringify(item.allowedTypeIds)} AS jsonb), ${nullableTimestamp(item.expiresAt)}, ${normaliseBookingLinkStatus(item.status)}, ${item.notes})
+    RETURNING id, token, intake_id, adviser_id, applicant_name, applicant_email, applicant_phone, allowed_type_ids, expires_at, status, notes, created_at, updated_at`;
+  return mapBookingLinkFromDb(rows[0]);
+}
+
+async function deleteBookingLink(linkId) {
+  if (!isUuid(linkId)) return;
+  await db().sql`UPDATE consultation_booking_links SET status = 'Cancelled', updated_at = NOW() WHERE id = ${linkId}`;
+}
+
+async function saveConsultationBooking(input = {}) {
+  const item = normaliseConsultationBookingInput(input);
+  if (!isUuid(item.id)) throw new Error('A saved booking is required.');
+  const rows = await db().sql`
+    UPDATE consultation_bookings
+       SET status = ${normaliseConsultationBookingStatus(item.status)}, notes = ${item.notes}, payment_status = ${item.paymentStatus}, updated_at = NOW()
+     WHERE id = ${item.id}
+     RETURNING id, booking_link_id, intake_id, adviser_id, consultation_type_id, booking_date, start_time, end_time, applicant_name, applicant_email, applicant_phone, notes, status, payment_status, created_at, updated_at`;
+  return mapConsultationBookingFromDb(rows[0]);
+}
+
+function normaliseConsultationTypeInput(input = {}) {
+  return {
+    id: String(input.id || '').trim(),
+    name: cleanText(input.name || 'Consultation', 300),
+    durationMinutes: clampNumber(input.durationMinutes || input.duration_minutes, 5, 240, 15),
+    priceNzd: Math.max(0, Number(input.priceNzd ?? input.price_nzd ?? 0) || 0),
+    paid: Boolean(input.paid),
+    description: cleanText(input.description || '', 1000),
+    active: input.active !== false,
+    sortOrder: clampNumber(input.sortOrder || input.sort_order, 1, 999, 100),
+    bufferMinutes: clampNumber(input.bufferMinutes || input.buffer_minutes, 0, 120, 15),
+  };
+}
+
+function normaliseBookingAvailabilityInput(input = {}) {
+  return {
+    id: String(input.id || '').trim(),
+    adviserId: String(input.adviserId || input.adviser_id || '').trim(),
+    dayOfWeek: clampNumber(input.dayOfWeek ?? input.day_of_week, 0, 6, 1),
+    startTime: normaliseTimeText(input.startTime || input.start_time || '09:00') || '09:00',
+    endTime: normaliseTimeText(input.endTime || input.end_time || '17:00') || '17:00',
+    consultationTypeIds: normaliseUuidArray(input.consultationTypeIds || input.consultation_type_ids || []),
+    active: input.active !== false,
+  };
+}
+
+function normaliseBookingBlockInput(input = {}) {
+  const allDay = Boolean(input.allDay ?? input.all_day);
+  return {
+    id: String(input.id || '').trim(),
+    adviserId: String(input.adviserId || input.adviser_id || '').trim(),
+    blockDate: String(input.blockDate || input.block_date || '').trim(),
+    startTime: allDay ? '' : (normaliseTimeText(input.startTime || input.start_time || '') || ''),
+    endTime: allDay ? '' : (normaliseTimeText(input.endTime || input.end_time || '') || ''),
+    allDay,
+    reason: cleanText(input.reason || '', 500),
+  };
+}
+
+function normaliseBookingLinkInput(input = {}) {
+  return {
+    id: String(input.id || '').trim(),
+    intakeId: String(input.intakeId || input.intake_id || '').trim(),
+    adviserId: String(input.adviserId || input.adviser_id || '').trim(),
+    applicantName: cleanText(input.applicantName || input.applicant_name || '', 300),
+    applicantEmail: cleanText(input.applicantEmail || input.applicant_email || '', 300).toLowerCase(),
+    applicantPhone: cleanText(input.applicantPhone || input.applicant_phone || '', 80),
+    allowedTypeIds: normaliseUuidArray(input.allowedTypeIds || input.allowed_type_ids || []),
+    expiresAt: String(input.expiresAt || input.expires_at || '').trim(),
+    status: normaliseBookingLinkStatus(input.status),
+    notes: cleanText(input.notes || '', 1000),
+  };
+}
+
+function normaliseConsultationBookingInput(input = {}) {
+  return {
+    id: String(input.id || '').trim(),
+    status: normaliseConsultationBookingStatus(input.status),
+    notes: cleanText(input.notes || '', 1200),
+    paymentStatus: cleanText(input.paymentStatus || input.payment_status || 'Not required', 100),
+  };
+}
+
+function cleanText(value, max = 1000) {
+  return String(value ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+function clampNumber(value, min, max, fallback) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.max(min, Math.min(max, Math.round(number)));
+}
+
+function normaliseTimeText(value = '') {
+  const match = String(value || '').trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return '';
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return '';
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function normaliseUuidArray(value) {
+  const array = Array.isArray(value) ? value : [];
+  return array.map((item) => String(item || '').trim()).filter(isUuid);
+}
+
+function normaliseBookingLinkStatus(value = 'Active') {
+  return CONSULTATION_LINK_STATUSES.includes(value) ? value : 'Active';
+}
+
+function normaliseConsultationBookingStatus(value = 'Confirmed') {
+  return CONSULTATION_BOOKING_STATUSES.includes(value) ? value : 'Confirmed';
+}
+
+function nullableTimestamp(value = '') {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
 async function deleteClient(clientId) {

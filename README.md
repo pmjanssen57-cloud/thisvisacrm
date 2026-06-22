@@ -1,37 +1,58 @@
-# THiS CRM v0.12.40 - Intake Queue Visibility Polish
+# THiS CRM v0.13.0 - Consultation Booking Foundation
 
-This build applies a focused Enquiries & Intake follow-up patch on top of v0.12.39.
+This build adds the first native consultation booking module to THiS CRM. The module is intentionally separate from the daily adviser workflow so it can be configured and tested without cluttering the dashboard, client workspace, or Enquiries & Intake screens.
 
-## v0.12.40 changes
+## v0.13.0 changes
 
-- Adviser-scoped Enquiries & Intake views now show records assigned to the selected adviser **plus unassigned records**.
-- This lets any adviser see new unallocated intake forms, pick them up, and assign them from the intake card without opening the record.
-- Removed the public form shortcut buttons from the top of the Enquiries & Intake page:
-  - Contact form
-  - Assessment form
-  - Seminar form
-- Kept the cleaner intake card assignment workflow from v0.12.39.
-- No database migration required.
+- Added a new **Bookings** CRM module.
+- Added consultation type management, seeded with:
+  - Free 15-minute consultation
+  - Paid 60-minute consultation, payment handled manually at this stage
+- Added adviser weekly booking availability.
+- Added adviser blocked dates/times.
+- Added controlled booking links that can be created from the CRM and pasted into intake approval/next-step emails.
+- Added a public self-booking page at `/book?token=...`.
+- The public booking page shows available slots based on:
+  - adviser availability;
+  - consultation duration;
+  - buffer time;
+  - manual blocked times; and
+  - existing confirmed bookings.
+- Applicants can confirm a consultation booking online.
+- Confirmed bookings appear back in the CRM **Bookings** module.
+- Booking links are marked **Used** once an applicant books.
+- Applicant and adviser notification emails are sent if Microsoft email environment variables are configured; otherwise draft email log records are created for visibility.
+- No Outlook calendar integration yet.
+- No payment integration yet.
+
+## Database changes
+
+Adds new tables:
+
+- `consultation_types`
+- `adviser_booking_availability`
+- `adviser_booking_blocks`
+- `consultation_booking_links`
+- `consultation_bookings`
+
+Migration included:
+
+- `202606230001_add_consultation_booking.sql`
 
 ## Test process
 
 1. Deploy this package to Netlify.
-2. Open the CRM and go to **Enquiries & Intake**.
-3. Confirm the top public form shortcut buttons no longer appear.
-4. Set the global **Viewing** selector to a specific adviser.
-5. Open **Intake Forms**.
-6. Confirm the list shows:
-   - intake records assigned to that adviser; and
-   - unassigned intake records.
-7. Assign an unassigned intake record from the card dropdown and confirm it remains visible for that adviser.
-8. Switch the global **Viewing** selector to another adviser and confirm the newly assigned record no longer appears unless it is assigned to that adviser or is unassigned.
+2. Open THiS CRM and confirm the new **Bookings** navigation item appears.
+3. Go to **Bookings > Types** and confirm the two default consultation types exist.
+4. Go to **Bookings > Availability** and add at least one availability row for an adviser.
+5. Go to **Bookings > Blocked times** and optionally add a test block.
+6. Go to **Bookings > Booking links** and create a booking link for an adviser/applicant.
+7. Copy the booking link and open it in a new browser tab.
+8. Confirm available times appear for the selected adviser.
+9. Book a free 15-minute consultation.
+10. Return to the CRM and confirm the booking appears under **Bookings > Bookings**.
+11. Confirm the booking link status changed to **Used**.
 
-## Previous v0.12.39 changes
+## Notes
 
-- Replaced the plain intake-card View action with a clearer dark button labelled **View intake**.
-- Removed the redundant chevron / arrow from the middle-right of the full intake card header.
-- Added an **Assigned to** dropdown directly on each full intake card.
-- The assignment dropdown supports **Unassigned** plus active advisers.
-- Adviser assignment saves immediately through the existing intake enquiry save flow.
-- The assignment dropdown does not open the intake record when changed.
-- The Enquiries & Intake workspace respects the global **Viewing** adviser selector for contact and intake records.
+This is the self-booking foundation only. Outlook calendar invite creation and online payment can be added later once the workflow is proven and the volume justifies the extra integration work.

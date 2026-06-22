@@ -361,6 +361,11 @@ const emptyData = {
   seminarRegistrations: [],
   emailLogs: [],
   emailTemplates: [],
+  consultationTypes: [],
+  bookingAvailability: [],
+  bookingBlocks: [],
+  bookingLinks: [],
+  consultationBookings: [],
   emailConfig: { configured: false, fromEmail: '', fromName: '' },
   securityMode: 'unknown',
 };
@@ -419,6 +424,7 @@ export default function App() {
   if (window.location.pathname.startsWith('/contact')) return <ContactFormApp />;
   if (window.location.pathname.startsWith('/intake')) return <IntakeFormApp />;
   if (window.location.pathname.startsWith('/seminar')) return <SeminarRegistrationFormApp />;
+  if (window.location.pathname.startsWith('/book')) return <ConsultationBookingPublicApp />;
   if (window.location.pathname.startsWith('/portal')) return <ClientPortalApp />;
   const [data, setData] = useState(emptyData);
   const [tab, setTab] = useState('dashboard');
@@ -852,6 +858,46 @@ export default function App() {
     return await callApi('saveSeminarRegistration', { registration });
   }
 
+  async function saveConsultationType(consultationType) {
+    return await callApi('saveConsultationType', { consultationType });
+  }
+
+  async function deleteConsultationType(consultationTypeId) {
+    if (!window.confirm('Deactivate this consultation type? Existing bookings will remain.')) return;
+    return await callApi('deleteConsultationType', { consultationTypeId });
+  }
+
+  async function saveBookingAvailability(availability) {
+    return await callApi('saveBookingAvailability', { availability });
+  }
+
+  async function deleteBookingAvailability(availabilityId) {
+    if (!window.confirm('Delete this availability row?')) return;
+    return await callApi('deleteBookingAvailability', { availabilityId });
+  }
+
+  async function saveBookingBlock(block) {
+    return await callApi('saveBookingBlock', { block });
+  }
+
+  async function deleteBookingBlock(blockId) {
+    if (!window.confirm('Delete this blocked time?')) return;
+    return await callApi('deleteBookingBlock', { blockId });
+  }
+
+  async function saveBookingLink(link) {
+    return await callApi('saveBookingLink', { link });
+  }
+
+  async function deleteBookingLink(linkId) {
+    if (!window.confirm('Cancel this booking link?')) return;
+    return await callApi('deleteBookingLink', { linkId });
+  }
+
+  async function saveConsultationBooking(booking) {
+    return await callApi('saveConsultationBooking', { booking });
+  }
+
   async function sendSeminarRegistrationEmail(registrationId, outcome) {
     const body = await callApi('sendSeminarRegistrationEmail', { registrationId, outcome }, { skipDataUpdate: true });
     if (body.emailLog) {
@@ -1054,7 +1100,7 @@ export default function App() {
         {error && <div className="error-banner"><AlertTriangle size={18} />{error}</div>}
         {loading && <div className="loading-card"><Database size={18} />Loading database-backed CRM data...</div>}
 
-        {!loading && !data.clients.length && !data.advisers.length && !data.intakeEnquiries.length && !data.seminars.length && !data.seminarRegistrations.length && (
+        {!loading && !data.clients.length && !data.advisers.length && !data.intakeEnquiries.length && !data.seminars.length && !data.seminarRegistrations.length && !data.consultationBookings.length && (
           <section className="empty-state">
             <Database size={40} />
             <h1>Database is connected, but no CRM records exist yet.</h1>
@@ -1063,7 +1109,7 @@ export default function App() {
           </section>
         )}
 
-        {(data.clients.length > 0 || data.advisers.length > 0 || data.libraryEntries.length > 0 || data.intakeEnquiries.length > 0 || data.seminars.length > 0 || data.seminarRegistrations.length > 0) && (
+        {(data.clients.length > 0 || data.advisers.length > 0 || data.libraryEntries.length > 0 || data.intakeEnquiries.length > 0 || data.seminars.length > 0 || data.seminarRegistrations.length > 0 || data.consultationBookings.length > 0 || data.bookingLinks.length > 0) && (
           <>
             <ViewToolbar
               advisers={scopeAdvisers}
@@ -1082,6 +1128,7 @@ export default function App() {
               <TabButton active={tab === 'tasks'} onClick={() => switchTab('tasks')} icon={ListChecks} label="Tasks" />
               <TabButton active={tab === 'clients'} onClick={() => switchTab('clients')} icon={UsersRound} label="Clients" />
               <TabButton active={tab === 'intake'} onClick={() => switchTab('intake')} icon={ClipboardList} label="Enquiries & Intake" />
+              <TabButton active={tab === 'bookings'} onClick={() => switchTab('bookings')} icon={CalendarDays} label="Bookings" />
               <TabButton active={tab === 'calendar'} onClick={() => switchTab('calendar')} icon={CalendarDays} label="Calendar" />
               <TabButton active={tab === 'billing'} onClick={() => switchTab('billing')} icon={CreditCard} label="Billing" />
               <TabButton active={tab === 'library'} onClick={() => switchTab('library')} icon={BookOpen} label="Library" />
@@ -1090,6 +1137,29 @@ export default function App() {
 
             {tab === 'intake' && (
               <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} statuses={data.intakeStatuses || INTAKE_STATUSES} seminars={data.seminars || []} seminarRegistrations={data.seminarRegistrations || []} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} downloadIntakeUpload={downloadIntakeUpload} saveSeminar={saveSeminar} deleteSeminar={deleteSeminar} saveSeminarRegistration={saveSeminarRegistration} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail} saving={saving} openClientRecord={openClientRecord} />
+            )}
+
+            {tab === 'bookings' && (
+              <ConsultationBookingWorkspace
+                advisers={data.advisers}
+                intakeEnquiries={data.intakeEnquiries || []}
+                consultationTypes={data.consultationTypes || []}
+                bookingAvailability={data.bookingAvailability || []}
+                bookingBlocks={data.bookingBlocks || []}
+                bookingLinks={data.bookingLinks || []}
+                consultationBookings={data.consultationBookings || []}
+                dashboardAdviserFilter={dashboardAdviserFilter}
+                saveConsultationType={saveConsultationType}
+                deleteConsultationType={deleteConsultationType}
+                saveBookingAvailability={saveBookingAvailability}
+                deleteBookingAvailability={deleteBookingAvailability}
+                saveBookingBlock={saveBookingBlock}
+                deleteBookingBlock={deleteBookingBlock}
+                saveBookingLink={saveBookingLink}
+                deleteBookingLink={deleteBookingLink}
+                saveConsultationBooking={saveConsultationBooking}
+                saving={saving}
+              />
             )}
 
             {tab === 'dashboard' && (
@@ -1168,6 +1238,118 @@ export default function App() {
 
 }
 
+
+
+function ConsultationBookingPublicApp() {
+  const [loading, setLoading] = useState(true);
+  const [payload, setPayload] = useState(null);
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [confirmed, setConfirmed] = useState(null);
+  const [selectedTypeId, setSelectedTypeId] = useState('');
+  const [selectedSlotId, setSelectedSlotId] = useState('');
+  const [form, setForm] = useState({ applicantName: '', applicantEmail: '', applicantPhone: '', notes: '' });
+
+  const token = useMemo(() => new URLSearchParams(window.location.search).get('token') || '', []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadBooking() {
+      setLoading(true);
+      setError('');
+      try {
+        const response = await fetch(`/.netlify/functions/booking?token=${encodeURIComponent(token)}`);
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body.error || body.detail || 'Unable to load booking link.');
+        if (cancelled) return;
+        setPayload(body);
+        if (body.ok) {
+          const firstType = body.consultationTypes?.[0]?.id || '';
+          setSelectedTypeId(firstType);
+          setForm({
+            applicantName: body.link?.applicantName || '',
+            applicantEmail: body.link?.applicantEmail || '',
+            applicantPhone: body.link?.applicantPhone || '',
+            notes: '',
+          });
+        }
+      } catch (err) {
+        if (!cancelled) setError(err.message || String(err));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    loadBooking();
+    return () => { cancelled = true; };
+  }, [token]);
+
+  const selectedType = payload?.consultationTypes?.find((type) => type.id === selectedTypeId) || null;
+  const slots = (payload?.slots || []).filter((slot) => slot.consultationTypeId === selectedTypeId);
+  const groupedSlots = groupBookingSlots(slots);
+  const selectedSlot = slots.find((slot) => slot.id === selectedSlotId) || null;
+
+  async function submitBooking(event) {
+    event.preventDefault();
+    if (!selectedType || !selectedSlot) {
+      setError('Choose a consultation type and an available time.');
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    try {
+      const response = await fetch(`/.netlify/functions/booking?token=${encodeURIComponent(token)}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ booking: { consultationTypeId: selectedType.id, bookingDate: selectedSlot.date, startTime: selectedSlot.startTime, ...form } }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || !body.ok) throw new Error(body.error || body.detail || 'Unable to confirm this booking.');
+      setConfirmed(body);
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="public-booking-shell">
+      <section className="public-booking-card">
+        <div className="public-booking-brand"><img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" /><div><strong>Book your consultation</strong><span>Turner Hopkins Immigration Specialists</span></div></div>
+        {loading && <div className="loading-card"><Database size={18} />Loading available consultation times...</div>}
+        {!loading && error && <div className="error-banner"><AlertTriangle size={18} />{error}</div>}
+        {!loading && payload?.unavailable && <div className="empty-state compact-empty"><CalendarDays size={34} /><h1>Booking link unavailable</h1><p>{payload.message || 'This booking link is no longer available.'}</p></div>}
+        {!loading && payload?.ok && confirmed && (
+          <div className="booking-confirmed-panel">
+            <CheckCircle2 size={42} />
+            <h1>Consultation booked</h1>
+            <p>Your booking has been received. We have recorded the appointment in the Turner Hopkins system.</p>
+            <div className="booking-confirmation-summary"><strong>{confirmed.consultationType?.name}</strong><span>{formatBookingDateTime(confirmed.booking.bookingDate, confirmed.booking.startTime)} NZ time</span><span>Adviser: {confirmed.adviser?.name}</span>{confirmed.consultationType?.paid && <span>Payment will be handled manually by Turner Hopkins.</span>}</div>
+          </div>
+        )}
+        {!loading && payload?.ok && !confirmed && (
+          <form className="public-booking-form" onSubmit={submitBooking}>
+            <div className="public-booking-intro"><span className="eyebrow">Online consultation booking</span><h1>Choose a time with {payload.adviser?.name || 'your adviser'}</h1><p>Select the consultation type and a time that works for you. Times are shown in New Zealand time.</p></div>
+            <div className="booking-public-step"><h2>1. Consultation type</h2><div className="public-type-grid">{payload.consultationTypes.map((type) => <button key={type.id} type="button" className={selectedTypeId === type.id ? 'active' : ''} onClick={() => { setSelectedTypeId(type.id); setSelectedSlotId(''); }}><strong>{type.name}</strong><span>{type.durationMinutes} minutes · {type.paid ? `${formatCurrency(type.priceNzd)} NZD` : 'Free'}</span><small>{type.description}</small></button>)}</div></div>
+            <div className="booking-public-step"><h2>2. Available times</h2>{!slots.length && <p className="muted">No available times are currently showing for this consultation type. Please contact Turner Hopkins directly.</p>}<div className="public-slot-groups">{groupedSlots.map((group) => <div key={group.date} className="public-slot-group"><strong>{formatBookingDate(group.date)}</strong><div>{group.slots.map((slot) => <button key={slot.id} type="button" className={selectedSlotId === slot.id ? 'active' : ''} onClick={() => setSelectedSlotId(slot.id)}>{formatBookingTime(slot.startTime)}</button>)}</div></div>)}</div></div>
+            <div className="booking-public-step"><h2>3. Confirm your details</h2><div className="form-grid two"><Field label="Full name" value={form.applicantName} onChange={(value) => setForm((current) => ({ ...current, applicantName: value }))} /><Field label="Email" value={form.applicantEmail} onChange={(value) => setForm((current) => ({ ...current, applicantEmail: value }))} /><Field label="Phone" value={form.applicantPhone} onChange={(value) => setForm((current) => ({ ...current, applicantPhone: value }))} /></div><TextArea label="Anything you want us to know before the consultation?" value={form.notes} onChange={(value) => setForm((current) => ({ ...current, notes: value }))} rows={3} /></div>
+            {selectedType?.paid && <div className="notice-card"><CreditCard size={18} /><span>This consultation is marked as paid. Payment is not taken on this page yet; Turner Hopkins will handle that manually.</span></div>}
+            <button className="btn dark public-booking-submit" type="submit" disabled={submitting || !selectedSlotId}>{submitting ? <RefreshCw size={16} /> : <CalendarDays size={16} />}Confirm booking</button>
+          </form>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function groupBookingSlots(slots = []) {
+  const map = new Map();
+  slots.forEach((slot) => {
+    if (!map.has(slot.date)) map.set(slot.date, []);
+    map.get(slot.date).push(slot);
+  });
+  return Array.from(map.entries()).map(([date, groupSlots]) => ({ date, slots: groupSlots.sort((a, b) => String(a.startTime).localeCompare(String(b.startTime))) }));
+}
 
 function IntakeFormApp() {
   const intakeShellRef = useRef(null);
@@ -1951,6 +2133,264 @@ function matchesIntakeAdviserScope(item = {}, adviserScope = 'all') {
   if (!adviserScope || adviserScope === 'all') return true;
   const assignedAdviserId = String(item.assignedAdviserId || '');
   return !assignedAdviserId || assignedAdviserId === String(adviserScope);
+}
+
+
+const BOOKING_DAY_OPTIONS = [
+  { value: 1, label: 'Monday' },
+  { value: 2, label: 'Tuesday' },
+  { value: 3, label: 'Wednesday' },
+  { value: 4, label: 'Thursday' },
+  { value: 5, label: 'Friday' },
+  { value: 6, label: 'Saturday' },
+  { value: 0, label: 'Sunday' },
+];
+const BOOKING_STATUS_OPTIONS = ['Confirmed', 'Cancelled', 'Completed', 'No-show'];
+const BOOKING_LINK_STATUS_OPTIONS = ['Active', 'Used', 'Expired', 'Cancelled'];
+
+function ConsultationBookingWorkspace({ advisers = [], intakeEnquiries = [], consultationTypes = [], bookingAvailability = [], bookingBlocks = [], bookingLinks = [], consultationBookings = [], dashboardAdviserFilter = 'all', saveConsultationType, deleteConsultationType, saveBookingAvailability, deleteBookingAvailability, saveBookingBlock, deleteBookingBlock, saveBookingLink, deleteBookingLink, saveConsultationBooking, saving = false }) {
+  const [activeTab, setActiveTab] = useState('overview');
+  const activeAdvisers = advisers.filter((adviser) => adviser.active !== false);
+  const defaultAdviserId = dashboardAdviserFilter !== 'all' ? dashboardAdviserFilter : (activeAdvisers[0]?.id || advisers[0]?.id || '');
+  const [moduleAdviserId, setModuleAdviserId] = useState(defaultAdviserId || 'all');
+  const scopedAdviserId = moduleAdviserId === 'all' ? '' : moduleAdviserId;
+  const typeOptions = consultationTypes.filter((type) => type.active !== false);
+  const adviserOptions = [{ value: 'all', label: 'All advisers' }, ...activeAdvisers.map((adviser) => ({ value: adviser.id, label: adviser.name || adviser.email || 'Unnamed adviser' }))];
+  const [typeDraft, setTypeDraft] = useState(makeBlankConsultationType());
+  const [availabilityDraft, setAvailabilityDraft] = useState(makeBlankBookingAvailability(defaultAdviserId));
+  const [blockDraft, setBlockDraft] = useState(makeBlankBookingBlock(defaultAdviserId));
+  const [linkDraft, setLinkDraft] = useState(makeBlankBookingLink(defaultAdviserId));
+  const [bookingDrafts, setBookingDrafts] = useState({});
+  const [copyMessage, setCopyMessage] = useState('');
+
+  useEffect(() => {
+    if (defaultAdviserId && !availabilityDraft.adviserId) setAvailabilityDraft((current) => ({ ...current, adviserId: defaultAdviserId }));
+    if (defaultAdviserId && !blockDraft.adviserId) setBlockDraft((current) => ({ ...current, adviserId: defaultAdviserId }));
+    if (defaultAdviserId && !linkDraft.adviserId) setLinkDraft((current) => ({ ...current, adviserId: defaultAdviserId }));
+  }, [defaultAdviserId]);
+
+  const scopedBookings = consultationBookings.filter((booking) => !scopedAdviserId || booking.adviserId === scopedAdviserId);
+  const scopedLinks = bookingLinks.filter((link) => !scopedAdviserId || link.adviserId === scopedAdviserId);
+  const scopedAvailability = bookingAvailability.filter((row) => !scopedAdviserId || row.adviserId === scopedAdviserId);
+  const scopedBlocks = bookingBlocks.filter((block) => !scopedAdviserId || block.adviserId === scopedAdviserId);
+  const upcomingBookings = scopedBookings.filter((booking) => booking.status === 'Confirmed').sort((a, b) => `${a.bookingDate} ${a.startTime}`.localeCompare(`${b.bookingDate} ${b.startTime}`));
+
+  function adviserName(id) {
+    return advisers.find((adviser) => adviser.id === id)?.name || 'Unassigned adviser';
+  }
+
+  function typeName(id) {
+    return consultationTypes.find((type) => type.id === id)?.name || 'Consultation';
+  }
+
+  function bookingUrl(link) {
+    if (link.bookingUrl) return link.bookingUrl;
+    if (typeof window !== 'undefined' && link.token) return `${window.location.origin}/book?token=${encodeURIComponent(link.token)}`;
+    return '';
+  }
+
+  function toggleAllowedType(id) {
+    setLinkDraft((current) => {
+      const set = new Set(current.allowedTypeIds || []);
+      if (set.has(id)) set.delete(id); else set.add(id);
+      return { ...current, allowedTypeIds: Array.from(set) };
+    });
+  }
+
+  function toggleAvailabilityType(id) {
+    setAvailabilityDraft((current) => {
+      const set = new Set(current.consultationTypeIds || []);
+      if (set.has(id)) set.delete(id); else set.add(id);
+      return { ...current, consultationTypeIds: Array.from(set) };
+    });
+  }
+
+  function applyIntakeToLink(intakeId) {
+    const intake = intakeEnquiries.find((item) => item.id === intakeId);
+    setLinkDraft((current) => ({
+      ...current,
+      intakeId,
+      adviserId: intake?.assignedAdviserId || current.adviserId || defaultAdviserId,
+      applicantName: intake ? `${intake.firstName || ''} ${intake.lastName || ''}`.trim() : current.applicantName,
+      applicantEmail: intake?.email || current.applicantEmail,
+      applicantPhone: intake?.phone || current.applicantPhone,
+    }));
+  }
+
+  async function copyLink(link) {
+    const url = bookingUrl(link);
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopyMessage('Booking link copied.');
+      window.setTimeout(() => setCopyMessage(''), 1800);
+    } catch {
+      setCopyMessage(url);
+    }
+  }
+
+  async function submitType(event) {
+    event.preventDefault();
+    await saveConsultationType(typeDraft);
+    setTypeDraft(makeBlankConsultationType());
+  }
+
+  async function submitAvailability(event) {
+    event.preventDefault();
+    await saveBookingAvailability(availabilityDraft);
+    setAvailabilityDraft(makeBlankBookingAvailability(availabilityDraft.adviserId || defaultAdviserId));
+  }
+
+  async function submitBlock(event) {
+    event.preventDefault();
+    await saveBookingBlock(blockDraft);
+    setBlockDraft(makeBlankBookingBlock(blockDraft.adviserId || defaultAdviserId));
+  }
+
+  async function submitLink(event) {
+    event.preventDefault();
+    await saveBookingLink(linkDraft);
+    setLinkDraft(makeBlankBookingLink(linkDraft.adviserId || defaultAdviserId));
+  }
+
+  function setBookingDraft(id, patch) {
+    setBookingDrafts((current) => ({ ...current, [id]: { ...(current[id] || consultationBookings.find((booking) => booking.id === id) || {}), ...patch } }));
+  }
+
+  async function saveBookingPatch(booking) {
+    const draft = bookingDrafts[booking.id] || booking;
+    await saveConsultationBooking({ ...booking, ...draft });
+    setBookingDrafts((current) => {
+      const next = { ...current };
+      delete next[booking.id];
+      return next;
+    });
+  }
+
+  return (
+    <section className="consultation-booking-workspace">
+      <div className="page-heading-row">
+        <div>
+          <span className="eyebrow">Separate module</span>
+          <h1>Consultation Booking</h1>
+          <p className="muted">Create controlled booking links, set adviser availability, block unavailable times, and review self-booked consultations. No Outlook or payment integration yet; keep those goblins outside the room for now.</p>
+        </div>
+        <label className="field compact-field adviser-scope-field"><span>Viewing</span><select value={moduleAdviserId} onChange={(event) => setModuleAdviserId(event.target.value)}>{adviserOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+      </div>
+
+      <div className="enquiries-tab-row booking-tab-row" role="tablist" aria-label="Consultation booking sections">
+        <button type="button" className={activeTab === 'overview' ? 'active' : ''} onClick={() => setActiveTab('overview')}><LayoutDashboard size={16} />Overview</button>
+        <button type="button" className={activeTab === 'links' ? 'active' : ''} onClick={() => setActiveTab('links')}><Link2 size={16} />Booking links <span>{scopedLinks.length}</span></button>
+        <button type="button" className={activeTab === 'availability' ? 'active' : ''} onClick={() => setActiveTab('availability')}><Clock size={16} />Availability</button>
+        <button type="button" className={activeTab === 'blocks' ? 'active' : ''} onClick={() => setActiveTab('blocks')}><LockKeyhole size={16} />Blocked times</button>
+        <button type="button" className={activeTab === 'types' ? 'active' : ''} onClick={() => setActiveTab('types')}><SlidersHorizontal size={16} />Types</button>
+        <button type="button" className={activeTab === 'bookings' ? 'active' : ''} onClick={() => setActiveTab('bookings')}><CalendarDays size={16} />Bookings <span>{scopedBookings.length}</span></button>
+      </div>
+
+      {activeTab === 'overview' && (
+        <div className="booking-overview-grid">
+          <div className="metric-card"><span>Upcoming confirmed</span><strong>{upcomingBookings.length}</strong><small>Consultations that still need to happen.</small></div>
+          <div className="metric-card"><span>Active links</span><strong>{scopedLinks.filter((link) => link.status === 'Active').length}</strong><small>Applicants can still use these links.</small></div>
+          <div className="metric-card"><span>Availability rows</span><strong>{scopedAvailability.length}</strong><small>Weekly adviser booking windows.</small></div>
+          <div className="metric-card"><span>Blocks</span><strong>{scopedBlocks.length}</strong><small>Manual unavailable dates or times.</small></div>
+          <section className="sub-panel booking-wide-panel"><h2>Next bookings</h2>{upcomingBookings.slice(0, 6).map((booking) => <div key={booking.id} className="booking-list-row"><div><strong>{booking.applicantName}</strong><span>{typeName(booking.consultationTypeId)} with {adviserName(booking.adviserId)}</span></div><b>{formatBookingDateTime(booking.bookingDate, booking.startTime)}</b></div>)}{!upcomingBookings.length && <p className="muted">No confirmed bookings for this view yet.</p>}</section>
+        </div>
+      )}
+
+      {activeTab === 'links' && (
+        <div className="booking-two-column">
+          <form className="sub-panel booking-form-panel" onSubmit={submitLink}>
+            <h2>Create booking link</h2>
+            <p className="muted">Generate a secure link to paste into an approval or next-steps email. The applicant can book once, then the link is marked used.</p>
+            <SelectField label="Adviser" value={linkDraft.adviserId} onChange={(value) => setLinkDraft((current) => ({ ...current, adviserId: value }))} options={activeAdvisers.map((adviser) => ({ value: adviser.id, label: adviser.name || adviser.email }))} />
+            <SelectField label="Link to intake record" value={linkDraft.intakeId} onChange={applyIntakeToLink} options={[{ value: '', label: 'No intake link' }, ...intakeEnquiries.map((item) => ({ value: item.id, label: `${item.firstName || ''} ${item.lastName || ''}`.trim() || item.email || item.id }))]} placeholder="Optional" />
+            <div className="form-grid two"><Field label="Applicant name" value={linkDraft.applicantName} onChange={(value) => setLinkDraft((current) => ({ ...current, applicantName: value }))} /><Field label="Applicant email" value={linkDraft.applicantEmail} onChange={(value) => setLinkDraft((current) => ({ ...current, applicantEmail: value }))} /><Field label="Phone" value={linkDraft.applicantPhone} onChange={(value) => setLinkDraft((current) => ({ ...current, applicantPhone: value }))} /><DateField label="Expiry date" value={linkDraft.expiresAt?.slice(0, 10) || ''} onChange={(value) => setLinkDraft((current) => ({ ...current, expiresAt: value }))} /></div>
+            <div className="booking-checkbox-group"><span>Allowed consultation types</span><small>Leave all unticked to allow all active types.</small>{typeOptions.map((type) => <label key={type.id}><input type="checkbox" checked={(linkDraft.allowedTypeIds || []).includes(type.id)} onChange={() => toggleAllowedType(type.id)} /> {type.name}</label>)}</div>
+            <TextArea label="Internal note" value={linkDraft.notes} onChange={(value) => setLinkDraft((current) => ({ ...current, notes: value }))} rows={3} />
+            <button className="btn dark" type="submit" disabled={saving}><Link2 size={16} />Create booking link</button>
+          </form>
+          <section className="sub-panel booking-list-panel"><h2>Booking links</h2>{copyMessage && <p className="success-text">{copyMessage}</p>}{scopedLinks.map((link) => <div key={link.id} className="booking-card"><div><strong>{link.applicantName || link.applicantEmail || 'Unnamed applicant'}</strong><span>{adviserName(link.adviserId)} · {link.status}</span><small>{bookingUrl(link)}</small></div><div className="booking-card-actions"><button className="btn ghost" type="button" onClick={() => copyLink(link)}><Copy size={15} />Copy</button><button className="btn danger mini" type="button" onClick={() => deleteBookingLink(link.id)}><Trash2 size={15} />Cancel</button></div></div>)}{!scopedLinks.length && <p className="muted">No booking links yet.</p>}</section>
+        </div>
+      )}
+
+      {activeTab === 'availability' && (
+        <div className="booking-two-column">
+          <form className="sub-panel booking-form-panel" onSubmit={submitAvailability}>
+            <h2>Add adviser availability</h2>
+            <div className="form-grid two"><SelectField label="Adviser" value={availabilityDraft.adviserId} onChange={(value) => setAvailabilityDraft((current) => ({ ...current, adviserId: value }))} options={activeAdvisers.map((adviser) => ({ value: adviser.id, label: adviser.name || adviser.email }))} /><SelectField label="Day" value={String(availabilityDraft.dayOfWeek)} onChange={(value) => setAvailabilityDraft((current) => ({ ...current, dayOfWeek: Number(value) }))} options={BOOKING_DAY_OPTIONS.map((day) => ({ value: String(day.value), label: day.label }))} /><TimeField label="Start time" value={availabilityDraft.startTime} onChange={(value) => setAvailabilityDraft((current) => ({ ...current, startTime: value }))} /><TimeField label="End time" value={availabilityDraft.endTime} onChange={(value) => setAvailabilityDraft((current) => ({ ...current, endTime: value }))} /></div>
+            <div className="booking-checkbox-group"><span>Consultation types</span><small>Leave all unticked to allow all types.</small>{typeOptions.map((type) => <label key={type.id}><input type="checkbox" checked={(availabilityDraft.consultationTypeIds || []).includes(type.id)} onChange={() => toggleAvailabilityType(type.id)} /> {type.name}</label>)}</div>
+            <button className="btn dark" type="submit" disabled={saving}><Save size={16} />Add availability</button>
+          </form>
+          <section className="sub-panel booking-list-panel"><h2>Current availability</h2>{scopedAvailability.map((row) => <div key={row.id} className="booking-card"><div><strong>{adviserName(row.adviserId)}</strong><span>{dayLabel(row.dayOfWeek)} · {formatBookingTime(row.startTime)}-{formatBookingTime(row.endTime)}</span><small>{(row.consultationTypeIds || []).length ? row.consultationTypeIds.map(typeName).join(', ') : 'All consultation types'}</small></div><button className="icon-btn" type="button" onClick={() => deleteBookingAvailability(row.id)}><Trash2 size={16} /></button></div>)}{!scopedAvailability.length && <p className="muted">No availability rows yet. Add a weekly booking window to make public slots appear.</p>}</section>
+        </div>
+      )}
+
+      {activeTab === 'blocks' && (
+        <div className="booking-two-column">
+          <form className="sub-panel booking-form-panel" onSubmit={submitBlock}>
+            <h2>Block unavailable time</h2>
+            <div className="form-grid two"><SelectField label="Adviser" value={blockDraft.adviserId} onChange={(value) => setBlockDraft((current) => ({ ...current, adviserId: value }))} options={activeAdvisers.map((adviser) => ({ value: adviser.id, label: adviser.name || adviser.email }))} /><DateField label="Date" value={blockDraft.blockDate} onChange={(value) => setBlockDraft((current) => ({ ...current, blockDate: value }))} /><TimeField label="Start time" value={blockDraft.startTime} onChange={(value) => setBlockDraft((current) => ({ ...current, startTime: value }))} /><TimeField label="End time" value={blockDraft.endTime} onChange={(value) => setBlockDraft((current) => ({ ...current, endTime: value }))} /></div>
+            <label className="check-row"><input type="checkbox" checked={blockDraft.allDay} onChange={(event) => setBlockDraft((current) => ({ ...current, allDay: event.target.checked }))} /> Block the whole day</label>
+            <Field label="Reason" value={blockDraft.reason} onChange={(value) => setBlockDraft((current) => ({ ...current, reason: value }))} />
+            <button className="btn dark" type="submit" disabled={saving}><LockKeyhole size={16} />Add block</button>
+          </form>
+          <section className="sub-panel booking-list-panel"><h2>Blocked times</h2>{scopedBlocks.map((block) => <div key={block.id} className="booking-card"><div><strong>{adviserName(block.adviserId)}</strong><span>{formatBookingDate(block.blockDate)} · {block.allDay ? 'All day' : `${formatBookingTime(block.startTime)}-${formatBookingTime(block.endTime)}`}</span><small>{block.reason || 'No reason recorded'}</small></div><button className="icon-btn" type="button" onClick={() => deleteBookingBlock(block.id)}><Trash2 size={16} /></button></div>)}{!scopedBlocks.length && <p className="muted">No blocked times yet.</p>}</section>
+        </div>
+      )}
+
+      {activeTab === 'types' && (
+        <div className="booking-two-column">
+          <form className="sub-panel booking-form-panel" onSubmit={submitType}>
+            <h2>Consultation type</h2>
+            <Field label="Name" value={typeDraft.name} onChange={(value) => setTypeDraft((current) => ({ ...current, name: value }))} />
+            <div className="form-grid two"><label className="field"><span>Duration minutes</span><input type="number" min="5" value={typeDraft.durationMinutes} onChange={(event) => setTypeDraft((current) => ({ ...current, durationMinutes: Number(event.target.value) }))} /></label><label className="field"><span>Buffer minutes</span><input type="number" min="0" value={typeDraft.bufferMinutes} onChange={(event) => setTypeDraft((current) => ({ ...current, bufferMinutes: Number(event.target.value) }))} /></label><label className="field"><span>Price NZD</span><input type="number" min="0" value={typeDraft.priceNzd} onChange={(event) => setTypeDraft((current) => ({ ...current, priceNzd: Number(event.target.value) }))} /></label><label className="field"><span>Sort order</span><input type="number" min="1" value={typeDraft.sortOrder} onChange={(event) => setTypeDraft((current) => ({ ...current, sortOrder: Number(event.target.value) }))} /></label></div>
+            <label className="check-row"><input type="checkbox" checked={typeDraft.paid} onChange={(event) => setTypeDraft((current) => ({ ...current, paid: event.target.checked }))} /> Paid consultation</label>
+            <label className="check-row"><input type="checkbox" checked={typeDraft.active !== false} onChange={(event) => setTypeDraft((current) => ({ ...current, active: event.target.checked }))} /> Active</label>
+            <TextArea label="Description" value={typeDraft.description} onChange={(value) => setTypeDraft((current) => ({ ...current, description: value }))} rows={3} />
+            <button className="btn dark" type="submit" disabled={saving}><Save size={16} />Save type</button>
+          </form>
+          <section className="sub-panel booking-list-panel"><h2>Consultation types</h2>{consultationTypes.map((type) => <div key={type.id} className="booking-card"><div><strong>{type.name}</strong><span>{type.durationMinutes} min · {type.paid ? formatCurrency(type.priceNzd) : 'Free'} · {type.active ? 'Active' : 'Inactive'}</span><small>{type.description}</small></div><div className="booking-card-actions"><button className="btn ghost mini" type="button" onClick={() => setTypeDraft(type)}>Edit</button><button className="icon-btn" type="button" onClick={() => deleteConsultationType(type.id)}><Trash2 size={16} /></button></div></div>)}{!consultationTypes.length && <p className="muted">No consultation types yet.</p>}</section>
+        </div>
+      )}
+
+      {activeTab === 'bookings' && (
+        <section className="sub-panel booking-list-panel full-width"><h2>Consultation bookings</h2>{scopedBookings.map((booking) => { const draft = bookingDrafts[booking.id] || booking; return <div key={booking.id} className="booking-record-card"><div className="booking-record-main"><strong>{booking.applicantName || booking.applicantEmail}</strong><span>{typeName(booking.consultationTypeId)} with {adviserName(booking.adviserId)}</span><small>{formatBookingDateTime(booking.bookingDate, booking.startTime)} · {booking.paymentStatus}</small></div><div className="booking-record-controls"><select value={draft.status || booking.status} onChange={(event) => setBookingDraft(booking.id, { status: event.target.value })}>{BOOKING_STATUS_OPTIONS.map((status) => <option key={status} value={status}>{status}</option>)}</select><input value={draft.paymentStatus || ''} onChange={(event) => setBookingDraft(booking.id, { paymentStatus: event.target.value })} placeholder="Payment status" /><button className="btn dark mini" type="button" onClick={() => saveBookingPatch(booking)} disabled={saving}><Save size={14} />Save</button></div><TextArea label="Notes" value={draft.notes || ''} onChange={(value) => setBookingDraft(booking.id, { notes: value })} rows={2} /></div>; })}{!scopedBookings.length && <p className="muted">No bookings yet. Once an applicant self-books, the booking will appear here.</p>}</section>
+      )}
+    </section>
+  );
+}
+
+function makeBlankConsultationType() {
+  return { id: '', name: '', durationMinutes: 15, priceNzd: 0, paid: false, description: '', active: true, sortOrder: 100, bufferMinutes: 15 };
+}
+function makeBlankBookingAvailability(adviserId = '') {
+  return { id: '', adviserId, dayOfWeek: 1, startTime: '09:00', endTime: '17:00', consultationTypeIds: [], active: true };
+}
+function makeBlankBookingBlock(adviserId = '') {
+  return { id: '', adviserId, blockDate: todayIso(), startTime: '09:00', endTime: '10:00', allDay: false, reason: '' };
+}
+function makeBlankBookingLink(adviserId = '') {
+  return { id: '', intakeId: '', adviserId, applicantName: '', applicantEmail: '', applicantPhone: '', allowedTypeIds: [], expiresAt: '', status: 'Active', notes: '' };
+}
+function dayLabel(value) {
+  return BOOKING_DAY_OPTIONS.find((day) => Number(day.value) === Number(value))?.label || 'Day';
+}
+function formatBookingTime(value = '') {
+  const time = normaliseTimeValue(value);
+  if (!time) return value || '';
+  const [hourText, minute] = time.split(':');
+  const hour = Number(hourText);
+  const suffix = hour >= 12 ? 'pm' : 'am';
+  const displayHour = hour % 12 || 12;
+  return `${displayHour}:${minute}${suffix}`;
+}
+function formatBookingDate(value = '') {
+  const date = parseLocalDate(value);
+  if (!date) return value || '';
+  return new Intl.DateTimeFormat('en-NZ', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }).format(date);
+}
+function formatBookingDateTime(date, time) {
+  return `${formatBookingDate(date)} at ${formatBookingTime(time)}`;
 }
 
 function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', statuses, seminars = [], seminarRegistrations = [], saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, sendContactIntakeInviteEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saving, openClientRecord }) {
@@ -3980,7 +4420,7 @@ function MobileBottomNav({ activeTab, onNavigate, onOpenMore }) {
     { tab: 'clients', label: 'Clients', icon: UsersRound },
     { tab: 'intake', label: 'Enquiries', icon: ClipboardList },
   ];
-  const moreActive = ['billing', 'advisers', 'library', 'intake'].includes(activeTab);
+  const moreActive = ['billing', 'advisers', 'library', 'intake', 'bookings'].includes(activeTab);
   return (
     <nav className="mobile-bottom-nav" aria-label="Mobile CRM navigation">
       {navItems.map(({ tab, label, icon: Icon }) => (
@@ -4016,6 +4456,7 @@ function MobileMoreSheet({ open, onClose, onNavigate, activeTab, onOpenHelp, onO
         </div>
         <div className="mobile-more-grid">
           <button type="button" className={activeTab === 'intake' ? 'active' : ''} onClick={() => go('intake')}><ClipboardList size={18} /><span>Enquiries</span></button>
+          <button type="button" className={activeTab === 'bookings' ? 'active' : ''} onClick={() => go('bookings')}><CalendarDays size={18} /><span>Bookings</span></button>
           <button type="button" className={activeTab === 'billing' ? 'active' : ''} onClick={() => go('billing')}><CreditCard size={18} /><span>Billing</span></button>
           <button type="button" className={activeTab === 'library' ? 'active' : ''} onClick={() => go('library')}><BookOpen size={18} /><span>Library</span></button>
           {canManageAdvisers && <button type="button" className={activeTab === 'advisers' ? 'active' : ''} onClick={() => go('advisers')}><UserRound size={18} /><span>Advisers</span></button>}
@@ -9163,6 +9604,11 @@ function normaliseData(body) {
     seminarRegistrations: (body.seminarRegistrations || []).map(normaliseSeminarRegistration),
     emailLogs: (body.emailLogs || []).map(normaliseEmailLog),
     emailTemplates: (body.emailTemplates || []).map(normaliseEmailTemplate),
+    consultationTypes: (body.consultationTypes || []).map(normaliseConsultationType),
+    bookingAvailability: (body.bookingAvailability || []).map(normaliseBookingAvailability),
+    bookingBlocks: (body.bookingBlocks || []).map(normaliseBookingBlock),
+    bookingLinks: (body.bookingLinks || []).map(normaliseBookingLink),
+    consultationBookings: (body.consultationBookings || []).map(normaliseConsultationBooking),
     emailConfig: normaliseEmailConfig(body.emailConfig || {}),
     securityMode: body.securityMode || 'unknown',
   };
@@ -9227,6 +9673,91 @@ function makeBlankPersonalTask(adviserId = '') {
 }
 
 
+
+
+function normaliseConsultationType(input = {}) {
+  return {
+    id: input.id || '',
+    name: input.name || 'Consultation',
+    durationMinutes: Number(input.durationMinutes || input.duration_minutes || 15),
+    priceNzd: Number(input.priceNzd || input.price_nzd || 0),
+    paid: Boolean(input.paid),
+    description: input.description || '',
+    active: input.active !== false,
+    sortOrder: Number(input.sortOrder || input.sort_order || 100),
+    bufferMinutes: Number(input.bufferMinutes || input.buffer_minutes || 15),
+    createdAt: input.createdAt || input.created_at || '',
+    updatedAt: input.updatedAt || input.updated_at || '',
+  };
+}
+
+function normaliseBookingAvailability(input = {}) {
+  return {
+    id: input.id || '',
+    adviserId: input.adviserId || input.adviser_id || '',
+    dayOfWeek: Number(input.dayOfWeek ?? input.day_of_week ?? 1),
+    startTime: normaliseTimeValue(input.startTime || input.start_time || '09:00') || '09:00',
+    endTime: normaliseTimeValue(input.endTime || input.end_time || '17:00') || '17:00',
+    consultationTypeIds: Array.isArray(input.consultationTypeIds) ? input.consultationTypeIds : Array.isArray(input.consultation_type_ids) ? input.consultation_type_ids : [],
+    active: input.active !== false,
+    createdAt: input.createdAt || input.created_at || '',
+    updatedAt: input.updatedAt || input.updated_at || '',
+  };
+}
+
+function normaliseBookingBlock(input = {}) {
+  return {
+    id: input.id || '',
+    adviserId: input.adviserId || input.adviser_id || '',
+    blockDate: input.blockDate || input.block_date || '',
+    startTime: normaliseTimeValue(input.startTime || input.start_time || ''),
+    endTime: normaliseTimeValue(input.endTime || input.end_time || ''),
+    allDay: Boolean(input.allDay ?? input.all_day),
+    reason: input.reason || '',
+    createdAt: input.createdAt || input.created_at || '',
+    updatedAt: input.updatedAt || input.updated_at || '',
+  };
+}
+
+function normaliseBookingLink(input = {}) {
+  return {
+    id: input.id || '',
+    token: input.token || '',
+    intakeId: input.intakeId || input.intake_id || '',
+    adviserId: input.adviserId || input.adviser_id || '',
+    applicantName: input.applicantName || input.applicant_name || '',
+    applicantEmail: input.applicantEmail || input.applicant_email || '',
+    applicantPhone: input.applicantPhone || input.applicant_phone || '',
+    allowedTypeIds: Array.isArray(input.allowedTypeIds) ? input.allowedTypeIds : Array.isArray(input.allowed_type_ids) ? input.allowed_type_ids : [],
+    expiresAt: input.expiresAt || input.expires_at || '',
+    status: BOOKING_LINK_STATUS_OPTIONS.includes(input.status) ? input.status : 'Active',
+    notes: input.notes || '',
+    bookingUrl: input.bookingUrl || input.booking_url || '',
+    createdAt: input.createdAt || input.created_at || '',
+    updatedAt: input.updatedAt || input.updated_at || '',
+  };
+}
+
+function normaliseConsultationBooking(input = {}) {
+  return {
+    id: input.id || '',
+    bookingLinkId: input.bookingLinkId || input.booking_link_id || '',
+    intakeId: input.intakeId || input.intake_id || '',
+    adviserId: input.adviserId || input.adviser_id || '',
+    consultationTypeId: input.consultationTypeId || input.consultation_type_id || '',
+    bookingDate: input.bookingDate || input.booking_date || '',
+    startTime: normaliseTimeValue(input.startTime || input.start_time || ''),
+    endTime: normaliseTimeValue(input.endTime || input.end_time || ''),
+    applicantName: input.applicantName || input.applicant_name || '',
+    applicantEmail: input.applicantEmail || input.applicant_email || '',
+    applicantPhone: input.applicantPhone || input.applicant_phone || '',
+    notes: input.notes || '',
+    status: BOOKING_STATUS_OPTIONS.includes(input.status) ? input.status : 'Confirmed',
+    paymentStatus: input.paymentStatus || input.payment_status || 'Not required',
+    createdAt: input.createdAt || input.created_at || '',
+    updatedAt: input.updatedAt || input.updated_at || '',
+  };
+}
 
 function normaliseEmailTemplate(template = {}) {
   return {
