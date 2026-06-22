@@ -9205,3 +9205,70 @@ body.intake-embed-mode .seminar-public-card {
     flex-direction: column;
   }
 }
+
+/* v0.13.1: header local snapshot and search-row tidy */
+.header-local-snapshot {
+  display: grid;
+  gap: 3px;
+  min-width: 182px;
+  max-width: 230px;
+  padding: 8px 12px;
+  border: 1px solid rgba(85, 217, 160, 0.36);
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff 0%, #f4fbf8 100%);
+  color: var(--ink);
+  box-shadow: 0 6px 18px rgba(0, 55, 54, 0.06);
+}
+
+.header-local-snapshot-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.15;
+}
+
+.header-local-snapshot-row svg {
+  flex: 0 0 auto;
+  color: var(--ink);
+}
+
+.header-local-snapshot-row strong {
+  font-size: 12px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.header-local-snapshot-row span {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compact-clear-btn {
+  align-self: center;
+  justify-content: center;
+  height: 44px;
+  min-width: 82px;
+  padding: 0 12px;
+  border-radius: 14px;
+  box-shadow: none;
+}
+
+.compact-view-result {
+  align-self: center;
+}
+
+@media (max-width: 1180px) {
+  .header-local-snapshot {
+    display: none;
+  }
+}
+
+@media (max-width: 1100px) {
+  .compact-clear-btn {
+    height: 42px;
+  }
+}

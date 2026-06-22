@@ -1,6 +1,14 @@
-# THiS CRM v0.13.0 - Consultation Booking Foundation
+# THiS CRM v0.13.1 - Header Snapshot and Search Row Polish
 
 This build adds the first native consultation booking module to THiS CRM. The module is intentionally separate from the daily adviser workflow so it can be configured and tested without cluttering the dashboard, client workspace, or Enquiries & Intake screens.
+
+
+## v0.13.1 changes
+
+- Tightened the main Viewing/Search toolbar so the Clear action is a compact button rather than a large block.
+- Added a small adviser-local time and weather snapshot to the CRM top header.
+- The header snapshot uses the selected adviser/location metadata where available and falls back to Auckland/New Zealand time.
+- No database migration required.
 
 ## v0.13.0 changes
 

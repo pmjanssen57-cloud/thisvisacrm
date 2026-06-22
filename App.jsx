@@ -982,6 +982,11 @@ export default function App() {
   const canViewAllAdvisers = !identityUser || identityHasRole(identityUser, ['admin', 'manager']);
   const canManageAdvisers = !identityUser || identityHasRole(identityUser, ['admin', 'manager']);
   const scopeAdvisers = canViewAllAdvisers ? data.advisers : (identityAdviser ? [identityAdviser] : data.advisers);
+  const headerSnapshotAdviser = useMemo(() => {
+    if (dashboardAdviserFilter !== 'all') return data.advisers.find((adviser) => adviser.id === dashboardAdviserFilter) || null;
+    if (identityAdviser) return identityAdviser;
+    return data.advisers.find((adviser) => adviser.active !== false) || data.advisers[0] || null;
+  }, [dashboardAdviserFilter, data.advisers, identityAdviser]);
 
   useEffect(() => {
     if (!identityUser || !data.advisers.length || identityScopeAppliedRef.current) return;
@@ -1071,6 +1076,7 @@ export default function App() {
             <span>Client progress, deadlines and billing</span>
           </div>
         </div>
+        <HeaderLocalSnapshot adviser={headerSnapshotAdviser} />
         <AuthStatus user={identityUser} adviser={identityAdviser} accessCodeActive={Boolean(accessCode)} onLogout={logoutIdentityUser} />
         <div className="top-actions desktop-only">
           <button className="btn ghost compact-action" onClick={() => { setSupportOpen(false); setToolsOpen(true); setNewMenuOpen(false); }}><Wrench size={16} />Tools</button>
@@ -4379,6 +4385,81 @@ function ClientPortalPersonalNoteList({ personalNotes = [] }) {
   );
 }
 
+
+function HeaderLocalSnapshot({ adviser }) {
+  const [now, setNow] = useState(() => new Date());
+  const [weather, setWeather] = useState(null);
+  const [weatherError, setWeatherError] = useState('');
+  const adviserLocation = normaliseHeaderWeatherLocation(adviser);
+  const timeZone = adviser?.timeZone || adviser?.timezone || 'Pacific/Auckland';
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 30000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+
+    async function loadHeaderWeather() {
+      setWeatherError('');
+      setWeather(null);
+      try {
+        const geoResponse = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(adviserLocation)}&count=1&language=en&format=json`, { signal: controller.signal });
+        if (!geoResponse.ok) throw new Error('Location lookup failed');
+        const geoBody = await geoResponse.json();
+        const place = geoBody.results?.[0];
+        if (!place) throw new Error('No weather location found');
+        const forecastResponse = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${place.latitude}&longitude=${place.longitude}&current=temperature_2m,weather_code&timezone=auto`, { signal: controller.signal });
+        if (!forecastResponse.ok) throw new Error('Weather lookup failed');
+        const forecast = await forecastResponse.json();
+        if (!cancelled) {
+          setWeather({
+            location: place.name || adviserLocation,
+            country: place.country || '',
+            temperature: forecast.current?.temperature_2m,
+            code: forecast.current?.weather_code,
+          });
+        }
+      } catch (err) {
+        if (!cancelled && err.name !== 'AbortError') setWeatherError('Weather unavailable');
+      }
+    }
+
+    loadHeaderWeather();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [adviserLocation]);
+
+  const clockLabel = formatHeaderClock(now, timeZone);
+  const locationLabel = weather?.location || adviserLocation;
+  const weatherLabel = weather && Number.isFinite(Number(weather.temperature))
+    ? `${Math.round(Number(weather.temperature))}°C · ${weatherCodeLabel(weather.code)}`
+    : (weatherError || 'Weather loading');
+
+  return (
+    <div className="header-local-snapshot" title={`Local snapshot for ${adviser?.name || 'selected adviser'}`}>
+      <div className="header-local-snapshot-row"><Clock size={15} /><strong>{clockLabel}</strong></div>
+      <div className="header-local-snapshot-row weather"><CloudSun size={15} /><span>{locationLabel}: {weatherLabel}</span></div>
+    </div>
+  );
+}
+
+function normaliseHeaderWeatherLocation(adviser = {}) {
+  const value = adviser.weatherLocation || adviser.weather_location || adviser.city || adviser.officeLocation || adviser.office_location || adviser.location || '';
+  return String(value || '').trim() || 'Auckland';
+}
+
+function formatHeaderClock(date, timeZone = 'Pacific/Auckland') {
+  try {
+    return new Intl.DateTimeFormat('en-NZ', { timeZone, weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false }).format(date);
+  } catch (_err) {
+    return new Intl.DateTimeFormat('en-NZ', { weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false }).format(date);
+  }
+}
 
 function AuthStatus({ user, adviser, accessCodeActive, onLogout }) {
   if (!user && !accessCodeActive) return null;
