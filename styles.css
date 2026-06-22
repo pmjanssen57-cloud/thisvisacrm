@@ -8152,3 +8152,208 @@ body.intake-embed-mode .seminar-public-card {
     grid-template-columns: 1fr;
   }
 }
+
+/* v0.12.27: email template full editor */
+.email-template-modal {
+  width: min(1220px, 96vw);
+  max-height: 92vh;
+}
+
+.email-template-modal-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.42fr) minmax(520px, 1fr);
+  gap: 16px;
+  margin-top: 16px;
+  min-height: 620px;
+}
+
+.email-template-modal-list {
+  border: 1px solid var(--line, #d9e6e1);
+  border-radius: 18px;
+  background: #f8fcfa;
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  max-height: 660px;
+  overflow: auto;
+}
+
+.email-template-modal-list button {
+  appearance: none;
+  border: 1px solid var(--line, #d9e6e1);
+  background: #fff;
+  color: var(--ink, #003736);
+  border-radius: 15px;
+  padding: 12px;
+  text-align: left;
+  cursor: pointer;
+  display: grid;
+  gap: 4px;
+}
+
+.email-template-modal-list button.active {
+  border-color: var(--ink, #003736);
+  background: var(--pale, #f4fbf8);
+  box-shadow: inset 4px 0 0 var(--mint, #55d9a0);
+}
+
+.email-template-modal-list button:hover {
+  border-color: #b9d8ce;
+}
+
+.email-template-modal-list strong,
+.email-template-modal-list span,
+.email-template-modal-list small {
+  display: block;
+}
+
+.email-template-modal-list span {
+  color: var(--muted, #66736f);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.email-template-modal-list small {
+  color: var(--muted, #66736f);
+  font-size: 0.74rem;
+  margin-top: 4px;
+}
+
+.email-template-modal-editor {
+  border: 1px solid var(--line, #d9e6e1);
+  background: #fff;
+  border-radius: 18px;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  max-height: 660px;
+  overflow: auto;
+}
+
+.template-editor-title-row span {
+  display: block;
+  color: var(--muted, #66736f);
+  margin-top: 4px;
+}
+
+.template-placeholder-panel.compact {
+  padding: 0.7rem;
+}
+
+.placeholder-token {
+  appearance: none;
+  background: #fff;
+  border: 1px solid var(--line, #d9e6e1);
+  border-radius: 999px;
+  color: var(--ink, #003736);
+  padding: 0.24rem 0.5rem;
+  font-size: 0.78rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  cursor: pointer;
+}
+
+.placeholder-token:hover {
+  border-color: var(--ink, #003736);
+  background: var(--pale, #f4fbf8);
+}
+
+.html-editor-shell {
+  border: 1px solid var(--line, #d9e6e1);
+  border-radius: 16px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.html-editor-topbar {
+  border-bottom: 1px solid var(--line, #d9e6e1);
+  background: #f8fcfa;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px;
+}
+
+.html-editor-mode-tabs,
+.html-editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.html-editor-mode-tabs button,
+.html-editor-toolbar button {
+  appearance: none;
+  border: 1px solid var(--line, #d9e6e1);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink, #003736);
+  padding: 7px 9px;
+  font-weight: 800;
+  cursor: pointer;
+  font-size: 0.82rem;
+}
+
+.html-editor-mode-tabs button.active {
+  background: var(--ink, #003736);
+  border-color: var(--ink, #003736);
+  color: #fff;
+}
+
+.html-template-editor,
+.html-template-preview {
+  min-height: 360px;
+  padding: 16px;
+  outline: none;
+  font-family: Arial, sans-serif;
+  font-size: 10pt;
+  line-height: 1.35;
+  color: #1f2933;
+}
+
+.html-template-editor:focus {
+  box-shadow: inset 0 0 0 2px rgba(85, 217, 160, 0.38);
+}
+
+.html-template-editor p,
+.html-template-preview p {
+  margin: 0 0 10px 0;
+}
+
+.html-template-editor ul,
+.html-template-editor ol,
+.html-template-preview ul,
+.html-template-preview ol {
+  margin-top: 0;
+  margin-bottom: 10px;
+  padding-left: 24px;
+}
+
+.html-template-source {
+  width: 100%;
+  min-height: 360px;
+  border: 0;
+  resize: vertical;
+  padding: 14px;
+  font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: var(--text, #1f2933);
+  outline: none;
+}
+
+.html-template-preview {
+  background: #fff;
+  overflow: auto;
+}
+
+@media (max-width: 980px) {
+  .email-template-modal-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .email-template-modal-list,
+  .email-template-modal-editor {
+    max-height: none;
+  }
+}

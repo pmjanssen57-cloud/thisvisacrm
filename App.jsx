@@ -4006,6 +4006,7 @@ const TOOL_TIMEZONES = [
 function ToolsDrawer({ open, onOpen, onClose, sendTestEmail, saveEmailTemplate, resetEmailTemplate, emailLogs = [], emailTemplates = [], emailConfig = {}, saving = false }) {
   const [activeTool, setActiveTool] = useState('weather');
   const [emailLogOpen, setEmailLogOpen] = useState(false);
+  const [templateEditorOpen, setTemplateEditorOpen] = useState(false);
 
   return (
     <>
@@ -4021,13 +4022,13 @@ function ToolsDrawer({ open, onOpen, onClose, sendTestEmail, saveEmailTemplate, 
           </div>
           <button className="icon-btn" type="button" onClick={onClose} aria-label="Close adviser tools"><X size={18} /></button>
         </div>
-        <p className="support-summary">Quick tools for client calls, international client work and day-to-day file work. Email testing and logs open in a separate review window.</p>
+        <p className="support-summary">Quick tools for client calls, international client work and day-to-day file work. Email logs and email templates open in separate review windows.</p>
         <div className="tool-tabs" role="tablist" aria-label="Adviser tools">
           <button type="button" className={activeTool === 'weather' ? 'active' : ''} onClick={() => setActiveTool('weather')}><CloudSun size={16} />Weather</button>
           <button type="button" className={activeTool === 'timezone' ? 'active' : ''} onClick={() => setActiveTool('timezone')}><Globe2 size={16} />Time</button>
           <button type="button" className={activeTool === 'currency' ? 'active' : ''} onClick={() => setActiveTool('currency')}><DollarSign size={16} />Currency</button>
           <button type="button" className={activeTool === 'calculator' ? 'active' : ''} onClick={() => setActiveTool('calculator')}><Calculator size={16} />Calc</button>
-          <button type="button" className={activeTool === 'templates' ? 'active' : ''} onClick={() => setActiveTool('templates')}><Mail size={16} />Templates</button>
+          <button type="button" onClick={() => setTemplateEditorOpen(true)}><Mail size={16} />Templates</button>
           <button type="button" onClick={() => setEmailLogOpen(true)}><Mail size={16} />Email log</button>
         </div>
         <div className="tool-panel">
@@ -4035,22 +4036,24 @@ function ToolsDrawer({ open, onOpen, onClose, sendTestEmail, saveEmailTemplate, 
           {activeTool === 'timezone' && <TimezoneTool />}
           {activeTool === 'currency' && <CurrencyTool />}
           {activeTool === 'calculator' && <CalculatorTool />}
-          {activeTool === 'templates' && <EmailTemplateTool emailTemplates={emailTemplates} saveEmailTemplate={saveEmailTemplate} resetEmailTemplate={resetEmailTemplate} saving={saving} />}
         </div>
       </aside>
+      <EmailTemplateLightbox open={templateEditorOpen} onClose={() => setTemplateEditorOpen(false)} emailTemplates={emailTemplates} saveEmailTemplate={saveEmailTemplate} resetEmailTemplate={resetEmailTemplate} saving={saving} />
       <EmailLogLightbox open={emailLogOpen} onClose={() => setEmailLogOpen(false)} sendTestEmail={sendTestEmail} saveEmailTemplate={saveEmailTemplate} resetEmailTemplate={resetEmailTemplate} emailLogs={emailLogs} emailConfig={emailConfig} saving={saving} />
     </>
   );
 }
 
 
-function EmailTemplateTool({ emailTemplates = [], saveEmailTemplate, resetEmailTemplate, saving = false }) {
+function EmailTemplateLightbox({ open, onClose, emailTemplates = [], saveEmailTemplate, resetEmailTemplate, saving = false }) {
   const sortedTemplates = useMemo(() => [...(emailTemplates || [])].sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''))), [emailTemplates]);
   const [selectedKey, setSelectedKey] = useState('');
   const selected = sortedTemplates.find((template) => template.key === selectedKey) || sortedTemplates[0] || null;
-  const [draft, setDraft] = useState({ subject: '', bodyText: '' });
+  const [draft, setDraft] = useState({ subject: '', bodyText: '', bodyHtml: '' });
+  const [editorMode, setEditorMode] = useState('design');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const editorRef = useRef(null);
 
   useEffect(() => {
     if (!selectedKey && sortedTemplates[0]?.key) setSelectedKey(sortedTemplates[0].key);
@@ -4058,21 +4061,76 @@ function EmailTemplateTool({ emailTemplates = [], saveEmailTemplate, resetEmailT
 
   useEffect(() => {
     if (selected) {
-      setDraft({ subject: selected.subject || '', bodyText: selected.bodyText || '' });
+      const bodyHtml = selected.bodyHtml || textTemplateToEditorHtml(selected.bodyText || '');
+      setDraft({ subject: selected.subject || '', bodyText: selected.bodyText || '', bodyHtml });
+      setEditorMode('design');
       setMessage('');
       setError('');
     }
   }, [selected?.key]);
+
+  useEffect(() => {
+    if (editorMode === 'design' && editorRef.current && editorRef.current.innerHTML !== draft.bodyHtml) {
+      editorRef.current.innerHTML = draft.bodyHtml || '';
+    }
+  }, [selected?.key, editorMode]);
+
+  function currentHtml() {
+    if (editorMode === 'design' && editorRef.current) return editorRef.current.innerHTML || '';
+    return draft.bodyHtml || '';
+  }
+
+  function updateBodyHtml(html) {
+    setDraft((current) => ({ ...current, bodyHtml: html, bodyText: htmlToTemplateText(html) }));
+  }
+
+  function switchEditorMode(nextMode) {
+    if (editorMode === 'design' && editorRef.current) updateBodyHtml(editorRef.current.innerHTML || '');
+    setEditorMode(nextMode);
+  }
+
+  function format(command, value = null) {
+    if (editorMode !== 'design') return;
+    editorRef.current?.focus();
+    document.execCommand(command, false, value);
+    updateBodyHtml(editorRef.current?.innerHTML || '');
+  }
+
+  function addLink() {
+    if (editorMode !== 'design') return;
+    const url = window.prompt('Enter the link URL');
+    if (!url) return;
+    editorRef.current?.focus();
+    document.execCommand('createLink', false, url);
+    updateBodyHtml(editorRef.current?.innerHTML || '');
+  }
+
+  function insertPlaceholder(placeholder) {
+    const token = `{{${placeholder}}}`;
+    if (editorMode === 'design') {
+      editorRef.current?.focus();
+      document.execCommand('insertText', false, token);
+      updateBodyHtml(editorRef.current?.innerHTML || '');
+      return;
+    }
+    updateBodyHtml(`${draft.bodyHtml || ''}${token}`);
+  }
 
   async function submit(event) {
     event.preventDefault();
     if (!selected) return;
     setMessage('');
     setError('');
+    const bodyHtml = currentHtml();
+    const bodyText = htmlToTemplateText(bodyHtml);
     try {
-      const body = await saveEmailTemplate?.({ key: selected.key, subject: draft.subject, bodyText: draft.bodyText });
-      if (body?.emailTemplate) setDraft({ subject: body.emailTemplate.subject || draft.subject, bodyText: body.emailTemplate.bodyText || draft.bodyText });
-      setMessage('Template saved. Future emails will use this wording.');
+      const body = await saveEmailTemplate?.({ key: selected.key, subject: draft.subject, bodyText, bodyHtml });
+      if (body?.emailTemplate) {
+        const savedHtml = body.emailTemplate.bodyHtml || textTemplateToEditorHtml(body.emailTemplate.bodyText || bodyText);
+        setDraft({ subject: body.emailTemplate.subject || draft.subject, bodyText: body.emailTemplate.bodyText || bodyText, bodyHtml: savedHtml });
+        if (editorRef.current) editorRef.current.innerHTML = savedHtml;
+      }
+      setMessage('Template saved. Future emails will use this wording and styling.');
     } catch (err) {
       setError(err?.message || 'Template could not be saved.');
     }
@@ -4085,69 +4143,180 @@ function EmailTemplateTool({ emailTemplates = [], saveEmailTemplate, resetEmailT
     setError('');
     try {
       const body = await resetEmailTemplate?.(selected.key);
-      if (body?.emailTemplate) setDraft({ subject: body.emailTemplate.subject || '', bodyText: body.emailTemplate.bodyText || '' });
+      if (body?.emailTemplate) {
+        const bodyHtml = body.emailTemplate.bodyHtml || textTemplateToEditorHtml(body.emailTemplate.bodyText || '');
+        setDraft({ subject: body.emailTemplate.subject || '', bodyText: body.emailTemplate.bodyText || '', bodyHtml });
+        if (editorRef.current) editorRef.current.innerHTML = bodyHtml;
+      }
       setMessage('Template reset to the system default.');
     } catch (err) {
       setError(err?.message || 'Template could not be reset.');
     }
   }
 
-  if (!sortedTemplates.length) {
-    return (
-      <section className="tool-card email-template-tool">
-        <div className="tool-card-head"><Mail size={18} /><div><strong>Email templates</strong><span>No templates loaded yet. Refresh the CRM after deployment.</span></div></div>
-      </section>
-    );
-  }
+  if (!open) return null;
 
   return (
-    <section className="tool-card email-template-tool">
-      <div className="tool-card-head">
-        <Mail size={18} />
-        <div>
-          <strong>Email templates</strong>
-          <span>Edit the standard wording used by CRM-sent emails. Placeholders in braces are replaced automatically.</span>
+    <div className="modal-layer email-template-modal-layer">
+      <div className="modal-backdrop" onClick={onClose} />
+      <div className="modal-card email-template-modal">
+        <div className="modal-head">
+          <div>
+            <span>Tools</span>
+            <h2>Email template editor</h2>
+            <p className="muted">Edit standard CRM email wording and formatting. Placeholders in braces are replaced automatically when emails are sent.</p>
+          </div>
+          <button className="icon-btn" type="button" onClick={onClose} aria-label="Close email template editor"><X size={18} /></button>
         </div>
-      </div>
-      <div className="email-template-layout">
-        <div className="email-template-list" role="listbox" aria-label="Email templates">
-          {sortedTemplates.map((template) => (
-            <button key={template.key} type="button" className={selected?.key === template.key ? 'active' : ''} onClick={() => setSelectedKey(template.key)}>
-              <strong>{template.name || emailTemplateLabel(template.key)}</strong>
-              <span>{template.description || template.key}</span>
-            </button>
-          ))}
-        </div>
-        {selected && (
-          <form className="tool-form email-template-editor" onSubmit={submit}>
-            <div className="split">
-              <div>
-                <strong>{selected.name || emailTemplateLabel(selected.key)}</strong>
-                <span>{selected.description}</span>
-              </div>
-              <button className="btn mini" type="button" onClick={resetTemplate} disabled={saving}><RefreshCw size={14} />Reset</button>
-            </div>
-            <label>Subject
-              <input value={draft.subject} onChange={(event) => setDraft((current) => ({ ...current, subject: event.target.value }))} />
-            </label>
-            <label>Email body
-              <textarea rows={16} value={draft.bodyText} onChange={(event) => setDraft((current) => ({ ...current, bodyText: event.target.value }))} />
-            </label>
-            <div className="template-placeholder-panel">
-              <strong>Available placeholders</strong>
-              <div>
-                {(selected.placeholders || []).map((placeholder) => <code key={placeholder}>{`{{${placeholder}}}`}</code>)}
-              </div>
-            </div>
-            <p className="tool-muted">Do not remove a placeholder unless you no longer want that value included. The CRM will still send the email, but the removed detail will not appear.</p>
-            {message && <div className="success-banner"><CheckCircle2 size={16} />{message}</div>}
-            {error && <div className="error-banner"><AlertTriangle size={16} />{error}</div>}
-            <button className="btn dark" type="submit" disabled={saving}><Save size={16} />{saving ? 'Saving...' : 'Save template'}</button>
-          </form>
+
+        {!sortedTemplates.length && (
+          <section className="tool-result-card">
+            <strong>No templates loaded</strong>
+            <span>Refresh the CRM after deployment. The CRM will create the default templates automatically.</span>
+          </section>
+        )}
+
+        {!!sortedTemplates.length && (
+          <div className="email-template-modal-grid">
+            <aside className="email-template-modal-list" aria-label="Email templates">
+              {sortedTemplates.map((template) => (
+                <button key={template.key} type="button" className={selected?.key === template.key ? 'active' : ''} onClick={() => setSelectedKey(template.key)}>
+                  <strong>{template.name || emailTemplateLabel(template.key)}</strong>
+                  <span>{template.description || template.key}</span>
+                  {template.updatedAt && <small>Updated {formatDateTime(template.updatedAt)}</small>}
+                </button>
+              ))}
+            </aside>
+
+            {selected && (
+              <form className="email-template-modal-editor" onSubmit={submit}>
+                <div className="split template-editor-title-row">
+                  <div>
+                    <strong>{selected.name || emailTemplateLabel(selected.key)}</strong>
+                    <span>{selected.description}</span>
+                  </div>
+                  <button className="btn mini" type="button" onClick={resetTemplate} disabled={saving}><RefreshCw size={14} />Reset to default</button>
+                </div>
+
+                <label>Subject
+                  <input value={draft.subject} onChange={(event) => setDraft((current) => ({ ...current, subject: event.target.value }))} />
+                </label>
+
+                <div className="template-placeholder-panel compact">
+                  <strong>Available placeholders</strong>
+                  <div>
+                    {(selected.placeholders || []).map((placeholder) => (
+                      <button key={placeholder} className="placeholder-token" type="button" onClick={() => insertPlaceholder(placeholder)}>{`{{${placeholder}}}`}</button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="html-editor-shell">
+                  <div className="html-editor-topbar">
+                    <div className="html-editor-mode-tabs" role="tablist" aria-label="Template editor mode">
+                      <button type="button" className={editorMode === 'design' ? 'active' : ''} onClick={() => switchEditorMode('design')}>Design</button>
+                      <button type="button" className={editorMode === 'html' ? 'active' : ''} onClick={() => switchEditorMode('html')}>HTML</button>
+                      <button type="button" className={editorMode === 'preview' ? 'active' : ''} onClick={() => switchEditorMode('preview')}>Preview</button>
+                    </div>
+                    {editorMode === 'design' && (
+                      <div className="html-editor-toolbar" aria-label="Text formatting">
+                        <button type="button" onClick={() => format('bold')}><b>B</b></button>
+                        <button type="button" onClick={() => format('italic')}><i>I</i></button>
+                        <button type="button" onClick={() => format('underline')}><u>U</u></button>
+                        <button type="button" onClick={() => format('insertUnorderedList')}>Bullets</button>
+                        <button type="button" onClick={() => format('insertOrderedList')}>Numbered</button>
+                        <button type="button" onClick={addLink}>Link</button>
+                        <button type="button" onClick={() => format('removeFormat')}>Clear</button>
+                      </div>
+                    )}
+                  </div>
+
+                  {editorMode === 'design' && (
+                    <div
+                      ref={editorRef}
+                      className="html-template-editor"
+                      contentEditable
+                      suppressContentEditableWarning
+                      onInput={() => updateBodyHtml(editorRef.current?.innerHTML || '')}
+                      onBlur={() => updateBodyHtml(editorRef.current?.innerHTML || '')}
+                    />
+                  )}
+
+                  {editorMode === 'html' && (
+                    <textarea
+                      className="html-template-source"
+                      value={draft.bodyHtml}
+                      onChange={(event) => updateBodyHtml(event.target.value)}
+                      spellCheck="false"
+                    />
+                  )}
+
+                  {editorMode === 'preview' && (
+                    <div className="html-template-preview" dangerouslySetInnerHTML={{ __html: templatePreviewHtml(draft.bodyHtml) }} />
+                  )}
+                </div>
+
+                <p className="tool-muted">Use placeholders where CRM values need to be inserted. The sent email is wrapped in the standard Arial 10pt email styling.</p>
+                {message && <div className="success-banner"><CheckCircle2 size={16} />{message}</div>}
+                {error && <div className="error-banner"><AlertTriangle size={16} />{error}</div>}
+                <div className="form-actions right">
+                  <button className="btn dark" type="submit" disabled={saving}><Save size={16} />{saving ? 'Saving...' : 'Save template'}</button>
+                </div>
+              </form>
+            )}
+          </div>
         )}
       </div>
-    </section>
+    </div>
   );
+}
+
+function textTemplateToEditorHtml(value = '') {
+  const text = String(value || '').trim();
+  if (!text) return '<p><br></p>';
+  return text
+    .split(/\n{2,}/)
+    .map((paragraph) => `<p>${escapeHtmlForEditor(paragraph).replace(/\n/g, '<br>')}</p>`)
+    .join('');
+}
+
+function htmlToTemplateText(html = '') {
+  if (typeof document === 'undefined') return String(html || '').replace(/<[^>]+>/g, '').trim();
+  const container = document.createElement('div');
+  container.innerHTML = html || '';
+  container.querySelectorAll('br').forEach((node) => node.replaceWith('\n'));
+  container.querySelectorAll('p, div, li, h1, h2, h3, h4').forEach((node) => {
+    node.appendChild(document.createTextNode('\n'));
+  });
+  return (container.textContent || '').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function templatePreviewHtml(html = '') {
+  return `<div style="font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.35; color: #1f2933;">${sanitiseTemplatePreviewHtml(html || '<p><br></p>')}</div>`;
+}
+
+function sanitiseTemplatePreviewHtml(html = '') {
+  if (typeof document === 'undefined') return '';
+  const container = document.createElement('div');
+  container.innerHTML = html || '';
+  container.querySelectorAll('script, style, iframe, object, embed, link, meta').forEach((node) => node.remove());
+  container.querySelectorAll('*').forEach((node) => {
+    [...node.attributes].forEach((attr) => {
+      const name = attr.name.toLowerCase();
+      const value = String(attr.value || '').trim().toLowerCase();
+      if (name.startsWith('on') || value.startsWith('javascript:')) node.removeAttribute(attr.name);
+    });
+  });
+  return container.innerHTML;
+}
+
+function escapeHtmlForEditor(value = '') {
+  return String(value || '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
 }
 
 function EmailLogLightbox({ open, onClose, sendTestEmail, emailLogs = [], emailConfig = {}, saving = false }) {
@@ -8988,6 +9157,7 @@ function normaliseEmailTemplate(template = {}) {
     description: template.description || '',
     subject: template.subject || '',
     bodyText: template.bodyText || template.body_text || '',
+    bodyHtml: template.bodyHtml || template.body_html || '',
     placeholders: Array.isArray(template.placeholders) ? template.placeholders : [],
     updatedAt: template.updatedAt || template.updated_at || '',
     updatedBy: template.updatedBy || template.updated_by || '',

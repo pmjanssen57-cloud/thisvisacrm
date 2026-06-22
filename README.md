@@ -1,3 +1,44 @@
+# THiS CRM v0.12.27 — Email Template HTML Editor
+
+## v0.12.27 changes
+
+- Moved the **Email Templates** editor out of the cramped Tools tab into a full pop-out editor, similar to the Email Log window.
+- Added a simple HTML/design editor for CRM email templates.
+- Added editor modes for **Design**, **HTML**, and **Preview**.
+- Added basic formatting controls: bold, italic, underline, bullet list, numbered list, link, and clear formatting.
+- Placeholders are now shown as clickable tokens so they can be inserted into the email body.
+- Added `body_html` support to the `email_templates` table while preserving the plain-text `body_text` field for logging and fallback.
+- Updated CRM, intake, and seminar email senders so styled templates are used across system emails and form notifications.
+
+## Database migration
+
+Apply the new migration if your database migration process does not run automatically:
+
+```sql
+netlify/database/migrations/202606220004_add_email_template_html.sql
+```
+
+The migration adds:
+
+```sql
+body_html TEXT
+```
+
+to the existing `email_templates` table.
+
+## Test process
+
+1. Deploy this package to Netlify.
+2. Open the CRM and click **Tools**.
+3. Click **Templates**.
+4. Confirm the full email template editor opens in a pop-out.
+5. Select a template, format some text, insert a placeholder, and save.
+6. Re-open the template and confirm the formatting is retained.
+7. Send a test workflow email, such as a seminar approval or contact-form assessment invite, and confirm the styling is applied.
+8. Use **Reset to default** on a template and confirm it returns to the system wording.
+
+---
+
 # THiS CRM v0.12.25 — Seminar Setup Pop-out
 
 ## v0.12.25 changes

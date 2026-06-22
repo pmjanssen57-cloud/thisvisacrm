@@ -923,6 +923,7 @@ function mapEmailTemplateFromDb(row = {}) {
     description: row.description || fallback?.description || '',
     subject: row.subject || fallback?.subject || '',
     bodyText: row.body_text || row.bodyText || fallback?.bodyText || '',
+    bodyHtml: row.body_html || row.bodyHtml || fallback?.bodyHtml || '',
     placeholders,
     updatedAt: row.updated_at || row.updatedAt || '',
     updatedBy: row.updated_by || row.updatedBy || '',
@@ -946,22 +947,24 @@ async function ensureEmailTemplateSchema(database = db()) {
       description TEXT,
       subject TEXT NOT NULL,
       body_text TEXT NOT NULL,
+      body_html TEXT,
       placeholders JSONB NOT NULL DEFAULT '[]'::jsonb,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_by TEXT
     )`;
+  await database.sql`ALTER TABLE email_templates ADD COLUMN IF NOT EXISTS body_html TEXT`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_email_templates_name ON email_templates(name)`;
   for (const template of DEFAULT_EMAIL_TEMPLATES) {
     await database.sql`
-      INSERT INTO email_templates (template_key, name, description, subject, body_text, placeholders, updated_by)
-      VALUES (${template.key}, ${template.name}, ${template.description}, ${template.subject}, ${template.bodyText}, CAST(${JSON.stringify(template.placeholders || [])} AS jsonb), 'System default')
+      INSERT INTO email_templates (template_key, name, description, subject, body_text, body_html, placeholders, updated_by)
+      VALUES (${template.key}, ${template.name}, ${template.description}, ${template.subject}, ${template.bodyText}, ${template.bodyHtml || null}, CAST(${JSON.stringify(template.placeholders || [])} AS jsonb), 'System default')
       ON CONFLICT (template_key) DO NOTHING`;
   }
 }
 
 async function getEmailTemplates(database = db()) {
   await ensureEmailTemplateSchema(database);
-  const rows = await database.sql`SELECT template_key, name, description, subject, body_text, placeholders, updated_at, updated_by FROM email_templates ORDER BY name ASC`;
+  const rows = await database.sql`SELECT template_key, name, description, subject, body_text, body_html, placeholders, updated_at, updated_by FROM email_templates ORDER BY name ASC`;
   const existing = new Map(rows.map((row) => [row.template_key, mapEmailTemplateFromDb(row)]));
   return DEFAULT_EMAIL_TEMPLATES.map((template) => existing.get(template.key) || mapEmailTemplateFromDb({ template_key: template.key }));
 }
@@ -969,7 +972,7 @@ async function getEmailTemplates(database = db()) {
 async function getEmailTemplate(templateKey = '', database = db()) {
   await ensureEmailTemplateSchema(database);
   const key = String(templateKey || '').trim();
-  const rows = await database.sql`SELECT template_key, name, description, subject, body_text, placeholders, updated_at, updated_by FROM email_templates WHERE template_key = ${key} LIMIT 1`;
+  const rows = await database.sql`SELECT template_key, name, description, subject, body_text, body_html, placeholders, updated_at, updated_by FROM email_templates WHERE template_key = ${key} LIMIT 1`;
   return mapEmailTemplateFromDb(rows[0] || { template_key: key });
 }
 
@@ -981,12 +984,13 @@ async function saveEmailTemplate(input = {}, authUser = null) {
   if (!fallback) throw new Error('Unknown email template.');
   const subject = cleanTextForTemplate(input.subject || fallback.subject, 500);
   const bodyText = cleanTextForTemplate(input.bodyText || input.body_text || fallback.bodyText, 30000);
+  const bodyHtml = cleanHtmlForTemplate(input.bodyHtml || input.body_html || '', 60000);
   const updatedBy = authUser?.email || authUser?.name || 'CRM adviser';
   const [saved] = await database.sql`
-    INSERT INTO email_templates (template_key, name, description, subject, body_text, placeholders, updated_by, updated_at)
-    VALUES (${fallback.key}, ${fallback.name}, ${fallback.description}, ${subject}, ${bodyText}, CAST(${JSON.stringify(fallback.placeholders || [])} AS jsonb), ${updatedBy}, NOW())
-    ON CONFLICT (template_key) DO UPDATE SET subject = EXCLUDED.subject, body_text = EXCLUDED.body_text, updated_by = EXCLUDED.updated_by, updated_at = NOW()
-    RETURNING template_key, name, description, subject, body_text, placeholders, updated_at, updated_by`;
+    INSERT INTO email_templates (template_key, name, description, subject, body_text, body_html, placeholders, updated_by, updated_at)
+    VALUES (${fallback.key}, ${fallback.name}, ${fallback.description}, ${subject}, ${bodyText}, ${bodyHtml}, CAST(${JSON.stringify(fallback.placeholders || [])} AS jsonb), ${updatedBy}, NOW())
+    ON CONFLICT (template_key) DO UPDATE SET subject = EXCLUDED.subject, body_text = EXCLUDED.body_text, body_html = EXCLUDED.body_html, updated_by = EXCLUDED.updated_by, updated_at = NOW()
+    RETURNING template_key, name, description, subject, body_text, body_html, placeholders, updated_at, updated_by`;
   return mapEmailTemplateFromDb(saved);
 }
 
@@ -997,10 +1001,10 @@ async function resetEmailTemplate(templateKey = '', authUser = null) {
   if (!fallback) throw new Error('Unknown email template.');
   const updatedBy = authUser?.email || authUser?.name || 'CRM adviser';
   const [saved] = await database.sql`
-    INSERT INTO email_templates (template_key, name, description, subject, body_text, placeholders, updated_by, updated_at)
-    VALUES (${fallback.key}, ${fallback.name}, ${fallback.description}, ${fallback.subject}, ${fallback.bodyText}, CAST(${JSON.stringify(fallback.placeholders || [])} AS jsonb), ${updatedBy}, NOW())
-    ON CONFLICT (template_key) DO UPDATE SET subject = EXCLUDED.subject, body_text = EXCLUDED.body_text, updated_by = EXCLUDED.updated_by, updated_at = NOW()
-    RETURNING template_key, name, description, subject, body_text, placeholders, updated_at, updated_by`;
+    INSERT INTO email_templates (template_key, name, description, subject, body_text, body_html, placeholders, updated_by, updated_at)
+    VALUES (${fallback.key}, ${fallback.name}, ${fallback.description}, ${fallback.subject}, ${fallback.bodyText}, ${fallback.bodyHtml || null}, CAST(${JSON.stringify(fallback.placeholders || [])} AS jsonb), ${updatedBy}, NOW())
+    ON CONFLICT (template_key) DO UPDATE SET subject = EXCLUDED.subject, body_text = EXCLUDED.body_text, body_html = EXCLUDED.body_html, updated_by = EXCLUDED.updated_by, updated_at = NOW()
+    RETURNING template_key, name, description, subject, body_text, body_html, placeholders, updated_at, updated_by`;
   return mapEmailTemplateFromDb(saved);
 }
 
@@ -1022,12 +1026,18 @@ function resolveTemplateValue(context = {}, path = '') {
 async function buildEmailFromTemplate(templateKey, context = {}, fallback = {}) {
   const template = await getEmailTemplate(templateKey);
   const subject = renderTemplateText(template.subject || fallback.subject || '', context).trim() || fallback.subject || '';
-  const bodyText = renderTemplateText(template.bodyText || fallback.bodyText || '', context).trim();
+  const rawHtml = template.bodyHtml || fallback.bodyHtml || '';
+  const renderedHtml = cleanHtmlForTemplate(renderTemplateText(rawHtml, context), 60000);
+  const bodyText = renderTemplateText(template.bodyText || fallback.bodyText || stripHtmlToText(renderedHtml), context).trim() || stripHtmlToText(renderedHtml);
   return {
     subject,
     bodyText,
-    bodyHtml: editableTemplateEmailHtml(bodyText || fallback.bodyText || ''),
+    bodyHtml: renderedHtml ? editableTemplateBodyHtml(renderedHtml) : editableTemplateEmailHtml(bodyText || fallback.bodyText || ''),
   };
+}
+
+function editableTemplateBodyHtml(bodyHtml = '') {
+  return `<div style="font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.3; color: #1f2933;">${cleanHtmlForTemplate(bodyHtml, 60000)}${buildEmailSignatureSpacer(18)}</div>`;
 }
 
 function editableTemplateEmailHtml(bodyText = '') {
@@ -1036,6 +1046,53 @@ function editableTemplateEmailHtml(bodyText = '') {
     .filter((paragraph) => paragraph.trim())
     .map((paragraph) => `<p style="margin:0 0 10px 0; padding:0; line-height:1.3; mso-margin-top-alt:0; mso-margin-bottom-alt:10px;">${linkifyHtml(escapeHtml(paragraph).replace(/\n/g, '<br>'))}</p>`)
     .join('')}${buildEmailSignatureSpacer(18)}</div>`;
+}
+
+function cleanHtmlForTemplate(value = '', limit = 60000) {
+  let html = String(value || '').slice(0, limit);
+  html = html.replace(/<\s*(script|style|iframe|object|embed|meta|link)[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, '');
+  html = html.replace(/<\s*\/?\s*(script|style|iframe|object|embed|meta|link)[^>]*>/gi, '');
+  html = html.replace(/\son\w+\s*=\s*(["']).*?\1/gi, '');
+  html = html.replace(/\son\w+\s*=\s*[^\s>]+/gi, '');
+  html = html.replace(/\s(href|src)\s*=\s*(["'])\s*javascript:[\s\S]*?\2/gi, ' $1="#"');
+  html = html.replace(/\sstyle\s*=\s*(["'])(.*?)\1/gi, (_, quote, style) => {
+    const cleaned = cleanInlineStyle(style);
+    return cleaned ? ` style="${cleaned}"` : '';
+  });
+  return html.trim();
+}
+
+function cleanInlineStyle(style = '') {
+  const allowed = new Set(['color', 'background-color', 'font-weight', 'font-style', 'text-decoration', 'text-align', 'margin', 'margin-bottom', 'margin-top', 'padding', 'line-height', 'font-size', 'font-family']);
+  return String(style || '')
+    .split(';')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const [property, ...rest] = part.split(':');
+      const name = String(property || '').trim().toLowerCase();
+      const value = rest.join(':').trim();
+      if (!allowed.has(name)) return '';
+      if (/expression\s*\(|javascript:/i.test(value)) return '';
+      return `${name}: ${value}`;
+    })
+    .filter(Boolean)
+    .join('; ');
+}
+
+function stripHtmlToText(html = '') {
+  return String(html || '')
+    .replace(/<\s*br\s*\/?\s*>/gi, '\n')
+    .replace(/<\s*\/\s*(p|div|li|h1|h2|h3|h4)\s*>/gi, '\n')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 

@@ -751,14 +751,16 @@ async function ensureEmailTemplateSchema(database = db()) {
       description TEXT,
       subject TEXT NOT NULL,
       body_text TEXT NOT NULL,
+      body_html TEXT,
       placeholders JSONB NOT NULL DEFAULT '[]'::jsonb,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_by TEXT
     )`;
+  await database.sql`ALTER TABLE email_templates ADD COLUMN IF NOT EXISTS body_html TEXT`;
   for (const template of DEFAULT_EMAIL_TEMPLATES) {
     await database.sql`
-      INSERT INTO email_templates (template_key, name, description, subject, body_text, placeholders, updated_by)
-      VALUES (${template.key}, ${template.name}, ${template.description}, ${template.subject}, ${template.bodyText}, CAST(${JSON.stringify(template.placeholders || [])} AS jsonb), 'System default')
+      INSERT INTO email_templates (template_key, name, description, subject, body_text, body_html, placeholders, updated_by)
+      VALUES (${template.key}, ${template.name}, ${template.description}, ${template.subject}, ${template.bodyText}, ${template.bodyHtml || null}, CAST(${JSON.stringify(template.placeholders || [])} AS jsonb), 'System default')
       ON CONFLICT (template_key) DO NOTHING`;
   }
 }
@@ -766,15 +768,68 @@ async function ensureEmailTemplateSchema(database = db()) {
 async function getEmailTemplate(templateKey = '') {
   await ensureEmailTemplateSchema();
   const fallback = DEFAULT_EMAIL_TEMPLATES.find((template) => template.key === templateKey) || DEFAULT_EMAIL_TEMPLATES[0];
-  const rows = await db().sql`SELECT template_key, subject, body_text FROM email_templates WHERE template_key = ${templateKey} LIMIT 1`;
-  return { subject: rows[0]?.subject || fallback.subject, bodyText: rows[0]?.body_text || fallback.bodyText };
+  const rows = await db().sql`SELECT template_key, subject, body_text, body_html FROM email_templates WHERE template_key = ${templateKey} LIMIT 1`;
+  return { subject: rows[0]?.subject || fallback.subject, bodyText: rows[0]?.body_text || fallback.bodyText, bodyHtml: rows[0]?.body_html || fallback.bodyHtml || '' };
 }
 
 async function buildEmailFromTemplate(templateKey, context = {}, fallback = {}) {
   const template = await getEmailTemplate(templateKey);
   const subject = renderTemplateText(template.subject || fallback.subject || '', context).trim() || fallback.subject || '';
-  const bodyText = renderTemplateText(template.bodyText || fallback.bodyText || '', context).trim() || fallback.bodyText || '';
-  return { subject, bodyText, bodyHtml: textToHtml(bodyText) };
+  const rawHtml = template.bodyHtml || fallback.bodyHtml || '';
+  const renderedHtml = cleanHtmlForTemplate(renderTemplateText(rawHtml, context), 60000);
+  const bodyText = renderTemplateText(template.bodyText || fallback.bodyText || stripHtmlToText(renderedHtml), context).trim() || fallback.bodyText || stripHtmlToText(renderedHtml);
+  return { subject, bodyText, bodyHtml: renderedHtml ? editableTemplateBodyHtml(renderedHtml) : textToHtml(bodyText) };
+}
+
+function editableTemplateBodyHtml(bodyHtml = '') {
+  return `<div style="font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.3; color: #1f2933;">${cleanHtmlForTemplate(bodyHtml, 60000)}${buildEmailSignatureSpacer(18)}</div>`;
+}
+
+function cleanHtmlForTemplate(value = '', limit = 60000) {
+  let html = String(value || '').slice(0, limit);
+  html = html.replace(/<\s*(script|style|iframe|object|embed|meta|link)[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, '');
+  html = html.replace(/<\s*\/?\s*(script|style|iframe|object|embed|meta|link)[^>]*>/gi, '');
+  html = html.replace(/\son\w+\s*=\s*(["']).*?\1/gi, '');
+  html = html.replace(/\son\w+\s*=\s*[^\s>]+/gi, '');
+  html = html.replace(/\s(href|src)\s*=\s*(["'])\s*javascript:[\s\S]*?\2/gi, ' $1="#"');
+  html = html.replace(/\sstyle\s*=\s*(["'])(.*?)\1/gi, (_, quote, style) => {
+    const cleaned = cleanInlineStyle(style);
+    return cleaned ? ` style="${cleaned}"` : '';
+  });
+  return html.trim();
+}
+
+function cleanInlineStyle(style = '') {
+  const allowed = new Set(['color', 'background-color', 'font-weight', 'font-style', 'text-decoration', 'text-align', 'margin', 'margin-bottom', 'margin-top', 'padding', 'line-height', 'font-size', 'font-family']);
+  return String(style || '')
+    .split(';')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const [property, ...rest] = part.split(':');
+      const name = String(property || '').trim().toLowerCase();
+      const value = rest.join(':').trim();
+      if (!allowed.has(name)) return '';
+      if (/expression\s*\(|javascript:/i.test(value)) return '';
+      return `${name}: ${value}`;
+    })
+    .filter(Boolean)
+    .join('; ');
+}
+
+function stripHtmlToText(html = '') {
+  return String(html || '')
+    .replace(/<\s*br\s*\/?\s*>/gi, '\n')
+    .replace(/<\s*\/\s*(p|div|li|h1|h2|h3|h4)\s*>/gi, '\n')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 function renderTemplateText(value = '', context = {}) {
@@ -860,6 +915,10 @@ function normaliseEmailRecipientList(value = '') {
     .map((address) => String(address || '').trim())
     .filter(isValidEmailAddress)
     .map((address) => ({ emailAddress: { address } }));
+}
+
+function buildEmailSignatureSpacer(height = 18) {
+  return `<div style="height:${height}px; line-height:${height}px; font-size:${height}px; mso-line-height-rule:exactly;">&nbsp;</div>`;
 }
 
 function textToHtml(value = '') {
