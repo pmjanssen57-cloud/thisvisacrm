@@ -4067,13 +4067,16 @@ function EmailTemplateLightbox({ open, onClose, emailTemplates = [], saveEmailTe
       setMessage('');
       setError('');
     }
-  }, [selected?.key]);
+  }, [selected?.key, selected?.subject, selected?.bodyText, selected?.bodyHtml]);
 
   useEffect(() => {
-    if (editorMode === 'design' && editorRef.current && editorRef.current.innerHTML !== draft.bodyHtml) {
-      editorRef.current.innerHTML = draft.bodyHtml || '';
+    if (editorMode === 'design' && editorRef.current) {
+      const nextHtml = draft.bodyHtml || '<p><br></p>';
+      if (editorRef.current.innerHTML !== nextHtml) {
+        editorRef.current.innerHTML = nextHtml;
+      }
     }
-  }, [selected?.key, editorMode]);
+  }, [selected?.key, editorMode, draft.bodyHtml]);
 
   function currentHtml() {
     if (editorMode === 'design' && editorRef.current) return editorRef.current.innerHTML || '';
@@ -4469,7 +4472,9 @@ function emailTemplateLabel(key = '') {
   const labels = {
     test: 'Test',
     contact_intake_invite: 'Contact assessment invite',
-    new_intake_adviser_notification: 'Contact/intake notification',
+    assessment_form_internal_notification: 'Assessment form notification',
+    contact_form_internal_notification: 'Contact form notification',
+    new_intake_adviser_notification: 'Legacy contact/intake notification',
     intake_approve: 'Assessment next steps',
     intake_decline: 'Assessment not suitable',
     portal_access: 'Portal access',

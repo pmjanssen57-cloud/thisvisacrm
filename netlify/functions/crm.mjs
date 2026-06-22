@@ -212,11 +212,11 @@ Please review this in THiS CRM > Enquiries & Intake > Seminar Registrations.`,
     placeholders: ['registrantFullName', 'registrantEmail', 'seminarTitle', 'seminarDateTime', 'presenterName', 'dateOfBirth', 'citizenshipCountry', 'residenceCountry', 'registrantTimezone', 'partnershipStatus', 'highestQualification', 'currentOccupation', 'englishAbility', 'workHistory', 'healthCharacterIssues', 'submitted', 'registrationId'],
   },
   {
-    key: 'new_intake_adviser_notification',
-    name: 'Contact/intake form - internal notification',
-    description: 'Internal notification sent when a public contact form or full assessment form is submitted.',
-    subject: '{{formKind}} submitted - {{applicantName}}',
-    bodyText: `{{intro}}
+    key: 'assessment_form_internal_notification',
+    name: 'Assessment form - internal notification',
+    description: 'Internal notification sent when a full assessment form is submitted through the public assessment page.',
+    subject: 'New assessment form submitted - {{applicantName}}',
+    bodyText: `A new assessment questionnaire has been submitted through the THiS intake form.
 
 Applicant: {{applicantName}}
 Email: {{email}}
@@ -228,8 +228,28 @@ Record ID: {{intakeId}}
 Summary:
 {{summary}}
 
-Please review this in THiS CRM > Enquiries & Intake.`,
-    placeholders: ['formKind', 'intro', 'applicantName', 'email', 'phone', 'submitted', 'flags', 'intakeId', 'summary'],
+Please review this in THiS CRM > Enquiries & Intake > Intake Forms.`,
+    placeholders: ['applicantName', 'email', 'phone', 'submitted', 'flags', 'intakeId', 'summary'],
+  },
+  {
+    key: 'contact_form_internal_notification',
+    name: 'Contact form - internal notification',
+    description: 'Internal notification sent when a short contact form is submitted from the website.',
+    subject: 'New contact form submitted - {{applicantName}}',
+    bodyText: `A new short contact form enquiry has been submitted through the THiS website.
+
+Applicant: {{applicantName}}
+Email: {{email}}
+Phone: {{phone}}
+Submitted: {{submitted}}
+Flags: {{flags}}
+Record ID: {{intakeId}}
+
+Summary:
+{{summary}}
+
+Please review this in THiS CRM > Enquiries & Intake > Contact Forms.`,
+    placeholders: ['applicantName', 'email', 'phone', 'submitted', 'flags', 'intakeId', 'summary'],
   },
   {
     key: 'portal_access',

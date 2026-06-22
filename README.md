@@ -1,6 +1,29 @@
-# THiS CRM v0.12.27 — Email Template HTML Editor
+# THiS CRM v0.12.29 — Email Template Internal Notifications
 
-## v0.12.27 changes
+## v0.12.29 changes
+
+- Split the combined contact/intake internal notification template into two visible templates:
+  - **Assessment form - internal notification**
+  - **Contact form - internal notification**
+- Updated the public assessment/contact form notification sender so it uses the correct separate template depending on the form type.
+- Kept the legacy combined template available only for older email log records/fallback handling, rather than presenting it as the main editable template.
+- Fixed a duplicate SQL statement in the email template save function so saving edited templates works cleanly.
+- No database migration required; the CRM will seed the two new default templates automatically when loaded.
+
+## Test process
+
+1. Deploy this package to Netlify.
+2. Open **Tools > Templates**.
+3. Confirm both **Assessment form - internal notification** and **Contact form - internal notification** are visible in the template list.
+4. Open each template and confirm the body appears in the editor.
+5. Submit a test assessment form and confirm the email log records the **Assessment form - internal notification** template.
+6. Submit a test contact form and confirm the email log records the **Contact form - internal notification** template.
+
+---
+
+# THiS CRM v0.12.28 — Email Template Editor Fix
+
+## v0.12.28 changes
 
 - Moved the **Email Templates** editor out of the cramped Tools tab into a full pop-out editor, similar to the Email Log window.
 - Added a simple HTML/design editor for CRM email templates.
@@ -1217,3 +1240,10 @@ The resource content is centralised in the frontend so it can later be replaced 
 - Added a reset-to-default option for each template.
 - Added database support via the `email_templates` table and migration `202606220003_add_email_templates.sql`.
 - Connected editable templates to contact assessment invites, intake outcome emails, portal access emails, seminar approval/decline emails, intake/contact notifications, and seminar registration notifications.
+
+
+## v0.12.28 - Email template editor body fix
+
+- Fixed the email template editor so the selected template body loads correctly into the Design, HTML and Preview panes.
+- Added safer editor state synchronisation when switching templates or editor modes.
+- No database migration required.

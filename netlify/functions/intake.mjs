@@ -12,9 +12,49 @@ const INTAKE_UPLOAD_KINDS = {
 
 const DEFAULT_EMAIL_TEMPLATES = [
   {
+    key: 'assessment_form_internal_notification',
+    name: 'Assessment form - internal notification',
+    description: 'Internal notification sent when a full assessment form is submitted through the public assessment page.',
+    subject: 'New assessment form submitted - {{applicantName}}',
+    bodyText: `A new assessment questionnaire has been submitted through the THiS intake form.
+
+Applicant: {{applicantName}}
+Email: {{email}}
+Phone: {{phone}}
+Submitted: {{submitted}}
+Flags: {{flags}}
+Record ID: {{intakeId}}
+
+Summary:
+{{summary}}
+
+Please review this in THiS CRM > Enquiries & Intake > Intake Forms.`,
+    placeholders: ['applicantName', 'email', 'phone', 'submitted', 'flags', 'intakeId', 'summary'],
+  },
+  {
+    key: 'contact_form_internal_notification',
+    name: 'Contact form - internal notification',
+    description: 'Internal notification sent when a short contact form is submitted from the website.',
+    subject: 'New contact form submitted - {{applicantName}}',
+    bodyText: `A new short contact form enquiry has been submitted through the THiS website.
+
+Applicant: {{applicantName}}
+Email: {{email}}
+Phone: {{phone}}
+Submitted: {{submitted}}
+Flags: {{flags}}
+Record ID: {{intakeId}}
+
+Summary:
+{{summary}}
+
+Please review this in THiS CRM > Enquiries & Intake > Contact Forms.`,
+    placeholders: ['applicantName', 'email', 'phone', 'submitted', 'flags', 'intakeId', 'summary'],
+  },
+  {
     key: 'new_intake_adviser_notification',
-    name: 'Contact/intake form - internal notification',
-    description: 'Internal notification sent when a public contact form or full assessment form is submitted.',
+    name: 'Legacy contact/intake notification',
+    description: 'Legacy internal notification retained for older deployments and existing email log records.',
     subject: '{{formKind}} submitted - {{applicantName}}',
     bodyText: `{{intro}}
 
@@ -459,7 +499,8 @@ async function sendNewIntakeNotificationEmail({ intakeId = '', payload = {}, fla
   const fallbackSubject = `${isContact ? 'New contact form submitted' : 'New intake questionnaire submitted'} - ${[payload.firstName, payload.lastName].filter(Boolean).join(' ') || 'Unnamed enquiry'}`;
   const fallbackBody = buildNewIntakeNotificationBody({ intakeId, payload, flags, createdAt });
   const summary = intakeSummarySections(payload).map((section) => `${section.title}\n${section.rows.map((row) => `${row.label}: ${row.value}`).join('\n')}`).join('\n\n') || 'No summary details recorded.';
-  const templateDraft = await buildEmailFromTemplate('new_intake_adviser_notification', {
+  const templateKey = isContact ? 'contact_form_internal_notification' : 'assessment_form_internal_notification';
+  const templateDraft = await buildEmailFromTemplate(templateKey, {
     formKind: isContact ? 'New contact form' : 'New intake questionnaire',
     intro: isContact ? 'A new short contact form enquiry has been submitted through the THiS website.' : 'A new assessment questionnaire has been submitted through the THiS intake form.',
     applicantName: fullName(payload) || 'Not recorded',
@@ -477,7 +518,7 @@ async function sendNewIntakeNotificationEmail({ intakeId = '', payload = {}, fla
   const toEmailLog = toEmails.join(', ');
   const [created] = await database.sql`
     INSERT INTO email_notifications (related_record_type, related_record_id, intake_id, template_key, from_email, from_name, to_email, subject, body_text, body_html, status, sent_by)
-    VALUES ('intake', ${nullableUuidValue(intakeId)}, ${nullableUuidValue(intakeId)}, 'new_intake_adviser_notification', ${config.fromEmail}, ${config.fromName}, ${toEmailLog}, ${subject}, ${bodyText}, ${bodyHtml}, 'Sending', 'THiS CRM intake form')
+    VALUES ('intake', ${nullableUuidValue(intakeId)}, ${nullableUuidValue(intakeId)}, ${templateKey}, ${config.fromEmail}, ${config.fromName}, ${toEmailLog}, ${subject}, ${bodyText}, ${bodyHtml}, 'Sending', 'THiS CRM intake form')
     RETURNING id`;
 
   try {
