@@ -8875,3 +8875,24 @@ body.intake-embed-mode .seminar-public-card {
     min-width: 0;
   }
 }
+
+
+/* v0.12.38: restore full desktop navigation row and remove redundant dashboard intake card */
+.crm-main-nav-polished.nav-expanded-row {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.crm-main-nav-polished.nav-expanded-row .tab {
+  min-width: 118px;
+}
+
+.crm-main-nav-polished.nav-expanded-row .tab.active {
+  box-shadow: 0 14px 28px rgba(0, 75, 70, 0.16);
+}
+
+@media (min-width: 1200px) {
+  .crm-main-nav-polished.nav-expanded-row {
+    flex-wrap: nowrap;
+  }
+}

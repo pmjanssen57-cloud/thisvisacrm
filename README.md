@@ -1,8 +1,8 @@
-# THiS CRM v0.12.37 - Header Dropdown and Enquiries Button Polish
+# THiS CRM v0.12.38 - Header Dropdown and Enquiries Button Polish
 
 This build applies a small visual polish pass on top of v0.12.36.
 
-## v0.12.37 changes
+## v0.12.38 changes
 
 - Styled the compressed adviser/view dropdown so it matches the rest of the CRM controls.
 - Added focus styling and a custom dropdown arrow for the view selector.
@@ -18,3 +18,9 @@ This build applies a small visual polish pass on top of v0.12.36.
 3. Open **Enquiries & Intake** and confirm the three form buttons sit in a clean row on desktop.
 4. Narrow the browser and confirm the form buttons wrap neatly on smaller screens.
 5. Confirm the contact, assessment, and seminar form links still open correctly.
+
+
+## v0.12.38
+
+- Restored Calendar, Billing, Library and Advisers as first-level navigation buttons instead of the More dropdown.
+- Removed the redundant dashboard Enquiries & Intake card now that Enquiries & Intake is a main navigation item.

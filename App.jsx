@@ -1077,22 +1077,15 @@ export default function App() {
               setCaseTypeFilter={setCaseTypeFilter}
               canViewAllAdvisers={canViewAllAdvisers}
             />
-            <nav className="tabs desktop-tabs main-nav crm-main-nav-polished" aria-label="Main CRM navigation">
-              <TabButton active={tab === 'dashboard'} onClick={() => { setMainNavMoreOpen(false); switchTab('dashboard'); }} icon={LayoutDashboard} label="Dashboard" />
-              <TabButton active={tab === 'tasks'} onClick={() => { setMainNavMoreOpen(false); switchTab('tasks'); }} icon={ListChecks} label="Tasks" />
-              <TabButton active={tab === 'clients'} onClick={() => { setMainNavMoreOpen(false); switchTab('clients'); }} icon={UsersRound} label="Clients" />
-              <TabButton active={tab === 'intake'} onClick={() => { setMainNavMoreOpen(false); switchTab('intake'); }} icon={ClipboardList} label="Enquiries & Intake" />
-              <div className="dropdown-shell main-nav-more-shell">
-                <button className={`tab nav-more-button ${['calendar', 'billing', 'library', 'advisers'].includes(tab) ? 'active' : ''}`} type="button" onClick={() => setMainNavMoreOpen((open) => !open)}><MoreHorizontal size={17} />More <ChevronDown size={15} /></button>
-                {mainNavMoreOpen && (
-                  <div className="dropdown-menu nav-more-menu">
-                    <button type="button" className={tab === 'calendar' ? 'active' : ''} onClick={() => { setMainNavMoreOpen(false); switchTab('calendar'); }}><CalendarDays size={16} />Calendar</button>
-                    <button type="button" className={tab === 'billing' ? 'active' : ''} onClick={() => { setMainNavMoreOpen(false); switchTab('billing'); }}><CreditCard size={16} />Billing</button>
-                    <button type="button" className={tab === 'library' ? 'active' : ''} onClick={() => { setMainNavMoreOpen(false); switchTab('library'); }}><BookOpen size={16} />Library</button>
-                    {canManageAdvisers && <button type="button" className={tab === 'advisers' ? 'active' : ''} onClick={() => { setMainNavMoreOpen(false); switchTab('advisers'); }}><UsersRound size={16} />Advisers</button>}
-                  </div>
-                )}
-              </div>
+            <nav className="tabs desktop-tabs main-nav crm-main-nav-polished nav-expanded-row" aria-label="Main CRM navigation">
+              <TabButton active={tab === 'dashboard'} onClick={() => switchTab('dashboard')} icon={LayoutDashboard} label="Dashboard" />
+              <TabButton active={tab === 'tasks'} onClick={() => switchTab('tasks')} icon={ListChecks} label="Tasks" />
+              <TabButton active={tab === 'clients'} onClick={() => switchTab('clients')} icon={UsersRound} label="Clients" />
+              <TabButton active={tab === 'intake'} onClick={() => switchTab('intake')} icon={ClipboardList} label="Enquiries & Intake" />
+              <TabButton active={tab === 'calendar'} onClick={() => switchTab('calendar')} icon={CalendarDays} label="Calendar" />
+              <TabButton active={tab === 'billing'} onClick={() => switchTab('billing')} icon={CreditCard} label="Billing" />
+              <TabButton active={tab === 'library'} onClick={() => switchTab('library')} icon={BookOpen} label="Library" />
+              {canManageAdvisers && <TabButton active={tab === 'advisers'} onClick={() => switchTab('advisers')} icon={UsersRound} label="Advisers" />}
             </nav>
 
             {tab === 'intake' && (
@@ -5035,11 +5028,6 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
 
   const visibleAdvisers = dashboardAdviserFilter === 'all' ? advisers : advisers.filter((adviser) => adviser.id === dashboardAdviserFilter);
   const viewTitle = dashboardAdviserFilter === 'all' ? 'Whole-practice dashboard' : `${advisers.find((adviser) => adviser.id === dashboardAdviserFilter)?.name || 'Adviser'} dashboard`;
-  const normalisedIntake = (intakeEnquiries || []).map(normaliseIntakeEnquiry);
-  const dashboardContactForms = normalisedIntake.filter((item) => isContactIntake(item));
-  const dashboardNewIntakes = normalisedIntake.filter((item) => !isContactIntake(item) && item.status === 'New');
-
-
   return (
     <div className="stack">
       <section className="panel dashboard-heading">
@@ -5058,18 +5046,6 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
         <MetricCard label="WIP / overdue billing" value={formatCurrency(pendingInvoices.reduce((sum, row) => sum + Number(row.item.amount || 0), 0))} note="Billing not yet invoiced" icon={CreditCard} />
       </div>
 
-      <section className="panel dashboard-enquiries-card">
-        <div>
-          <span className="eyebrow">Pre-client queue</span>
-          <h2>Enquiries & Intake</h2>
-          <p className="muted">Contact forms and full assessment questionnaires now sit in their own review workspace, away from active client records.</p>
-        </div>
-        <div className="dashboard-enquiries-counts">
-          <span><b>{dashboardContactForms.length}</b> contact form{dashboardContactForms.length === 1 ? '' : 's'}</span>
-          <span><b>{dashboardNewIntakes.length}</b> new intake form{dashboardNewIntakes.length === 1 ? '' : 's'}</span>
-        </div>
-        <button className="btn dark" type="button" onClick={() => setTab('intake')}><ClipboardList size={16} />Open Enquiries & Intake</button>
-      </section>
 
       <DailyBringUpPanel taskRows={taskRows} advisers={advisers} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} />
 
