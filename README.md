@@ -1,3 +1,23 @@
+# THiS CRM v0.12.33 - Intake Notification Summary Fix
+
+This build fixes the internal assessment/contact notification summary where the email could output repeated `undefined: undefined` lines.
+
+## v0.12.33 changes
+
+- Fixed the internal intake/contact notification summary renderer so it reads the actual `[label, value]` summary rows correctly.
+- Added a shared plain-text summary formatter for template placeholders such as `{{summary}}`.
+- The notification email now only includes populated fields and panels, with no undefined labels or values.
+- No database migration required.
+
+## Test process
+
+1. Deploy this package to Netlify.
+2. Submit a test assessment form.
+3. Confirm the internal notification email shows real section headings and populated answers only.
+4. Confirm there are no `undefined: undefined` rows in the email.
+
+---
+
 # THiS CRM v0.12.32 - Email Template Cursor Fix
 
 This build fixes the rich-text email template editor cursor issue. The Design editor now behaves as an uncontrolled editing surface while typing, so React no longer rewrites the editor HTML on every keystroke and moves the cursor back to the start.

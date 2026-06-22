@@ -498,7 +498,7 @@ async function sendNewIntakeNotificationEmail({ intakeId = '', payload = {}, fla
   const isContact = payload.formType === 'contact';
   const fallbackSubject = `${isContact ? 'New contact form submitted' : 'New intake questionnaire submitted'} - ${[payload.firstName, payload.lastName].filter(Boolean).join(' ') || 'Unnamed enquiry'}`;
   const fallbackBody = buildNewIntakeNotificationBody({ intakeId, payload, flags, createdAt });
-  const summary = intakeSummarySections(payload).map((section) => `${section.title}\n${section.rows.map((row) => `${row.label}: ${row.value}`).join('\n')}`).join('\n\n') || 'No summary details recorded.';
+  const summary = buildIntakeSummaryText(payload);
   const templateKey = isContact ? 'contact_form_internal_notification' : 'assessment_form_internal_notification';
   const templateDraft = await buildEmailFromTemplate(templateKey, {
     formKind: isContact ? 'New contact form' : 'New intake questionnaire',
@@ -607,6 +607,33 @@ function buildNewIntakeNotificationHtml({ intakeId = '', payload = {}, flags = {
     <p style="margin:18px 0 4px;"><strong>Please review this enquiry in THiS CRM &gt; Intake.</strong></p>
     ${crmUrl ? `<p style="margin:0;"><a href="${escapeHtml(crmUrl)}">Open THiS CRM</a></p>` : ''}
   </div>`;
+}
+
+function buildIntakeSummaryText(payload = {}) {
+  const sections = intakeSummarySections(payload);
+  if (!sections.length) return 'No summary details recorded.';
+
+  const blocks = sections.map((section) => {
+    const lines = [section.title];
+
+    (section.rows || []).forEach(([label, value]) => {
+      const formatted = formatSummaryValue(value);
+      if (formatted) lines.push(`${label}: ${formatted}`);
+    });
+
+    (section.panels || []).forEach((panel) => {
+      const panelLines = [];
+      (panel.rows || []).forEach(([label, value]) => {
+        const formatted = formatSummaryValue(value);
+        if (formatted) panelLines.push(`${label}: ${formatted}`);
+      });
+      if (panelLines.length) lines.push('', panel.title, ...panelLines);
+    });
+
+    return lines.filter((line) => String(line || '').trim()).join('\n');
+  }).filter((block) => block.trim().length);
+
+  return blocks.join('\n\n') || 'No summary details recorded.';
 }
 
 function intakeSummarySections(payload = {}) {
