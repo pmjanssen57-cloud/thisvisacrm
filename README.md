@@ -1166,3 +1166,13 @@ The resource content is centralised in the frontend so it can later be replaced 
 ## v0.12.23 seminar embed polish
 
 - Removed the internal card shadow from the public seminar registration form, including iframe/embed mode, so Squarespace embeds display without the pale green drop shadow.
+
+
+## v0.12.26 - CRM-editable email templates
+
+- Added an Email Templates tool inside the adviser Tools drawer.
+- Standard CRM email wording can now be edited without a rebuild.
+- Templates support placeholders such as `{{firstName}}`, `{{assessmentFormUrl}}`, `{{seminarTitle}}`, `{{zoomLink}}` and `{{portalLink}}`.
+- Added a reset-to-default option for each template.
+- Added database support via the `email_templates` table and migration `202606220003_add_email_templates.sql`.
+- Connected editable templates to contact assessment invites, intake outcome emails, portal access emails, seminar approval/decline emails, intake/contact notifications, and seminar registration notifications.

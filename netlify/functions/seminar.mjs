@@ -4,6 +4,44 @@ const MAX_TEXT = 6000;
 const SEMINAR_REGISTRATION_STATUSES = ['New', 'Approved', 'Declined', 'Spam / Duplicate'];
 const ENGLISH_OPTIONS = ['Fluent', 'Medium', 'None'];
 
+const DEFAULT_EMAIL_TEMPLATES = [
+  {
+    key: 'seminar_new_registration',
+    name: 'Seminar registration - internal notification',
+    description: 'Internal notification sent when someone submits the public seminar registration form.',
+    subject: 'New seminar registration: {{registrantFullName}}',
+    bodyText: `A new seminar registration has been submitted.
+
+Seminar: {{seminarTitle}}
+Seminar date/time: {{seminarDateTime}}
+Presenter: {{presenterName}}
+
+Full name: {{registrantFullName}}
+Email: {{registrantEmail}}
+Date of birth: {{dateOfBirth}}
+Citizenship: {{citizenshipCountry}}
+Current country: {{residenceCountry}}
+Timezone: {{registrantTimezone}}
+Partnership status: {{partnershipStatus}}
+Highest qualification: {{highestQualification}}
+Current occupation: {{currentOccupation}}
+English ability: {{englishAbility}}
+
+Relevant work history:
+{{workHistory}}
+
+Health / character issues:
+{{healthCharacterIssues}}
+
+Submitted: {{submitted}}
+Registration ID: {{registrationId}}
+
+Please review this in THiS CRM > Enquiries & Intake > Seminar Registrations.`,
+    placeholders: ['registrantFullName', 'registrantEmail', 'seminarTitle', 'seminarDateTime', 'presenterName', 'dateOfBirth', 'citizenshipCountry', 'residenceCountry', 'registrantTimezone', 'partnershipStatus', 'highestQualification', 'currentOccupation', 'englishAbility', 'workHistory', 'healthCharacterIssues', 'submitted', 'registrationId'],
+  },
+];
+
+
 export default async function seminarRequestHandler(request) {
   const method = String(request.method || 'GET').toUpperCase();
   if (method === 'OPTIONS') return new Response('', { status: 204, headers: corsHeaders() });
@@ -132,6 +170,7 @@ async function ensureEmailNotificationSchema() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_email_notifications_created_at ON email_notifications(created_at DESC)`;
+  await ensureEmailTemplateSchema(database);
 }
 
 async function getActivePublicSeminar() {
@@ -177,9 +216,9 @@ async function sendSeminarNotificationEmail({ registrationId = '', registration 
   const recipients = getSeminarNotificationRecipients();
   if (!recipients.length) return false;
   const config = requireMicrosoftEmailConfig();
-  const subject = `New seminar registration: ${registration.fullName || 'Unnamed registrant'}`;
+  const fallbackSubject = `New seminar registration: ${registration.fullName || 'Unnamed registrant'}`;
   const submitted = new Date().toLocaleString('en-NZ', { timeZone: 'Pacific/Auckland' });
-  const bodyText = [
+  const fallbackBodyText = [
     `A new seminar registration has been submitted.`,
     '',
     `Seminar: ${seminar.title || 'Turner Hopkins immigration seminar'}`,
@@ -208,7 +247,28 @@ async function sendSeminarNotificationEmail({ registrationId = '', registration 
     '',
     'Please review this in THiS CRM > Enquiries & Intake > Seminar Registrations.',
   ].join('\n');
-  const bodyHtml = textToHtml(bodyText);
+  const templateDraft = await buildEmailFromTemplate('seminar_new_registration', {
+    registrantFullName: registration.fullName || 'Unnamed registrant',
+    registrantEmail: registration.email || '',
+    seminarTitle: seminar.title || 'Turner Hopkins immigration seminar',
+    seminarDateTime: `${toDateOnly(seminar.seminar_date)} ${seminar.seminar_time || ''} NZ time`.trim(),
+    presenterName: seminar.presenter_name || '',
+    dateOfBirth: registration.dateOfBirth || '',
+    citizenshipCountry: registration.citizenshipCountry || '',
+    residenceCountry: registration.residenceCountry || '',
+    registrantTimezone: registration.timezone || '',
+    partnershipStatus: registration.partnershipStatus || '',
+    highestQualification: registration.highestQualification || '',
+    currentOccupation: registration.currentOccupation || '',
+    englishAbility: registration.englishAbility || '',
+    workHistory: registration.workHistory || 'Not provided',
+    healthCharacterIssues: registration.healthCharacterIssues || 'Not provided',
+    submitted,
+    registrationId,
+  }, { subject: fallbackSubject, bodyText: fallbackBodyText });
+  const subject = templateDraft.subject;
+  const bodyText = templateDraft.bodyText;
+  const bodyHtml = templateDraft.bodyHtml;
   const database = db();
   const [created] = await database.sql`
     INSERT INTO email_notifications (related_record_type, related_record_id, template_key, from_email, from_name, to_email, subject, body_text, body_html, status, sent_by)
@@ -223,6 +283,49 @@ async function sendSeminarNotificationEmail({ registrationId = '', registration 
     await database.sql`UPDATE email_notifications SET status = 'Failed', failed_at = NOW(), failure_message = ${String(error?.message || error).slice(0, 1000)}, updated_at = NOW() WHERE id = ${created.id}`;
     return false;
   }
+}
+
+
+async function ensureEmailTemplateSchema(database = db()) {
+  await database.sql`CREATE EXTENSION IF NOT EXISTS pgcrypto`;
+  await database.sql`
+    CREATE TABLE IF NOT EXISTS email_templates (
+      template_key TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      subject TEXT NOT NULL,
+      body_text TEXT NOT NULL,
+      placeholders JSONB NOT NULL DEFAULT '[]'::jsonb,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_by TEXT
+    )`;
+  for (const template of DEFAULT_EMAIL_TEMPLATES) {
+    await database.sql`
+      INSERT INTO email_templates (template_key, name, description, subject, body_text, placeholders, updated_by)
+      VALUES (${template.key}, ${template.name}, ${template.description}, ${template.subject}, ${template.bodyText}, CAST(${JSON.stringify(template.placeholders || [])} AS jsonb), 'System default')
+      ON CONFLICT (template_key) DO NOTHING`;
+  }
+}
+
+async function getEmailTemplate(templateKey = '') {
+  await ensureEmailTemplateSchema();
+  const fallback = DEFAULT_EMAIL_TEMPLATES.find((template) => template.key === templateKey) || DEFAULT_EMAIL_TEMPLATES[0];
+  const rows = await db().sql`SELECT template_key, subject, body_text FROM email_templates WHERE template_key = ${templateKey} LIMIT 1`;
+  return { subject: rows[0]?.subject || fallback.subject, bodyText: rows[0]?.body_text || fallback.bodyText };
+}
+
+async function buildEmailFromTemplate(templateKey, context = {}, fallback = {}) {
+  const template = await getEmailTemplate(templateKey);
+  const subject = renderTemplateText(template.subject || fallback.subject || '', context).trim() || fallback.subject || '';
+  const bodyText = renderTemplateText(template.bodyText || fallback.bodyText || '', context).trim() || fallback.bodyText || '';
+  return { subject, bodyText, bodyHtml: textToHtml(bodyText) };
+}
+
+function renderTemplateText(value = '', context = {}) {
+  return String(value || '').replace(/{{\s*([a-zA-Z0-9_.-]+)\s*}}/g, (_, key) => {
+    const replacement = String(key || '').split('.').reduce((current, part) => (current && Object.prototype.hasOwnProperty.call(current, part) ? current[part] : ''), context);
+    return replacement == null ? '' : String(replacement);
+  });
 }
 
 function getSeminarNotificationRecipients() {

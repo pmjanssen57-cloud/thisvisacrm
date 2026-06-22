@@ -360,6 +360,7 @@ const emptyData = {
   seminars: [],
   seminarRegistrations: [],
   emailLogs: [],
+  emailTemplates: [],
   emailConfig: { configured: false, fromEmail: '', fromName: '' },
   securityMode: 'unknown',
 };
@@ -755,6 +756,14 @@ export default function App() {
     await callApi('saveAdviser', { adviser });
   }
 
+  async function saveEmailTemplate(template) {
+    return await callApi('saveEmailTemplate', { template });
+  }
+
+  async function resetEmailTemplate(templateKey) {
+    return await callApi('resetEmailTemplate', { templateKey });
+  }
+
   async function sendTestEmail(email) {
     const body = await callApi('sendTestEmail', { email }, { skipDataUpdate: true });
     if (body.emailLog) {
@@ -1135,7 +1144,7 @@ export default function App() {
         )}
       </main>
       <SupportDrawer open={supportOpen} onOpen={() => { setToolsOpen(false); setSupportOpen(true); }} onClose={() => setSupportOpen(false)} tab={tab} />
-      <ToolsDrawer open={toolsOpen} onOpen={() => { setSupportOpen(false); setToolsOpen(true); }} onClose={() => setToolsOpen(false)} sendTestEmail={sendTestEmail} emailLogs={data.emailLogs || []} emailConfig={data.emailConfig || emptyData.emailConfig} saving={saving} />
+      <ToolsDrawer open={toolsOpen} onOpen={() => { setSupportOpen(false); setToolsOpen(true); }} onClose={() => setToolsOpen(false)} sendTestEmail={sendTestEmail} saveEmailTemplate={saveEmailTemplate} resetEmailTemplate={resetEmailTemplate} emailLogs={data.emailLogs || []} emailTemplates={data.emailTemplates || []} emailConfig={data.emailConfig || emptyData.emailConfig} saving={saving} />
       <MobileBottomNav activeTab={tab} onNavigate={switchTab} onOpenMore={() => setMobileMoreOpen(true)} />
       <MobileMoreSheet
         open={mobileMoreOpen}
@@ -3994,7 +4003,7 @@ const TOOL_TIMEZONES = [
   { value: 'America/New_York', label: 'New York, USA' },
 ];
 
-function ToolsDrawer({ open, onOpen, onClose, sendTestEmail, emailLogs = [], emailConfig = {}, saving = false }) {
+function ToolsDrawer({ open, onOpen, onClose, sendTestEmail, saveEmailTemplate, resetEmailTemplate, emailLogs = [], emailTemplates = [], emailConfig = {}, saving = false }) {
   const [activeTool, setActiveTool] = useState('weather');
   const [emailLogOpen, setEmailLogOpen] = useState(false);
 
@@ -4018,6 +4027,7 @@ function ToolsDrawer({ open, onOpen, onClose, sendTestEmail, emailLogs = [], ema
           <button type="button" className={activeTool === 'timezone' ? 'active' : ''} onClick={() => setActiveTool('timezone')}><Globe2 size={16} />Time</button>
           <button type="button" className={activeTool === 'currency' ? 'active' : ''} onClick={() => setActiveTool('currency')}><DollarSign size={16} />Currency</button>
           <button type="button" className={activeTool === 'calculator' ? 'active' : ''} onClick={() => setActiveTool('calculator')}><Calculator size={16} />Calc</button>
+          <button type="button" className={activeTool === 'templates' ? 'active' : ''} onClick={() => setActiveTool('templates')}><Mail size={16} />Templates</button>
           <button type="button" onClick={() => setEmailLogOpen(true)}><Mail size={16} />Email log</button>
         </div>
         <div className="tool-panel">
@@ -4025,10 +4035,118 @@ function ToolsDrawer({ open, onOpen, onClose, sendTestEmail, emailLogs = [], ema
           {activeTool === 'timezone' && <TimezoneTool />}
           {activeTool === 'currency' && <CurrencyTool />}
           {activeTool === 'calculator' && <CalculatorTool />}
+          {activeTool === 'templates' && <EmailTemplateTool emailTemplates={emailTemplates} saveEmailTemplate={saveEmailTemplate} resetEmailTemplate={resetEmailTemplate} saving={saving} />}
         </div>
       </aside>
-      <EmailLogLightbox open={emailLogOpen} onClose={() => setEmailLogOpen(false)} sendTestEmail={sendTestEmail} emailLogs={emailLogs} emailConfig={emailConfig} saving={saving} />
+      <EmailLogLightbox open={emailLogOpen} onClose={() => setEmailLogOpen(false)} sendTestEmail={sendTestEmail} saveEmailTemplate={saveEmailTemplate} resetEmailTemplate={resetEmailTemplate} emailLogs={emailLogs} emailConfig={emailConfig} saving={saving} />
     </>
+  );
+}
+
+
+function EmailTemplateTool({ emailTemplates = [], saveEmailTemplate, resetEmailTemplate, saving = false }) {
+  const sortedTemplates = useMemo(() => [...(emailTemplates || [])].sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''))), [emailTemplates]);
+  const [selectedKey, setSelectedKey] = useState('');
+  const selected = sortedTemplates.find((template) => template.key === selectedKey) || sortedTemplates[0] || null;
+  const [draft, setDraft] = useState({ subject: '', bodyText: '' });
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!selectedKey && sortedTemplates[0]?.key) setSelectedKey(sortedTemplates[0].key);
+  }, [selectedKey, sortedTemplates]);
+
+  useEffect(() => {
+    if (selected) {
+      setDraft({ subject: selected.subject || '', bodyText: selected.bodyText || '' });
+      setMessage('');
+      setError('');
+    }
+  }, [selected?.key]);
+
+  async function submit(event) {
+    event.preventDefault();
+    if (!selected) return;
+    setMessage('');
+    setError('');
+    try {
+      const body = await saveEmailTemplate?.({ key: selected.key, subject: draft.subject, bodyText: draft.bodyText });
+      if (body?.emailTemplate) setDraft({ subject: body.emailTemplate.subject || draft.subject, bodyText: body.emailTemplate.bodyText || draft.bodyText });
+      setMessage('Template saved. Future emails will use this wording.');
+    } catch (err) {
+      setError(err?.message || 'Template could not be saved.');
+    }
+  }
+
+  async function resetTemplate() {
+    if (!selected) return;
+    if (!window.confirm(`Reset ${selected.name || selected.key} to the system default wording?`)) return;
+    setMessage('');
+    setError('');
+    try {
+      const body = await resetEmailTemplate?.(selected.key);
+      if (body?.emailTemplate) setDraft({ subject: body.emailTemplate.subject || '', bodyText: body.emailTemplate.bodyText || '' });
+      setMessage('Template reset to the system default.');
+    } catch (err) {
+      setError(err?.message || 'Template could not be reset.');
+    }
+  }
+
+  if (!sortedTemplates.length) {
+    return (
+      <section className="tool-card email-template-tool">
+        <div className="tool-card-head"><Mail size={18} /><div><strong>Email templates</strong><span>No templates loaded yet. Refresh the CRM after deployment.</span></div></div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="tool-card email-template-tool">
+      <div className="tool-card-head">
+        <Mail size={18} />
+        <div>
+          <strong>Email templates</strong>
+          <span>Edit the standard wording used by CRM-sent emails. Placeholders in braces are replaced automatically.</span>
+        </div>
+      </div>
+      <div className="email-template-layout">
+        <div className="email-template-list" role="listbox" aria-label="Email templates">
+          {sortedTemplates.map((template) => (
+            <button key={template.key} type="button" className={selected?.key === template.key ? 'active' : ''} onClick={() => setSelectedKey(template.key)}>
+              <strong>{template.name || emailTemplateLabel(template.key)}</strong>
+              <span>{template.description || template.key}</span>
+            </button>
+          ))}
+        </div>
+        {selected && (
+          <form className="tool-form email-template-editor" onSubmit={submit}>
+            <div className="split">
+              <div>
+                <strong>{selected.name || emailTemplateLabel(selected.key)}</strong>
+                <span>{selected.description}</span>
+              </div>
+              <button className="btn mini" type="button" onClick={resetTemplate} disabled={saving}><RefreshCw size={14} />Reset</button>
+            </div>
+            <label>Subject
+              <input value={draft.subject} onChange={(event) => setDraft((current) => ({ ...current, subject: event.target.value }))} />
+            </label>
+            <label>Email body
+              <textarea rows={16} value={draft.bodyText} onChange={(event) => setDraft((current) => ({ ...current, bodyText: event.target.value }))} />
+            </label>
+            <div className="template-placeholder-panel">
+              <strong>Available placeholders</strong>
+              <div>
+                {(selected.placeholders || []).map((placeholder) => <code key={placeholder}>{`{{${placeholder}}}`}</code>)}
+              </div>
+            </div>
+            <p className="tool-muted">Do not remove a placeholder unless you no longer want that value included. The CRM will still send the email, but the removed detail will not appear.</p>
+            {message && <div className="success-banner"><CheckCircle2 size={16} />{message}</div>}
+            {error && <div className="error-banner"><AlertTriangle size={16} />{error}</div>}
+            <button className="btn dark" type="submit" disabled={saving}><Save size={16} />{saving ? 'Saving...' : 'Save template'}</button>
+          </form>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -4181,10 +4299,14 @@ function EmailLogLightbox({ open, onClose, sendTestEmail, emailLogs = [], emailC
 function emailTemplateLabel(key = '') {
   const labels = {
     test: 'Test',
-    new_intake_adviser_notification: 'New intake',
-    intake_approve: 'Intake approval',
-    intake_decline: 'Intake decline',
+    contact_intake_invite: 'Contact assessment invite',
+    new_intake_adviser_notification: 'Contact/intake notification',
+    intake_approve: 'Assessment next steps',
+    intake_decline: 'Assessment not suitable',
     portal_access: 'Portal access',
+    seminar_approve: 'Seminar approval',
+    seminar_decline: 'Seminar decline',
+    seminar_new_registration: 'Seminar notification',
   };
   return labels[key] || String(key || 'Other').replace(/_/g, ' ').replace(/^./, (char) => char.toUpperCase());
 }
@@ -8793,6 +8915,7 @@ function normaliseData(body) {
     seminars: (body.seminars || []).map(normaliseSeminar),
     seminarRegistrations: (body.seminarRegistrations || []).map(normaliseSeminarRegistration),
     emailLogs: (body.emailLogs || []).map(normaliseEmailLog),
+    emailTemplates: (body.emailTemplates || []).map(normaliseEmailTemplate),
     emailConfig: normaliseEmailConfig(body.emailConfig || {}),
     securityMode: body.securityMode || 'unknown',
   };
@@ -8856,6 +8979,20 @@ function makeBlankPersonalTask(adviserId = '') {
   };
 }
 
+
+
+function normaliseEmailTemplate(template = {}) {
+  return {
+    key: template.key || template.templateKey || template.template_key || '',
+    name: template.name || emailTemplateLabel(template.key || template.templateKey || template.template_key || ''),
+    description: template.description || '',
+    subject: template.subject || '',
+    bodyText: template.bodyText || template.body_text || '',
+    placeholders: Array.isArray(template.placeholders) ? template.placeholders : [],
+    updatedAt: template.updatedAt || template.updated_at || '',
+    updatedBy: template.updatedBy || template.updated_by || '',
+  };
+}
 
 function normaliseEmailConfig(config = {}) {
   return {

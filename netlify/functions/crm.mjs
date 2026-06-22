@@ -71,6 +71,187 @@ const PORTAL_RESOURCE_KEYS = ['jobSearchCv', 'lifeInNz', 'usefulLinks', 'relocat
 const PORTAL_DOCUMENT_STORE = 'client-portal-documents';
 const INTAKE_UPLOAD_STORE = 'intake-uploads';
 
+const DEFAULT_EMAIL_TEMPLATES = [
+  {
+    key: 'contact_intake_invite',
+    name: 'Contact form - assessment invite',
+    description: 'Sent from a contact-form card when a good enquiry should complete the full assessment form.',
+    subject: 'Next step: please complete our full immigration assessment form',
+    bodyText: `Hi {{firstName}},
+
+Thank you for contacting Turner Hopkins Immigration Specialists.
+
+Based on the information you have sent through, the best next step is for you to complete our full immigration assessment form. This gives us the details we need to properly consider your circumstances and identify the most suitable visa pathway.
+
+You can complete the assessment form here: {{assessmentFormUrl}}
+
+Once we receive your completed form, one of our team will review the information and come back to you about the next steps.
+
+Please include as much detail as you can, especially around your current visa situation, immigration goal, employment, qualifications, partnership/family circumstances, and any health or character matters that may be relevant.
+
+Kind regards,`,
+    placeholders: ['firstName', 'assessmentFormUrl'],
+  },
+  {
+    key: 'intake_approve',
+    name: 'Assessment form - next steps',
+    description: 'Sent when a full assessment/intake form appears suitable for a consultation or further advice.',
+    subject: 'Turner Hopkins assessment questionnaire - next steps for {{applicantName}}',
+    bodyText: `Dear {{firstName}},
+
+Thank you for completing our online assessment questionnaire, which we have now received and reviewed, along with your CV and attachments.
+
+It does appear, based on the information you have provided, that there is potentially a pathway available to you under one of our skilled migrant pathways, however this would be dependent on several things including the following:
+
+• A review of your information to explore the various details including your skills and experience and the need for those to be assessed here in NZ, your employability and potential earnings as well as your personal data and health and character details.
+• Establishing the timelines involved and how each step fits together - this includes discussing, the documentation required, the criteria you need to meet and a road map as to how all of these steps will fit together.
+• Discussing the process to secure an offer of skilled employment in New Zealand to qualify under one of our various skilled migration pathways (most application pathways are dependent on being able to secure the right kind of employment in New Zealand).
+
+For us to be able to outline this process in detail, including the steps mentioned above, as well as being able to establish the right strategy for you, we would need to book you in for a one-to-one consultation.
+
+This consultation process will allow us to work through your information in greater detail, ask some additional questions and then outline a clear pathway for you and your family (if applicable) to make the move. It also gives you an opportunity to ask questions of me and for us to explore the process together, so you can make an informed decision as to whether to proceed further.
+
+We have two options available for the consultation process:
+
+• A brief 15-minute overview (at no charge) of the process via Teams or Zoom, which will give you a very basic summary as to your eligibility. We stick to a very strict 15-minute timeframe for these discussions.
+• A more detailed assessment over Teams or Zoom, usually lasting for at least an hour, during which we map out the process for you and explain the various steps, costs and timelines. This assessment comes with a charge of NZD$400.00, which can be paid online.
+
+Moving to another country is a complex process, particularly in the current environment as the demand for Visas and opportunities in New Zealand continues to increase. If you are seriously considering the move, then having a well laid out plan is vital.
+
+If you wish to move ahead with this assessment, please email us directly: {{allocatedTo}} (do not reply to this email) and indicate which assessment option you would prefer to take.
+
+I look forward to hearing from you in due course.`,
+    placeholders: ['firstName', 'applicantName', 'allocatedTo'],
+  },
+  {
+    key: 'intake_decline',
+    name: 'Assessment form - not suitable',
+    description: 'Sent when a full assessment/intake form is not suitable for next steps.',
+    subject: 'Turner Hopkins assessment questionnaire - {{applicantName}}',
+    bodyText: `Hello {{firstName}},
+
+Thank you for completing the Turner Hopkins assessment questionnaire.
+
+We have reviewed the information you provided. Based on the details supplied, it does not look like we are the right fit to assist with an immigration pathway at this stage.
+
+This is a preliminary response based on the questionnaire only, not a full immigration assessment. If your circumstances change, or if there is important information you think has not been captured, you are welcome to reply with those details and we can reconsider whether a consultation would be useful.`,
+    placeholders: ['firstName', 'applicantName'],
+  },
+  {
+    key: 'seminar_approve',
+    name: 'Seminar registration - approved',
+    description: 'Sent when a seminar registration is approved from the CRM.',
+    subject: 'Your Turner Hopkins seminar invitation',
+    bodyText: `Hi {{firstName}},
+
+Thank you for registering for our upcoming Turner Hopkins immigration seminar.
+
+We are pleased to confirm that your registration has been approved. The seminar details are below:
+
+Seminar: {{seminarTitle}}
+Presenter: {{presenterName}}
+New Zealand time: {{nzTime}}
+Your local time: {{localTime}}
+
+Zoom link: {{zoomLink}}
+Zoom password: {{zoomPassword}}
+
+Please keep these details handy and join a few minutes before the seminar is due to start.
+
+Kind regards,`,
+    placeholders: ['firstName', 'seminarTitle', 'presenterName', 'nzTime', 'localTime', 'zoomLink', 'zoomPassword'],
+  },
+  {
+    key: 'seminar_decline',
+    name: 'Seminar registration - declined',
+    description: 'Sent when a seminar registration is declined from the CRM.',
+    subject: 'Turner Hopkins seminar registration',
+    bodyText: `Hi {{firstName}},
+
+Thank you for registering your interest in our upcoming seminar.
+
+After reviewing the information provided, we are not able to offer you a place in this session.
+
+We appreciate your interest and wish you all the best.
+
+Kind regards,`,
+    placeholders: ['firstName'],
+  },
+  {
+    key: 'seminar_new_registration',
+    name: 'Seminar registration - internal notification',
+    description: 'Internal notification sent when someone submits the public seminar registration form.',
+    subject: 'New seminar registration: {{registrantFullName}}',
+    bodyText: `A new seminar registration has been submitted.
+
+Seminar: {{seminarTitle}}
+Seminar date/time: {{seminarDateTime}}
+Presenter: {{presenterName}}
+
+Full name: {{registrantFullName}}
+Email: {{registrantEmail}}
+Date of birth: {{dateOfBirth}}
+Citizenship: {{citizenshipCountry}}
+Current country: {{residenceCountry}}
+Timezone: {{registrantTimezone}}
+Partnership status: {{partnershipStatus}}
+Highest qualification: {{highestQualification}}
+Current occupation: {{currentOccupation}}
+English ability: {{englishAbility}}
+
+Relevant work history:
+{{workHistory}}
+
+Health / character issues:
+{{healthCharacterIssues}}
+
+Submitted: {{submitted}}
+Registration ID: {{registrationId}}
+
+Please review this in THiS CRM > Enquiries & Intake > Seminar Registrations.`,
+    placeholders: ['registrantFullName', 'registrantEmail', 'seminarTitle', 'seminarDateTime', 'presenterName', 'dateOfBirth', 'citizenshipCountry', 'residenceCountry', 'registrantTimezone', 'partnershipStatus', 'highestQualification', 'currentOccupation', 'englishAbility', 'workHistory', 'healthCharacterIssues', 'submitted', 'registrationId'],
+  },
+  {
+    key: 'new_intake_adviser_notification',
+    name: 'Contact/intake form - internal notification',
+    description: 'Internal notification sent when a public contact form or full assessment form is submitted.',
+    subject: '{{formKind}} submitted - {{applicantName}}',
+    bodyText: `{{intro}}
+
+Applicant: {{applicantName}}
+Email: {{email}}
+Phone: {{phone}}
+Submitted: {{submitted}}
+Flags: {{flags}}
+Record ID: {{intakeId}}
+
+Summary:
+{{summary}}
+
+Please review this in THiS CRM > Enquiries & Intake.`,
+    placeholders: ['formKind', 'intro', 'applicantName', 'email', 'phone', 'submitted', 'flags', 'intakeId', 'summary'],
+  },
+  {
+    key: 'portal_access',
+    name: 'Client portal access',
+    description: 'Sent when a client portal access code is created or refreshed.',
+    subject: 'Your Turner Hopkins client portal access',
+    bodyText: `Dear {{firstName}},
+
+We have set up your Turner Hopkins client portal so you can view the latest information we have published about your application progress.
+
+Portal link: {{portalLink}}
+Login email / username: {{portalEmail}}
+Access code: {{accessCode}}
+
+The portal is a secure, read-only space where you can check application updates, view documents we have made available to you, and send notes or questions to your adviser.
+
+We will continue to contact you by email as usual when we need anything further.`,
+    placeholders: ['firstName', 'portalLink', 'portalEmail', 'accessCode'],
+  },
+];
+
+
 export default async function crmRequestHandler(request, context = {}) {
   const method = String(request.method || 'GET').toUpperCase();
   const body = method === 'GET' || method === 'HEAD' ? '' : await request.text();
@@ -195,6 +376,16 @@ async function handleCrmEvent(event) {
     if (action === 'sendTestEmail') {
       const emailLog = await sendTestEmail(body.email || {}, auth.user);
       return json({ emailLog, ...(await readCrmData()) });
+    }
+
+    if (action === 'saveEmailTemplate') {
+      const emailTemplate = await saveEmailTemplate(body.template || {}, auth.user);
+      return json({ emailTemplate, ...(await readCrmData()) });
+    }
+
+    if (action === 'resetEmailTemplate') {
+      const emailTemplate = await resetEmailTemplate(body.templateKey || body.key || '', auth.user);
+      return json({ emailTemplate, ...(await readCrmData()) });
     }
 
     if (action === 'sendIntakeOutcomeEmail') {
@@ -627,6 +818,7 @@ async function ensureSchema() {
     )`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_email_notifications_created_at ON email_notifications(created_at DESC)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_email_notifications_status ON email_notifications(status)`;
+  await ensureEmailTemplateSchema(database);
 }
 
 
@@ -635,7 +827,7 @@ async function ensureSchema() {
 async function readCrmData() {
   const database = db();
   await pruneOldEmailNotifications(database);
-  const [advisers, clients, stages, deadlines, billing, personalTasks, calendarEntries, libraryEntries, portalMessages, portalDocuments, intakeEnquiries, seminars, seminarRegistrations, emailLogs] = await Promise.all([
+  const [advisers, clients, stages, deadlines, billing, personalTasks, calendarEntries, libraryEntries, portalMessages, portalDocuments, intakeEnquiries, seminars, seminarRegistrations, emailLogs, emailTemplates] = await Promise.all([
     database.sql`SELECT id, name, role, email, login_email, profile_photo_url, availability_status, phone, licence, active FROM advisers ORDER BY name ASC`,
     database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, one_law_client_number, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, portal_enabled, portal_email, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_resource_settings, portal_access_code_hash, portal_last_published_at, portal_last_accessed_at, notes, family_members, document_checklist FROM clients ORDER BY updated_at DESC`,
     database.sql`SELECT id, client_id, stage_key, stage_label, mandatory, applied, completed, completed_date, sort_order FROM client_stages ORDER BY sort_order ASC`,
@@ -650,6 +842,7 @@ async function readCrmData() {
     database.sql`SELECT id, title, seminar_date, seminar_time, timezone, presenter_name, zoom_link, zoom_password, status, registration_open, internal_notes, created_at, updated_at FROM seminars ORDER BY seminar_date DESC NULLS LAST, created_at DESC`,
     database.sql`SELECT id, seminar_id, status, full_name, date_of_birth, citizenship_country, residence_country, timezone, email, partnership_status, highest_qualification, current_occupation, work_history, health_character_issues, english_ability, raw_payload, reviewed_by, approved_at, declined_at, created_at, updated_at FROM seminar_registrations ORDER BY created_at DESC`,
     database.sql`SELECT id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at FROM email_notifications WHERE created_at >= NOW() - INTERVAL '60 days' ORDER BY created_at DESC LIMIT 200`,
+    getEmailTemplates(database),
   ]);
 
   return {
@@ -663,6 +856,7 @@ async function readCrmData() {
     seminars: seminars.map(mapSeminarFromDb),
     seminarRegistrations: seminarRegistrations.map(mapSeminarRegistrationFromDb),
     emailLogs: emailLogs.map(mapEmailLogFromDb),
+    emailTemplates: emailTemplates.map(mapEmailTemplateFromDb),
     emailConfig: getEmailConfigStatus(),
     caseTypes: CASE_TYPES,
     deadlineTypes: DEADLINE_TYPES,
@@ -719,6 +913,131 @@ function mapEmailLogFromDb(row) {
     createdAt: row.created_at || '',
   };
 }
+
+function mapEmailTemplateFromDb(row = {}) {
+  const fallback = getDefaultEmailTemplate(row.template_key || row.templateKey || '');
+  const placeholders = Array.isArray(row.placeholders) ? row.placeholders : fallback?.placeholders || [];
+  return {
+    key: row.template_key || row.templateKey || fallback?.key || '',
+    name: row.name || fallback?.name || emailTemplateTitle(row.template_key || row.templateKey || ''),
+    description: row.description || fallback?.description || '',
+    subject: row.subject || fallback?.subject || '',
+    bodyText: row.body_text || row.bodyText || fallback?.bodyText || '',
+    placeholders,
+    updatedAt: row.updated_at || row.updatedAt || '',
+    updatedBy: row.updated_by || row.updatedBy || '',
+  };
+}
+
+function getDefaultEmailTemplate(key = '') {
+  return DEFAULT_EMAIL_TEMPLATES.find((template) => template.key === key) || null;
+}
+
+function emailTemplateTitle(key = '') {
+  return String(key || 'Email template').replace(/_/g, ' ').replace(/^./, (char) => char.toUpperCase());
+}
+
+async function ensureEmailTemplateSchema(database = db()) {
+  await database.sql`CREATE EXTENSION IF NOT EXISTS pgcrypto`;
+  await database.sql`
+    CREATE TABLE IF NOT EXISTS email_templates (
+      template_key TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      subject TEXT NOT NULL,
+      body_text TEXT NOT NULL,
+      placeholders JSONB NOT NULL DEFAULT '[]'::jsonb,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_by TEXT
+    )`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_email_templates_name ON email_templates(name)`;
+  for (const template of DEFAULT_EMAIL_TEMPLATES) {
+    await database.sql`
+      INSERT INTO email_templates (template_key, name, description, subject, body_text, placeholders, updated_by)
+      VALUES (${template.key}, ${template.name}, ${template.description}, ${template.subject}, ${template.bodyText}, CAST(${JSON.stringify(template.placeholders || [])} AS jsonb), 'System default')
+      ON CONFLICT (template_key) DO NOTHING`;
+  }
+}
+
+async function getEmailTemplates(database = db()) {
+  await ensureEmailTemplateSchema(database);
+  const rows = await database.sql`SELECT template_key, name, description, subject, body_text, placeholders, updated_at, updated_by FROM email_templates ORDER BY name ASC`;
+  const existing = new Map(rows.map((row) => [row.template_key, mapEmailTemplateFromDb(row)]));
+  return DEFAULT_EMAIL_TEMPLATES.map((template) => existing.get(template.key) || mapEmailTemplateFromDb({ template_key: template.key }));
+}
+
+async function getEmailTemplate(templateKey = '', database = db()) {
+  await ensureEmailTemplateSchema(database);
+  const key = String(templateKey || '').trim();
+  const rows = await database.sql`SELECT template_key, name, description, subject, body_text, placeholders, updated_at, updated_by FROM email_templates WHERE template_key = ${key} LIMIT 1`;
+  return mapEmailTemplateFromDb(rows[0] || { template_key: key });
+}
+
+async function saveEmailTemplate(input = {}, authUser = null) {
+  const database = db();
+  await ensureEmailTemplateSchema(database);
+  const key = String(input.key || input.templateKey || '').trim();
+  const fallback = getDefaultEmailTemplate(key);
+  if (!fallback) throw new Error('Unknown email template.');
+  const subject = cleanTextForTemplate(input.subject || fallback.subject, 500);
+  const bodyText = cleanTextForTemplate(input.bodyText || input.body_text || fallback.bodyText, 30000);
+  const updatedBy = authUser?.email || authUser?.name || 'CRM adviser';
+  const [saved] = await database.sql`
+    INSERT INTO email_templates (template_key, name, description, subject, body_text, placeholders, updated_by, updated_at)
+    VALUES (${fallback.key}, ${fallback.name}, ${fallback.description}, ${subject}, ${bodyText}, CAST(${JSON.stringify(fallback.placeholders || [])} AS jsonb), ${updatedBy}, NOW())
+    ON CONFLICT (template_key) DO UPDATE SET subject = EXCLUDED.subject, body_text = EXCLUDED.body_text, updated_by = EXCLUDED.updated_by, updated_at = NOW()
+    RETURNING template_key, name, description, subject, body_text, placeholders, updated_at, updated_by`;
+  return mapEmailTemplateFromDb(saved);
+}
+
+async function resetEmailTemplate(templateKey = '', authUser = null) {
+  const database = db();
+  await ensureEmailTemplateSchema(database);
+  const fallback = getDefaultEmailTemplate(String(templateKey || '').trim());
+  if (!fallback) throw new Error('Unknown email template.');
+  const updatedBy = authUser?.email || authUser?.name || 'CRM adviser';
+  const [saved] = await database.sql`
+    INSERT INTO email_templates (template_key, name, description, subject, body_text, placeholders, updated_by, updated_at)
+    VALUES (${fallback.key}, ${fallback.name}, ${fallback.description}, ${fallback.subject}, ${fallback.bodyText}, CAST(${JSON.stringify(fallback.placeholders || [])} AS jsonb), ${updatedBy}, NOW())
+    ON CONFLICT (template_key) DO UPDATE SET subject = EXCLUDED.subject, body_text = EXCLUDED.body_text, updated_by = EXCLUDED.updated_by, updated_at = NOW()
+    RETURNING template_key, name, description, subject, body_text, placeholders, updated_at, updated_by`;
+  return mapEmailTemplateFromDb(saved);
+}
+
+function cleanTextForTemplate(value = '', limit = 30000) {
+  return String(value || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').slice(0, limit);
+}
+
+function renderTemplateText(value = '', context = {}) {
+  return String(value || '').replace(/{{\s*([a-zA-Z0-9_.-]+)\s*}}/g, (_, key) => {
+    const replacement = resolveTemplateValue(context, key);
+    return replacement == null || replacement === '' ? '' : String(replacement);
+  });
+}
+
+function resolveTemplateValue(context = {}, path = '') {
+  return String(path || '').split('.').reduce((current, key) => (current && Object.prototype.hasOwnProperty.call(current, key) ? current[key] : ''), context);
+}
+
+async function buildEmailFromTemplate(templateKey, context = {}, fallback = {}) {
+  const template = await getEmailTemplate(templateKey);
+  const subject = renderTemplateText(template.subject || fallback.subject || '', context).trim() || fallback.subject || '';
+  const bodyText = renderTemplateText(template.bodyText || fallback.bodyText || '', context).trim();
+  return {
+    subject,
+    bodyText,
+    bodyHtml: editableTemplateEmailHtml(bodyText || fallback.bodyText || ''),
+  };
+}
+
+function editableTemplateEmailHtml(bodyText = '') {
+  return `<div style="font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.3; color: #1f2933;">${String(bodyText || '')
+    .split(/\n{2,}/)
+    .filter((paragraph) => paragraph.trim())
+    .map((paragraph) => `<p style="margin:0 0 10px 0; padding:0; line-height:1.3; mso-margin-top-alt:0; mso-margin-bottom-alt:10px;">${linkifyHtml(escapeHtml(paragraph).replace(/\n/g, '<br>'))}</p>`)
+    .join('')}${buildEmailSignatureSpacer(18)}</div>`;
+}
+
 
 async function pruneOldEmailNotifications(database = db()) {
   await database.sql`DELETE FROM email_notifications WHERE created_at < NOW() - INTERVAL '60 days'`;
@@ -1706,10 +2025,22 @@ async function sendSeminarRegistrationEmail(registrationId, outcome = 'approve',
   };
   if (!isValidEmailAddress(registration.email)) throw new Error('This seminar registration does not have a valid email address.');
   const isDecline = String(outcome || '').toLowerCase() === 'decline';
-  const emailDraft = buildSeminarRegistrationEmailContent(registration, isDecline ? 'decline' : 'approve');
+  const fallbackDraft = buildSeminarRegistrationEmailContent(registration, isDecline ? 'decline' : 'approve');
   const config = requireMicrosoftEmailConfig();
   const sentBy = authUser?.email || authUser?.name || 'CRM adviser';
   const templateKey = isDecline ? 'seminar_decline' : 'seminar_approve';
+  const timeSummary = buildSeminarTimeSummary(registration.seminar || {}, registration.timezone);
+  const emailContent = await buildEmailFromTemplate(templateKey, {
+    firstName: firstNameFromFullName(registration.fullName) || 'there',
+    registrantFullName: registration.fullName || '',
+    seminarTitle: registration.seminar?.title || 'Turner Hopkins immigration seminar',
+    presenterName: registration.seminar?.presenterName || 'Turner Hopkins adviser',
+    nzTime: timeSummary.nzTime || 'To be confirmed',
+    localTime: timeSummary.localTime || 'To be confirmed',
+    zoomLink: registration.seminar?.zoomLink || 'To be confirmed',
+    zoomPassword: registration.seminar?.zoomPassword || 'To be confirmed',
+  }, fallbackDraft);
+  const emailDraft = { to: fallbackDraft.to, ...emailContent };
 
   const [created] = await database.sql`
     INSERT INTO email_notifications (related_record_type, related_record_id, template_key, from_email, from_name, to_email, subject, body_text, body_html, status, sent_by)
@@ -1920,10 +2251,17 @@ async function sendContactIntakeInviteEmail(input = {}, authUser = null) {
   const adviser = advisers.find((item) => String(item.id || '') === String(contact.assignedAdviserId || '')) || null;
   const adviserEmail = String(adviser?.email || '').trim();
   const ccEmail = isValidEmailAddress(adviserEmail) ? adviserEmail : '';
-  const emailDraft = buildContactIntakeInviteEmailContent(contact);
+  const fallbackDraft = buildContactIntakeInviteEmailContent(contact);
   const config = requireMicrosoftEmailConfig();
   const database = db();
   const sentBy = authUser?.email || authUser?.name || 'CRM adviser';
+  const intakeFormLink = String(process.env.PUBLIC_INTAKE_FORM_URL || 'https://www.turnerhopkinsimmigration.co.nz/assessment').trim() || 'https://www.turnerhopkinsimmigration.co.nz/assessment';
+  const emailContent = await buildEmailFromTemplate('contact_intake_invite', {
+    firstName: String(contact.firstName || '').trim() || 'there',
+    applicantName: [contact.firstName, contact.lastName].filter(Boolean).join(' ').trim() || contact.email || 'contact',
+    assessmentFormUrl: intakeFormLink,
+  }, fallbackDraft);
+  const emailDraft = { to: fallbackDraft.to, ...emailContent };
 
   const [created] = await database.sql`
     INSERT INTO email_notifications (related_record_type, related_record_id, intake_id, template_key, from_email, from_name, to_email, cc, subject, body_text, body_html, status, sent_by)
@@ -2009,12 +2347,19 @@ async function sendIntakeOutcomeEmail(input = {}, outcome = 'approve', authUser 
   const advisers = await db().sql`SELECT id, name, email FROM advisers ORDER BY name ASC`;
   const adviser = advisers.find((item) => String(item.id || '') === String(intake.assignedAdviserId || '')) || null;
   const adviserEmail = String(adviser?.email || '').trim();
-  const emailDraft = buildIntakeOutcomeEmailContent(intake, adviser, outcome);
+  const fallbackDraft = buildIntakeOutcomeEmailContent(intake, adviser, outcome);
   const config = requireMicrosoftEmailConfig();
   const database = db();
   const sentBy = authUser?.email || authUser?.name || 'CRM adviser';
   const templateKey = outcome === 'decline' ? 'intake_decline' : 'intake_approve';
   const ccEmail = isValidEmailAddress(adviserEmail) ? adviserEmail : '';
+  const applicantName = [intake.firstName, intake.lastName].filter(Boolean).join(' ').trim() || 'your enquiry';
+  const emailContent = await buildEmailFromTemplate(templateKey, {
+    firstName: String(intake.firstName || '').trim() || 'there',
+    applicantName,
+    allocatedTo: isValidEmailAddress(adviserEmail) ? adviserEmail : '[Allocated To]',
+  }, fallbackDraft);
+  const emailDraft = { to: fallbackDraft.to, ...emailContent };
 
   const [created] = await database.sql`
     INSERT INTO email_notifications (related_record_type, related_record_id, intake_id, template_key, from_email, from_name, to_email, cc, subject, body_text, body_html, status, sent_by)
@@ -2166,40 +2511,32 @@ async function sendPortalAccessEmail(client = {}, accessCode = '', authUser = nu
   const firstName = String(client.firstName || '').trim() || 'there';
   const baseUrl = String(process.env.URL || process.env.DEPLOY_URL || '').replace(/\/$/, '') || 'https://this-crm.netlify.app';
   const portalLink = `${baseUrl}/portal`;
-  const subject = 'Your Turner Hopkins client portal access';
-  const bodyText = [
-    `Dear ${firstName},`,
-    '',
-    'We have set up your Turner Hopkins client portal so you can view the latest information we have published about your application progress.',
-    '',
-    `Portal link: ${portalLink}`,
-    `Login email / username: ${portalEmail}`,
-    `Access code: ${accessCode}`,
-    '',
-    'The portal is a secure, read-only space where you can check application updates, view documents we have made available to you, and send notes or questions to your adviser.',
-    '',
-    'We will continue to contact you by email as usual when we need anything further.',
-  ].join('\n');
-  const bodyHtml = `<div style="font-family: Aptos, Arial, sans-serif; font-size: 11pt; line-height: 1.35; color: #1f2933;">
-    <p>Dear ${escapeHtml(firstName)},</p>
-    <p>We have set up your Turner Hopkins client portal so you can view the latest information we have published about your application progress.</p>
-    <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse; margin:12px 0; width:100%; max-width:620px;">
-      <tr><td style="border:1px solid #d9e6e1; padding:8px 10px; font-weight:700; background:#f4fbf8; width:190px;">Portal link</td><td style="border:1px solid #d9e6e1; padding:8px 10px;"><a href="${escapeHtml(portalLink)}">${escapeHtml(portalLink)}</a></td></tr>
-      <tr><td style="border:1px solid #d9e6e1; padding:8px 10px; font-weight:700; background:#f4fbf8;">Login email / username</td><td style="border:1px solid #d9e6e1; padding:8px 10px;">${escapeHtml(portalEmail)}</td></tr>
-      <tr><td style="border:1px solid #d9e6e1; padding:8px 10px; font-weight:700; background:#f4fbf8;">Access code</td><td style="border:1px solid #d9e6e1; padding:8px 10px;"><strong>${escapeHtml(accessCode)}</strong></td></tr>
-    </table>
-    <p>The portal is a secure, read-only space where you can check application updates, view documents we have made available to you, and send notes or questions to your adviser.</p>
-    <p>We will continue to contact you by email as usual when we need anything further.</p>
-  </div>`;
+  const fallback = {
+    subject: 'Your Turner Hopkins client portal access',
+    bodyText: [
+      `Dear ${firstName},`,
+      '',
+      'We have set up your Turner Hopkins client portal so you can view the latest information we have published about your application progress.',
+      '',
+      `Portal link: ${portalLink}`,
+      `Login email / username: ${portalEmail}`,
+      `Access code: ${accessCode}`,
+      '',
+      'The portal is a secure, read-only space where you can check application updates, view documents we have made available to you, and send notes or questions to your adviser.',
+      '',
+      'We will continue to contact you by email as usual when we need anything further.',
+    ].join('\n'),
+  };
+  const emailDraft = await buildEmailFromTemplate('portal_access', { firstName, portalLink, portalEmail, accessCode }, fallback);
 
   const [created] = await database.sql`
     INSERT INTO email_notifications (related_record_type, related_record_id, client_id, template_key, from_email, from_name, to_email, subject, body_text, body_html, status, sent_by)
-    VALUES ('client', ${nullableUuid(client.id)}, ${nullableUuid(client.id)}, 'portal_access', ${config.fromEmail}, ${config.fromName}, ${portalEmail}, ${subject}, ${bodyText}, ${bodyHtml}, 'Sending', ${sentBy})
+    VALUES ('client', ${nullableUuid(client.id)}, ${nullableUuid(client.id)}, 'portal_access', ${config.fromEmail}, ${config.fromName}, ${portalEmail}, ${emailDraft.subject}, ${emailDraft.bodyText}, ${emailDraft.bodyHtml}, 'Sending', ${sentBy})
     RETURNING id`;
 
   try {
     const token = await getMicrosoftGraphAccessToken(config);
-    const sendResult = await sendMicrosoftGraphEmail({ config, token, toEmail: portalEmail, subject, bodyText, bodyHtml });
+    const sendResult = await sendMicrosoftGraphEmail({ config, token, toEmail: portalEmail, subject: emailDraft.subject, bodyText: emailDraft.bodyText, bodyHtml: emailDraft.bodyHtml });
     const [updated] = await database.sql`
       UPDATE email_notifications
          SET status = 'Sent', sent_at = NOW(), provider_request_id = ${sendResult.requestId || ''}, updated_at = NOW()

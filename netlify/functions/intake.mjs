@@ -9,6 +9,30 @@ const INTAKE_UPLOAD_KINDS = {
   applicantCv: 'Applicant CV',
   partnerCv: 'Partner CV',
 };
+
+const DEFAULT_EMAIL_TEMPLATES = [
+  {
+    key: 'new_intake_adviser_notification',
+    name: 'Contact/intake form - internal notification',
+    description: 'Internal notification sent when a public contact form or full assessment form is submitted.',
+    subject: '{{formKind}} submitted - {{applicantName}}',
+    bodyText: `{{intro}}
+
+Applicant: {{applicantName}}
+Email: {{email}}
+Phone: {{phone}}
+Submitted: {{submitted}}
+Flags: {{flags}}
+Record ID: {{intakeId}}
+
+Summary:
+{{summary}}
+
+Please review this in THiS CRM > Enquiries & Intake.`,
+    placeholders: ['formKind', 'intro', 'applicantName', 'email', 'phone', 'submitted', 'flags', 'intakeId', 'summary'],
+  },
+];
+
 const INTAKE_UPLOAD_TYPES = new Set([
   'application/pdf',
   'application/msword',
@@ -432,9 +456,23 @@ async function sendNewIntakeNotificationEmail({ intakeId = '', payload = {}, fla
   await ensureEmailNotificationSchema();
   await pruneOldEmailNotifications();
   const isContact = payload.formType === 'contact';
-  const subject = `${isContact ? 'New contact form submitted' : 'New intake questionnaire submitted'} - ${[payload.firstName, payload.lastName].filter(Boolean).join(' ') || 'Unnamed enquiry'}`;
-  const bodyText = buildNewIntakeNotificationBody({ intakeId, payload, flags, createdAt });
-  const bodyHtml = buildNewIntakeNotificationHtml({ intakeId, payload, flags, createdAt });
+  const fallbackSubject = `${isContact ? 'New contact form submitted' : 'New intake questionnaire submitted'} - ${[payload.firstName, payload.lastName].filter(Boolean).join(' ') || 'Unnamed enquiry'}`;
+  const fallbackBody = buildNewIntakeNotificationBody({ intakeId, payload, flags, createdAt });
+  const summary = intakeSummarySections(payload).map((section) => `${section.title}\n${section.rows.map((row) => `${row.label}: ${row.value}`).join('\n')}`).join('\n\n') || 'No summary details recorded.';
+  const templateDraft = await buildEmailFromTemplate('new_intake_adviser_notification', {
+    formKind: isContact ? 'New contact form' : 'New intake questionnaire',
+    intro: isContact ? 'A new short contact form enquiry has been submitted through the THiS website.' : 'A new assessment questionnaire has been submitted through the THiS intake form.',
+    applicantName: fullName(payload) || 'Not recorded',
+    email: payload.email || 'Not recorded',
+    phone: payload.phone || 'Not recorded',
+    submitted: createdAt ? formatNzDateTime(createdAt) : 'Just now',
+    flags: reviewFlagLabels(flags).join(', ') || 'None',
+    intakeId,
+    summary,
+  }, { subject: fallbackSubject, bodyText: fallbackBody });
+  const subject = templateDraft.subject;
+  const bodyText = templateDraft.bodyText;
+  const bodyHtml = templateDraft.bodyHtml;
   const database = db();
   const toEmailLog = toEmails.join(', ');
   const [created] = await database.sql`
@@ -696,10 +734,54 @@ async function ensureEmailNotificationSchema() {
     )`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_email_notifications_created_at ON email_notifications(created_at DESC)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_email_notifications_status ON email_notifications(status)`;
+  await ensureEmailTemplateSchema(database);
 }
 
 async function pruneOldEmailNotifications() {
   await db().sql`DELETE FROM email_notifications WHERE created_at < NOW() - INTERVAL '60 days'`;
+}
+
+
+async function ensureEmailTemplateSchema(database = db()) {
+  await database.sql`CREATE EXTENSION IF NOT EXISTS pgcrypto`;
+  await database.sql`
+    CREATE TABLE IF NOT EXISTS email_templates (
+      template_key TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      subject TEXT NOT NULL,
+      body_text TEXT NOT NULL,
+      placeholders JSONB NOT NULL DEFAULT '[]'::jsonb,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_by TEXT
+    )`;
+  for (const template of DEFAULT_EMAIL_TEMPLATES) {
+    await database.sql`
+      INSERT INTO email_templates (template_key, name, description, subject, body_text, placeholders, updated_by)
+      VALUES (${template.key}, ${template.name}, ${template.description}, ${template.subject}, ${template.bodyText}, CAST(${JSON.stringify(template.placeholders || [])} AS jsonb), 'System default')
+      ON CONFLICT (template_key) DO NOTHING`;
+  }
+}
+
+async function getEmailTemplate(templateKey = '') {
+  await ensureEmailTemplateSchema();
+  const fallback = DEFAULT_EMAIL_TEMPLATES.find((template) => template.key === templateKey) || DEFAULT_EMAIL_TEMPLATES[0];
+  const rows = await db().sql`SELECT template_key, subject, body_text FROM email_templates WHERE template_key = ${templateKey} LIMIT 1`;
+  return { subject: rows[0]?.subject || fallback.subject, bodyText: rows[0]?.body_text || fallback.bodyText };
+}
+
+async function buildEmailFromTemplate(templateKey, context = {}, fallback = {}) {
+  const template = await getEmailTemplate(templateKey);
+  const subject = renderTemplateText(template.subject || fallback.subject || '', context).trim() || fallback.subject || '';
+  const bodyText = renderTemplateText(template.bodyText || fallback.bodyText || '', context).trim() || fallback.bodyText || '';
+  return { subject, bodyText, bodyHtml: textToHtml(bodyText) };
+}
+
+function renderTemplateText(value = '', context = {}) {
+  return String(value || '').replace(/{{\s*([a-zA-Z0-9_.-]+)\s*}}/g, (_, key) => {
+    const replacement = String(key || '').split('.').reduce((current, part) => (current && Object.prototype.hasOwnProperty.call(current, part) ? current[part] : ''), context);
+    return replacement == null ? '' : String(replacement);
+  });
 }
 
 function requireMicrosoftEmailConfig() {
