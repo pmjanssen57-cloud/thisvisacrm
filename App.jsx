@@ -3383,7 +3383,7 @@ function PortalAccordionCard({ title, description, icon = null, children, classN
         </div>
         <span className="portal-collapsible-actions">
           {badge}
-          {icon}
+          {icon && <span className="portal-collapsible-icon-chip">{icon}</span>}
           <ChevronRight size={20} className="portal-collapsible-chevron" />
         </span>
       </button>
@@ -3554,7 +3554,8 @@ function ClientPortalDashboard({ snapshot, onSignOut, onRefresh, onSubmitPortalM
         <PortalAccordionCard
           title="Document checklist"
           description="Outstanding items are shown first. Completed items are marked as obtained."
-          className="wide"
+          className="wide portal-document-checklist-card"
+          icon={<ListChecks size={22} />}
           defaultOpen
         >
           {documentsRequired.length ? (

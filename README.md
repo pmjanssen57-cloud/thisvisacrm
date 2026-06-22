@@ -1,8 +1,8 @@
-# THiS CRM v0.12.34 - Portal Welcome and Collapsible Sections
+# THiS CRM v0.12.35 - Portal Welcome and Collapsible Sections
 
 This build fine-tunes the client portal login experience and makes the client portal content sections expandable/collapsible so clients can focus on the section they need without facing one long page.
 
-## v0.12.34 changes
+## v0.12.35 changes
 
 - Updated the client portal login page title from **Client application update** to **Welcome to your portal**.
 - Reworked the login page wording to feel more client-friendly and less formal.
@@ -25,3 +25,10 @@ This build fine-tunes the client portal login experience and makes the client po
 ## Previous build
 
 Based on THiS CRM v0.12.33 - Intake Notification Summary Fix.
+
+
+## v0.12.35 - Portal section card polish
+
+- Added the missing Document checklist icon in the client portal.
+- Gave expandable portal section cards a subtle mint-tinted background, left accent rule, icon chip styling, and hover/open states so they stand out without becoming visually busy.
+- No database migration required.

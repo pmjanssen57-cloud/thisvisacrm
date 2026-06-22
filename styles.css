@@ -8495,3 +8495,56 @@ body.intake-embed-mode .seminar-public-card {
     padding: 0 16px 16px;
   }
 }
+
+/* v0.12.35 portal section card polish */
+.portal-dashboard-grid .portal-collapsible-card {
+  position: relative;
+  background: linear-gradient(135deg, #ffffff 0%, #fbfffd 52%, #f3fbf7 100%);
+  border: 1px solid rgba(85, 217, 160, 0.28);
+  box-shadow: 0 10px 24px rgba(0, 55, 54, 0.045);
+}
+
+.portal-dashboard-grid .portal-collapsible-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  background: linear-gradient(180deg, rgba(85, 217, 160, 0.92), rgba(0, 55, 54, 0.72));
+  opacity: 0.72;
+}
+
+.portal-dashboard-grid .portal-collapsible-card.collapsed:hover {
+  border-color: rgba(85, 217, 160, 0.55);
+  box-shadow: 0 14px 30px rgba(0, 55, 54, 0.07);
+  transform: translateY(-1px);
+}
+
+.portal-dashboard-grid .portal-collapsible-card.open {
+  background: linear-gradient(135deg, #ffffff 0%, #fbfffd 70%, #f6fffb 100%);
+  border-color: rgba(85, 217, 160, 0.42);
+}
+
+.portal-collapsible-icon-chip {
+  width: 38px;
+  height: 38px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink);
+  background: rgba(85, 217, 160, 0.13);
+  border: 1px solid rgba(85, 217, 160, 0.34);
+}
+
+.portal-collapsible-card.open .portal-collapsible-icon-chip {
+  background: rgba(85, 217, 160, 0.2);
+}
+
+.portal-collapsible-card.collapsed .portal-collapsible-chevron,
+.portal-collapsible-card.open .portal-collapsible-chevron {
+  color: var(--ink);
+}
+
+.portal-document-checklist-card .portal-collapsible-icon-chip {
+  background: rgba(0, 55, 54, 0.055);
+}
