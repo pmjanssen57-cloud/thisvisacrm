@@ -195,14 +195,15 @@ async function getBookingPagePayload(token) {
     .filter((type) => !allowedSet.size || allowedSet.has(type.id));
 
   const availability = await database.sql`SELECT id, adviser_id, day_of_week, start_time, end_time, consultation_type_ids, active FROM adviser_booking_availability WHERE adviser_id = ${link.adviser_id} AND active = TRUE ORDER BY day_of_week ASC, start_time ASC`;
+  const bookingWindowDays = 28;
   const fromDate = addDays(todayIso(), 1);
-  const toDate = addDays(todayIso(), 45);
+  const toDate = addDays(fromDate, bookingWindowDays - 1);
   const blocks = await database.sql`SELECT block_date, start_time, end_time, all_day FROM adviser_booking_blocks WHERE adviser_id = ${link.adviser_id} AND block_date >= ${fromDate} AND block_date <= ${toDate}`;
   const bookings = await database.sql`SELECT id, booking_date, start_time, end_time, status FROM consultation_bookings WHERE adviser_id = ${link.adviser_id} AND booking_date >= ${fromDate} AND booking_date <= ${toDate} AND status <> 'Cancelled'`;
   const busyBookings = bookings
     .filter((booking) => !existingBooking || String(booking.id) !== String(existingBooking.id))
     .map(mapBookingBusy);
-  const slots = generateSlots({ types, availability: availability.map(mapAvailability), blocks: blocks.map(mapBlock), bookings: busyBookings, fromDate, days: 45 });
+  const slots = generateSlots({ types, availability: availability.map(mapAvailability), blocks: blocks.map(mapBlock), bookings: busyBookings, fromDate, days: bookingWindowDays });
 
   return {
     ok: true,
@@ -224,6 +225,7 @@ async function getBookingPagePayload(token) {
     manageUrl: buildBookingUrl(token),
     timeZone: 'Pacific/Auckland',
     timeZoneLabel: 'New Zealand time',
+    bookingWindowDays,
   };
 }
 

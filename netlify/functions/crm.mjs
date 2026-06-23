@@ -504,6 +504,11 @@ async function handleCrmEvent(event) {
       return json({ consultationBooking, ...(await readCrmData()) });
     }
 
+    if (action === 'cancelConsultationBooking') {
+      const result = await cancelConsultationBooking(body.bookingId || body.id, auth.user);
+      return json({ ...result, ...(await readCrmData()), emailConfig: getEmailConfigStatus() });
+    }
+
     if (action === 'downloadIntakeUpload') {
       const upload = await downloadIntakeUpload(body.intakeId, body.kind);
       return json({ upload });
@@ -2482,6 +2487,131 @@ async function saveConsultationBooking(input = {}) {
      WHERE id = ${item.id}
      RETURNING id, booking_link_id, intake_id, adviser_id, consultation_type_id, booking_date, start_time, end_time, applicant_name, applicant_email, applicant_phone, notes, status, payment_status, created_at, updated_at`;
   return mapConsultationBookingFromDb(rows[0]);
+}
+
+async function cancelConsultationBooking(bookingId, authUser = null) {
+  if (!isUuid(bookingId)) throw new Error('A saved booking is required.');
+  const database = db();
+  const rows = await database.sql`
+    SELECT b.id, b.booking_link_id, b.intake_id, b.adviser_id, b.consultation_type_id, b.booking_date, b.start_time, b.end_time, b.applicant_name, b.applicant_email, b.applicant_phone, b.notes, b.status, b.payment_status, b.created_at, b.updated_at,
+           l.token,
+           a.name AS adviser_name, a.email AS adviser_email, a.phone AS adviser_phone,
+           t.name AS type_name, t.duration_minutes, t.price_nzd, t.paid
+      FROM consultation_bookings b
+      LEFT JOIN consultation_booking_links l ON l.id = b.booking_link_id
+      LEFT JOIN advisers a ON a.id = b.adviser_id
+      LEFT JOIN consultation_types t ON t.id = b.consultation_type_id
+     WHERE b.id = ${bookingId}
+     LIMIT 1`;
+  const row = rows[0];
+  if (!row) throw new Error('Consultation booking not found.');
+  if (row.status === 'Cancelled') return { consultationBooking: mapConsultationBookingFromDb(row), emailLogs: [] };
+
+  const cancelledBy = authUser?.email || authUser?.user_metadata?.full_name || 'CRM adviser';
+  const cancellationNote = `Cancelled by adviser in THiS CRM${cancelledBy ? ` (${cancelledBy})` : ''}.`;
+  const nextNotes = [row.notes, cancellationNote].filter(Boolean).join('\n');
+  const updatedRows = await database.sql`
+    UPDATE consultation_bookings
+       SET status = 'Cancelled', notes = ${nextNotes}, updated_at = NOW()
+     WHERE id = ${row.id}
+     RETURNING id, booking_link_id, intake_id, adviser_id, consultation_type_id, booking_date, start_time, end_time, applicant_name, applicant_email, applicant_phone, notes, status, payment_status, created_at, updated_at`;
+  if (row.booking_link_id) {
+    await database.sql`UPDATE consultation_booking_links SET status = 'Active', updated_at = NOW() WHERE id = ${row.booking_link_id}`;
+  }
+
+  const booking = mapConsultationBookingFromDb(updatedRows[0]);
+  const manageUrl = row.token ? buildBookingUrl(row.token) : '';
+  const consultationType = { name: row.type_name || 'Consultation' };
+  const adviser = { name: row.adviser_name || 'Turner Hopkins adviser', email: row.adviser_email || '', phone: row.adviser_phone || '' };
+  const emailLogs = [];
+  const applicantLog = await recordConsultationCancellationEmail({ database, booking, consultationType, adviser, manageUrl, recipientKind: 'applicant', cancelledBy });
+  if (applicantLog) emailLogs.push(applicantLog);
+  const adviserLog = await recordConsultationCancellationEmail({ database, booking, consultationType, adviser, manageUrl, recipientKind: 'adviser', cancelledBy });
+  if (adviserLog) emailLogs.push(adviserLog);
+  return { consultationBooking: booking, emailLogs };
+}
+
+async function recordConsultationCancellationEmail({ database, booking, consultationType, adviser, manageUrl = '', recipientKind = 'applicant', cancelledBy = '' }) {
+  const configStatus = getEmailConfigStatus();
+  const toEmail = recipientKind === 'adviser' ? adviser.email : booking.applicantEmail;
+  if (!isValidEmailAddress(toEmail)) return null;
+  const appointmentLine = `${formatCrmBookingDate(booking.bookingDate)} at ${formatCrmBookingTime(booking.startTime)} NZ time`;
+  const subject = recipientKind === 'adviser'
+    ? `Consultation cancelled: ${booking.applicantName || booking.applicantEmail || 'Applicant'}`
+    : 'Your Turner Hopkins consultation reservation has been cancelled';
+  const bodyText = recipientKind === 'adviser'
+    ? [
+        'A consultation reservation has been cancelled in THiS CRM.',
+        '',
+        `Applicant: ${booking.applicantName || 'Not recorded'}`,
+        `Email: ${booking.applicantEmail || 'Not recorded'}`,
+        `Phone: ${booking.applicantPhone || 'Not recorded'}`,
+        `Consultation: ${consultationType.name || 'Consultation'}`,
+        `Reserved time: ${appointmentLine}`,
+        cancelledBy ? `Cancelled by: ${cancelledBy}` : '',
+        manageUrl ? `The original booking link has been reopened if the applicant needs to choose another time: ${manageUrl}` : '',
+      ].filter(Boolean).join('\n')
+    : [
+        `Hi ${firstNameFromFullName(booking.applicantName) || 'there'},`,
+        '',
+        'Your Turner Hopkins consultation reservation has been cancelled by our team.',
+        '',
+        `Consultation: ${consultationType.name || 'Consultation'}`,
+        `Original reserved time: ${appointmentLine}`,
+        `Adviser: ${adviser.name || 'Turner Hopkins adviser'}`,
+        '',
+        manageUrl ? `If you still need to book a consultation, you can choose another available time using this secure link: ${manageUrl}` : 'If you still need to book a consultation, please contact your adviser directly.',
+        '',
+        'Kind regards,',
+        'Turner Hopkins Immigration Specialists',
+      ].join('\n');
+  const status = configStatus.configured ? 'Sending' : 'Draft';
+  const [created] = await database.sql`
+    INSERT INTO email_notifications (related_record_type, related_record_id, intake_id, template_key, from_email, from_name, to_email, subject, body_text, body_html, status, sent_by)
+    VALUES ('consultation_booking', ${booking.id}, ${nullableUuid(booking.intakeId)}, ${recipientKind === 'adviser' ? 'consultation_cancel_adviser' : 'consultation_cancel_applicant'}, ${configStatus.fromEmail}, ${configStatus.fromName}, ${toEmail}, ${subject}, ${bodyText}, ${textToHtml(bodyText)}, ${status}, ${cancelledBy || 'CRM adviser'})
+    RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+  if (!configStatus.configured) return mapEmailLogFromDb(created);
+  try {
+    const config = requireMicrosoftEmailConfig();
+    const token = await getMicrosoftGraphAccessToken(config);
+    const sendResult = await sendMicrosoftGraphEmail({ config, token, toEmail, subject, bodyText, bodyHtml: textToHtml(bodyText) });
+    const [updated] = await database.sql`
+      UPDATE email_notifications
+         SET status = 'Sent', sent_at = NOW(), provider_request_id = ${sendResult.requestId || ''}, updated_at = NOW()
+       WHERE id = ${created.id}
+       RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+    return mapEmailLogFromDb(updated);
+  } catch (error) {
+    const message = String(error?.message || error).slice(0, 1000);
+    const [failed] = await database.sql`
+      UPDATE email_notifications
+         SET status = 'Failed', failed_at = NOW(), failure_message = ${message}, updated_at = NOW()
+       WHERE id = ${created.id}
+       RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+    return mapEmailLogFromDb(failed);
+  }
+}
+
+function formatCrmBookingDate(value = '') {
+  const date = parseIsoDate(value);
+  if (!date) return value || '';
+  return new Intl.DateTimeFormat('en-NZ', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(date);
+}
+
+function formatCrmBookingTime(value = '') {
+  const time = normaliseTimeText(value);
+  if (!time) return value || '';
+  const [hour, minute] = time.split(':').map(Number);
+  const suffix = hour >= 12 ? 'pm' : 'am';
+  const displayHour = hour % 12 || 12;
+  return `${displayHour}:${String(minute).padStart(2, '0')}${suffix}`;
+}
+
+function parseIsoDate(value = '') {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value || ''));
+  if (!match) return null;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function normaliseConsultationTypeInput(input = {}) {

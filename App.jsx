@@ -939,6 +939,19 @@ export default function App() {
     return await callApi('saveConsultationBooking', { booking });
   }
 
+  async function cancelConsultationBooking(booking) {
+    const applicant = booking?.applicantName || booking?.applicantEmail || 'the applicant';
+    const confirmed = await askCrmConfirm({
+      title: 'Cancel consultation reservation?',
+      message: `This will cancel the reserved consultation for ${applicant} and email the applicant with an update.`,
+      confirmLabel: 'Cancel & notify',
+      tone: 'danger',
+      details: ['The original booking link will be reopened so the applicant can choose another available time if needed.'],
+    });
+    if (!confirmed) return;
+    return await callApi('cancelConsultationBooking', { bookingId: booking.id });
+  }
+
   async function sendSeminarRegistrationEmail(registrationId, outcome) {
     const body = await callApi('sendSeminarRegistrationEmail', { registrationId, outcome }, { skipDataUpdate: true });
     if (body.emailLog) {
@@ -1204,6 +1217,7 @@ export default function App() {
                 saveBookingLink={saveBookingLink}
                 deleteBookingLink={deleteBookingLink}
                 saveConsultationBooking={saveConsultationBooking}
+                cancelConsultationBooking={cancelConsultationBooking}
                 saving={saving}
               />
             )}
@@ -1337,6 +1351,7 @@ function ConsultationBookingPublicApp() {
   const [cancelConfirming, setCancelConfirming] = useState(false);
   const [selectedTypeId, setSelectedTypeId] = useState('');
   const [selectedSlotId, setSelectedSlotId] = useState('');
+  const [expandedWeekKeys, setExpandedWeekKeys] = useState([]);
   const [form, setForm] = useState({ applicantName: '', applicantEmail: '', applicantPhone: '', notes: '' });
 
   const token = useMemo(() => new URLSearchParams(window.location.search).get('token') || '', []);
@@ -1377,8 +1392,21 @@ function ConsultationBookingPublicApp() {
   const existingBooking = payload?.existingBooking || null;
   const selectedType = payload?.consultationTypes?.find((type) => type.id === selectedTypeId) || null;
   const slots = (payload?.slots || []).filter((slot) => slot.consultationTypeId === selectedTypeId);
-  const groupedSlots = groupBookingSlots(slots);
+  const groupedWeeks = groupBookingSlotsByWeek(slots);
   const selectedSlot = slots.find((slot) => slot.id === selectedSlotId) || null;
+
+  useEffect(() => {
+    const keys = groupedWeeks.map((week) => week.key);
+    setExpandedWeekKeys((current) => {
+      if (!keys.length) return [];
+      const kept = current.filter((key) => keys.includes(key));
+      return kept.length ? kept : [keys[0]];
+    });
+  }, [selectedTypeId, payload?.slots?.length]);
+
+  function toggleBookingWeek(key) {
+    setExpandedWeekKeys((current) => current.includes(key) ? current.filter((item) => item !== key) : [...current, key]);
+  }
 
   async function submitBooking(event) {
     event.preventDefault();
@@ -1466,7 +1494,25 @@ function ConsultationBookingPublicApp() {
             <div className="public-booking-intro"><span className="eyebrow">Online consultation booking</span><h1>{existingBooking ? 'Choose a new time' : `Choose a time with ${payload.adviser?.name || 'your adviser'}`}</h1><p>All appointment slots are shown in New Zealand time (Pacific/Auckland). Where your browser timezone differs, your local equivalent is shown under the NZ time.</p></div>
             <div className="booking-timezone-note"><Globe2 size={17} /><span>NZ time: Pacific/Auckland. Your browser timezone: {getBrowserTimeZoneLabel()}.</span></div>
             <div className="booking-public-step"><h2>1. Consultation type</h2><div className="public-type-grid">{payload.consultationTypes.map((type) => <button key={type.id} type="button" className={selectedTypeId === type.id ? 'active' : ''} onClick={() => { setSelectedTypeId(type.id); setSelectedSlotId(''); }}><strong>{type.name}</strong><span>{type.durationMinutes} minutes · {type.paid ? `${formatCurrency(type.priceNzd)} NZD` : 'Free'}</span><small>{type.description}</small></button>)}</div></div>
-            <div className="booking-public-step"><h2>2. Available times</h2>{!slots.length && <p className="muted">No available times are currently showing for this consultation type. Please contact Turner Hopkins directly.</p>}<div className="public-slot-groups">{groupedSlots.map((group) => <div key={group.date} className="public-slot-group"><strong>{formatBookingDate(group.date)}</strong><div>{group.slots.map((slot) => <button key={slot.id} type="button" className={selectedSlotId === slot.id ? 'active' : ''} onClick={() => setSelectedSlotId(slot.id)}><span>{formatBookingTime(slot.startTime)} NZ</span><small>{formatBrowserLocalSlot(slot.date, slot.startTime)}</small></button>)}</div></div>)}</div></div>
+            <div className="booking-public-step">
+              <h2>2. Available times</h2>
+              <p className="muted">Choose a time within the next four weeks. Week 1 is open first; expand later weeks if you need a date further ahead.</p>
+              {!slots.length && <p className="muted">No available times are currently showing for this consultation type. Please contact Turner Hopkins directly.</p>}
+              <div className="public-slot-weeks">
+                {groupedWeeks.map((week, index) => {
+                  const expanded = expandedWeekKeys.includes(week.key);
+                  return (
+                    <section key={week.key} className={`public-slot-week ${expanded ? 'open' : ''}`}>
+                      <button className="public-slot-week-toggle" type="button" onClick={() => toggleBookingWeek(week.key)} aria-expanded={expanded}>
+                        <span><strong>{index === 0 ? 'Week 1 — earliest available times' : week.label}</strong><small>{week.slotCount} available {week.slotCount === 1 ? 'time' : 'times'} · {week.rangeLabel}</small></span>
+                        <ChevronDown size={18} />
+                      </button>
+                      {expanded && <div className="public-slot-groups">{week.days.map((group) => <div key={group.date} className="public-slot-group"><strong>{formatBookingDate(group.date)}</strong><div>{group.slots.map((slot) => <button key={slot.id} type="button" className={selectedSlotId === slot.id ? 'active' : ''} onClick={() => setSelectedSlotId(slot.id)}><span>{formatBookingTime(slot.startTime)} NZ</span><small>{formatBrowserLocalSlot(slot.date, slot.startTime)}</small></button>)}</div></div>)}</div>}
+                    </section>
+                  );
+                })}
+              </div>
+            </div>
             <div className="booking-public-step"><h2>3. Confirm your details</h2><div className="form-grid two"><Field label="Full name" value={form.applicantName} onChange={(value) => setForm((current) => ({ ...current, applicantName: value }))} /><Field label="Email" value={form.applicantEmail} onChange={(value) => setForm((current) => ({ ...current, applicantEmail: value }))} /><Field label="Phone" value={form.applicantPhone} onChange={(value) => setForm((current) => ({ ...current, applicantPhone: value }))} /></div><TextArea label="Anything you want us to know before the consultation?" value={form.notes} onChange={(value) => setForm((current) => ({ ...current, notes: value }))} rows={3} /></div>
             {selectedType?.paid && <div className="notice-card"><CreditCard size={18} /><span>This consultation is marked as paid. Payment is not taken on this page yet; Turner Hopkins will handle that manually.</span></div>}
             <div className="public-booking-actions"><button className="btn dark public-booking-submit" type="submit" disabled={submitting || !selectedSlotId}>{submitting ? <RefreshCw size={16} /> : <CalendarDays size={16} />}{existingBooking ? 'Reserve new time' : 'Reserve consultation'}</button>{existingBooking && <button className="btn ghost" type="button" onClick={() => { setManageMode(false); setCancelConfirming(false); }}>Keep current time</button>}</div>
@@ -1516,7 +1562,36 @@ function groupBookingSlots(slots = []) {
     if (!map.has(slot.date)) map.set(slot.date, []);
     map.get(slot.date).push(slot);
   });
-  return Array.from(map.entries()).map(([date, groupSlots]) => ({ date, slots: groupSlots.sort((a, b) => String(a.startTime).localeCompare(String(b.startTime))) }));
+  return Array.from(map.entries()).sort(([a], [b]) => String(a).localeCompare(String(b))).map(([date, groupSlots]) => ({ date, slots: groupSlots.sort((a, b) => String(a.startTime).localeCompare(String(b.startTime))) }));
+}
+
+function groupBookingSlotsByWeek(slots = []) {
+  const days = groupBookingSlots(slots);
+  if (!days.length) return [];
+  const firstDate = parseLocalDate(days[0].date);
+  if (!firstDate) return [{ key: 'week-0', label: 'Available times', rangeLabel: '', slotCount: slots.length, days }];
+  const weeks = new Map();
+  days.forEach((day) => {
+    const dayDate = parseLocalDate(day.date);
+    const diff = dayDate ? Math.max(0, Math.floor((dayDate - firstDate) / 86400000)) : 0;
+    const weekIndex = Math.floor(diff / 7);
+    const key = `week-${weekIndex}`;
+    if (!weeks.has(key)) {
+      const weekStart = addDaysIso(days[0].date, weekIndex * 7);
+      const weekEnd = addDaysIso(weekStart, 6);
+      weeks.set(key, {
+        key,
+        label: `Week ${weekIndex + 1}`,
+        rangeLabel: `${formatBookingDateShort(weekStart)} - ${formatBookingDateShort(weekEnd)}`,
+        slotCount: 0,
+        days: [],
+      });
+    }
+    const week = weeks.get(key);
+    week.days.push(day);
+    week.slotCount += day.slots.length;
+  });
+  return Array.from(weeks.values());
 }
 
 function IntakeFormApp() {
@@ -2320,7 +2395,7 @@ const BOOKING_DAY_OPTIONS = [
 const BOOKING_STATUS_OPTIONS = ['Reserved', 'Confirmed', 'Cancelled', 'Completed', 'No-show'];
 const BOOKING_LINK_STATUS_OPTIONS = ['Active', 'Used', 'Expired', 'Cancelled'];
 
-function ConsultationBookingWorkspace({ advisers = [], intakeEnquiries = [], consultationTypes = [], bookingAvailability = [], bookingBlocks = [], bookingLinks = [], consultationBookings = [], dashboardAdviserFilter = 'all', saveConsultationType, deleteConsultationType, saveBookingAvailability, saveBookingAvailabilityBulk, deleteBookingAvailability, saveBookingBlock, saveBookingBlockBulk, deleteBookingBlock, saveBookingLink, deleteBookingLink, saveConsultationBooking, saving = false }) {
+function ConsultationBookingWorkspace({ advisers = [], intakeEnquiries = [], consultationTypes = [], bookingAvailability = [], bookingBlocks = [], bookingLinks = [], consultationBookings = [], dashboardAdviserFilter = 'all', saveConsultationType, deleteConsultationType, saveBookingAvailability, saveBookingAvailabilityBulk, deleteBookingAvailability, saveBookingBlock, saveBookingBlockBulk, deleteBookingBlock, saveBookingLink, deleteBookingLink, saveConsultationBooking, cancelConsultationBooking, saving = false }) {
   const [activeTab, setActiveTab] = useState('overview');
   const activeAdvisers = advisers.filter((adviser) => adviser.active !== false);
   const defaultAdviserId = dashboardAdviserFilter !== 'all' ? dashboardAdviserFilter : (activeAdvisers[0]?.id || advisers[0]?.id || '');
@@ -2582,7 +2657,7 @@ function ConsultationBookingWorkspace({ advisers = [], intakeEnquiries = [], con
       )}
 
       {activeTab === 'bookings' && (
-        <section className="sub-panel booking-list-panel full-width"><h2>Consultation bookings</h2>{scopedBookings.map((booking) => { const draft = bookingDrafts[booking.id] || booking; return <div key={booking.id} className="booking-record-card"><div className="booking-record-main"><strong>{booking.applicantName || booking.applicantEmail}</strong><span>{typeName(booking.consultationTypeId)} with {adviserName(booking.adviserId)}</span><small>{formatBookingDateTime(booking.bookingDate, booking.startTime)} · {booking.paymentStatus}</small></div><div className="booking-record-controls"><select value={draft.status || booking.status} onChange={(event) => setBookingDraft(booking.id, { status: event.target.value })}>{BOOKING_STATUS_OPTIONS.map((status) => <option key={status} value={status}>{status}</option>)}</select><input value={draft.paymentStatus || ''} onChange={(event) => setBookingDraft(booking.id, { paymentStatus: event.target.value })} placeholder="Payment status" /><button className="btn dark mini" type="button" onClick={() => saveBookingPatch(booking)} disabled={saving}><Save size={14} />Save</button></div><TextArea label="Notes" value={draft.notes || ''} onChange={(value) => setBookingDraft(booking.id, { notes: value })} rows={2} /></div>; })}{!scopedBookings.length && <p className="muted">No bookings yet. Once an applicant self-books, the booking will appear here.</p>}</section>
+        <section className="sub-panel booking-list-panel full-width"><h2>Consultation bookings</h2>{scopedBookings.map((booking) => { const draft = bookingDrafts[booking.id] || booking; const activeBooking = !['Cancelled', 'Completed', 'No-show'].includes(booking.status); return <div key={booking.id} className={`booking-record-card ${booking.status === 'Cancelled' ? 'cancelled' : ''}`}><div className="booking-record-main"><strong>{booking.applicantName || booking.applicantEmail}</strong><span>{typeName(booking.consultationTypeId)} with {adviserName(booking.adviserId)}</span><small>{formatBookingDateTime(booking.bookingDate, booking.startTime)} · {booking.status || 'Reserved'} · {booking.paymentStatus}</small></div><div className="booking-record-controls"><select value={draft.status || booking.status} onChange={(event) => setBookingDraft(booking.id, { status: event.target.value })}>{BOOKING_STATUS_OPTIONS.map((status) => <option key={status} value={status}>{status}</option>)}</select><input value={draft.paymentStatus || ''} onChange={(event) => setBookingDraft(booking.id, { paymentStatus: event.target.value })} placeholder="Payment status" /><button className="btn dark mini" type="button" onClick={() => saveBookingPatch(booking)} disabled={saving}><Save size={14} />Save</button>{activeBooking && <button className="btn danger mini" type="button" onClick={() => cancelConsultationBooking?.(booking)} disabled={saving}><X size={14} />Cancel & notify</button>}</div><TextArea label="Notes" value={draft.notes || ''} onChange={(value) => setBookingDraft(booking.id, { notes: value })} rows={2} /></div>; })}{!scopedBookings.length && <p className="muted">No bookings yet. Once an applicant self-books, the booking will appear here.</p>}</section>
       )}
     </section>
   );
@@ -2624,11 +2699,17 @@ function formatBookingDate(value = '') {
   if (!date) return value || '';
   return new Intl.DateTimeFormat('en-NZ', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }).format(date);
 }
+function formatBookingDateShort(value = '') {
+  const date = parseLocalDate(value);
+  if (!date) return value || '';
+  return new Intl.DateTimeFormat('en-NZ', { day: 'numeric', month: 'short' }).format(date);
+}
 function formatBookingDateTime(date, time) {
   return `${formatBookingDate(date)} at ${formatBookingTime(time)}`;
 }
 
 function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', statuses, seminars = [], seminarRegistrations = [], saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, sendContactIntakeInviteEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saving, openClientRecord, confirmAction }) {
+  const askConfirm = confirmAction || (async ({ message }) => window.confirm(message || 'Continue?'));
   const simplifiedStatuses = (statuses || INTAKE_STATUSES).filter((status) => INTAKE_STATUSES.includes(status));
   const [workspaceTab, setWorkspaceTab] = useState('contact');
   const [statusFilter, setStatusFilter] = useState('New');
@@ -3088,6 +3169,7 @@ function makeBlankSeminar() {
 }
 
 function SeminarManagementPanel({ seminars = [], registrations = [], saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saving, confirmAction }) {
+  const askConfirm = confirmAction || (async ({ message }) => window.confirm(message || 'Continue?'));
   const sortedSeminars = [...seminars].map(normaliseSeminar).sort((a, b) => String(b.seminarDate || '').localeCompare(String(a.seminarDate || '')) || String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
   const activeSeminar = sortedSeminars.find((item) => item.status === 'Active') || sortedSeminars[0] || null;
   const [selectedSeminarId, setSelectedSeminarId] = useState(activeSeminar?.id || 'new');

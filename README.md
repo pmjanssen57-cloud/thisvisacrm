@@ -1,4 +1,4 @@
-# THiS CRM v0.13.14 — Approval Booking Email Contact Option
+# THiS CRM v0.13.16 — Approval Booking Email Contact Option
 
 This build sits on top of v0.13.13 and adds a direct adviser email option to the assessment approval + booking email while retaining the booking link/button.
 
@@ -164,10 +164,28 @@ This package includes the consultation booking foundation, portal footer polish,
 - No database migration required.
 
 
-## v0.13.14 — Approval Booking Email Contact Option
+## v0.13.16 — Approval Booking Email Contact Option
 
 - Added an adviser email fallback line to the assessment approval + booking email.
 - Applicants still receive the secure booking link/button, but can also email the assigned consultant directly if they prefer.
 - Added the adviser email fallback to both generated approval email HTML and editable-template generated approval emails.
 - Added `adviserEmail` as an available placeholder for the assessment approval template while retaining `allocatedTo`.
+- No database migration required.
+
+
+## v0.13.16 — Booking Cancellation and Four-Week Slot View
+
+- Added adviser-side booking cancellation from the CRM consultation booking list.
+- Adviser cancellation sets the booking to Cancelled, reopens the original secure booking link, and sends/logs notification emails for the applicant and adviser where email settings allow.
+- Public booking slots are now limited to the next four weeks rather than a longer open-ended window.
+- Public booking times are grouped into collapsible week sections, with Week 1 open by default.
+- The public booking view retains NZ-time and browser-local-time display for each slot.
+- No database migration required.
+
+
+## v0.13.16 - Seminar Email Action Hotfix
+
+- Fixed seminar registration approval and decline email buttons not opening the CRM confirmation modal.
+- Added a local confirmation helper in the seminar management panel so both buttons use the shared THiS CRM modal instead of failing silently.
+- Added the same confirmation helper to the Enquiries & Intake workspace so contact-form assessment email and delete actions remain wired to the shared CRM modal.
 - No database migration required.
