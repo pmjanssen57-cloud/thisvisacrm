@@ -295,12 +295,15 @@ async function recordBookingEmailNotifications({ booking, type, adviser }) {
     `Date/time: ${formatDisplayDate(booking.bookingDate)} at ${formatDisplayTime(booking.startTime)} NZ time`,
     type.paid ? 'Payment: payment will be handled manually by Turner Hopkins.' : 'Payment: not required.',
     '',
+    'A calendar invite is attached for convenience.',
+    '',
     'We will contact you if we need anything further before the consultation.',
     '',
     'Kind regards,',
     'Turner Hopkins Immigration Specialists',
   ].join('\n');
-  await recordAndMaybeSendBookingEmail({ booking, templateKey: 'consultation_booking_applicant', toEmail: booking.applicantEmail, subject: applicantSubject, bodyText: applicantBody });
+  const calendarInvite = buildConsultationIcs({ booking, type, adviser });
+  await recordAndMaybeSendBookingEmail({ booking, templateKey: 'consultation_booking_applicant', toEmail: booking.applicantEmail, subject: applicantSubject, bodyText: applicantBody, attachments: calendarInvite ? [calendarInvite] : [] });
 
   if (adviser.email) {
     const adviserSubject = `New consultation booking: ${booking.applicantName || 'Applicant'}`;
@@ -315,12 +318,14 @@ async function recordBookingEmailNotifications({ booking, type, adviser }) {
       `Payment status: ${booking.paymentStatus}`,
       '',
       booking.notes ? `Applicant notes: ${booking.notes}` : 'Applicant notes: none provided',
+      '',
+      'A calendar invite is attached so you can add the consultation to Outlook.',
     ].join('\n');
-    await recordAndMaybeSendBookingEmail({ booking, templateKey: 'consultation_booking_adviser', toEmail: adviser.email, subject: adviserSubject, bodyText: adviserBody });
+    await recordAndMaybeSendBookingEmail({ booking, templateKey: 'consultation_booking_adviser', toEmail: adviser.email, subject: adviserSubject, bodyText: adviserBody, attachments: calendarInvite ? [calendarInvite] : [] });
   }
 }
 
-async function recordAndMaybeSendBookingEmail({ booking, templateKey, toEmail, subject, bodyText }) {
+async function recordAndMaybeSendBookingEmail({ booking, templateKey, toEmail, subject, bodyText, attachments = [] }) {
   const database = db();
   const config = getMicrosoftEmailConfigOrNull();
   const fromEmail = config?.fromEmail || process.env.MICROSOFT_NOTIFICATION_FROM_EMAIL || '';
@@ -332,7 +337,7 @@ async function recordAndMaybeSendBookingEmail({ booking, templateKey, toEmail, s
   if (!config) return;
   try {
     const token = await getMicrosoftGraphAccessToken(config);
-    const sendResult = await sendMicrosoftGraphEmail({ config, token, toEmail, subject, bodyText });
+    const sendResult = await sendMicrosoftGraphEmail({ config, token, toEmail, subject, bodyText, attachments });
     await database.sql`UPDATE email_notifications SET status = 'Sent', sent_at = NOW(), provider_request_id = ${sendResult.requestId || ''}, updated_at = NOW() WHERE id = ${created.id}`;
   } catch (error) {
     await database.sql`UPDATE email_notifications SET status = 'Failed', failed_at = NOW(), failure_message = ${String(error?.message || error).slice(0, 1000)}, updated_at = NOW() WHERE id = ${created.id}`;
@@ -359,13 +364,13 @@ async function getMicrosoftGraphAccessToken(config) {
   return payload.access_token;
 }
 
-async function sendMicrosoftGraphEmail({ config, token, toEmail, subject, bodyText }) {
+async function sendMicrosoftGraphEmail({ config, token, toEmail, subject, bodyText, attachments = [] }) {
   const toRecipients = normaliseEmailRecipientList(toEmail);
   if (!toRecipients.length) throw new Error('At least one valid recipient is required.');
   const response = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(config.fromEmail)}/sendMail`, {
     method: 'POST',
     headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json', prefer: 'outlook.timezone="Pacific/Auckland"' },
-    body: JSON.stringify({ message: { subject, body: { contentType: 'HTML', content: textToHtml(bodyText) }, toRecipients }, saveToSentItems: true }),
+    body: JSON.stringify({ message: { subject, body: { contentType: 'HTML', content: textToHtml(bodyText) }, toRecipients, attachments }, saveToSentItems: true }),
   });
   const text = await response.text();
   if (!response.ok) {
@@ -382,6 +387,64 @@ function normaliseEmailRecipientList(value = '') {
 
 function textToHtml(value = '') {
   return `<div style="font-family:Arial,sans-serif;font-size:10pt;line-height:1.4;color:#1f2933;">${String(value || '').split(/\n{2,}/).map((paragraph) => `<p style="margin:0 0 10px 0;">${escapeHtml(paragraph).replace(/\n/g, '<br>')}</p>`).join('')}</div>`;
+}
+
+function buildConsultationIcs({ booking = {}, type = {}, adviser = {} }) {
+  if (!booking.bookingDate || !booking.startTime || !booking.endTime) return null;
+  const applicant = booking.applicantName || booking.applicantEmail || 'Applicant';
+  const summary = `Turner Hopkins consultation - ${applicant}`;
+  const description = [
+    `Consultation: ${type.name || 'Consultation'}`,
+    `Applicant: ${booking.applicantName || ''}`,
+    `Email: ${booking.applicantEmail || ''}`,
+    `Phone: ${booking.applicantPhone || ''}`,
+    `Payment status: ${booking.paymentStatus || ''}`,
+    booking.notes ? `Notes: ${booking.notes}` : '',
+  ].filter(Boolean).join('\n');
+  const uid = `${booking.id || Date.now()}@this-crm`;
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+  const start = formatIcsLocalDateTime(booking.bookingDate, booking.startTime);
+  const end = formatIcsLocalDateTime(booking.bookingDate, booking.endTime);
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Turner Hopkins//THiS CRM//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    `UID:${escapeIcs(uid)}`,
+    `DTSTAMP:${stamp}`,
+    `DTSTART;TZID=Pacific/Auckland:${start}`,
+    `DTEND;TZID=Pacific/Auckland:${end}`,
+    `SUMMARY:${escapeIcs(summary)}`,
+    `DESCRIPTION:${escapeIcs(description)}`,
+    adviser.email ? `ORGANIZER;CN=${escapeIcs(adviser.name || 'Turner Hopkins')}:mailto:${adviser.email}` : '',
+    booking.applicantEmail ? `ATTENDEE;CN=${escapeIcs(applicant)};ROLE=REQ-PARTICIPANT:mailto:${booking.applicantEmail}` : '',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].filter(Boolean).join('\r\n');
+  return {
+    '@odata.type': '#microsoft.graph.fileAttachment',
+    name: `THiS consultation - ${safeFilePart(applicant)}.ics`,
+    contentType: 'text/calendar',
+    contentBytes: Buffer.from(ics, 'utf8').toString('base64'),
+  };
+}
+
+function formatIcsLocalDateTime(dateIso = '', time = '') {
+  return `${String(dateIso || '').replace(/-/g, '')}T${String(normaliseTime(time) || '09:00').replace(':', '')}00`;
+}
+
+function escapeIcs(value = '') {
+  return String(value || '')
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\r?\n/g, '\\n');
+}
+
+function safeFilePart(value = '') {
+  return String(value || 'consultation').replace(/[^a-z0-9_-]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'consultation';
 }
 
 function escapeHtml(value = '') {

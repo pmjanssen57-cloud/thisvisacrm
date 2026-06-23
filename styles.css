@@ -9459,3 +9459,126 @@ body.intake-embed-mode .contact-form .intake-submit-bar {
 body.intake-embed-mode .contact-form select {
   text-overflow: ellipsis;
 }
+
+/* v0.13.8 CRM confirmation modal polish */
+.crm-confirm-layer {
+  z-index: 140;
+}
+.crm-confirm-card {
+  width: min(520px, 94vw);
+  padding: 0;
+  overflow: hidden;
+  border-color: rgba(85, 217, 160, 0.28);
+}
+.crm-confirm-card::before {
+  content: '';
+  display: block;
+  height: 7px;
+  background: linear-gradient(90deg, var(--ink), var(--mint));
+}
+.crm-confirm-card.danger::before {
+  background: linear-gradient(90deg, #7f1d1d, #f97316);
+}
+.crm-confirm-icon {
+  width: 54px;
+  height: 54px;
+  margin: 22px 24px 0;
+  border-radius: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(85, 217, 160, 0.16);
+  color: var(--ink);
+  border: 1px solid rgba(85, 217, 160, 0.35);
+}
+.crm-confirm-card.danger .crm-confirm-icon {
+  background: rgba(254, 226, 226, 0.78);
+  color: #991b1b;
+  border-color: rgba(248, 113, 113, 0.38);
+}
+.crm-confirm-head {
+  margin: 12px 24px 0;
+  padding-bottom: 14px;
+}
+.crm-confirm-head h2 {
+  font-size: 24px;
+}
+.crm-confirm-message {
+  margin: 18px 24px 0;
+  color: var(--text);
+  line-height: 1.55;
+  font-weight: 700;
+}
+.crm-confirm-details {
+  margin: 14px 24px 0;
+  padding: 14px 16px;
+  border: 1px solid rgba(217, 230, 225, 0.9);
+  border-radius: 16px;
+  background: var(--pale);
+  color: var(--muted);
+  line-height: 1.5;
+}
+.crm-confirm-details p {
+  margin: 0 0 8px;
+}
+.crm-confirm-details p:last-child {
+  margin-bottom: 0;
+}
+.crm-confirm-actions {
+  margin-top: 22px;
+  padding: 18px 24px 22px;
+  background: #fbfefd;
+  justify-content: flex-end;
+}
+.crm-confirm-actions .btn {
+  min-width: 118px;
+  justify-content: center;
+}
+@media (max-width: 640px) {
+  .crm-confirm-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .crm-confirm-actions .btn {
+    width: 100%;
+  }
+}
+
+.booking-setup-grid {
+  grid-template-columns: minmax(340px, 1fr) minmax(340px, 1fr);
+}
+.booking-standard-panel {
+  border-color: rgba(85, 217, 160, 0.45);
+  background: linear-gradient(135deg, #ffffff 0%, #effcf7 100%);
+}
+.booking-day-picker {
+  border: 1px solid var(--line, #d9e6e1);
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+.booking-day-picker > span {
+  font-weight: 800;
+  color: var(--ink, #003736);
+}
+.booking-day-picker > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.booking-day-picker button {
+  border: 1px solid var(--line, #d9e6e1);
+  background: #ffffff;
+  color: var(--ink, #003736);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.booking-day-picker button.active {
+  background: var(--ink, #003736);
+  color: #ffffff;
+  border-color: var(--ink, #003736);
+}

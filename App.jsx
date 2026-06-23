@@ -117,7 +117,7 @@ const SUPPORT_CONTENT = {
     title: 'Enquiries & Intake help',
     summary: 'The Enquiries & Intake page keeps pre-client submissions away from active client records. Contact forms are a simple reference list; full intake forms are a light triage queue.',
     sections: [
-      { heading: 'Contact forms', text: 'Short contact forms are handled from the email notification. Use this page to check the basic details and delete them once they no longer need to sit in the CRM.' },
+      { heading: 'Contact forms', text: 'Short contact forms use New, Dealt with and Spam / Duplicate views. Mark dealt-with enquiries so they leave the live queue while staying retained in the CRM.' },
       { heading: 'Intake forms', text: 'Full assessment questionnaires use a simple status set: New, Contacted, Converted, or Spam / Duplicate.' },
       { heading: 'Conversion', text: 'Convert only when the enquiry should become an active client record. The original intake record remains linked for reference.' },
     ],
@@ -451,6 +451,30 @@ export default function App() {
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const [clientEditorDirty, setClientEditorDirty] = useState(false);
   const [calendarEditorDirty, setCalendarEditorDirty] = useState(false);
+  const [crmConfirm, setCrmConfirm] = useState(null);
+  const crmConfirmResolverRef = useRef(null);
+
+  function askCrmConfirm(options = {}) {
+    return new Promise((resolve) => {
+      crmConfirmResolverRef.current = resolve;
+      setCrmConfirm({
+        title: options.title || 'Please confirm',
+        message: options.message || '',
+        eyebrow: options.eyebrow || 'THiS CRM',
+        confirmLabel: options.confirmLabel || 'Confirm',
+        cancelLabel: options.cancelLabel || 'Cancel',
+        tone: options.tone || 'default',
+        details: Array.isArray(options.details) ? options.details.filter(Boolean) : [],
+      });
+    });
+  }
+
+  function resolveCrmConfirm(result) {
+    const resolver = crmConfirmResolverRef.current;
+    crmConfirmResolverRef.current = null;
+    setCrmConfirm(null);
+    if (resolver) resolver(Boolean(result));
+  }
 
   function confirmDiscardClientEdits() {
     return !clientEditorDirty || window.confirm('You have unsaved client changes. Discard those changes and continue?');
@@ -747,7 +771,8 @@ export default function App() {
   }
 
   async function deletePortalDocument(clientId, documentId) {
-    if (!window.confirm('Remove this PDF from the client portal?')) return;
+    const confirmed = await askCrmConfirm({ title: 'Remove portal PDF?', message: 'Remove this PDF from the client portal?', confirmLabel: 'Remove PDF', tone: 'danger' });
+    if (!confirmed) return;
     const body = await callApi('deletePortalDocument', { clientId, documentId }, { skipDataUpdate: true });
     if (body.client?.id) mergeSavedClient(body.client);
     return body;
@@ -819,7 +844,8 @@ export default function App() {
   }
 
   async function deletePersonalTask(taskId) {
-    if (!window.confirm('Delete this personal task?')) return;
+    const confirmed = await askCrmConfirm({ title: 'Delete personal task?', message: 'This will permanently delete the selected personal task.', confirmLabel: 'Delete task', tone: 'danger' });
+    if (!confirmed) return;
     await callApi('deletePersonalTask', { taskId });
   }
 
@@ -828,7 +854,8 @@ export default function App() {
   }
 
   async function deleteCalendarEntry(entryId) {
-    if (!window.confirm('Delete this calendar entry?')) return;
+    const confirmed = await askCrmConfirm({ title: 'Delete calendar entry?', message: 'This will permanently delete the selected calendar entry.', confirmLabel: 'Delete entry', tone: 'danger' });
+    if (!confirmed) return;
     await callApi('deleteCalendarEntry', { entryId });
   }
 
@@ -837,7 +864,8 @@ export default function App() {
   }
 
   async function deleteLibraryEntry(entryId) {
-    if (!window.confirm('Delete this library item?')) return;
+    const confirmed = await askCrmConfirm({ title: 'Delete library item?', message: 'This will permanently delete the selected library item.', confirmLabel: 'Delete item', tone: 'danger' });
+    if (!confirmed) return;
     return await callApi('deleteLibraryEntry', { entryId });
   }
 
@@ -850,7 +878,8 @@ export default function App() {
   }
 
   async function deleteSeminar(seminarId) {
-    if (!window.confirm('Delete this seminar? Registrations linked to this seminar will also be removed.')) return;
+    const confirmed = await askCrmConfirm({ title: 'Delete seminar?', message: 'Registrations linked to this seminar will also be removed.', confirmLabel: 'Delete seminar', tone: 'danger' });
+    if (!confirmed) return;
     return await callApi('deleteSeminar', { seminarId });
   }
 
@@ -863,7 +892,8 @@ export default function App() {
   }
 
   async function deleteConsultationType(consultationTypeId) {
-    if (!window.confirm('Deactivate this consultation type? Existing bookings will remain.')) return;
+    const confirmed = await askCrmConfirm({ title: 'Deactivate consultation type?', message: 'Existing bookings will remain, but this type will no longer be offered for new bookings.', confirmLabel: 'Deactivate type', tone: 'danger' });
+    if (!confirmed) return;
     return await callApi('deleteConsultationType', { consultationTypeId });
   }
 
@@ -871,8 +901,13 @@ export default function App() {
     return await callApi('saveBookingAvailability', { availability });
   }
 
+  async function saveBookingAvailabilityBulk(availability) {
+    return await callApi('saveBookingAvailabilityBulk', { availability });
+  }
+
   async function deleteBookingAvailability(availabilityId) {
-    if (!window.confirm('Delete this availability row?')) return;
+    const confirmed = await askCrmConfirm({ title: 'Delete availability row?', message: 'This booking availability row will be removed from the self-booking calendar.', confirmLabel: 'Delete row', tone: 'danger' });
+    if (!confirmed) return;
     return await callApi('deleteBookingAvailability', { availabilityId });
   }
 
@@ -880,8 +915,13 @@ export default function App() {
     return await callApi('saveBookingBlock', { block });
   }
 
+  async function saveBookingBlockBulk(block) {
+    return await callApi('saveBookingBlockBulk', { block });
+  }
+
   async function deleteBookingBlock(blockId) {
-    if (!window.confirm('Delete this blocked time?')) return;
+    const confirmed = await askCrmConfirm({ title: 'Delete blocked time?', message: 'This unavailable period will be removed from the self-booking calendar.', confirmLabel: 'Delete block', tone: 'danger' });
+    if (!confirmed) return;
     return await callApi('deleteBookingBlock', { blockId });
   }
 
@@ -890,7 +930,8 @@ export default function App() {
   }
 
   async function deleteBookingLink(linkId) {
-    if (!window.confirm('Cancel this booking link?')) return;
+    const confirmed = await askCrmConfirm({ title: 'Cancel booking link?', message: 'The applicant will no longer be able to use this booking link.', confirmLabel: 'Cancel link', tone: 'danger' });
+    if (!confirmed) return;
     return await callApi('deleteBookingLink', { linkId });
   }
 
@@ -912,7 +953,8 @@ export default function App() {
   }
 
   async function deleteIntakeEnquiry(intakeId) {
-    if (!window.confirm('Delete this intake enquiry? Converted enquiries cannot be deleted.')) return;
+    const confirmed = await askCrmConfirm({ title: 'Delete intake enquiry?', message: 'Converted enquiries cannot be deleted. This removes the selected enquiry from the CRM.', confirmLabel: 'Delete enquiry', tone: 'danger' });
+    if (!confirmed) return;
     return await callApi('deleteIntakeEnquiry', { intakeId });
   }
 
@@ -926,7 +968,8 @@ export default function App() {
   }
 
   async function deleteClient(clientId) {
-    if (!window.confirm('Delete this client and all linked stages, deadlines and billing records?')) return;
+    const confirmed = await askCrmConfirm({ title: 'Delete client record?', message: 'This will delete the client and all linked stages, deadlines and billing records.', confirmLabel: 'Delete client', tone: 'danger' });
+    if (!confirmed) return;
     const body = await callApi('deleteClient', { clientId });
     setSelectedClientId(body.clients?.[0]?.id || '');
   }
@@ -1137,7 +1180,7 @@ export default function App() {
             </nav>
 
             {tab === 'intake' && (
-              <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} statuses={data.intakeStatuses || INTAKE_STATUSES} seminars={data.seminars || []} seminarRegistrations={data.seminarRegistrations || []} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} downloadIntakeUpload={downloadIntakeUpload} saveSeminar={saveSeminar} deleteSeminar={deleteSeminar} saveSeminarRegistration={saveSeminarRegistration} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail} saving={saving} openClientRecord={openClientRecord} />
+              <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} statuses={data.intakeStatuses || INTAKE_STATUSES} seminars={data.seminars || []} seminarRegistrations={data.seminarRegistrations || []} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} downloadIntakeUpload={downloadIntakeUpload} saveSeminar={saveSeminar} deleteSeminar={deleteSeminar} saveSeminarRegistration={saveSeminarRegistration} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail} saving={saving} openClientRecord={openClientRecord} confirmAction={askCrmConfirm} />
             )}
 
             {tab === 'bookings' && (
@@ -1153,8 +1196,10 @@ export default function App() {
                 saveConsultationType={saveConsultationType}
                 deleteConsultationType={deleteConsultationType}
                 saveBookingAvailability={saveBookingAvailability}
+                saveBookingAvailabilityBulk={saveBookingAvailabilityBulk}
                 deleteBookingAvailability={deleteBookingAvailability}
                 saveBookingBlock={saveBookingBlock}
+                saveBookingBlockBulk={saveBookingBlockBulk}
                 deleteBookingBlock={deleteBookingBlock}
                 saveBookingLink={saveBookingLink}
                 deleteBookingLink={deleteBookingLink}
@@ -1234,11 +1279,52 @@ export default function App() {
         identityUser={identityUser}
         accessCodeActive={Boolean(accessCode)}
       />
+      {crmConfirm && <CrmConfirmDialog dialog={crmConfirm} onResolve={resolveCrmConfirm} />}
     </div>
   );
 
 }
 
+
+
+function CrmConfirmDialog({ dialog, onResolve }) {
+  const confirmToneClass = dialog.tone === 'danger' ? ' danger' : dialog.tone === 'send' ? ' dark' : ' dark';
+  const Icon = dialog.tone === 'danger' ? AlertTriangle : dialog.tone === 'send' ? Send : ShieldCheck;
+
+  useEffect(() => {
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') onResolve(false);
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onResolve]);
+
+  return (
+    <div className="modal-layer crm-confirm-layer" role="dialog" aria-modal="true" aria-label={dialog.title || 'Confirm action'}>
+      <button className="modal-backdrop" type="button" aria-label="Cancel" onClick={() => onResolve(false)}></button>
+      <section className={`modal-card crm-confirm-card ${dialog.tone || 'default'}`}>
+        <div className="crm-confirm-icon"><Icon size={22} /></div>
+        <div className="modal-head crm-confirm-head">
+          <div>
+            <span>{dialog.eyebrow || 'THiS CRM'}</span>
+            <h2>{dialog.title || 'Please confirm'}</h2>
+          </div>
+          <button className="icon-button" type="button" onClick={() => onResolve(false)} aria-label="Close"><X size={18} /></button>
+        </div>
+        {dialog.message && <p className="crm-confirm-message">{dialog.message}</p>}
+        {Array.isArray(dialog.details) && dialog.details.length > 0 && (
+          <div className="crm-confirm-details">
+            {dialog.details.map((item, index) => <p key={index}>{item}</p>)}
+          </div>
+        )}
+        <div className="modal-actions crm-confirm-actions">
+          <button className={`btn${confirmToneClass}`} type="button" onClick={() => onResolve(true)}>{dialog.confirmLabel || 'Confirm'}</button>
+          <button className="btn ghost" type="button" onClick={() => onResolve(false)}>{dialog.cancelLabel || 'Cancel'}</button>
+        </div>
+      </section>
+    </div>
+  );
+}
 
 
 function ConsultationBookingPublicApp() {
@@ -1608,98 +1694,6 @@ function IntakeFormApp() {
             </div>
           </IntakeSection>
 
-          <IntakeSection title="Partner and family">
-            <div className="form-grid">
-              <IntakeSelect label="Relationship status" value={form.relationshipStatus} onChange={(v) => setField('relationshipStatus', v)} options={INTAKE_RELATIONSHIP_OPTIONS} />
-              <IntakeSelect label="Do you have a partner?" value={form.hasPartner} onChange={(v) => setField('hasPartner', v)} options={INTAKE_YES_NO_OPTIONS} />
-              <IntakeSelect label="Do you have children?" value={form.hasChildren} onChange={(v) => setField('hasChildren', v)} options={INTAKE_YES_NO_OPTIONS} />
-            </div>
-
-            {hasPartner && (
-              <div className="intake-nested-panel">
-                <h3>Partner details</h3>
-                <div className="form-grid">
-                  <IntakeField label="Partner full name" value={form.partnerFullName} onChange={(v) => setField('partnerFullName', v)} />
-                  <IntakeField label="Partner date of birth" type="date" value={form.partnerDateOfBirth} onChange={(v) => setField('partnerDateOfBirth', v)} />
-                  <IntakeSelect label="Partner citizenship" value={form.partnerCitizenship} onChange={(v) => setField('partnerCitizenship', v)} options={COUNTRY_OPTIONS} />
-                  <IntakeSelect label="Partner current country" value={form.partnerCurrentCountry} onChange={(v) => setField('partnerCurrentCountry', v)} options={COUNTRY_OPTIONS} />
-                  <IntakeField label="Partner NZ visa status" value={form.partnerVisaStatus} onChange={(v) => setField('partnerVisaStatus', v)} />
-                  <IntakeSelect label="Is your partner a NZ citizen or resident?" value={form.partnerNzStatus} onChange={(v) => setField('partnerNzStatus', v)} options={INTAKE_YES_NO_OPTIONS} />
-                  <IntakeSelect label="Are you living together?" value={form.livingTogether} onChange={(v) => setField('livingTogether', v)} options={INTAKE_YES_NO_OPTIONS} />
-                  <IntakeField label="Date relationship started" type="date" value={form.relationshipStarted} onChange={(v) => setField('relationshipStarted', v)} />
-                  <IntakeField label="Date started living together" type="date" value={form.startedLivingTogether} onChange={(v) => setField('startedLivingTogether', v)} />
-                  <IntakeSelect label="Include partner in assessment?" value={form.partnerIncluded} onChange={(v) => setField('partnerIncluded', v)} options={INTAKE_YES_NO_OPTIONS} />
-                </div>
-                <IntakeTextarea label="Brief relationship background" value={form.relationshipBackground} onChange={(v) => setField('relationshipBackground', v)} rows={3} />
-              </div>
-            )}
-
-            {hasPartner && (
-              <div className="intake-nested-panel">
-                <h3>Partner work and experience</h3>
-                <div className="form-grid">
-                  <IntakeSelect label="Partner current employment status" value={form.partnerCurrentEmploymentStatus} onChange={(v) => setField('partnerCurrentEmploymentStatus', v)} options={INTAKE_EMPLOYMENT_STATUS_OPTIONS} />
-                  <IntakeField label="Partner occupation / profession" value={form.partnerOccupation} onChange={(v) => setField('partnerOccupation', v)} />
-                  <IntakeField label="Partner current employer / business" value={form.partnerCurrentEmployer} onChange={(v) => setField('partnerCurrentEmployer', v)} />
-                  <IntakeSelect label="Partner country of employment" value={form.partnerEmploymentCountry} onChange={(v) => setField('partnerEmploymentCountry', v)} options={COUNTRY_OPTIONS} />
-                  <IntakeField label="Partner current job start date" type="date" value={form.partnerCurrentJobStartDate} onChange={(v) => setField('partnerCurrentJobStartDate', v)} />
-                  <IntakeField label="Partner hours per week" value={form.partnerHoursPerWeek} onChange={(v) => setField('partnerHoursPerWeek', v)} />
-                  <IntakeField label="Partner salary or pay rate" value={form.partnerAnnualSalary} onChange={(v) => setField('partnerAnnualSalary', v)} />
-                  <IntakeSelect label="Partner salary currency" value={form.partnerSalaryCurrency} onChange={(v) => setField('partnerSalaryCurrency', v)} options={INTAKE_CURRENCY_OPTIONS} />
-                  <IntakeField label="Partner years of relevant experience" value={form.partnerYearsExperience} onChange={(v) => setField('partnerYearsExperience', v)} />
-                </div>
-                <IntakeTextarea label="Partner current employment details" value={form.partnerEmploymentDetails} onChange={(v) => setField('partnerEmploymentDetails', v)} rows={3} />
-                <IntakeTextarea label="Partner previous work history" value={form.partnerPreviousWorkHistory} onChange={(v) => setField('partnerPreviousWorkHistory', v)} rows={4} placeholder={"Please include relevant previous roles, employers, countries, dates or length of experience, and main duties."} />
-              </div>
-            )}
-
-            {hasPartner && (
-              <div className="intake-nested-panel">
-                <h3>Partner qualifications</h3>
-                <div className="form-grid">
-                  <IntakeSelect label="Partner highest qualification" value={form.partnerHighestQualification} onChange={(v) => setField('partnerHighestQualification', v)} options={INTAKE_QUALIFICATION_OPTIONS} />
-                  <IntakeField label="Partner qualification name" value={form.partnerQualificationName} onChange={(v) => setField('partnerQualificationName', v)} />
-                  <IntakeField label="Partner institution" value={form.partnerQualificationInstitution} onChange={(v) => setField('partnerQualificationInstitution', v)} />
-                  <IntakeSelect label="Partner qualification country" value={form.partnerQualificationCountry} onChange={(v) => setField('partnerQualificationCountry', v)} options={COUNTRY_OPTIONS} />
-                  <IntakeField label="Partner year completed" value={form.partnerQualificationYearCompleted} onChange={(v) => setField('partnerQualificationYearCompleted', v)} />
-                  <IntakeField label="Partner length of study" value={form.partnerQualificationStudyLength} onChange={(v) => setField('partnerQualificationStudyLength', v)} />
-                  <IntakeSelect label="Partner qualification taught in English?" value={form.partnerTaughtInEnglish} onChange={(v) => setField('partnerTaughtInEnglish', v)} options={INTAKE_YES_NO_OPTIONS} />
-                  <IntakeSelect label="Partner qualification assessed by NZQA?" value={form.partnerNzqaAssessed} onChange={(v) => setField('partnerNzqaAssessed', v)} options={INTAKE_YES_NO_OPTIONS} />
-                  <IntakeSelect label="Partner qualification related to occupation?" value={form.partnerQualificationRelatedToOccupation} onChange={(v) => setField('partnerQualificationRelatedToOccupation', v)} options={INTAKE_YES_NO_OPTIONS} />
-                </div>
-                <IntakeTextarea label="Partner other qualifications or training" value={form.partnerQualificationDetails} onChange={(v) => setField('partnerQualificationDetails', v)} rows={3} />
-                <IntakeFileField label="Upload partner CV" file={partnerCvFile} onChange={(file) => handleCvFile('partnerCv', file)} />
-              </div>
-            )}
-
-            {hasChildren && (
-              <div className="intake-nested-panel">
-                <div className="intake-panel-title-row">
-                  <h3>Children</h3>
-                  <button className="btn mini" type="button" onClick={addChild} disabled={(form.children || []).length >= 4}><Plus size={14} />Add child</button>
-                </div>
-                {(form.children || []).map((child, index) => (
-                  <div className="intake-child-card" key={child.id || index}>
-                    <div className="intake-panel-title-row">
-                      <h4>Child {index + 1}</h4>
-                      <button className="btn danger mini" type="button" onClick={() => removeChild(index)}><Trash2 size={14} />Remove</button>
-                    </div>
-                    <div className="form-grid">
-                      <IntakeField label="Full name" value={child.fullName} onChange={(v) => setChildField(index, 'fullName', v)} />
-                      <IntakeField label="Date of birth" type="date" value={child.dateOfBirth} onChange={(v) => setChildField(index, 'dateOfBirth', v)} />
-                      <IntakeSelect label="Citizenship" value={child.citizenship} onChange={(v) => setChildField(index, 'citizenship', v)} options={COUNTRY_OPTIONS} />
-                      <IntakeSelect label="Current country" value={child.currentCountry} onChange={(v) => setChildField(index, 'currentCountry', v)} options={COUNTRY_OPTIONS} />
-                      <IntakeSelect label="Financially dependent?" value={child.dependent} onChange={(v) => setChildField(index, 'dependent', v)} options={INTAKE_YES_NO_OPTIONS} />
-                      <IntakeSelect label="Include in visa application?" value={child.includedInApplication} onChange={(v) => setChildField(index, 'includedInApplication', v)} options={INTAKE_YES_NO_OPTIONS} />
-                      <IntakeSelect label="Any custody / guardianship issue?" value={child.custodyIssues} onChange={(v) => setChildField(index, 'custodyIssues', v)} options={INTAKE_YES_NO_OPTIONS} />
-                    </div>
-                  </div>
-                ))}
-                {(form.children || []).length >= 4 && <IntakeTextarea label="More than four children? Add brief details here" value={form.moreChildrenDetails} onChange={(v) => setField('moreChildrenDetails', v)} rows={3} />}
-              </div>
-            )}
-          </IntakeSection>
-
           <IntakeSection title="Work and employment">
             <div className="form-grid">
               <IntakeSelect label="Current employment status" value={form.currentEmploymentStatus} onChange={(v) => setField('currentEmploymentStatus', v)} options={INTAKE_EMPLOYMENT_STATUS_OPTIONS} />
@@ -1762,6 +1756,102 @@ function IntakeFormApp() {
             <IntakeTextarea label="Other qualifications or training" value={form.qualificationDetails} onChange={(v) => setField('qualificationDetails', v)} rows={3} />
           </IntakeSection>
 
+          <IntakeSection title="Partner details">
+            <div className="form-grid">
+              <IntakeSelect label="Relationship status" value={form.relationshipStatus} onChange={(v) => setField('relationshipStatus', v)} options={INTAKE_RELATIONSHIP_OPTIONS} />
+              <IntakeSelect label="Do you have a partner?" value={form.hasPartner} onChange={(v) => setField('hasPartner', v)} options={INTAKE_YES_NO_OPTIONS} />
+            </div>
+
+            {hasPartner && (
+              <div className="intake-nested-panel">
+                <h3>Partner details</h3>
+                <div className="form-grid">
+                  <IntakeField label="Partner full name" value={form.partnerFullName} onChange={(v) => setField('partnerFullName', v)} />
+                  <IntakeField label="Partner date of birth" type="date" value={form.partnerDateOfBirth} onChange={(v) => setField('partnerDateOfBirth', v)} />
+                  <IntakeSelect label="Partner citizenship" value={form.partnerCitizenship} onChange={(v) => setField('partnerCitizenship', v)} options={COUNTRY_OPTIONS} />
+                  <IntakeSelect label="Partner current country" value={form.partnerCurrentCountry} onChange={(v) => setField('partnerCurrentCountry', v)} options={COUNTRY_OPTIONS} />
+                  <IntakeField label="Partner NZ visa status" value={form.partnerVisaStatus} onChange={(v) => setField('partnerVisaStatus', v)} />
+                  <IntakeSelect label="Is your partner a NZ citizen or resident?" value={form.partnerNzStatus} onChange={(v) => setField('partnerNzStatus', v)} options={INTAKE_YES_NO_OPTIONS} />
+                  <IntakeSelect label="Are you living together?" value={form.livingTogether} onChange={(v) => setField('livingTogether', v)} options={INTAKE_YES_NO_OPTIONS} />
+                  <IntakeField label="Date relationship started" type="date" value={form.relationshipStarted} onChange={(v) => setField('relationshipStarted', v)} />
+                  <IntakeField label="Date started living together" type="date" value={form.startedLivingTogether} onChange={(v) => setField('startedLivingTogether', v)} />
+                  <IntakeSelect label="Include partner in assessment?" value={form.partnerIncluded} onChange={(v) => setField('partnerIncluded', v)} options={INTAKE_YES_NO_OPTIONS} />
+                </div>
+                <IntakeTextarea label="Brief relationship background" value={form.relationshipBackground} onChange={(v) => setField('relationshipBackground', v)} rows={3} />
+              </div>
+            )}
+
+            {hasPartner && (
+              <div className="intake-nested-panel">
+                <h3>Partner work and experience</h3>
+                <div className="form-grid">
+                  <IntakeSelect label="Partner current employment status" value={form.partnerCurrentEmploymentStatus} onChange={(v) => setField('partnerCurrentEmploymentStatus', v)} options={INTAKE_EMPLOYMENT_STATUS_OPTIONS} />
+                  <IntakeField label="Partner occupation / profession" value={form.partnerOccupation} onChange={(v) => setField('partnerOccupation', v)} />
+                  <IntakeField label="Partner current employer / business" value={form.partnerCurrentEmployer} onChange={(v) => setField('partnerCurrentEmployer', v)} />
+                  <IntakeSelect label="Partner country of employment" value={form.partnerEmploymentCountry} onChange={(v) => setField('partnerEmploymentCountry', v)} options={COUNTRY_OPTIONS} />
+                  <IntakeField label="Partner current job start date" type="date" value={form.partnerCurrentJobStartDate} onChange={(v) => setField('partnerCurrentJobStartDate', v)} />
+                  <IntakeField label="Partner hours per week" value={form.partnerHoursPerWeek} onChange={(v) => setField('partnerHoursPerWeek', v)} />
+                  <IntakeField label="Partner salary or pay rate" value={form.partnerAnnualSalary} onChange={(v) => setField('partnerAnnualSalary', v)} />
+                  <IntakeSelect label="Partner salary currency" value={form.partnerSalaryCurrency} onChange={(v) => setField('partnerSalaryCurrency', v)} options={INTAKE_CURRENCY_OPTIONS} />
+                  <IntakeField label="Partner years of relevant experience" value={form.partnerYearsExperience} onChange={(v) => setField('partnerYearsExperience', v)} />
+                </div>
+                <IntakeTextarea label="Partner current employment details" value={form.partnerEmploymentDetails} onChange={(v) => setField('partnerEmploymentDetails', v)} rows={3} />
+                <IntakeTextarea label="Partner previous work history" value={form.partnerPreviousWorkHistory} onChange={(v) => setField('partnerPreviousWorkHistory', v)} rows={4} placeholder={"Please include relevant previous roles, employers, countries, dates or length of experience, and main duties."} />
+              </div>
+            )}
+
+            {hasPartner && (
+              <div className="intake-nested-panel">
+                <h3>Partner qualifications</h3>
+                <div className="form-grid">
+                  <IntakeSelect label="Partner highest qualification" value={form.partnerHighestQualification} onChange={(v) => setField('partnerHighestQualification', v)} options={INTAKE_QUALIFICATION_OPTIONS} />
+                  <IntakeField label="Partner qualification name" value={form.partnerQualificationName} onChange={(v) => setField('partnerQualificationName', v)} />
+                  <IntakeField label="Partner institution" value={form.partnerQualificationInstitution} onChange={(v) => setField('partnerQualificationInstitution', v)} />
+                  <IntakeSelect label="Partner qualification country" value={form.partnerQualificationCountry} onChange={(v) => setField('partnerQualificationCountry', v)} options={COUNTRY_OPTIONS} />
+                  <IntakeField label="Partner year completed" value={form.partnerQualificationYearCompleted} onChange={(v) => setField('partnerQualificationYearCompleted', v)} />
+                  <IntakeField label="Partner length of study" value={form.partnerQualificationStudyLength} onChange={(v) => setField('partnerQualificationStudyLength', v)} />
+                  <IntakeSelect label="Partner qualification taught in English?" value={form.partnerTaughtInEnglish} onChange={(v) => setField('partnerTaughtInEnglish', v)} options={INTAKE_YES_NO_OPTIONS} />
+                  <IntakeSelect label="Partner qualification assessed by NZQA?" value={form.partnerNzqaAssessed} onChange={(v) => setField('partnerNzqaAssessed', v)} options={INTAKE_YES_NO_OPTIONS} />
+                  <IntakeSelect label="Partner qualification related to occupation?" value={form.partnerQualificationRelatedToOccupation} onChange={(v) => setField('partnerQualificationRelatedToOccupation', v)} options={INTAKE_YES_NO_OPTIONS} />
+                </div>
+                <IntakeTextarea label="Partner other qualifications or training" value={form.partnerQualificationDetails} onChange={(v) => setField('partnerQualificationDetails', v)} rows={3} />
+                <IntakeFileField label="Upload partner CV" file={partnerCvFile} onChange={(file) => handleCvFile('partnerCv', file)} />
+              </div>
+            )}
+          </IntakeSection>
+
+          <IntakeSection title="Children">
+            <div className="form-grid">
+              <IntakeSelect label="Do you have children?" value={form.hasChildren} onChange={(v) => setField('hasChildren', v)} options={INTAKE_YES_NO_OPTIONS} />
+            </div>
+
+            {hasChildren && (
+              <div className="intake-nested-panel">
+                <div className="intake-panel-title-row">
+                  <h3>Children</h3>
+                  <button className="btn mini" type="button" onClick={addChild} disabled={(form.children || []).length >= 4}><Plus size={14} />Add child</button>
+                </div>
+                {(form.children || []).map((child, index) => (
+                  <div className="intake-child-card" key={child.id || index}>
+                    <div className="intake-panel-title-row">
+                      <h4>Child {index + 1}</h4>
+                      <button className="btn danger mini" type="button" onClick={() => removeChild(index)}><Trash2 size={14} />Remove</button>
+                    </div>
+                    <div className="form-grid">
+                      <IntakeField label="Full name" value={child.fullName} onChange={(v) => setChildField(index, 'fullName', v)} />
+                      <IntakeField label="Date of birth" type="date" value={child.dateOfBirth} onChange={(v) => setChildField(index, 'dateOfBirth', v)} />
+                      <IntakeSelect label="Citizenship" value={child.citizenship} onChange={(v) => setChildField(index, 'citizenship', v)} options={COUNTRY_OPTIONS} />
+                      <IntakeSelect label="Current country" value={child.currentCountry} onChange={(v) => setChildField(index, 'currentCountry', v)} options={COUNTRY_OPTIONS} />
+                      <IntakeSelect label="Financially dependent?" value={child.dependent} onChange={(v) => setChildField(index, 'dependent', v)} options={INTAKE_YES_NO_OPTIONS} />
+                      <IntakeSelect label="Include in visa application?" value={child.includedInApplication} onChange={(v) => setChildField(index, 'includedInApplication', v)} options={INTAKE_YES_NO_OPTIONS} />
+                      <IntakeSelect label="Any custody / guardianship issue?" value={child.custodyIssues} onChange={(v) => setChildField(index, 'custodyIssues', v)} options={INTAKE_YES_NO_OPTIONS} />
+                    </div>
+                  </div>
+                ))}
+                {(form.children || []).length >= 4 && <IntakeTextarea label="More than four children? Add brief details here" value={form.moreChildrenDetails} onChange={(v) => setField('moreChildrenDetails', v)} rows={3} />}
+              </div>
+            )}
+          </IntakeSection>
           <IntakeSection title="Health and character">
             <div className="form-grid">
               <IntakeSelect label="Any medical or health concerns?" value={form.healthIssues} onChange={(v) => setField('healthIssues', v)} options={INTAKE_YES_NO_OPTIONS} />
@@ -2149,7 +2239,7 @@ const BOOKING_DAY_OPTIONS = [
 const BOOKING_STATUS_OPTIONS = ['Confirmed', 'Cancelled', 'Completed', 'No-show'];
 const BOOKING_LINK_STATUS_OPTIONS = ['Active', 'Used', 'Expired', 'Cancelled'];
 
-function ConsultationBookingWorkspace({ advisers = [], intakeEnquiries = [], consultationTypes = [], bookingAvailability = [], bookingBlocks = [], bookingLinks = [], consultationBookings = [], dashboardAdviserFilter = 'all', saveConsultationType, deleteConsultationType, saveBookingAvailability, deleteBookingAvailability, saveBookingBlock, deleteBookingBlock, saveBookingLink, deleteBookingLink, saveConsultationBooking, saving = false }) {
+function ConsultationBookingWorkspace({ advisers = [], intakeEnquiries = [], consultationTypes = [], bookingAvailability = [], bookingBlocks = [], bookingLinks = [], consultationBookings = [], dashboardAdviserFilter = 'all', saveConsultationType, deleteConsultationType, saveBookingAvailability, saveBookingAvailabilityBulk, deleteBookingAvailability, saveBookingBlock, saveBookingBlockBulk, deleteBookingBlock, saveBookingLink, deleteBookingLink, saveConsultationBooking, saving = false }) {
   const [activeTab, setActiveTab] = useState('overview');
   const activeAdvisers = advisers.filter((adviser) => adviser.active !== false);
   const defaultAdviserId = dashboardAdviserFilter !== 'all' ? dashboardAdviserFilter : (activeAdvisers[0]?.id || advisers[0]?.id || '');
@@ -2159,14 +2249,18 @@ function ConsultationBookingWorkspace({ advisers = [], intakeEnquiries = [], con
   const adviserOptions = [{ value: 'all', label: 'All advisers' }, ...activeAdvisers.map((adviser) => ({ value: adviser.id, label: adviser.name || adviser.email || 'Unnamed adviser' }))];
   const [typeDraft, setTypeDraft] = useState(makeBlankConsultationType());
   const [availabilityDraft, setAvailabilityDraft] = useState(makeBlankBookingAvailability(defaultAdviserId));
+  const [standardAvailabilityDraft, setStandardAvailabilityDraft] = useState(makeBlankStandardBookingAvailability(defaultAdviserId));
   const [blockDraft, setBlockDraft] = useState(makeBlankBookingBlock(defaultAdviserId));
+  const [blockRangeDraft, setBlockRangeDraft] = useState(makeBlankBookingBlockRange(defaultAdviserId));
   const [linkDraft, setLinkDraft] = useState(makeBlankBookingLink(defaultAdviserId));
   const [bookingDrafts, setBookingDrafts] = useState({});
   const [copyMessage, setCopyMessage] = useState('');
 
   useEffect(() => {
     if (defaultAdviserId && !availabilityDraft.adviserId) setAvailabilityDraft((current) => ({ ...current, adviserId: defaultAdviserId }));
+    if (defaultAdviserId && !standardAvailabilityDraft.adviserId) setStandardAvailabilityDraft((current) => ({ ...current, adviserId: defaultAdviserId }));
     if (defaultAdviserId && !blockDraft.adviserId) setBlockDraft((current) => ({ ...current, adviserId: defaultAdviserId }));
+    if (defaultAdviserId && !blockRangeDraft.adviserId) setBlockRangeDraft((current) => ({ ...current, adviserId: defaultAdviserId }));
     if (defaultAdviserId && !linkDraft.adviserId) setLinkDraft((current) => ({ ...current, adviserId: defaultAdviserId }));
   }, [defaultAdviserId]);
 
@@ -2206,6 +2300,22 @@ function ConsultationBookingWorkspace({ advisers = [], intakeEnquiries = [], con
     });
   }
 
+  function toggleStandardAvailabilityType(id) {
+    setStandardAvailabilityDraft((current) => {
+      const set = new Set(current.consultationTypeIds || []);
+      if (set.has(id)) set.delete(id); else set.add(id);
+      return { ...current, consultationTypeIds: Array.from(set) };
+    });
+  }
+
+  function toggleStandardDay(dayValue) {
+    setStandardAvailabilityDraft((current) => {
+      const set = new Set((current.days || []).map(Number));
+      if (set.has(Number(dayValue))) set.delete(Number(dayValue)); else set.add(Number(dayValue));
+      return { ...current, days: Array.from(set).sort((a, b) => a - b) };
+    });
+  }
+
   function applyIntakeToLink(intakeId) {
     const intake = intakeEnquiries.find((item) => item.id === intakeId);
     setLinkDraft((current) => ({
@@ -2242,10 +2352,22 @@ function ConsultationBookingWorkspace({ advisers = [], intakeEnquiries = [], con
     setAvailabilityDraft(makeBlankBookingAvailability(availabilityDraft.adviserId || defaultAdviserId));
   }
 
+  async function submitStandardAvailability(event) {
+    event.preventDefault();
+    await saveBookingAvailabilityBulk?.(standardAvailabilityDraft);
+    setStandardAvailabilityDraft(makeBlankStandardBookingAvailability(standardAvailabilityDraft.adviserId || defaultAdviserId));
+  }
+
   async function submitBlock(event) {
     event.preventDefault();
     await saveBookingBlock(blockDraft);
     setBlockDraft(makeBlankBookingBlock(blockDraft.adviserId || defaultAdviserId));
+  }
+
+  async function submitBlockRange(event) {
+    event.preventDefault();
+    await saveBookingBlockBulk?.(blockRangeDraft);
+    setBlockRangeDraft(makeBlankBookingBlockRange(blockRangeDraft.adviserId || defaultAdviserId));
   }
 
   async function submitLink(event) {
@@ -2315,27 +2437,51 @@ function ConsultationBookingWorkspace({ advisers = [], intakeEnquiries = [], con
       )}
 
       {activeTab === 'availability' && (
-        <div className="booking-two-column">
+        <div className="booking-two-column booking-setup-grid">
+          <form className="sub-panel booking-form-panel booking-standard-panel" onSubmit={submitStandardAvailability}>
+            <span className="eyebrow">Fast setup</span>
+            <h2>Set standard booking hours</h2>
+            <p className="muted">Use this for the normal working week, for example 8:00am to 5:00pm Monday to Friday. Existing availability for the selected adviser/days is replaced so the week stays tidy.</p>
+            <SelectField label="Adviser" value={standardAvailabilityDraft.adviserId} onChange={(value) => setStandardAvailabilityDraft((current) => ({ ...current, adviserId: value }))} options={activeAdvisers.map((adviser) => ({ value: adviser.id, label: adviser.name || adviser.email }))} />
+            <div className="form-grid two"><TimeField label="Start time" value={standardAvailabilityDraft.startTime} onChange={(value) => setStandardAvailabilityDraft((current) => ({ ...current, startTime: value }))} /><TimeField label="End time" value={standardAvailabilityDraft.endTime} onChange={(value) => setStandardAvailabilityDraft((current) => ({ ...current, endTime: value }))} /></div>
+            <div className="booking-day-picker"><span>Available days</span><div>{BOOKING_DAY_OPTIONS.filter((day) => day.value >= 1 && day.value <= 5).map((day) => <button key={day.value} type="button" className={(standardAvailabilityDraft.days || []).includes(day.value) ? 'active' : ''} onClick={() => toggleStandardDay(day.value)}>{day.short || day.label.slice(0, 3)}</button>)}</div></div>
+            <div className="booking-checkbox-group"><span>Consultation types</span><small>Leave all unticked to allow all active types.</small>{typeOptions.map((type) => <label key={type.id}><input type="checkbox" checked={(standardAvailabilityDraft.consultationTypeIds || []).includes(type.id)} onChange={() => toggleStandardAvailabilityType(type.id)} /> {type.name}</label>)}</div>
+            <button className="btn dark" type="submit" disabled={saving || !(standardAvailabilityDraft.days || []).length}><Clock size={16} />Set standard week</button>
+          </form>
           <form className="sub-panel booking-form-panel" onSubmit={submitAvailability}>
-            <h2>Add adviser availability</h2>
+            <span className="eyebrow">One-off weekly window</span>
+            <h2>Add custom availability</h2>
+            <p className="muted">Use this only for exceptions to the normal week, such as late-night or Saturday booking windows.</p>
             <div className="form-grid two"><SelectField label="Adviser" value={availabilityDraft.adviserId} onChange={(value) => setAvailabilityDraft((current) => ({ ...current, adviserId: value }))} options={activeAdvisers.map((adviser) => ({ value: adviser.id, label: adviser.name || adviser.email }))} /><SelectField label="Day" value={String(availabilityDraft.dayOfWeek)} onChange={(value) => setAvailabilityDraft((current) => ({ ...current, dayOfWeek: Number(value) }))} options={BOOKING_DAY_OPTIONS.map((day) => ({ value: String(day.value), label: day.label }))} /><TimeField label="Start time" value={availabilityDraft.startTime} onChange={(value) => setAvailabilityDraft((current) => ({ ...current, startTime: value }))} /><TimeField label="End time" value={availabilityDraft.endTime} onChange={(value) => setAvailabilityDraft((current) => ({ ...current, endTime: value }))} /></div>
             <div className="booking-checkbox-group"><span>Consultation types</span><small>Leave all unticked to allow all types.</small>{typeOptions.map((type) => <label key={type.id}><input type="checkbox" checked={(availabilityDraft.consultationTypeIds || []).includes(type.id)} onChange={() => toggleAvailabilityType(type.id)} /> {type.name}</label>)}</div>
-            <button className="btn dark" type="submit" disabled={saving}><Save size={16} />Add availability</button>
+            <button className="btn ghost" type="submit" disabled={saving}><Save size={16} />Add custom window</button>
           </form>
-          <section className="sub-panel booking-list-panel"><h2>Current availability</h2>{scopedAvailability.map((row) => <div key={row.id} className="booking-card"><div><strong>{adviserName(row.adviserId)}</strong><span>{dayLabel(row.dayOfWeek)} · {formatBookingTime(row.startTime)}-{formatBookingTime(row.endTime)}</span><small>{(row.consultationTypeIds || []).length ? row.consultationTypeIds.map(typeName).join(', ') : 'All consultation types'}</small></div><button className="icon-btn" type="button" onClick={() => deleteBookingAvailability(row.id)}><Trash2 size={16} /></button></div>)}{!scopedAvailability.length && <p className="muted">No availability rows yet. Add a weekly booking window to make public slots appear.</p>}</section>
+          <section className="sub-panel booking-list-panel full-width"><h2>Current availability</h2>{scopedAvailability.map((row) => <div key={row.id} className="booking-card"><div><strong>{adviserName(row.adviserId)}</strong><span>{dayLabel(row.dayOfWeek)} · {formatBookingTime(row.startTime)}-{formatBookingTime(row.endTime)}</span><small>{(row.consultationTypeIds || []).length ? row.consultationTypeIds.map(typeName).join(', ') : 'All consultation types'}</small></div><button className="icon-btn" type="button" onClick={() => deleteBookingAvailability(row.id)}><Trash2 size={16} /></button></div>)}{!scopedAvailability.length && <p className="muted">No availability rows yet. Set a standard week to make public slots appear.</p>}</section>
         </div>
       )}
 
       {activeTab === 'blocks' && (
-        <div className="booking-two-column">
+        <div className="booking-two-column booking-setup-grid">
+          <form className="sub-panel booking-form-panel booking-standard-panel" onSubmit={submitBlockRange}>
+            <span className="eyebrow">Fast block-out</span>
+            <h2>Block out a day or date range</h2>
+            <p className="muted">Use this for leave, meetings, public holidays, or a run of unavailable days. These times disappear from the public booking page.</p>
+            <SelectField label="Adviser" value={blockRangeDraft.adviserId} onChange={(value) => setBlockRangeDraft((current) => ({ ...current, adviserId: value }))} options={activeAdvisers.map((adviser) => ({ value: adviser.id, label: adviser.name || adviser.email }))} />
+            <div className="form-grid two"><DateField label="From date" value={blockRangeDraft.startDate} onChange={(value) => setBlockRangeDraft((current) => ({ ...current, startDate: value, endDate: current.endDate || value }))} /><DateField label="To date" value={blockRangeDraft.endDate} onChange={(value) => setBlockRangeDraft((current) => ({ ...current, endDate: value }))} /><TimeField label="Start time" value={blockRangeDraft.startTime} onChange={(value) => setBlockRangeDraft((current) => ({ ...current, startTime: value }))} /><TimeField label="End time" value={blockRangeDraft.endTime} onChange={(value) => setBlockRangeDraft((current) => ({ ...current, endTime: value }))} /></div>
+            <label className="check-row"><input type="checkbox" checked={blockRangeDraft.allDay} onChange={(event) => setBlockRangeDraft((current) => ({ ...current, allDay: event.target.checked }))} /> Block whole day(s)</label>
+            <Field label="Reason" value={blockRangeDraft.reason} onChange={(value) => setBlockRangeDraft((current) => ({ ...current, reason: value }))} />
+            <button className="btn dark" type="submit" disabled={saving}><LockKeyhole size={16} />Add blocked time</button>
+          </form>
           <form className="sub-panel booking-form-panel" onSubmit={submitBlock}>
-            <h2>Block unavailable time</h2>
+            <span className="eyebrow">Single block</span>
+            <h2>Block one date/time</h2>
+            <p className="muted">Use this for a quick one-off appointment or internal meeting.</p>
             <div className="form-grid two"><SelectField label="Adviser" value={blockDraft.adviserId} onChange={(value) => setBlockDraft((current) => ({ ...current, adviserId: value }))} options={activeAdvisers.map((adviser) => ({ value: adviser.id, label: adviser.name || adviser.email }))} /><DateField label="Date" value={blockDraft.blockDate} onChange={(value) => setBlockDraft((current) => ({ ...current, blockDate: value }))} /><TimeField label="Start time" value={blockDraft.startTime} onChange={(value) => setBlockDraft((current) => ({ ...current, startTime: value }))} /><TimeField label="End time" value={blockDraft.endTime} onChange={(value) => setBlockDraft((current) => ({ ...current, endTime: value }))} /></div>
             <label className="check-row"><input type="checkbox" checked={blockDraft.allDay} onChange={(event) => setBlockDraft((current) => ({ ...current, allDay: event.target.checked }))} /> Block the whole day</label>
             <Field label="Reason" value={blockDraft.reason} onChange={(value) => setBlockDraft((current) => ({ ...current, reason: value }))} />
-            <button className="btn dark" type="submit" disabled={saving}><LockKeyhole size={16} />Add block</button>
+            <button className="btn ghost" type="submit" disabled={saving}><LockKeyhole size={16} />Add single block</button>
           </form>
-          <section className="sub-panel booking-list-panel"><h2>Blocked times</h2>{scopedBlocks.map((block) => <div key={block.id} className="booking-card"><div><strong>{adviserName(block.adviserId)}</strong><span>{formatBookingDate(block.blockDate)} · {block.allDay ? 'All day' : `${formatBookingTime(block.startTime)}-${formatBookingTime(block.endTime)}`}</span><small>{block.reason || 'No reason recorded'}</small></div><button className="icon-btn" type="button" onClick={() => deleteBookingBlock(block.id)}><Trash2 size={16} /></button></div>)}{!scopedBlocks.length && <p className="muted">No blocked times yet.</p>}</section>
+          <section className="sub-panel booking-list-panel full-width"><h2>Blocked times</h2>{scopedBlocks.map((block) => <div key={block.id} className="booking-card"><div><strong>{adviserName(block.adviserId)}</strong><span>{formatBookingDate(block.blockDate)} · {block.allDay ? 'All day' : `${formatBookingTime(block.startTime)}-${formatBookingTime(block.endTime)}`}</span><small>{block.reason || 'No reason recorded'}</small></div><button className="icon-btn" type="button" onClick={() => deleteBookingBlock(block.id)}><Trash2 size={16} /></button></div>)}{!scopedBlocks.length && <p className="muted">No blocked times yet.</p>}</section>
         </div>
       )}
 
@@ -2367,8 +2513,15 @@ function makeBlankConsultationType() {
 function makeBlankBookingAvailability(adviserId = '') {
   return { id: '', adviserId, dayOfWeek: 1, startTime: '09:00', endTime: '17:00', consultationTypeIds: [], active: true };
 }
+function makeBlankStandardBookingAvailability(adviserId = '') {
+  return { adviserId, days: [1, 2, 3, 4, 5], startTime: '08:00', endTime: '17:00', consultationTypeIds: [], replaceExisting: true };
+}
 function makeBlankBookingBlock(adviserId = '') {
   return { id: '', adviserId, blockDate: todayIso(), startTime: '09:00', endTime: '10:00', allDay: false, reason: '' };
+}
+function makeBlankBookingBlockRange(adviserId = '') {
+  const today = todayIso();
+  return { adviserId, startDate: today, endDate: today, startTime: '09:00', endTime: '17:00', allDay: true, reason: '' };
 }
 function makeBlankBookingLink(adviserId = '') {
   return { id: '', intakeId: '', adviserId, applicantName: '', applicantEmail: '', applicantPhone: '', allowedTypeIds: [], expiresAt: '', status: 'Active', notes: '' };
@@ -2394,10 +2547,11 @@ function formatBookingDateTime(date, time) {
   return `${formatBookingDate(date)} at ${formatBookingTime(time)}`;
 }
 
-function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', statuses, seminars = [], seminarRegistrations = [], saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, sendContactIntakeInviteEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saving, openClientRecord }) {
+function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', statuses, seminars = [], seminarRegistrations = [], saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, sendContactIntakeInviteEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saving, openClientRecord, confirmAction }) {
   const simplifiedStatuses = (statuses || INTAKE_STATUSES).filter((status) => INTAKE_STATUSES.includes(status));
   const [workspaceTab, setWorkspaceTab] = useState('contact');
   const [statusFilter, setStatusFilter] = useState('New');
+  const [contactStatusFilter, setContactStatusFilter] = useState('New');
   const [query, setQuery] = useState('');
   const [expandedId, setExpandedId] = useState('');
   const [draft, setDraft] = useState(null);
@@ -2420,6 +2574,13 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
     .sort((a, b) => intakeSortTime(b) - intakeSortTime(a));
 
   const activeAdvisers = advisers.filter((adviser) => adviser.active !== false);
+  const contactStatusOptions = [
+    { value: 'New', label: 'New' },
+    { value: 'Contacted', label: 'Dealt with' },
+    { value: 'Spam / Duplicate', label: 'Spam / Duplicate' },
+    { value: 'All', label: 'All' },
+  ];
+  const contactStatusLabel = (status) => contactStatusOptions.find((option) => option.value === status)?.label || status || 'New';
   const selectedScopeAdviser = dashboardAdviserFilter === 'all' ? null : advisers.find((adviser) => adviser.id === dashboardAdviserFilter);
   const contactEnquiries = normalisedEnquiries
     .filter((item) => isContactIntake(item))
@@ -2430,6 +2591,8 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
 
   const contactFiltered = contactEnquiries.filter((item) => {
     const q = query.trim().toLowerCase();
+    const matchesStatus = contactStatusFilter === 'All' || item.status === contactStatusFilter;
+    if (!matchesStatus) return false;
     if (!q) return true;
     const payload = intakeAnswerPayload(item);
     return [item.firstName, item.lastName, item.email, item.phone, item.targetPathway, item.currentLocation, payload.contactSituation, payload.contactLocation, payload.bestTimeToCall, payload.helpNeeded]
@@ -2459,6 +2622,9 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
   });
 
   const contactCount = contactEnquiries.length;
+  const newContactCount = contactEnquiries.filter((item) => item.status === 'New').length;
+  const dealtContactCount = contactEnquiries.filter((item) => item.status === 'Contacted').length;
+  const spamContactCount = contactEnquiries.filter((item) => item.status === 'Spam / Duplicate').length;
   const newIntakeCount = intakeEnquiries.filter((item) => item.status === 'New').length;
   const contactedCount = intakeEnquiries.filter((item) => item.status === 'Contacted').length;
   const convertedCount = intakeEnquiries.filter((item) => item.status === 'Converted' || item.convertedClientId).length;
@@ -2520,6 +2686,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
   function clearSearch() {
     setQuery('');
     setStatusFilter('New');
+    setContactStatusFilter('New');
   }
 
   async function saveDraft(options = {}) {
@@ -2549,14 +2716,22 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
     const name = [item.firstName, item.lastName].filter(Boolean).join(' ') || 'this contact';
     const adviser = assignedAdviserFor(item);
     const ccText = adviser?.email ? `\n\nThe email will be copied to ${adviser.name || 'the assigned adviser'} (${adviser.email}).` : '\n\nNo assigned adviser email is recorded, so no adviser copy will be sent.';
-    if (!window.confirm(`Send the full assessment form email to ${name}?${ccText}`)) return;
+    const confirmed = await askConfirm({
+      title: 'Send assessment form email?',
+      message: `Send the full assessment form email to ${name}?`,
+      details: [adviser?.email ? `The email will be copied to ${adviser.name || 'the assigned adviser'} (${adviser.email}).` : 'No assigned adviser email is recorded, so no adviser copy will be sent.'],
+      confirmLabel: 'Send email',
+      tone: 'send',
+    });
+    if (!confirmed) return;
     setContactInviteNotice('');
     setContactInviteSendingId(item.id);
     try {
       const body = await sendContactIntakeInviteEmail?.(item);
       const log = body?.emailLog;
       if (log?.status === 'Sent') {
-        setContactInviteNotice(`Assessment form email sent to ${item.email}.`);
+        setContactInviteNotice(`Assessment form email sent to ${item.email}. Contact form moved to Dealt with.`);
+        await saveIntakeEnquiry({ ...item, status: 'Contacted' });
       } else {
         setContactInviteNotice(`Assessment form email could not be sent: ${log?.failureMessage || 'Microsoft did not accept the send request.'}`);
       }
@@ -2570,8 +2745,20 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
   async function deleteContactForm(item) {
     if (!item?.id) return;
     const name = [item.firstName, item.lastName].filter(Boolean).join(' ') || 'this contact form';
-    if (!window.confirm(`Delete ${name} from the CRM? This should only be done once it has been dealt with from the email notification.`)) return;
+    const confirmed = await askConfirm({
+      title: 'Delete contact form?',
+      message: `Delete ${name} from the CRM?`,
+      details: ['Use Mark dealt with if the enquiry should be retained. Delete only if the record should be removed from the CRM.'],
+      confirmLabel: 'Delete contact',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     await deleteIntakeEnquiry(item.id);
+  }
+
+  async function updateContactStatus(item, status) {
+    if (!item?.id || !['New', 'Contacted', 'Spam / Duplicate'].includes(status)) return;
+    await saveIntakeEnquiry({ ...item, status });
   }
 
   async function updateIntakeStatus(item, status) {
@@ -2602,7 +2789,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
       </div>
 
       <div className="metric-grid four intake-metrics enquiries-metrics">
-        <MetricCard label="Contact forms" value={contactCount} note="Reference only" icon={MessageSquare} />
+        <MetricCard label="New contacts" value={newContactCount} note={`${contactCount} retained`} icon={MessageSquare} warning={newContactCount > 0} />
         <MetricCard label="New intake" value={newIntakeCount} note="Awaiting triage" icon={ClipboardList} warning={newIntakeCount > 0} />
         <MetricCard label="Contacted" value={contactedCount} note="Followed up" icon={Phone} />
         <MetricCard label="Converted" value={convertedCount} note="Client records created" icon={UsersRound} />
@@ -2610,7 +2797,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
 
       <section className="intake-inbox-panel enquiries-panel">
         <div className="enquiries-tab-row" role="tablist" aria-label="Enquiries and intake sections">
-          <button type="button" className={workspaceTab === 'contact' ? 'active' : ''} onClick={() => setWorkspaceTab('contact')}><MessageSquare size={16} />Contact Forms <span>{contactCount}</span></button>
+          <button type="button" className={workspaceTab === 'contact' ? 'active' : ''} onClick={() => setWorkspaceTab('contact')}><MessageSquare size={16} />Contact Forms <span>{newContactCount}</span></button>
           <button type="button" className={workspaceTab === 'intake' ? 'active' : ''} onClick={() => setWorkspaceTab('intake')}><ClipboardList size={16} />Intake Forms <span>{intakeEnquiries.length}</span></button>
           <button type="button" className={workspaceTab === 'seminars' ? 'active' : ''} onClick={() => setWorkspaceTab('seminars')}><CalendarDays size={16} />Seminar Registrations <span>{newSeminarRegistrationCount}</span></button>
         </div>
@@ -2632,6 +2819,16 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
             <span>Search</span>
             <div><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={workspaceTab === 'contact' ? 'Name, email, phone, message...' : 'Name, email, phone, pathway, visa...'} /></div>
           </label>
+          {workspaceTab === 'contact' && (
+            <div className="enquiries-status-pills" aria-label="Contact form status filter">
+              {contactStatusOptions.map((status) => (
+                <button key={status.value} type="button" className={contactStatusFilter === status.value ? 'active' : ''} onClick={() => setContactStatusFilter(status.value)}>
+                  {status.label}
+                  <span>{status.value === 'All' ? contactEnquiries.length : contactEnquiries.filter((item) => item.status === status.value).length}</span>
+                </button>
+              ))}
+            </div>
+          )}
           {workspaceTab === 'intake' && (
             <div className="enquiries-status-pills" aria-label="Intake status filter">
               {['New', 'Contacted', 'Converted', 'Spam / Duplicate', 'All'].map((status) => (
@@ -2654,8 +2851,8 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
         <div className="intake-inbox-summary-row enquiries-summary-row">
           <div>
             <span className="eyebrow">{workspaceTab === 'contact' ? 'Short website enquiries' : 'Full assessment questionnaires'}</span>
-            <h2>{workspaceTab === 'contact' ? 'Contact forms' : `${statusFilter} intake forms`}</h2>
-            <p className="muted">{workspaceTab === 'contact' ? 'Handled from the email notification. Delete from here once no longer needed.' : `Use the simple statuses to keep the pre-client queue tidy.${selectedScopeAdviser ? ` Showing unassigned records and records assigned to ${selectedScopeAdviser.name}.` : ''}`}</p>
+            <h2>{workspaceTab === 'contact' ? `${contactStatusLabel(contactStatusFilter)} contact forms` : `${statusFilter} intake forms`}</h2>
+            <p className="muted">{workspaceTab === 'contact' ? `The New view shows live contact enquiries only. Mark an enquiry as Dealt with once handled; it stays retained under that filter.${selectedScopeAdviser ? ` Showing unassigned records and records assigned to ${selectedScopeAdviser.name}.` : ''}` : `Use the simple statuses to keep the pre-client queue tidy.${selectedScopeAdviser ? ` Showing unassigned records and records assigned to ${selectedScopeAdviser.name}.` : ''}`}</p>
           </div>
           <strong>{visibleRecords.length} shown</strong>
         </div>
@@ -2675,6 +2872,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
                     <div className="contact-review-head">
                       <div>
                         <span className="intake-type-badge contact">Contact form</span>
+                        <span className={`library-status ${statusClass(item.status)}`}>{contactStatusLabel(item.status)}</span>
                         <h3>{name}</h3>
                         <p>{item.createdAt ? formatPortalDateTime(item.createdAt) : 'Submission date not recorded'}</p>
                       </div>
@@ -2691,6 +2889,9 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
                         <button className="btn dark" type="button" onClick={() => sendIntakeInviteForContact(item)} disabled={saving || !item.email || Boolean(contactInviteSendingId)} title={!item.email ? 'No contact email recorded' : 'Send the full assessment form email from the CRM'}>
                           <Mail size={16} />{contactInviteSendingId === item.id ? 'Sending...' : 'Send intake form email'}
                         </button>
+                        {item.status !== 'Contacted' && <button className="btn" type="button" onClick={() => updateContactStatus(item, 'Contacted')} disabled={saving}>Mark dealt with</button>}
+                        {item.status !== 'Spam / Duplicate' && <button className="btn danger ghost" type="button" onClick={() => updateContactStatus(item, 'Spam / Duplicate')} disabled={saving}>Spam / Duplicate</button>}
+                        {item.status !== 'New' && <button className="btn" type="button" onClick={() => updateContactStatus(item, 'New')} disabled={saving}>Restore to New</button>}
                         <button className="btn danger" type="button" onClick={() => deleteContactForm(item)} disabled={saving}><Trash2 size={16} />Delete</button>
                       </div>
                     </div>
@@ -2710,7 +2911,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
               <div className="empty-state slim intake-inbox-empty">
                 <MessageSquare size={34} />
                 <h2>No contact forms in this view</h2>
-                <p>Short website enquiries will appear here after the public contact form is submitted.</p>
+                <p>{contactStatusFilter === 'New' ? 'New short website enquiries will appear here until they are marked dealt with or spam.' : 'Use the status filters above to review retained contact form records.'}</p>
               </div>
             )}
           </div>
@@ -2805,7 +3006,7 @@ function makeBlankSeminar() {
   };
 }
 
-function SeminarManagementPanel({ seminars = [], registrations = [], saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saving }) {
+function SeminarManagementPanel({ seminars = [], registrations = [], saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saving, confirmAction }) {
   const sortedSeminars = [...seminars].map(normaliseSeminar).sort((a, b) => String(b.seminarDate || '').localeCompare(String(a.seminarDate || '')) || String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
   const activeSeminar = sortedSeminars.find((item) => item.status === 'Active') || sortedSeminars[0] || null;
   const [selectedSeminarId, setSelectedSeminarId] = useState(activeSeminar?.id || 'new');
@@ -2866,7 +3067,7 @@ function SeminarManagementPanel({ seminars = [], registrations = [], saveSeminar
 
   async function saveCurrentSeminar() {
     if (!seminarDraft.seminarDate || !seminarDraft.seminarTime) {
-      window.alert('Add the seminar date and time before saving.');
+      setNotice('Add the seminar date and time before saving.');
       return;
     }
     const result = await saveSeminar?.(seminarDraft);
@@ -2883,7 +3084,13 @@ function SeminarManagementPanel({ seminars = [], registrations = [], saveSeminar
   async function sendRegistrationEmail(registration, outcome) {
     if (!registration?.id || sendingId) return;
     const label = outcome === 'decline' ? 'decline' : 'approval';
-    if (!window.confirm(`Send the seminar ${label} email to ${registration.email}?`)) return;
+    const confirmed = await askConfirm({
+      title: `Send seminar ${label} email?`,
+      message: `Send the seminar ${label} email to ${registration.email}?`,
+      confirmLabel: 'Send email',
+      tone: 'send',
+    });
+    if (!confirmed) return;
     setNotice('');
     setSendingId(registration.id);
     try {
@@ -3063,7 +3270,8 @@ function intakeCompareSnapshot(item = {}) {
   };
 }
 
-function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, setDraftPayloadField, onSave, onSaveAndClose, onClose, onDelete, onConvert, sendIntakeOutcomeEmail, downloadIntakeUpload, openClientRecord }) {
+function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, setDraftPayloadField, onSave, onSaveAndClose, onClose, onDelete, onConvert, sendIntakeOutcomeEmail, downloadIntakeUpload, openClientRecord, confirmAction }) {
+  const askConfirm = confirmAction || (async ({ message }) => window.confirm(message || 'Continue?'));
   const applicantName = [draft.firstName, draft.lastName].filter(Boolean).join(' ') || 'Unnamed enquiry';
   const uploadPayload = intakeAnswerPayload(draft);
   const applicantCvUpload = uploadPayload.intakeUploads?.applicantCv || uploadPayload.applicantCv;
@@ -3083,7 +3291,14 @@ function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, 
   async function sendOutcomeEmail(outcome) {
     if (!draft.email) return;
     const label = outcome === 'decline' ? 'decline' : 'approval';
-    if (!window.confirm(`Send the ${label} email to ${draft.email}?`)) return;
+    const confirmed = await askConfirm({
+      title: `Send ${label} email?`,
+      message: `Send the ${label} email to ${draft.email}?`,
+      details: outcome === 'approve' ? ['A secure consultation booking link will be generated automatically for the assigned adviser and included in the email.'] : [],
+      confirmLabel: 'Send email',
+      tone: 'send',
+    });
+    if (!confirmed) return;
     setOutcomeSending(outcome);
     setOutcomeMessage('');
     try {
@@ -3091,7 +3306,7 @@ function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, 
       if (body?.emailLog?.status === 'Failed') {
         setOutcomeMessage(`${outcome === 'decline' ? 'Decline' : 'Approval'} email failed: ${body.emailLog.failureMessage || 'Microsoft did not accept the send request.'}`);
       } else {
-        setOutcomeMessage(`${outcome === 'decline' ? 'Decline' : 'Approval'} email sent to ${draft.email}.`);
+        setOutcomeMessage(outcome === 'decline' ? `Decline email sent to ${draft.email}.` : `Approval email sent to ${draft.email}. A booking link was included where an adviser is assigned.`);
       }
     } catch (err) {
       setOutcomeMessage(err.message || 'Email could not be sent.');
@@ -3122,7 +3337,7 @@ function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, 
           <button className="btn" type="button" onClick={() => { if (!printIntakeRecord(draft, advisers)) window.alert('The browser blocked the print window. Allow pop-ups for this CRM, then try again.'); }}><FileText size={16} />Print / save PDF</button>
           {!isContactIntake(draft) && applicantCvUpload?.fileName && <button className="btn" type="button" onClick={() => downloadCv('applicantCv', 'Applicant CV')}><Download size={16} />Download applicant CV</button>}
           {!isContactIntake(draft) && partnerCvUpload?.fileName && <button className="btn" type="button" onClick={() => downloadCv('partnerCv', 'Partner CV')}><Download size={16} />Download partner CV</button>}
-          {!isContactIntake(draft) && <button className="btn" type="button" disabled={!draft.email || Boolean(outcomeSending) || saving} onClick={() => sendOutcomeEmail('approve')} title={!draft.email ? 'No submitter email recorded' : 'Send the approval email from the CRM'}><Mail size={16} />{outcomeSending === 'approve' ? 'Sending...' : 'Send approval email'}</button>}
+          {!isContactIntake(draft) && <button className="btn" type="button" disabled={!draft.email || Boolean(outcomeSending) || saving} onClick={() => sendOutcomeEmail('approve')} title={!draft.email ? 'No submitter email recorded' : 'Send the approval email from the CRM'}><Mail size={16} />{outcomeSending === 'approve' ? 'Sending...' : 'Send approval + booking link'}</button>}
           {!isContactIntake(draft) && <button className="btn danger" type="button" disabled={!draft.email || Boolean(outcomeSending) || saving} onClick={() => sendOutcomeEmail('decline')} title={!draft.email ? 'No submitter email recorded' : 'Send the decline email from the CRM'}><Mail size={16} />{outcomeSending === 'decline' ? 'Sending...' : 'Send decline email'}</button>}
           <button className="btn dark" type="button" onClick={onConvert} disabled={saving || Boolean(draft.convertedClientId)}><UsersRound size={16} />Convert to client</button>
           {draft.convertedClientId && <button className="btn" type="button" onClick={() => openClientRecord(draft.convertedClientId)}><ExternalLink size={16} />Open client</button>}
@@ -3212,7 +3427,7 @@ function IntakeQuestionnaireEditor({ record = {}, onChange, downloadIntakeUpload
         <div>
           <span className="eyebrow">Editable questionnaire</span>
           <h3>Assessment answers</h3>
-          <p>Set out in the same order as the public assessment questionnaire. Update submitted answers here when advisers need to tidy or correct the intake record.</p>
+          <p>Grouped for adviser review: applicant details first, partner details second, then children. Update submitted answers here when advisers need to tidy or correct the intake record.</p>
         </div>
         <div className="intake-questionnaire-meta">
           <span>{record.createdAt ? `Submitted ${formatPortalDateTime(record.createdAt)}` : 'Submission date not recorded'}</span>
@@ -3255,67 +3470,6 @@ function IntakeQuestionnaireEditor({ record = {}, onChange, downloadIntakeUpload
           <IntakeSelect label="Have you previously held a New Zealand visa?" value={fieldValue('previouslyHeldNzVisa')} onChange={(v) => set('previouslyHeldNzVisa', v)} options={INTAKE_YES_NO_ONLY_OPTIONS} />
           <IntakeField label="Planned travel date (if known)" type="date" value={fieldValue('plannedTravelDate')} onChange={(v) => set('plannedTravelDate', v)} />
           <IntakeField label="Passport expiry date" type="date" value={fieldValue('passportExpiry')} onChange={(v) => set('passportExpiry', v)} />
-        </div>
-      </IntakeSection>
-
-      <IntakeSection title="Partner and family">
-        <div className="form-grid">
-          <IntakeSelect label="Relationship status" value={fieldValue('relationshipStatus')} onChange={(v) => set('relationshipStatus', v)} options={INTAKE_RELATIONSHIP_OPTIONS} />
-          <IntakeSelect label="Do you have a partner?" value={fieldValue('hasPartner')} onChange={(v) => set('hasPartner', v)} options={INTAKE_YES_NO_OPTIONS} />
-          <IntakeSelect label="Do you have children?" value={fieldValue('hasChildren')} onChange={(v) => set('hasChildren', v)} options={INTAKE_YES_NO_OPTIONS} />
-        </div>
-        <div className="intake-nested-panel">
-          <h3>Partner details</h3>
-          <div className="form-grid">
-            <IntakeField label="Partner full name" value={fieldValue('partnerFullName')} onChange={(v) => set('partnerFullName', v)} />
-            <IntakeField label="Partner date of birth" type="date" value={fieldValue('partnerDateOfBirth')} onChange={(v) => set('partnerDateOfBirth', v)} />
-            <IntakeSelect label="Partner citizenship" value={fieldValue('partnerCitizenship')} onChange={(v) => set('partnerCitizenship', v)} options={COUNTRY_OPTIONS} />
-            <IntakeSelect label="Partner current country" value={fieldValue('partnerCurrentCountry')} onChange={(v) => set('partnerCurrentCountry', v)} options={COUNTRY_OPTIONS} />
-            <IntakeField label="Partner NZ visa status" value={fieldValue('partnerVisaStatus')} onChange={(v) => set('partnerVisaStatus', v)} />
-            <IntakeSelect label="Is your partner a NZ citizen or resident?" value={fieldValue('partnerNzStatus')} onChange={(v) => set('partnerNzStatus', v)} options={INTAKE_YES_NO_OPTIONS} />
-            <IntakeSelect label="Are you living together?" value={fieldValue('livingTogether')} onChange={(v) => set('livingTogether', v)} options={INTAKE_YES_NO_OPTIONS} />
-            <IntakeField label="Date relationship started" type="date" value={fieldValue('relationshipStarted')} onChange={(v) => set('relationshipStarted', v)} />
-            <IntakeField label="Date started living together" type="date" value={fieldValue('startedLivingTogether')} onChange={(v) => set('startedLivingTogether', v)} />
-            <IntakeSelect label="Include partner in assessment?" value={fieldValue('partnerIncluded')} onChange={(v) => set('partnerIncluded', v)} options={INTAKE_YES_NO_OPTIONS} />
-          </div>
-          <IntakeTextarea label="Relationship background" value={fieldValue('relationshipBackground')} onChange={(v) => set('relationshipBackground', v)} rows={3} />
-        </div>
-        <div className="intake-nested-panel">
-          <h3>Partner work and experience</h3>
-          <div className="form-grid">
-            <IntakeSelect label="Partner current employment status" value={fieldValue('partnerCurrentEmploymentStatus')} onChange={(v) => set('partnerCurrentEmploymentStatus', v)} options={INTAKE_EMPLOYMENT_STATUS_OPTIONS} />
-            <IntakeField label="Partner occupation / profession" value={fieldValue('partnerOccupation')} onChange={(v) => set('partnerOccupation', v)} />
-            <IntakeField label="Partner current employer / business" value={fieldValue('partnerCurrentEmployer')} onChange={(v) => set('partnerCurrentEmployer', v)} />
-            <IntakeSelect label="Partner country of employment" value={fieldValue('partnerEmploymentCountry')} onChange={(v) => set('partnerEmploymentCountry', v)} options={COUNTRY_OPTIONS} />
-            <IntakeField label="Partner current job start date" type="date" value={fieldValue('partnerCurrentJobStartDate')} onChange={(v) => set('partnerCurrentJobStartDate', v)} />
-            <IntakeField label="Partner hours per week" value={fieldValue('partnerHoursPerWeek')} onChange={(v) => set('partnerHoursPerWeek', v)} />
-            <IntakeField label="Partner salary or pay rate" value={fieldValue('partnerAnnualSalary')} onChange={(v) => set('partnerAnnualSalary', v)} />
-            <IntakeSelect label="Partner salary currency" value={fieldValue('partnerSalaryCurrency')} onChange={(v) => set('partnerSalaryCurrency', v)} options={INTAKE_CURRENCY_OPTIONS} />
-            <IntakeField label="Partner years of relevant experience" value={fieldValue('partnerYearsExperience')} onChange={(v) => set('partnerYearsExperience', v)} />
-          </div>
-          <IntakeTextarea label="Partner current employment details" value={fieldValue('partnerEmploymentDetails')} onChange={(v) => set('partnerEmploymentDetails', v)} rows={3} />
-          <IntakeTextarea label="Partner previous work history" value={fieldValue('partnerPreviousWorkHistory')} onChange={(v) => set('partnerPreviousWorkHistory', v)} rows={3} />
-        </div>
-        <div className="intake-nested-panel">
-          <h3>Partner qualifications</h3>
-          <div className="form-grid">
-            <IntakeSelect label="Partner highest qualification" value={fieldValue('partnerHighestQualification')} onChange={(v) => set('partnerHighestQualification', v)} options={INTAKE_QUALIFICATION_OPTIONS} />
-            <IntakeField label="Partner qualification name" value={fieldValue('partnerQualificationName')} onChange={(v) => set('partnerQualificationName', v)} />
-            <IntakeField label="Partner institution" value={fieldValue('partnerQualificationInstitution')} onChange={(v) => set('partnerQualificationInstitution', v)} />
-            <IntakeSelect label="Partner qualification country" value={fieldValue('partnerQualificationCountry')} onChange={(v) => set('partnerQualificationCountry', v)} options={COUNTRY_OPTIONS} />
-            <IntakeField label="Partner year completed" value={fieldValue('partnerQualificationYearCompleted')} onChange={(v) => set('partnerQualificationYearCompleted', v)} />
-            <IntakeField label="Partner length of study" value={fieldValue('partnerQualificationStudyLength')} onChange={(v) => set('partnerQualificationStudyLength', v)} />
-            <IntakeSelect label="Partner qualification taught in English?" value={fieldValue('partnerTaughtInEnglish')} onChange={(v) => set('partnerTaughtInEnglish', v)} options={INTAKE_YES_NO_OPTIONS} />
-            <IntakeSelect label="Partner qualification assessed by NZQA?" value={fieldValue('partnerNzqaAssessed')} onChange={(v) => set('partnerNzqaAssessed', v)} options={INTAKE_YES_NO_OPTIONS} />
-            <IntakeSelect label="Partner qualification related to occupation?" value={fieldValue('partnerQualificationRelatedToOccupation')} onChange={(v) => set('partnerQualificationRelatedToOccupation', v)} options={INTAKE_YES_NO_OPTIONS} />
-          </div>
-          <IntakeTextarea label="Partner other qualifications or training" value={fieldValue('partnerQualificationDetails')} onChange={(v) => set('partnerQualificationDetails', v)} rows={3} />
-          <IntakeUploadDownloadCard label="Partner CV" upload={payload.intakeUploads?.partnerCv || payload.partnerCv} onDownload={() => downloadIntakeUpload?.(record.id, 'partnerCv')} />
-        </div>
-        <div className="intake-nested-panel">
-          <h3>Children</h3>
-          <IntakeTextarea label="Children details" value={fieldValue('children')} onChange={(v) => set('children', v)} rows={3} />
-          <IntakeTextarea label="Additional child / custody details" value={fieldValue('moreChildrenDetails')} onChange={(v) => set('moreChildrenDetails', v)} rows={3} />
         </div>
       </IntakeSection>
 
@@ -3365,6 +3519,72 @@ function IntakeQuestionnaireEditor({ record = {}, onChange, downloadIntakeUpload
         <IntakeTextarea label="Other qualifications or training" value={fieldValue('qualificationDetails')} onChange={(v) => set('qualificationDetails', v)} rows={3} />
       </IntakeSection>
 
+      <IntakeSection title="Partner details">
+        <div className="form-grid">
+          <IntakeSelect label="Relationship status" value={fieldValue('relationshipStatus')} onChange={(v) => set('relationshipStatus', v)} options={INTAKE_RELATIONSHIP_OPTIONS} />
+          <IntakeSelect label="Do you have a partner?" value={fieldValue('hasPartner')} onChange={(v) => set('hasPartner', v)} options={INTAKE_YES_NO_OPTIONS} />
+        </div>
+        <div className="intake-nested-panel">
+          <h3>Partner details</h3>
+          <div className="form-grid">
+            <IntakeField label="Partner full name" value={fieldValue('partnerFullName')} onChange={(v) => set('partnerFullName', v)} />
+            <IntakeField label="Partner date of birth" type="date" value={fieldValue('partnerDateOfBirth')} onChange={(v) => set('partnerDateOfBirth', v)} />
+            <IntakeSelect label="Partner citizenship" value={fieldValue('partnerCitizenship')} onChange={(v) => set('partnerCitizenship', v)} options={COUNTRY_OPTIONS} />
+            <IntakeSelect label="Partner current country" value={fieldValue('partnerCurrentCountry')} onChange={(v) => set('partnerCurrentCountry', v)} options={COUNTRY_OPTIONS} />
+            <IntakeField label="Partner NZ visa status" value={fieldValue('partnerVisaStatus')} onChange={(v) => set('partnerVisaStatus', v)} />
+            <IntakeSelect label="Is your partner a NZ citizen or resident?" value={fieldValue('partnerNzStatus')} onChange={(v) => set('partnerNzStatus', v)} options={INTAKE_YES_NO_OPTIONS} />
+            <IntakeSelect label="Are you living together?" value={fieldValue('livingTogether')} onChange={(v) => set('livingTogether', v)} options={INTAKE_YES_NO_OPTIONS} />
+            <IntakeField label="Date relationship started" type="date" value={fieldValue('relationshipStarted')} onChange={(v) => set('relationshipStarted', v)} />
+            <IntakeField label="Date started living together" type="date" value={fieldValue('startedLivingTogether')} onChange={(v) => set('startedLivingTogether', v)} />
+            <IntakeSelect label="Include partner in assessment?" value={fieldValue('partnerIncluded')} onChange={(v) => set('partnerIncluded', v)} options={INTAKE_YES_NO_OPTIONS} />
+          </div>
+          <IntakeTextarea label="Relationship background" value={fieldValue('relationshipBackground')} onChange={(v) => set('relationshipBackground', v)} rows={3} />
+        </div>
+        <div className="intake-nested-panel">
+          <h3>Partner work and experience</h3>
+          <div className="form-grid">
+            <IntakeSelect label="Partner current employment status" value={fieldValue('partnerCurrentEmploymentStatus')} onChange={(v) => set('partnerCurrentEmploymentStatus', v)} options={INTAKE_EMPLOYMENT_STATUS_OPTIONS} />
+            <IntakeField label="Partner occupation / profession" value={fieldValue('partnerOccupation')} onChange={(v) => set('partnerOccupation', v)} />
+            <IntakeField label="Partner current employer / business" value={fieldValue('partnerCurrentEmployer')} onChange={(v) => set('partnerCurrentEmployer', v)} />
+            <IntakeSelect label="Partner country of employment" value={fieldValue('partnerEmploymentCountry')} onChange={(v) => set('partnerEmploymentCountry', v)} options={COUNTRY_OPTIONS} />
+            <IntakeField label="Partner current job start date" type="date" value={fieldValue('partnerCurrentJobStartDate')} onChange={(v) => set('partnerCurrentJobStartDate', v)} />
+            <IntakeField label="Partner hours per week" value={fieldValue('partnerHoursPerWeek')} onChange={(v) => set('partnerHoursPerWeek', v)} />
+            <IntakeField label="Partner salary or pay rate" value={fieldValue('partnerAnnualSalary')} onChange={(v) => set('partnerAnnualSalary', v)} />
+            <IntakeSelect label="Partner salary currency" value={fieldValue('partnerSalaryCurrency')} onChange={(v) => set('partnerSalaryCurrency', v)} options={INTAKE_CURRENCY_OPTIONS} />
+            <IntakeField label="Partner years of relevant experience" value={fieldValue('partnerYearsExperience')} onChange={(v) => set('partnerYearsExperience', v)} />
+          </div>
+          <IntakeTextarea label="Partner current employment details" value={fieldValue('partnerEmploymentDetails')} onChange={(v) => set('partnerEmploymentDetails', v)} rows={3} />
+          <IntakeTextarea label="Partner previous work history" value={fieldValue('partnerPreviousWorkHistory')} onChange={(v) => set('partnerPreviousWorkHistory', v)} rows={3} />
+        </div>
+        <div className="intake-nested-panel">
+          <h3>Partner qualifications</h3>
+          <div className="form-grid">
+            <IntakeSelect label="Partner highest qualification" value={fieldValue('partnerHighestQualification')} onChange={(v) => set('partnerHighestQualification', v)} options={INTAKE_QUALIFICATION_OPTIONS} />
+            <IntakeField label="Partner qualification name" value={fieldValue('partnerQualificationName')} onChange={(v) => set('partnerQualificationName', v)} />
+            <IntakeField label="Partner institution" value={fieldValue('partnerQualificationInstitution')} onChange={(v) => set('partnerQualificationInstitution', v)} />
+            <IntakeSelect label="Partner qualification country" value={fieldValue('partnerQualificationCountry')} onChange={(v) => set('partnerQualificationCountry', v)} options={COUNTRY_OPTIONS} />
+            <IntakeField label="Partner year completed" value={fieldValue('partnerQualificationYearCompleted')} onChange={(v) => set('partnerQualificationYearCompleted', v)} />
+            <IntakeField label="Partner length of study" value={fieldValue('partnerQualificationStudyLength')} onChange={(v) => set('partnerQualificationStudyLength', v)} />
+            <IntakeSelect label="Partner qualification taught in English?" value={fieldValue('partnerTaughtInEnglish')} onChange={(v) => set('partnerTaughtInEnglish', v)} options={INTAKE_YES_NO_OPTIONS} />
+            <IntakeSelect label="Partner qualification assessed by NZQA?" value={fieldValue('partnerNzqaAssessed')} onChange={(v) => set('partnerNzqaAssessed', v)} options={INTAKE_YES_NO_OPTIONS} />
+            <IntakeSelect label="Partner qualification related to occupation?" value={fieldValue('partnerQualificationRelatedToOccupation')} onChange={(v) => set('partnerQualificationRelatedToOccupation', v)} options={INTAKE_YES_NO_OPTIONS} />
+          </div>
+          <IntakeTextarea label="Partner other qualifications or training" value={fieldValue('partnerQualificationDetails')} onChange={(v) => set('partnerQualificationDetails', v)} rows={3} />
+          <IntakeUploadDownloadCard label="Partner CV" upload={payload.intakeUploads?.partnerCv || payload.partnerCv} onDownload={() => downloadIntakeUpload?.(record.id, 'partnerCv')} />
+        </div>
+      </IntakeSection>
+
+      <IntakeSection title="Children">
+        <div className="form-grid">
+          <IntakeSelect label="Do you have children?" value={fieldValue('hasChildren')} onChange={(v) => set('hasChildren', v)} options={INTAKE_YES_NO_OPTIONS} />
+        </div>
+        <div className="intake-nested-panel">
+          <h3>Children</h3>
+          <IntakeTextarea label="Children details" value={fieldValue('children')} onChange={(v) => set('children', v)} rows={3} />
+          <IntakeTextarea label="Additional child / custody details" value={fieldValue('moreChildrenDetails')} onChange={(v) => set('moreChildrenDetails', v)} rows={3} />
+        </div>
+
+      </IntakeSection>
       <IntakeSection title="Health and character">
         <div className="form-grid">
           <IntakeSelect label="Any medical or health concerns?" value={fieldValue('healthIssues')} onChange={(v) => set('healthIssues', v)} options={INTAKE_YES_NO_OPTIONS} />
@@ -3523,16 +3743,6 @@ function getIntakeQuestionnaireSections(record = {}) {
       rows: intakeRows(payload, ['isInNewZealand', 'currentLocation', 'currentVisaType', 'currentVisaExpiry', 'visaConditions', 'previouslyVisitedNz', 'previouslyHeldNzVisa', 'plannedTravelDate', 'passportExpiry']),
     },
     {
-      title: 'Partner and family',
-      rows: intakeRows(payload, ['relationshipStatus', 'hasPartner', 'hasChildren']),
-      panels: [
-        { title: 'Partner details', rows: intakeRows(payload, ['partnerFullName', 'partnerDateOfBirth', 'partnerCitizenship', 'partnerCurrentCountry', 'partnerVisaStatus', 'partnerNzStatus', 'livingTogether', 'relationshipStarted', 'startedLivingTogether', 'partnerIncluded', 'relationshipBackground', 'partnerCv']) },
-        { title: 'Partner work and experience', rows: intakeRows(payload, ['partnerCurrentEmploymentStatus', 'partnerOccupation', 'partnerCurrentEmployer', 'partnerEmploymentCountry', 'partnerCurrentJobStartDate', 'partnerHoursPerWeek', 'partnerAnnualSalary', 'partnerSalaryCurrency', 'partnerYearsExperience', 'partnerEmploymentDetails', 'partnerPreviousWorkHistory']) },
-        { title: 'Partner qualifications', rows: intakeRows(payload, ['partnerHighestQualification', 'partnerQualificationName', 'partnerQualificationInstitution', 'partnerQualificationCountry', 'partnerQualificationYearCompleted', 'partnerQualificationStudyLength', 'partnerTaughtInEnglish', 'partnerNzqaAssessed', 'partnerQualificationRelatedToOccupation', 'partnerQualificationDetails']) },
-        { title: 'Children', rows: intakeRows(payload, ['children', 'moreChildrenDetails']) },
-      ],
-    },
-    {
       title: 'Work and employment',
       rows: intakeRows(payload, ['currentEmploymentStatus', 'occupation', 'currentEmployer', 'employmentCountry', 'currentJobStartDate', 'hoursPerWeek', 'annualSalary', 'salaryCurrency', 'yearsExperience', 'employmentDetails']),
       panels: [
@@ -3543,6 +3753,19 @@ function getIntakeQuestionnaireSections(record = {}) {
     {
       title: 'Qualifications',
       rows: intakeRows(payload, ['highestQualification', 'qualificationName', 'qualificationInstitution', 'qualificationCountry', 'qualificationYearCompleted', 'qualificationStudyLength', 'taughtInEnglish', 'nzqaAssessed', 'qualificationRelatedToOccupation', 'qualificationDetails']),
+    },
+    {
+      title: 'Partner details',
+      rows: intakeRows(payload, ['relationshipStatus', 'hasPartner']),
+      panels: [
+        { title: 'Partner identity and relationship', rows: intakeRows(payload, ['partnerFullName', 'partnerDateOfBirth', 'partnerCitizenship', 'partnerCurrentCountry', 'partnerVisaStatus', 'partnerNzStatus', 'livingTogether', 'relationshipStarted', 'startedLivingTogether', 'partnerIncluded', 'relationshipBackground', 'partnerCv']) },
+        { title: 'Partner work and experience', rows: intakeRows(payload, ['partnerCurrentEmploymentStatus', 'partnerOccupation', 'partnerCurrentEmployer', 'partnerEmploymentCountry', 'partnerCurrentJobStartDate', 'partnerHoursPerWeek', 'partnerAnnualSalary', 'partnerSalaryCurrency', 'partnerYearsExperience', 'partnerEmploymentDetails', 'partnerPreviousWorkHistory']) },
+        { title: 'Partner qualifications', rows: intakeRows(payload, ['partnerHighestQualification', 'partnerQualificationName', 'partnerQualificationInstitution', 'partnerQualificationCountry', 'partnerQualificationYearCompleted', 'partnerQualificationStudyLength', 'partnerTaughtInEnglish', 'partnerNzqaAssessed', 'partnerQualificationRelatedToOccupation', 'partnerQualificationDetails']) },
+      ],
+    },
+    {
+      title: 'Children',
+      rows: intakeRows(payload, ['hasChildren', 'children', 'moreChildrenDetails']),
     },
     {
       title: 'Health and character',

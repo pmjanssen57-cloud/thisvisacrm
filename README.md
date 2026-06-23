@@ -1,7 +1,59 @@
-# THiS CRM v0.13.7 - Internal Notification Email Styling
+# THiS CRM v0.13.11 - Intake Flow and Notification Polish
 
-This build restores branded styling for the internal contact, assessment/intake, and seminar registration notification emails while retaining the v0.13.6 security hardening foundation. It does not change the daily adviser workflow, client portal workflow, public forms, or consultation booking module.
+This build makes the consultation booking module more practical for real adviser use. The aim is simple: set a standard week quickly, block out unavailable time as needed, and let the assessment approval email generate/send the applicant booking link automatically.
 
+## v0.13.11 changes
+
+- Reordered the public assessment questionnaire so applicant work/qualifications sit with applicant details first, followed by partner details, then children.
+- Reordered the CRM intake review/editor and intake display sections to match the new applicant -> partner -> children review flow.
+- Simplified internal contact and assessment notification emails by removing record IDs and other low-value metadata from the adviser-facing content.
+- Improved notification email spacing and section flow so key adviser details are easier to scan.
+- Kept the editable email template system intact; subject, wording, placeholders, and custom HTML bodies remain editable in Tools.
+
+## v0.13.10 changes
+
+- Added fast standard availability setup in Bookings > Availability.
+- Advisers can now bulk-set normal booking hours, for example 8:00am to 5:00pm Monday to Friday.
+- Bulk availability replaces existing availability for the selected adviser/days so the calendar does not become a thicket of duplicate rows.
+- Kept the custom single-day weekly availability option for exceptions, such as Saturdays or late-night windows.
+- Added a date-range block-out workflow in Bookings > Blocked times.
+- Advisers can now block a single day, a date range, whole days, or specific times across a range.
+- Assessment approval emails now automatically create a secure consultation booking link for the assigned adviser and include it in the outgoing email.
+- Existing active booking links for that same intake are cancelled when a new approval email creates a replacement link.
+- The email template editor still controls the approval email wording. A `{{bookingLink}}` placeholder is now available, and the system appends the booking link if the template does not already include it.
+- Applicant and adviser booking confirmation emails now include an `.ics` calendar invite attachment for manual Outlook calendar management.
+- No Outlook Graph calendar-write integration and no payment integration have been added.
+- Built on top of v0.13.9 contact form queue status polish.
+
+## Deployment notes
+
+Deploy this package normally. No database migration is required because the existing booking tables are reused.
+
+## Testing notes
+
+1. Go to Bookings > Availability.
+2. Select an adviser and use Set standard booking hours, for example Monday-Friday 08:00-17:00.
+3. Go to Bookings > Blocked times and add a date or date-range block.
+4. Open an assessment/intake record assigned to that adviser.
+5. Click Send approval + booking link.
+6. Confirm the applicant receives the approval email with a booking link.
+7. Complete a test booking from the public booking page.
+8. Confirm the booking appears in Bookings > Bookings and that adviser/applicant notification emails include the calendar attachment.
+
+## v0.13.9 changes
+
+- Added contact form status filters: New, Dealt with, Spam / Duplicate, and All.
+- Contact Forms tab now shows the New contact count, while the summary still reports retained records.
+- Added visible status badges to each short contact form card.
+- Added quick actions to mark a contact form as Dealt with, Spam / Duplicate, or Restore to New.
+- Sending the full assessment/intake form email from a contact enquiry now automatically moves that contact form to Dealt with once the email is successfully sent.
+- Updated contact form help text and empty-state wording so advisers understand that records are retained rather than deleted.
+- Kept delete available only for records that should actually be removed from the CRM.
+- Built on top of v0.13.8 CRM confirmation modal polish.
+
+## Deployment notes
+
+Deploy this package normally. No database migration is required because the existing intake/contact status field is reused.
 
 ## v0.13.7 changes
 
@@ -58,3 +110,12 @@ This release changes email rendering and keeps the previous security hardening b
 ## Previous included build features
 
 This package includes the consultation booking foundation, portal footer polish, and contact form embed containment polish from the v0.13.x line.
+
+
+## v0.13.8 — CRM Confirmation Modal Polish
+
+- Replaced the main action browser confirmation popups with branded in-app THiS CRM confirmation modals.
+- Applied the new modal to assessment-form email sends, seminar approval/decline emails, intake approval/decline emails, and common delete/deactivate actions.
+- Kept the modal body generic and reusable so future confirmation actions can use the same CRM pattern.
+- Left browser prompts in place only where the browser itself is still required, such as copy prompts and blocked print-window alerts.
+- No database migration required.

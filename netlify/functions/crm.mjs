@@ -124,10 +124,12 @@ We have two options available for the consultation process:
 
 Moving to another country is a complex process, particularly in the current environment as the demand for Visas and opportunities in New Zealand continues to increase. If you are seriously considering the move, then having a well laid out plan is vital.
 
-If you wish to move ahead with this assessment, please email us directly: {{allocatedTo}} (do not reply to this email) and indicate which assessment option you would prefer to take.
+If you wish to move ahead, you can book a consultation here: {{bookingLink}}
+
+The booking page will show the currently available times for the adviser assigned to your assessment.
 
 I look forward to hearing from you in due course.`,
-    placeholders: ['firstName', 'applicantName', 'allocatedTo'],
+    placeholders: ['firstName', 'applicantName', 'allocatedTo', 'bookingLink'],
   },
   {
     key: 'intake_decline',
@@ -228,14 +230,14 @@ Applicant: {{applicantName}}
 Email: {{email}}
 Phone: {{phone}}
 Submitted: {{submitted}}
-Flags: {{flags}}
-Record ID: {{intakeId}}
+{{flagLine}}
 
-Summary:
+Key details:
+
 {{summary}}
 
 Please review this in THiS CRM > Enquiries & Intake > Intake Forms.`,
-    placeholders: ['applicantName', 'email', 'phone', 'submitted', 'flags', 'intakeId', 'summary'],
+    placeholders: ['applicantName', 'email', 'phone', 'submitted', 'flags', 'flagLine', 'summary'],
   },
   {
     key: 'contact_form_internal_notification',
@@ -248,14 +250,14 @@ Applicant: {{applicantName}}
 Email: {{email}}
 Phone: {{phone}}
 Submitted: {{submitted}}
-Flags: {{flags}}
-Record ID: {{intakeId}}
+{{flagLine}}
 
-Summary:
+Key details:
+
 {{summary}}
 
 Please review this in THiS CRM > Enquiries & Intake > Contact Forms.`,
-    placeholders: ['applicantName', 'email', 'phone', 'submitted', 'flags', 'intakeId', 'summary'],
+    placeholders: ['applicantName', 'email', 'phone', 'submitted', 'flags', 'flagLine', 'summary'],
   },
   {
     key: 'portal_access',
@@ -460,6 +462,11 @@ async function handleCrmEvent(event) {
       return json({ bookingAvailabilityItem, ...(await readCrmData()) });
     }
 
+    if (action === 'saveBookingAvailabilityBulk') {
+      await saveBookingAvailabilityBulk(body.availability || {});
+      return json(await readCrmData());
+    }
+
     if (action === 'deleteBookingAvailability') {
       await deleteBookingAvailability(body.availabilityId);
       return json(await readCrmData());
@@ -468,6 +475,11 @@ async function handleCrmEvent(event) {
     if (action === 'saveBookingBlock') {
       const bookingBlock = await saveBookingBlock(body.block || {});
       return json({ bookingBlock, ...(await readCrmData()) });
+    }
+
+    if (action === 'saveBookingBlockBulk') {
+      await saveBookingBlockBulk(body.block || {});
+      return json(await readCrmData());
     }
 
     if (action === 'deleteBookingBlock') {
@@ -1146,7 +1158,7 @@ function mapConsultationBookingFromDb(row = {}) {
 }
 
 function buildBookingUrl(token = '') {
-  const baseUrl = String(process.env.URL || process.env.DEPLOY_URL || '').replace(/\/$/, '') || '';
+  const baseUrl = String(process.env.THIS_CRM_BASE_URL || process.env.URL || process.env.DEPLOY_URL || 'https://thisvisacrm.netlify.app').replace(/\/$/, '') || 'https://thisvisacrm.netlify.app';
   return token ? `${baseUrl}/book?token=${encodeURIComponent(token)}` : '';
 }
 
@@ -2365,6 +2377,24 @@ async function saveBookingAvailability(input = {}) {
   return mapBookingAvailabilityFromDb(rows[0]);
 }
 
+async function saveBookingAvailabilityBulk(input = {}) {
+  const adviserId = String(input.adviserId || input.adviser_id || '').trim();
+  if (!isUuid(adviserId)) throw new Error('Choose an adviser for this availability setup.');
+  const days = Array.from(new Set((Array.isArray(input.days) ? input.days : [1, 2, 3, 4, 5]).map((day) => clampNumber(day, 0, 6, 1)))).sort((a, b) => a - b);
+  if (!days.length) throw new Error('Choose at least one booking day.');
+  const startTime = normaliseTimeText(input.startTime || input.start_time || '08:00') || '08:00';
+  const endTime = normaliseTimeText(input.endTime || input.end_time || '17:00') || '17:00';
+  if (minutesFromTimeText(startTime) >= minutesFromTimeText(endTime)) throw new Error('The booking start time must be before the end time.');
+  const consultationTypeIds = normaliseUuidArray(input.consultationTypeIds || input.consultation_type_ids || []);
+  const database = db();
+  for (const day of days) {
+    await database.sql`DELETE FROM adviser_booking_availability WHERE adviser_id = ${adviserId} AND day_of_week = ${day}`;
+    await database.sql`
+      INSERT INTO adviser_booking_availability (adviser_id, day_of_week, start_time, end_time, consultation_type_ids, active)
+      VALUES (${adviserId}, ${day}, ${startTime}, ${endTime}, CAST(${JSON.stringify(consultationTypeIds)} AS jsonb), TRUE)`;
+  }
+}
+
 async function deleteBookingAvailability(availabilityId) {
   if (!isUuid(availabilityId)) return;
   await db().sql`DELETE FROM adviser_booking_availability WHERE id = ${availabilityId}`;
@@ -2388,6 +2418,27 @@ async function saveBookingBlock(input = {}) {
     VALUES (${item.adviserId}, ${nullableDate(item.blockDate)}, ${item.startTime}, ${item.endTime}, ${item.allDay}, ${item.reason})
     RETURNING id, adviser_id, block_date, start_time, end_time, all_day, reason, created_at, updated_at`;
   return mapBookingBlockFromDb(rows[0]);
+}
+
+async function saveBookingBlockBulk(input = {}) {
+  const adviserId = String(input.adviserId || input.adviser_id || '').trim();
+  if (!isUuid(adviserId)) throw new Error('Choose an adviser for this blocked time.');
+  const startDate = nullableDate(input.startDate || input.start_date || input.blockDate || input.block_date);
+  const endDate = nullableDate(input.endDate || input.end_date || startDate);
+  if (!startDate || !endDate) throw new Error('Choose a valid blocked date or date range.');
+  const dates = isoDateRange(startDate, endDate, 92);
+  if (!dates.length) throw new Error('The blocked date range is not valid.');
+  const allDay = Boolean(input.allDay ?? input.all_day);
+  const startTime = allDay ? '' : (normaliseTimeText(input.startTime || input.start_time || '09:00') || '09:00');
+  const endTime = allDay ? '' : (normaliseTimeText(input.endTime || input.end_time || '17:00') || '17:00');
+  if (!allDay && minutesFromTimeText(startTime) >= minutesFromTimeText(endTime)) throw new Error('The block start time must be before the end time.');
+  const reason = cleanText(input.reason || '', 500);
+  const database = db();
+  for (const date of dates) {
+    await database.sql`
+      INSERT INTO adviser_booking_blocks (adviser_id, block_date, start_time, end_time, all_day, reason)
+      VALUES (${adviserId}, ${date}, ${startTime}, ${endTime}, ${allDay}, ${reason})`;
+  }
 }
 
 async function deleteBookingBlock(blockId) {
@@ -2511,6 +2562,30 @@ function normaliseTimeText(value = '') {
   const minute = Number(match[2]);
   if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return '';
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function minutesFromTimeText(value = '00:00') {
+  const time = normaliseTimeText(value) || '00:00';
+  const [hour, minute] = time.split(':').map(Number);
+  return (hour * 60) + minute;
+}
+
+function addIsoDays(dateIso = '', amount = 0) {
+  const date = new Date(`${dateIso}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + Number(amount || 0));
+  return date.toISOString().slice(0, 10);
+}
+
+function isoDateRange(startDate = '', endDate = '', maxDays = 92) {
+  if (!nullableDate(startDate) || !nullableDate(endDate)) return [];
+  const start = new Date(`${startDate}T00:00:00Z`);
+  const end = new Date(`${endDate}T00:00:00Z`);
+  if (end.getTime() < start.getTime()) return [];
+  const dates = [];
+  for (let cursor = new Date(start); cursor.getTime() <= end.getTime() && dates.length < maxDays; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+    dates.push(cursor.toISOString().slice(0, 10));
+  }
+  return dates;
 }
 
 function normaliseUuidArray(value) {
@@ -2886,9 +2961,11 @@ async function sendIntakeOutcomeEmail(input = {}, outcome = 'approve', authUser 
   const advisers = await db().sql`SELECT id, name, email FROM advisers ORDER BY name ASC`;
   const adviser = advisers.find((item) => String(item.id || '') === String(intake.assignedAdviserId || '')) || null;
   const adviserEmail = String(adviser?.email || '').trim();
-  const fallbackDraft = buildIntakeOutcomeEmailContent(intake, adviser, outcome);
-  const config = requireMicrosoftEmailConfig();
   const database = db();
+  const bookingLink = outcome === 'decline' ? null : await createBookingLinkForIntakeEmail(intake, adviser, database);
+  const bookingLinkUrl = bookingLink?.bookingUrl || '';
+  const fallbackDraft = buildIntakeOutcomeEmailContent(intake, adviser, outcome, bookingLinkUrl);
+  const config = requireMicrosoftEmailConfig();
   const sentBy = authUser?.email || authUser?.name || 'CRM adviser';
   const templateKey = outcome === 'decline' ? 'intake_decline' : 'intake_approve';
   const ccEmail = isValidEmailAddress(adviserEmail) ? adviserEmail : '';
@@ -2897,8 +2974,10 @@ async function sendIntakeOutcomeEmail(input = {}, outcome = 'approve', authUser 
     firstName: String(intake.firstName || '').trim() || 'there',
     applicantName,
     allocatedTo: isValidEmailAddress(adviserEmail) ? adviserEmail : '[Allocated To]',
+    bookingLink: bookingLinkUrl || '[Booking link]',
   }, fallbackDraft);
-  const emailDraft = { to: fallbackDraft.to, ...emailContent };
+  const finalEmailContent = outcome === 'decline' ? emailContent : ensureBookingLinkInEmailContent(emailContent, bookingLinkUrl);
+  const emailDraft = { to: fallbackDraft.to, ...finalEmailContent };
 
   const [created] = await database.sql`
     INSERT INTO email_notifications (related_record_type, related_record_id, intake_id, template_key, from_email, from_name, to_email, cc, subject, body_text, body_html, status, sent_by)
@@ -2933,11 +3012,50 @@ async function sendIntakeOutcomeEmail(input = {}, outcome = 'approve', authUser 
   }
 }
 
-function buildIntakeOutcomeEmailContent(intake = {}, adviser = null, outcome = 'approve') {
+async function createBookingLinkForIntakeEmail(intake = {}, adviser = null, database = db()) {
+  if (!isUuid(intake.id) || !isUuid(adviser?.id)) return null;
+  const applicantName = [intake.firstName, intake.lastName].filter(Boolean).join(' ').trim() || intake.email || 'Applicant';
+  const applicantEmail = String(intake.email || '').trim().toLowerCase();
+  if (!isValidEmailAddress(applicantEmail)) return null;
+  await database.sql`
+    UPDATE consultation_booking_links
+       SET status = 'Cancelled', updated_at = NOW()
+     WHERE intake_id = ${intake.id} AND status = 'Active'`;
+  const expiresAt = new Date(Date.now() + (45 * 24 * 60 * 60 * 1000)).toISOString();
+  const link = await saveBookingLink({
+    intakeId: intake.id,
+    adviserId: adviser.id,
+    applicantName,
+    applicantEmail,
+    applicantPhone: intake.phone || '',
+    allowedTypeIds: [],
+    expiresAt,
+    status: 'Active',
+    notes: 'Created automatically when the assessment approval email was sent.',
+  });
+  return link;
+}
+
+function ensureBookingLinkInEmailContent(emailContent = {}, bookingLink = '') {
+  const url = String(bookingLink || '').trim();
+  if (!url) return emailContent;
+  const bodyText = String(emailContent.bodyText || '');
+  const bodyHtml = String(emailContent.bodyHtml || '');
+  if (bodyText.includes(url) || bodyHtml.includes(url)) return emailContent;
+  const appendText = `
+
+Book your consultation here: ${url}`;
+  const safeUrl = escapeHtml(url);
+  const appendHtml = `<p style="margin:0 0 12px 0; padding:0; line-height:1.3;">Book your consultation using this secure link:</p><p style="margin:0 0 14px 0; padding:0;"><a href="${safeUrl}" style="display:inline-block; background:#003736; color:#ffffff; text-decoration:none; font-weight:700; padding:10px 16px; border-radius:10px;">Book a consultation</a></p><p style="margin:0 0 10px 0; padding:0; line-height:1.3;"><a href="${safeUrl}" style="color:#003736; font-weight:700;">${safeUrl}</a></p>`;
+  return { ...emailContent, bodyText: `${bodyText}${appendText}`.trim(), bodyHtml: bodyHtml ? bodyHtml.replace(/<\/div>\s*$/i, `${appendHtml}</div>`) : editableTemplateEmailHtml(`${bodyText}${appendText}`.trim()) };
+}
+
+function buildIntakeOutcomeEmailContent(intake = {}, adviser = null, outcome = 'approve', bookingLink = '') {
   const applicantName = [intake.firstName, intake.lastName].filter(Boolean).join(' ').trim() || 'your enquiry';
   const firstName = String(intake.firstName || '').trim() || 'there';
   const adviserEmail = String(adviser?.email || '').trim();
   const allocatedTo = isValidEmailAddress(adviserEmail) ? adviserEmail : '[Allocated To]';
+  const safeBookingLink = String(bookingLink || '').trim();
   const to = String(intake.email || '').trim();
 
   if (outcome === 'decline') {
@@ -2982,7 +3100,7 @@ function buildIntakeOutcomeEmailContent(intake = {}, adviser = null, outcome = '
     '',
     '',
     'Moving to another country is a complex process, particularly in the current environment as the demand for Visas and opportunities in New Zealand continues to increase. If you are seriously considering the move, then having a well laid out plan is vital.',
-    `If you wish to move ahead with this assessment, please email us directly: ${allocatedTo} (do not reply to this email) and indicate which assessment option you would prefer to take.`,
+    safeBookingLink ? `If you wish to move ahead, you can book a consultation here: ${safeBookingLink}` : `If you wish to move ahead with this assessment, please email us directly: ${allocatedTo} (do not reply to this email) and indicate which assessment option you would prefer to take.`,
     '',
     'I look forward to hearing from you in due course.',
   ].join('\n');
@@ -2991,7 +3109,7 @@ function buildIntakeOutcomeEmailContent(intake = {}, adviser = null, outcome = '
     to,
     subject: `Turner Hopkins assessment questionnaire - next steps for ${applicantName}`,
     bodyText,
-    bodyHtml: buildApprovalEmailHtml(firstName, allocatedTo),
+    bodyHtml: buildApprovalEmailHtml(firstName, allocatedTo, safeBookingLink),
   };
 }
 
@@ -3009,10 +3127,11 @@ ${buildEmailSignatureSpacer(22)}
 </div>`;
 }
 
-function buildApprovalEmailHtml(firstName = 'there', allocatedTo = '[Allocated To]') {
+function buildApprovalEmailHtml(firstName = 'there', allocatedTo = '[Allocated To]', bookingLink = '') {
   const p = (text, marginBottom = 10) => `<p style="margin:0 0 ${marginBottom}px 0; padding:0; line-height:1.3; mso-margin-top-alt:0; mso-margin-bottom-alt:${marginBottom}px;">${escapeHtml(text)}</p>`;
   const gap = (height = 8) => `<div style="height:${height}px; line-height:${height}px; font-size:${height}px; mso-line-height-rule:exactly;">&nbsp;</div>`;
   const li = (text) => `<li style="margin:0 0 6px 0; padding:0 0 0 2px; line-height:1.3;">${escapeHtml(text)}</li>`;
+  const safeBookingLink = escapeHtml(String(bookingLink || '').trim());
   return `<div style="font-family: Aptos, Arial, sans-serif; font-size: 11pt; line-height: 1.3; color: #1f2933;">
 ${p(`Dear ${firstName},`, 10)}
 ${p('Thank you for completing our online assessment questionnaire, which we have now received and reviewed, along with your CV and attachments.', 10)}
@@ -3032,7 +3151,7 @@ ${li('A more detailed assessment over Teams or Zoom, usually lasting for at leas
 </ul>
 ${gap(6)}
 ${p('Moving to another country is a complex process, particularly in the current environment as the demand for Visas and opportunities in New Zealand continues to increase. If you are seriously considering the move, then having a well laid out plan is vital.', 10)}
-${p(`If you wish to move ahead with this assessment, please email us directly: ${allocatedTo} (do not reply to this email) and indicate which assessment option you would prefer to take.`, 10)}
+${safeBookingLink ? `<p style="margin:0 0 12px 0; padding:0; line-height:1.3; mso-margin-top-alt:0; mso-margin-bottom-alt:12px;">If you wish to move ahead, you can book a consultation using the secure link below.</p><p style="margin:0 0 14px 0; padding:0;"><a href="${safeBookingLink}" style="display:inline-block; background:#003736; color:#ffffff; text-decoration:none; font-weight:700; padding:10px 16px; border-radius:10px;">Book a consultation</a></p><p style="margin:0 0 10px 0; padding:0; line-height:1.3; mso-margin-top-alt:0; mso-margin-bottom-alt:10px;"><a href="${safeBookingLink}" style="color:#003736; font-weight:700;">${safeBookingLink}</a></p>` : p(`If you wish to move ahead with this assessment, please email us directly: ${allocatedTo} (do not reply to this email) and indicate which assessment option you would prefer to take.`, 10)}
 ${p('I look forward to hearing from you in due course.', 0)}
 ${buildEmailSignatureSpacer(24)}
 </div>`;

@@ -22,14 +22,14 @@ Applicant: {{applicantName}}
 Email: {{email}}
 Phone: {{phone}}
 Submitted: {{submitted}}
-Flags: {{flags}}
-Record ID: {{intakeId}}
+{{flagLine}}
 
-Summary:
+Key details:
+
 {{summary}}
 
 Please review this in THiS CRM > Enquiries & Intake > Intake Forms.`,
-    placeholders: ['applicantName', 'email', 'phone', 'submitted', 'flags', 'intakeId', 'summary'],
+    placeholders: ['applicantName', 'email', 'phone', 'submitted', 'flags', 'flagLine', 'summary'],
   },
   {
     key: 'contact_form_internal_notification',
@@ -42,14 +42,14 @@ Applicant: {{applicantName}}
 Email: {{email}}
 Phone: {{phone}}
 Submitted: {{submitted}}
-Flags: {{flags}}
-Record ID: {{intakeId}}
+{{flagLine}}
 
-Summary:
+Key details:
+
 {{summary}}
 
 Please review this in THiS CRM > Enquiries & Intake > Contact Forms.`,
-    placeholders: ['applicantName', 'email', 'phone', 'submitted', 'flags', 'intakeId', 'summary'],
+    placeholders: ['applicantName', 'email', 'phone', 'submitted', 'flags', 'flagLine', 'summary'],
   },
   {
     key: 'new_intake_adviser_notification',
@@ -500,6 +500,7 @@ async function sendNewIntakeNotificationEmail({ intakeId = '', payload = {}, fla
   const fallbackBody = buildNewIntakeNotificationBody({ intakeId, payload, flags, createdAt });
   const summary = buildIntakeSummaryText(payload);
   const templateKey = isContact ? 'contact_form_internal_notification' : 'assessment_form_internal_notification';
+  const flagText = reviewFlagLabels(flags).join(', ');
   const templateDraft = await buildEmailFromTemplate(templateKey, {
     formKind: isContact ? 'New contact form' : 'New intake questionnaire',
     intro: isContact ? 'A new short contact form enquiry has been submitted through the THiS website.' : 'A new assessment questionnaire has been submitted through the THiS intake form.',
@@ -507,7 +508,8 @@ async function sendNewIntakeNotificationEmail({ intakeId = '', payload = {}, fla
     email: payload.email || 'Not recorded',
     phone: payload.phone || 'Not recorded',
     submitted: createdAt ? formatNzDateTime(createdAt) : 'Just now',
-    flags: reviewFlagLabels(flags).join(', ') || 'None',
+    flags: flagText || 'None',
+    flagLine: flagText ? `Review flags: ${flagText}` : '',
     intakeId,
     summary,
   }, { subject: fallbackSubject, bodyText: fallbackBody });
@@ -550,14 +552,13 @@ function buildNewIntakeNotificationBody({ intakeId = '', payload = {}, flags = {
     `Email: ${payload.email || 'Not recorded'}`,
     `Mobile: ${payload.phone || 'Not recorded'}`,
     `${payload.formType === 'contact' ? 'Situation' : 'Immigration goal'}: ${payload.targetPathway || payload.contactSituation || 'Not recorded'}`,
-    `Current location: ${payload.currentLocation || 'Not recorded'}`,
-    `Urgency: ${payload.urgency || 'Standard'}${payload.urgentDeadline ? ` - ${payload.urgentDeadline}` : ''}`,
-    `Review flags: ${yesFlags}`,
+    `Current location: ${payload.currentLocation || payload.contactLocation || 'Not recorded'}`,
+    ...(payload.formType === 'contact' ? [] : [`Urgency: ${payload.urgency || 'Standard'}${payload.urgentDeadline ? ` - ${payload.urgentDeadline}` : ''}`]),
+    ...(yesFlags !== 'None' ? [`Review flags: ${yesFlags}`] : []),
     `Submitted: ${submitted}`,
-    `Intake ID: ${intakeId || 'Not recorded'}`,
     '',
-    payload.formType === 'contact' ? 'Contact enquiry summary' : 'Full questionnaire summary',
-    '--------------------------',
+    payload.formType === 'contact' ? 'Contact enquiry details' : 'Assessment questionnaire details',
+    '----------------------------',
   ];
 
   sections.forEach((section) => {
@@ -584,17 +585,15 @@ function buildNewIntakeNotificationHtml({ intakeId = '', payload = {}, flags = {
   const submitted = createdAt ? formatNzDateTime(createdAt) : 'Just now';
   const crmUrl = String(process.env.URL || process.env.DEPLOY_URL || '').trim();
   const summaryRows = [
-    ['Type', payload.formType === 'contact' ? 'Contact form' : 'Assessment questionnaire'],
     ['Applicant', fullName(payload)],
     ['Email', payload.email],
     ['Mobile', payload.phone],
     ['Preferred contact', payload.preferredContactMethod],
     [payload.formType === 'contact' ? 'Situation' : 'Immigration goal', payload.targetPathway || payload.contactSituation],
-    ['Current location', payload.currentLocation],
+    ['Current location', payload.currentLocation || payload.contactLocation],
     ['Urgency', `${payload.urgency || 'Standard'}${payload.urgentDeadline ? ` - ${payload.urgentDeadline}` : ''}`],
-    ['Review flags', yesFlags.join(', ') || 'None'],
+    ...(yesFlags.length ? [['Review flags', yesFlags.join(', ')]] : []),
     ['Submitted', submitted],
-    ['Intake ID', intakeId],
   ];
 
   return `<div style="font-family:Aptos,Arial,sans-serif;font-size:11pt;line-height:1.35;color:#1f2933;">
@@ -640,23 +639,13 @@ function intakeSummarySections(payload = {}) {
   if (payload.formType === 'contact') {
     return [{
       title: 'Contact enquiry',
-      rows: rows(payload, ['contactSituation', 'firstName', 'lastName', 'email', 'phone', 'contactLocation', 'bestTimeToCall', 'helpNeeded', 'consentToContact', 'privacyAcknowledged']),
+      rows: rows(payload, ['contactSituation', 'firstName', 'lastName', 'email', 'phone', 'contactLocation', 'bestTimeToCall', 'helpNeeded']),
     }];
   }
   const sections = [
     { title: 'Your details', rows: rows(payload, ['firstName', 'lastName', 'email', 'phone', 'preferredContactMethod', 'citizenship', 'dateOfBirth', 'dateOfBirthAge', 'applicantCv']) },
     { title: 'Immigration goal', rows: rows(payload, ['targetPathway', 'desiredTimeframe', 'urgency', 'urgentDeadline', 'helpNeeded']) },
     { title: 'Current visa situation', rows: rows(payload, ['isInNewZealand', 'currentLocation', 'currentVisaType', 'currentVisaExpiry', 'visaConditions', 'previouslyVisitedNz', 'previouslyHeldNzVisa', 'plannedTravelDate', 'passportExpiry']) },
-    {
-      title: 'Partner and family',
-      rows: rows(payload, ['relationshipStatus', 'hasPartner', 'hasChildren']),
-      panels: [
-        { title: 'Partner details', rows: rows(payload, ['partnerFullName', 'partnerDateOfBirth', 'partnerCitizenship', 'partnerCurrentCountry', 'partnerVisaStatus', 'partnerNzStatus', 'livingTogether', 'relationshipStarted', 'startedLivingTogether', 'partnerIncluded', 'relationshipBackground', 'partnerCv']) },
-        { title: 'Partner work and experience', rows: rows(payload, ['partnerCurrentEmploymentStatus', 'partnerOccupation', 'partnerCurrentEmployer', 'partnerEmploymentCountry', 'partnerCurrentJobStartDate', 'partnerHoursPerWeek', 'partnerAnnualSalary', 'partnerSalaryCurrency', 'partnerYearsExperience', 'partnerEmploymentDetails', 'partnerPreviousWorkHistory']) },
-        { title: 'Partner qualifications', rows: rows(payload, ['partnerHighestQualification', 'partnerQualificationName', 'partnerQualificationInstitution', 'partnerQualificationCountry', 'partnerQualificationYearCompleted', 'partnerQualificationStudyLength', 'partnerTaughtInEnglish', 'partnerNzqaAssessed', 'partnerQualificationRelatedToOccupation', 'partnerQualificationDetails']) },
-        { title: 'Children', rows: rows(payload, ['children', 'moreChildrenDetails']) },
-      ],
-    },
     {
       title: 'Work and employment',
       rows: rows(payload, ['currentEmploymentStatus', 'occupation', 'currentEmployer', 'employmentCountry', 'currentJobStartDate', 'hoursPerWeek', 'annualSalary', 'salaryCurrency', 'yearsExperience', 'employmentDetails']),
@@ -666,10 +655,20 @@ function intakeSummarySections(payload = {}) {
       ],
     },
     { title: 'Qualifications', rows: rows(payload, ['highestQualification', 'qualificationName', 'qualificationInstitution', 'qualificationCountry', 'qualificationYearCompleted', 'qualificationStudyLength', 'taughtInEnglish', 'nzqaAssessed', 'qualificationRelatedToOccupation', 'qualificationDetails']) },
+    {
+      title: 'Partner details',
+      rows: rows(payload, ['relationshipStatus', 'hasPartner']),
+      panels: [
+        { title: 'Partner identity and relationship', rows: rows(payload, ['partnerFullName', 'partnerDateOfBirth', 'partnerCitizenship', 'partnerCurrentCountry', 'partnerVisaStatus', 'partnerNzStatus', 'livingTogether', 'relationshipStarted', 'startedLivingTogether', 'partnerIncluded', 'relationshipBackground', 'partnerCv']) },
+        { title: 'Partner work and experience', rows: rows(payload, ['partnerCurrentEmploymentStatus', 'partnerOccupation', 'partnerCurrentEmployer', 'partnerEmploymentCountry', 'partnerCurrentJobStartDate', 'partnerHoursPerWeek', 'partnerAnnualSalary', 'partnerSalaryCurrency', 'partnerYearsExperience', 'partnerEmploymentDetails', 'partnerPreviousWorkHistory']) },
+        { title: 'Partner qualifications', rows: rows(payload, ['partnerHighestQualification', 'partnerQualificationName', 'partnerQualificationInstitution', 'partnerQualificationCountry', 'partnerQualificationYearCompleted', 'partnerQualificationStudyLength', 'partnerTaughtInEnglish', 'partnerNzqaAssessed', 'partnerQualificationRelatedToOccupation', 'partnerQualificationDetails']) },
+      ],
+    },
+    { title: 'Children', rows: rows(payload, ['hasChildren', 'children', 'moreChildrenDetails']) },
     { title: 'Health and character', rows: rows(payload, ['healthIssues', 'dependantHealthIssues', 'healthDetails', 'characterConvictions', 'characterPendingCharges', 'deportationRemoval', 'characterDetails']) },
     { title: 'Immigration history', rows: rows(payload, ['visaDeclines', 'overstayed', 'falseMisleadingIssue', 'appealOrDeadline', 'immigrationHistoryDetails', 'countriesLived', 'countriesLivedFiveYearsSince17', 'nzTravelHistory']) },
     { title: 'Funds and investment', rows: rows(payload, ['fundsAvailableSupport', 'availableFunds', 'fundsCurrency', 'sourceOfFunds', 'investmentInterest']), panels: [{ title: 'Investment background', rows: rows(payload, ['investmentFunds', 'investmentCurrency', 'fundsHeldByYou', 'fundsTransferableNz', 'fundsDetails']) }] },
-    { title: 'Final comments and consent', rows: rows(payload, ['additionalInfo', 'consentToContact', 'privacyAcknowledged']) },
+    { title: 'Final comments', rows: rows(payload, ['additionalInfo']) },
   ];
   return sections.map((section) => ({ ...section, panels: (section.panels || []).filter((panel) => panel.rows.length) })).filter((section) => section.rows.length || (section.panels || []).length);
 }
@@ -862,8 +861,9 @@ async function buildEmailFromTemplate(templateKey, context = {}, fallback = {}) 
   const subject = renderTemplateText(template.subject || fallback.subject || '', context).trim() || fallback.subject || '';
   const rawHtml = template.bodyHtml || fallback.bodyHtml || '';
   const renderedHtml = cleanHtmlForTemplate(renderTemplateText(rawHtml, context), 60000);
-  const bodyText = renderTemplateText(template.bodyText || fallback.bodyText || stripHtmlToText(renderedHtml), context).trim() || fallback.bodyText || stripHtmlToText(renderedHtml);
-  const editableBodyHtml = renderedHtml ? editableTemplateBodyHtml(renderedHtml) : editableTemplateTextHtml(bodyText);
+  const rawBodyText = renderTemplateText(template.bodyText || fallback.bodyText || stripHtmlToText(renderedHtml), context).trim() || fallback.bodyText || stripHtmlToText(renderedHtml);
+  const bodyText = isInternalNotificationTemplate(templateKey) ? cleanInternalNotificationBodyText(rawBodyText, context) : rawBodyText;
+  const editableBodyHtml = renderedHtml ? editableTemplateBodyHtml(isInternalNotificationTemplate(templateKey) ? cleanInternalNotificationHtml(renderedHtml, context) : renderedHtml) : editableTemplateTextHtml(bodyText);
   const bodyHtml = isInternalNotificationTemplate(templateKey)
     ? brandedInternalNotificationEmailHtml({ templateKey, subject, context, bodyHtml: editableBodyHtml })
     : editableBodyHtml;
@@ -872,6 +872,28 @@ async function buildEmailFromTemplate(templateKey, context = {}, fallback = {}) 
 
 function isInternalNotificationTemplate(templateKey = '') {
   return ['assessment_form_internal_notification', 'contact_form_internal_notification', 'new_intake_adviser_notification'].includes(String(templateKey || '').trim());
+}
+
+function cleanInternalNotificationBodyText(value = '', context = {}) {
+  let text = String(value || '');
+  text = text.split('\n').filter((line) => {
+    const trimmed = line.trim();
+    if (/^(Record ID|Intake ID|Form ID)\s*:/i.test(trimmed)) return false;
+    if (/^Flags\s*:\s*(None|Not recorded)?\s*$/i.test(trimmed)) return false;
+    if (/^Review flags\s*:\s*(None|Not recorded)?\s*$/i.test(trimmed)) return false;
+    return true;
+  }).join('\n');
+  text = text.replace(/\n{3,}/g, '\n\n').trim();
+  return text;
+}
+
+function cleanInternalNotificationHtml(value = '', context = {}) {
+  let html = String(value || '');
+  html = html.replace(/<p[^>]*>\s*(Record ID|Intake ID|Form ID)\s*:[\s\S]*?<\/p>/gi, '');
+  html = html.replace(/<p[^>]*>\s*(Flags|Review flags)\s*:\s*(None|Not recorded)?\s*<\/p>/gi, '');
+  html = html.replace(/(?:Record ID|Intake ID|Form ID)\s*:[^<\n]*(?:<br\s*\/?>)?/gi, '');
+  html = html.replace(/(?:Flags|Review flags)\s*:\s*(?:None|Not recorded)?\s*(?:<br\s*\/?>)?/gi, '');
+  return html;
 }
 
 function editableTemplateBodyHtml(bodyHtml = '') {
@@ -894,7 +916,7 @@ function brandedInternalNotificationEmailHtml({ templateKey = '', subject = '', 
   const email = context.email || 'Not recorded';
   const submitted = context.submitted || '';
   const flags = context.flags || 'None';
-  const recordId = context.intakeId || '';
+  const hasFlags = Boolean(flags && !/^none$/i.test(String(flags).trim()));
   const crmUrl = String(process.env.URL || process.env.DEPLOY_URL || '').trim();
   const openCrm = crmUrl ? `<a href="${escapeHtml(crmUrl)}" style="display:inline-block; padding:10px 14px; border-radius:999px; background:#003736; color:#ffffff; text-decoration:none; font-weight:700;">Open THiS CRM</a>` : '';
   return `
@@ -921,11 +943,7 @@ function brandedInternalNotificationEmailHtml({ templateKey = '', subject = '', 
                 <td style="padding:9px 12px; background:#f4fbf8; border-radius:0 12px 12px 0; color:#003736; font-size:14px; font-weight:700;">${escapeHtml(email)}</td>
               </tr>
               ${submitted ? `<tr><td style="width:34%; padding:9px 12px; background:#f4fbf8; border-radius:12px 0 0 12px; color:#53657d; font-size:12px; font-weight:700; text-transform:uppercase;">Submitted</td><td style="padding:9px 12px; background:#f4fbf8; border-radius:0 12px 12px 0; color:#003736; font-size:14px; font-weight:700;">${escapeHtml(submitted)}</td></tr>` : ''}
-              <tr>
-                <td style="width:34%; padding:9px 12px; background:#f4fbf8; border-radius:12px 0 0 12px; color:#53657d; font-size:12px; font-weight:700; text-transform:uppercase;">Flags</td>
-                <td style="padding:9px 12px; background:#f4fbf8; border-radius:0 12px 12px 0; color:#003736; font-size:14px; font-weight:700;">${escapeHtml(flags)}</td>
-              </tr>
-              ${recordId ? `<tr><td style="width:34%; padding:9px 12px; background:#f4fbf8; border-radius:12px 0 0 12px; color:#53657d; font-size:12px; font-weight:700; text-transform:uppercase;">Record ID</td><td style="padding:9px 12px; background:#f4fbf8; border-radius:0 12px 12px 0; color:#003736; font-size:13px;">${escapeHtml(recordId)}</td></tr>` : ''}
+              ${hasFlags ? `<tr><td style="width:34%; padding:9px 12px; background:#f4fbf8; border-radius:12px 0 0 12px; color:#53657d; font-size:12px; font-weight:700; text-transform:uppercase;">Review flags</td><td style="padding:9px 12px; background:#f4fbf8; border-radius:0 12px 12px 0; color:#003736; font-size:14px; font-weight:700;">${escapeHtml(flags)}</td></tr>` : ''}
             </table>
           </td>
         </tr>
