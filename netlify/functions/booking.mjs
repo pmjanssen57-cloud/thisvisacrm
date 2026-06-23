@@ -24,7 +24,7 @@ export default async function bookingRequestHandler(request) {
     if (method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
     const body = await request.json().catch(() => ({}));
-    const result = await confirmBooking(token, body.booking || body);
+    const result = await handleBookingPost(token, body);
     return json(result);
   } catch (error) {
     console.error(error);
@@ -168,8 +168,21 @@ async function getBookingPagePayload(token) {
   if (!link) return { ok: false, unavailable: true, message: 'This booking link was not found.' };
   const now = new Date();
   const expired = link.expires_at && new Date(link.expires_at).getTime() < now.getTime();
-  if (link.status !== 'Active' || expired) {
-    return { ok: false, unavailable: true, message: expired ? 'This booking link has expired.' : 'This booking link is no longer active.' };
+  const existingBookingRows = await database.sql`
+    SELECT b.id, b.booking_link_id, b.intake_id, b.adviser_id, b.consultation_type_id, b.booking_date, b.start_time, b.end_time, b.applicant_name, b.applicant_email, b.applicant_phone, b.notes, b.status, b.payment_status, b.created_at,
+           t.name AS type_name, t.duration_minutes, t.price_nzd, t.paid
+      FROM consultation_bookings b
+      LEFT JOIN consultation_types t ON t.id = b.consultation_type_id
+     WHERE b.booking_link_id = ${link.id}
+       AND b.status <> 'Cancelled'
+     ORDER BY b.created_at DESC
+     LIMIT 1`;
+  const existingBooking = existingBookingRows[0] ? mapExistingBooking(existingBookingRows[0]) : null;
+  if (expired) {
+    return { ok: false, unavailable: true, message: 'This booking link has expired.' };
+  }
+  if (link.status !== 'Active' && !(link.status === 'Used' && existingBooking)) {
+    return { ok: false, unavailable: true, message: 'This booking link is no longer active.' };
   }
   if (!link.adviser_id || link.adviser_active === false) {
     return { ok: false, unavailable: true, message: 'This adviser is not currently available for online booking.' };
@@ -185,8 +198,11 @@ async function getBookingPagePayload(token) {
   const fromDate = addDays(todayIso(), 1);
   const toDate = addDays(todayIso(), 45);
   const blocks = await database.sql`SELECT block_date, start_time, end_time, all_day FROM adviser_booking_blocks WHERE adviser_id = ${link.adviser_id} AND block_date >= ${fromDate} AND block_date <= ${toDate}`;
-  const bookings = await database.sql`SELECT booking_date, start_time, end_time, status FROM consultation_bookings WHERE adviser_id = ${link.adviser_id} AND booking_date >= ${fromDate} AND booking_date <= ${toDate} AND status <> 'Cancelled'`;
-  const slots = generateSlots({ types, availability: availability.map(mapAvailability), blocks: blocks.map(mapBlock), bookings: bookings.map(mapBookingBusy), fromDate, days: 45 });
+  const bookings = await database.sql`SELECT id, booking_date, start_time, end_time, status FROM consultation_bookings WHERE adviser_id = ${link.adviser_id} AND booking_date >= ${fromDate} AND booking_date <= ${toDate} AND status <> 'Cancelled'`;
+  const busyBookings = bookings
+    .filter((booking) => !existingBooking || String(booking.id) !== String(existingBooking.id))
+    .map(mapBookingBusy);
+  const slots = generateSlots({ types, availability: availability.map(mapAvailability), blocks: blocks.map(mapBlock), bookings: busyBookings, fromDate, days: 45 });
 
   return {
     ok: true,
@@ -204,10 +220,51 @@ async function getBookingPagePayload(token) {
     },
     consultationTypes: types,
     slots,
+    existingBooking,
+    manageUrl: buildBookingUrl(token),
+    timeZone: 'Pacific/Auckland',
+    timeZoneLabel: 'New Zealand time',
   };
 }
 
-async function confirmBooking(token, input = {}) {
+async function handleBookingPost(token, body = {}) {
+  const action = clean(body.action || body.bookingAction || body.type || '', 40).toLowerCase();
+  if (action === 'cancel') return cancelExistingBooking(token, body.reason || body.notes || '');
+  return confirmBooking(token, body.booking || body, action === 'reschedule' ? 'reschedule' : 'reserve');
+}
+
+async function cancelExistingBooking(token, reason = '') {
+  const database = db();
+  const rows = await database.sql`
+    SELECT b.id, b.booking_link_id, b.intake_id, b.adviser_id, b.consultation_type_id, b.booking_date, b.start_time, b.end_time, b.applicant_name, b.applicant_email, b.applicant_phone, b.notes, b.status, b.payment_status, b.created_at,
+           l.token,
+           a.name AS adviser_name, a.email AS adviser_email, a.phone AS adviser_phone,
+           t.name AS type_name, t.duration_minutes, t.price_nzd, t.paid, t.description, t.buffer_minutes
+      FROM consultation_booking_links l
+      JOIN consultation_bookings b ON b.booking_link_id = l.id
+      LEFT JOIN advisers a ON a.id = b.adviser_id
+      LEFT JOIN consultation_types t ON t.id = b.consultation_type_id
+     WHERE l.token = ${token}
+       AND b.status <> 'Cancelled'
+     ORDER BY b.created_at DESC
+     LIMIT 1`;
+  const row = rows[0];
+  if (!row) return { ok: false, error: 'No active reservation was found for this booking link.' };
+  const cancellationNote = clean(reason, 1000);
+  const nextNotes = [row.notes, cancellationNote ? `Cancellation note: ${cancellationNote}` : 'Cancelled by applicant from booking page.'].filter(Boolean).join('\n');
+  await database.sql`
+    UPDATE consultation_bookings
+       SET status = 'Cancelled', notes = ${nextNotes}, updated_at = NOW()
+     WHERE id = ${row.id}`;
+  await database.sql`UPDATE consultation_booking_links SET status = 'Active', updated_at = NOW() WHERE id = ${row.booking_link_id}`;
+  const booking = mapConfirmedBooking({ ...row, status: 'Cancelled', notes: nextNotes });
+  const adviser = { id: row.adviser_id, name: row.adviser_name || 'Turner Hopkins adviser', email: row.adviser_email || '', phone: row.adviser_phone || '' };
+  const consultationType = mapType({ id: row.consultation_type_id, name: row.type_name, duration_minutes: row.duration_minutes, price_nzd: row.price_nzd, paid: row.paid, description: row.description, buffer_minutes: row.buffer_minutes });
+  try { await recordBookingEmailNotifications({ booking, type: consultationType, adviser, action: 'cancelled', manageUrl: buildBookingUrl(token) }); } catch (error) { console.warn('Booking cancellation email failed', error?.message || error); }
+  return { ok: true, cancelled: true, booking, adviser, consultationType, manageUrl: buildBookingUrl(token) };
+}
+
+async function confirmBooking(token, input = {}, mode = 'reserve') {
   const payload = await getBookingPagePayload(token);
   if (!payload.ok) return payload;
   const typeId = clean(input.consultationTypeId || input.consultation_type_id, 80);
@@ -220,7 +277,7 @@ async function confirmBooking(token, input = {}) {
   const selectedType = payload.consultationTypes.find((type) => type.id === typeId);
   if (!selectedType) return { ok: false, error: 'Choose a consultation type.' };
   if (!bookingDate || !startTime) return { ok: false, error: 'Choose an available date and time.' };
-  if (!applicantName || !applicantEmail) return { ok: false, error: 'Name and email are required to confirm the booking.' };
+  if (!applicantName || !applicantEmail) return { ok: false, error: 'Name and email are required to reserve the consultation.' };
   if (!isValidEmailAddress(applicantEmail)) return { ok: false, error: 'Enter a valid email address.' };
   const slot = payload.slots.find((item) => item.consultationTypeId === typeId && item.date === bookingDate && item.startTime === startTime);
   if (!slot) return { ok: false, error: 'That time is no longer available. Please choose another slot.' };
@@ -228,23 +285,46 @@ async function confirmBooking(token, input = {}) {
   const database = db();
   const linkRows = await database.sql`SELECT id, intake_id, adviser_id, status FROM consultation_booking_links WHERE token = ${token} LIMIT 1`;
   const link = linkRows[0];
-  if (!link || link.status !== 'Active') return { ok: false, error: 'This booking link is no longer active.' };
+  if (!link || !['Active', 'Used'].includes(link.status)) return { ok: false, error: 'This booking link is no longer active.' };
+  const existingRows = await database.sql`
+    SELECT id, booking_link_id, intake_id, adviser_id, consultation_type_id, booking_date, start_time, end_time, applicant_name, applicant_email, applicant_phone, notes, status, payment_status, created_at
+      FROM consultation_bookings
+     WHERE booking_link_id = ${link.id}
+       AND status <> 'Cancelled'
+     ORDER BY created_at DESC
+     LIMIT 1`;
+  const existing = existingRows[0] || null;
+  if (link.status === 'Used' && !existing) return { ok: false, error: 'This booking link has already been used.' };
 
   const paymentStatus = selectedType.paid ? 'Manual payment pending' : 'Not required';
-  const inserted = await database.sql`
-    INSERT INTO consultation_bookings (booking_link_id, intake_id, adviser_id, consultation_type_id, booking_date, start_time, end_time, applicant_name, applicant_email, applicant_phone, notes, status, payment_status)
-    VALUES (${link.id}, ${link.intake_id}, ${link.adviser_id}, ${typeId}, ${bookingDate}, ${startTime}, ${slot.endTime}, ${applicantName}, ${applicantEmail}, ${applicantPhone}, ${notes}, 'Confirmed', ${paymentStatus})
-    RETURNING id, booking_link_id, intake_id, adviser_id, consultation_type_id, booking_date, start_time, end_time, applicant_name, applicant_email, applicant_phone, notes, status, payment_status, created_at`;
+  let saved;
+  let action = 'reserved';
+  if (existing) {
+    const updated = await database.sql`
+      UPDATE consultation_bookings
+         SET consultation_type_id = ${typeId}, booking_date = ${bookingDate}, start_time = ${startTime}, end_time = ${slot.endTime}, applicant_name = ${applicantName}, applicant_email = ${applicantEmail}, applicant_phone = ${applicantPhone}, notes = ${notes}, status = 'Reserved', payment_status = ${paymentStatus}, updated_at = NOW()
+       WHERE id = ${existing.id}
+       RETURNING id, booking_link_id, intake_id, adviser_id, consultation_type_id, booking_date, start_time, end_time, applicant_name, applicant_email, applicant_phone, notes, status, payment_status, created_at`;
+    saved = updated[0];
+    action = 'rescheduled';
+  } else {
+    const inserted = await database.sql`
+      INSERT INTO consultation_bookings (booking_link_id, intake_id, adviser_id, consultation_type_id, booking_date, start_time, end_time, applicant_name, applicant_email, applicant_phone, notes, status, payment_status)
+      VALUES (${link.id}, ${link.intake_id}, ${link.adviser_id}, ${typeId}, ${bookingDate}, ${startTime}, ${slot.endTime}, ${applicantName}, ${applicantEmail}, ${applicantPhone}, ${notes}, 'Reserved', ${paymentStatus})
+      RETURNING id, booking_link_id, intake_id, adviser_id, consultation_type_id, booking_date, start_time, end_time, applicant_name, applicant_email, applicant_phone, notes, status, payment_status, created_at`;
+    saved = inserted[0];
+  }
   await database.sql`UPDATE consultation_booking_links SET status = 'Used', updated_at = NOW() WHERE id = ${link.id}`;
-  const booking = mapConfirmedBooking(inserted[0]);
+  const booking = mapConfirmedBooking(saved);
+  const manageUrl = buildBookingUrl(token);
 
   try {
-    await recordBookingEmailNotifications({ booking, type: selectedType, adviser: payload.adviser });
+    await recordBookingEmailNotifications({ booking, type: selectedType, adviser: payload.adviser, action, manageUrl });
   } catch (emailError) {
     console.warn('Booking email notification recording failed', emailError?.message || emailError);
   }
 
-  return { ok: true, booking, adviser: payload.adviser, consultationType: selectedType };
+  return { ok: true, action, booking, adviser: payload.adviser, consultationType: selectedType, manageUrl };
 }
 
 function generateSlots({ types = [], availability = [], blocks = [], bookings = [], fromDate, days = 45 }) {
@@ -283,44 +363,56 @@ function generateSlots({ types = [], availability = [], blocks = [], bookings = 
   return slots.slice(0, 160);
 }
 
-async function recordBookingEmailNotifications({ booking, type, adviser }) {
-  const applicantSubject = `Your Turner Hopkins consultation booking`;
+async function recordBookingEmailNotifications({ booking, type, adviser, action = 'reserved', manageUrl = '' }) {
+  const isCancel = action === 'cancelled';
+  const isReschedule = action === 'rescheduled';
+  const applicantSubject = isCancel
+    ? 'Your Turner Hopkins consultation reservation has been cancelled'
+    : isReschedule
+      ? 'Your Turner Hopkins consultation reservation has been changed'
+      : 'Your Turner Hopkins consultation reservation';
+  const reservationLine = `${formatDisplayDate(booking.bookingDate)} at ${formatDisplayTime(booking.startTime)} NZ time`;
   const applicantBody = [
     `Dear ${firstName(booking.applicantName) || 'there'},`,
     '',
-    'Your consultation booking has been received.',
+    isCancel ? 'Your consultation reservation has been cancelled.' : 'Your consultation time has been reserved.',
     '',
     `Consultation: ${type.name}`,
     `Adviser: ${adviser.name}`,
-    `Date/time: ${formatDisplayDate(booking.bookingDate)} at ${formatDisplayTime(booking.startTime)} NZ time`,
-    type.paid ? 'Payment: payment will be handled manually by Turner Hopkins.' : 'Payment: not required.',
+    `Date/time: ${reservationLine}`,
+    'Time zone: New Zealand time (Pacific/Auckland).',
+    type.paid && !isCancel ? 'Payment: payment will be handled manually by Turner Hopkins.' : (!isCancel ? 'Payment: not required.' : ''),
+    manageUrl && !isCancel ? `Need to change or cancel this time? Use this secure link: ${manageUrl}` : '',
     '',
-    'A calendar invite is attached for convenience.',
-    '',
-    'We will contact you if we need anything further before the consultation.',
+    !isCancel ? 'A calendar invite is attached for convenience.' : '',
+    !isCancel ? 'Your adviser will contact you separately with the meeting link, phone details, or any other joining instructions.' : 'You can use your original booking link to reserve another available time if required.',
     '',
     'Kind regards,',
     'Turner Hopkins Immigration Specialists',
-  ].join('\n');
-  const calendarInvite = buildConsultationIcs({ booking, type, adviser });
+  ].filter((line) => line != null).join('\n');
+  const calendarInvite = !isCancel ? buildConsultationIcs({ booking, type, adviser }) : null;
   await recordAndMaybeSendBookingEmail({ booking, templateKey: 'consultation_booking_applicant', toEmail: booking.applicantEmail, subject: applicantSubject, bodyText: applicantBody, attachments: calendarInvite ? [calendarInvite] : [] });
 
   if (adviser.email) {
-    const adviserSubject = `New consultation booking: ${booking.applicantName || 'Applicant'}`;
+    const adviserSubject = isCancel
+      ? `Consultation cancelled: ${booking.applicantName || 'Applicant'}`
+      : isReschedule
+        ? `Consultation rescheduled: ${booking.applicantName || 'Applicant'}`
+        : `New consultation reservation: ${booking.applicantName || 'Applicant'}`;
     const adviserBody = [
-      'A consultation has been booked through THiS CRM.',
+      isCancel ? 'A consultation reservation has been cancelled through THiS CRM.' : 'A consultation time has been reserved through THiS CRM.',
       '',
       `Applicant: ${booking.applicantName}`,
       `Email: ${booking.applicantEmail}`,
       `Phone: ${booking.applicantPhone || 'Not provided'}`,
       `Consultation: ${type.name}`,
-      `Date/time: ${formatDisplayDate(booking.bookingDate)} at ${formatDisplayTime(booking.startTime)} NZ time`,
+      `Date/time: ${reservationLine}`,
       `Payment status: ${booking.paymentStatus}`,
       '',
       booking.notes ? `Applicant notes: ${booking.notes}` : 'Applicant notes: none provided',
       '',
-      'A calendar invite is attached so you can add the consultation to Outlook.',
-    ].join('\n');
+      !isCancel ? 'A calendar invite is attached so you can add the consultation to Outlook. Please send the applicant the meeting link, phone details, or other joining instructions directly.' : 'If this was cancelled in error, the applicant can use their original booking link to reserve another available time.',
+    ].filter((line) => line != null).join('\n');
     await recordAndMaybeSendBookingEmail({ booking, templateKey: 'consultation_booking_adviser', toEmail: adviser.email, subject: adviserSubject, bodyText: adviserBody, attachments: calendarInvite ? [calendarInvite] : [] });
   }
 }
@@ -399,6 +491,7 @@ function buildConsultationIcs({ booking = {}, type = {}, adviser = {} }) {
     `Email: ${booking.applicantEmail || ''}`,
     `Phone: ${booking.applicantPhone || ''}`,
     `Payment status: ${booking.paymentStatus || ''}`,
+    'Meeting details will be sent separately by your adviser.',
     booking.notes ? `Notes: ${booking.notes}` : '',
   ].filter(Boolean).join('\n');
   const uid = `${booking.id || Date.now()}@this-crm`;
@@ -483,9 +576,30 @@ function mapBlock(row = {}) {
 
 function mapBookingBusy(row = {}) {
   return {
+    id: row.id || '',
     date: toDateOnly(row.booking_date),
     startTime: normaliseTime(row.start_time || ''),
     endTime: normaliseTime(row.end_time || ''),
+  };
+}
+
+function mapExistingBooking(row = {}) {
+  return {
+    id: row.id || '',
+    bookingLinkId: row.booking_link_id || '',
+    intakeId: row.intake_id || '',
+    adviserId: row.adviser_id || '',
+    consultationTypeId: row.consultation_type_id || '',
+    consultationTypeName: row.type_name || '',
+    bookingDate: toDateOnly(row.booking_date),
+    startTime: normaliseTime(row.start_time || ''),
+    endTime: normaliseTime(row.end_time || ''),
+    applicantName: row.applicant_name || '',
+    applicantEmail: row.applicant_email || '',
+    applicantPhone: row.applicant_phone || '',
+    notes: row.notes || '',
+    status: row.status || 'Reserved',
+    paymentStatus: row.payment_status || '',
   };
 }
 
@@ -503,7 +617,7 @@ function mapConfirmedBooking(row = {}) {
     applicantEmail: row.applicant_email || '',
     applicantPhone: row.applicant_phone || '',
     notes: row.notes || '',
-    status: row.status || 'Confirmed',
+    status: row.status || 'Reserved',
     paymentStatus: row.payment_status || 'Not required',
   };
 }
@@ -537,6 +651,11 @@ function timeFromMinutes(value = 0) {
 
 function overlaps(startA, endA, startB, endB) {
   return startA < endB && endA > startB;
+}
+
+function buildBookingUrl(token = '') {
+  const baseUrl = String(process.env.THIS_CRM_BASE_URL || process.env.URL || process.env.DEPLOY_URL || 'https://thisvisacrm.netlify.app').replace(/\/$/, '') || 'https://thisvisacrm.netlify.app';
+  return token ? `${baseUrl}/book?token=${encodeURIComponent(token)}` : '';
 }
 
 function todayIso() {

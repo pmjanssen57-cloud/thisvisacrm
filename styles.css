@@ -9582,3 +9582,41 @@ body.intake-embed-mode .contact-form select {
   color: #ffffff;
   border-color: var(--ink, #003736);
 }
+
+.booking-timezone-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #cfe9df;
+  background: #f3fbf8;
+  color: #174a43;
+  border-radius: 999px;
+  padding: 9px 12px;
+  font-size: 0.9rem;
+  width: fit-content;
+}
+.public-slot-group button small {
+  color: #5e746f;
+  font-size: 0.74rem;
+  line-height: 1.25;
+}
+.public-slot-group button.active small {
+  color: rgba(255,255,255,0.82);
+}
+.booking-manage-actions,
+.public-booking-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.booking-manage-panel {
+  background: #f8fdfb;
+}
+.booking-cancel-hint {
+  color: #7a4a15;
+  background: #fff8e8;
+  border: 1px solid #f2d48a;
+  border-radius: 999px;
+  padding: 7px 10px;
+}

@@ -1,3 +1,46 @@
+# THiS CRM v0.13.13 — Booking Meeting-Link Handling Polish
+
+This build sits on top of v0.13.12 and removes the automatic Teams meeting link handling from the booking workflow.
+
+## v0.13.13 changes
+
+- Removed automatic Teams meeting link support from booking reservation emails.
+- Removed Teams link insertion from applicant and adviser reservation/reschedule emails.
+- Removed Teams link insertion from the attached `.ics` calendar invite.
+- Removed the optional `CONSULTATION_TEAMS_LINK` environment variable from `.env.example`.
+- Applicant reservation emails now state that the adviser will send meeting, phone, or joining details separately.
+- Adviser booking notification emails now remind the adviser to send the meeting link or joining details directly.
+- Calendar invite attachments remain in place for manual Outlook calendar management, but without a meeting URL/location.
+- No Outlook calendar-write integration added.
+- No payment integration added.
+- No database migration required.
+
+## Deployment note
+
+If you already added `CONSULTATION_TEAMS_LINK` in Netlify, you can remove it. Leaving it there will not affect this build because the booking function no longer reads it.
+
+# THiS CRM v0.13.12 — Booking Reservation and Timezone Polish
+
+This build sits on top of v0.13.11 and keeps the booking workflow improvements, intake flow polish, contact queue status, security foundation, and CRM confirmation modal work.
+
+## v0.13.12 changes
+
+- Tidied the assessment approval email booking link so it renders as a branded **Book a consultation** button, with the raw link shown only as a smaller fallback.
+- Reduced the spacing around the booking call-to-action in the approval email.
+- Changed public booking language from **confirmed** to **reserved**, so advisers can still adjust the appointment if needed.
+- New consultation bookings are now stored with status **Reserved** rather than **Confirmed**.
+- Added **Reserved** to the CRM booking status dropdown and dashboard booking counts.
+- Public booking page now clearly states that all available slots are **New Zealand time / Pacific/Auckland**.
+- Public booking page also shows the browser-local equivalent time under each slot when the applicant is outside New Zealand time.
+- Existing booking links can now be reopened by the applicant after booking to view the reserved time.
+- Applicants can change their reserved date/time from the same secure booking link.
+- Applicants can cancel their reservation from the same secure booking link.
+- Booking cancellation and reschedule actions notify the adviser/applicant through the existing booking notification flow.
+- Booking confirmation emails include the secure manage link so applicants can change or cancel their reserved consultation.
+- No Outlook calendar-write integration added.
+- No payment integration added.
+- No database migration required.
+
 # THiS CRM v0.13.11 - Intake Flow and Notification Polish
 
 This build makes the consultation booking module more practical for real adviser use. The aim is simple: set a standard week quickly, block out unavailable time as needed, and let the assessment approval email generate/send the applicant booking link automatically.

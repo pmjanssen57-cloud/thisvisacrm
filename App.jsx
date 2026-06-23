@@ -1333,6 +1333,8 @@ function ConsultationBookingPublicApp() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [confirmed, setConfirmed] = useState(null);
+  const [manageMode, setManageMode] = useState(false);
+  const [cancelConfirming, setCancelConfirming] = useState(false);
   const [selectedTypeId, setSelectedTypeId] = useState('');
   const [selectedSlotId, setSelectedSlotId] = useState('');
   const [form, setForm] = useState({ applicantName: '', applicantEmail: '', applicantPhone: '', notes: '' });
@@ -1351,14 +1353,16 @@ function ConsultationBookingPublicApp() {
         if (cancelled) return;
         setPayload(body);
         if (body.ok) {
-          const firstType = body.consultationTypes?.[0]?.id || '';
+          const existing = body.existingBooking || null;
+          const firstType = existing?.consultationTypeId || body.consultationTypes?.[0]?.id || '';
           setSelectedTypeId(firstType);
           setForm({
-            applicantName: body.link?.applicantName || '',
-            applicantEmail: body.link?.applicantEmail || '',
-            applicantPhone: body.link?.applicantPhone || '',
-            notes: '',
+            applicantName: existing?.applicantName || body.link?.applicantName || '',
+            applicantEmail: existing?.applicantEmail || body.link?.applicantEmail || '',
+            applicantPhone: existing?.applicantPhone || body.link?.applicantPhone || '',
+            notes: existing?.notes || '',
           });
+          setManageMode(false);
         }
       } catch (err) {
         if (!cancelled) setError(err.message || String(err));
@@ -1370,6 +1374,7 @@ function ConsultationBookingPublicApp() {
     return () => { cancelled = true; };
   }, [token]);
 
+  const existingBooking = payload?.existingBooking || null;
   const selectedType = payload?.consultationTypes?.find((type) => type.id === selectedTypeId) || null;
   const slots = (payload?.slots || []).filter((slot) => slot.consultationTypeId === selectedTypeId);
   const groupedSlots = groupBookingSlots(slots);
@@ -1387,17 +1392,49 @@ function ConsultationBookingPublicApp() {
       const response = await fetch(`/.netlify/functions/booking?token=${encodeURIComponent(token)}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ booking: { consultationTypeId: selectedType.id, bookingDate: selectedSlot.date, startTime: selectedSlot.startTime, ...form } }),
+        body: JSON.stringify({ action: existingBooking ? 'reschedule' : 'reserve', booking: { consultationTypeId: selectedType.id, bookingDate: selectedSlot.date, startTime: selectedSlot.startTime, ...form } }),
       });
       const body = await response.json().catch(() => ({}));
-      if (!response.ok || !body.ok) throw new Error(body.error || body.detail || 'Unable to confirm this booking.');
+      if (!response.ok || !body.ok) throw new Error(body.error || body.detail || 'Unable to reserve this consultation.');
       setConfirmed(body);
+      setPayload((current) => current ? { ...current, existingBooking: body.booking } : current);
+      setManageMode(false);
+      setCancelConfirming(false);
     } catch (err) {
       setError(err.message || String(err));
     } finally {
       setSubmitting(false);
     }
   }
+
+  async function cancelReservation() {
+    if (!cancelConfirming) {
+      setCancelConfirming(true);
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    try {
+      const response = await fetch(`/.netlify/functions/booking?token=${encodeURIComponent(token)}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'cancel' }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || !body.ok) throw new Error(body.error || body.detail || 'Unable to cancel this reservation.');
+      setConfirmed(body);
+      setPayload((current) => current ? { ...current, existingBooking: null } : current);
+      setSelectedSlotId('');
+      setManageMode(false);
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const showManagePanel = Boolean(payload?.ok && existingBooking && !confirmed && !manageMode);
+  const showBookingForm = Boolean(payload?.ok && !confirmed && (!existingBooking || manageMode));
 
   return (
     <div className="public-booking-shell">
@@ -1409,24 +1446,68 @@ function ConsultationBookingPublicApp() {
         {!loading && payload?.ok && confirmed && (
           <div className="booking-confirmed-panel">
             <CheckCircle2 size={42} />
-            <h1>Consultation booked</h1>
-            <p>Your booking has been received. We have recorded the appointment in the Turner Hopkins system.</p>
-            <div className="booking-confirmation-summary"><strong>{confirmed.consultationType?.name}</strong><span>{formatBookingDateTime(confirmed.booking.bookingDate, confirmed.booking.startTime)} NZ time</span><span>Adviser: {confirmed.adviser?.name}</span>{confirmed.consultationType?.paid && <span>Payment will be handled manually by Turner Hopkins.</span>}</div>
+            <h1>{confirmed.cancelled ? 'Reservation cancelled' : 'Consultation reserved'}</h1>
+            <p>{confirmed.cancelled ? 'This consultation reservation has been cancelled. You can use this page to choose another available time if required.' : 'Your consultation time has been reserved in the Turner Hopkins system. We will contact you if anything needs to change.'}</p>
+            {!confirmed.cancelled && <div className="booking-confirmation-summary"><strong>{confirmed.consultationType?.name}</strong><span>{formatBookingDateTime(confirmed.booking.bookingDate, confirmed.booking.startTime)} NZ time</span><span>{formatBrowserLocalSlot(confirmed.booking.bookingDate, confirmed.booking.startTime)}</span><span>Adviser: {confirmed.adviser?.name}</span>{confirmed.consultationType?.paid && <span>Payment will be handled manually by Turner Hopkins.</span>}</div>}
+            {confirmed.cancelled && <button className="btn dark" type="button" onClick={() => { setConfirmed(null); setManageMode(true); }}>Choose another time</button>}
           </div>
         )}
-        {!loading && payload?.ok && !confirmed && (
+        {showManagePanel && (
+          <div className="booking-confirmed-panel booking-manage-panel">
+            <CheckCircle2 size={42} />
+            <h1>Consultation reserved</h1>
+            <p>Your consultation time is reserved. Times are shown in New Zealand time.</p>
+            <div className="booking-confirmation-summary"><strong>{existingBooking.consultationTypeName || 'Consultation'}</strong><span>{formatBookingDateTime(existingBooking.bookingDate, existingBooking.startTime)} NZ time</span><span>{formatBrowserLocalSlot(existingBooking.bookingDate, existingBooking.startTime)}</span><span>Adviser: {payload.adviser?.name}</span></div>
+            <div className="booking-manage-actions"><button className="btn dark" type="button" onClick={() => { setManageMode(true); setSelectedSlotId(''); setCancelConfirming(false); }}>Change date/time</button><button className="btn ghost" type="button" onClick={cancelReservation} disabled={submitting}>{cancelConfirming ? 'Confirm cancellation' : 'Cancel reservation'}</button>{cancelConfirming && <small className="booking-cancel-hint">Click again to cancel this reserved time.</small>}</div>
+          </div>
+        )}
+        {showBookingForm && (
           <form className="public-booking-form" onSubmit={submitBooking}>
-            <div className="public-booking-intro"><span className="eyebrow">Online consultation booking</span><h1>Choose a time with {payload.adviser?.name || 'your adviser'}</h1><p>Select the consultation type and a time that works for you. Times are shown in New Zealand time.</p></div>
+            <div className="public-booking-intro"><span className="eyebrow">Online consultation booking</span><h1>{existingBooking ? 'Choose a new time' : `Choose a time with ${payload.adviser?.name || 'your adviser'}`}</h1><p>All appointment slots are shown in New Zealand time (Pacific/Auckland). Where your browser timezone differs, your local equivalent is shown under the NZ time.</p></div>
+            <div className="booking-timezone-note"><Globe2 size={17} /><span>NZ time: Pacific/Auckland. Your browser timezone: {getBrowserTimeZoneLabel()}.</span></div>
             <div className="booking-public-step"><h2>1. Consultation type</h2><div className="public-type-grid">{payload.consultationTypes.map((type) => <button key={type.id} type="button" className={selectedTypeId === type.id ? 'active' : ''} onClick={() => { setSelectedTypeId(type.id); setSelectedSlotId(''); }}><strong>{type.name}</strong><span>{type.durationMinutes} minutes · {type.paid ? `${formatCurrency(type.priceNzd)} NZD` : 'Free'}</span><small>{type.description}</small></button>)}</div></div>
-            <div className="booking-public-step"><h2>2. Available times</h2>{!slots.length && <p className="muted">No available times are currently showing for this consultation type. Please contact Turner Hopkins directly.</p>}<div className="public-slot-groups">{groupedSlots.map((group) => <div key={group.date} className="public-slot-group"><strong>{formatBookingDate(group.date)}</strong><div>{group.slots.map((slot) => <button key={slot.id} type="button" className={selectedSlotId === slot.id ? 'active' : ''} onClick={() => setSelectedSlotId(slot.id)}>{formatBookingTime(slot.startTime)}</button>)}</div></div>)}</div></div>
+            <div className="booking-public-step"><h2>2. Available times</h2>{!slots.length && <p className="muted">No available times are currently showing for this consultation type. Please contact Turner Hopkins directly.</p>}<div className="public-slot-groups">{groupedSlots.map((group) => <div key={group.date} className="public-slot-group"><strong>{formatBookingDate(group.date)}</strong><div>{group.slots.map((slot) => <button key={slot.id} type="button" className={selectedSlotId === slot.id ? 'active' : ''} onClick={() => setSelectedSlotId(slot.id)}><span>{formatBookingTime(slot.startTime)} NZ</span><small>{formatBrowserLocalSlot(slot.date, slot.startTime)}</small></button>)}</div></div>)}</div></div>
             <div className="booking-public-step"><h2>3. Confirm your details</h2><div className="form-grid two"><Field label="Full name" value={form.applicantName} onChange={(value) => setForm((current) => ({ ...current, applicantName: value }))} /><Field label="Email" value={form.applicantEmail} onChange={(value) => setForm((current) => ({ ...current, applicantEmail: value }))} /><Field label="Phone" value={form.applicantPhone} onChange={(value) => setForm((current) => ({ ...current, applicantPhone: value }))} /></div><TextArea label="Anything you want us to know before the consultation?" value={form.notes} onChange={(value) => setForm((current) => ({ ...current, notes: value }))} rows={3} /></div>
             {selectedType?.paid && <div className="notice-card"><CreditCard size={18} /><span>This consultation is marked as paid. Payment is not taken on this page yet; Turner Hopkins will handle that manually.</span></div>}
-            <button className="btn dark public-booking-submit" type="submit" disabled={submitting || !selectedSlotId}>{submitting ? <RefreshCw size={16} /> : <CalendarDays size={16} />}Confirm booking</button>
+            <div className="public-booking-actions"><button className="btn dark public-booking-submit" type="submit" disabled={submitting || !selectedSlotId}>{submitting ? <RefreshCw size={16} /> : <CalendarDays size={16} />}{existingBooking ? 'Reserve new time' : 'Reserve consultation'}</button>{existingBooking && <button className="btn ghost" type="button" onClick={() => { setManageMode(false); setCancelConfirming(false); }}>Keep current time</button>}</div>
           </form>
         )}
       </section>
     </div>
   );
+}
+
+
+function getBrowserTimeZoneLabel() {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'your local time'; } catch { return 'your local time'; }
+}
+
+function nzSlotToDate(dateIso = '', time = '') {
+  const [year, month, day] = String(dateIso || '').split('-').map(Number);
+  const [hour, minute] = String(time || '00:00').split(':').map(Number);
+  if (![year, month, day, hour, minute].every(Number.isFinite)) return null;
+  let utc = Date.UTC(year, month - 1, day, hour, minute || 0, 0);
+  const formatter = new Intl.DateTimeFormat('en-NZ', { timeZone: 'Pacific/Auckland', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+  for (let index = 0; index < 4; index += 1) {
+    const parts = Object.fromEntries(formatter.formatToParts(new Date(utc)).filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
+    const asUtc = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour), Number(parts.minute), 0);
+    const diff = asUtc - Date.UTC(year, month - 1, day, hour, minute || 0, 0);
+    if (diff === 0) break;
+    utc -= diff;
+  }
+  return new Date(utc);
+}
+
+function formatBrowserLocalSlot(dateIso = '', time = '') {
+  const browserZone = getBrowserTimeZoneLabel();
+  if (!browserZone || browserZone === 'Pacific/Auckland') return 'Your local time: same as NZ time';
+  const date = nzSlotToDate(dateIso, time);
+  if (!date) return 'Your local time: check your timezone';
+  try {
+    return `Your local time: ${date.toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}`;
+  } catch {
+    return 'Your local time: check your timezone';
+  }
 }
 
 function groupBookingSlots(slots = []) {
@@ -2236,7 +2317,7 @@ const BOOKING_DAY_OPTIONS = [
   { value: 6, label: 'Saturday' },
   { value: 0, label: 'Sunday' },
 ];
-const BOOKING_STATUS_OPTIONS = ['Confirmed', 'Cancelled', 'Completed', 'No-show'];
+const BOOKING_STATUS_OPTIONS = ['Reserved', 'Confirmed', 'Cancelled', 'Completed', 'No-show'];
 const BOOKING_LINK_STATUS_OPTIONS = ['Active', 'Used', 'Expired', 'Cancelled'];
 
 function ConsultationBookingWorkspace({ advisers = [], intakeEnquiries = [], consultationTypes = [], bookingAvailability = [], bookingBlocks = [], bookingLinks = [], consultationBookings = [], dashboardAdviserFilter = 'all', saveConsultationType, deleteConsultationType, saveBookingAvailability, saveBookingAvailabilityBulk, deleteBookingAvailability, saveBookingBlock, saveBookingBlockBulk, deleteBookingBlock, saveBookingLink, deleteBookingLink, saveConsultationBooking, saving = false }) {
@@ -2268,7 +2349,7 @@ function ConsultationBookingWorkspace({ advisers = [], intakeEnquiries = [], con
   const scopedLinks = bookingLinks.filter((link) => !scopedAdviserId || link.adviserId === scopedAdviserId);
   const scopedAvailability = bookingAvailability.filter((row) => !scopedAdviserId || row.adviserId === scopedAdviserId);
   const scopedBlocks = bookingBlocks.filter((block) => !scopedAdviserId || block.adviserId === scopedAdviserId);
-  const upcomingBookings = scopedBookings.filter((booking) => booking.status === 'Confirmed').sort((a, b) => `${a.bookingDate} ${a.startTime}`.localeCompare(`${b.bookingDate} ${b.startTime}`));
+  const upcomingBookings = scopedBookings.filter((booking) => ['Reserved', 'Confirmed'].includes(booking.status)).sort((a, b) => `${a.bookingDate} ${a.startTime}`.localeCompare(`${b.bookingDate} ${b.startTime}`));
 
   function adviserName(id) {
     return advisers.find((adviser) => adviser.id === id)?.name || 'Unassigned adviser';
@@ -2412,11 +2493,11 @@ function ConsultationBookingWorkspace({ advisers = [], intakeEnquiries = [], con
 
       {activeTab === 'overview' && (
         <div className="booking-overview-grid">
-          <div className="metric-card"><span>Upcoming confirmed</span><strong>{upcomingBookings.length}</strong><small>Consultations that still need to happen.</small></div>
+          <div className="metric-card"><span>Upcoming reserved</span><strong>{upcomingBookings.length}</strong><small>Consultations that still need to happen.</small></div>
           <div className="metric-card"><span>Active links</span><strong>{scopedLinks.filter((link) => link.status === 'Active').length}</strong><small>Applicants can still use these links.</small></div>
           <div className="metric-card"><span>Availability rows</span><strong>{scopedAvailability.length}</strong><small>Weekly adviser booking windows.</small></div>
           <div className="metric-card"><span>Blocks</span><strong>{scopedBlocks.length}</strong><small>Manual unavailable dates or times.</small></div>
-          <section className="sub-panel booking-wide-panel"><h2>Next bookings</h2>{upcomingBookings.slice(0, 6).map((booking) => <div key={booking.id} className="booking-list-row"><div><strong>{booking.applicantName}</strong><span>{typeName(booking.consultationTypeId)} with {adviserName(booking.adviserId)}</span></div><b>{formatBookingDateTime(booking.bookingDate, booking.startTime)}</b></div>)}{!upcomingBookings.length && <p className="muted">No confirmed bookings for this view yet.</p>}</section>
+          <section className="sub-panel booking-wide-panel"><h2>Next bookings</h2>{upcomingBookings.slice(0, 6).map((booking) => <div key={booking.id} className="booking-list-row"><div><strong>{booking.applicantName}</strong><span>{typeName(booking.consultationTypeId)} with {adviserName(booking.adviserId)}</span></div><b>{formatBookingDateTime(booking.bookingDate, booking.startTime)}</b></div>)}{!upcomingBookings.length && <p className="muted">No reserved bookings for this view yet.</p>}</section>
         </div>
       )}
 
@@ -10062,7 +10143,7 @@ function normaliseConsultationBooking(input = {}) {
     applicantEmail: input.applicantEmail || input.applicant_email || '',
     applicantPhone: input.applicantPhone || input.applicant_phone || '',
     notes: input.notes || '',
-    status: BOOKING_STATUS_OPTIONS.includes(input.status) ? input.status : 'Confirmed',
+    status: BOOKING_STATUS_OPTIONS.includes(input.status) ? input.status : 'Reserved',
     paymentStatus: input.paymentStatus || input.payment_status || 'Not required',
     createdAt: input.createdAt || input.created_at || '',
     updatedAt: input.updatedAt || input.updated_at || '',
