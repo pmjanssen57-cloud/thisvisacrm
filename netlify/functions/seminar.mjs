@@ -339,11 +339,80 @@ async function buildEmailFromTemplate(templateKey, context = {}, fallback = {}) 
   const rawHtml = template.bodyHtml || fallback.bodyHtml || '';
   const renderedHtml = cleanHtmlForTemplate(renderTemplateText(rawHtml, context), 60000);
   const bodyText = renderTemplateText(template.bodyText || fallback.bodyText || stripHtmlToText(renderedHtml), context).trim() || fallback.bodyText || stripHtmlToText(renderedHtml);
-  return { subject, bodyText, bodyHtml: renderedHtml ? editableTemplateBodyHtml(renderedHtml) : textToHtml(bodyText) };
+  const editableBodyHtml = renderedHtml ? editableTemplateBodyHtml(renderedHtml) : editableTemplateTextHtml(bodyText);
+  const bodyHtml = templateKey === 'seminar_new_registration'
+    ? brandedSeminarNotificationEmailHtml({ subject, context, bodyHtml: editableBodyHtml })
+    : editableBodyHtml;
+  return { subject, bodyText, bodyHtml };
 }
 
 function editableTemplateBodyHtml(bodyHtml = '') {
-  return `<div style="font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.3; color: #1f2933;">${cleanHtmlForTemplate(bodyHtml, 60000)}${buildEmailSignatureSpacer(18)}</div>`;
+  return `<div style="font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.35; color: #1f2933;">${cleanHtmlForTemplate(bodyHtml, 60000)}</div>`;
+}
+
+function editableTemplateTextHtml(bodyText = '') {
+  return `<div style="font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.35; color: #1f2933;">${String(bodyText || '')
+    .split(/\n{2,}/)
+    .filter((paragraph) => paragraph.trim())
+    .map((paragraph) => `<p style="margin:0 0 10px 0; padding:0; line-height:1.35; mso-margin-top-alt:0; mso-margin-bottom-alt:10px;">${escapeHtml(paragraph).replace(/\n/g, '<br>')}</p>`)
+    .join('')}</div>`;
+}
+
+function brandedSeminarNotificationEmailHtml({ subject = '', context = {}, bodyHtml = '' } = {}) {
+  const registrantName = context.registrantFullName || 'Not recorded';
+  const registrantEmail = context.registrantEmail || 'Not recorded';
+  const seminarTitle = context.seminarTitle || 'Seminar registration';
+  const submitted = context.submitted || '';
+  const registrationId = context.registrationId || '';
+  const crmUrl = String(process.env.URL || process.env.DEPLOY_URL || '').trim();
+  const openCrm = crmUrl ? `<a href="${escapeHtml(crmUrl)}" style="display:inline-block; padding:10px 14px; border-radius:999px; background:#003736; color:#ffffff; text-decoration:none; font-weight:700;">Open THiS CRM</a>` : '';
+  return `
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%; margin:0; padding:0; background:#f4fbf8;">
+  <tr>
+    <td style="padding:22px 12px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%; max-width:760px; margin:0 auto; background:#ffffff; border:1px solid #cce5dc; border-radius:18px; overflow:hidden;">
+        <tr>
+          <td style="padding:20px 24px; background:#003736; color:#ffffff;">
+            <div style="font-family:Arial,sans-serif; font-size:11px; line-height:1.4; letter-spacing:.08em; text-transform:uppercase; color:#9be7c5; font-weight:700;">THiS CRM internal notification</div>
+            <div style="font-family:Arial,sans-serif; font-size:22px; line-height:1.25; color:#ffffff; font-weight:700; margin-top:6px;">New seminar registration</div>
+            <div style="font-family:Arial,sans-serif; font-size:13px; line-height:1.35; color:#dff7ec; margin-top:6px;">${escapeHtml(subject || seminarTitle)}</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 24px 4px 24px;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%; border-collapse:separate; border-spacing:0 8px; font-family:Arial,sans-serif;">
+              <tr>
+                <td style="width:34%; padding:9px 12px; background:#f4fbf8; border-radius:12px 0 0 12px; color:#53657d; font-size:12px; font-weight:700; text-transform:uppercase;">Registrant</td>
+                <td style="padding:9px 12px; background:#f4fbf8; border-radius:0 12px 12px 0; color:#003736; font-size:14px; font-weight:700;">${escapeHtml(registrantName)}</td>
+              </tr>
+              <tr>
+                <td style="width:34%; padding:9px 12px; background:#f4fbf8; border-radius:12px 0 0 12px; color:#53657d; font-size:12px; font-weight:700; text-transform:uppercase;">Email</td>
+                <td style="padding:9px 12px; background:#f4fbf8; border-radius:0 12px 12px 0; color:#003736; font-size:14px; font-weight:700;">${escapeHtml(registrantEmail)}</td>
+              </tr>
+              <tr>
+                <td style="width:34%; padding:9px 12px; background:#f4fbf8; border-radius:12px 0 0 12px; color:#53657d; font-size:12px; font-weight:700; text-transform:uppercase;">Seminar</td>
+                <td style="padding:9px 12px; background:#f4fbf8; border-radius:0 12px 12px 0; color:#003736; font-size:14px; font-weight:700;">${escapeHtml(seminarTitle)}</td>
+              </tr>
+              ${submitted ? `<tr><td style="width:34%; padding:9px 12px; background:#f4fbf8; border-radius:12px 0 0 12px; color:#53657d; font-size:12px; font-weight:700; text-transform:uppercase;">Submitted</td><td style="padding:9px 12px; background:#f4fbf8; border-radius:0 12px 12px 0; color:#003736; font-size:14px; font-weight:700;">${escapeHtml(submitted)}</td></tr>` : ''}
+              ${registrationId ? `<tr><td style="width:34%; padding:9px 12px; background:#f4fbf8; border-radius:12px 0 0 12px; color:#53657d; font-size:12px; font-weight:700; text-transform:uppercase;">Registration ID</td><td style="padding:9px 12px; background:#f4fbf8; border-radius:0 12px 12px 0; color:#003736; font-size:13px;">${escapeHtml(registrationId)}</td></tr>` : ''}
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:10px 24px 20px 24px;">
+            <div style="border-top:1px solid #d8ebe4; padding-top:16px;">${cleanHtmlForTemplate(bodyHtml, 60000)}</div>
+            ${openCrm ? `<div style="margin-top:18px;">${openCrm}</div>` : ''}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:14px 24px; background:#003736; color:#dff7ec; font-family:Arial,sans-serif; font-size:12px; line-height:1.45;">
+            <strong style="color:#ffffff;">Turner Hopkins Immigration Specialists</strong><br>Generated by THiS CRM. Internal use only.
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>`.trim();
 }
 
 function cleanHtmlForTemplate(value = '', limit = 60000) {
