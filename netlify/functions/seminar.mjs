@@ -485,14 +485,25 @@ function escapeHtml(value = '') {
   return String(value || '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
 }
 
-function corsHeaders() {
+function securityHeaders() {
   return {
-    'access-control-allow-origin': '*',
+    'x-content-type-options': 'nosniff',
+    'referrer-policy': 'strict-origin-when-cross-origin',
+    'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+  };
+}
+
+function corsHeaders(extra = {}) {
+  return {
+    ...securityHeaders(),
     'access-control-allow-methods': 'GET, POST, OPTIONS',
     'access-control-allow-headers': 'content-type',
+    'content-type': 'application/json; charset=utf-8',
+    'cache-control': 'no-store',
+    ...extra,
   };
 }
 
 function json(body, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...corsHeaders() } });
+  return new Response(JSON.stringify(body), { status, headers: corsHeaders() });
 }

@@ -443,8 +443,23 @@ function normaliseEmail(value) {
   return String(value || '').trim().toLowerCase();
 }
 
-function corsHeaders() {
-  return { 'access-control-allow-methods': 'POST, OPTIONS', 'access-control-allow-headers': 'content-type', 'content-type': 'application/json' };
+function securityHeaders() {
+  return {
+    'x-content-type-options': 'nosniff',
+    'referrer-policy': 'strict-origin-when-cross-origin',
+    'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+  };
+}
+
+function corsHeaders(extra = {}) {
+  return {
+    ...securityHeaders(),
+    'access-control-allow-methods': 'POST, OPTIONS',
+    'access-control-allow-headers': 'content-type',
+    'content-type': 'application/json; charset=utf-8',
+    'cache-control': 'no-store',
+    ...extra,
+  };
 }
 
 function json(body, status = 200) {

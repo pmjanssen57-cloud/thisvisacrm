@@ -1030,17 +1030,28 @@ function nullableUuidValue(value = '') {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || '').trim()) ? String(value).trim() : null;
 }
 
-function corsHeaders() {
+function securityHeaders() {
   return {
-    'access-control-allow-origin': '*',
+    'x-content-type-options': 'nosniff',
+    'referrer-policy': 'strict-origin-when-cross-origin',
+    'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+  };
+}
+
+function corsHeaders(extra = {}) {
+  return {
+    ...securityHeaders(),
     'access-control-allow-methods': 'POST, OPTIONS',
     'access-control-allow-headers': 'content-type',
+    'content-type': 'application/json; charset=utf-8',
+    'cache-control': 'no-store',
+    ...extra,
   };
 }
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'content-type': 'application/json', ...corsHeaders() },
+    headers: corsHeaders(),
   });
 }

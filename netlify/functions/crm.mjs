@@ -519,8 +519,7 @@ async function checkAuth(event) {
     console.warn('Identity check failed', error?.message || error);
   }
 
-  if (!expected) return { ok: true, mode: 'open-prototype' };
-  return { ok: false, mode: 'none' };
+  return { ok: false, mode: expected ? 'none' : 'identity-required' };
 }
 
 function serialiseIdentityUser(user) {
@@ -3731,16 +3730,29 @@ function daysFromNow(days) {
   return `${year}-${month}-${day}`;
 }
 
+function securityHeaders() {
+  return {
+    'x-content-type-options': 'nosniff',
+    'referrer-policy': 'strict-origin-when-cross-origin',
+    'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+  };
+}
+
+function apiHeaders(extra = {}) {
+  return {
+    ...securityHeaders(),
+    'content-type': 'application/json; charset=utf-8',
+    'cache-control': 'no-store',
+    'access-control-allow-headers': 'content-type, authorization, x-crm-token',
+    'access-control-allow-methods': 'GET,POST,OPTIONS',
+    ...extra,
+  };
+}
+
 function json(body, statusCode = 200) {
   return {
     statusCode,
-    headers: {
-      'content-type': 'application/json; charset=utf-8',
-      'cache-control': 'no-store',
-      'access-control-allow-origin': '*',
-      'access-control-allow-headers': 'content-type, authorization, x-crm-token',
-      'access-control-allow-methods': 'GET,POST,OPTIONS',
-    },
+    headers: apiHeaders(),
     body: JSON.stringify(body),
   };
 }
@@ -3748,11 +3760,7 @@ function json(body, statusCode = 200) {
 function empty(statusCode = 204) {
   return {
     statusCode,
-    headers: {
-      'access-control-allow-origin': '*',
-      'access-control-allow-headers': 'content-type, authorization, x-crm-token',
-      'access-control-allow-methods': 'GET,POST,OPTIONS',
-    },
+    headers: apiHeaders({ 'content-type': 'text/plain; charset=utf-8' }),
     body: '',
   };
 }

@@ -1,87 +1,46 @@
-# THiS CRM v0.13.3 - Search Actions Alignment Polish
+# THiS CRM v0.13.6 - Security Hardening Foundation
 
-This build adds the first native consultation booking module to THiS CRM. The module is intentionally separate from the daily adviser workflow so it can be configured and tested without cluttering the dashboard, client workspace, or Enquiries & Intake screens.
+This build applies the first security hardening pass to the current THiS CRM line. It does not change the daily adviser workflow, the client portal workflow, public forms, or the new consultation booking module.
 
+## v0.13.6 changes
 
-## v0.13.3 changes
+- Removed open prototype mode from the CRM API. If no valid Netlify Identity user or configured fallback CRM token is present, the CRM API now returns `401` instead of loading data.
+- Kept the temporary `CRM_ACCESS_TOKEN` fallback available only when explicitly configured in Netlify environment variables.
+- Removed the open-prototype warning from the UI because the application no longer intentionally enters that mode.
+- Added production-oriented security headers through `netlify.toml`:
+  - `Content-Security-Policy`
+  - `X-Content-Type-Options`
+  - `Referrer-Policy`
+  - `Permissions-Policy`
+  - controlled `frame-ancestors` policy for Turner Hopkins embeds
+- Added API response hardening headers to Netlify functions.
+- Removed wildcard `Access-Control-Allow-Origin: *` from the CRM/public API functions. Same-origin requests continue to work; the embedded forms continue to work because the iframe and API calls run from the THiS CRM origin.
+- Added cache headers for built static assets.
+- Updated `.env.example` to make clear that `CRM_ACCESS_TOKEN` is now an optional emergency fallback, not a production access model.
+- Added optional `CORS_ALLOWED_ORIGINS` documentation for later controlled cross-origin use.
 
-- Aligned the right-hand search row controls so the **Search**, **Results**, and **Clear** controls sit on the same visual baseline.
-- Standardised the compact result pill and Clear button height.
-- No database migration required.
+## Security posture after this build
 
-## v0.13.2 changes
+This is the foundation pass only. It tightens the app shell and removes the riskiest prototype behaviour, but it does not yet add full adviser-level server-side permissions, public endpoint rate limiting, audit trails, malware scanning, or data retention tooling.
 
-- Fixed a startup crash caused when the header time/weather snapshot loaded before an adviser profile was available.
-- The snapshot now safely falls back to Auckland/New Zealand time and weather instead of blanking the CRM.
-- No database migration required.
-
-## v0.13.1 changes
-
-- Tightened the main Viewing/Search toolbar so the Clear action is a compact button rather than a large block.
-- Added a small adviser-local time and weather snapshot to the CRM top header.
-- The header snapshot uses the selected adviser/location metadata where available and falls back to Auckland/New Zealand time.
-- No database migration required.
-
-## v0.13.0 changes
-
-- Added a new **Bookings** CRM module.
-- Added consultation type management, seeded with:
-  - Free 15-minute consultation
-  - Paid 60-minute consultation, payment handled manually at this stage
-- Added adviser weekly booking availability.
-- Added adviser blocked dates/times.
-- Added controlled booking links that can be created from the CRM and pasted into intake approval/next-step emails.
-- Added a public self-booking page at `/book?token=...`.
-- The public booking page shows available slots based on:
-  - adviser availability;
-  - consultation duration;
-  - buffer time;
-  - manual blocked times; and
-  - existing confirmed bookings.
-- Applicants can confirm a consultation booking online.
-- Confirmed bookings appear back in the CRM **Bookings** module.
-- Booking links are marked **Used** once an applicant books.
-- Applicant and adviser notification emails are sent if Microsoft email environment variables are configured; otherwise draft email log records are created for visibility.
-- No Outlook calendar integration yet.
-- No payment integration yet.
-
-## Database changes
-
-Adds new tables:
-
-- `consultation_types`
-- `adviser_booking_availability`
-- `adviser_booking_blocks`
-- `consultation_booking_links`
-- `consultation_bookings`
-
-Migration included:
-
-- `202606230001_add_consultation_booking.sql`
-
-## Test process
+## Deployment notes
 
 1. Deploy this package to Netlify.
-2. Open THiS CRM and confirm the new **Bookings** navigation item appears.
-3. Go to **Bookings > Types** and confirm the two default consultation types exist.
-4. Go to **Bookings > Availability** and add at least one availability row for an adviser.
-5. Go to **Bookings > Blocked times** and optionally add a test block.
-6. Go to **Bookings > Booking links** and create a booking link for an adviser/applicant.
-7. Copy the booking link and open it in a new browser tab.
-8. Confirm available times appear for the selected adviser.
-9. Book a free 15-minute consultation.
-10. Return to the CRM and confirm the booking appears under **Bookings > Bookings**.
-11. Confirm the booking link status changed to **Used**.
+2. Confirm Netlify Identity is enabled and adviser registration remains invite-only.
+3. Confirm at least one invited adviser can log in and load CRM data.
+4. If Identity has not fully settled, configure `CRM_ACCESS_TOKEN` temporarily in Netlify environment variables.
+5. Once Identity is working, remove `CRM_ACCESS_TOKEN` from production.
+6. Test the public pages:
+   - `/contact?embed=1`
+   - `/assessment?embed=1` or the relevant assessment route used by the site
+   - `/seminar`
+   - `/book?token=...`
+7. Confirm the CRM no longer loads without either Identity or a configured fallback token.
 
-## Notes
+## No database migration required
 
-This is the self-booking foundation only. Outlook calendar invite creation and online payment can be added later once the workflow is proven and the volume justifies the extra integration work.
+This release changes application and function security behaviour only. No database migration is included.
 
+## Previous included build features
 
-## v0.13.5 - Contact Form Embed Containment Polish
-
-- Added internal iframe-safe containment styling for the embedded Contact form.
-- Restored horizontal breathing room inside embed mode so the card border is not clipped by the iframe edge.
-- Forced the embedded contact card, form grid, fields, inputs, selects and textareas to respect the iframe width.
-- Added overflow protection on the embedded contact shell/body.
-- No database migration required.
+This package includes the consultation booking foundation, portal footer polish, and contact form embed containment polish from the v0.13.x line.

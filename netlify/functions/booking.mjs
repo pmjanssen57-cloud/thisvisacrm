@@ -527,13 +527,21 @@ function nullableUuidValue(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || '')) ? value : null;
 }
 
+function securityHeaders() {
+  return {
+    'x-content-type-options': 'nosniff',
+    'referrer-policy': 'strict-origin-when-cross-origin',
+    'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+  };
+}
+
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: corsHeaders({ 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }) });
 }
 
 function corsHeaders(extra = {}) {
   return {
-    'access-control-allow-origin': '*',
+    ...securityHeaders(),
     'access-control-allow-headers': 'content-type, authorization, x-crm-token',
     'access-control-allow-methods': 'GET,POST,OPTIONS',
     ...extra,

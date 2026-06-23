@@ -551,7 +551,7 @@ export default function App() {
       if (response.status === 401) {
         setAuthRequired(true);
         if (identityUser) {
-          setError('You are logged in, but the CRM API did not accept the Identity session. Use the temporary CRM access code fallback while this is checked.');
+          setError('You are logged in, but the CRM API did not accept the Identity session. Check the invited-user setup or use the temporary CRM access code only if it is configured.');
         }
         setLoading(false);
         return;
@@ -598,7 +598,7 @@ export default function App() {
       });
       if (response.status === 401) {
         setAuthRequired(true);
-        throw new Error('Your Identity session or temporary CRM access code was not accepted.');
+        throw new Error('Your Identity session was not accepted. Temporary CRM access code only works if configured.');
       }
       const body = await readJsonResponse(response);
       if (!response.ok) throw new Error(formatApiError(body, 'CRM save failed'));
@@ -1098,11 +1098,6 @@ export default function App() {
       </header>
 
       <main className="layout">
-        {data.securityMode === 'open-prototype' && (
-          <div className="warning-banner">
-            <AlertTriangle size={18} /> No CRM access token is configured. This is open prototype mode. Do not enter live client data until you set CRM_ACCESS_TOKEN in Netlify.
-          </div>
-        )}
         {error && <div className="error-banner"><AlertTriangle size={18} />{error}</div>}
         {loading && <div className="loading-card"><Database size={18} />Loading database-backed CRM data...</div>}
 

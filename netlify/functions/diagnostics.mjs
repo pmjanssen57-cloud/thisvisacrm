@@ -22,7 +22,7 @@ export const handler = async () => {
 function json(body, statusCode = 200) {
   return {
     statusCode,
-    headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
+    headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'referrer-policy': 'strict-origin-when-cross-origin' },
     body: JSON.stringify(body),
   };
 }
