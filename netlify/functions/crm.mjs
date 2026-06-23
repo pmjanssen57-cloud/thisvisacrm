@@ -130,7 +130,7 @@ If you would prefer to email the consultant directly first, you can contact {{al
 
 The booking page will show the currently available times for the adviser assigned to your assessment.
 
-I look forward to hearing from you in due course.`,
+We look forward to hearing from you.`,
     placeholders: ['firstName', 'applicantName', 'allocatedTo', 'bookingLink', 'adviserEmail'],
   },
   {
@@ -3200,7 +3200,7 @@ function replaceBookingLinkWithButton(bodyHtml = '', bookingLink = '', adviserEm
   const safeEmail = escapeHtml(String(adviserEmail || '').trim());
   if (!safeUrl) return bodyHtml;
   const consultantHtml = buildConsultantEmailFallbackHtml(adviserEmail);
-  const buttonBlock = `<p style="margin:0 0 8px 0; padding:0; line-height:1.35;">If you wish to move ahead, you can book a consultation using the secure button below.</p><p style="margin:0 0 12px 0; padding:0;"><a href="${safeUrl}" style="display:inline-block; background:#003736; color:#ffffff; text-decoration:none; font-weight:700; padding:11px 18px; border-radius:10px;">Book a consultation</a></p><p style="margin:0 0 10px 0; padding:0; font-size:9pt; line-height:1.3; color:#52627a;">If the button does not open, copy this link:<br><a href="${safeUrl}" style="color:#003736; font-weight:700; word-break:break-all;">${safeUrl}</a></p>${consultantHtml}`;
+  const buttonBlock = `<p style="margin:0 0 8px 0; padding:0; line-height:1.35;">If you wish to move ahead, you can book a consultation using the secure button below.</p><p style="margin:0 0 12px 0; padding:0;"><a href="${safeUrl}" style="display:inline-block; background:#003736; color:#ffffff; text-decoration:none; font-weight:700; padding:11px 18px; border-radius:10px;">Book a consultation</a></p><p style="margin:0 0 10px 0; padding:0; font-size:9pt; line-height:1.3; color:#52627a;">If the booking button does not open, please copy and paste this secure booking link into your browser:<br><a href="${safeUrl}" style="color:#003736; font-weight:700; word-break:break-all;">${safeUrl}</a></p>${consultantHtml}`;
   let html = String(bodyHtml || '');
   if (html.includes('>Book a consultation</a>') && html.includes(safeUrl)) {
     if (consultantHtml && safeEmail && !html.includes(`mailto:${safeEmail}`) && !html.includes(safeEmail)) {
@@ -3272,7 +3272,7 @@ function buildIntakeOutcomeEmailContent(intake = {}, adviser = null, outcome = '
     safeBookingLink ? `If you wish to move ahead, you can book a consultation here: ${safeBookingLink}` : `If you wish to move ahead with this assessment, please email us directly: ${allocatedTo} (do not reply to this email) and indicate which assessment option you would prefer to take.`,
     safeBookingLink && allocatedTo ? `If you would prefer to email the consultant directly first, you can contact ${allocatedTo}.` : '',
     '',
-    'I look forward to hearing from you in due course.',
+    'We look forward to hearing from you.',
   ].join('\n');
 
   return {
@@ -3321,8 +3321,8 @@ ${li('A more detailed assessment over Teams or Zoom, usually lasting for at leas
 </ul>
 ${gap(6)}
 ${p('Moving to another country is a complex process, particularly in the current environment as the demand for Visas and opportunities in New Zealand continues to increase. If you are seriously considering the move, then having a well laid out plan is vital.', 10)}
-${safeBookingLink ? `<p style="margin:0 0 8px 0; padding:0; line-height:1.35; mso-margin-top-alt:0; mso-margin-bottom-alt:8px;">If you wish to move ahead, you can book a consultation using the secure button below.</p><p style="margin:0 0 12px 0; padding:0;"><a href="${safeBookingLink}" style="display:inline-block; background:#003736; color:#ffffff; text-decoration:none; font-weight:700; padding:11px 18px; border-radius:10px;">Book a consultation</a></p><p style="margin:0 0 10px 0; padding:0; font-size:9pt; line-height:1.3; color:#52627a; mso-margin-top-alt:0; mso-margin-bottom-alt:10px;">If the button does not open, copy this link:<br><a href="${safeBookingLink}" style="color:#003736; font-weight:700; word-break:break-all;">${safeBookingLink}</a></p>${buildConsultantEmailFallbackHtml(allocatedTo)}` : p(`If you wish to move ahead with this assessment, please email us directly: ${allocatedTo} (do not reply to this email) and indicate which assessment option you would prefer to take.`, 10)}
-${p('I look forward to hearing from you in due course.', 0)}
+${safeBookingLink ? `<p style="margin:0 0 8px 0; padding:0; line-height:1.35; mso-margin-top-alt:0; mso-margin-bottom-alt:8px;">If you wish to move ahead, you can book a consultation using the secure button below.</p><p style="margin:0 0 12px 0; padding:0;"><a href="${safeBookingLink}" style="display:inline-block; background:#003736; color:#ffffff; text-decoration:none; font-weight:700; padding:11px 18px; border-radius:10px;">Book a consultation</a></p><p style="margin:0 0 10px 0; padding:0; font-size:9pt; line-height:1.3; color:#52627a; mso-margin-top-alt:0; mso-margin-bottom-alt:10px;">If the booking button does not open, please copy and paste this secure booking link into your browser:<br><a href="${safeBookingLink}" style="color:#003736; font-weight:700; word-break:break-all;">${safeBookingLink}</a></p>${buildConsultantEmailFallbackHtml(allocatedTo)}` : p(`If you wish to move ahead with this assessment, please email us directly: ${allocatedTo} (do not reply to this email) and indicate which assessment option you would prefer to take.`, 10)}
+${p('We look forward to hearing from you.', 0)}
 ${buildEmailSignatureSpacer(24)}
 </div>`;
 }

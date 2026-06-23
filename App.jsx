@@ -8647,7 +8647,7 @@ function buildIntakeOutcomeEmailDraft(record = {}, advisers = [], outcome = 'app
       'Moving to another country is a complex process, particularly in the current environment as the demand for Visas and opportunities in New Zealand continues to increase. If you are seriously considering the move, then having a well laid out plan is vital.',
       `If you wish to move ahead with this assessment, please email us directly: ${allocatedTo} (do not reply to this email) and indicate which assessment option you would prefer to take.`,
       '',
-      'I look forward to hearing from you in due course.',
+      'We look forward to hearing from you.',
     ].join('\n')
   };
 }

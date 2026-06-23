@@ -189,3 +189,8 @@ This package includes the consultation booking foundation, portal footer polish,
 - Added a local confirmation helper in the seminar management panel so both buttons use the shared THiS CRM modal instead of failing silently.
 - Added the same confirmation helper to the Enquiries & Intake workspace so contact-form assessment email and delete actions remain wired to the shared CRM modal.
 - No database migration required.
+
+## v0.13.17 - Approval Booking Email Copy Polish
+
+- Updated the approval + booking email fallback link wording to: “If the booking button does not open, please copy and paste this secure booking link into your browser:”
+- Updated the approval + booking email closing line to: “We look forward to hearing from you.”
