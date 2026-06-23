@@ -1,6 +1,6 @@
-# THiS CRM v0.13.13 — Booking Meeting-Link Handling Polish
+# THiS CRM v0.13.14 — Approval Booking Email Contact Option
 
-This build sits on top of v0.13.12 and removes the automatic Teams meeting link handling from the booking workflow.
+This build sits on top of v0.13.13 and adds a direct adviser email option to the assessment approval + booking email while retaining the booking link/button.
 
 ## v0.13.13 changes
 
@@ -161,4 +161,13 @@ This package includes the consultation booking foundation, portal footer polish,
 - Applied the new modal to assessment-form email sends, seminar approval/decline emails, intake approval/decline emails, and common delete/deactivate actions.
 - Kept the modal body generic and reusable so future confirmation actions can use the same CRM pattern.
 - Left browser prompts in place only where the browser itself is still required, such as copy prompts and blocked print-window alerts.
+- No database migration required.
+
+
+## v0.13.14 — Approval Booking Email Contact Option
+
+- Added an adviser email fallback line to the assessment approval + booking email.
+- Applicants still receive the secure booking link/button, but can also email the assigned consultant directly if they prefer.
+- Added the adviser email fallback to both generated approval email HTML and editable-template generated approval emails.
+- Added `adviserEmail` as an available placeholder for the assessment approval template while retaining `allocatedTo`.
 - No database migration required.
