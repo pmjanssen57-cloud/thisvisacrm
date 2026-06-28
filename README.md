@@ -194,3 +194,29 @@ This package includes the consultation booking foundation, portal footer polish,
 
 - Updated the approval + booking email fallback link wording to: “If the booking button does not open, please copy and paste this secure booking link into your browser:”
 - Updated the approval + booking email closing line to: “We look forward to hearing from you.”
+
+## v0.13.18 - Adviser Workflow Polish
+
+UX polish release focused on day-to-day adviser usability:
+
+- Added dashboard command cards for Today's actions, Urgent / at-risk work and New enquiries.
+- Added a recently viewed clients strip on the dashboard.
+- Added a client snapshot card at the top of the client workspace showing stage, next action, nearest deadline, documents, portal status and next appointment.
+- Added lightweight client health status: Good, Watch or Needs attention.
+- Added toast-style confirmations for client saves and related email send/log outcomes.
+- Added clearer deadline colour treatment across overdue, urgent, due soon and safe dates.
+- Added recommended-action chips to contact and intake cards.
+- Added a portal preview button to the client portal admin actions.
+
+Suggested next UX backlog:
+
+1. Portal publish checklist before sending access to the client.
+2. Client portal visibility chips on every publishable item.
+3. Better email template preview mode with sample client data.
+4. Intake-to-client conversion selector for choosing which assessment data carries across.
+5. Booking cancellation reason workflow and adviser/client notification refinement.
+6. Four-week public booking selector with collapsible weeks.
+7. Knowledge Library review controls: last reviewed, reviewed by and next review due.
+8. CRM housekeeping view for clients with no next action, stale portals, expired documents and old unassigned enquiries.
+9. Seminar batch actions and post-seminar follow-up workflow.
+10. Optional Focus Mode for advisers who want a stripped-back daily task list.

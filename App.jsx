@@ -452,7 +452,14 @@ export default function App() {
   const [clientEditorDirty, setClientEditorDirty] = useState(false);
   const [calendarEditorDirty, setCalendarEditorDirty] = useState(false);
   const [crmConfirm, setCrmConfirm] = useState(null);
+  const [crmToast, setCrmToast] = useState(null);
+  const [recentClientIds, setRecentClientIds] = useState(() => safeJsonParse(localStorage.getItem('this_crm_recent_clients'), []));
   const crmConfirmResolverRef = useRef(null);
+
+  function showCrmToast(message, tone = 'success') {
+    if (!message) return;
+    setCrmToast({ id: Date.now(), message, tone });
+  }
 
   function askCrmConfirm(options = {}) {
     return new Promise((resolve) => {
@@ -497,11 +504,17 @@ export default function App() {
     setTab(nextTab);
   }
 
+  function rememberClient(clientId) {
+    if (!clientId || String(clientId).startsWith('temp-')) return;
+    setRecentClientIds((current) => [clientId, ...(current || []).filter((id) => id !== clientId)].slice(0, 8));
+  }
+
   function selectClient(clientId) {
     if (clientId === selectedClientId) return true;
     if (!confirmDiscardClientEdits()) return false;
     setClientEditorDirty(false);
     setSelectedClientId(clientId);
+    rememberClient(clientId);
     return true;
   }
 
@@ -609,6 +622,16 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('this_crm_dashboard_adviser_filter', dashboardAdviserFilter);
   }, [dashboardAdviserFilter]);
+
+  useEffect(() => {
+    localStorage.setItem('this_crm_recent_clients', JSON.stringify((recentClientIds || []).slice(0, 8)));
+  }, [recentClientIds]);
+
+  useEffect(() => {
+    if (!crmToast) return undefined;
+    const timer = window.setTimeout(() => setCrmToast(null), 3200);
+    return () => window.clearTimeout(timer);
+  }, [crmToast]);
 
   async function callApi(action, payload = {}, options = {}) {
     setSaving(true);
@@ -743,6 +766,8 @@ export default function App() {
         return { ...current, clients: nextClients };
       });
       setSelectedClientId(nextSelectedId);
+      showCrmToast(wasNewClient ? 'Client record created.' : 'Client record saved.');
+      if (!String(nextSelectedId || '').startsWith('temp-')) rememberClient(nextSelectedId);
       if (wasNewClient && options.resetNewClientForm) setTab('clients');
     }
     if (body.emailLog) {
@@ -750,6 +775,7 @@ export default function App() {
         ...current,
         emailLogs: [normaliseEmailLog(body.emailLog), ...(current.emailLogs || [])].slice(0, 200),
       }));
+      showCrmToast(body.emailLog.status === 'Sent' ? 'Related client email sent.' : 'Email logged as failed. Check email log.', body.emailLog.status === 'Sent' ? 'success' : 'warning');
     }
     return body;
   }
@@ -1153,6 +1179,8 @@ export default function App() {
         </div>
       </header>
 
+      {crmToast && <CrmToast toast={crmToast} onClose={() => setCrmToast(null)} />}
+
       <main className="layout">
         {error && <div className="error-banner"><AlertTriangle size={18} />{error}</div>}
         {loading && <div className="loading-card"><Database size={18} />Loading database-backed CRM data...</div>}
@@ -1223,7 +1251,7 @@ export default function App() {
             )}
 
             {tab === 'dashboard' && (
-              <Dashboard clients={scopedClients} activeClients={activeClients} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} deadlineRows={deadlineRows} taskRows={taskRows} stageTemplates={data.stageTemplates} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} intakeEnquiries={data.intakeEnquiries || []} />
+              <Dashboard clients={scopedClients} activeClients={activeClients} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} deadlineRows={deadlineRows} taskRows={taskRows} stageTemplates={data.stageTemplates} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} intakeEnquiries={data.intakeEnquiries || []} recentClientIds={recentClientIds} />
             )}
 
             {tab === 'tasks' && (
@@ -2708,6 +2736,18 @@ function formatBookingDateTime(date, time) {
   return `${formatBookingDate(date)} at ${formatBookingTime(time)}`;
 }
 
+function intakeRecommendedAction(record = {}, type = 'intake') {
+  if (record.convertedClientId || record.status === 'Converted') return 'Open converted client';
+  if (record.status === 'Spam / Duplicate') return 'Leave closed unless restored';
+  if (type === 'contact') {
+    if (record.status === 'New' || !record.status) return record.email ? 'Send assessment form' : 'Call or review contact details';
+    return 'Confirm follow-up completed';
+  }
+  if (record.status === 'New' || !record.status) return 'Review assessment';
+  if (record.status === 'Contacted') return 'Convert or close';
+  return 'Review record';
+}
+
 function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', statuses, seminars = [], seminarRegistrations = [], saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, sendContactIntakeInviteEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saving, openClientRecord, confirmAction }) {
   const askConfirm = confirmAction || (async ({ message }) => window.confirm(message || 'Continue?'));
   const simplifiedStatuses = (statuses || INTAKE_STATUSES).filter((status) => INTAKE_STATUSES.includes(status));
@@ -3035,6 +3075,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
                       <div>
                         <span className="intake-type-badge contact">Contact form</span>
                         <span className={`library-status ${statusClass(item.status)}`}>{contactStatusLabel(item.status)}</span>
+                        <span className="recommended-action-chip">Recommended: {intakeRecommendedAction(item, 'contact')}</span>
                         <h3>{name}</h3>
                         <p>{item.createdAt ? formatPortalDateTime(item.createdAt) : 'Submission date not recorded'}</p>
                       </div>
@@ -3091,6 +3132,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
                   <div className="intake-inbox-detail"><span>Submitted</span><strong>{item.createdAt ? formatPortalDateTime(item.createdAt) : 'No date'}</strong></div>
                   <div className="intake-inbox-status-block">
                     <span className={`library-status ${statusClass(item.status)}`}>{item.status}</span>
+                    <span className="recommended-action-chip">{intakeRecommendedAction(item, 'intake')}</span>
                     <small>{item.convertedClientId ? 'Client record created' : `${Object.values(item.flags || {}).filter(Boolean).length} flag${Object.values(item.flags || {}).filter(Boolean).length === 1 ? '' : 's'}`}</small>
                   </div>
                 </button>
@@ -5947,11 +5989,26 @@ function AccessScreen(props) {
   );
 }
 
-function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, deadlineRows, taskRows, stageTemplates, setTab, setSelectedClientId, openClientRecord, intakeEnquiries = [] }) {
+function CrmToast({ toast, onClose }) {
+  if (!toast) return null;
+  return (
+    <div className={`crm-toast ${toast.tone || 'success'}`} role="status" aria-live="polite">
+      <CheckCircle2 size={18} />
+      <span>{toast.message}</span>
+      <button type="button" onClick={onClose} aria-label="Dismiss notification"><X size={15} /></button>
+    </div>
+  );
+}
+
+function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, deadlineRows, taskRows, stageTemplates, setTab, setSelectedClientId, openClientRecord, intakeEnquiries = [], recentClientIds = [] }) {
   const pendingInvoices = clients.flatMap((client) => (client.billing || []).map((item) => ({ item, client }))).filter(({ item, client }) => effectiveBillingStatus(item, client) !== 'Invoiced');
   const overdueRows = deadlineRows.filter((row) => dateDiff(row.date) < 0);
   const next14 = deadlineRows.filter((row) => dateDiff(row.date) >= 0 && dateDiff(row.date) <= 14);
   const clientsWithoutNextAction = activeClients.filter((client) => !client.nextActionDue);
+  const todayActionRows = taskRows.filter((row) => row.diff <= 0);
+  const urgentTaskRows = taskRows.filter((row) => row.diff < 0 || row.diff <= 7);
+  const newEnquiryCount = (intakeEnquiries || []).filter((item) => item.status === 'New' || !item.status).length;
+  const recentClients = (recentClientIds || []).map((id) => clients.find((client) => client.id === id)).filter(Boolean).slice(0, 5);
   const overdueCalendarItems = taskRows.filter((row) => row.source === 'calendar-entry' && row.diff < 0);
   const newPortalMessages = activeClients.flatMap((client) => (client.portalMessages || [])
     .filter((message) => message.status === 'New')
@@ -5969,6 +6026,10 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
         </div>
         <span>{clients.length} client{clients.length === 1 ? '' : 's'} in view</span>
       </section>
+      <DashboardCommandCards todayActionRows={todayActionRows} urgentTaskRows={urgentTaskRows} newEnquiryCount={newEnquiryCount} setTab={setTab} />
+
+      {recentClients.length > 0 && <RecentClientsStrip clients={recentClients} openClientRecord={openClientRecord} />}
+
       <div className="metric-grid">
         <MetricCard label="Active clients" value={activeClients.length} note="Live client records" icon={UsersRound} />
         <MetricCard label="Deadlines next 14 days" value={next14.length} note="Expiry, PPI, filing and actions" icon={CalendarDays} />
@@ -6029,6 +6090,41 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
 
 }
 
+
+function DashboardCommandCards({ todayActionRows = [], urgentTaskRows = [], newEnquiryCount = 0, setTab }) {
+  return (
+    <section className="command-card-grid" aria-label="Daily CRM focus">
+      <button className="command-card" type="button" onClick={() => setTab('tasks')}>
+        <span className="command-icon"><ListChecks size={20} /></span>
+        <span><strong>{todayActionRows.length}</strong><small>Today’s actions</small><em>Open the daily bring-up list</em></span>
+      </button>
+      <button className="command-card warning" type="button" onClick={() => setTab('tasks')}>
+        <span className="command-icon"><AlertTriangle size={20} /></span>
+        <span><strong>{urgentTaskRows.length}</strong><small>Urgent / at risk</small><em>Overdue or due within 7 days</em></span>
+      </button>
+      <button className="command-card" type="button" onClick={() => setTab('intake')}>
+        <span className="command-icon"><ClipboardList size={20} /></span>
+        <span><strong>{newEnquiryCount}</strong><small>New enquiries</small><em>Contact forms, intake and seminar items</em></span>
+      </button>
+    </section>
+  );
+}
+
+function RecentClientsStrip({ clients = [], openClientRecord }) {
+  return (
+    <section className="recent-client-strip" aria-label="Recently viewed clients">
+      <div><Clock size={16} /><strong>Recently viewed</strong></div>
+      <div className="recent-client-buttons">
+        {clients.map((client) => (
+          <button key={client.id} className="recent-client-button" type="button" onClick={() => openClientRecord?.(client.id)}>
+            <span>{clientName(client)}</span>
+            <small>{currentStageLabel(client)}</small>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 function PortalMessageAlertPanel({ messages, openClientRecord }) {
   if (!messages.length) return null;
@@ -6397,6 +6493,7 @@ function ClientPortalPanel({ client, advisers, calendarEntries, generatedPortalC
       <div className="button-row portal-admin-actions">
         <button className="btn" type="button" onClick={generatePortalAccessCode}><LockKeyhole size={16} />Generate/reset access code</button>
         <button className="btn" type="button" onClick={copyPortalInstructions}><Copy size={16} />Copy client instructions</button>
+        <a className="btn" href={portalLink} target="_blank" rel="noreferrer"><ExternalLink size={16} />Preview portal</a>
         <button className="btn dark" type="button" onClick={publishPortalUpdate} disabled={saving}><ExternalLink size={16} />Publish portal update</button>
       </div>
     </div>
@@ -7055,6 +7152,17 @@ The portal is a secure, read-only space where you can check application updates,
       {showActionLog && <NextActionLogModal client={draft} onClose={() => setShowActionLog(false)} />}
       {showTimeline && <ClientTimelineModal client={draft} calendarEntries={calendarEntries} advisers={advisers} onClose={() => setShowTimeline(false)} />}
 
+      <ClientSnapshotCard
+        client={draft}
+        advisers={advisers}
+        currentStage={currentStage}
+        outstandingDocuments={outstandingDocuments}
+        requiredDocuments={requiredDocuments}
+        upcomingDeadlines={upcomingDeadlines}
+        linkedAppointments={linkedAppointments}
+        portalNewMessageCount={portalNewMessageCount}
+      />
+
       <ClientWorkspaceShell sections={workspaceSections} activeSection={activeClientSection} onSelect={setActiveClientSection}>
         {activeClientSection === 'overview' && (
           <div className="client-workspace-section-stack">
@@ -7390,6 +7498,40 @@ function PortalSummaryPanel({ client, documents = [], deadlines = [], appointmen
       </div>
     </section>
   );
+}
+
+function ClientSnapshotCard({ client, advisers = [], currentStage, outstandingDocuments = [], requiredDocuments = [], upcomingDeadlines = [], linkedAppointments = [], portalNewMessageCount = 0 }) {
+  const primary = advisers.find((adviser) => adviser.id === client.primaryAdviserId);
+  const nearestDeadline = upcomingDeadlines[0];
+  const nearestDiff = nearestDeadline?.date ? dateDiff(nearestDeadline.date) : null;
+  const nextAppointment = linkedAppointments.slice().sort((a, b) => String(a.appointmentDate || '').localeCompare(String(b.appointmentDate || '')))[0];
+  const health = clientHealthStatus(client, outstandingDocuments, nearestDiff, portalNewMessageCount);
+  return (
+    <section className="client-snapshot-card" aria-label="Client snapshot">
+      <div className="client-snapshot-head">
+        <div>
+          <span className="eyebrow">Client snapshot</span>
+          <h2>{clientName(client)}</h2>
+          <p>{client.caseType || 'No case type selected'} · {primary?.name || 'Unassigned'}</p>
+        </div>
+        <span className={`client-health-pill ${health.key}`}>{health.label}</span>
+      </div>
+      <div className="client-snapshot-grid">
+        <div><span>Stage</span><strong>{currentStage || 'Not set'}</strong></div>
+        <div><span>Next action</span><strong>{client.nextActionDue || 'No date'}</strong><small>{client.nextAction || 'No next action set'}</small></div>
+        <div><span>Nearest deadline</span><strong>{nearestDeadline?.date || 'None recorded'}</strong>{nearestDiff !== null && <DeadlineBadge diff={nearestDiff} />}</div>
+        <div><span>Documents</span><strong>{outstandingDocuments.length}/{requiredDocuments.length} outstanding</strong></div>
+        <div><span>Portal</span><strong>{client.portalEnabled ? 'Active' : 'Inactive'}</strong><small>{portalNewMessageCount ? `${portalNewMessageCount} new client note${portalNewMessageCount === 1 ? '' : 's'}` : 'No new client notes'}</small></div>
+        <div><span>Next appointment</span><strong>{nextAppointment?.appointmentDate || 'None booked'}</strong><small>{nextAppointment?.title || ''}</small></div>
+      </div>
+    </section>
+  );
+}
+
+function clientHealthStatus(client, outstandingDocuments = [], nearestDeadlineDiff = null, portalNewMessageCount = 0) {
+  if (!client.nextActionDue || portalNewMessageCount > 0 || nearestDeadlineDiff !== null && nearestDeadlineDiff <= 30) return { key: 'attention', label: 'Needs attention' };
+  if (outstandingDocuments.length > 0 || nearestDeadlineDiff !== null && nearestDeadlineDiff <= 60) return { key: 'watch', label: 'Watch' };
+  return { key: 'good', label: 'Good' };
 }
 
 function ClientWorkspaceShell({ sections, activeSection, onSelect, children }) {
@@ -9496,8 +9638,8 @@ function ProgressBar({ value }) {
 }
 
 function DeadlineBadge({ diff }) {
-  if (diff === null) return null;
-  const className = diff < 0 ? 'badge overdue' : diff <= 7 ? 'badge soon' : 'badge';
+  if (diff === null || diff === undefined) return null;
+  const className = diff < 0 ? 'badge overdue' : diff <= 30 ? 'badge urgent' : diff <= 60 ? 'badge soon' : 'badge safe';
   return <b className={className}>{diff < 0 ? `${Math.abs(diff)}d overdue` : diff === 0 ? 'Today' : `${diff}d`}</b>;
 }
 
