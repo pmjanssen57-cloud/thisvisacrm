@@ -443,6 +443,16 @@ async function handleCrmEvent(event) {
       return json({ seminarRegistration: registration, ...(await readCrmData()) });
     }
 
+    if (action === 'saveFeedbackSubmission') {
+      const feedbackSubmission = await saveFeedbackSubmission(body.feedback || {}, auth.user);
+      return json({ feedbackSubmission, ...(await readCrmData()) });
+    }
+
+    if (action === 'deleteFeedbackSubmission') {
+      await deleteFeedbackSubmission(body.feedbackId);
+      return json(await readCrmData());
+    }
+
     if (action === 'sendSeminarRegistrationEmail') {
       const emailLog = await sendSeminarRegistrationEmail(body.registrationId, body.outcome || 'approve', auth.user);
       const data = await readCrmData();
@@ -879,6 +889,31 @@ async function ensureSchema() {
   await database.sql`CREATE INDEX IF NOT EXISTS idx_seminar_registrations_seminar ON seminar_registrations(seminar_id, created_at DESC)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_seminar_registrations_status ON seminar_registrations(status)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_seminar_registrations_email ON seminar_registrations(LOWER(email))`;
+
+  await database.sql`
+    CREATE TABLE IF NOT EXISTS feedback_submissions (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      status TEXT NOT NULL DEFAULT 'New',
+      first_name TEXT,
+      last_name TEXT,
+      email TEXT,
+      phone TEXT,
+      adviser_name TEXT,
+      application_type TEXT,
+      overall_rating TEXT,
+      recommendation_rating TEXT,
+      service_strengths TEXT,
+      improvement_suggestions TEXT,
+      permission_to_contact TEXT,
+      permission_to_use_feedback TEXT,
+      raw_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+      reviewed_by TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_feedback_submissions_status ON feedback_submissions(status)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_feedback_submissions_created_at ON feedback_submissions(created_at DESC)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_feedback_submissions_email ON feedback_submissions(LOWER(email))`;
   await database.sql`
     CREATE TABLE IF NOT EXISTS email_notifications (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1003,7 +1038,7 @@ async function ensureConsultationBookingSchema(database = db()) {
 async function readCrmData() {
   const database = db();
   await pruneOldEmailNotifications(database);
-  const [advisers, clients, stages, deadlines, billing, personalTasks, calendarEntries, libraryEntries, portalMessages, portalDocuments, intakeEnquiries, seminars, seminarRegistrations, emailLogs, emailTemplates, consultationTypes, bookingAvailability, bookingBlocks, bookingLinks, consultationBookings] = await Promise.all([
+  const [advisers, clients, stages, deadlines, billing, personalTasks, calendarEntries, libraryEntries, portalMessages, portalDocuments, intakeEnquiries, seminars, seminarRegistrations, feedbackSubmissions, emailLogs, emailTemplates, consultationTypes, bookingAvailability, bookingBlocks, bookingLinks, consultationBookings] = await Promise.all([
     database.sql`SELECT id, name, role, email, login_email, profile_photo_url, availability_status, phone, licence, active FROM advisers ORDER BY name ASC`,
     database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, one_law_client_number, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, portal_enabled, portal_email, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_resource_settings, portal_access_code_hash, portal_last_published_at, portal_last_accessed_at, notes, family_members, document_checklist FROM clients ORDER BY updated_at DESC`,
     database.sql`SELECT id, client_id, stage_key, stage_label, mandatory, applied, completed, completed_date, sort_order FROM client_stages ORDER BY sort_order ASC`,
@@ -1017,6 +1052,7 @@ async function readCrmData() {
     database.sql`SELECT id, status, assigned_adviser_id, applicant_first_name, applicant_last_name, email, phone, current_location, citizenship, date_of_birth, current_visa_type, current_visa_expiry, target_pathway, urgency, flags, raw_payload, adviser_assessment_notes, recommended_pathway, consultation_outcome, converted_client_id, created_at, updated_at FROM intake_enquiries ORDER BY created_at DESC`,
     database.sql`SELECT id, title, seminar_date, seminar_time, timezone, presenter_name, zoom_link, zoom_password, status, registration_open, internal_notes, created_at, updated_at FROM seminars ORDER BY seminar_date DESC NULLS LAST, created_at DESC`,
     database.sql`SELECT id, seminar_id, status, full_name, date_of_birth, citizenship_country, residence_country, timezone, email, partnership_status, highest_qualification, current_occupation, work_history, health_character_issues, english_ability, raw_payload, reviewed_by, approved_at, declined_at, created_at, updated_at FROM seminar_registrations ORDER BY created_at DESC`,
+    database.sql`SELECT id, status, first_name, last_name, email, phone, adviser_name, application_type, overall_rating, recommendation_rating, service_strengths, improvement_suggestions, permission_to_contact, permission_to_use_feedback, raw_payload, reviewed_by, created_at, updated_at FROM feedback_submissions ORDER BY created_at DESC`,
     database.sql`SELECT id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at FROM email_notifications WHERE created_at >= NOW() - INTERVAL '60 days' ORDER BY created_at DESC LIMIT 200`,
     getEmailTemplates(database),
     database.sql`SELECT id, name, duration_minutes, price_nzd, paid, description, active, sort_order, buffer_minutes, created_at, updated_at FROM consultation_types ORDER BY sort_order ASC, name ASC`,
@@ -1036,6 +1072,7 @@ async function readCrmData() {
     intakeStatuses: INTAKE_STATUSES,
     seminars: seminars.map(mapSeminarFromDb),
     seminarRegistrations: seminarRegistrations.map(mapSeminarRegistrationFromDb),
+    feedbackSubmissions: feedbackSubmissions.map(mapFeedbackSubmissionFromDb),
     emailLogs: emailLogs.map(mapEmailLogFromDb),
     emailTemplates,
     consultationTypes: consultationTypes.map(mapConsultationTypeFromDb),
@@ -1167,6 +1204,35 @@ function mapConsultationBookingFromDb(row = {}) {
 function buildBookingUrl(token = '') {
   const baseUrl = String(process.env.THIS_CRM_BASE_URL || process.env.URL || process.env.DEPLOY_URL || 'https://thisvisacrm.netlify.app').replace(/\/$/, '') || 'https://thisvisacrm.netlify.app';
   return token ? `${baseUrl}/book?token=${encodeURIComponent(token)}` : '';
+}
+
+
+function normaliseFeedbackStatus(value = '') {
+  const status = String(value || '').trim();
+  return ['New', 'Reviewed', 'Follow up', 'Closed'].includes(status) ? status : 'New';
+}
+
+function mapFeedbackSubmissionFromDb(row = {}) {
+  return {
+    id: row.id || '',
+    status: normaliseFeedbackStatus(row.status),
+    firstName: row.first_name || '',
+    lastName: row.last_name || '',
+    email: row.email || '',
+    phone: row.phone || '',
+    adviserName: row.adviser_name || '',
+    applicationType: row.application_type || '',
+    overallRating: row.overall_rating || '',
+    recommendationRating: row.recommendation_rating || '',
+    serviceStrengths: row.service_strengths || '',
+    improvementSuggestions: row.improvement_suggestions || '',
+    permissionToContact: row.permission_to_contact || '',
+    permissionToUseFeedback: row.permission_to_use_feedback || 'No',
+    rawPayload: parseJsonObject(row.raw_payload),
+    reviewedBy: row.reviewed_by || '',
+    createdAt: toDateTimeLabel(row.created_at),
+    updatedAt: toDateTimeLabel(row.updated_at),
+  };
 }
 
 function mapEmailLogFromDb(row) {
@@ -2300,6 +2366,49 @@ async function saveSeminar(input = {}) {
 async function deleteSeminar(seminarId) {
   if (!isUuid(seminarId)) return;
   await db().sql`DELETE FROM seminars WHERE id = ${seminarId}`;
+}
+
+
+async function saveFeedbackSubmission(input = {}, user = null) {
+  const id = String(input.id || '').trim();
+  const status = normaliseFeedbackStatus(input.status);
+  const reviewedBy = user?.email || user?.user_metadata?.full_name || input.reviewedBy || '';
+  const payload = input.rawPayload && typeof input.rawPayload === 'object' ? input.rawPayload : {};
+  if (id) {
+    const rows = await db().sql`
+      UPDATE feedback_submissions
+      SET status = ${status},
+          first_name = ${cleanText(input.firstName, 120)},
+          last_name = ${cleanText(input.lastName, 120)},
+          email = ${cleanText(input.email, 240)},
+          phone = ${cleanText(input.phone, 120)},
+          adviser_name = ${cleanText(input.adviserName, 200)},
+          application_type = ${cleanText(input.applicationType, 240)},
+          overall_rating = ${cleanText(input.overallRating, 80)},
+          recommendation_rating = ${cleanText(input.recommendationRating, 80)},
+          service_strengths = ${cleanText(input.serviceStrengths, 6000)},
+          improvement_suggestions = ${cleanText(input.improvementSuggestions, 6000)},
+          permission_to_contact = ${cleanText(input.permissionToContact, 40)},
+          permission_to_use_feedback = ${cleanText(input.permissionToUseFeedback, 80)},
+          raw_payload = CAST(${JSON.stringify(payload)} AS jsonb),
+          reviewed_by = ${reviewedBy},
+          updated_at = NOW()
+      WHERE id = ${id}
+      RETURNING id, status, first_name, last_name, email, phone, adviser_name, application_type, overall_rating, recommendation_rating, service_strengths, improvement_suggestions, permission_to_contact, permission_to_use_feedback, raw_payload, reviewed_by, created_at, updated_at`;
+    if (!rows[0]) throw new Error('Feedback submission not found.');
+    return mapFeedbackSubmissionFromDb(rows[0]);
+  }
+  const rows = await db().sql`
+    INSERT INTO feedback_submissions (status, first_name, last_name, email, phone, adviser_name, application_type, overall_rating, recommendation_rating, service_strengths, improvement_suggestions, permission_to_contact, permission_to_use_feedback, raw_payload, reviewed_by)
+    VALUES (${status}, ${cleanText(input.firstName, 120)}, ${cleanText(input.lastName, 120)}, ${cleanText(input.email, 240)}, ${cleanText(input.phone, 120)}, ${cleanText(input.adviserName, 200)}, ${cleanText(input.applicationType, 240)}, ${cleanText(input.overallRating, 80)}, ${cleanText(input.recommendationRating, 80)}, ${cleanText(input.serviceStrengths, 6000)}, ${cleanText(input.improvementSuggestions, 6000)}, ${cleanText(input.permissionToContact, 40)}, ${cleanText(input.permissionToUseFeedback, 80)}, CAST(${JSON.stringify(payload)} AS jsonb), ${reviewedBy})
+    RETURNING id, status, first_name, last_name, email, phone, adviser_name, application_type, overall_rating, recommendation_rating, service_strengths, improvement_suggestions, permission_to_contact, permission_to_use_feedback, raw_payload, reviewed_by, created_at, updated_at`;
+  return mapFeedbackSubmissionFromDb(rows[0]);
+}
+
+async function deleteFeedbackSubmission(feedbackId = '') {
+  const id = String(feedbackId || '').trim();
+  if (!id) throw new Error('Feedback ID is required.');
+  await db().sql`DELETE FROM feedback_submissions WHERE id = ${id}`;
 }
 
 async function saveSeminarRegistration(input = {}, authUser = null) {

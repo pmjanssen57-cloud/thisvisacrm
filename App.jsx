@@ -359,6 +359,7 @@ const emptyData = {
   intakeStatuses: INTAKE_STATUSES,
   seminars: [],
   seminarRegistrations: [],
+  feedbackSubmissions: [],
   emailLogs: [],
   emailTemplates: [],
   consultationTypes: [],
@@ -421,6 +422,7 @@ function makeBlankClient(data) {
 }
 
 export default function App() {
+  if (window.location.pathname.startsWith('/feedback')) return <FeedbackFormApp />;
   if (window.location.pathname.startsWith('/contact')) return <ContactFormApp />;
   if (window.location.pathname.startsWith('/intake')) return <IntakeFormApp />;
   if (window.location.pathname.startsWith('/seminar')) return <SeminarRegistrationFormApp />;
@@ -913,6 +915,16 @@ export default function App() {
     return await callApi('saveSeminarRegistration', { registration });
   }
 
+  async function saveFeedbackSubmission(feedback) {
+    return await callApi('saveFeedbackSubmission', { feedback });
+  }
+
+  async function deleteFeedbackSubmission(feedbackId) {
+    const confirmed = await askCrmConfirm({ title: 'Delete feedback?', message: 'This will remove the selected feedback submission from the CRM.', confirmLabel: 'Delete feedback', tone: 'danger' });
+    if (!confirmed) return;
+    return await callApi('deleteFeedbackSubmission', { feedbackId });
+  }
+
   async function saveConsultationType(consultationType) {
     return await callApi('saveConsultationType', { consultationType });
   }
@@ -1185,7 +1197,7 @@ export default function App() {
         {error && <div className="error-banner"><AlertTriangle size={18} />{error}</div>}
         {loading && <div className="loading-card"><Database size={18} />Loading database-backed CRM data...</div>}
 
-        {!loading && !data.clients.length && !data.advisers.length && !data.intakeEnquiries.length && !data.seminars.length && !data.seminarRegistrations.length && !data.consultationBookings.length && (
+        {!loading && !data.clients.length && !data.advisers.length && !data.intakeEnquiries.length && !data.seminars.length && !data.seminarRegistrations.length && !data.feedbackSubmissions.length && !data.consultationBookings.length && (
           <section className="empty-state">
             <Database size={40} />
             <h1>Database is connected, but no CRM records exist yet.</h1>
@@ -1194,7 +1206,7 @@ export default function App() {
           </section>
         )}
 
-        {(data.clients.length > 0 || data.advisers.length > 0 || data.libraryEntries.length > 0 || data.intakeEnquiries.length > 0 || data.seminars.length > 0 || data.seminarRegistrations.length > 0 || data.consultationBookings.length > 0 || data.bookingLinks.length > 0) && (
+        {(data.clients.length > 0 || data.advisers.length > 0 || data.libraryEntries.length > 0 || data.intakeEnquiries.length > 0 || data.seminars.length > 0 || data.seminarRegistrations.length > 0 || data.feedbackSubmissions.length > 0 || data.consultationBookings.length > 0 || data.bookingLinks.length > 0) && (
           <>
             <ViewToolbar
               advisers={scopeAdvisers}
@@ -1221,7 +1233,7 @@ export default function App() {
             </nav>
 
             {tab === 'intake' && (
-              <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} statuses={data.intakeStatuses || INTAKE_STATUSES} seminars={data.seminars || []} seminarRegistrations={data.seminarRegistrations || []} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} downloadIntakeUpload={downloadIntakeUpload} saveSeminar={saveSeminar} deleteSeminar={deleteSeminar} saveSeminarRegistration={saveSeminarRegistration} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail} saving={saving} openClientRecord={openClientRecord} confirmAction={askCrmConfirm} />
+              <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} statuses={data.intakeStatuses || INTAKE_STATUSES} seminars={data.seminars || []} seminarRegistrations={data.seminarRegistrations || []} feedbackSubmissions={data.feedbackSubmissions || []} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} downloadIntakeUpload={downloadIntakeUpload} saveSeminar={saveSeminar} deleteSeminar={deleteSeminar} saveSeminarRegistration={saveSeminarRegistration} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail} saveFeedbackSubmission={saveFeedbackSubmission} deleteFeedbackSubmission={deleteFeedbackSubmission} saving={saving} openClientRecord={openClientRecord} confirmAction={askCrmConfirm} />
             )}
 
             {tab === 'bookings' && (
@@ -2241,6 +2253,151 @@ function ContactFormApp() {
 }
 
 
+function FeedbackFormApp() {
+  const feedbackShellRef = useRef(null);
+  const [form, setForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    adviserName: '',
+    applicationType: '',
+    overallRating: '',
+    recommendationRating: '',
+    serviceStrengths: '',
+    improvementSuggestions: '',
+    permissionToContact: 'Yes',
+    permissionToUseFeedback: 'No',
+    consentToSubmit: false,
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const embedded = window.parent !== window;
+    document.documentElement.classList.toggle('intake-embed-mode', embedded);
+    document.body.classList.toggle('intake-embed-mode', embedded);
+    return () => {
+      document.documentElement.classList.remove('intake-embed-mode');
+      document.body.classList.remove('intake-embed-mode');
+    };
+  }, []);
+
+  useEffect(() => {
+    const shell = feedbackShellRef.current;
+    if (!shell || window.parent === window) return undefined;
+    let frameId = 0;
+    let lastSentHeight = 0;
+    const postHeight = () => {
+      if (frameId) window.cancelAnimationFrame(frameId);
+      frameId = window.requestAnimationFrame(() => {
+        const card = shell.querySelector('.intake-public-card');
+        const shellStyles = window.getComputedStyle(shell);
+        const shellPadding = parseFloat(shellStyles.paddingTop || '0') + parseFloat(shellStyles.paddingBottom || '0');
+        const contentHeight = card ? Math.ceil(card.getBoundingClientRect().height + shellPadding) : Math.ceil(shell.scrollHeight);
+        const height = Math.max(620, contentHeight + 8);
+        if (Math.abs(height - lastSentHeight) < 8) return;
+        lastSentHeight = height;
+        window.parent.postMessage({ type: 'THIS_FEEDBACK_EMBED_HEIGHT', source: 'this-crm-feedback', height }, '*');
+      });
+    };
+    postHeight();
+    const timeoutIds = [120, 450, 1000].map((delay) => window.setTimeout(postHeight, delay));
+    const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(postHeight) : null;
+    resizeObserver?.observe(shell);
+    const card = shell.querySelector('.intake-public-card');
+    if (card) resizeObserver?.observe(card);
+    window.addEventListener('resize', postHeight);
+    window.addEventListener('load', postHeight);
+    return () => {
+      if (frameId) window.cancelAnimationFrame(frameId);
+      timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', postHeight);
+      window.removeEventListener('load', postHeight);
+    };
+  }, [form, submitted, error]);
+
+  function setField(name, value) {
+    setForm((current) => ({ ...current, [name]: value }));
+  }
+
+  async function submit(event) {
+    event.preventDefault();
+    setSubmitting(true);
+    setError('');
+    try {
+      if (!form.consentToSubmit) throw new Error('Please confirm that Turner Hopkins may receive and review your feedback.');
+      const response = await fetch('/.netlify/functions/feedback', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ payload: { ...form, submittedVia: 'THiS client feedback form', feedbackVersion: 'v0.13.20' } }),
+      });
+      const body = await readJsonResponse(response);
+      if (!response.ok) throw new Error(body.error || 'Your feedback could not be submitted.');
+      setSubmitted(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (submitted) {
+    return (
+      <div className="intake-public-shell feedback-public-shell" ref={feedbackShellRef}>
+        <main className="intake-public-card intake-thanks-card feedback-thanks-card">
+          <CheckCircle2 size={40} className="portal-lock" />
+          <h1>Thank you. Your feedback has been received.</h1>
+          <p className="muted">We appreciate you taking the time to share your experience. Your comments have been sent to our team for review.</p>
+          <button className="btn dark" type="button" onClick={() => { setForm({ firstName: '', lastName: '', email: '', phone: '', adviserName: '', applicationType: '', overallRating: '', recommendationRating: '', serviceStrengths: '', improvementSuggestions: '', permissionToContact: 'Yes', permissionToUseFeedback: 'No', consentToSubmit: false }); setSubmitted(false); }}>Send another response</button>
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="intake-public-shell feedback-public-shell" ref={feedbackShellRef}>
+      <main className="intake-public-card contact-public-card feedback-public-card">
+        <div className="intake-public-head compact contact-public-intro feedback-public-intro">
+          <p>Tell us how we did. Your feedback helps us improve the way we support future clients.</p>
+        </div>
+        {error && <div className="error-banner"><AlertTriangle size={18} />{error}</div>}
+        <form className="intake-form contact-form feedback-form" onSubmit={submit}>
+          <div className="form-grid">
+            <IntakeField label="First Name" value={form.firstName} onChange={(v) => setField('firstName', v)} required />
+            <IntakeField label="Last Name" value={form.lastName} onChange={(v) => setField('lastName', v)} required />
+            <IntakeField label="Email Address" type="email" value={form.email} onChange={(v) => setField('email', v)} required placeholder="Enter your email address" />
+            <IntakeField label="Phone (optional)" value={form.phone} onChange={(v) => setField('phone', v)} placeholder="Phone number, if you are happy for us to call" />
+            <IntakeField label="Adviser / team member (optional)" value={form.adviserName} onChange={(v) => setField('adviserName', v)} placeholder="Who helped you?" />
+            <IntakeField label="Application or visa type (optional)" value={form.applicationType} onChange={(v) => setField('applicationType', v)} placeholder="e.g. AEWV, residence, partnership" />
+          </div>
+          <div className="form-grid">
+            <IntakeSelect label="Overall, how would you rate our service?" value={form.overallRating} onChange={(v) => setField('overallRating', v)} options={['5 - Excellent', '4 - Good', '3 - Okay', '2 - Could be better', '1 - Poor']} required />
+            <IntakeSelect label="How likely are you to recommend us?" value={form.recommendationRating} onChange={(v) => setField('recommendationRating', v)} options={['10 - Extremely likely', '9', '8', '7', '6', '5', '4', '3', '2', '1 - Not likely']} required />
+          </div>
+          <IntakeTextarea label="What did we do well?" value={form.serviceStrengths} onChange={(v) => setField('serviceStrengths', v)} rows={5} placeholder="Tell us what worked well for you." />
+          <IntakeTextarea label="What could we improve?" value={form.improvementSuggestions} onChange={(v) => setField('improvementSuggestions', v)} rows={5} placeholder="Tell us where we could do better, or whether any of our systems could be improved." />
+          <div className="form-grid">
+            <IntakeSelect label="May we contact you about this feedback?" value={form.permissionToContact} onChange={(v) => setField('permissionToContact', v)} options={['Yes', 'No']} required />
+            <IntakeSelect label="May we use your comments in client review material?" value={form.permissionToUseFeedback} onChange={(v) => setField('permissionToUseFeedback', v)} options={['No', 'Yes, with my name', 'Yes, anonymously']} required />
+          </div>
+          <label className="intake-check consent-check">
+            <input type="checkbox" checked={form.consentToSubmit} onChange={(event) => setField('consentToSubmit', event.target.checked)} required />
+            <span>I confirm Turner Hopkins may receive and review this feedback and contact me if needed.</span>
+          </label>
+          <div className="intake-submit-bar">
+            <button className="btn dark" type="submit" disabled={submitting}>{submitting ? 'Sending...' : 'Submit feedback'}</button>
+          </div>
+        </form>
+      </main>
+    </div>
+  );
+}
+
+
 function SeminarRegistrationFormApp() {
   const [seminar, setSeminar] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -2748,12 +2905,13 @@ function intakeRecommendedAction(record = {}, type = 'intake') {
   return 'Review record';
 }
 
-function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', statuses, seminars = [], seminarRegistrations = [], saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, sendContactIntakeInviteEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saving, openClientRecord, confirmAction }) {
+function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', statuses, seminars = [], seminarRegistrations = [], feedbackSubmissions = [], saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, sendContactIntakeInviteEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saveFeedbackSubmission, deleteFeedbackSubmission, saving, openClientRecord, confirmAction }) {
   const askConfirm = confirmAction || (async ({ message }) => window.confirm(message || 'Continue?'));
   const simplifiedStatuses = (statuses || INTAKE_STATUSES).filter((status) => INTAKE_STATUSES.includes(status));
   const [workspaceTab, setWorkspaceTab] = useState('contact');
   const [statusFilter, setStatusFilter] = useState('New');
   const [contactStatusFilter, setContactStatusFilter] = useState('New');
+  const [feedbackStatusFilter, setFeedbackStatusFilter] = useState('New');
   const [query, setQuery] = useState('');
   const [expandedId, setExpandedId] = useState('');
   const [draft, setDraft] = useState(null);
@@ -2783,6 +2941,14 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
     { value: 'All', label: 'All' },
   ];
   const contactStatusLabel = (status) => contactStatusOptions.find((option) => option.value === status)?.label || status || 'New';
+  const feedbackStatusOptions = [
+    { value: 'New', label: 'New' },
+    { value: 'Reviewed', label: 'Reviewed' },
+    { value: 'Follow up', label: 'Follow up' },
+    { value: 'Closed', label: 'Closed' },
+    { value: 'All', label: 'All' },
+  ];
+  const feedbackStatusLabel = (status) => feedbackStatusOptions.find((option) => option.value === status)?.label || status || 'New';
   const selectedScopeAdviser = dashboardAdviserFilter === 'all' ? null : advisers.find((adviser) => adviser.id === dashboardAdviserFilter);
   const contactEnquiries = normalisedEnquiries
     .filter((item) => isContactIntake(item))
@@ -2790,6 +2956,9 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
   const intakeEnquiries = normalisedEnquiries
     .filter((item) => !isContactIntake(item))
     .filter((item) => matchesIntakeAdviserScope(item, dashboardAdviserFilter));
+  const normalisedFeedbackSubmissions = (feedbackSubmissions || [])
+    .map(normaliseFeedbackSubmission)
+    .sort((a, b) => intakeSortTime(b) - intakeSortTime(a));
 
   const contactFiltered = contactEnquiries.filter((item) => {
     const q = query.trim().toLowerCase();
@@ -2823,6 +2992,17 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
     return matchesQuery && matchesStatus;
   });
 
+  const feedbackFiltered = normalisedFeedbackSubmissions.filter((item) => {
+    const q = query.trim().toLowerCase();
+    const matchesStatus = feedbackStatusFilter === 'All' || item.status === feedbackStatusFilter;
+    if (!matchesStatus) return false;
+    if (!q) return true;
+    return [item.firstName, item.lastName, item.email, item.phone, item.adviserName, item.applicationType, item.serviceStrengths, item.improvementSuggestions, item.permissionToUseFeedback]
+      .join(' ')
+      .toLowerCase()
+      .includes(q);
+  });
+
   const contactCount = contactEnquiries.length;
   const newContactCount = contactEnquiries.filter((item) => item.status === 'New').length;
   const dealtContactCount = contactEnquiries.filter((item) => item.status === 'Contacted').length;
@@ -2833,6 +3013,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
   const spamCount = intakeEnquiries.filter((item) => item.status === 'Spam / Duplicate').length;
   const activeSeminar = (seminars || []).find((item) => item.status === 'Active') || (seminars || [])[0] || null;
   const newSeminarRegistrationCount = (seminarRegistrations || []).filter((item) => item.status === 'New').length;
+  const newFeedbackCount = normalisedFeedbackSubmissions.filter((item) => item.status === 'New').length;
   const flaggedCount = intakeEnquiries.filter((item) => hasAnyIntakeFlag(item.flags)).length;
   const expandedItem = expandedId ? intakeEnquiries.find((item) => item.id === expandedId) : null;
   const draftDirty = Boolean(draft && expandedItem && JSON.stringify(intakeCompareSnapshot(draft)) !== JSON.stringify(intakeCompareSnapshot(expandedItem)));
@@ -2889,6 +3070,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
     setQuery('');
     setStatusFilter('New');
     setContactStatusFilter('New');
+    setFeedbackStatusFilter('New');
   }
 
   async function saveDraft(options = {}) {
@@ -2963,6 +3145,16 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
     await saveIntakeEnquiry({ ...item, status });
   }
 
+  async function updateFeedbackStatus(item, status) {
+    if (!item?.id || !['New', 'Reviewed', 'Follow up', 'Closed'].includes(status)) return;
+    await saveFeedbackSubmission?.({ ...item, status });
+  }
+
+  async function deleteFeedback(item) {
+    if (!item?.id) return;
+    await deleteFeedbackSubmission?.(item.id);
+  }
+
   async function updateIntakeStatus(item, status) {
     if (!item?.id || !INTAKE_STATUSES.includes(status)) return;
     await saveIntakeEnquiry({ ...item, status });
@@ -2979,14 +3171,14 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
   }
 
   const intakeTitle = draft ? ([draft.firstName, draft.lastName].filter(Boolean).join(' ') || 'Unnamed intake') : 'Intake record';
-  const visibleRecords = workspaceTab === 'contact' ? contactFiltered : workspaceTab === 'intake' ? intakeFiltered : (seminarRegistrations || []);
+  const visibleRecords = workspaceTab === 'contact' ? contactFiltered : workspaceTab === 'feedback' ? feedbackFiltered : workspaceTab === 'intake' ? intakeFiltered : (seminarRegistrations || []);
 
   return (
     <div className="intake-workspace intake-inbox-workspace enquiries-intake-workspace">
       <div className="library-heading intake-heading enquiries-heading enquiries-heading-polished">
         <div className="enquiries-heading-copy">
           <h1>Enquiries & Intake</h1>
-          <p className="muted">Review contact forms, assessment questionnaires and seminar registrations separately from active client work.</p>
+          <p className="muted">Review contact forms, assessment questionnaires, client feedback and seminar registrations separately from active client work.</p>
         </div>
       </div>
 
@@ -3000,6 +3192,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
       <section className="intake-inbox-panel enquiries-panel">
         <div className="enquiries-tab-row" role="tablist" aria-label="Enquiries and intake sections">
           <button type="button" className={workspaceTab === 'contact' ? 'active' : ''} onClick={() => setWorkspaceTab('contact')}><MessageSquare size={16} />Contact Forms <span>{newContactCount}</span></button>
+          <button type="button" className={workspaceTab === 'feedback' ? 'active' : ''} onClick={() => setWorkspaceTab('feedback')}><MessageSquare size={16} />Feedback <span>{newFeedbackCount}</span></button>
           <button type="button" className={workspaceTab === 'intake' ? 'active' : ''} onClick={() => setWorkspaceTab('intake')}><ClipboardList size={16} />Intake Forms <span>{intakeEnquiries.length}</span></button>
           <button type="button" className={workspaceTab === 'seminars' ? 'active' : ''} onClick={() => setWorkspaceTab('seminars')}><CalendarDays size={16} />Seminar Registrations <span>{newSeminarRegistrationCount}</span></button>
         </div>
@@ -3019,7 +3212,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
         <div className="intake-inbox-toolbar enquiries-toolbar">
           <label className="intake-search-field">
             <span>Search</span>
-            <div><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={workspaceTab === 'contact' ? 'Name, email, phone, message...' : 'Name, email, phone, pathway, visa...'} /></div>
+            <div><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={workspaceTab === 'contact' ? 'Name, email, phone, message...' : workspaceTab === 'feedback' ? 'Name, email, adviser, comments...' : 'Name, email, phone, pathway, visa...'} /></div>
           </label>
           {workspaceTab === 'contact' && (
             <div className="enquiries-status-pills" aria-label="Contact form status filter">
@@ -3027,6 +3220,16 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
                 <button key={status.value} type="button" className={contactStatusFilter === status.value ? 'active' : ''} onClick={() => setContactStatusFilter(status.value)}>
                   {status.label}
                   <span>{status.value === 'All' ? contactEnquiries.length : contactEnquiries.filter((item) => item.status === status.value).length}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {workspaceTab === 'feedback' && (
+            <div className="enquiries-status-pills" aria-label="Feedback status filter">
+              {feedbackStatusOptions.map((status) => (
+                <button key={status.value} type="button" className={feedbackStatusFilter === status.value ? 'active' : ''} onClick={() => setFeedbackStatusFilter(status.value)}>
+                  {status.label}
+                  <span>{status.value === 'All' ? normalisedFeedbackSubmissions.length : normalisedFeedbackSubmissions.filter((item) => item.status === status.value).length}</span>
                 </button>
               ))}
             </div>
@@ -3052,9 +3255,9 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
 
         <div className="intake-inbox-summary-row enquiries-summary-row">
           <div>
-            <span className="eyebrow">{workspaceTab === 'contact' ? 'Short website enquiries' : 'Full assessment questionnaires'}</span>
-            <h2>{workspaceTab === 'contact' ? `${contactStatusLabel(contactStatusFilter)} contact forms` : `${statusFilter} intake forms`}</h2>
-            <p className="muted">{workspaceTab === 'contact' ? `The New view shows live contact enquiries only. Mark an enquiry as Dealt with once handled; it stays retained under that filter.${selectedScopeAdviser ? ` Showing unassigned records and records assigned to ${selectedScopeAdviser.name}.` : ''}` : `Use the simple statuses to keep the pre-client queue tidy.${selectedScopeAdviser ? ` Showing unassigned records and records assigned to ${selectedScopeAdviser.name}.` : ''}`}</p>
+            <span className="eyebrow">{workspaceTab === 'contact' ? 'Short website enquiries' : workspaceTab === 'feedback' ? 'Client feedback submissions' : 'Full assessment questionnaires'}</span>
+            <h2>{workspaceTab === 'contact' ? `${contactStatusLabel(contactStatusFilter)} contact forms` : workspaceTab === 'feedback' ? `${feedbackStatusLabel(feedbackStatusFilter)} feedback` : `${statusFilter} intake forms`}</h2>
+            <p className="muted">{workspaceTab === 'contact' ? `The New view shows live contact enquiries only. Mark an enquiry as Dealt with once handled; it stays retained under that filter.${selectedScopeAdviser ? ` Showing unassigned records and records assigned to ${selectedScopeAdviser.name}.` : ''}` : workspaceTab === 'feedback' ? 'Client feedback submissions from the website. Mark as reviewed, follow up, or closed once handled.' : `Use the simple statuses to keep the pre-client queue tidy.${selectedScopeAdviser ? ` Showing unassigned records and records assigned to ${selectedScopeAdviser.name}.` : ''}`}</p>
           </div>
           <strong>{visibleRecords.length} shown</strong>
         </div>
@@ -3115,6 +3318,53 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
                 <MessageSquare size={34} />
                 <h2>No contact forms in this view</h2>
                 <p>{contactStatusFilter === 'New' ? 'New short website enquiries will appear here until they are marked dealt with or spam.' : 'Use the status filters above to review retained contact form records.'}</p>
+              </div>
+            )}
+          </div>
+        ) : workspaceTab === 'feedback' ? (
+          <div className="contact-review-list feedback-review-list">
+            {feedbackFiltered.map((item) => {
+              const name = [item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unnamed feedback';
+              return (
+                <article key={item.id} className="contact-review-card feedback-review-card">
+                  <div className="contact-review-main">
+                    <div className="contact-review-head">
+                      <div>
+                        <span className="intake-type-badge contact">Client feedback</span>
+                        <span className={`library-status ${statusClass(item.status)}`}>{feedbackStatusLabel(item.status)}</span>
+                        {item.permissionToUseFeedback !== 'No' && <span className="recommended-action-chip">Review permission: {item.permissionToUseFeedback}</span>}
+                        <h3>{name}</h3>
+                        <p>{item.createdAt ? formatPortalDateTime(item.createdAt) : 'Submission date not recorded'}</p>
+                      </div>
+                      <div className="contact-review-actions">
+                        {item.status !== 'Reviewed' && <button className="btn" type="button" onClick={() => updateFeedbackStatus(item, 'Reviewed')} disabled={saving}>Mark reviewed</button>}
+                        {item.status !== 'Follow up' && <button className="btn" type="button" onClick={() => updateFeedbackStatus(item, 'Follow up')} disabled={saving}>Follow up</button>}
+                        {item.status !== 'Closed' && <button className="btn" type="button" onClick={() => updateFeedbackStatus(item, 'Closed')} disabled={saving}>Close</button>}
+                        {item.status !== 'New' && <button className="btn" type="button" onClick={() => updateFeedbackStatus(item, 'New')} disabled={saving}>Restore to New</button>}
+                        <button className="btn danger" type="button" onClick={() => deleteFeedback(item)} disabled={saving}><Trash2 size={16} />Delete</button>
+                      </div>
+                    </div>
+                    <div className="contact-review-grid feedback-review-grid">
+                      <div><span>Email</span><strong>{item.email || 'Not provided'}</strong></div>
+                      <div><span>Phone</span><strong>{item.phone || 'Not provided'}</strong></div>
+                      <div><span>Adviser / team member</span><strong>{item.adviserName || 'Not recorded'}</strong></div>
+                      <div><span>Application type</span><strong>{item.applicationType || 'Not recorded'}</strong></div>
+                      <div><span>Overall rating</span><strong>{item.overallRating || 'Not recorded'}</strong></div>
+                      <div><span>Recommend</span><strong>{item.recommendationRating || 'Not recorded'}</strong></div>
+                      <div><span>May contact?</span><strong>{item.permissionToContact || 'Not recorded'}</strong></div>
+                      <div><span>Review permission</span><strong>{item.permissionToUseFeedback || 'No'}</strong></div>
+                    </div>
+                    <div className="contact-review-message"><span>What did we do well?</span><p>{item.serviceStrengths || 'No comment recorded.'}</p></div>
+                    <div className="contact-review-message"><span>What could we improve?</span><p>{item.improvementSuggestions || 'No comment recorded.'}</p></div>
+                  </div>
+                </article>
+              );
+            })}
+            {!feedbackFiltered.length && (
+              <div className="empty-state slim intake-inbox-empty">
+                <MessageSquare size={34} />
+                <h2>No feedback in this view</h2>
+                <p>New client feedback submitted from the website will appear here until reviewed.</p>
               </div>
             )}
           </div>
@@ -6421,6 +6671,10 @@ function ClientPortalPanel({ client, advisers, calendarEntries, generatedPortalC
   const enabledPortalResources = PORTAL_RESOURCE_PAGES.filter((page) => portalResourceSettings[page.key]?.enabled);
   const portalMessages = (client.portalMessages || []).slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
   const newMessages = portalMessages.filter((message) => message.status === 'New');
+  const visiblePortalPdfCount = (Array.isArray(client.portalDocuments) ? client.portalDocuments : []).filter((doc) => doc.visibleToClient !== false).length;
+  const portalVisibleContentCount = visibleDocs.size + visibleDeadlines.size + visibleAppointments.size + visibleBilling.size + enabledPortalResources.length + visiblePortalPdfCount;
+  const publishChecklist = buildPortalPublishChecklist({ client, generatedPortalCode, primaryAdviser, visibleContentCount: portalVisibleContentCount });
+  const blockingPortalIssues = publishChecklist.filter((item) => item.required && !item.ok);
 
   return (
     <div className="portal-admin-panel">
@@ -6438,6 +6692,8 @@ function ClientPortalPanel({ client, advisers, calendarEntries, generatedPortalC
         <span><strong>Last published</strong>{formatPortalDateTime(client.portalLastPublishedAt) || 'Not published'}</span>
         <span><strong>Client notes</strong>{newMessages.length ? `${newMessages.length} new` : `${portalMessages.length} total`}</span>
       </div>
+
+      <PortalPublishChecklist items={publishChecklist} blockingCount={blockingPortalIssues.length} visibleContentCount={portalVisibleContentCount} />
 
       <div className="form-grid two">
         <label className="field"><span>Portal contact email</span><input value={client.portalEmail || client.email || ''} onChange={(event) => setField('portalEmail', event.target.value)} placeholder="Client email for portal access" /></label>
@@ -6493,23 +6749,67 @@ function ClientPortalPanel({ client, advisers, calendarEntries, generatedPortalC
       <div className="button-row portal-admin-actions">
         <button className="btn" type="button" onClick={generatePortalAccessCode}><LockKeyhole size={16} />Generate/reset access code</button>
         <button className="btn" type="button" onClick={copyPortalInstructions}><Copy size={16} />Copy client instructions</button>
-        <a className="btn" href={portalLink} target="_blank" rel="noreferrer"><ExternalLink size={16} />Preview portal</a>
-        <button className="btn dark" type="button" onClick={publishPortalUpdate} disabled={saving}><ExternalLink size={16} />Publish portal update</button>
+        <a className="btn" href={portalLink} target="_blank" rel="noreferrer"><ExternalLink size={16} />Preview sign-in page</a>
+        <button className="btn dark" type="button" onClick={publishPortalUpdate} disabled={saving || blockingPortalIssues.length > 0}><ExternalLink size={16} />Publish portal update</button>
       </div>
+      <p className="portal-preview-note">Preview opens the client sign-in page. After publishing, sign in with the client email and access code to check exactly what the client can see.</p>
     </div>
   );
+}
+
+function PortalPublishChecklist({ items = [], blockingCount = 0, visibleContentCount = 0 }) {
+  const ready = blockingCount === 0;
+  return (
+    <div className={`portal-publish-checklist ${ready ? 'ready' : 'needs-work'}`}>
+      <div className="portal-publish-checklist-head">
+        <div>
+          <h3>Portal publish checklist</h3>
+          <p>{ready ? 'Required checks are ready. Review the visible items below before publishing.' : 'Complete the required checks before publishing this client portal.'}</p>
+        </div>
+        <span className={`portal-readiness-pill ${ready ? 'ready' : 'needs-work'}`}>{ready ? 'Ready to publish' : `${blockingCount} required`}</span>
+      </div>
+      <div className="portal-checklist-grid">
+        {items.map((item) => (
+          <div className={`portal-checklist-item ${item.ok ? 'ok' : item.required ? 'required' : 'advisory'}`} key={item.key}>
+            {item.ok ? <CheckCircle2 size={17} /> : <AlertTriangle size={17} />}
+            <span><strong>{item.label}</strong><small>{item.detail}</small></span>
+          </div>
+        ))}
+      </div>
+      <p className="portal-visibility-hint">Client-visible content currently selected: {visibleContentCount}. Items marked hidden below will not appear in the client portal.</p>
+    </div>
+  );
+}
+
+function buildPortalPublishChecklist({ client, generatedPortalCode, primaryAdviser, visibleContentCount = 0 }) {
+  const portalEmail = String(client.portalEmail || client.email || '').trim();
+  const hasAccessCode = Boolean(client.portalAccessCodeSet || client.portalNewAccessCode || generatedPortalCode);
+  const hasUpdate = Boolean(String(client.portalStatusUpdate || '').trim());
+  const hasNextStep = Boolean(String(client.portalNextStep || '').trim());
+  return [
+    { key: 'email', label: 'Client email', detail: portalEmail || 'Add a portal contact email before publishing.', ok: Boolean(portalEmail), required: true },
+    { key: 'code', label: 'Access code', detail: hasAccessCode ? 'Portal access code is set or ready to save.' : 'Generate an access code before publishing.', ok: hasAccessCode, required: true },
+    { key: 'adviser', label: 'Primary adviser', detail: primaryAdviser ? `${primaryAdviser.name} will be shown to the client.` : 'Assign a primary adviser before publishing.', ok: Boolean(primaryAdviser), required: true },
+    { key: 'update', label: 'Plain-English update', detail: hasUpdate ? 'Client-facing update is ready.' : 'Add a short client-facing status update.', ok: hasUpdate, required: true },
+    { key: 'next-step', label: 'Next client step', detail: hasNextStep ? 'Next step wording is ready.' : 'Recommended: add a short next step for the client.', ok: hasNextStep, required: false },
+    { key: 'visible-content', label: 'Visible content', detail: visibleContentCount ? `${visibleContentCount} item${visibleContentCount === 1 ? '' : 's'} selected for the portal.` : 'Recommended: select at least one document, date, billing item, PDF, appointment, or resource.', ok: visibleContentCount > 0, required: false },
+  ];
 }
 
 function PortalVisibilityBox({ title, empty, items, selected, onToggle, renderLabel, renderMeta }) {
   return (
     <div className="portal-visibility-box">
       <h3>{title}</h3>
-      {items.map((item) => (
-        <label key={item.id} className="portal-check-row">
-          <input type="checkbox" checked={selected.has(item.id)} onChange={(event) => onToggle(item.id, event.target.checked)} />
-          <span><strong>{renderLabel(item)}</strong><small>{renderMeta(item)}</small></span>
-        </label>
-      ))}
+      {items.map((item) => {
+        const visible = selected.has(item.id);
+        return (
+          <label key={item.id} className={`portal-check-row ${visible ? 'client-visible' : 'client-hidden'}`}>
+            <input type="checkbox" checked={visible} onChange={(event) => onToggle(item.id, event.target.checked)} />
+            <span><strong>{renderLabel(item)}</strong><small>{renderMeta(item)}</small></span>
+            <b className={`portal-visibility-pill ${visible ? 'visible' : 'hidden'}`}>{visible ? 'Visible to client' : 'Hidden'}</b>
+          </label>
+        );
+      })}
       {!items.length && <p className="muted">{empty}</p>}
     </div>
   );
@@ -6950,9 +7250,25 @@ The portal is a secure, read-only space where you can check application updates,
 
   async function handlePublishPortalUpdate() {
     setValidationMessage('');
+    const portalEmail = String(draft.portalEmail || draft.email || '').trim();
+    const primaryAdviser = advisers.find((adviser) => adviser.id === draft.primaryAdviserId);
+    const visibleDocs = new Set(draft.portalVisibleDocumentIds || []);
+    const visibleDeadlines = new Set(draft.portalVisibleDeadlineIds || []);
+    const visibleAppointments = new Set(draft.portalVisibleAppointmentIds || []);
+    const visibleBilling = new Set(draft.portalVisibleBillingIds || []);
+    const visiblePortalPdfCount = (Array.isArray(draft.portalDocuments) ? draft.portalDocuments : []).filter((doc) => doc.visibleToClient !== false).length;
+    const enabledResourceCount = PORTAL_RESOURCE_PAGES.filter((page) => normalisePortalResourceSettings(draft.portalResourceSettings)[page.key]?.enabled).length;
+    const visibleContentCount = visibleDocs.size + visibleDeadlines.size + visibleAppointments.size + visibleBilling.size + visiblePortalPdfCount + enabledResourceCount;
+    const checklist = buildPortalPublishChecklist({ client: draft, generatedPortalCode, primaryAdviser, visibleContentCount });
+    const missingRequired = checklist.filter((item) => item.required && !item.ok);
+    if (missingRequired.length) {
+      setStatusMessage('');
+      setActiveClientSection('portal');
+      setValidationMessage(`Complete the portal publish checklist before publishing: ${missingRequired.map((item) => item.label).join(', ')}.`);
+      return;
+    }
     setStatusMessage('Publishing client portal update...');
     try {
-      const portalEmail = String(draft.portalEmail || draft.email || '').trim();
       const clientToPublish = draftWithPendingPortalAccessCode({
         portalPublishNow: true,
         portalEnabled: true,
@@ -7486,6 +7802,7 @@ function PortalSummaryPanel({ client, documents = [], deadlines = [], appointmen
       <div className="portal-summary-status-card">
         <span className={`summary-status-dot ${client.portalEnabled ? 'complete' : 'inactive'}`} />
         <div><strong>{client.portalEnabled ? 'Portal active' : 'Portal inactive'}</strong><small>{client.portalEnabled ? `Login email: ${client.portalEmail || client.email || 'not set'}` : 'Open the portal editor to enable access and publish an update.'}</small></div>
+        <b className={`portal-summary-visibility-chip ${client.portalEnabled ? 'visible' : 'hidden'}`}>{client.portalEnabled ? 'Client access on' : 'Client access off'}</b>
       </div>
       <div className="summary-metric-row four">
         <WorkspaceStat label="Checklist items" value={publishedChecklistCount} />
@@ -10217,6 +10534,7 @@ function normaliseData(body) {
     intakeStatuses: body.intakeStatuses || INTAKE_STATUSES,
     seminars: (body.seminars || []).map(normaliseSeminar),
     seminarRegistrations: (body.seminarRegistrations || []).map(normaliseSeminarRegistration),
+    feedbackSubmissions: (body.feedbackSubmissions || []).map(normaliseFeedbackSubmission),
     emailLogs: (body.emailLogs || []).map(normaliseEmailLog),
     emailTemplates: (body.emailTemplates || []).map(normaliseEmailTemplate),
     consultationTypes: (body.consultationTypes || []).map(normaliseConsultationType),
@@ -10226,6 +10544,32 @@ function normaliseData(body) {
     consultationBookings: (body.consultationBookings || []).map(normaliseConsultationBooking),
     emailConfig: normaliseEmailConfig(body.emailConfig || {}),
     securityMode: body.securityMode || 'unknown',
+  };
+}
+
+
+function normaliseFeedbackSubmission(input = {}) {
+  const status = String(input.status || 'New').trim();
+  const safeStatus = ['New', 'Reviewed', 'Follow up', 'Closed'].includes(status) ? status : 'New';
+  return {
+    id: input.id || '',
+    status: safeStatus,
+    firstName: input.firstName || input.first_name || '',
+    lastName: input.lastName || input.last_name || '',
+    email: input.email || '',
+    phone: input.phone || '',
+    adviserName: input.adviserName || input.adviser_name || '',
+    applicationType: input.applicationType || input.application_type || '',
+    overallRating: input.overallRating || input.overall_rating || '',
+    recommendationRating: input.recommendationRating || input.recommendation_rating || '',
+    serviceStrengths: input.serviceStrengths || input.service_strengths || '',
+    improvementSuggestions: input.improvementSuggestions || input.improvement_suggestions || '',
+    permissionToContact: input.permissionToContact || input.permission_to_contact || '',
+    permissionToUseFeedback: input.permissionToUseFeedback || input.permission_to_use_feedback || 'No',
+    rawPayload: input.rawPayload || input.raw_payload || {},
+    reviewedBy: input.reviewedBy || input.reviewed_by || '',
+    createdAt: input.createdAt || input.created_at || '',
+    updatedAt: input.updatedAt || input.updated_at || '',
   };
 }
 

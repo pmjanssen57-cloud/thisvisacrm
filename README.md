@@ -1,3 +1,71 @@
+# THiS CRM v0.13.20 — Client Feedback Form Integration
+
+This build sits on top of v0.13.19 and adds a new public client feedback form that can be embedded on the Turner Hopkins Immigration website. Feedback submissions are stored in the CRM, shown in the Enquiries & Intake workspace, and trigger an internal email notification to all active advisers with an email address.
+
+## v0.13.20 changes
+
+- Added a new public `/feedback` form route using the same Turner Hopkins Immigration public form styling used across the site forms.
+- Added a new `feedback` Netlify Function for public feedback submissions.
+- Added a new `feedback_submissions` database table and migration.
+- Added feedback submissions to CRM data loading.
+- Added a new **Feedback** tab inside **Enquiries & Intake**.
+- Feedback cards show the client name, email, phone, adviser/team member, application type, rating, recommendation score, contact permission, review permission, and comments.
+- Added feedback statuses: New, Reviewed, Follow up, Closed.
+- Added CRM actions to mark feedback as reviewed, follow up, closed, restore to New, or delete.
+- Added internal Microsoft email notification when feedback is submitted.
+- The feedback notification is sent to all active advisers with email addresses. If no adviser emails are found, it falls back to `FEEDBACK_NOTIFICATION_EMAILS`, `INTAKE_NOTIFICATION_EMAILS`, or `CRM_NOTIFICATION_EMAILS`.
+- Added a Squarespace embed code file for the client feedback page.
+
+## Testing notes
+
+1. Deploy the CRM package.
+2. Confirm the new migration is applied and the `feedback_submissions` table exists.
+3. Open `/feedback?embed=1` on the deployed CRM site.
+4. Submit test feedback.
+5. Confirm the submission appears in **THiS CRM > Enquiries & Intake > Feedback**.
+6. Confirm the adviser notification email is sent and recorded in the CRM email log.
+7. Test the status buttons: Reviewed, Follow up, Closed, Restore to New, and Delete.
+8. Add the supplied Squarespace embed code to `https://www.turnerhopkinsimmigration.co.nz/client-feedback` and confirm the iframe height adjusts correctly.
+
+## Deployment note
+
+This release includes a database migration: `202606290001_add_feedback_submissions.sql`.
+
+Microsoft email settings should already be in place from the existing CRM email work. If adviser emails are not present in the CRM, set `FEEDBACK_NOTIFICATION_EMAILS` as a comma-separated fallback list.
+
+# THiS CRM v0.13.19 — Portal Publishing Polish
+
+This build sits on top of v0.13.18 and tightens the client-facing portal publishing workflow. The focus is on safer launch checks, clearer visibility controls, and better adviser confidence before publishing a portal update.
+
+## v0.13.19 changes
+
+- Added a portal publish checklist inside the client Portal section.
+- The checklist now checks for a client portal email, access code, primary adviser, and a plain-English client update before publishing.
+- Publish is disabled until the required portal checklist items are complete.
+- If an adviser attempts to publish before the required checks are ready, the CRM explains exactly which items need attention.
+- Added advisory checklist items for the next client step and selected client-visible content.
+- Added a visible content count so advisers can see how many checklist items, dates, appointments, billing items, PDFs, and resource pages are currently selected for the client portal.
+- Reworked the portal visibility selectors to show clear **Visible to client** and **Hidden** chips beside each item.
+- Renamed the preview action to **Preview sign-in page** so advisers understand it opens the portal login screen.
+- Added preview guidance explaining that advisers can sign in with the client email/access code after publishing to check what the client will see.
+- Added a client access chip to the portal publishing summary.
+- No database migration required.
+
+## Testing notes
+
+1. Open a client record and go to Portal.
+2. Confirm the publish checklist appears below the portal status row.
+3. Confirm publish is blocked until the required checklist items are complete.
+4. Add a portal email, generate an access code, assign a primary adviser, and add a plain-English update.
+5. Confirm the publish button becomes available.
+6. Toggle portal checklist, billing, date, appointment, PDF, and resource visibility and confirm the visible/hidden chips update clearly.
+7. Click Preview sign-in page and confirm the portal login opens in a new tab.
+8. Publish the portal update and confirm the portal access email/log behaviour remains unchanged.
+
+## Deployment note
+
+Deploy this package normally. No new environment variables or database migrations are required.
+
 # THiS CRM v0.13.16 — Approval Booking Email Contact Option
 
 This build sits on top of v0.13.13 and adds a direct adviser email option to the assessment approval + booking email while retaining the booking link/button.

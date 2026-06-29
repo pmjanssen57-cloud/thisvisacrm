@@ -2982,15 +2982,65 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .portal-admin-status { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
 .portal-admin-status span { border: 1px solid var(--line); border-radius: 15px; padding: 11px 12px; background: #fff; color: var(--muted); font-size: 12px; }
 .portal-admin-status strong { display:block; color: var(--ink); font-size: 12px; margin-bottom: 3px; }
+
+.portal-publish-checklist {
+  border: 1px solid rgba(85, 217, 160, 0.38);
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(244, 251, 248, 0.94), #fff);
+  padding: 14px;
+  margin: 0 0 16px;
+  box-shadow: 0 10px 24px rgba(0, 55, 54, 0.045);
+}
+.portal-publish-checklist.needs-work { border-color: rgba(245, 158, 11, 0.45); background: linear-gradient(180deg, #fffaf0, #fff); }
+.portal-publish-checklist-head { display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; margin-bottom: 12px; }
+.portal-publish-checklist-head h3 { margin: 0 0 4px; color: var(--ink); font-size: 15px; }
+.portal-publish-checklist-head p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
+.portal-readiness-pill {
+  white-space: nowrap;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 900;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  background: #fff;
+}
+.portal-readiness-pill.ready { border-color: rgba(85, 217, 160, 0.6); background: var(--pale); }
+.portal-readiness-pill.needs-work { border-color: rgba(245, 158, 11, 0.38); background: #fff7ed; color: #8a5a00; }
+.portal-checklist-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.portal-checklist-item {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 8px;
+  align-items: flex-start;
+  padding: 9px 10px;
+  border: 1px solid #e7f0ec;
+  border-radius: 14px;
+  background: #fff;
+}
+.portal-checklist-item svg { margin-top: 1px; color: var(--muted); }
+.portal-checklist-item.ok svg { color: var(--ink); }
+.portal-checklist-item.required { border-color: rgba(245, 158, 11, 0.36); background: #fffaf0; }
+.portal-checklist-item.required svg { color: #b45309; }
+.portal-checklist-item.advisory { background: #fbfffd; }
+.portal-checklist-item strong { display: block; color: var(--ink); font-size: 12px; line-height: 1.25; }
+.portal-checklist-item small { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; line-height: 1.32; }
+.portal-visibility-hint, .portal-preview-note { margin: 10px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.portal-preview-note { text-align: right; }
+
 .linklike { border: none; background: none; color: var(--ink); padding: 0; text-align: left; font: inherit; cursor: pointer; word-break: break-word; }
 .portal-visibility-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
 .portal-visibility-box { border: 1px solid var(--line); border-radius: 18px; background: #fff; padding: 14px; }
 .portal-visibility-box h3 { margin: 0 0 10px; color: var(--ink); font-size: 15px; }
-.portal-check-row { display: flex; gap: 9px; align-items: flex-start; border-top: 1px solid #edf4f1; padding: 9px 0; }
+.portal-check-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 9px; align-items: flex-start; border-top: 1px solid #edf4f1; padding: 9px 0; }
 .portal-check-row:first-of-type { border-top: 0; }
 .portal-check-row input { margin-top: 4px; }
 .portal-check-row strong { display:block; color: var(--ink); font-size: 13px; }
 .portal-check-row small { display:block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.portal-check-row.client-hidden strong, .portal-check-row.client-hidden small { color: #64748b; }
+.portal-visibility-pill, .portal-summary-visibility-chip { justify-self: end; white-space: nowrap; border-radius: 999px; padding: 5px 8px; font-size: 10px; line-height: 1; font-weight: 900; border: 1px solid var(--line); background: #fff; color: var(--muted); }
+.portal-visibility-pill.visible, .portal-summary-visibility-chip.visible { border-color: rgba(85, 217, 160, 0.55); background: var(--pale); color: var(--ink); }
+.portal-visibility-pill.hidden, .portal-summary-visibility-chip.hidden { border-color: #e2e8f0; background: #f8fafc; color: #64748b; }
 .portal-code-card { border: 1px dashed var(--mint); background: var(--pale); border-radius: 18px; padding: 14px; margin: 14px 0; }
 .portal-code-card span, .portal-code-card small { display:block; color: var(--muted); font-size: 12px; font-weight: 800; }
 .portal-code-card strong { display:block; color: var(--ink); font-size: 24px; letter-spacing: .06em; margin: 6px 0; }
@@ -3003,6 +3053,9 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   .portal-hero-card { grid-template-columns: 1fr; padding: 18px; }
   .portal-progress-dial { width: 112px; height: 112px; justify-self: center; }
   .portal-dashboard-grid, .portal-contact-grid, .portal-visibility-grid, .portal-admin-status { grid-template-columns: 1fr; }
+  .portal-checklist-grid { grid-template-columns: 1fr; }
+  .portal-publish-checklist-head { display: grid; }
+  .portal-preview-note { text-align: left; }
   .portal-login-card { padding: 24px; border-radius: 24px; }
 }
 
@@ -9829,4 +9882,14 @@ body.intake-embed-mode .contact-form select {
   .client-snapshot-grid { grid-template-columns: 1fr; }
   .client-snapshot-head { flex-direction: column; }
   .crm-toast { left: 14px; right: 14px; bottom: 14px; }
+}
+
+/* v0.13.19 - Portal publishing polish */
+.record-popout-content .portal-publish-checklist { margin-top: 2px; }
+.record-popout-content .portal-checklist-grid { grid-template-columns: repeat(2, minmax(260px, 1fr)); }
+.record-popout-content .portal-check-row { grid-template-columns: 28px minmax(0, 1fr) auto; }
+@media (max-width: 860px) {
+  .record-popout-content .portal-checklist-grid { grid-template-columns: 1fr; }
+  .record-popout-content .portal-check-row { grid-template-columns: 28px minmax(0, 1fr); }
+  .record-popout-content .portal-visibility-pill { grid-column: 2; justify-self: start; }
 }
