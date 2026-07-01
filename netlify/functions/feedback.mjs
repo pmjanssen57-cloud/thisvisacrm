@@ -2,6 +2,35 @@ import { getDatabase } from '@netlify/database';
 
 const MAX_TEXT = 6000;
 
+const FEEDBACK_EMAIL_TEMPLATE = {
+  key: 'feedback_internal_notification',
+  name: 'Client feedback - internal notification',
+  description: 'Internal notification sent when a client submits the public feedback form.',
+  subject: 'New client feedback submitted - {{applicantName}}',
+  bodyText: `New client feedback has been submitted through the Turner Hopkins Immigration website.
+
+Client: {{applicantName}}
+Email: {{email}}
+Phone: {{phone}}
+Adviser / team member: {{adviserName}}
+Application type: {{applicationType}}
+Submitted: {{submitted}}
+
+Overall service rating: {{overallRating}}
+Likely to recommend: {{recommendationRating}}
+May contact client: {{permissionToContact}}
+Permission to use comments: {{permissionToUseFeedback}}
+
+What did we do well?
+{{serviceStrengths}}
+
+What could we improve?
+{{improvementSuggestions}}
+
+Please review this in THiS CRM > Enquiries & Intake > Feedback.`,
+  placeholders: ['applicantName', 'email', 'phone', 'adviserName', 'applicationType', 'submitted', 'overallRating', 'recommendationRating', 'permissionToContact', 'permissionToUseFeedback', 'serviceStrengths', 'improvementSuggestions', 'feedbackId'],
+};
+
 export default async function feedbackRequestHandler(request) {
   const method = String(request.method || 'GET').toUpperCase();
   if (method === 'OPTIONS') return new Response('', { status: 204, headers: corsHeaders() });
@@ -74,6 +103,25 @@ async function ensureFeedbackSchema() {
 
 async function ensureEmailSchema(database) {
   await database.sql`
+    CREATE TABLE IF NOT EXISTS email_templates (
+      template_key TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      subject TEXT NOT NULL,
+      body_text TEXT NOT NULL,
+      body_html TEXT,
+      placeholders JSONB NOT NULL DEFAULT '[]'::jsonb,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_by TEXT
+    )`;
+  await database.sql`ALTER TABLE email_templates ADD COLUMN IF NOT EXISTS body_html TEXT`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_email_templates_name ON email_templates(name)`;
+  await database.sql`
+    INSERT INTO email_templates (template_key, name, description, subject, body_text, body_html, placeholders, updated_by)
+    VALUES (${FEEDBACK_EMAIL_TEMPLATE.key}, ${FEEDBACK_EMAIL_TEMPLATE.name}, ${FEEDBACK_EMAIL_TEMPLATE.description}, ${FEEDBACK_EMAIL_TEMPLATE.subject}, ${FEEDBACK_EMAIL_TEMPLATE.bodyText}, null, CAST(${JSON.stringify(FEEDBACK_EMAIL_TEMPLATE.placeholders)} AS jsonb), 'System default')
+    ON CONFLICT (template_key) DO NOTHING`;
+
+  await database.sql`
     CREATE TABLE IF NOT EXISTS email_notifications (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       related_record_type TEXT NOT NULL DEFAULT 'test',
@@ -102,6 +150,44 @@ async function ensureEmailSchema(database) {
   await database.sql`CREATE INDEX IF NOT EXISTS idx_email_notifications_created ON email_notifications(created_at DESC)`;
 }
 
+async function getFeedbackEmailTemplate(database = db()) {
+  const rows = await database.sql`SELECT template_key, name, description, subject, body_text, body_html, placeholders FROM email_templates WHERE template_key = ${FEEDBACK_EMAIL_TEMPLATE.key} LIMIT 1`;
+  const row = rows[0] || {};
+  return {
+    key: row.template_key || FEEDBACK_EMAIL_TEMPLATE.key,
+    name: row.name || FEEDBACK_EMAIL_TEMPLATE.name,
+    description: row.description || FEEDBACK_EMAIL_TEMPLATE.description,
+    subject: row.subject || FEEDBACK_EMAIL_TEMPLATE.subject,
+    bodyText: row.body_text || FEEDBACK_EMAIL_TEMPLATE.bodyText,
+    bodyHtml: row.body_html || '',
+    placeholders: Array.isArray(row.placeholders) ? row.placeholders : FEEDBACK_EMAIL_TEMPLATE.placeholders,
+  };
+}
+
+function renderTemplateString(value = '', context = {}) {
+  return String(value || '').replace(/{{\s*([a-zA-Z0-9_.-]+)\s*}}/g, (_, key) => {
+    if (Object.prototype.hasOwnProperty.call(context, key)) return context[key] == null ? '' : String(context[key]);
+    return '';
+  });
+}
+
+function hasMeaningfulHtml(html = '') {
+  return Boolean(String(html || '').replace(/<br\s*\/?\s*>/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;|&#160;/gi, ' ').trim());
+}
+
+function wrapEmailHtml(html = '') {
+  return `<div style="font-family: Aptos, Arial, sans-serif; font-size: 11pt; line-height:1.3; color:#1f2933;">${cleanHtmlSnippet(html)}</div>`;
+}
+
+function cleanHtmlSnippet(html = '') {
+  return String(html || '')
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/\son[a-z]+\s*=\s*"[^"]*"/gi, '')
+    .replace(/\son[a-z]+\s*=\s*'[^']*'/gi, '')
+    .replace(/javascript:/gi, '');
+}
+
 function normalisePayload(input = {}) {
   return {
     firstName: clean(input.firstName, 120),
@@ -118,12 +204,13 @@ function normalisePayload(input = {}) {
     permissionToUseFeedback: clean(input.permissionToUseFeedback || 'No', 80),
     consentToSubmit: Boolean(input.consentToSubmit),
     submittedVia: clean(input.submittedVia || 'THiS client feedback form', 120),
-    feedbackVersion: clean(input.feedbackVersion || 'v0.13.20', 40),
+    feedbackVersion: clean(input.feedbackVersion || 'v0.13.21', 40),
   };
 }
 
 async function sendFeedbackNotificationEmail({ feedbackId = '', payload = {}, createdAt = '' } = {}) {
-  const adviserRows = await db().sql`SELECT email FROM advisers WHERE active IS DISTINCT FROM FALSE AND email IS NOT NULL AND email <> '' ORDER BY name ASC`;
+  const database = db();
+  const adviserRows = await database.sql`SELECT email FROM advisers WHERE active IS DISTINCT FROM FALSE AND email IS NOT NULL AND email <> '' ORDER BY name ASC`;
   const adviserEmails = Array.from(new Set(adviserRows.map((row) => String(row.email || '').trim().toLowerCase()).filter(isValidEmailAddress)));
   const fallback = String(process.env.FEEDBACK_NOTIFICATION_EMAILS || process.env.INTAKE_NOTIFICATION_EMAILS || process.env.CRM_NOTIFICATION_EMAILS || '').split(/[;,]/).map((item) => item.trim()).filter(isValidEmailAddress);
   const recipients = adviserEmails.length ? adviserEmails : fallback;
@@ -131,35 +218,30 @@ async function sendFeedbackNotificationEmail({ feedbackId = '', payload = {}, cr
 
   const applicantName = [payload.firstName, payload.lastName].filter(Boolean).join(' ') || 'Unnamed client';
   const submitted = createdAt ? new Date(createdAt).toLocaleString('en-NZ', { timeZone: 'Pacific/Auckland' }) : new Date().toLocaleString('en-NZ', { timeZone: 'Pacific/Auckland' });
-  const subject = `New client feedback submitted - ${applicantName}`;
-  const bodyText = [
-    'New client feedback has been submitted through the Turner Hopkins Immigration website.',
-    '',
-    `Client: ${applicantName}`,
-    `Email: ${payload.email || 'Not provided'}`,
-    `Phone: ${payload.phone || 'Not provided'}`,
-    `Adviser / team member: ${payload.adviserName || 'Not recorded'}`,
-    `Application type: ${payload.applicationType || 'Not recorded'}`,
-    `Submitted: ${submitted}`,
-    '',
-    `Overall service rating: ${payload.overallRating || 'Not recorded'}`,
-    `Likely to recommend: ${payload.recommendationRating || 'Not recorded'}`,
-    `May contact client: ${payload.permissionToContact || 'Not recorded'}`,
-    `Permission to use comments: ${payload.permissionToUseFeedback || 'No'}`,
-    '',
-    'What did we do well?',
-    payload.serviceStrengths || 'No comment recorded.',
-    '',
-    'What could we improve?',
-    payload.improvementSuggestions || 'No comment recorded.',
-    '',
-    'Please review this in THiS CRM > Enquiries & Intake > Feedback.',
-  ].join('\n');
-  const bodyHtml = textToHtml(bodyText);
+  const context = {
+    feedbackId,
+    applicantName,
+    email: payload.email || 'Not provided',
+    phone: payload.phone || 'Not provided',
+    adviserName: payload.adviserName || 'Not recorded',
+    applicationType: payload.applicationType || 'Not recorded',
+    submitted,
+    overallRating: payload.overallRating || 'Not recorded',
+    recommendationRating: payload.recommendationRating || 'Not recorded',
+    permissionToContact: payload.permissionToContact || 'Not recorded',
+    permissionToUseFeedback: payload.permissionToUseFeedback || 'No',
+    serviceStrengths: payload.serviceStrengths || 'No comment recorded.',
+    improvementSuggestions: payload.improvementSuggestions || 'No comment recorded.',
+  };
+  const template = await getFeedbackEmailTemplate(database);
+  const subject = renderTemplateString(template.subject || FEEDBACK_EMAIL_TEMPLATE.subject, context).trim() || `New client feedback submitted - ${applicantName}`;
+  const bodyText = renderTemplateString(template.bodyText || FEEDBACK_EMAIL_TEMPLATE.bodyText, context).trim();
+  const renderedBodyHtml = renderTemplateString(template.bodyHtml || '', context);
+  const bodyHtml = hasMeaningfulHtml(renderedBodyHtml) ? wrapEmailHtml(renderedBodyHtml) : textToHtml(bodyText);
 
   const config = requireMicrosoftEmailConfig();
   let emailLogId = '';
-  const logRows = await db().sql`
+  const logRows = await database.sql`
     INSERT INTO email_notifications (related_record_type, related_record_id, template_key, from_email, from_name, to_email, subject, body_text, body_html, status, provider)
     VALUES ('feedback_submission', ${nullableUuidValue(feedbackId) ? feedbackId : null}, 'feedback_internal_notification', ${config.fromEmail}, ${config.fromName}, ${recipients.join(', ')}, ${subject}, ${bodyText}, ${bodyHtml}, 'Pending', 'microsoft_graph')
     RETURNING id`;
@@ -169,12 +251,12 @@ async function sendFeedbackNotificationEmail({ feedbackId = '', payload = {}, cr
     const token = await getMicrosoftGraphAccessToken(config);
     const sendResult = await sendMicrosoftGraphEmail({ config, token, toEmail: recipients, subject, bodyText, bodyHtml });
     if (emailLogId) {
-      await db().sql`UPDATE email_notifications SET status = 'Sent', sent_at = NOW(), provider_message_id = ${sendResult.requestId || ''}, updated_at = NOW() WHERE id = ${emailLogId}`;
+      await database.sql`UPDATE email_notifications SET status = 'Sent', sent_at = NOW(), provider_message_id = ${sendResult.requestId || ''}, updated_at = NOW() WHERE id = ${emailLogId}`;
     }
     return true;
   } catch (error) {
     if (emailLogId) {
-      await db().sql`UPDATE email_notifications SET status = 'Failed', failed_at = NOW(), failure_message = ${String(error?.message || error).slice(0, 1000)}, updated_at = NOW() WHERE id = ${emailLogId}`;
+      await database.sql`UPDATE email_notifications SET status = 'Failed', failed_at = NOW(), failure_message = ${String(error?.message || error).slice(0, 1000)}, updated_at = NOW() WHERE id = ${emailLogId}`;
     }
     throw error;
   }

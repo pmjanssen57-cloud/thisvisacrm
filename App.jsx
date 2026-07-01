@@ -5290,14 +5290,14 @@ function ToolsDrawer({ open, onOpen, onClose, onOpenHelp, onRefresh, loading = f
           {activeTool === 'calculator' && <CalculatorTool />}
         </div>
       </aside>
-      <EmailTemplateLightbox open={templateEditorOpen} onClose={() => setTemplateEditorOpen(false)} emailTemplates={emailTemplates} saveEmailTemplate={saveEmailTemplate} resetEmailTemplate={resetEmailTemplate} saving={saving} />
+      <EmailTemplateLightbox open={templateEditorOpen} onClose={() => setTemplateEditorOpen(false)} emailTemplates={emailTemplates} saveEmailTemplate={saveEmailTemplate} resetEmailTemplate={resetEmailTemplate} sendTestEmail={sendTestEmail} emailConfig={emailConfig} saving={saving} />
       <EmailLogLightbox open={emailLogOpen} onClose={() => setEmailLogOpen(false)} sendTestEmail={sendTestEmail} saveEmailTemplate={saveEmailTemplate} resetEmailTemplate={resetEmailTemplate} emailLogs={emailLogs} emailConfig={emailConfig} saving={saving} />
     </>
   );
 }
 
 
-function EmailTemplateLightbox({ open, onClose, emailTemplates = [], saveEmailTemplate, resetEmailTemplate, saving = false }) {
+function EmailTemplateLightbox({ open, onClose, emailTemplates = [], saveEmailTemplate, resetEmailTemplate, sendTestEmail, emailConfig = {}, saving = false }) {
   const sortedTemplates = useMemo(() => [...(emailTemplates || [])].sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''))), [emailTemplates]);
   const [selectedKey, setSelectedKey] = useState('');
   const selected = sortedTemplates.find((template) => template.key === selectedKey) || sortedTemplates[0] || null;
@@ -5305,6 +5305,10 @@ function EmailTemplateLightbox({ open, onClose, emailTemplates = [], saveEmailTe
   const [editorMode, setEditorMode] = useState('design');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [testEmail, setTestEmail] = useState('');
+  const [testMessage, setTestMessage] = useState('');
+  const [testError, setTestError] = useState('');
+  const [testResult, setTestResult] = useState(null);
   const editorRef = useRef(null);
   const editorHtmlRef = useRef('');
 
@@ -5326,6 +5330,9 @@ function EmailTemplateLightbox({ open, onClose, emailTemplates = [], saveEmailTe
       setEditorMode('design');
       setMessage('');
       setError('');
+      setTestMessage('');
+      setTestError('');
+      setTestResult(null);
       window.requestAnimationFrame?.(() => {
         if (editorRef.current && editorRef.current.innerHTML !== bodyHtml) {
           editorRef.current.innerHTML = bodyHtml || '<p><br></p>';
@@ -5342,6 +5349,16 @@ function EmailTemplateLightbox({ open, onClose, emailTemplates = [], saveEmailTe
       }
     }
   }, [selected?.key, editorMode]);
+
+  const configured = Boolean(emailConfig?.configured);
+  const sampleData = useMemo(
+    () => buildEmailTemplateSampleData(selected?.key || '', selected?.placeholders || []),
+    [selected?.key, (selected?.placeholders || []).join('|')]
+  );
+  const activeTemplateHtml = draft.bodyHtml || editorHtmlRef.current || '';
+  const previewSubject = useMemo(() => renderTemplatePreviewText(draft.subject || '', sampleData), [draft.subject, sampleData]);
+  const previewHtml = useMemo(() => renderTemplatePreviewText(activeTemplateHtml || '<p><br></p>', sampleData), [activeTemplateHtml, sampleData]);
+  const unresolvedPlaceholders = useMemo(() => findTemplatePlaceholders(`${draft.subject || ''} ${activeTemplateHtml || ''}`).filter((placeholder) => !(placeholder in sampleData)), [draft.subject, activeTemplateHtml, sampleData]);
 
   function currentHtml() {
     if (editorMode === 'design' && editorRef.current) return editorRef.current.innerHTML || '';
@@ -5425,6 +5442,37 @@ function EmailTemplateLightbox({ open, onClose, emailTemplates = [], saveEmailTe
     }
   }
 
+
+  async function sendTemplateTest(event) {
+    event.preventDefault();
+    if (!selected) return;
+    setTestMessage('');
+    setTestError('');
+    setTestResult(null);
+    if (!testEmail.trim()) {
+      setTestError('Enter a test recipient email address.');
+      return;
+    }
+    const bodyHtml = currentHtml();
+    const renderedHtml = renderTemplatePreviewText(bodyHtml || '<p><br></p>', sampleData);
+    const renderedSubject = renderTemplatePreviewText(draft.subject || selected.subject || 'THiS CRM template preview', sampleData).trim() || 'THiS CRM template preview';
+    const renderedText = htmlToTemplateText(renderedHtml);
+    try {
+      const response = await sendTestEmail?.({
+        toEmail: testEmail,
+        subject: renderedSubject,
+        message: renderedText,
+        bodyText: renderedText,
+        bodyHtml: templatePreviewHtml(renderedHtml),
+        templateKey: selected.key,
+      });
+      setTestResult(response?.emailLog || { status: 'Sent', toEmail: testEmail, subject: renderedSubject });
+      setTestMessage('Preview test sent. Check the inbox and the email log before using this wording with clients.');
+    } catch (err) {
+      setTestError(err?.message || 'Template preview test could not be sent.');
+    }
+  }
+
   if (!open) return null;
 
   return (
@@ -5482,6 +5530,21 @@ function EmailTemplateLightbox({ open, onClose, emailTemplates = [], saveEmailTe
                   </div>
                 </div>
 
+                <div className="template-sample-panel">
+                  <div className="split compact-row">
+                    <div>
+                      <strong>Preview sample data</strong>
+                      <span>Used only for preview and test sends. Live emails still use the real CRM record.</span>
+                    </div>
+                    {unresolvedPlaceholders.length > 0 && <span className="status-chip warning">{unresolvedPlaceholders.length} unresolved</span>}
+                  </div>
+                  <div className="template-sample-grid">
+                    {(selected.placeholders || []).slice(0, 8).map((placeholder) => (
+                      <span key={placeholder}><b>{placeholder}</b>{sampleData[placeholder] || 'Sample not set'}</span>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="html-editor-shell">
                   <div className="html-editor-topbar">
                     <div className="html-editor-mode-tabs" role="tablist" aria-label="Template editor mode">
@@ -5524,11 +5587,38 @@ function EmailTemplateLightbox({ open, onClose, emailTemplates = [], saveEmailTe
                   )}
 
                   {editorMode === 'preview' && (
-                    <div className="html-template-preview" dangerouslySetInnerHTML={{ __html: templatePreviewHtml(draft.bodyHtml) }} />
+                    <div className="template-rendered-preview">
+                      <div className="email-preview-subject">
+                        <span>Rendered subject</span>
+                        <strong>{previewSubject || 'No subject'}</strong>
+                      </div>
+                      <div className="html-template-preview" dangerouslySetInnerHTML={{ __html: templatePreviewHtml(previewHtml) }} />
+                    </div>
                   )}
                 </div>
 
-                <p className="tool-muted">Use placeholders where CRM values need to be inserted. The sent email is wrapped in the standard Arial 10pt email styling.</p>
+                <p className="tool-muted">Use placeholders where CRM values need to be inserted. The rendered preview uses sample values so advisers can check the real structure before sending.</p>
+
+                <section className="template-send-test-panel">
+                  <div className="split compact-row">
+                    <div>
+                      <strong>Send this preview as a test</strong>
+                      <span>Uses the sample data shown above and logs the test in Tools &gt; Email log.</span>
+                    </div>
+                    <span className={`status-chip ${configured ? 'ok' : 'warning'}`}>{configured ? 'Mailbox configured' : 'Mailbox not configured'}</span>
+                  </div>
+                  {!configured && <p className="error-text">Microsoft email environment variables are not fully configured in Netlify.</p>}
+                  <div className="template-test-row">
+                    <label>Test recipient email
+                      <input value={testEmail} onChange={(event) => setTestEmail(event.target.value)} placeholder="name@example.com" type="email" />
+                    </label>
+                    <button className="btn" type="button" onClick={sendTemplateTest} disabled={saving || !configured}><Send size={16} />{saving ? 'Sending...' : 'Send preview test'}</button>
+                  </div>
+                  {testError && <div className="error-banner"><AlertTriangle size={16} />{testError}</div>}
+                  {testMessage && <div className="success-banner"><CheckCircle2 size={16} />{testMessage}</div>}
+                  {testResult && <small className="muted">Last test: {testResult.status || 'Logged'} · {testResult.toEmail || testEmail}</small>}
+                </section>
+
                 {message && <div className="success-banner"><CheckCircle2 size={16} />{message}</div>}
                 {error && <div className="error-banner"><AlertTriangle size={16} />{error}</div>}
                 <div className="form-actions right">
@@ -5543,6 +5633,88 @@ function EmailTemplateLightbox({ open, onClose, emailTemplates = [], saveEmailTe
   );
 }
 
+
+function buildEmailTemplateSampleData(templateKey = '', placeholders = []) {
+  const common = {
+    firstName: 'Sarah',
+    applicantName: 'Sarah Patel',
+    email: 'sarah.patel@example.com',
+    phone: '+64 21 555 0100',
+    submitted: '1 July 2026, 10:30 am',
+    flagLine: 'Flags: work pathway, partner included, documents pending',
+    flags: 'work pathway, partner included, documents pending',
+    summary: 'Citizenship: India\nCurrent location: Auckland\nGoal: Skilled residence pathway\nCurrent visa: Accredited Employer Work Visa\nNotes: Wants advice on residence timing and partner inclusion.',
+    allocatedTo: 'Paul Janssen',
+    adviserEmail: 'paul.janssen@turnerhopkins.co.nz',
+    assessmentFormUrl: 'https://www.turnerhopkinsimmigration.co.nz/assessment',
+    bookingLink: 'https://thisvisacrm.netlify.app/book?token=sample-preview',
+    portalLink: 'https://thisvisacrm.netlify.app/portal',
+    portalEmail: 'sarah.patel@example.com',
+    accessCode: 'TH-48291',
+    seminarTitle: 'Moving to New Zealand: Skilled Migration Pathways',
+    presenterName: 'Paul Janssen',
+    nzTime: 'Thursday, 16 July 2026, 6:00 pm NZST',
+    localTime: 'Thursday, 16 July 2026, 11:30 am IST',
+    zoomLink: 'https://zoom.us/j/sample-preview',
+    zoomPassword: 'THNZ2026',
+    registrantFullName: 'Sarah Patel',
+    registrantEmail: 'sarah.patel@example.com',
+    seminarDateTime: 'Thursday, 16 July 2026 at 6:00 pm NZ time',
+    dateOfBirth: '12 March 1988',
+    citizenshipCountry: 'India',
+    residenceCountry: 'India',
+    registrantTimezone: 'Asia/Kolkata',
+    partnershipStatus: 'Married / de facto partner',
+    highestQualification: 'Bachelor degree',
+    currentOccupation: 'Software engineer',
+    englishAbility: 'Strong professional English',
+    workHistory: '8 years in software engineering and team leadership.',
+    healthCharacterIssues: 'No health or character issues declared.',
+    registrationId: 'sample-registration-id',
+    feedbackId: 'sample-feedback-id',
+    adviserName: 'Paul Janssen',
+    applicationType: 'Skilled Migrant Category Residence',
+    overallRating: 'Excellent',
+    recommendationRating: '10',
+    permissionToContact: 'Yes',
+    permissionToUseFeedback: 'Yes',
+    serviceStrengths: 'Clear advice, realistic expectations and calm guidance through a technical process.',
+    improvementSuggestions: 'No improvement suggestions recorded.',
+  };
+  const values = { ...common };
+  for (const placeholder of placeholders || []) {
+    if (!(placeholder in values)) values[placeholder] = sampleValueForPlaceholder(placeholder, templateKey);
+  }
+  return values;
+}
+
+function sampleValueForPlaceholder(placeholder = '', templateKey = '') {
+  const key = String(placeholder || '').toLowerCase();
+  if (key.includes('email')) return 'sarah.patel@example.com';
+  if (key.includes('phone') || key.includes('mobile')) return '+64 21 555 0100';
+  if (key.includes('name')) return key.includes('adviser') ? 'Paul Janssen' : 'Sarah Patel';
+  if (key.includes('date') || key.includes('time') || key.includes('submitted')) return '1 July 2026, 10:30 am';
+  if (key.includes('link') || key.includes('url')) return 'https://thisvisacrm.netlify.app/sample';
+  if (key.includes('summary')) return 'Sample summary line one\nSample summary line two';
+  if (key.includes('rating') || key.includes('score')) return '10';
+  return `Sample ${placeholder}`;
+}
+
+function findTemplatePlaceholders(value = '') {
+  const found = new Set();
+  String(value || '').replace(/{{\s*([a-zA-Z0-9_.-]+)\s*}}/g, (_, key) => {
+    found.add(key);
+    return '';
+  });
+  return Array.from(found);
+}
+
+function renderTemplatePreviewText(value = '', context = {}) {
+  return String(value || '').replace(/{{\s*([a-zA-Z0-9_.-]+)\s*}}/g, (_, key) => {
+    if (Object.prototype.hasOwnProperty.call(context, key)) return context[key] == null ? '' : String(context[key]);
+    return `{{${key}}}`;
+  });
+}
 
 function resolveTemplateEditorHtml(template = {}) {
   const bodyHtml = template.bodyHtml || template.body_html || '';
@@ -5770,6 +5942,7 @@ function emailTemplateLabel(key = '') {
     seminar_approve: 'Seminar approval',
     seminar_decline: 'Seminar decline',
     seminar_new_registration: 'Seminar notification',
+    feedback_internal_notification: 'Feedback notification',
   };
   return labels[key] || String(key || 'Other').replace(/_/g, ' ').replace(/^./, (char) => char.toUpperCase());
 }

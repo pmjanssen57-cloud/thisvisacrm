@@ -262,6 +262,34 @@ Please review this in THiS CRM > Enquiries & Intake > Contact Forms.`,
     placeholders: ['applicantName', 'email', 'phone', 'submitted', 'flags', 'flagLine', 'summary'],
   },
   {
+    key: 'feedback_internal_notification',
+    name: 'Client feedback - internal notification',
+    description: 'Internal notification sent when a client submits the public feedback form.',
+    subject: 'New client feedback submitted - {{applicantName}}',
+    bodyText: `New client feedback has been submitted through the Turner Hopkins Immigration website.
+
+Client: {{applicantName}}
+Email: {{email}}
+Phone: {{phone}}
+Adviser / team member: {{adviserName}}
+Application type: {{applicationType}}
+Submitted: {{submitted}}
+
+Overall service rating: {{overallRating}}
+Likely to recommend: {{recommendationRating}}
+May contact client: {{permissionToContact}}
+Permission to use comments: {{permissionToUseFeedback}}
+
+What did we do well?
+{{serviceStrengths}}
+
+What could we improve?
+{{improvementSuggestions}}
+
+Please review this in THiS CRM > Enquiries & Intake > Feedback.`,
+    placeholders: ['applicantName', 'email', 'phone', 'adviserName', 'applicationType', 'submitted', 'overallRating', 'recommendationRating', 'permissionToContact', 'permissionToUseFeedback', 'serviceStrengths', 'improvementSuggestions', 'feedbackId'],
+  },
+  {
     key: 'portal_access',
     name: 'Client portal access',
     description: 'Sent when a client portal access code is created or refreshed.',
@@ -3067,6 +3095,8 @@ async function sendTestEmail(input = {}, authUser = null) {
   const toEmail = String(input.toEmail || input.to_email || '').trim();
   const subject = String(input.subject || 'THiS CRM test email').trim() || 'THiS CRM test email';
   const bodyText = String(input.message || input.bodyText || input.body || '').trim() || 'This is a test email sent from THiS CRM.';
+  const bodyHtml = cleanHtmlForTemplate(input.bodyHtml || input.body_html || '', 60000) || textToHtml(bodyText);
+  const templateKey = cleanTextForTemplate(input.templateKey || input.template_key || 'test', 120) || 'test';
   if (!isValidEmailAddress(toEmail)) throw new Error('Enter a valid recipient email address.');
 
   const config = requireMicrosoftEmailConfig();
@@ -3074,12 +3104,12 @@ async function sendTestEmail(input = {}, authUser = null) {
   const sentBy = authUser?.email || authUser?.name || 'CRM adviser';
   const [created] = await database.sql`
     INSERT INTO email_notifications (related_record_type, template_key, from_email, from_name, to_email, subject, body_text, body_html, status, sent_by)
-    VALUES ('test', 'test', ${config.fromEmail}, ${config.fromName}, ${toEmail}, ${subject}, ${bodyText}, ${textToHtml(bodyText)}, 'Sending', ${sentBy})
+    VALUES ('test', ${templateKey}, ${config.fromEmail}, ${config.fromName}, ${toEmail}, ${subject}, ${bodyText}, ${bodyHtml}, 'Sending', ${sentBy})
     RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
 
   try {
     const token = await getMicrosoftGraphAccessToken(config);
-    const sendResult = await sendMicrosoftGraphEmail({ config, token, toEmail, subject, bodyText, bodyHtml: textToHtml(bodyText) });
+    const sendResult = await sendMicrosoftGraphEmail({ config, token, toEmail, subject, bodyText, bodyHtml });
     const [updated] = await database.sql`
       UPDATE email_notifications
          SET status = 'Sent', sent_at = NOW(), provider_request_id = ${sendResult.requestId || ''}, updated_at = NOW()

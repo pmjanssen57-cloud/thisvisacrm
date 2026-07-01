@@ -9893,3 +9893,93 @@ body.intake-embed-mode .contact-form select {
   .record-popout-content .portal-check-row { grid-template-columns: 28px minmax(0, 1fr); }
   .record-popout-content .portal-visibility-pill { grid-column: 2; justify-self: start; }
 }
+
+/* v0.13.21 - Email template preview polish */
+.template-sample-panel,
+.template-send-test-panel {
+  border: 1px solid var(--line, #d9e6e1);
+  background: #f8fcfa;
+  border-radius: 16px;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.template-sample-panel .split,
+.template-send-test-panel .split {
+  align-items: flex-start;
+}
+
+.template-sample-panel strong,
+.template-send-test-panel strong,
+.email-preview-subject strong {
+  color: var(--ink, #003736);
+}
+
+.template-sample-panel span,
+.template-send-test-panel span,
+.email-preview-subject span {
+  color: var(--muted, #66736f);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.template-sample-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.template-sample-grid span {
+  display: grid;
+  gap: 2px;
+  background: #fff;
+  border: 1px solid var(--line, #d9e6e1);
+  border-radius: 12px;
+  padding: 8px 10px;
+}
+
+.template-sample-grid b {
+  color: var(--ink, #003736);
+  font-size: 0.76rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.template-rendered-preview {
+  background: #fff;
+}
+
+.email-preview-subject {
+  border-bottom: 1px solid var(--line, #d9e6e1);
+  background: #f8fcfa;
+  padding: 12px 16px;
+  display: grid;
+  gap: 4px;
+}
+
+.email-preview-subject strong {
+  font-size: 0.95rem;
+}
+
+.template-test-row {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+}
+
+.template-test-row .btn {
+  min-height: 42px;
+  white-space: nowrap;
+}
+
+.compact-row {
+  gap: 10px;
+}
+
+@media (max-width: 720px) {
+  .template-sample-grid,
+  .template-test-row {
+    grid-template-columns: 1fr;
+  }
+}
