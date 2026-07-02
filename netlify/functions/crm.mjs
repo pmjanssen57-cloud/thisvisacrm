@@ -730,6 +730,8 @@ async function ensureSchema() {
       deadline_type TEXT NOT NULL,
       deadline_date DATE,
       note TEXT,
+      action_status TEXT NOT NULL DEFAULT 'watching',
+      review_date DATE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
@@ -813,6 +815,11 @@ async function ensureSchema() {
   await database.sql`ALTER TABLE calendar_entries ADD COLUMN IF NOT EXISTS appointment_type TEXT NOT NULL DEFAULT 'Client meeting'`;
   await database.sql`ALTER TABLE billing_milestones ADD COLUMN IF NOT EXISTS billing_trigger_type TEXT NOT NULL DEFAULT 'Date'`;
   await database.sql`ALTER TABLE billing_milestones ADD COLUMN IF NOT EXISTS billing_stage_key TEXT`;
+  await database.sql`ALTER TABLE client_deadlines ADD COLUMN IF NOT EXISTS action_status TEXT`;
+  await database.sql`ALTER TABLE client_deadlines ADD COLUMN IF NOT EXISTS review_date DATE`;
+  await database.sql`UPDATE client_deadlines SET action_status = CASE WHEN LOWER(deadline_type) LIKE '%ppi%' OR LOWER(deadline_type) LIKE '%filing%' THEN 'active' ELSE 'watching' END WHERE action_status IS NULL OR action_status = ''`;
+  await database.sql`ALTER TABLE client_deadlines ALTER COLUMN action_status SET DEFAULT 'watching'`;
+  await database.sql`ALTER TABLE client_deadlines ALTER COLUMN action_status SET NOT NULL`;
   await database.sql`UPDATE billing_milestones SET status = 'WIP' WHERE status IN ('Draft', 'Scheduled')`;
   await database.sql`UPDATE billing_milestones SET status = 'Invoiced' WHERE status = 'Paid'`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_advisers_login_email ON advisers (LOWER(login_email))`;
@@ -820,6 +827,8 @@ async function ensureSchema() {
   await database.sql`CREATE INDEX IF NOT EXISTS idx_clients_one_law_client_number ON clients(one_law_client_number)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_clients_primary_adviser ON clients(primary_adviser_id)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_client_deadlines_date ON client_deadlines(deadline_date)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_client_deadlines_action_status ON client_deadlines(action_status)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_client_deadlines_review_date ON client_deadlines(review_date)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_billing_milestones_due_date ON billing_milestones(due_date)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_personal_tasks_due_date ON personal_tasks(due_date)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_personal_tasks_adviser ON personal_tasks(adviser_id)`;
@@ -1114,7 +1123,7 @@ async function readCrmData() {
     database.sql`SELECT id, name, role, email, login_email, profile_photo_url, availability_status, phone, licence, active FROM advisers ORDER BY name ASC`,
     database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, one_law_client_number, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, portal_enabled, portal_email, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_resource_settings, portal_access_code_hash, portal_last_published_at, portal_last_accessed_at, notes, family_members, document_checklist FROM clients ORDER BY updated_at DESC`,
     database.sql`SELECT id, client_id, stage_key, stage_label, mandatory, applied, completed, completed_date, sort_order FROM client_stages ORDER BY sort_order ASC`,
-    database.sql`SELECT id, client_id, deadline_type, deadline_date, note FROM client_deadlines ORDER BY deadline_date ASC NULLS LAST`,
+    database.sql`SELECT id, client_id, deadline_type, deadline_date, note, action_status, review_date FROM client_deadlines ORDER BY deadline_date ASC NULLS LAST`,
     database.sql`SELECT id, client_id, milestone, due_date, amount, status, invoice_no, billing_trigger_type, billing_stage_key FROM billing_milestones ORDER BY due_date ASC NULLS LAST`,
     database.sql`SELECT id, adviser_id, client_id, title, due_date, status, note FROM personal_tasks ORDER BY due_date ASC NULLS LAST, created_at DESC`,
     database.sql`SELECT id, client_id, adviser_id, title, appointment_type, appointment_date, start_time, end_time, location, notes, status FROM calendar_entries ORDER BY appointment_date ASC, start_time ASC NULLS LAST, created_at DESC`,
@@ -1164,7 +1173,7 @@ async function readSingleClient(clientId) {
   const [clients, stages, deadlines, billing, portalMessages, portalDocuments] = await Promise.all([
     database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, one_law_client_number, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, portal_enabled, portal_email, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_resource_settings, portal_access_code_hash, portal_last_published_at, portal_last_accessed_at, notes, family_members, document_checklist FROM clients WHERE id = ${clientId} LIMIT 1`,
     database.sql`SELECT id, client_id, stage_key, stage_label, mandatory, applied, completed, completed_date, sort_order FROM client_stages WHERE client_id = ${clientId} ORDER BY sort_order ASC`,
-    database.sql`SELECT id, client_id, deadline_type, deadline_date, note FROM client_deadlines WHERE client_id = ${clientId} ORDER BY deadline_date ASC NULLS LAST`,
+    database.sql`SELECT id, client_id, deadline_type, deadline_date, note, action_status, review_date FROM client_deadlines WHERE client_id = ${clientId} ORDER BY deadline_date ASC NULLS LAST`,
     database.sql`SELECT id, client_id, milestone, due_date, amount, status, invoice_no, billing_trigger_type, billing_stage_key FROM billing_milestones WHERE client_id = ${clientId} ORDER BY due_date ASC NULLS LAST`,
     database.sql`SELECT id, client_id, portal_email, message_type, title, message, status, created_at FROM client_portal_messages WHERE client_id = ${clientId} ORDER BY created_at DESC`,
     database.sql`SELECT id, client_id, title, category, description, file_name, file_type, file_size, blob_key, visible_to_client, uploaded_by, uploaded_at FROM client_portal_documents WHERE client_id = ${clientId} ORDER BY uploaded_at DESC`,
@@ -1729,6 +1738,8 @@ function mapClientFromDb(row, stages, deadlines, billing, portalMessages = [], p
         type: deadline.deadline_type,
         date: toDateOnly(deadline.deadline_date),
         note: deadline.note || '',
+        actionStatus: normaliseDeadlineActionStatus(deadline.action_status || defaultDeadlineActionStatus(deadline.deadline_type)),
+        reviewDate: toDateOnly(deadline.review_date),
       })),
     billing: billing
       .filter((item) => item.client_id === row.id)
@@ -2286,10 +2297,11 @@ async function saveClient(input = {}, authUser = null) {
     await poolClient.query('DELETE FROM client_deadlines WHERE client_id = $1', [clientId]);
     for (const deadline of client.deadlines) {
       if (!deadline.type && !deadline.date) continue;
+      const deadlineType = deadline.type || DEADLINE_TYPES[0];
       await poolClient.query(
-        `INSERT INTO client_deadlines (client_id, deadline_type, deadline_date, note)
-         VALUES ($1, $2, $3, $4)`,
-        [clientId, deadline.type || DEADLINE_TYPES[0], nullableDate(deadline.date), deadline.note || '']
+        `INSERT INTO client_deadlines (client_id, deadline_type, deadline_date, note, action_status, review_date)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [clientId, deadlineType, nullableDate(deadline.date), deadline.note || '', normaliseDeadlineActionStatus(deadline.actionStatus || defaultDeadlineActionStatus(deadlineType)), nullableDate(deadline.reviewDate)]
       );
     }
 
@@ -3738,7 +3750,8 @@ async function insertSeedClient(poolClient, seed) {
     );
   }
   for (const deadline of seed.deadlines || []) {
-    await poolClient.query(`INSERT INTO client_deadlines (client_id, deadline_type, deadline_date, note) VALUES ($1, $2, $3, $4)`, [clientId, deadline.type, deadline.date, deadline.note || '']);
+    const deadlineType = deadline.type || DEADLINE_TYPES[0];
+    await poolClient.query(`INSERT INTO client_deadlines (client_id, deadline_type, deadline_date, note, action_status, review_date) VALUES ($1, $2, $3, $4, $5, $6)`, [clientId, deadlineType, deadline.date, deadline.note || '', normaliseDeadlineActionStatus(deadline.actionStatus || defaultDeadlineActionStatus(deadlineType)), nullableDate(deadline.reviewDate)]);
   }
   for (const item of seed.billing || []) {
     await poolClient.query(`INSERT INTO billing_milestones (client_id, milestone, due_date, amount, status, invoice_no, billing_trigger_type, billing_stage_key) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, [clientId, item.milestone, item.dueDate || null, item.amount, normaliseBillingStatus(item.status), item.invoiceNo || '', normaliseBillingTriggerType(item.triggerType), item.stageKey || null]);
@@ -4019,7 +4032,7 @@ function normaliseClientInput(input) {
     portalPublishNow: Boolean(input.portalPublishNow),
     notes: input.notes || '',
     stages: normaliseStages(input.stages || []),
-    deadlines: Array.isArray(input.deadlines) ? input.deadlines : [],
+    deadlines: normaliseClientDeadlines(input.deadlines),
     billing: normaliseBillingItems(input.billing),
     familyMembers: normaliseFamilyMembers(input.familyMembers),
     documentChecklist: normaliseDocumentChecklist(input.documentChecklist),
@@ -4027,6 +4040,38 @@ function normaliseClientInput(input) {
   return client;
 }
 
+
+function normaliseDeadlineActionStatus(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (['active', 'show', 'required', 'requires-action'].includes(raw)) return 'active';
+  if (['deferred', 'defer', 'snoozed'].includes(raw)) return 'deferred';
+  if (['historical', 'historic', 'not-actionable', 'not actionable', 'quiet'].includes(raw)) return 'historical';
+  if (['completed', 'complete', 'replaced', 'closed'].includes(raw)) return 'completed';
+  return 'watching';
+}
+
+function defaultDeadlineActionStatus(type = '') {
+  const text = String(type || '').toLowerCase();
+  if (text.includes('ppi') || text.includes('filing')) return 'active';
+  return 'watching';
+}
+
+function normaliseClientDeadlines(input = []) {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((deadline, index) => {
+      const type = String(deadline.type || deadline.deadline_type || DEADLINE_TYPES[0]).trim() || DEADLINE_TYPES[0];
+      return {
+        id: deadline.id || `deadline-${index}-${Date.now()}`,
+        type,
+        date: nullableDate(deadline.date || deadline.deadline_date) || '',
+        note: String(deadline.note || '').trim(),
+        actionStatus: normaliseDeadlineActionStatus(deadline.actionStatus || deadline.action_status || defaultDeadlineActionStatus(type)),
+        reviewDate: nullableDate(deadline.reviewDate || deadline.review_date) || '',
+      };
+    })
+    .filter((deadline) => deadline.type || deadline.date || deadline.note);
+}
 
 function normaliseFamilyMembers(inputMembers = []) {
   if (!Array.isArray(inputMembers)) return [];
@@ -4067,6 +4112,8 @@ function normaliseDocumentChecklist(items = []) {
       custom: false,
       expiryDate: nullableDate(existing.expiryDate || existing.expiry_date) || '',
       obtained: applied ? Boolean(existing.obtained) : false,
+      actionStatus: normaliseDeadlineActionStatus(existing.actionStatus || existing.action_status || 'watching'),
+      reviewDate: nullableDate(existing.reviewDate || existing.review_date) || '',
     };
   });
   const templateIds = new Set(DOCUMENT_CHECKLIST_TEMPLATES.map((template) => template.id));
@@ -4086,6 +4133,8 @@ function normaliseDocumentChecklist(items = []) {
         custom: true,
         expiryDate: nullableDate(item.expiryDate || item.expiry_date) || '',
         obtained: applied ? Boolean(item.obtained) : false,
+        actionStatus: normaliseDeadlineActionStatus(item.actionStatus || item.action_status || 'watching'),
+        reviewDate: nullableDate(item.reviewDate || item.review_date) || '',
       };
     })
     .filter((item) => item.name);

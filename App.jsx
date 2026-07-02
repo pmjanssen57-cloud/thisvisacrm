@@ -56,6 +56,19 @@ const DEFAULT_DEADLINE_TYPES = [
   'Filing Deadline Date',
 ];
 
+const DEADLINE_SIGNAL_OPTIONS = [
+  { value: 'active', label: 'Active - show if due or overdue' },
+  { value: 'watching', label: 'Watching - show inside warning window' },
+  { value: 'deferred', label: 'Deferred - hide until review date' },
+  { value: 'historical', label: 'Historical / not actionable' },
+  { value: 'completed', label: 'Completed / replaced' },
+];
+
+const DEADLINE_SIGNAL_LABELS = DEADLINE_SIGNAL_OPTIONS.reduce((labels, option) => {
+  labels[option.value] = option.label;
+  return labels;
+}, {});
+
 const BILLING_STATUSES = ['WIP', 'Invoiced', 'Overdue'];
 const BILLING_TRIGGER_TYPES = ['Date', 'Milestone'];
 const APPOINTMENT_TYPES = ['Client meeting', 'Adviser review', 'Lodgement target', 'Document follow-up', 'INZ call', 'Billing follow-up', 'Internal review', 'Other'];
@@ -1120,14 +1133,26 @@ export default function App() {
   const deadlineRows = useMemo(() => {
     return [
       ...scopedClients.flatMap((client) => [
-        ...(client.deadlines || []).map((deadline) => ({ client, type: deadline.type, date: deadline.date, note: deadline.note, source: 'deadline' })),
+        ...(client.deadlines || []).map((deadline) => ({
+          id: `${client.id}-${deadline.id}`,
+          client,
+          type: deadline.type,
+          date: deadline.date,
+          note: deadline.note,
+          source: 'deadline',
+          adviserId: client.primaryAdviserId || '',
+          actionStatus: deadline.actionStatus,
+          reviewDate: deadline.reviewDate,
+          diff: dateDiff(deadline.date),
+        })),
         ...documentExpiryRowsForClient(client),
-        client.nextActionDue ? { client, type: 'Next Action Date', date: client.nextActionDue, note: client.nextAction, source: 'next-action' } : null,
+        client.nextActionDue ? { client, type: 'Next Action Date', date: client.nextActionDue, note: client.nextAction, source: 'next-action', diff: dateDiff(client.nextActionDue) } : null,
       ].filter(Boolean)),
       ...calendarDeadlineRows(scopedCalendarEntries, data.clients),
     ]
       .filter((row) => row.date)
-      .sort((a, b) => a.date.localeCompare(b.date));
+      .map(withDeadlineSignal)
+      .sort((a, b) => deadlineSignalSortDate(a).localeCompare(deadlineSignalSortDate(b)) || String(a.date || '').localeCompare(String(b.date || '')));
   }, [scopedClients, scopedCalendarEntries, data.clients]);
 
   const taskRows = useMemo(() => buildTaskRows(scopedClients, scopedPersonalTasks, data.clients, scopedCalendarEntries)
@@ -6435,11 +6460,14 @@ function CrmToast({ toast, onClose }) {
 
 function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, deadlineRows, taskRows, stageTemplates, setTab, setSelectedClientId, openClientRecord, intakeEnquiries = [], recentClientIds = [] }) {
   const pendingInvoices = clients.flatMap((client) => (client.billing || []).map((item) => ({ item, client }))).filter(({ item, client }) => effectiveBillingStatus(item, client) !== 'Invoiced');
-  const overdueRows = deadlineRows.filter((row) => dateDiff(row.date) < 0);
-  const next14 = deadlineRows.filter((row) => dateDiff(row.date) >= 0 && dateDiff(row.date) <= 14);
+  const actionableDeadlineRows = deadlineRows.filter(isDashboardActionableDeadlineRow);
+  const quietDeadlineRows = deadlineRows.filter((row) => !isDashboardActionableDeadlineRow(row));
+  const dashboardTaskRows = taskRows.map(withDeadlineSignal).filter(isDashboardActionableTaskRow);
+  const overdueRows = actionableDeadlineRows.filter((row) => dateDiff(row.date) < 0 || row.deadlineSignal?.kind === 'review-due');
+  const next14 = actionableDeadlineRows.filter((row) => dateDiff(row.date) >= 0 && dateDiff(row.date) <= 14);
   const clientsWithoutNextAction = activeClients.filter((client) => !client.nextActionDue);
-  const todayActionRows = taskRows.filter((row) => row.diff <= 0);
-  const urgentTaskRows = taskRows.filter((row) => row.diff < 0 || row.diff <= 7);
+  const todayActionRows = dashboardTaskRows.filter((row) => row.diff <= 0 || row.deadlineSignal?.kind === 'review-due');
+  const urgentTaskRows = dashboardTaskRows.filter((row) => row.diff < 0 || row.diff <= 7 || row.deadlineSignal?.kind === 'review-due');
   const newEnquiryCount = (intakeEnquiries || []).filter((item) => item.status === 'New' || !item.status).length;
   const recentClients = (recentClientIds || []).map((id) => clients.find((client) => client.id === id)).filter(Boolean).slice(0, 5);
   const overdueCalendarItems = taskRows.filter((row) => row.source === 'calendar-entry' && row.diff < 0);
@@ -6455,7 +6483,7 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
       <section className="panel dashboard-heading">
         <div>
           <h2>{viewTitle}</h2>
-          <p className="muted">Dashboard metrics, deadlines and billing are filtered to the selected adviser scope.</p>
+          <p className="muted">Dashboard metrics show actionable dates only. Historical, deferred and stale expiry dates stay on the file but are kept quiet here.</p>
         </div>
         <span>{clients.length} client{clients.length === 1 ? '' : 's'} in view</span>
       </section>
@@ -6465,17 +6493,17 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
 
       <div className="metric-grid">
         <MetricCard label="Active clients" value={activeClients.length} note="Live client records" icon={UsersRound} />
-        <MetricCard label="Deadlines next 14 days" value={next14.length} note="Expiry, PPI, filing and actions" icon={CalendarDays} />
-        <MetricCard label="Overdue items" value={overdueRows.length} note="Needs attention" icon={AlertTriangle} warning />
+        <MetricCard label="Action dates next 14 days" value={next14.length} note="Dashboard-visible only" icon={CalendarDays} />
+        <MetricCard label="Actionable overdue" value={overdueRows.length} note="Quiet stale items excluded" icon={AlertTriangle} warning={overdueRows.length > 0} />
         <MetricCard label="Overdue calendar" value={overdueCalendarItems.length} note="Open appointments in the past" icon={CalendarDays} warning={overdueCalendarItems.length > 0} />
         <MetricCard label="Client portal notes" value={newPortalMessages.length} note="New client-submitted items" icon={MessageSquare} warning={newPortalMessages.length > 0} />
         <MetricCard label="WIP / overdue billing" value={formatCurrency(pendingInvoices.reduce((sum, row) => sum + Number(row.item.amount || 0), 0))} note="Billing not yet invoiced" icon={CreditCard} />
       </div>
 
 
-      <DailyBringUpPanel taskRows={taskRows} advisers={advisers} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} />
+      <DailyBringUpPanel taskRows={dashboardTaskRows} advisers={advisers} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} />
 
-      <QuickTaskPanel taskRows={taskRows} advisers={advisers} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} />
+      <QuickTaskPanel taskRows={dashboardTaskRows} advisers={advisers} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} />
 
       <PortalMessageAlertPanel messages={newPortalMessages} openClientRecord={openClientRecord} />
 
@@ -6502,25 +6530,43 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
               );
             })}
           </div>
-          <AdviserClientWorkloadList clients={activeClients} advisers={advisers} taskRows={taskRows} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} />
+          <AdviserClientWorkloadList clients={activeClients} advisers={advisers} taskRows={dashboardTaskRows} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} />
         </section>
 
         <section className="panel">
           <h2>Next critical dates</h2>
-          <p className="muted">Sorted by nearest deadline.</p>
+          <p className="muted">Only dates that are active, due for review, or inside their warning window.</p>
           <div className="date-list">
-            {deadlineRows.slice(0, 10).map((row, index) => (
+            {actionableDeadlineRows.slice(0, 10).map((row, index) => (
               <button className="date-row" key={`${row.client.id}-${row.type}-${index}`} onClick={() => openClientRecord ? openClientRecord(row.client.id) : (setSelectedClientId(row.client.id), setTab('clients'))}>
-                <span><strong>{row.client.firstName} {row.client.lastName}</strong><small>{row.type} · {row.date}</small></span>
-                <DeadlineBadge diff={dateDiff(row.date)} />
+                <span><strong>{row.client.firstName} {row.client.lastName}</strong><small>{row.type} · {row.date}</small><small>{row.deadlineSignal?.reason || ''}</small></span>
+                <DeadlineSignalBadge row={row} />
               </button>
             ))}
+            {!actionableDeadlineRows.length && <p className="muted center">No actionable deadlines in this dashboard view.</p>}
           </div>
+          {quietDeadlineRows.length > 0 && <QuietDeadlineSummary rows={quietDeadlineRows} setTab={setTab} />}
         </section>
       </div>
     </div>
   );
 
+}
+
+
+function QuietDeadlineSummary({ rows = [], setTab }) {
+  const staleCount = rows.filter((row) => row.deadlineSignal?.kind === 'stale').length;
+  const deferredCount = rows.filter((row) => row.deadlineSignal?.status === 'deferred').length;
+  const historicalCount = rows.filter((row) => ['historical', 'completed'].includes(row.deadlineSignal?.status)).length;
+  const futureCount = rows.length - staleCount - deferredCount - historicalCount;
+  return (
+    <div className="quiet-deadline-summary">
+      <ShieldCheck size={16} />
+      <span><strong>{rows.length}</strong> quiet date{rows.length === 1 ? '' : 's'} hidden from this dashboard.</span>
+      <small>{[staleCount ? `${staleCount} stale` : '', deferredCount ? `${deferredCount} deferred` : '', historicalCount ? `${historicalCount} historical/completed` : '', futureCount ? `${futureCount} future/reference` : ''].filter(Boolean).join(' · ')}</small>
+      <button className="btn ghost" type="button" onClick={() => setTab('tasks')}>Review in Tasks</button>
+    </div>
+  );
 }
 
 
@@ -7337,7 +7383,7 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
   }
 
   function addDeadline() {
-    setDraft((current) => ({ ...current, deadlines: [...(current.deadlines || []), { id: `temp-${Date.now()}`, type: deadlineTypes[0], date: '', note: '' }] }));
+    setDraft((current) => ({ ...current, deadlines: [...(current.deadlines || []), { id: `temp-${Date.now()}`, type: deadlineTypes[0], date: '', note: '', actionStatus: defaultDeadlineActionStatus(deadlineTypes[0], 'deadline'), reviewDate: '' }] }));
   }
 
   function updateDeadline(id, patch) {
@@ -7382,7 +7428,7 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
     setValidationMessage('');
     setDraft((current) => ({
       ...current,
-      documentChecklist: [...normaliseDocumentChecklist(current.documentChecklist), { id: makeDocumentItemId(trimmed, checklist), name: trimmed, applied: true, custom: true, expiryDate: '', obtained: false }],
+      documentChecklist: [...normaliseDocumentChecklist(current.documentChecklist), { id: makeDocumentItemId(trimmed, checklist), name: trimmed, applied: true, custom: true, expiryDate: '', obtained: false, actionStatus: 'watching', reviewDate: '' }],
     }));
     return true;
   }
@@ -7602,7 +7648,11 @@ The portal is a secure, read-only space where you can check application updates,
   const portalStatusSummary = draft.portalEnabled ? `Active for ${draft.portalEmail || draft.email || 'client email not set'}. Last published ${formatPortalDateTime(draft.portalLastPublishedAt) || 'not yet'}.${portalNewMessageCount ? ` ${portalNewMessageCount} new client note${portalNewMessageCount === 1 ? '' : 's'} waiting.` : ''}` : 'Inactive. Expand to enable portal access for this client.';
   const requiredDocuments = normaliseDocumentChecklist(draft.documentChecklist || []).filter((item) => item.applied);
   const outstandingDocuments = requiredDocuments.filter((item) => !item.obtained);
-  const upcomingDeadlines = (draft.deadlines || []).filter((item) => item.date).sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
+  const upcomingDeadlines = (draft.deadlines || [])
+    .filter((item) => item.date)
+    .map((deadline) => withDeadlineSignal({ ...deadline, client: draft, source: 'deadline', diff: dateDiff(deadline.date) }))
+    .filter(isDashboardActionableDeadlineRow)
+    .sort((a, b) => deadlineSignalSortDate(a).localeCompare(deadlineSignalSortDate(b)));
   const linkedAppointments = (calendarEntries || []).filter((entry) => entry.clientId === draft.id && entry.status !== 'Completed');
   const visiblePortalPdfCount = (Array.isArray(draft.portalDocuments) ? draft.portalDocuments.map(normalisePortalDocument) : []).filter((doc) => doc.visibleToClient !== false).length;
   const currentStage = currentStageLabel(draft);
@@ -7761,12 +7811,26 @@ The portal is a secure, read-only space where you can check application updates,
 
         {activeClientSection === 'dates' && (
           <div className="client-workspace-section-stack">
-            <ClientWorkspaceIntro title="Key dates" description={popoutMode ? "Record the expiry dates and deadlines that can affect the matter. These feed the task list and dashboard." : "Summary view only. Open the larger editor to add or change deadline dates."} />
+            <ClientWorkspaceIntro title="Key dates" description={popoutMode ? "Record dates that may affect the application. Signal controls decide whether a date appears on the dashboard or stays quietly on the client file." : "Summary view only. Open the larger editor to add dates or adjust dashboard signal controls."} />
             {popoutMode ? (
               <section className="sub-panel workspace-panel">
-                <div className="sub-panel-head"><div><h2>Client deadline dates</h2><p className="muted">Add only the deadline dates that matter for this client.</p></div><button className="btn" onClick={addDeadline}><Plus size={16} />Deadline</button></div>
+                <div className="sub-panel-head"><div><h2>Client deadline dates</h2><p className="muted">Add the date, then choose whether it should appear on the dashboard or remain as a quiet reference item.</p></div><button className="btn" onClick={addDeadline}><Plus size={16} />Deadline</button></div>
                 <div className="table-like">
-                  {(draft.deadlines || []).map((deadline) => <div className="editable-row deadline-row" key={deadline.id}><select value={deadline.type} onChange={(event) => updateDeadline(deadline.id, { type: event.target.value })}>{deadlineTypes.map((type) => <option key={type}>{type}</option>)}</select><input type="date" value={deadline.date || ''} onChange={(event) => updateDeadline(deadline.id, { date: event.target.value })} /><input value={deadline.note || ''} onChange={(event) => updateDeadline(deadline.id, { note: event.target.value })} placeholder="Optional note" /><button className="icon-btn" type="button" onClick={() => removeDeadline(deadline.id)}><Trash2 size={16} /></button></div>)}
+                  {(draft.deadlines || []).map((deadline) => {
+                    const signalRow = withDeadlineSignal({ ...deadline, client: draft, source: 'deadline', diff: dateDiff(deadline.date) });
+                    const signal = signalRow.deadlineSignal;
+                    return (
+                      <div className={`editable-row deadline-row deadline-signal-row ${signal?.dashboard ? `signal-${signal.dashboard}` : ''}`} key={deadline.id}>
+                        <label><span>Deadline type</span><select value={deadline.type} onChange={(event) => updateDeadline(deadline.id, { type: event.target.value, actionStatus: deadline.actionStatus || defaultDeadlineActionStatus(event.target.value, 'deadline') })}>{deadlineTypes.map((type) => <option key={type}>{type}</option>)}</select></label>
+                        <label><span>Date</span><input type="date" value={deadline.date || ''} onChange={(event) => updateDeadline(deadline.id, { date: event.target.value })} /></label>
+                        <label><span>Dashboard signal</span><select value={normaliseDeadlineActionStatus(deadline.actionStatus || defaultDeadlineActionStatus(deadline.type, 'deadline'))} onChange={(event) => updateDeadline(deadline.id, { actionStatus: event.target.value, reviewDate: event.target.value === 'deferred' ? deadline.reviewDate : '' })}>{DEADLINE_SIGNAL_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+                        <label><span>Review again</span><input type="date" value={deadline.reviewDate || ''} disabled={normaliseDeadlineActionStatus(deadline.actionStatus) !== 'deferred'} onChange={(event) => updateDeadline(deadline.id, { reviewDate: event.target.value })} /></label>
+                        <label className="deadline-note-field"><span>Note</span><input value={deadline.note || ''} onChange={(event) => updateDeadline(deadline.id, { note: event.target.value })} placeholder="Optional note" /></label>
+                        <div className="deadline-signal-hint"><DeadlineSignalBadge row={signalRow} /><small>{signal?.reason || 'Dashboard signal will be calculated once a date is entered.'}</small></div>
+                        <button className="icon-btn" type="button" onClick={() => removeDeadline(deadline.id)}><Trash2 size={16} /></button>
+                      </div>
+                    );
+                  })}
                   {!draft.deadlines?.length && <p className="muted center">No deadlines added yet.</p>}
                 </div>
               </section>
@@ -7909,7 +7973,7 @@ function KeyDatesSummaryPanel({ deadlines = [], onEdit }) {
   return (
     <section className="sub-panel workspace-panel summary-editor-panel">
       <div className="sub-panel-head compact">
-        <div><h2>Key dates summary</h2><p className="muted">Dates shown here feed adviser tasks and dashboard bring-ups.</p></div>
+        <div><h2>Key dates summary</h2><p className="muted">Dates shown here remain on the client file. The signal status decides whether each date appears on the dashboard.</p></div>
         <SummaryActionButton onClick={onEdit}>Edit key dates</SummaryActionButton>
       </div>
       <div className="summary-metric-row">
@@ -7919,13 +7983,17 @@ function KeyDatesSummaryPanel({ deadlines = [], onEdit }) {
       </div>
       {dated.length ? (
         <div className="summary-list clean-summary-list">
-          {dated.slice(0, 6).map((item) => (
-            <div className="summary-list-row" key={item.id}>
-              <span className={`summary-status-dot ${dateDiff(item.date) < 0 ? 'overdue' : 'date'}`} aria-hidden="true" />
-              <div><strong>{item.type}</strong><small>{item.note || 'No note'}</small></div>
-              <b>{formatShortDate(item.date)}</b>
-            </div>
-          ))}
+          {dated.slice(0, 6).map((item) => {
+            const signalRow = withDeadlineSignal({ ...item, source: 'deadline', diff: dateDiff(item.date) });
+            const signal = signalRow.deadlineSignal;
+            return (
+              <div className="summary-list-row" key={item.id}>
+                <span className={`summary-status-dot ${signal?.dashboard === 'action' ? (dateDiff(item.date) < 0 ? 'overdue' : 'date') : 'quiet'}`} aria-hidden="true" />
+                <div><strong>{item.type}</strong><small>{item.note || 'No note'}</small><small>{DEADLINE_SIGNAL_LABELS[signal?.status] || 'Watching'} · {signal?.reason || ''}</small></div>
+                <b>{formatShortDate(item.date)}</b>
+              </div>
+            );
+          })}
         </div>
       ) : <EmptySummaryNote>No dated client deadlines have been recorded.</EmptySummaryNote>}
     </section>
@@ -8019,7 +8087,7 @@ function ClientSnapshotCard({ client, advisers = [], currentStage, outstandingDo
       <div className="client-snapshot-grid">
         <div><span>Stage</span><strong>{currentStage || 'Not set'}</strong></div>
         <div><span>Next action</span><strong>{client.nextActionDue || 'No date'}</strong><small>{client.nextAction || 'No next action set'}</small></div>
-        <div><span>Nearest deadline</span><strong>{nearestDeadline?.date || 'None recorded'}</strong>{nearestDiff !== null && <DeadlineBadge diff={nearestDiff} />}</div>
+        <div><span>Nearest action date</span><strong>{nearestDeadline?.date || 'None actionable'}</strong>{nearestDiff !== null && <DeadlineSignalBadge row={nearestDeadline} />}</div>
         <div><span>Documents</span><strong>{outstandingDocuments.length}/{requiredDocuments.length} outstanding</strong></div>
         <div><span>Portal</span><strong>{client.portalEnabled ? 'Active' : 'Inactive'}</strong><small>{portalNewMessageCount ? `${portalNewMessageCount} new client note${portalNewMessageCount === 1 ? '' : 's'}` : 'No new client notes'}</small></div>
         <div><span>Next appointment</span><strong>{nextAppointment?.appointmentDate || 'None booked'}</strong><small>{nextAppointment?.title || ''}</small></div>
@@ -8133,6 +8201,8 @@ function DocumentChecklist({ items, updateItem, addCustomItem, removeCustomItem 
               <label className="doc-include"><input type="checkbox" checked={item.applied} onChange={(event) => updateItem(item.id, { applied: event.target.checked, obtained: event.target.checked ? item.obtained : false })} /><span>Required</span></label>
               <label className="doc-name"><span>Document</span>{item.custom ? <input value={item.name} onChange={(event) => updateItem(item.id, { name: event.target.value })} /> : <strong>{item.name}</strong>}</label>
               <label className="doc-expiry"><span>Expiry date</span><input type="date" value={item.expiryDate || ''} onChange={(event) => updateItem(item.id, { expiryDate: event.target.value })} /></label>
+              <label className="doc-signal"><span>Signal</span><select value={normaliseDeadlineActionStatus(item.actionStatus || 'watching')} onChange={(event) => updateItem(item.id, { actionStatus: event.target.value, reviewDate: event.target.value === 'deferred' ? item.reviewDate : '' })}>{DEADLINE_SIGNAL_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+              <label className="doc-review"><span>Review again</span><input type="date" value={item.reviewDate || ''} disabled={normaliseDeadlineActionStatus(item.actionStatus) !== 'deferred'} onChange={(event) => updateItem(item.id, { reviewDate: event.target.value })} /></label>
               <label className="doc-obtained"><input type="checkbox" checked={item.obtained} onChange={(event) => updateItem(item.id, { obtained: event.target.checked })} /><span>Obtained</span></label>
               <button className="icon-btn" type="button" disabled={!item.custom} onClick={() => removeCustomItem(item.id)} title={item.custom ? 'Remove custom checklist item' : 'Standard item can be marked not required, not deleted'}><Trash2 size={16} /></button>
             </div>
@@ -10137,6 +10207,94 @@ function ProgressBar({ value }) {
   return <div className="progress"><span style={{ width: `${Math.max(0, Math.min(100, value))}%` }} /></div>;
 }
 
+function normaliseDeadlineActionStatus(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (['active', 'show', 'required', 'requires-action'].includes(raw)) return 'active';
+  if (['deferred', 'defer', 'snoozed'].includes(raw)) return 'deferred';
+  if (['historical', 'historic', 'not-actionable', 'not actionable', 'quiet'].includes(raw)) return 'historical';
+  if (['completed', 'complete', 'replaced', 'closed'].includes(raw)) return 'completed';
+  return 'watching';
+}
+
+function defaultDeadlineActionStatus(type = '', source = '') {
+  const text = String(type || '').toLowerCase();
+  if (source === 'document-expiry') return 'watching';
+  if (text.includes('ppi') || text.includes('filing')) return 'active';
+  return 'watching';
+}
+
+function warningWindowDaysForDeadline(row = {}) {
+  const text = String(row.type || '').toLowerCase();
+  if (text.includes('ppi') || text.includes('filing')) return 3650;
+  if (text.includes('visa')) return 90;
+  if (text.includes('medical') || text.includes('police')) return 60;
+  if (text.includes('passport')) return 180;
+  if (row.source === 'document-expiry') return 60;
+  return 30;
+}
+
+function isDeadlineSignalControlledSource(row = {}) {
+  return row.source === 'deadline' || row.source === 'document-expiry';
+}
+
+function deadlineSignalForRow(row = {}) {
+  const source = row.source || 'deadline';
+  if (!isDeadlineSignalControlledSource({ source })) {
+    return { dashboard: 'action', status: 'active', kind: 'active', label: 'Active', reason: 'Operational task.' };
+  }
+  const status = normaliseDeadlineActionStatus(row.actionStatus || defaultDeadlineActionStatus(row.type, source));
+  const diff = row.diff ?? dateDiff(row.date);
+  const reviewDate = normaliseIsoDate(row.reviewDate || '');
+  const reviewDiff = reviewDate ? dateDiff(reviewDate) : null;
+  const windowDays = warningWindowDaysForDeadline(row);
+  const critical = String(row.type || '').toLowerCase().includes('ppi') || String(row.type || '').toLowerCase().includes('filing');
+
+  if (status === 'completed') return { dashboard: 'quiet', status, kind: 'completed', label: 'Completed', reason: 'Completed or replaced; retained on the client file.' };
+  if (status === 'historical') return { dashboard: 'quiet', status, kind: 'historical', label: 'Historical', reason: 'Marked as historical / not actionable.' };
+  if (status === 'deferred') {
+    if (reviewDiff !== null && reviewDiff <= 0) return { dashboard: 'action', status, kind: 'review-due', label: 'Review due', reason: `Deferred item is due for review${reviewDate ? ` (${reviewDate})` : ''}.` };
+    return { dashboard: 'quiet', status, kind: 'deferred', label: 'Deferred', reason: reviewDate ? `Hidden until review date ${reviewDate}.` : 'Deferred without a review date.' };
+  }
+  if (diff === null || diff === undefined) return { dashboard: 'quiet', status, kind: 'undated', label: 'No date', reason: 'No date recorded.' };
+  if (critical) return { dashboard: 'action', status, kind: diff < 0 ? 'overdue' : 'critical', label: diff < 0 ? 'Overdue' : 'Critical date', reason: 'PPI and filing deadlines stay visible until completed or deferred.' };
+  if (diff < 0) {
+    if (status === 'active') return { dashboard: 'action', status, kind: 'overdue', label: 'Overdue', reason: 'Manually marked active, so it remains visible while overdue.' };
+    if (Math.abs(diff) <= 60) return { dashboard: 'action', status, kind: 'overdue', label: 'Overdue', reason: 'Recently overdue and inside the stale-date cutoff.' };
+    return { dashboard: 'quiet', status, kind: 'stale', label: 'Stale', reason: 'Overdue by more than 60 days and not marked active.' };
+  }
+  if (diff <= windowDays) return { dashboard: 'action', status, kind: diff === 0 ? 'today' : 'upcoming', label: diff === 0 ? 'Today' : `${diff}d`, reason: `Inside ${windowDays}-day warning window.` };
+  return { dashboard: 'quiet', status, kind: 'future', label: 'Future', reason: `Outside ${windowDays}-day warning window.` };
+}
+
+function withDeadlineSignal(row = {}) {
+  const diff = row.diff ?? dateDiff(row.date);
+  const enriched = { ...row, diff };
+  return { ...enriched, deadlineSignal: deadlineSignalForRow(enriched) };
+}
+
+function isDashboardActionableDeadlineRow(row = {}) {
+  return withDeadlineSignal(row).deadlineSignal?.dashboard === 'action';
+}
+
+function isDashboardActionableTaskRow(row = {}) {
+  if (!isDeadlineSignalControlledSource(row)) return true;
+  return isDashboardActionableDeadlineRow(row);
+}
+
+function deadlineSignalSortDate(row = {}) {
+  const signal = row.deadlineSignal || deadlineSignalForRow(row);
+  if (signal.kind === 'review-due' && row.reviewDate) return row.reviewDate;
+  return row.date || row.reviewDate || '9999-12-31';
+}
+
+function DeadlineSignalBadge({ row }) {
+  if (!row) return null;
+  const signal = row.deadlineSignal || deadlineSignalForRow(row);
+  if (signal.kind === 'review-due') return <b className="badge urgent">Review due</b>;
+  if (signal.dashboard === 'quiet') return <b className="badge quiet">{signal.label || 'Quiet'}</b>;
+  return <DeadlineBadge diff={row.diff ?? dateDiff(row.date)} />;
+}
+
 function DeadlineBadge({ diff }) {
   if (diff === null || diff === undefined) return null;
   const className = diff < 0 ? 'badge overdue' : diff <= 30 ? 'badge urgent' : diff <= 60 ? 'badge soon' : 'badge safe';
@@ -10617,6 +10775,23 @@ function daysFromToday(days) {
   return toIsoDate(d);
 }
 
+function normaliseClientDeadline(deadline = {}) {
+  const type = deadline.type || deadline.deadline_type || DEFAULT_DEADLINE_TYPES[0];
+  return {
+    id: deadline.id || `deadline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    type,
+    date: normaliseIsoDate(deadline.date || deadline.deadline_date),
+    note: deadline.note || '',
+    actionStatus: normaliseDeadlineActionStatus(deadline.actionStatus || deadline.action_status || deadline.signalStatus || defaultDeadlineActionStatus(type, 'deadline')),
+    reviewDate: normaliseIsoDate(deadline.reviewDate || deadline.review_date),
+  };
+}
+
+function normaliseIsoDate(value) {
+  const text = String(value || '').slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : '';
+}
+
 function normaliseClientFromApi(client = {}, stageTemplates = DEFAULT_STAGE_TEMPLATES) {
   return {
     ...client,
@@ -10640,6 +10815,7 @@ function normaliseClientFromApi(client = {}, stageTemplates = DEFAULT_STAGE_TEMP
     portalDocuments: Array.isArray(client.portalDocuments) ? client.portalDocuments.map(normalisePortalDocument) : [],
     familyMembers: Array.isArray(client.familyMembers) ? client.familyMembers.map((member) => ({ ...member, nationality: member.nationality || '' })) : [],
     documentChecklist: normaliseDocumentChecklist(client.documentChecklist),
+    deadlines: Array.isArray(client.deadlines) ? client.deadlines.map(normaliseClientDeadline) : [],
     billing: normaliseBillingItems(client.billing || []),
     stages: normaliseStages(client.stages, stageTemplates),
   };
@@ -11083,6 +11259,8 @@ function normaliseDocumentChecklist(items = []) {
       custom: false,
       expiryDate: existing.expiryDate || existing.expiry_date || '',
       obtained: applied ? Boolean(existing.obtained) : false,
+      actionStatus: normaliseDeadlineActionStatus(existing.actionStatus || existing.action_status || 'watching'),
+      reviewDate: normaliseIsoDate(existing.reviewDate || existing.review_date),
     };
   });
   const templateIds = new Set(DOCUMENT_CHECKLIST_TEMPLATES.map((template) => template.id));
@@ -11100,6 +11278,8 @@ function normaliseDocumentChecklist(items = []) {
       custom: true,
       expiryDate: item.expiryDate || item.expiry_date || '',
       obtained: item.applied === false ? false : Boolean(item.obtained),
+      actionStatus: normaliseDeadlineActionStatus(item.actionStatus || item.action_status || 'watching'),
+      reviewDate: normaliseIsoDate(item.reviewDate || item.review_date),
     }))
     .filter((item) => item.name);
   return [...templateRows, ...customRows];
@@ -11569,6 +11749,8 @@ function documentExpiryRowsForClient(client) {
       date: item.expiryDate,
       note: item.obtained ? 'Document obtained; check expiry before use.' : 'Document not yet marked as obtained.',
       source: 'document-expiry',
+      actionStatus: item.actionStatus || 'watching',
+      reviewDate: item.reviewDate || '',
       diff: dateDiff(item.expiryDate),
     }));
 }
@@ -11623,6 +11805,8 @@ function buildTaskRows(clients, personalTasks = [], allClients = [], calendarEnt
         date: deadline.date,
         note: deadline.note || '',
         source: 'deadline',
+        actionStatus: deadline.actionStatus,
+        reviewDate: deadline.reviewDate,
         diff: dateDiff(deadline.date),
       })),
       ...documentExpiryRowsForClient(client),

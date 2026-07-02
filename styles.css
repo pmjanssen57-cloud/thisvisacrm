@@ -9983,3 +9983,158 @@ body.intake-embed-mode .contact-form select {
     grid-template-columns: 1fr;
   }
 }
+
+/* v0.13.23 - deadline signal cleanup */
+.badge.quiet {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.quiet-deadline-summary {
+  margin-top: 14px;
+  border: 1px dashed var(--line);
+  background: #f8fcfa;
+  border-radius: 18px;
+  padding: 12px 14px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px 10px;
+  align-items: center;
+  color: var(--muted);
+}
+
+.quiet-deadline-summary svg {
+  color: var(--ink);
+}
+
+.quiet-deadline-summary span {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.quiet-deadline-summary small {
+  grid-column: 2 / 3;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.quiet-deadline-summary .btn {
+  grid-column: 3 / 4;
+  grid-row: 1 / span 2;
+  justify-self: end;
+}
+
+.editable-row.deadline-row.deadline-signal-row {
+  grid-template-columns: minmax(170px, 1.05fr) minmax(132px, .72fr) minmax(190px, 1.18fr) minmax(132px, .72fr) minmax(190px, 1.15fr) minmax(170px, 1fr) 42px;
+  align-items: end;
+}
+
+.deadline-signal-row label {
+  display: grid;
+  gap: 5px;
+}
+
+.deadline-signal-row label span,
+.deadline-signal-hint small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.deadline-signal-row .deadline-note-field {
+  min-width: 0;
+}
+
+.deadline-signal-hint {
+  display: grid;
+  gap: 6px;
+  align-self: center;
+}
+
+.deadline-signal-hint small {
+  line-height: 1.35;
+  letter-spacing: normal;
+  text-transform: none;
+  font-weight: 650;
+}
+
+.deadline-signal-row.signal-quiet {
+  background: #f8fafc;
+  border-style: dashed;
+}
+
+.summary-status-dot.quiet {
+  background: #94a3b8;
+}
+
+.document-checklist-row {
+  grid-template-columns: minmax(96px, 0.55fr) minmax(0, 1.2fr) minmax(145px, 0.7fr) minmax(170px, 0.95fr) minmax(140px, 0.75fr) minmax(104px, 0.6fr) 42px;
+  grid-template-areas: "required name expiry signal review obtained remove";
+}
+
+.document-checklist-row .doc-signal { grid-area: signal; }
+.document-checklist-row .doc-review { grid-area: review; }
+
+.document-checklist-row .doc-signal,
+.document-checklist-row .doc-review {
+  min-width: 0;
+}
+
+.document-checklist-row .doc-signal > span,
+.document-checklist-row .doc-review > span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.document-checklist-row select {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  padding: 10px 12px;
+  min-height: 43px;
+  outline: none;
+  width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 1280px) {
+  .editable-row.deadline-row.deadline-signal-row,
+  .document-checklist-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas: none;
+  }
+
+  .document-checklist-row .doc-include,
+  .document-checklist-row .doc-name,
+  .document-checklist-row .doc-expiry,
+  .document-checklist-row .doc-signal,
+  .document-checklist-row .doc-review,
+  .document-checklist-row .doc-obtained,
+  .document-checklist-row > .icon-btn {
+    grid-area: auto;
+  }
+}
+
+@media (max-width: 860px) {
+  .quiet-deadline-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .quiet-deadline-summary small,
+  .quiet-deadline-summary .btn {
+    grid-column: auto;
+    grid-row: auto;
+    justify-self: stretch;
+  }
+
+  .editable-row.deadline-row.deadline-signal-row,
+  .document-checklist-row {
+    grid-template-columns: 1fr !important;
+  }
+}

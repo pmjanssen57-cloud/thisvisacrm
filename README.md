@@ -1,86 +1,64 @@
-# THiS CRM v0.13.22 — SMC Calculator Email Integration
+# THiS CRM v0.13.23 — Deadline Signal Cleanup
 
-This build sits on top of v0.13.21 and integrates the standalone SMC work experience calculator into the CRM-hosted public form stack.
+This build sits on top of v0.13.22 and reduces dashboard noise by separating dates that are genuinely actionable from dates that are useful background recordkeeping.
 
-The calculator remains a public website tool rather than another CRM review queue. Users do not appear in Enquiries & Intake. Instead, the user can email themselves the result summary, and THiS advisers/admin are notified when that happens.
+The CRM still keeps all client dates and document expiry dates on the client file. The dashboard now focuses on dates that need adviser attention.
 
-## v0.13.22 changes
+## v0.13.23 changes
 
-- Added a hosted public SMC work experience calculator page:
-  - `/smc-work-experience-calculator.html`
-- Added a Squarespace-ready embed file:
-  - `turner-hopkins-smc-work-experience-calculator-embed.html`
-- Replaced the browser-side “Download PDF results” action with:
-  - email address field
-  - “Email my results” button
-  - confirmation / error status text
-- Added Netlify Function:
-  - `smc-calculator.mjs`
-- Result email is sent to the applicant using the existing Microsoft 365 email integration.
-- Internal notification email is sent when a result is emailed.
-- Internal notification recipients are:
-  1. all active advisers with email addresses in the CRM; or
-  2. fallback environment variables if no active adviser email addresses are available.
-- Added editable CRM email templates:
-  - `SMC calculator - applicant result`
-  - `SMC calculator - internal notification`
-- Added template preview sample data and email-log labels for the new SMC calculator emails.
-- Email sends are logged in Tools > Email log.
-- Fixed the calculator embed script issue from the standalone file so the guided work-period cards render correctly.
-- Added iframe height messaging for Squarespace embedding.
-- Updated package version to `0.13.22`.
+- Added deadline signal controls to client key dates:
+  - Active — show if due or overdue
+  - Watching — show inside the relevant warning window
+  - Deferred — hide until a review date
+  - Historical / not actionable — keep on the file, hide from dashboard
+  - Completed / replaced — keep on the file, hide from dashboard
+- Added review-again date for deferred client deadlines.
+- Added the same signal controls to document checklist expiry dates.
+- Dashboard now excludes quiet, historical, deferred, completed and stale expiry dates from the main warning panels.
+- Dashboard “Next critical dates” now shows only actionable dates.
+- Dashboard metrics now count actionable overdue dates, not every old expired date.
+- Added a quiet-date summary so advisers can see how many dates are being suppressed without losing confidence that the data still exists.
+- Client snapshot now uses the nearest actionable date rather than the nearest recorded date.
+- Key Dates summary now shows each date’s signal status and reason.
+- Existing PPI response dates and filing deadline dates remain active by default.
+- Existing visa, medical and police expiry dates are migrated to “Watching” by default, which avoids old expired items dominating the dashboard unless marked active.
+
+## Dashboard signal rules
+
+Default warning windows:
+
+- Visa expiry: 90 days
+- Medical expiry: 60 days
+- Police clearance expiry: 60 days
+- Passport/document expiry: 60 days, except passport-related dates which use 180 days
+- Other/custom dates: 30 days
+- PPI response and filing deadlines: remain visible until completed, deferred or marked historical
+
+A watched expiry date that is more than 60 days overdue is treated as stale and kept quiet unless manually marked Active.
 
 ## Database
 
-No new database migration is required for this release.
+This release includes a migration:
 
-This release reuses the existing:
+- `202607030001_add_deadline_signal_controls.sql`
 
-- `email_templates`
-- `email_notifications`
-- `advisers`
+The migration adds:
 
-The new Netlify Function defensively ensures the two new email templates exist when the public calculator endpoint is used.
+- `client_deadlines.action_status`
+- `client_deadlines.review_date`
 
-## Environment variables
-
-Existing Microsoft Graph email variables are still required for email sending:
-
-- `MICROSOFT_TENANT_ID`
-- `MICROSOFT_CLIENT_ID`
-- `MICROSOFT_CLIENT_SECRET`
-- `MICROSOFT_NOTIFICATION_FROM_EMAIL`
-- `MICROSOFT_NOTIFICATION_FROM_NAME`
-
-Optional new variables:
-
-- `SMC_CALCULATOR_NOTIFICATION_EMAILS`
-  - comma-separated fallback recipients if no active adviser emails are found in CRM
-- `SMC_CALCULATOR_CONSULTATION_URL`
-  - defaults to `https://www.turnerhopkinsimmigration.co.nz/visa-consultation`
-- `SMC_CALCULATOR_URL`
-  - defaults to `https://thisvisacrm.netlify.app/smc-work-experience-calculator.html`
-
-## Squarespace embed
-
-Use:
-
-`turner-hopkins-smc-work-experience-calculator-embed.html`
-
-Paste the full block into a Squarespace Code Block. If the Netlify production URL changes, update the iframe `src` inside that file.
+Document checklist signal controls are stored inside the existing `clients.document_checklist` JSON data.
 
 ## Recommended smoke test
 
 1. Deploy the package to Netlify.
-2. Open `/smc-work-experience-calculator.html`.
-3. Load the example or enter a simple test calculation.
-4. Calculate the result.
-5. Enter an internal test email address and click “Email my results”.
-6. Confirm the result email arrives.
-7. Confirm the internal notification arrives.
-8. Open CRM > Tools > Email log and confirm both SMC calculator emails are logged.
-9. Open CRM > Tools > Templates and confirm the two new SMC calculator templates appear and preview correctly.
-10. Embed the Squarespace block and confirm height resizing works on desktop and mobile.
+2. Open the CRM dashboard and confirm old visa/medical/police/document expiries no longer dominate the main warning cards.
+3. Open a client record > Key dates.
+4. Set one old police clearance expiry to Active and confirm it reappears on the dashboard.
+5. Set another key date to Deferred with a future review date and confirm it stays quiet.
+6. Set a deferred review date to today and confirm it appears as review due.
+7. Open the document checklist, set a document expiry to Historical / not actionable, save, and confirm it remains on the client record but not the main dashboard.
+8. Confirm PPI and filing deadline dates remain visible unless manually deferred, completed or marked historical.
 
 ## Build checks completed
 
