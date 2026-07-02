@@ -1,0 +1,26 @@
+<!-- Turner Hopkins Immigration Specialists - SMC Work Experience Calculator Embed
+     Paste this block into a Squarespace Code Block.
+     Update the iframe src if your Netlify production URL is different.
+-->
+<div id="this-smc-calculator-embed" style="width:100%; max-width:1120px; margin:0 auto;">
+  <iframe
+    id="this-smc-calculator-frame"
+    title="Turner Hopkins SMC Work Experience Calculator"
+    src="https://thisvisacrm.netlify.app/smc-work-experience-calculator.html"
+    style="width:100%; min-height:1800px; border:0; display:block; overflow:hidden;"
+    loading="lazy"
+    referrerpolicy="strict-origin-when-cross-origin"
+  ></iframe>
+</div>
+<script>
+(function () {
+  var frame = document.getElementById('this-smc-calculator-frame');
+  if (!frame) return;
+  window.addEventListener('message', function (event) {
+    var data = event.data || {};
+    if (data.source !== 'this-crm-smc-calculator' || data.type !== 'THIS_SMC_CALCULATOR_HEIGHT') return;
+    var height = Number(data.height || 0);
+    if (height > 600) frame.style.minHeight = Math.min(height + 40, 9000) + 'px';
+  });
+})();
+</script>

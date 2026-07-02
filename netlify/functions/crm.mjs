@@ -290,6 +290,50 @@ Please review this in THiS CRM > Enquiries & Intake > Feedback.`,
     placeholders: ['applicantName', 'email', 'phone', 'adviserName', 'applicationType', 'submitted', 'overallRating', 'recommendationRating', 'permissionToContact', 'permissionToUseFeedback', 'serviceStrengths', 'improvementSuggestions', 'feedbackId'],
   },
   {
+    key: 'smc_calculator_result',
+    name: 'SMC calculator - applicant result',
+    description: 'Sent to the website user after they request their SMC work experience calculator result by email.',
+    subject: 'Your SMC work experience estimate',
+    bodyText: `Hello,
+
+Thank you for using the Turner Hopkins Immigration Specialists SMC work experience calculator.
+
+Your indicative result is below.
+
+{{summary}}
+
+Work periods entered:
+{{workPeriods}}
+
+Important note:
+This calculator provides an indication only. It is not immigration advice, does not guarantee eligibility, and does not replace a full assessment of your evidence, ANZSCO substantial match, direct relevance, genuine employment, wage thresholds, or whether Immigration New Zealand would accept the claimed work experience.
+
+If you would like our team to review your circumstances and map out a practical residence strategy, you can book a consultation here:
+{{consultationLink}}
+
+Turner Hopkins Immigration Specialists`,
+    placeholders: ['recipientEmail', 'submitted', 'pathwayName', 'headline', 'statusLabel', 'applicationDate', 'summary', 'workPeriods', 'consultationLink', 'calculatorUrl'],
+  },
+  {
+    key: 'smc_calculator_internal_notification',
+    name: 'SMC calculator - internal notification',
+    description: 'Internal notification sent when a website user emails themselves an SMC work experience calculator result.',
+    subject: 'SMC calculator result emailed - {{recipientEmail}}',
+    bodyText: `A website user has emailed themselves an SMC work experience calculator result.
+
+Email: {{recipientEmail}}
+Submitted: {{submitted}}
+Calculator page: {{calculatorUrl}}
+
+{{summary}}
+
+Work periods entered:
+{{workPeriods}}
+
+No CRM enquiry record has been created for this calculator use. Follow up manually if appropriate.`,
+    placeholders: ['recipientEmail', 'submitted', 'pathwayName', 'headline', 'statusLabel', 'applicationDate', 'summary', 'workPeriods', 'calculatorUrl'],
+  },
+  {
     key: 'portal_access',
     name: 'Client portal access',
     description: 'Sent when a client portal access code is created or refreshed.',

@@ -5680,6 +5680,14 @@ function buildEmailTemplateSampleData(templateKey = '', placeholders = []) {
     permissionToUseFeedback: 'Yes',
     serviceStrengths: 'Clear advice, realistic expectations and calm guidance through a technical process.',
     improvementSuggestions: 'No improvement suggestions recorded.',
+    recipientEmail: 'sarah.patel@example.com',
+    pathwayName: 'Skilled Work Experience pathway',
+    headline: 'Potentially meets the work-experience components',
+    statusLabel: 'Indicative pass',
+    applicationDate: '14 March 2027',
+    consultationLink: 'https://www.turnerhopkinsimmigration.co.nz/visa-consultation',
+    calculatorUrl: 'https://thisvisacrm.netlify.app/smc-work-experience-calculator.html',
+    workPeriods: 'NZ skilled pay period 1: 13 June 2023 to 12 June 2025; New Zealand; skill level 2; estimated hourly rate $33.00 per hour; 40 guaranteed hours.\nOverseas directly relevant period: 1 January 2020 to 1 January 2023; Overseas; skill level 2; estimated hourly rate $20.00 per hour; 40 guaranteed hours.',
   };
   const values = { ...common };
   for (const placeholder of placeholders || []) {
@@ -5943,6 +5951,8 @@ function emailTemplateLabel(key = '') {
     seminar_decline: 'Seminar decline',
     seminar_new_registration: 'Seminar notification',
     feedback_internal_notification: 'Feedback notification',
+    smc_calculator_result: 'SMC calculator result',
+    smc_calculator_internal_notification: 'SMC calculator notification',
   };
   return labels[key] || String(key || 'Other').replace(/_/g, ' ').replace(/^./, (char) => char.toUpperCase());
 }
