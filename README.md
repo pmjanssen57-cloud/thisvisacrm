@@ -62,3 +62,9 @@ The front end now maps those fields to a simpler adviser-facing checkbox rather 
 - Netlify Function syntax checks passed for all `.mjs` functions.
 
 The Vite build may still report the existing large-bundle warning. That is not new to this release and does not block deployment.
+
+## v0.13.24a hotfix — Dashboard load fix
+
+This hotfix restores the dashboard command-card component that was accidentally removed during the adviser simplicity pass while the dashboard still referenced it. The missing component could cause a blank page when the CRM loaded directly into the dashboard or refreshed there.
+
+No database migration is required. No workflow changes were made beyond restoring the dashboard load path.

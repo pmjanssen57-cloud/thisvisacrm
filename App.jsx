@@ -6569,6 +6569,25 @@ function QuietDeadlineSummary({ rows = [], setTab }) {
 }
 
 
+function DashboardCommandCards({ todayActionRows = [], urgentTaskRows = [], newEnquiryCount = 0, setTab }) {
+  return (
+    <section className="command-card-grid" aria-label="Daily CRM focus">
+      <button className="command-card" type="button" onClick={() => setTab('tasks')}>
+        <span className="command-icon"><ListChecks size={20} /></span>
+        <span><strong>{todayActionRows.length}</strong><small>Today’s actions</small><em>Open the daily bring-up list</em></span>
+      </button>
+      <button className="command-card warning" type="button" onClick={() => setTab('tasks')}>
+        <span className="command-icon"><AlertTriangle size={20} /></span>
+        <span><strong>{urgentTaskRows.length}</strong><small>Urgent / at risk</small><em>Overdue or due within 7 days</em></span>
+      </button>
+      <button className="command-card" type="button" onClick={() => setTab('intake')}>
+        <span className="command-icon"><ClipboardList size={20} /></span>
+        <span><strong>{newEnquiryCount}</strong><small>New enquiries</small><em>Contact forms, intake and seminar items</em></span>
+      </button>
+    </section>
+  );
+}
+
 function RecentClientsStrip({ clients = [], openClientRecord }) {
   return (
     <section className="recent-client-strip" aria-label="Recently viewed clients">
