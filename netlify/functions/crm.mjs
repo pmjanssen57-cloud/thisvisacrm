@@ -4043,17 +4043,19 @@ function normaliseClientInput(input) {
 
 function normaliseDeadlineActionStatus(value) {
   const raw = String(value || '').trim().toLowerCase();
-  if (['active', 'show', 'required', 'requires-action'].includes(raw)) return 'active';
+  if (['active', 'show', 'shown', 'required', 'requires-action', 'dashboard', 'yes', 'true'].includes(raw)) return 'active';
+  if (['watching', 'watch', 'default'].includes(raw)) return 'watching';
   if (['deferred', 'defer', 'snoozed'].includes(raw)) return 'deferred';
-  if (['historical', 'historic', 'not-actionable', 'not actionable', 'quiet'].includes(raw)) return 'historical';
   if (['completed', 'complete', 'replaced', 'closed'].includes(raw)) return 'completed';
-  return 'watching';
+  return 'historical';
 }
 
-function defaultDeadlineActionStatus(type = '') {
+function defaultDeadlineActionStatus(type = '', source = '') {
   const text = String(type || '').toLowerCase();
-  if (text.includes('ppi') || text.includes('filing')) return 'active';
-  return 'watching';
+  if (source === 'document-expiry') return 'historical';
+  if (text.includes('ppi') || text.includes('filing') || text.includes('visa')) return 'active';
+  if (text.includes('medical') || text.includes('police')) return 'historical';
+  return 'active';
 }
 
 function normaliseClientDeadlines(input = []) {
@@ -4112,7 +4114,7 @@ function normaliseDocumentChecklist(items = []) {
       custom: false,
       expiryDate: nullableDate(existing.expiryDate || existing.expiry_date) || '',
       obtained: applied ? Boolean(existing.obtained) : false,
-      actionStatus: normaliseDeadlineActionStatus(existing.actionStatus || existing.action_status || 'watching'),
+      actionStatus: normaliseDeadlineActionStatus(existing.actionStatus || existing.action_status || defaultDeadlineActionStatus(template.name, 'document-expiry')),
       reviewDate: nullableDate(existing.reviewDate || existing.review_date) || '',
     };
   });
@@ -4133,7 +4135,7 @@ function normaliseDocumentChecklist(items = []) {
         custom: true,
         expiryDate: nullableDate(item.expiryDate || item.expiry_date) || '',
         obtained: applied ? Boolean(item.obtained) : false,
-        actionStatus: normaliseDeadlineActionStatus(item.actionStatus || item.action_status || 'watching'),
+        actionStatus: normaliseDeadlineActionStatus(item.actionStatus || item.action_status || defaultDeadlineActionStatus(item.name, 'document-expiry')),
         reviewDate: nullableDate(item.reviewDate || item.review_date) || '',
       };
     })

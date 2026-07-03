@@ -57,11 +57,11 @@ const DEFAULT_DEADLINE_TYPES = [
 ];
 
 const DEADLINE_SIGNAL_OPTIONS = [
-  { value: 'active', label: 'Active - show if due or overdue' },
-  { value: 'watching', label: 'Watching - show inside warning window' },
-  { value: 'deferred', label: 'Deferred - hide until review date' },
-  { value: 'historical', label: 'Historical / not actionable' },
-  { value: 'completed', label: 'Completed / replaced' },
+  { value: 'active', label: 'Shown on dashboard' },
+  { value: 'watching', label: 'Uses default dashboard setting' },
+  { value: 'historical', label: 'Hidden from dashboard' },
+  { value: 'deferred', label: 'Hidden from dashboard' },
+  { value: 'completed', label: 'Hidden from dashboard' },
 ];
 
 const DEADLINE_SIGNAL_LABELS = DEADLINE_SIGNAL_OPTIONS.reduce((labels, option) => {
@@ -6483,7 +6483,7 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
       <section className="panel dashboard-heading">
         <div>
           <h2>{viewTitle}</h2>
-          <p className="muted">Dashboard metrics show actionable dates only. Historical, deferred and stale expiry dates stay on the file but are kept quiet here.</p>
+          <p className="muted">Dashboard metrics show dates that advisers have chosen to watch. File-only dates stay on the client record without adding noise here.</p>
         </div>
         <span>{clients.length} client{clients.length === 1 ? '' : 's'} in view</span>
       </section>
@@ -6493,8 +6493,8 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
 
       <div className="metric-grid">
         <MetricCard label="Active clients" value={activeClients.length} note="Live client records" icon={UsersRound} />
-        <MetricCard label="Action dates next 14 days" value={next14.length} note="Dashboard-visible only" icon={CalendarDays} />
-        <MetricCard label="Actionable overdue" value={overdueRows.length} note="Quiet stale items excluded" icon={AlertTriangle} warning={overdueRows.length > 0} />
+        <MetricCard label="Action dates next 14 days" value={next14.length} note="Marked for dashboard" icon={CalendarDays} />
+        <MetricCard label="Actionable overdue" value={overdueRows.length} note="File-only dates excluded" icon={AlertTriangle} warning={overdueRows.length > 0} />
         <MetricCard label="Overdue calendar" value={overdueCalendarItems.length} note="Open appointments in the past" icon={CalendarDays} warning={overdueCalendarItems.length > 0} />
         <MetricCard label="Client portal notes" value={newPortalMessages.length} note="New client-submitted items" icon={MessageSquare} warning={newPortalMessages.length > 0} />
         <MetricCard label="WIP / overdue billing" value={formatCurrency(pendingInvoices.reduce((sum, row) => sum + Number(row.item.amount || 0), 0))} note="Billing not yet invoiced" icon={CreditCard} />
@@ -6535,7 +6535,7 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
 
         <section className="panel">
           <h2>Next critical dates</h2>
-          <p className="muted">Only dates that are active, due for review, or inside their warning window.</p>
+          <p className="muted">Only dates marked for the dashboard and inside their warning window, plus overdue watched dates.</p>
           <div className="date-list">
             {actionableDeadlineRows.slice(0, 10).map((row, index) => (
               <button className="date-row" key={`${row.client.id}-${row.type}-${index}`} onClick={() => openClientRecord ? openClientRecord(row.client.id) : (setSelectedClientId(row.client.id), setTab('clients'))}>
@@ -6543,7 +6543,7 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
                 <DeadlineSignalBadge row={row} />
               </button>
             ))}
-            {!actionableDeadlineRows.length && <p className="muted center">No actionable deadlines in this dashboard view.</p>}
+            {!actionableDeadlineRows.length && <p className="muted center">No dashboard dates need attention in this view.</p>}
           </div>
           {quietDeadlineRows.length > 0 && <QuietDeadlineSummary rows={quietDeadlineRows} setTab={setTab} />}
         </section>
@@ -6555,39 +6555,19 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
 
 
 function QuietDeadlineSummary({ rows = [], setTab }) {
-  const staleCount = rows.filter((row) => row.deadlineSignal?.kind === 'stale').length;
-  const deferredCount = rows.filter((row) => row.deadlineSignal?.status === 'deferred').length;
-  const historicalCount = rows.filter((row) => ['historical', 'completed'].includes(row.deadlineSignal?.status)).length;
-  const futureCount = rows.length - staleCount - deferredCount - historicalCount;
+  const fileOnlyCount = rows.filter((row) => row.deadlineSignal?.kind === 'hidden').length;
+  const futureCount = rows.filter((row) => row.deadlineSignal?.kind === 'future').length;
+  const otherCount = Math.max(0, rows.length - fileOnlyCount - futureCount);
   return (
     <div className="quiet-deadline-summary">
       <ShieldCheck size={16} />
-      <span><strong>{rows.length}</strong> quiet date{rows.length === 1 ? '' : 's'} hidden from this dashboard.</span>
-      <small>{[staleCount ? `${staleCount} stale` : '', deferredCount ? `${deferredCount} deferred` : '', historicalCount ? `${historicalCount} historical/completed` : '', futureCount ? `${futureCount} future/reference` : ''].filter(Boolean).join(' · ')}</small>
+      <span><strong>{rows.length}</strong> saved date{rows.length === 1 ? '' : 's'} not currently shown on this dashboard.</span>
+      <small>{[fileOnlyCount ? `${fileOnlyCount} file only` : '', futureCount ? `${futureCount} outside warning window` : '', otherCount ? `${otherCount} reference` : ''].filter(Boolean).join(' · ')}</small>
       <button className="btn ghost" type="button" onClick={() => setTab('tasks')}>Review in Tasks</button>
     </div>
   );
 }
 
-
-function DashboardCommandCards({ todayActionRows = [], urgentTaskRows = [], newEnquiryCount = 0, setTab }) {
-  return (
-    <section className="command-card-grid" aria-label="Daily CRM focus">
-      <button className="command-card" type="button" onClick={() => setTab('tasks')}>
-        <span className="command-icon"><ListChecks size={20} /></span>
-        <span><strong>{todayActionRows.length}</strong><small>Today’s actions</small><em>Open the daily bring-up list</em></span>
-      </button>
-      <button className="command-card warning" type="button" onClick={() => setTab('tasks')}>
-        <span className="command-icon"><AlertTriangle size={20} /></span>
-        <span><strong>{urgentTaskRows.length}</strong><small>Urgent / at risk</small><em>Overdue or due within 7 days</em></span>
-      </button>
-      <button className="command-card" type="button" onClick={() => setTab('intake')}>
-        <span className="command-icon"><ClipboardList size={20} /></span>
-        <span><strong>{newEnquiryCount}</strong><small>New enquiries</small><em>Contact forms, intake and seminar items</em></span>
-      </button>
-    </section>
-  );
-}
 
 function RecentClientsStrip({ clients = [], openClientRecord }) {
   return (
@@ -7428,7 +7408,7 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
     setValidationMessage('');
     setDraft((current) => ({
       ...current,
-      documentChecklist: [...normaliseDocumentChecklist(current.documentChecklist), { id: makeDocumentItemId(trimmed, checklist), name: trimmed, applied: true, custom: true, expiryDate: '', obtained: false, actionStatus: 'watching', reviewDate: '' }],
+      documentChecklist: [...normaliseDocumentChecklist(current.documentChecklist), { id: makeDocumentItemId(trimmed, checklist), name: trimmed, applied: true, custom: true, expiryDate: '', obtained: false, actionStatus: defaultDeadlineActionStatus(trimmed, 'document-expiry'), reviewDate: '' }],
     }));
     return true;
   }
@@ -7811,10 +7791,10 @@ The portal is a secure, read-only space where you can check application updates,
 
         {activeClientSection === 'dates' && (
           <div className="client-workspace-section-stack">
-            <ClientWorkspaceIntro title="Key dates" description={popoutMode ? "Record dates that may affect the application. Signal controls decide whether a date appears on the dashboard or stays quietly on the client file." : "Summary view only. Open the larger editor to add dates or adjust dashboard signal controls."} />
+            <ClientWorkspaceIntro title="Key dates" description={popoutMode ? "Record dates that may affect the application. Tick only the dates that should appear on the adviser dashboard." : "Summary view only. Open the larger editor to add dates or decide which ones belong on the dashboard."} />
             {popoutMode ? (
               <section className="sub-panel workspace-panel">
-                <div className="sub-panel-head"><div><h2>Client deadline dates</h2><p className="muted">Add the date, then choose whether it should appear on the dashboard or remain as a quiet reference item.</p></div><button className="btn" onClick={addDeadline}><Plus size={16} />Deadline</button></div>
+                <div className="sub-panel-head"><div><h2>Client deadline dates</h2><p className="muted">Add the date, then tick “Show on dashboard” only if it needs adviser follow-up.</p></div><button className="btn" onClick={addDeadline}><Plus size={16} />Deadline</button></div>
                 <div className="table-like">
                   {(draft.deadlines || []).map((deadline) => {
                     const signalRow = withDeadlineSignal({ ...deadline, client: draft, source: 'deadline', diff: dateDiff(deadline.date) });
@@ -7823,10 +7803,9 @@ The portal is a secure, read-only space where you can check application updates,
                       <div className={`editable-row deadline-row deadline-signal-row ${signal?.dashboard ? `signal-${signal.dashboard}` : ''}`} key={deadline.id}>
                         <label><span>Deadline type</span><select value={deadline.type} onChange={(event) => updateDeadline(deadline.id, { type: event.target.value, actionStatus: deadline.actionStatus || defaultDeadlineActionStatus(event.target.value, 'deadline') })}>{deadlineTypes.map((type) => <option key={type}>{type}</option>)}</select></label>
                         <label><span>Date</span><input type="date" value={deadline.date || ''} onChange={(event) => updateDeadline(deadline.id, { date: event.target.value })} /></label>
-                        <label><span>Dashboard signal</span><select value={normaliseDeadlineActionStatus(deadline.actionStatus || defaultDeadlineActionStatus(deadline.type, 'deadline'))} onChange={(event) => updateDeadline(deadline.id, { actionStatus: event.target.value, reviewDate: event.target.value === 'deferred' ? deadline.reviewDate : '' })}>{DEADLINE_SIGNAL_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-                        <label><span>Review again</span><input type="date" value={deadline.reviewDate || ''} disabled={normaliseDeadlineActionStatus(deadline.actionStatus) !== 'deferred'} onChange={(event) => updateDeadline(deadline.id, { reviewDate: event.target.value })} /></label>
+                        <label className="dashboard-date-toggle"><input type="checkbox" checked={isDashboardDateShown({ ...deadline, source: 'deadline' })} onChange={(event) => updateDeadline(deadline.id, { actionStatus: dashboardActionStatusFromChecked(event.target.checked), reviewDate: '' })} /><span>Show on dashboard</span></label>
                         <label className="deadline-note-field"><span>Note</span><input value={deadline.note || ''} onChange={(event) => updateDeadline(deadline.id, { note: event.target.value })} placeholder="Optional note" /></label>
-                        <div className="deadline-signal-hint"><DeadlineSignalBadge row={signalRow} /><small>{signal?.reason || 'Dashboard signal will be calculated once a date is entered.'}</small></div>
+                        <div className="deadline-signal-hint"><DeadlineSignalBadge row={signalRow} /><small>{signal?.reason || 'Dashboard visibility will be calculated once a date is entered.'}</small></div>
                         <button className="icon-btn" type="button" onClick={() => removeDeadline(deadline.id)}><Trash2 size={16} /></button>
                       </div>
                     );
@@ -7973,7 +7952,7 @@ function KeyDatesSummaryPanel({ deadlines = [], onEdit }) {
   return (
     <section className="sub-panel workspace-panel summary-editor-panel">
       <div className="sub-panel-head compact">
-        <div><h2>Key dates summary</h2><p className="muted">Dates shown here remain on the client file. The signal status decides whether each date appears on the dashboard.</p></div>
+        <div><h2>Key dates summary</h2><p className="muted">Dates stay on the client file. Only dates marked “Show on dashboard” appear in the main dashboard warnings.</p></div>
         <SummaryActionButton onClick={onEdit}>Edit key dates</SummaryActionButton>
       </div>
       <div className="summary-metric-row">
@@ -7989,7 +7968,7 @@ function KeyDatesSummaryPanel({ deadlines = [], onEdit }) {
             return (
               <div className="summary-list-row" key={item.id}>
                 <span className={`summary-status-dot ${signal?.dashboard === 'action' ? (dateDiff(item.date) < 0 ? 'overdue' : 'date') : 'quiet'}`} aria-hidden="true" />
-                <div><strong>{item.type}</strong><small>{item.note || 'No note'}</small><small>{DEADLINE_SIGNAL_LABELS[signal?.status] || 'Watching'} · {signal?.reason || ''}</small></div>
+                <div><strong>{item.type}</strong><small>{item.note || 'No note'}</small><small>{dashboardDateToggleText({ ...item, source: 'deadline' })} · {signal?.reason || ''}</small></div>
                 <b>{formatShortDate(item.date)}</b>
               </div>
             );
@@ -8171,8 +8150,11 @@ function ExpandableClientSection({ title, summary, isOpen, onToggle, children, b
 
 function DocumentChecklist({ items, updateItem, addCustomItem, removeCustomItem }) {
   const [customItemName, setCustomItemName] = useState('');
+  const [showNotRequired, setShowNotRequired] = useState(false);
   const includedItems = items.filter((item) => item.applied);
+  const notRequiredItems = items.filter((item) => !item.applied);
   const obtainedCount = includedItems.filter((item) => item.obtained).length;
+  const visibleItems = showNotRequired ? items : includedItems;
 
   function handleAddCustomItem() {
     const added = addCustomItem(customItemName);
@@ -8184,10 +8166,11 @@ function DocumentChecklist({ items, updateItem, addCustomItem, removeCustomItem 
       <div className="sub-panel-head">
         <div>
           <h2>Document checklist</h2>
-          <p className="muted">Mark the document items that apply, record expiry dates where relevant, and mark items as obtained once received. Items that do not apply can be marked as not required.</p>
+          <p className="muted">Keep the active checklist lean. Not-required items are hidden unless you choose to review them.</p>
         </div>
         <div className="document-checklist-actions">
           <span className="workload-count">{obtainedCount}/{includedItems.length} obtained</span>
+          {!!notRequiredItems.length && <button className="btn secondary" type="button" onClick={() => setShowNotRequired((value) => !value)}>{showNotRequired ? 'Hide not required' : `Show ${notRequiredItems.length} not required`}</button>}
         </div>
       </div>
       <div className="custom-document-add-row">
@@ -8195,14 +8178,13 @@ function DocumentChecklist({ items, updateItem, addCustomItem, removeCustomItem 
         <button className="btn" type="button" onClick={handleAddCustomItem}><Plus size={16} />Add document</button>
       </div>
       <div className="document-checklist-list">
-        {items.map((item) => (
+        {visibleItems.map((item) => (
           item.applied ? (
             <div className="document-checklist-row" key={item.id}>
               <label className="doc-include"><input type="checkbox" checked={item.applied} onChange={(event) => updateItem(item.id, { applied: event.target.checked, obtained: event.target.checked ? item.obtained : false })} /><span>Required</span></label>
               <label className="doc-name"><span>Document</span>{item.custom ? <input value={item.name} onChange={(event) => updateItem(item.id, { name: event.target.value })} /> : <strong>{item.name}</strong>}</label>
               <label className="doc-expiry"><span>Expiry date</span><input type="date" value={item.expiryDate || ''} onChange={(event) => updateItem(item.id, { expiryDate: event.target.value })} /></label>
-              <label className="doc-signal"><span>Signal</span><select value={normaliseDeadlineActionStatus(item.actionStatus || 'watching')} onChange={(event) => updateItem(item.id, { actionStatus: event.target.value, reviewDate: event.target.value === 'deferred' ? item.reviewDate : '' })}>{DEADLINE_SIGNAL_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-              <label className="doc-review"><span>Review again</span><input type="date" value={item.reviewDate || ''} disabled={normaliseDeadlineActionStatus(item.actionStatus) !== 'deferred'} onChange={(event) => updateItem(item.id, { reviewDate: event.target.value })} /></label>
+              <label className="doc-dashboard dashboard-date-toggle"><input type="checkbox" checked={isDashboardDateShown({ ...item, type: `Document Expiry: ${item.name}`, source: 'document-expiry' })} onChange={(event) => updateItem(item.id, { actionStatus: dashboardActionStatusFromChecked(event.target.checked), reviewDate: '' })} /><span>Show on dashboard</span></label>
               <label className="doc-obtained"><input type="checkbox" checked={item.obtained} onChange={(event) => updateItem(item.id, { obtained: event.target.checked })} /><span>Obtained</span></label>
               <button className="icon-btn" type="button" disabled={!item.custom} onClick={() => removeCustomItem(item.id)} title={item.custom ? 'Remove custom checklist item' : 'Standard item can be marked not required, not deleted'}><Trash2 size={16} /></button>
             </div>
@@ -8214,6 +8196,7 @@ function DocumentChecklist({ items, updateItem, addCustomItem, removeCustomItem 
             </div>
           )
         ))}
+        {!visibleItems.length && <p className="muted center">No required document items selected yet. Use “Show not required” to add standard items back in.</p>}
       </div>
     </section>
   );
@@ -10209,18 +10192,34 @@ function ProgressBar({ value }) {
 
 function normaliseDeadlineActionStatus(value) {
   const raw = String(value || '').trim().toLowerCase();
-  if (['active', 'show', 'required', 'requires-action'].includes(raw)) return 'active';
+  if (['active', 'show', 'shown', 'required', 'requires-action', 'dashboard', 'yes', 'true'].includes(raw)) return 'active';
+  if (['watching', 'watch', 'default'].includes(raw)) return 'watching';
   if (['deferred', 'defer', 'snoozed'].includes(raw)) return 'deferred';
-  if (['historical', 'historic', 'not-actionable', 'not actionable', 'quiet'].includes(raw)) return 'historical';
   if (['completed', 'complete', 'replaced', 'closed'].includes(raw)) return 'completed';
-  return 'watching';
+  return 'historical';
 }
 
 function defaultDeadlineActionStatus(type = '', source = '') {
   const text = String(type || '').toLowerCase();
-  if (source === 'document-expiry') return 'watching';
-  if (text.includes('ppi') || text.includes('filing')) return 'active';
-  return 'watching';
+  if (source === 'document-expiry') return 'historical';
+  if (text.includes('ppi') || text.includes('filing') || text.includes('visa')) return 'active';
+  if (text.includes('medical') || text.includes('police')) return 'historical';
+  return 'active';
+}
+
+function dashboardActionStatusFromChecked(checked) {
+  return checked ? 'active' : 'historical';
+}
+
+function isDashboardDateShown(row = {}) {
+  const status = normaliseDeadlineActionStatus(row.actionStatus || defaultDeadlineActionStatus(row.type, row.source));
+  if (status === 'active') return true;
+  if (status === 'watching') return defaultDeadlineActionStatus(row.type, row.source) === 'active';
+  return false;
+}
+
+function dashboardDateToggleText(row = {}) {
+  return isDashboardDateShown(row) ? 'Shown on dashboard' : 'File only';
 }
 
 function warningWindowDaysForDeadline(row = {}) {
@@ -10244,26 +10243,16 @@ function deadlineSignalForRow(row = {}) {
   }
   const status = normaliseDeadlineActionStatus(row.actionStatus || defaultDeadlineActionStatus(row.type, source));
   const diff = row.diff ?? dateDiff(row.date);
-  const reviewDate = normaliseIsoDate(row.reviewDate || '');
-  const reviewDiff = reviewDate ? dateDiff(reviewDate) : null;
   const windowDays = warningWindowDaysForDeadline(row);
   const critical = String(row.type || '').toLowerCase().includes('ppi') || String(row.type || '').toLowerCase().includes('filing');
+  const shown = isDashboardDateShown({ ...row, source });
 
-  if (status === 'completed') return { dashboard: 'quiet', status, kind: 'completed', label: 'Completed', reason: 'Completed or replaced; retained on the client file.' };
-  if (status === 'historical') return { dashboard: 'quiet', status, kind: 'historical', label: 'Historical', reason: 'Marked as historical / not actionable.' };
-  if (status === 'deferred') {
-    if (reviewDiff !== null && reviewDiff <= 0) return { dashboard: 'action', status, kind: 'review-due', label: 'Review due', reason: `Deferred item is due for review${reviewDate ? ` (${reviewDate})` : ''}.` };
-    return { dashboard: 'quiet', status, kind: 'deferred', label: 'Deferred', reason: reviewDate ? `Hidden until review date ${reviewDate}.` : 'Deferred without a review date.' };
-  }
-  if (diff === null || diff === undefined) return { dashboard: 'quiet', status, kind: 'undated', label: 'No date', reason: 'No date recorded.' };
-  if (critical) return { dashboard: 'action', status, kind: diff < 0 ? 'overdue' : 'critical', label: diff < 0 ? 'Overdue' : 'Critical date', reason: 'PPI and filing deadlines stay visible until completed or deferred.' };
-  if (diff < 0) {
-    if (status === 'active') return { dashboard: 'action', status, kind: 'overdue', label: 'Overdue', reason: 'Manually marked active, so it remains visible while overdue.' };
-    if (Math.abs(diff) <= 60) return { dashboard: 'action', status, kind: 'overdue', label: 'Overdue', reason: 'Recently overdue and inside the stale-date cutoff.' };
-    return { dashboard: 'quiet', status, kind: 'stale', label: 'Stale', reason: 'Overdue by more than 60 days and not marked active.' };
-  }
-  if (diff <= windowDays) return { dashboard: 'action', status, kind: diff === 0 ? 'today' : 'upcoming', label: diff === 0 ? 'Today' : `${diff}d`, reason: `Inside ${windowDays}-day warning window.` };
-  return { dashboard: 'quiet', status, kind: 'future', label: 'Future', reason: `Outside ${windowDays}-day warning window.` };
+  if (!shown) return { dashboard: 'quiet', status, kind: 'hidden', label: 'File only', reason: 'Not shown on the adviser dashboard.' };
+  if (diff === null || diff === undefined) return { dashboard: 'quiet', status, kind: 'undated', label: 'No date', reason: 'Add a date before it can appear on the dashboard.' };
+  if (critical) return { dashboard: 'action', status, kind: diff < 0 ? 'overdue' : 'critical', label: diff < 0 ? 'Overdue' : 'Critical date', reason: 'Shown because this date is marked for the dashboard.' };
+  if (diff < 0) return { dashboard: 'action', status, kind: 'overdue', label: 'Overdue', reason: 'Shown because this date is marked for the dashboard.' };
+  if (diff <= windowDays) return { dashboard: 'action', status, kind: diff === 0 ? 'today' : 'upcoming', label: diff === 0 ? 'Today' : `${diff}d`, reason: `Shown inside the ${windowDays}-day warning window.` };
+  return { dashboard: 'quiet', status, kind: 'future', label: 'Scheduled', reason: `Marked for dashboard; will appear inside the ${windowDays}-day warning window.` };
 }
 
 function withDeadlineSignal(row = {}) {
@@ -10282,16 +10271,13 @@ function isDashboardActionableTaskRow(row = {}) {
 }
 
 function deadlineSignalSortDate(row = {}) {
-  const signal = row.deadlineSignal || deadlineSignalForRow(row);
-  if (signal.kind === 'review-due' && row.reviewDate) return row.reviewDate;
-  return row.date || row.reviewDate || '9999-12-31';
+  return row.date || '9999-12-31';
 }
 
 function DeadlineSignalBadge({ row }) {
   if (!row) return null;
   const signal = row.deadlineSignal || deadlineSignalForRow(row);
-  if (signal.kind === 'review-due') return <b className="badge urgent">Review due</b>;
-  if (signal.dashboard === 'quiet') return <b className="badge quiet">{signal.label || 'Quiet'}</b>;
+  if (signal.dashboard === 'quiet') return <b className="badge quiet">{signal.label || 'File only'}</b>;
   return <DeadlineBadge diff={row.diff ?? dateDiff(row.date)} />;
 }
 
@@ -11259,7 +11245,7 @@ function normaliseDocumentChecklist(items = []) {
       custom: false,
       expiryDate: existing.expiryDate || existing.expiry_date || '',
       obtained: applied ? Boolean(existing.obtained) : false,
-      actionStatus: normaliseDeadlineActionStatus(existing.actionStatus || existing.action_status || 'watching'),
+      actionStatus: normaliseDeadlineActionStatus(existing.actionStatus || existing.action_status || defaultDeadlineActionStatus(template.name, 'document-expiry')),
       reviewDate: normaliseIsoDate(existing.reviewDate || existing.review_date),
     };
   });
@@ -11278,7 +11264,7 @@ function normaliseDocumentChecklist(items = []) {
       custom: true,
       expiryDate: item.expiryDate || item.expiry_date || '',
       obtained: item.applied === false ? false : Boolean(item.obtained),
-      actionStatus: normaliseDeadlineActionStatus(item.actionStatus || item.action_status || 'watching'),
+      actionStatus: normaliseDeadlineActionStatus(item.actionStatus || item.action_status || defaultDeadlineActionStatus(item.name, 'document-expiry')),
       reviewDate: normaliseIsoDate(item.reviewDate || item.review_date),
     }))
     .filter((item) => item.name);
@@ -11749,7 +11735,7 @@ function documentExpiryRowsForClient(client) {
       date: item.expiryDate,
       note: item.obtained ? 'Document obtained; check expiry before use.' : 'Document not yet marked as obtained.',
       source: 'document-expiry',
-      actionStatus: item.actionStatus || 'watching',
+      actionStatus: item.actionStatus || defaultDeadlineActionStatus(item.name, 'document-expiry'),
       reviewDate: item.reviewDate || '',
       diff: dateDiff(item.expiryDate),
     }));

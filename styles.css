@@ -9984,7 +9984,7 @@ body.intake-embed-mode .contact-form select {
   }
 }
 
-/* v0.13.23 - deadline signal cleanup */
+/* v0.13.24 - adviser simplicity pass */
 .badge.quiet {
   background: #f1f5f9;
   color: #64748b;
@@ -10025,7 +10025,7 @@ body.intake-embed-mode .contact-form select {
 }
 
 .editable-row.deadline-row.deadline-signal-row {
-  grid-template-columns: minmax(170px, 1.05fr) minmax(132px, .72fr) minmax(190px, 1.18fr) minmax(132px, .72fr) minmax(190px, 1.15fr) minmax(170px, 1fr) 42px;
+  grid-template-columns: minmax(170px, 1.05fr) minmax(132px, .72fr) minmax(170px, .85fr) minmax(210px, 1.15fr) minmax(170px, 1fr) 42px;
   align-items: end;
 }
 
@@ -10035,12 +10035,38 @@ body.intake-embed-mode .contact-form select {
 }
 
 .deadline-signal-row label span,
-.deadline-signal-hint small {
+.deadline-signal-hint small,
+.dashboard-date-toggle span {
   color: var(--muted);
   font-size: 11px;
   font-weight: 850;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.dashboard-date-toggle {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 9px !important;
+  min-height: 43px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--pale);
+  padding: 10px 12px;
+}
+
+.dashboard-date-toggle input {
+  width: auto !important;
+  min-height: auto !important;
+  accent-color: var(--ink);
+}
+
+.dashboard-date-toggle span {
+  color: var(--ink);
+  letter-spacing: normal;
+  text-transform: none;
+  font-size: 12px;
 }
 
 .deadline-signal-row .deadline-note-field {
@@ -10069,37 +10095,22 @@ body.intake-embed-mode .contact-form select {
   background: #94a3b8;
 }
 
+.document-checklist-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  align-items: center;
+}
+
 .document-checklist-row {
-  grid-template-columns: minmax(96px, 0.55fr) minmax(0, 1.2fr) minmax(145px, 0.7fr) minmax(170px, 0.95fr) minmax(140px, 0.75fr) minmax(104px, 0.6fr) 42px;
-  grid-template-areas: "required name expiry signal review obtained remove";
+  grid-template-columns: minmax(96px, 0.55fr) minmax(0, 1.2fr) minmax(145px, 0.7fr) minmax(170px, 0.9fr) minmax(104px, 0.6fr) 42px;
+  grid-template-areas: "required name expiry dashboard obtained remove";
 }
 
-.document-checklist-row .doc-signal { grid-area: signal; }
-.document-checklist-row .doc-review { grid-area: review; }
+.document-checklist-row .doc-dashboard { grid-area: dashboard; }
 
-.document-checklist-row .doc-signal,
-.document-checklist-row .doc-review {
-  min-width: 0;
-}
-
-.document-checklist-row .doc-signal > span,
-.document-checklist-row .doc-review > span {
-  display: block;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 850;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.document-checklist-row select {
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: #fff;
-  padding: 10px 12px;
-  min-height: 43px;
-  outline: none;
-  width: 100%;
+.document-checklist-row .doc-dashboard {
   min-width: 0;
 }
 
@@ -10113,8 +10124,7 @@ body.intake-embed-mode .contact-form select {
   .document-checklist-row .doc-include,
   .document-checklist-row .doc-name,
   .document-checklist-row .doc-expiry,
-  .document-checklist-row .doc-signal,
-  .document-checklist-row .doc-review,
+  .document-checklist-row .doc-dashboard,
   .document-checklist-row .doc-obtained,
   .document-checklist-row > .icon-btn {
     grid-area: auto;
@@ -10136,5 +10146,13 @@ body.intake-embed-mode .contact-form select {
   .editable-row.deadline-row.deadline-signal-row,
   .document-checklist-row {
     grid-template-columns: 1fr !important;
+  }
+
+  .document-checklist-actions {
+    justify-content: stretch;
+  }
+
+  .document-checklist-actions .btn {
+    width: 100%;
   }
 }

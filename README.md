@@ -1,64 +1,59 @@
-# THiS CRM v0.13.23 — Deadline Signal Cleanup
+# THiS CRM v0.13.24 — Adviser Simplicity Pass
 
-This build sits on top of v0.13.22 and reduces dashboard noise by separating dates that are genuinely actionable from dates that are useful background recordkeeping.
+This build sits on top of v0.13.23 and deliberately simplifies the deadline/dashboard controls. The previous release reduced dashboard noise, but the five-status model risked becoming another thing advisers had to maintain. This release keeps the result, but removes the admin overhead.
 
-The CRM still keeps all client dates and document expiry dates on the client file. The dashboard now focuses on dates that need adviser attention.
+## v0.13.24 changes
 
-## v0.13.23 changes
+- Replaced the deadline signal dropdown with one simple checkbox:
+  - `Show on dashboard`
+- Removed adviser-facing deadline options for:
+  - Active
+  - Watching
+  - Deferred
+  - Historical / not actionable
+  - Completed / replaced
+- Removed the adviser-facing `Review again` date from the Key Dates editor.
+- Dates remain on the client file whether or not they are shown on the dashboard.
+- Dashboard warnings now use this simpler rule:
+  - checked = eligible for dashboard warnings
+  - unchecked = file-only reference date
+- Existing legacy `watching` values are interpreted quietly using sensible defaults:
+  - visa, PPI and filing dates remain dashboard-worthy by default
+  - medical, police and document checklist expiry dates default to file-only unless ticked
+- The client snapshot still uses the nearest dashboard-relevant date, not the nearest old recorded date.
+- Dashboard copy now refers to “dashboard dates” and “file-only dates” rather than signal statuses.
+- Quiet-date summary now reports saved dates that are not currently shown on the dashboard.
 
-- Added deadline signal controls to client key dates:
-  - Active — show if due or overdue
-  - Watching — show inside the relevant warning window
-  - Deferred — hide until a review date
-  - Historical / not actionable — keep on the file, hide from dashboard
-  - Completed / replaced — keep on the file, hide from dashboard
-- Added review-again date for deferred client deadlines.
-- Added the same signal controls to document checklist expiry dates.
-- Dashboard now excludes quiet, historical, deferred, completed and stale expiry dates from the main warning panels.
-- Dashboard “Next critical dates” now shows only actionable dates.
-- Dashboard metrics now count actionable overdue dates, not every old expired date.
-- Added a quiet-date summary so advisers can see how many dates are being suppressed without losing confidence that the data still exists.
-- Client snapshot now uses the nearest actionable date rather than the nearest recorded date.
-- Key Dates summary now shows each date’s signal status and reason.
-- Existing PPI response dates and filing deadline dates remain active by default.
-- Existing visa, medical and police expiry dates are migrated to “Watching” by default, which avoids old expired items dominating the dashboard unless marked active.
+## Extra admin-reduction polish
 
-## Dashboard signal rules
-
-Default warning windows:
-
-- Visa expiry: 90 days
-- Medical expiry: 60 days
-- Police clearance expiry: 60 days
-- Passport/document expiry: 60 days, except passport-related dates which use 180 days
-- Other/custom dates: 30 days
-- PPI response and filing deadlines: remain visible until completed, deferred or marked historical
-
-A watched expiry date that is more than 60 days overdue is treated as stale and kept quiet unless manually marked Active.
+- Document checklist now hides not-required items by default.
+- Advisers can reveal them with a single `Show X not required` button.
+- Document checklist expiry dates now use the same single `Show on dashboard` checkbox.
+- Custom document items default to file-only for dashboard purposes unless the adviser ticks them.
+- Removed a duplicate calendar-note assignment in the task row builder.
 
 ## Database
 
-This release includes a migration:
+No new database migration is required.
 
-- `202607030001_add_deadline_signal_controls.sql`
-
-The migration adds:
+This release reuses the columns added in v0.13.23:
 
 - `client_deadlines.action_status`
 - `client_deadlines.review_date`
 
-Document checklist signal controls are stored inside the existing `clients.document_checklist` JSON data.
+The front end now maps those fields to a simpler adviser-facing checkbox rather than exposing multiple statuses.
 
 ## Recommended smoke test
 
 1. Deploy the package to Netlify.
-2. Open the CRM dashboard and confirm old visa/medical/police/document expiries no longer dominate the main warning cards.
-3. Open a client record > Key dates.
-4. Set one old police clearance expiry to Active and confirm it reappears on the dashboard.
-5. Set another key date to Deferred with a future review date and confirm it stays quiet.
-6. Set a deferred review date to today and confirm it appears as review due.
-7. Open the document checklist, set a document expiry to Historical / not actionable, save, and confirm it remains on the client record but not the main dashboard.
-8. Confirm PPI and filing deadline dates remain visible unless manually deferred, completed or marked historical.
+2. Open a client file > Key dates.
+3. Confirm each date has a single `Show on dashboard` checkbox.
+4. Untick an old police clearance or medical expiry and confirm it remains on the client file but does not appear in dashboard warnings.
+5. Tick a PPI response or filing deadline and confirm it appears on the dashboard when relevant.
+6. Open the document checklist and confirm not-required items are hidden by default.
+7. Use `Show X not required` to reveal not-required checklist items and re-add one.
+8. Add a document expiry date and tick `Show on dashboard`; confirm it can appear in dashboard warnings when inside its warning window or overdue.
+9. Confirm the dashboard quiet-date summary uses the new file-only wording.
 
 ## Build checks completed
 
