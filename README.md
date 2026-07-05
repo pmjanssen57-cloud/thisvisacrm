@@ -1,3 +1,65 @@
+# THiS CRM v0.13.25 — Enquiry Matching & Duplicate Detection
+
+This build sits on top of v0.13.24a and adds a light-touch matching layer across pre-client records. The goal is to help advisers spot when the same person has submitted a contact form, full questionnaire, or seminar registration before screening begins.
+
+## v0.13.25 changes
+
+- Added related enquiry detection across:
+  - Contact Forms
+  - Intake Forms
+  - Seminar Registrations
+- Added visible match cues on enquiry cards:
+  - Strong match
+  - Likely related
+  - Possible match
+- Added compact related-record panels showing:
+  - record type
+  - name
+  - email / phone where available
+  - status
+  - submitted date
+  - reason for the match
+- Matching is based on practical signals:
+  - same email
+  - same mobile number
+  - same or similar name
+  - citizenship/location support for softer matches
+  - recent submission timing
+- No automatic merging is performed.
+- No new adviser decisions are required.
+- Existing actions remain available, including Spam / Duplicate, Mark dealt with, Mark contacted, and Convert.
+
+## Admin reduction approach
+
+The matching layer is deliberately advisory. It gives the adviser useful context without adding another queue, workflow, or classification process. A match cue is simply a prompt to check whether two records relate to the same person.
+
+## Database
+
+No new database migration is required.
+
+## Recommended smoke test
+
+1. Deploy the package to Netlify.
+2. Submit or create a contact form with a test email address.
+3. Submit or create an intake form using the same email address.
+4. Open CRM > Enquiries & Intake.
+5. Confirm both records show a related enquiry cue.
+6. Open the intake record and confirm the Related enquiries panel appears in the pop-out editor.
+7. Create a seminar registration with the same email and confirm it is also identified.
+8. Confirm no records are automatically merged or changed.
+
+## Build checks completed
+
+- `npm ci` completed.
+- `npm run build` completed successfully.
+- Netlify Function syntax checks passed for all `.mjs` functions.
+
+The Vite build may still report the existing large-bundle warning. That is not new to this release and does not block deployment.
+
+---
+
+Previous release notes retained below.
+
 # THiS CRM v0.13.24 — Adviser Simplicity Pass
 
 This build sits on top of v0.13.23 and deliberately simplifies the deadline/dashboard controls. The previous release reduced dashboard noise, but the five-status model risked becoming another thing advisers had to maintain. This release keeps the result, but removes the admin overhead.

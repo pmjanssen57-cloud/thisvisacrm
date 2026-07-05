@@ -10156,3 +10156,110 @@ body.intake-embed-mode .contact-form select {
     width: 100%;
   }
 }
+
+/* v0.13.25: related enquiry / duplicate cues */
+.related-enquiry-chip-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin: 6px 0 0 6px;
+  vertical-align: middle;
+}
+.related-enquiry-chip,
+.related-enquiry-count {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 5px 9px;
+  border: 1px solid #d9e6e1;
+  background: #f8fbfa;
+  color: #003736;
+  font-size: 12px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+.related-enquiry-chip.strong {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fde68a;
+}
+.related-enquiry-chip.likely {
+  background: #eefdf6;
+  color: #006b55;
+  border-color: #a7e8ce;
+}
+.related-enquiry-chip.possible {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #dbe5ed;
+}
+.related-enquiry-count {
+  color: #64748b;
+  background: #ffffff;
+}
+.related-enquiry-panel {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #d9e6e1;
+  background: #f8fcfa;
+  border-radius: 18px;
+  padding: 14px;
+  margin-top: 12px;
+}
+.intake-review-card > .related-enquiry-panel {
+  margin: 0 14px 12px;
+}
+.intake-popout-support-actions .related-enquiry-panel {
+  width: 100%;
+}
+.related-enquiry-panel h3 {
+  margin: 3px 0 4px;
+  color: #003736;
+}
+.related-enquiry-list {
+  display: grid;
+  gap: 8px;
+}
+.related-enquiry-row {
+  display: grid;
+  grid-template-columns: 1.1fr 1.4fr 0.9fr;
+  gap: 10px;
+  align-items: start;
+  border: 1px solid #e6efeb;
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+.related-enquiry-row.strong {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+.related-enquiry-row.likely {
+  border-color: #bdebd7;
+  background: #f4fbf8;
+}
+.related-enquiry-row strong {
+  display: block;
+  color: #003736;
+  font-size: 0.92rem;
+  line-height: 1.25;
+}
+.related-enquiry-row span {
+  display: block;
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 0.83rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .related-enquiry-row {
+    grid-template-columns: 1fr;
+  }
+  .related-enquiry-chip-row {
+    display: flex;
+    margin-left: 0;
+  }
+}

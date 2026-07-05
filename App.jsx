@@ -2930,6 +2930,183 @@ function intakeRecommendedAction(record = {}, type = 'intake') {
   return 'Review record';
 }
 
+function compactEnquiryText(value = '') {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function normaliseEnquiryEmail(value = '') {
+  return String(value || '').trim().toLowerCase();
+}
+
+function normaliseEnquiryPhone(value = '') {
+  const digits = String(value || '').replace(/\D+/g, '');
+  if (!digits || digits.length < 7) return '';
+  return digits.replace(/^00/, '').replace(/^64/, '0');
+}
+
+function splitEnquiryName(fullName = '') {
+  const parts = compactEnquiryText(fullName).split(/\s+/).filter(Boolean);
+  return {
+    firstName: parts[0] || '',
+    lastName: parts.length > 1 ? parts[parts.length - 1] : '',
+    fullName: parts.join(' '),
+  };
+}
+
+function enquiryNameParts(record = {}) {
+  const direct = [record.firstName, record.lastName].filter(Boolean).join(' ').trim();
+  return splitEnquiryName(direct || record.fullName || record.name || '');
+}
+
+function namesAreExact(a = {}, b = {}) {
+  const an = enquiryNameParts(a);
+  const bn = enquiryNameParts(b);
+  return Boolean(an.firstName && an.lastName && an.firstName === bn.firstName && an.lastName === bn.lastName);
+}
+
+function namesAreLikely(a = {}, b = {}) {
+  const an = enquiryNameParts(a);
+  const bn = enquiryNameParts(b);
+  if (!an.lastName || !bn.lastName || an.lastName !== bn.lastName) return false;
+  if (an.firstName && bn.firstName && an.firstName[0] === bn.firstName[0]) return true;
+  return Boolean(an.fullName && bn.fullName && (an.fullName.includes(bn.fullName) || bn.fullName.includes(an.fullName)));
+}
+
+function daysBetweenEnquiryDates(a, b) {
+  const da = Date.parse(a || '') || 0;
+  const db = Date.parse(b || '') || 0;
+  if (!da || !db) return null;
+  return Math.round(Math.abs(da - db) / (24 * 60 * 60 * 1000));
+}
+
+function makeEnquiryMatchRecord(type, item = {}) {
+  const payload = type === 'seminar' ? {} : intakeAnswerPayload(item);
+  const fullName = type === 'seminar'
+    ? item.fullName || ''
+    : [item.firstName || payload.firstName, item.lastName || payload.lastName].filter(Boolean).join(' ');
+  const nameParts = splitEnquiryName(fullName);
+  return {
+    key: `${type}:${item.id || item.email || item.createdAt || fullName}`,
+    id: item.id || '',
+    type,
+    typeLabel: type === 'contact' ? 'Contact form' : type === 'seminar' ? 'Seminar registration' : 'Intake form',
+    status: item.status || 'New',
+    firstName: type === 'seminar' ? nameParts.firstName : item.firstName || payload.firstName || nameParts.firstName,
+    lastName: type === 'seminar' ? nameParts.lastName : item.lastName || payload.lastName || nameParts.lastName,
+    fullName: fullName || [item.firstName, item.lastName].filter(Boolean).join(' ') || item.email || 'Unnamed record',
+    email: item.email || payload.email || '',
+    emailKey: normaliseEnquiryEmail(item.email || payload.email || ''),
+    phone: type === 'seminar' ? '' : item.phone || payload.phone || '',
+    phoneKey: type === 'seminar' ? '' : normaliseEnquiryPhone(item.phone || payload.phone || ''),
+    citizenship: type === 'seminar' ? item.citizenshipCountry || '' : item.citizenship || payload.citizenship || '',
+    location: type === 'seminar' ? item.residenceCountry || '' : item.currentLocation || payload.currentLocation || payload.contactLocation || '',
+    goal: type === 'seminar' ? item.currentOccupation || item.highestQualification || '' : item.targetPathway || payload.targetPathway || payload.contactSituation || payload.helpNeeded || '',
+    createdAt: item.createdAt || item.created_at || '',
+  };
+}
+
+function compareEnquiryMatchRecords(target, candidate) {
+  if (!target || !candidate || target.key === candidate.key) return null;
+  const reasons = [];
+  let score = 0;
+
+  const sameEmail = target.emailKey && candidate.emailKey && target.emailKey === candidate.emailKey;
+  const samePhone = target.phoneKey && candidate.phoneKey && target.phoneKey === candidate.phoneKey;
+  const exactName = namesAreExact(target, candidate);
+  const likelyName = !exactName && namesAreLikely(target, candidate);
+  const sameCitizenship = compactEnquiryText(target.citizenship) && compactEnquiryText(target.citizenship) === compactEnquiryText(candidate.citizenship);
+  const sameLocation = compactEnquiryText(target.location) && compactEnquiryText(target.location) === compactEnquiryText(candidate.location);
+  const daysApart = daysBetweenEnquiryDates(target.createdAt, candidate.createdAt);
+  const recent = daysApart === null || daysApart <= 120;
+
+  if (sameEmail) { score += 100; reasons.push('same email'); }
+  if (samePhone) { score += 85; reasons.push('same mobile'); }
+  if (exactName) { score += 45; reasons.push('same name'); }
+  else if (likelyName) { score += 28; reasons.push('similar name'); }
+  if ((exactName || likelyName) && sameCitizenship) { score += 16; reasons.push('same citizenship'); }
+  if ((exactName || likelyName) && sameLocation) { score += 10; reasons.push('same location'); }
+  if (daysApart !== null && daysApart <= 14) { score += 8; reasons.push('recent submission'); }
+
+  if (!sameEmail && !samePhone && !recent) return null;
+  if (candidate.status === 'Spam / Duplicate' && !sameEmail && !samePhone) return null;
+
+  let strength = '';
+  if (sameEmail || samePhone || score >= 90) strength = 'strong';
+  else if (score >= 58) strength = 'likely';
+  else if (score >= 44 && recent) strength = 'possible';
+  if (!strength) return null;
+
+  return {
+    ...candidate,
+    strength,
+    score,
+    reasons: reasons.slice(0, 4),
+    daysApart,
+  };
+}
+
+function buildRelatedEnquiryMatches(target, candidates = []) {
+  return candidates
+    .map((candidate) => compareEnquiryMatchRecords(target, candidate))
+    .filter(Boolean)
+    .sort((a, b) => b.score - a.score || (a.daysApart ?? 9999) - (b.daysApart ?? 9999))
+    .slice(0, 4);
+}
+
+function relatedMatchLabel(match = {}) {
+  if (match.strength === 'strong') return 'Strong match';
+  if (match.strength === 'likely') return 'Likely related';
+  return 'Possible match';
+}
+
+function RelatedEnquirySummary({ matches = [] }) {
+  if (!matches.length) return null;
+  const best = matches[0];
+  return (
+    <div className="related-enquiry-chip-row" aria-label="Related enquiry matches">
+      <span className={`related-enquiry-chip ${best.strength}`}>{relatedMatchLabel(best)}: {best.typeLabel}</span>
+      {matches.length > 1 && <span className="related-enquiry-count">+{matches.length - 1} more</span>}
+    </div>
+  );
+}
+
+function RelatedEnquiryPanel({ matches = [] }) {
+  if (!matches.length) return null;
+  return (
+    <section className="related-enquiry-panel">
+      <div>
+        <span className="eyebrow">Related enquiries</span>
+        <h3>Possible same person</h3>
+        <p className="muted">The CRM has found similar recent records before screening. This is a prompt to check context, not an automatic merge.</p>
+      </div>
+      <div className="related-enquiry-list">
+        {matches.map((match) => (
+          <div key={match.key} className={`related-enquiry-row ${match.strength}`}>
+            <div>
+              <strong>{match.typeLabel}</strong>
+              <span>{relatedMatchLabel(match)} · {match.reasons.join(', ') || 'similar details'}</span>
+            </div>
+            <div>
+              <strong>{match.fullName || 'Unnamed'}</strong>
+              <span>{match.email || 'No email'}{match.phone ? ` · ${match.phone}` : ''}</span>
+            </div>
+            <div>
+              <strong>{match.status || 'New'}</strong>
+              <span>{match.createdAt ? formatPortalDateTime(match.createdAt) : 'No date'}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+
 function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', statuses, seminars = [], seminarRegistrations = [], feedbackSubmissions = [], saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, sendContactIntakeInviteEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saveFeedbackSubmission, deleteFeedbackSubmission, saving, openClientRecord, confirmAction }) {
   const askConfirm = confirmAction || (async ({ message }) => window.confirm(message || 'Continue?'));
   const simplifiedStatuses = (statuses || INTAKE_STATUSES).filter((status) => INTAKE_STATUSES.includes(status));
@@ -2984,6 +3161,19 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
   const normalisedFeedbackSubmissions = (feedbackSubmissions || [])
     .map(normaliseFeedbackSubmission)
     .sort((a, b) => intakeSortTime(b) - intakeSortTime(a));
+  const normalisedSeminarRegistrations = (seminarRegistrations || [])
+    .map(normaliseSeminarRegistration);
+
+  const relatedEnquirySources = useMemo(() => {
+    const contacts = contactEnquiries.map((item) => makeEnquiryMatchRecord('contact', item));
+    const intakes = intakeEnquiries.map((item) => makeEnquiryMatchRecord('intake', item));
+    const seminarItems = normalisedSeminarRegistrations.map((item) => makeEnquiryMatchRecord('seminar', item));
+    return [...contacts, ...intakes, ...seminarItems];
+  }, [contactEnquiries, intakeEnquiries, normalisedSeminarRegistrations]);
+
+  function relatedMatchesFor(type, item) {
+    return buildRelatedEnquiryMatches(makeEnquiryMatchRecord(type, item), relatedEnquirySources);
+  }
 
   const contactFiltered = contactEnquiries.filter((item) => {
     const q = query.trim().toLowerCase();
@@ -3226,6 +3416,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
           <SeminarManagementPanel
             seminars={seminars || []}
             registrations={seminarRegistrations || []}
+            relatedSources={relatedEnquirySources}
             saveSeminar={saveSeminar}
             deleteSeminar={deleteSeminar}
             saveSeminarRegistration={saveSeminarRegistration}
@@ -3296,6 +3487,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
               const location = payload.contactLocation || item.currentLocation || 'Not recorded';
               const bestTime = payload.bestTimeToCall || 'Not recorded';
               const message = payload.helpNeeded || 'No message recorded.';
+              const relatedMatches = relatedMatchesFor('contact', item);
               return (
                 <article key={item.id} className="contact-review-card">
                   <div className="contact-review-main">
@@ -3304,6 +3496,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
                         <span className="intake-type-badge contact">Contact form</span>
                         <span className={`library-status ${statusClass(item.status)}`}>{contactStatusLabel(item.status)}</span>
                         <span className="recommended-action-chip">Recommended: {intakeRecommendedAction(item, 'contact')}</span>
+                        <RelatedEnquirySummary matches={relatedMatches} />
                         <h3>{name}</h3>
                         <p>{item.createdAt ? formatPortalDateTime(item.createdAt) : 'Submission date not recorded'}</p>
                       </div>
@@ -3334,6 +3527,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
                       <div><span>Best time to call</span><strong>{bestTime}</strong></div>
                     </div>
                     <div className="contact-review-message"><span>Message</span><p>{message}</p></div>
+                    <RelatedEnquiryPanel matches={relatedMatches} />
                   </div>
                 </article>
               );
@@ -3395,7 +3589,9 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
           </div>
         ) : (
           <div className="intake-inbox-list intake-review-list">
-            {intakeFiltered.map((item) => (
+            {intakeFiltered.map((item) => {
+              const relatedMatches = relatedMatchesFor('intake', item);
+              return (
               <article key={item.id} className="intake-inbox-card intake-review-card">
                 <button className="intake-inbox-card-head" type="button" onClick={() => openIntakeEditor(item)}>
                   <div className="intake-inbox-person">
@@ -3408,10 +3604,12 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
                   <div className="intake-inbox-status-block">
                     <span className={`library-status ${statusClass(item.status)}`}>{item.status}</span>
                     <span className="recommended-action-chip">{intakeRecommendedAction(item, 'intake')}</span>
+                    <RelatedEnquirySummary matches={relatedMatches} />
                     <small>{item.convertedClientId ? 'Client record created' : `${Object.values(item.flags || {}).filter(Boolean).length} flag${Object.values(item.flags || {}).filter(Boolean).length === 1 ? '' : 's'}`}</small>
                   </div>
                 </button>
                 <div className="intake-inbox-flags-row"><IntakeFlagList flags={item.flags} compact /></div>
+                <RelatedEnquiryPanel matches={relatedMatches} />
                 <div className="intake-card-actions intake-card-actions-polished">
                   <label className="contact-adviser-select intake-card-adviser-select">
                     <span>Assigned to</span>
@@ -3430,7 +3628,8 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
                   {item.convertedClientId && <button className="btn" type="button" onClick={() => openClientRecord(item.convertedClientId)}><ExternalLink size={16} />Open client</button>}
                 </div>
               </article>
-            ))}
+              );
+            })}
             {!intakeFiltered.length && (
               <div className="empty-state slim intake-inbox-empty">
                 <ClipboardList size={34} />
@@ -3462,6 +3661,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
             sendIntakeOutcomeEmail={sendIntakeOutcomeEmail}
             downloadIntakeUpload={downloadIntakeUpload}
             openClientRecord={openClientRecord}
+            relatedMatches={draft ? relatedMatchesFor(isContactIntake(draft) ? 'contact' : 'intake', draft) : []}
           />
         </ClientRecordPopoutModal>
       )}
@@ -3485,7 +3685,7 @@ function makeBlankSeminar() {
   };
 }
 
-function SeminarManagementPanel({ seminars = [], registrations = [], saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saving, confirmAction }) {
+function SeminarManagementPanel({ seminars = [], registrations = [], relatedSources = [], saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saving, confirmAction }) {
   const askConfirm = confirmAction || (async ({ message }) => window.confirm(message || 'Continue?'));
   const sortedSeminars = [...seminars].map(normaliseSeminar).sort((a, b) => String(b.seminarDate || '').localeCompare(String(a.seminarDate || '')) || String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
   const activeSeminar = sortedSeminars.find((item) => item.status === 'Active') || sortedSeminars[0] || null;
@@ -3648,11 +3848,14 @@ function SeminarManagementPanel({ seminars = [], registrations = [], saveSeminar
       </div>
 
       <div className="seminar-registration-list">
-        {visibleRegistrations.map((registration) => (
+        {visibleRegistrations.map((registration) => {
+          const relatedMatches = buildRelatedEnquiryMatches(makeEnquiryMatchRecord('seminar', registration), relatedSources);
+          return (
           <article key={registration.id} className="intake-inbox-card seminar-registration-card">
             <div className="seminar-registration-head">
               <div>
                 <span className={`library-status ${statusClass(registration.status)}`}>{registration.status}</span>
+                <RelatedEnquirySummary matches={relatedMatches} />
                 <h3>{registration.fullName || 'Unnamed registrant'}</h3>
                 <p>{registration.email || 'No email'} · Submitted {registration.createdAt ? formatPortalDateTime(registration.createdAt) : 'No date'}</p>
               </div>
@@ -3675,8 +3878,10 @@ function SeminarManagementPanel({ seminars = [], registrations = [], saveSeminar
             </div>
             <div className="contact-review-message"><span>Relevant work history</span><p>{registration.workHistory || 'Not provided.'}</p></div>
             <div className="contact-review-message"><span>Health / character issues</span><p>{registration.healthCharacterIssues || 'Not provided.'}</p></div>
+            <RelatedEnquiryPanel matches={relatedMatches} />
           </article>
-        ))}
+          );
+        })}
         {!visibleRegistrations.length && (
           <div className="empty-state slim intake-inbox-empty">
             <CalendarDays size={34} />
@@ -3750,7 +3955,7 @@ function intakeCompareSnapshot(item = {}) {
   };
 }
 
-function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, setDraftPayloadField, onSave, onSaveAndClose, onClose, onDelete, onConvert, sendIntakeOutcomeEmail, downloadIntakeUpload, openClientRecord, confirmAction }) {
+function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, setDraftPayloadField, onSave, onSaveAndClose, onClose, onDelete, onConvert, sendIntakeOutcomeEmail, downloadIntakeUpload, openClientRecord, relatedMatches = [], confirmAction }) {
   const askConfirm = confirmAction || (async ({ message }) => window.confirm(message || 'Continue?'));
   const applicantName = [draft.firstName, draft.lastName].filter(Boolean).join(' ') || 'Unnamed enquiry';
   const uploadPayload = intakeAnswerPayload(draft);
@@ -3813,6 +4018,7 @@ function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, 
 
       <div className="intake-popout-support-actions">
         <IntakeFlagList flags={draft.flags} />
+        <RelatedEnquiryPanel matches={relatedMatches} />
         <div className="button-row">
           <button className="btn" type="button" onClick={() => { if (!printIntakeRecord(draft, advisers)) window.alert('The browser blocked the print window. Allow pop-ups for this CRM, then try again.'); }}><FileText size={16} />Print / save PDF</button>
           {!isContactIntake(draft) && applicantCvUpload?.fileName && <button className="btn" type="button" onClick={() => downloadCv('applicantCv', 'Applicant CV')}><Download size={16} />Download applicant CV</button>}
