@@ -1,30 +1,26 @@
-# THiS CRM v0.13.26e - Mobile Intake Continue Cue
+# THiS CRM v0.13.26d - Guided Intake Animation Rollback Hotfix
 
-This hotfix adds a mobile-only continue cue to the first page of the guided public intake form.
+This hotfix rolls back the intake entry animation treatment while preserving the guided intake journey and CRM integration.
 
 ## Changes
 
-- Added a mobile sticky continue bar after a goal card is selected.
-- Added a small mobile cue saying `Next: continue below` after the selected-goal confirmation.
-- Added a gentle mobile auto-scroll to the selected-goal confirmation after selecting a goal.
-- Updated the intake version marker to `v0.13.26e-mobile-intake-continue-cue`.
+- Removed the full-form intake cover/reveal animation from the public guided intake form.
+- Removed the first-page door/pathway illustration card from the Goal step.
+- Removed the unused kiwi silhouette public asset from the package.
+- Updated the intake submission version marker to `v0.13.26d-guided-intake-animation-rollback`.
 
 ## Not changed
 
-- Intake form questions.
-- Conditional intake logic.
-- CRM intake submission handling.
+- Guided intake step structure.
+- Intake form questions and conditional logic.
+- CV upload handling.
+- CRM intake record creation.
 - Adviser notification emails.
-- CV uploads.
-- Duplicate detection.
+- Duplicate/related enquiry detection.
 - Approval/decline workflow.
 - Booking-link integration.
 - Database schema.
 
-## Build checks
+## Deployment
 
-- npm ci
-- npm run build
-- Netlify Function syntax checks
-
-No database migration is required.
+Deploy as a normal Netlify ZIP package. No database migration is required.
