@@ -1,3 +1,28 @@
+# THiS CRM v0.13.26c — Intake Cover Reveal Hotfix
+
+This narrow hotfix sits on top of v0.13.26b. It adds the approved full-form cover animation from the local prototype to the public guided intake form, without changing the guided intake fields, steps, wording, submission endpoint, adviser notifications, CV uploads, duplicate detection, approval/decline workflow, or booking-link integration.
+
+## v0.13.26c changes
+
+- Added a full-form cover screen before the guided intake form starts.
+- Added the approved Turner Hopkins green/mint doorway reveal animation.
+- Added the recognisable green kiwi silhouette walking toward the larger door.
+- Added the simple pastoral sheep/field scene behind the opening door.
+- Preserved the existing guided intake journey exactly after the reveal.
+- Added the kiwi silhouette asset to `public/` and rebuilt `dist/`.
+
+## Database
+
+No new database migration is required.
+
+## Build checks completed
+
+- `npm ci` completed.
+- `npm run build` completed successfully.
+- Netlify Function syntax checks passed for all `.mjs` functions.
+
+---
+
 # THiS CRM v0.13.26b — Intake Entry Moment Hotfix
 
 This small hotfix sits on top of v0.13.26a. It keeps the guided intake journey and CRM workflows intact, but refines the first page so it feels more like the beginning of a New Zealand journey and less like another form screen.
