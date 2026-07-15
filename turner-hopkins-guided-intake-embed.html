@@ -1,7 +1,7 @@
-<!-- Turner Hopkins Immigration Specialists - Guided Intake Form Embed v0.13.26i
+<!-- Turner Hopkins Immigration Specialists - Guided Intake Form Embed v0.13.26j
      Paste this block into a Squarespace Code Block.
      Update the iframe src if your Netlify production URL is different.
-     This version auto-resizes the iframe height as each intake step changes.
+     This version auto-resizes the iframe height without cumulative growth.
 -->
 <div id="this-guided-intake-embed" style="width:100%; max-width:1180px; margin:0 auto;">
   <iframe
@@ -22,7 +22,7 @@
   function setFrameHeight(rawHeight) {
     var height = Number(rawHeight || 0);
     if (!height || height < 200) return;
-    var safeHeight = Math.min(Math.max(Math.ceil(height) + 28, 720), 12000);
+    var safeHeight = Math.min(Math.max(Math.ceil(height) + 6, 720), 12000);
     frame.style.minHeight = '0px';
     frame.style.height = safeHeight + 'px';
     frame.setAttribute('height', String(safeHeight));

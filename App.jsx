@@ -1831,16 +1831,15 @@ function IntakeFormApp() {
         const card = shell.querySelector('.intake-public-card');
         const shellStyles = window.getComputedStyle(shell);
         const shellPadding = parseFloat(shellStyles.paddingTop || '0') + parseFloat(shellStyles.paddingBottom || '0');
-        const cardHeight = card ? card.getBoundingClientRect().height + shellPadding : 0;
-        const documentHeight = Math.max(
-          shell.scrollHeight || 0,
-          document.documentElement?.scrollHeight || 0,
-          document.body?.scrollHeight || 0,
-          cardHeight
-        );
-        const height = Math.max(520, Math.ceil(documentHeight + 10));
+        // Measure only the actual form content. Do not use document/body scrollHeight here: inside
+        // an iframe that value can include the parent-assigned iframe height, which creates a
+        // feedback loop where the iframe keeps expanding every time it is resized.
+        const contentHeight = card
+          ? Math.ceil(card.getBoundingClientRect().height + shellPadding)
+          : Math.ceil(shell.scrollHeight || 0);
+        const height = Math.max(520, contentHeight + 12);
 
-        if (Math.abs(height - lastSentHeight) < 6) return;
+        if (Math.abs(height - lastSentHeight) < 8) return;
         lastSentHeight = height;
 
         window.parent.postMessage({
@@ -2026,7 +2025,7 @@ function IntakeFormApp() {
       const response = await fetch('/.netlify/functions/intake', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ payload: { ...form, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.13.26i-iframe-auto-height-fix' } }),
+        body: JSON.stringify({ payload: { ...form, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.13.26j-iframe-height-loop-hotfix' } }),
       });
       const body = await readJsonResponse(response);
       if (!response.ok) throw new Error(body.error || 'The questionnaire could not be submitted.');
