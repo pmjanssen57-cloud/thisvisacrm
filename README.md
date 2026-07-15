@@ -1,21 +1,34 @@
-# THiS CRM v0.13.26j - Guided Intake Iframe Height Loop Hotfix
+# THiS CRM v0.13.26k - Passport Stamp Opening Hotfix
 
-Built from v0.13.26i.
+This release adds the approved passport-stamp opening screen to the public guided intake form.
 
-## Changes
-- Fixed the embedded guided intake auto-height feedback loop that could cause the Squarespace iframe space to keep expanding.
-- Guided intake now reports the actual form card height rather than document/body scrollHeight inside the iframe.
-- Updated the Squarespace guided intake embed to use only a small buffer when applying the reported iframe height.
-- Updated the intake version marker to v0.13.26j.
+## Changed
+
+- Added a full-cover opening screen to the public guided intake form.
+- Added the mobile-optimised passport and stamp visual treatment.
+- Added the `Start your journey` reveal interaction.
+- Kept the visual treatment within the Turner Hopkins dark green / mint style.
+- Updated intake submission version marker to `v0.13.26k-passport-stamp-opening`.
 
 ## Not changed
-- Intake questions and guided step structure.
+
+- Intake form questions.
+- Guided intake step structure.
 - Conditional logic.
-- CRM intake records.
+- CRM intake record creation.
 - Adviser notification emails.
-- CV uploads.
-- Duplicate detection.
+- CV upload handling.
+- Duplicate/related enquiry detection.
 - Approval/decline workflow.
 - Booking-link integration.
+- Squarespace iframe auto-height embed logic from v0.13.26j.
 
-No database migration required.
+## Database
+
+No migration required.
+
+## Checks
+
+- `npm ci`
+- `npm run build`
+- `node --check netlify/functions/*.mjs`

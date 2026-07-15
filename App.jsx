@@ -1763,6 +1763,7 @@ function IntakeFormApp() {
   const [step, setStep] = useState(1);
   const [transition, setTransition] = useState(null);
   const [showFunds, setShowFunds] = useState(false);
+  const [introStarted, setIntroStarted] = useState(false);
 
   const hasPartner = form.hasPartner === 'Yes';
   const hasChildren = form.hasChildren === 'Yes';
@@ -1872,7 +1873,7 @@ function IntakeFormApp() {
       window.removeEventListener('load', postHeight);
       window.removeEventListener('message', handleParentMessage);
     };
-  }, [form, submitted, error, step, transition, showFunds]);
+  }, [form, submitted, error, step, transition, showFunds, introStarted]);
 
   useEffect(() => {
     if (isInvestmentMatter) setShowFunds(true);
@@ -2025,7 +2026,7 @@ function IntakeFormApp() {
       const response = await fetch('/.netlify/functions/intake', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ payload: { ...form, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.13.26j-iframe-height-loop-hotfix' } }),
+        body: JSON.stringify({ payload: { ...form, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.13.26k-passport-stamp-opening' } }),
       });
       const body = await readJsonResponse(response);
       if (!response.ok) throw new Error(body.error || 'The questionnaire could not be submitted.');
@@ -2141,7 +2142,7 @@ function IntakeFormApp() {
             <div><strong>3</strong><span>We contact you about the next step</span></div>
           </div>
           <p className="guided-urgent-note">If you have an urgent query, an INZ deadline, or an immediate visa issue, please contact us directly at <a href="mailto:immigration@turnerhopkins.co.nz">immigration@turnerhopkins.co.nz</a>.</p>
-          <button className="btn dark" type="button" onClick={() => { setForm(makeBlankIntakePayload()); setApplicantCvFile(null); setPartnerCvFile(null); setSubmitted(false); setStep(1); }}>Start another questionnaire</button>
+          <button className="btn dark" type="button" onClick={() => { setForm(makeBlankIntakePayload()); setApplicantCvFile(null); setPartnerCvFile(null); setSubmitted(false); setStep(1); setIntroStarted(false); }}>Start another questionnaire</button>
         </main>
       </div>
     );
@@ -2149,7 +2150,32 @@ function IntakeFormApp() {
 
   return (
     <div className="intake-public-shell guided-intake-shell" ref={intakeShellRef}>
-      <main className="intake-public-card guided-intake-card">
+      <main className={`intake-public-card guided-intake-card ${introStarted ? 'guided-intro-started' : ''}`}>
+        <div className={`guided-intro-cover ${introStarted ? 'is-started' : ''}`}>
+          <div className="guided-intro-grid">
+            <div className="guided-intro-copy">
+              <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="guided-intro-logo" />
+              <p className="guided-kicker">Turner Hopkins Immigration Specialists</p>
+              <h2>Begin your journey with us...</h2>
+              <p>Answer a few guided questions so our advisers can understand your situation and the best next step.</p>
+              <button className="guided-intro-button" type="button" onClick={() => setIntroStarted(true)}>Start your journey <span aria-hidden="true">→</span></button>
+            </div>
+            <div className="guided-passport-stage" aria-hidden="true">
+              <div className="guided-passport-scene">
+                <div className="guided-passport-book"><div className="guided-passport-emblem" /></div>
+                <div className="guided-passport-page">
+                  <span className="line" /><span className="line" /><span className="line" /><span className="line" />
+                  <span className="photo" />
+                </div>
+                <div className="guided-stamp-tool"><div className="guided-stamp-handle" /><div className="guided-stamp-base" /></div>
+                <div className="guided-stamp-imprint"><div><strong>Pathway<br />Started</strong><span>Turner Hopkins</span></div></div>
+                <div className="guided-nz-marker"><span className="guided-nz-pin" /><span>NZ</span></div>
+                <div className="guided-southern-cross"><span className="star s1" /><span className="star s2" /><span className="star s3" /><span className="star s4" /></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="guided-hero">
           <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="intake-brand-logo" />
           <div>
