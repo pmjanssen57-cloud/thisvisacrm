@@ -1,34 +1,23 @@
-# THiS CRM v0.13.26k - Passport Stamp Opening Hotfix
+# THiS CRM v0.13.26m - Passport Opening Mobile Spacing Fix
 
-This release adds the approved passport-stamp opening screen to the public guided intake form.
+Hotfix for the guided intake passport-stamp opening screen.
 
-## Changed
-
-- Added a full-cover opening screen to the public guided intake form.
-- Added the mobile-optimised passport and stamp visual treatment.
-- Added the `Start your journey` reveal interaction.
-- Kept the visual treatment within the Turner Hopkins dark green / mint style.
-- Updated intake submission version marker to `v0.13.26k-passport-stamp-opening`.
+## Changes
+- Tightens the mobile spacing below the passport-stamp animation.
+- Reduces the mobile animation panel height so the Start button and opening content sit closer together.
+- Keeps the desktop opening layout largely unchanged.
+- Keeps the guided intake form and iframe auto-height behaviour unchanged.
 
 ## Not changed
-
-- Intake form questions.
-- Guided intake step structure.
-- Conditional logic.
-- CRM intake record creation.
-- Adviser notification emails.
-- CV upload handling.
-- Duplicate/related enquiry detection.
-- Approval/decline workflow.
-- Booking-link integration.
-- Squarespace iframe auto-height embed logic from v0.13.26j.
+- Intake questions
+- Guided step structure
+- Conditional logic
+- CRM intake records
+- Adviser notification emails
+- CV uploads
+- Duplicate detection
+- Approval/decline workflow
+- Booking-link integration
 
 ## Database
-
 No migration required.
-
-## Checks
-
-- `npm ci`
-- `npm run build`
-- `node --check netlify/functions/*.mjs`
