@@ -1873,10 +1873,16 @@ function IntakeFormApp() {
       const next = { ...current, [name]: value };
       if (name === 'targetPathway' && value) {
         next.targetPathway = value;
-        if (!/work|permanent|residence|not sure/i.test(value)) {
-          next.immediateNeed = '';
-          next.longTermGoal = '';
-        }
+        const workResidenceOrUnsure = /work|permanent|residence|not sure/i.test(value);
+        if (/work/i.test(value)) next.immediateNeed = 'Work visa or permission to work';
+        else if (/permanent|residence/i.test(value)) next.immediateNeed = 'Residence or pathway to residence';
+        else if (/resolve|urgent|issue/i.test(value)) next.immediateNeed = 'Urgent visa issue';
+        else if (/partner|family/i.test(value)) next.immediateNeed = 'Partner or family visa help';
+        else if (/study/i.test(value)) next.immediateNeed = 'Study visa or study-to-work planning';
+        else if (/invest/i.test(value)) next.immediateNeed = 'Investor or business migration help';
+        else if (/staff|employer/i.test(value)) next.immediateNeed = 'Employer / migrant staff support';
+        else next.immediateNeed = 'Not sure yet';
+        if (!workResidenceOrUnsure) next.longTermGoal = '';
         if (/invest/i.test(value)) next.investmentInterest = 'Yes';
       }
       if (name === 'isInNewZealand' && value === 'Yes') {
@@ -1996,7 +2002,7 @@ function IntakeFormApp() {
       const response = await fetch('/.netlify/functions/intake', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ payload: { ...form, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.13.26-guided' } }),
+        body: JSON.stringify({ payload: { ...form, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.13.26b-guided-entry' } }),
       });
       const body = await readJsonResponse(response);
       if (!response.ok) throw new Error(body.error || 'The questionnaire could not be submitted.');
@@ -2132,6 +2138,22 @@ function IntakeFormApp() {
         <form className="intake-form guided-form" onSubmit={submit}>
           {step === 1 && (
             <IntakeSection title="Your goal" description="Choose the option that best matches what you want to achieve. You can still continue if you are not sure.">
+              <div className="guided-doorway-card">
+                <div className="guided-door-scene" aria-hidden="true">
+                  <div className="guided-door-frame">
+                    <span className="guided-door-panel left" />
+                    <span className="guided-door-panel right" />
+                    <span className="guided-door-glow" />
+                    <span className="guided-door-path" />
+                    <span className="guided-nz-marker">NZ</span>
+                  </div>
+                </div>
+                <div>
+                  <p className="guided-kicker">Your first step</p>
+                  <h2>Open the door to your New Zealand plan</h2>
+                  <p>Start by choosing the goal closest to where you are heading. The form will guide the rest, one step at a time.</p>
+                </div>
+              </div>
               <div className="guided-goal-grid">
                 {goalCards.map((goal) => {
                   const selected = form.targetPathway === goal.value;
@@ -2154,19 +2176,12 @@ function IntakeFormApp() {
               {isWorkResidenceGoal && (
                 <div className="guided-bridge-panel">
                   <div className="guided-bridge-visual"><span>Work</span><i /> <span>Residence</span></div>
-                  <p>Work and residence often connect. These questions help us understand both your immediate visa needs and your longer-term plan.</p>
+                  <p>Work and residence often connect. Your selected goal tells us your immediate focus; this one question helps us understand the longer-term plan.</p>
                   <div className="form-grid">
-                    <IntakeSelect label="What do you need help with now?" value={form.immediateNeed} onChange={(v) => setField('immediateNeed', v)} options={['I mainly need a work visa', 'I want residence or a pathway to residence', 'I need to solve an urgent visa issue', 'I am not sure yet']} />
                     <IntakeSelect label="What is your longer-term goal?" value={form.longTermGoal} onChange={(v) => setField('longTermGoal', v)} options={['Stay temporarily', 'Live in New Zealand permanently', 'Bring or remain with my partner/family', 'Keep my options open', 'Not sure yet']} />
                   </div>
                 </div>
               )}
-              <div className="form-grid">
-                <IntakeField label="Preferred timing" value={form.desiredTimeframe} onChange={(v) => setField('desiredTimeframe', v)} placeholder="e.g. As soon as possible, 6-12 months" />
-                <IntakeSelect label="Urgency" value={form.urgency} onChange={(v) => setField('urgency', v)} options={['Standard', 'Urgent']} />
-                <IntakeField label="Any urgent deadline?" type="date" value={form.urgentDeadline} onChange={(v) => setField('urgentDeadline', v)} />
-              </div>
-              <IntakeTextarea label="What help do you need?" value={form.helpNeeded} onChange={(v) => setField('helpNeeded', v)} rows={3} />
             </IntakeSection>
           )}
 

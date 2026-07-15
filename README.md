@@ -1,14 +1,27 @@
-# THiS CRM v0.13.26a — Intake Icon Theme Hotfix
+# THiS CRM v0.13.26b — Intake Entry Moment Hotfix
 
-This hotfix sits on top of v0.13.26 and keeps the guided intake journey unchanged, except for the visual treatment of the goal/journey icons.
+This small hotfix sits on top of v0.13.26a. It keeps the guided intake journey and CRM workflows intact, but refines the first page so it feels more like the beginning of a New Zealand journey and less like another form screen.
 
-## v0.13.26a changes
+## v0.13.26b changes
 
-- Replaced full-colour emoji-style goal icons with simple Turner Hopkins themed line icons.
-- Goal icons now use dark green and mint styling to better match the existing intake form and website design.
-- Replaced the full-colour kiwi emoji marker in the journey map with the same clean numbered/check marker style.
-- Preserved all guided intake functionality, notifications, CV upload handling, booking-link workflow and CRM intake records.
-- No database migration required.
+- Added a subtle opening-door / pathway-to-NZ visual moment to the first page of the public intake form.
+- Kept the animation in the Turner Hopkins green/mint style rather than full-colour illustration.
+- Removed the first-page Preferred timing, Urgency, Any urgent deadline, and What help do you need fields from the public guided intake flow.
+- Removed the first-page immediate-help dropdown from the Work/Residence bridge. The selected goal now supplies the immediate-focus signal automatically.
+- Kept the longer-term goal question for Work/Residence/Not sure applicants so advisers still see whether work is temporary or part of a residence plan.
+- Preserved existing CRM intake submission, notifications, CV upload, duplicate detection, approve/decline, and booking-link workflows.
+
+## Database
+
+No new database migration is required.
+
+## Build checks completed
+
+- `npm ci` completed.
+- `npm run build` completed successfully.
+- Netlify Function syntax checks passed for all `.mjs` functions.
+
+---
 
 # THiS CRM v0.13.26 — Guided Intake Journey Integration
 
@@ -28,7 +41,7 @@ This build sits on top of v0.13.25 and replaces the public assessment questionna
 - Added the "Begin your journey with us..." heading and a cleaner client-facing pathway experience.
 - Added goal cards with visual icons and selected-goal confirmation.
 - Added Work/Residence bridge logic so clients who choose work can still indicate residence as a longer-term goal.
-- Added immediate-need and long-term-goal fields into the intake payload and notification summary.
+- Added immediate-focus and long-term-goal information into the intake payload and notification summary.
 - Added Kiwi/Aotearoa journey map and staged guide panel.
 - Added four-second Kiwi-note transition cards between sections, with a Continue now option.
 - Preserved all substantive intake questions from the existing form, including:
