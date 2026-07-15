@@ -1,11 +1,12 @@
-# THiS CRM v0.13.26h - Mobile Width and Journey Label Hotfix
+# THiS CRM v0.13.26i - Guided Intake Iframe Auto-height Fix
 
-This hotfix follows v0.13.26g and only adjusts the guided intake mobile layout.
+This hotfix follows v0.13.26h and only adjusts the Squarespace embedded intake height behaviour.
 
 Changes:
-- Widened the guided intake form further on mobile and embedded mobile views.
-- Reworked the mobile Kiwi journey map into a compact 4 x 2 layout.
-- Restored readable labels under each numbered step on mobile.
-- Removed the clipped active-stage label from the compact mobile journey map.
+- Added more robust height reporting from the public guided intake form.
+- Updated the Squarespace guided intake embed so the iframe height can shrink as well as grow.
+- Replaced fixed/min-height-only behaviour with dynamic iframe height updates.
+- Preserved the existing scroll-to-fun-fact and scroll-back-to-form-top messaging.
+- Updated the intake version marker to v0.13.26i.
 
 No database migration required.
