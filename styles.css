@@ -12096,3 +12096,47 @@ body.intake-embed-mode .guided-intro-cover {
 body.intake-embed-mode .guided-passport-stage {
   margin-bottom: 0;
 }
+
+/* v0.13.26n Standalone intake opening screen */
+.guided-opening-card {
+  padding: 0;
+  min-height: 0;
+}
+.guided-opening-card::before {
+  z-index: 2;
+}
+.guided-intro-standalone {
+  position: relative;
+  inset: auto;
+  z-index: 1;
+  min-height: auto;
+  border-radius: inherit;
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  pointer-events: auto;
+}
+.guided-intro-standalone.is-started {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-14px);
+  pointer-events: none;
+}
+.guided-intro-button:disabled {
+  cursor: wait;
+  opacity: .92;
+}
+@media (max-width: 900px) {
+  .guided-opening-card,
+  body.intake-embed-mode .guided-opening-card {
+    padding: 0 !important;
+  }
+  .guided-intro-standalone {
+    padding-bottom: 14px;
+  }
+}
+@media (max-width: 520px) {
+  .guided-intro-standalone {
+    padding: 14px 14px 12px;
+  }
+}

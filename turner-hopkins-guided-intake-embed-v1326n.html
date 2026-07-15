@@ -1,0 +1,57 @@
+<!-- Turner Hopkins Immigration Specialists - Guided Intake Form Embed v0.13.26n
+     Paste this block into a Squarespace Code Block.
+     Update the iframe src if your Netlify production URL is different.
+     This version preserves the iframe auto-height behaviour. No embed change is required if v0.13.26j or later is already installed.
+-->
+<div id="this-guided-intake-embed" style="width:100%; max-width:1180px; margin:0 auto;">
+  <iframe
+    id="this-guided-intake-frame"
+    title="Turner Hopkins Immigration Specialists Guided Intake Form"
+    src="https://thisvisacrm.netlify.app/intake"
+    style="width:100%; height:1100px; min-height:720px; border:0; display:block; overflow:hidden; transition:height 220ms ease;"
+    scrolling="no"
+    loading="lazy"
+    referrerpolicy="strict-origin-when-cross-origin"
+  ></iframe>
+</div>
+<script>
+(function () {
+  var frame = document.getElementById('this-guided-intake-frame');
+  if (!frame) return;
+
+  function setFrameHeight(rawHeight) {
+    var height = Number(rawHeight || 0);
+    if (!height || height < 200) return;
+    var safeHeight = Math.min(Math.max(Math.ceil(height) + 6, 720), 12000);
+    frame.style.minHeight = '0px';
+    frame.style.height = safeHeight + 'px';
+    frame.setAttribute('height', String(safeHeight));
+  }
+
+  window.addEventListener('message', function (event) {
+    var data = event.data || {};
+    if (data.source !== 'this-crm-intake') return;
+
+    if (data.type === 'THIS_INTAKE_EMBED_HEIGHT') {
+      setFrameHeight(data.height);
+      return;
+    }
+
+    if (data.type === 'THIS_INTAKE_SCROLL_TO') {
+      var offset = Number(data.offset || 0);
+      var rect = frame.getBoundingClientRect();
+      var targetY = window.pageYOffset + rect.top + offset;
+      if (data.align === 'center') targetY -= Math.max(120, window.innerHeight / 2);
+      else targetY -= 12;
+      window.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' });
+    }
+  });
+
+  window.addEventListener('resize', function () {
+    frame.contentWindow && frame.contentWindow.postMessage({
+      type: 'THIS_INTAKE_PARENT_RESIZED',
+      source: 'this-guided-intake-embed'
+    }, '*');
+  });
+})();
+</script>

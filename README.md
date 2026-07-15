@@ -1,12 +1,13 @@
-# THiS CRM v0.13.26m - Passport Opening Mobile Spacing Fix
+# THiS CRM v0.13.26n - Standalone Intake Opening Screen
 
 Hotfix for the guided intake passport-stamp opening screen.
 
 ## Changes
-- Tightens the mobile spacing below the passport-stamp animation.
-- Reduces the mobile animation panel height so the Start button and opening content sit closer together.
-- Keeps the desktop opening layout largely unchanged.
-- Keeps the guided intake form and iframe auto-height behaviour unchanged.
+- Replaces the overlay-based opening screen with a standalone entry state.
+- Shows only the opening screen first; the guided form is rendered after the user clicks **Start your journey**.
+- Keeps the passport/stamp animation compact and self-contained.
+- Prevents the hidden form from influencing mobile spacing, opacity, clipping, or iframe height before the intake starts.
+- Triggers iframe remeasurement after the guided form appears.
 
 ## Not changed
 - Intake questions
@@ -18,6 +19,7 @@ Hotfix for the guided intake passport-stamp opening screen.
 - Duplicate detection
 - Approval/decline workflow
 - Booking-link integration
+- Existing iframe auto-height behaviour
 
 ## Database
 No migration required.
