@@ -1668,6 +1668,88 @@ function guidedCountryOptions() {
   return [...top, { label: '────────────', value: '__divider', disabled: true }, ...rest];
 }
 
+
+function GuidedGoalIcon({ type }) {
+  const common = {
+    viewBox: '0 0 64 64',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 3.4,
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+    'aria-hidden': 'true',
+  };
+  const icons = {
+    work: (
+      <svg {...common}>
+        <path d="M20 25h24a5 5 0 0 1 5 5v15a5 5 0 0 1-5 5H20a5 5 0 0 1-5-5V30a5 5 0 0 1 5-5Z" />
+        <path d="M25 25v-5a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v5" />
+        <path d="M15 34h34" />
+        <path d="M29 38h6" />
+      </svg>
+    ),
+    residence: (
+      <svg {...common}>
+        <path d="M14 32 32 17l18 15" />
+        <path d="M20 30v19h24V30" />
+        <path d="M28 49V37h8v12" />
+      </svg>
+    ),
+    family: (
+      <svg {...common}>
+        <circle cx="24" cy="24" r="6" />
+        <circle cx="42" cy="25" r="5" />
+        <circle cx="33" cy="38" r="4.5" />
+        <path d="M13 50c2-8 8-12 17-12" />
+        <path d="M51 50c-2-7-7-10-14-10" />
+      </svg>
+    ),
+    study: (
+      <svg {...common}>
+        <path d="M12 25 32 15l20 10-20 10-20-10Z" />
+        <path d="M20 30v9c4 5 20 5 24 0v-9" />
+        <path d="M52 25v13" />
+      </svg>
+    ),
+    invest: (
+      <svg {...common}>
+        <path d="M18 46h28" />
+        <path d="M22 46V25" />
+        <path d="M32 46V18" />
+        <path d="M42 46V31" />
+        <path d="M20 25c6 0 10-4 12-10 2 6 6 10 12 10" />
+      </svg>
+    ),
+    employer: (
+      <svg {...common}>
+        <path d="M17 50V20h18v30" />
+        <path d="M35 30h13v20" />
+        <path d="M23 27h6M23 35h6M23 43h6M41 37h3M41 44h3" />
+      </svg>
+    ),
+    urgent: (
+      <svg {...common}>
+        <circle cx="32" cy="32" r="20" />
+        <path d="M32 20v14" />
+        <path d="M32 43h.1" />
+        <path d="M46 18 51 13" />
+      </svg>
+    ),
+    unsure: (
+      <svg {...common}>
+        <circle cx="32" cy="32" r="20" />
+        <path d="M32 20v6" />
+        <path d="M32 38v6" />
+        <path d="M20 32h6" />
+        <path d="M38 32h6" />
+        <path d="M27 27l10 10" />
+        <path d="M37 27 27 37" />
+      </svg>
+    ),
+  };
+  return icons[type] || icons.unsure;
+}
+
 function IntakeFormApp() {
   const intakeShellRef = useRef(null);
   const [form, setForm] = useState(makeBlankIntakePayload());
@@ -1703,14 +1785,14 @@ function IntakeFormApp() {
   ];
 
   const goalCards = [
-    { value: 'Work in New Zealand', icon: '💼', title: 'Work in New Zealand', text: 'For temporary work visas, job-based visas, or permission to work.' },
-    { value: 'Live in New Zealand permanently', icon: '🏡', title: 'Live in New Zealand permanently', text: 'For residence, pathways to residence, or long-term settlement.' },
-    { value: 'Join my partner or family', icon: '👨‍👩‍👧', title: 'Join my partner or family', text: 'For partner, parent, dependent child or wider family visa questions.' },
-    { value: 'Study in New Zealand', icon: '🎓', title: 'Study in New Zealand', text: 'For student visas, post-study planning, or study-to-work options.' },
-    { value: 'Invest in New Zealand', icon: '🌿', title: 'Invest in New Zealand', text: 'For investor, business, funds or source-of-funds questions.' },
-    { value: 'Bring staff to New Zealand', icon: '🏢', title: 'Bring staff to New Zealand', text: 'For employers, accreditation and hiring migrant workers.' },
-    { value: 'Resolve a visa issue', icon: '⏱️', title: 'Resolve a visa issue', text: 'For urgent deadlines, INZ concerns, declines or compliance issues.' },
-    { value: 'Not sure yet', icon: '🧭', title: 'Not sure yet', text: 'Choose this if you are exploring and want us to guide the first step.' },
+    { value: 'Work in New Zealand', icon: 'work', title: 'Work in New Zealand', text: 'For temporary work visas, job-based visas, or permission to work.' },
+    { value: 'Live in New Zealand permanently', icon: 'residence', title: 'Live in New Zealand permanently', text: 'For residence, pathways to residence, or long-term settlement.' },
+    { value: 'Join my partner or family', icon: 'family', title: 'Join my partner or family', text: 'For partner, parent, dependent child or wider family visa questions.' },
+    { value: 'Study in New Zealand', icon: 'study', title: 'Study in New Zealand', text: 'For student visas, post-study planning, or study-to-work options.' },
+    { value: 'Invest in New Zealand', icon: 'invest', title: 'Invest in New Zealand', text: 'For investor, business, funds or source-of-funds questions.' },
+    { value: 'Bring staff to New Zealand', icon: 'employer', title: 'Bring staff to New Zealand', text: 'For employers, accreditation and hiring migrant workers.' },
+    { value: 'Resolve a visa issue', icon: 'urgent', title: 'Resolve a visa issue', text: 'For urgent deadlines, INZ concerns, declines or compliance issues.' },
+    { value: 'Not sure yet', icon: 'unsure', title: 'Not sure yet', text: 'Choose this if you are exploring and want us to guide the first step.' },
   ];
 
   const funFacts = [
@@ -2028,7 +2110,7 @@ function IntakeFormApp() {
           <div className="kiwi-map-bg">Aotearoa</div>
           {steps.map((item) => (
             <div key={item.id} className={`kiwi-map-stop ${step === item.id ? 'current' : ''} ${step > item.id ? 'complete' : ''}`}>
-              <span className="kiwi-dot">{step > item.id ? '✓' : item.id === step ? '🥝' : item.id}</span>
+              <span className="kiwi-dot">{step > item.id ? '✓' : item.id}</span>
               <strong>{item.label}</strong>
             </div>
           ))}
@@ -2056,7 +2138,7 @@ function IntakeFormApp() {
                   const muted = form.targetPathway && !selected;
                   return (
                     <button key={goal.value} type="button" className={`guided-goal-card ${selected ? 'selected' : ''} ${muted ? 'muted-choice' : ''}`} onClick={() => setField('targetPathway', goal.value)}>
-                      <span className="guided-goal-icon">{goal.icon}</span>
+                      <span className="guided-goal-icon"><GuidedGoalIcon type={goal.icon} /></span>
                       <strong>{goal.title}</strong>
                       <small>{goal.text}</small>
                     </button>

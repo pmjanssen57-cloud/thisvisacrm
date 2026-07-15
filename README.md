@@ -1,3 +1,15 @@
+# THiS CRM v0.13.26a — Intake Icon Theme Hotfix
+
+This hotfix sits on top of v0.13.26 and keeps the guided intake journey unchanged, except for the visual treatment of the goal/journey icons.
+
+## v0.13.26a changes
+
+- Replaced full-colour emoji-style goal icons with simple Turner Hopkins themed line icons.
+- Goal icons now use dark green and mint styling to better match the existing intake form and website design.
+- Replaced the full-colour kiwi emoji marker in the journey map with the same clean numbered/check marker style.
+- Preserved all guided intake functionality, notifications, CV upload handling, booking-link workflow and CRM intake records.
+- No database migration required.
+
 # THiS CRM v0.13.26 — Guided Intake Journey Integration
 
 This build sits on top of v0.13.25 and replaces the public assessment questionnaire with the guided Turner Hopkins intake journey prototype. The adviser-side CRM workflow remains the same: submitted forms still arrive in Enquiries & Intake > Intake Forms, adviser notification emails continue to send, CV uploads remain supported, and the existing approve/decline plus booking-link workflows are preserved.

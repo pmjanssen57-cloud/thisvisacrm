@@ -10507,11 +10507,24 @@ body.intake-embed-mode .contact-form select {
 .guided-goal-icon {
   display: grid;
   place-items: center;
-  width: 48px;
-  height: 48px;
+  width: 50px;
+  height: 50px;
   border-radius: 18px;
-  background: #f4fbf8;
-  font-size: 1.45rem;
+  background: linear-gradient(180deg, #f4fbf8, #ffffff);
+  color: #003736;
+  border: 1px solid #d9e6e1;
+  box-shadow: inset 0 0 0 1px rgba(85,217,160,.12);
+}
+.guided-goal-icon svg {
+  width: 29px;
+  height: 29px;
+  display: block;
+}
+.guided-goal-card:hover .guided-goal-icon,
+.guided-goal-card.selected .guided-goal-icon {
+  background: #003736;
+  border-color: #003736;
+  color: #55d9a0;
 }
 .guided-goal-card strong { font-size: 1rem; }
 .guided-goal-card small { color: #64748b; line-height: 1.45; }
