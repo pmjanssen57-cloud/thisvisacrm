@@ -1,11 +1,11 @@
-# THiS CRM v0.13.26g — Mobile Width and Journey Map Fix
+# THiS CRM v0.13.26h - Mobile Width and Journey Label Hotfix
 
-Hotfix from v0.13.26f.
+This hotfix follows v0.13.26g and only adjusts the guided intake mobile layout.
 
 Changes:
-- Widened the guided intake form on mobile and embedded mobile views.
-- Reworked the Kiwi journey map on mobile into a compact 8-dot progress strip.
-- Hid journey-map labels on mobile except for the active stage cue.
-- Preserved the existing intake form fields, CRM submissions, notifications, CV uploads, duplicate detection and booking-link integration.
+- Widened the guided intake form further on mobile and embedded mobile views.
+- Reworked the mobile Kiwi journey map into a compact 4 x 2 layout.
+- Restored readable labels under each numbered step on mobile.
+- Removed the clipped active-stage label from the compact mobile journey map.
 
 No database migration required.
