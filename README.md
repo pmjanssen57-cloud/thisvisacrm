@@ -1,3 +1,82 @@
+# THiS CRM v0.13.26 — Guided Intake Journey Integration
+
+This build sits on top of v0.13.25 and replaces the public assessment questionnaire with the guided Turner Hopkins intake journey prototype. The adviser-side CRM workflow remains the same: submitted forms still arrive in Enquiries & Intake > Intake Forms, adviser notification emails continue to send, CV uploads remain supported, and the existing approve/decline plus booking-link workflows are preserved.
+
+## v0.13.26 changes
+
+- Replaced the public `/intake` questionnaire with a guided eight-stage intake journey:
+  - Goal
+  - You
+  - Visa
+  - Work
+  - Study
+  - Family
+  - History
+  - Send
+- Added the "Begin your journey with us..." heading and a cleaner client-facing pathway experience.
+- Added goal cards with visual icons and selected-goal confirmation.
+- Added Work/Residence bridge logic so clients who choose work can still indicate residence as a longer-term goal.
+- Added immediate-need and long-term-goal fields into the intake payload and notification summary.
+- Added Kiwi/Aotearoa journey map and staged guide panel.
+- Added four-second Kiwi-note transition cards between sections, with a Continue now option.
+- Preserved all substantive intake questions from the existing form, including:
+  - health
+  - character
+  - immigration history
+  - qualifications
+  - English
+  - employment and experience
+  - partner details
+  - children details
+  - funds/investment details
+- Kept conditional logic to reduce redundant questions:
+  - if the client is currently in New Zealand, prior-visit questions are hidden
+  - if the client is in New Zealand and has a current visa type, prior-NZ-visa questions are not shown
+  - family/partner applicants still see work and qualification questions with explanatory text
+- Restyled the CV upload controls to match the Turner Hopkins form style.
+- Added a mobile optimisation pass for step tabs, journey map, controls, and sticky actions.
+- Added a final urgent-query note directing urgent enquiries to immigration@turnerhopkins.co.nz.
+
+## Preserved behaviour
+
+- Existing Netlify Function submission endpoint is retained: `/.netlify/functions/intake`.
+- Existing intake records remain stored in `intake_enquiries`.
+- Existing adviser notification emails are retained.
+- Existing applicant and partner CV upload handling is retained.
+- Existing approval/decline email workflow is retained.
+- Existing booking-link integration in the intake approval workflow is retained.
+- Existing CRM intake list, matching cues, duplicate detection, and pop-out review remain in place.
+
+## Database
+
+No new database migration is required.
+
+## Recommended smoke test
+
+1. Deploy the package to Netlify.
+2. Open the public `/intake` page, including in the Squarespace embed if used.
+3. Select Work in New Zealand and confirm the work/residence bridge appears.
+4. Select Live in New Zealand permanently and confirm the same bridge appears.
+5. Select Join my partner or family and confirm work/study questions explain why they are still being asked.
+6. Confirm the country dropdown has common countries at the top with a divider but no "Common countries" heading.
+7. Confirm CV upload controls accept PDF/DOC/DOCX and show the selected file pill.
+8. Complete and submit a test intake form.
+9. Confirm the record appears in CRM > Enquiries & Intake > Intake Forms.
+10. Confirm the adviser notification email sends and includes the new immediate-need / long-term-goal details.
+11. Approve the test intake and confirm the existing booking-link email flow still works.
+
+## Build checks completed
+
+- `npm ci` completed.
+- `npm run build` completed successfully.
+- Netlify Function syntax checks passed for all `.mjs` functions.
+
+The Vite build may still report the existing large-bundle warning. That is not new to this release and does not block deployment.
+
+---
+
+Previous release notes retained below.
+
 # THiS CRM v0.13.25 — Enquiry Matching & Duplicate Detection
 
 This build sits on top of v0.13.24a and adds a light-touch matching layer across pre-client records. The goal is to help advisers spot when the same person has submitted a contact form, full questionnaire, or seminar registration before screening begins.
