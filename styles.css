@@ -11455,3 +11455,105 @@ body.intake-embed-mode .contact-form select {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(4px); }
 }
+
+
+/* v0.13.26g Mobile intake width and journey-map compacting */
+@media (max-width: 720px) {
+  .guided-intake-shell {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+  body.intake-embed-mode .guided-intake-shell,
+  body.intake-embed-mode .intake-public-shell.guided-intake-shell {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+  .guided-intake-card {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 18px;
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  body.intake-embed-mode .guided-intake-card,
+  body.intake-embed-mode .intake-public-card.guided-intake-card {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 18px;
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .guided-guide-card {
+    margin-bottom: 10px;
+  }
+  .kiwi-journey-map {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 4px;
+    margin: 0 0 14px;
+    padding: 9px 8px;
+    border-radius: 18px;
+    min-height: 48px;
+    align-items: center;
+  }
+  .kiwi-map-bg {
+    display: none;
+  }
+  .kiwi-map-stop {
+    gap: 0;
+    min-width: 0;
+    font-size: 0;
+  }
+  .kiwi-map-stop strong {
+    display: none;
+  }
+  .kiwi-dot {
+    width: 26px;
+    height: 26px;
+    font-size: .72rem;
+    justify-self: center;
+  }
+  .kiwi-map-stop.current .kiwi-dot {
+    transform: translateY(-2px) scale(1.08);
+  }
+  .kiwi-map-stop.current::after {
+    content: attr(data-label);
+    position: absolute;
+    top: 31px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #003736;
+    font-size: .58rem;
+    font-weight: 900;
+    line-height: 1;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 420px) {
+  .guided-intake-shell {
+    padding-left: 3px;
+    padding-right: 3px;
+  }
+  body.intake-embed-mode .guided-intake-shell,
+  body.intake-embed-mode .intake-public-shell.guided-intake-shell {
+    padding-left: 2px;
+    padding-right: 2px;
+  }
+  .guided-intake-card,
+  body.intake-embed-mode .guided-intake-card,
+  body.intake-embed-mode .intake-public-card.guided-intake-card {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .kiwi-journey-map {
+    gap: 3px;
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+  .kiwi-dot {
+    width: 24px;
+    height: 24px;
+    font-size: .68rem;
+  }
+}

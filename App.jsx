@@ -2016,7 +2016,7 @@ function IntakeFormApp() {
       const response = await fetch('/.netlify/functions/intake', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ payload: { ...form, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.13.26f-mobile-fun-fact-scroll-fix' } }),
+        body: JSON.stringify({ payload: { ...form, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.13.26g-mobile-width-progress-map-fix' } }),
       });
       const body = await readJsonResponse(response);
       if (!response.ok) throw new Error(body.error || 'The questionnaire could not be submitted.');
@@ -2171,7 +2171,7 @@ function IntakeFormApp() {
         <div className="kiwi-journey-map" aria-label="Journey map">
           <div className="kiwi-map-bg">Aotearoa</div>
           {steps.map((item) => (
-            <div key={item.id} className={`kiwi-map-stop ${step === item.id ? 'current' : ''} ${step > item.id ? 'complete' : ''}`}>
+            <div key={item.id} data-label={item.label} className={`kiwi-map-stop ${step === item.id ? 'current' : ''} ${step > item.id ? 'complete' : ''}`}>
               <span className="kiwi-dot">{step > item.id ? '✓' : item.id}</span>
               <strong>{item.label}</strong>
             </div>
