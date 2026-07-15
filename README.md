@@ -1,26 +1,27 @@
-# THiS CRM v0.13.26d - Guided Intake Animation Rollback Hotfix
+# THiS CRM v0.13.26f - Mobile Fun Fact Scroll Fix
 
-This hotfix rolls back the intake entry animation treatment while preserving the guided intake journey and CRM integration.
+Incremental hotfix from v0.13.26e.
 
 ## Changes
 
-- Removed the full-form intake cover/reveal animation from the public guided intake form.
-- Removed the first-page door/pathway illustration card from the Goal step.
-- Removed the unused kiwi silhouette public asset from the package.
-- Updated the intake submission version marker to `v0.13.26d-guided-intake-animation-rollback`.
+- Removed the mobile-only sticky Continue bar that appeared after selecting the first goal card.
+- Kept the small mobile visual cue below the selected-goal confirmation.
+- Added scroll coordination for the guided intake fun-fact transition:
+  - when a fun fact appears, the page scrolls to centre it;
+  - when the next section loads, the page scrolls back to the top of the intake form.
+- Added `turner-hopkins-guided-intake-embed.html` with an iframe listener for height and scroll messages when embedded in Squarespace.
 
 ## Not changed
 
-- Guided intake step structure.
-- Intake form questions and conditional logic.
-- CV upload handling.
-- CRM intake record creation.
+- Intake questions and step structure.
+- Conditional logic.
+- CRM intake records.
 - Adviser notification emails.
-- Duplicate/related enquiry detection.
+- CV uploads.
+- Duplicate detection.
 - Approval/decline workflow.
 - Booking-link integration.
-- Database schema.
 
-## Deployment
+## Database
 
-Deploy as a normal Netlify ZIP package. No database migration is required.
+No new migration required.

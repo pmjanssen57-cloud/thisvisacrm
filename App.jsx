@@ -2016,14 +2016,14 @@ function IntakeFormApp() {
       const response = await fetch('/.netlify/functions/intake', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ payload: { ...form, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.13.26e-mobile-intake-continue-cue' } }),
+        body: JSON.stringify({ payload: { ...form, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.13.26f-mobile-fun-fact-scroll-fix' } }),
       });
       const body = await readJsonResponse(response);
       if (!response.ok) throw new Error(body.error || 'The questionnaire could not be submitted.');
       if (applicantCvFile) await uploadIntakeCvFile(body.intakeId, body.uploadToken, 'applicantCv', applicantCvFile);
       if (hasPartner && partnerCvFile) await uploadIntakeCvFile(body.intakeId, body.uploadToken, 'partnerCv', partnerCvFile);
       setSubmitted(true);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      scrollFormTop();
     } catch (err) {
       setError(err.message || String(err));
     } finally {
@@ -2031,11 +2031,52 @@ function IntakeFormApp() {
     }
   }
 
+  function postEmbedScroll(offset = 0, align = 'start') {
+    if (typeof window === 'undefined' || window.parent === window) return false;
+    window.parent.postMessage({
+      type: 'THIS_INTAKE_SCROLL_TO',
+      source: 'this-crm-intake',
+      offset: Math.max(0, Math.round(offset || 0)),
+      align,
+    }, '*');
+    return true;
+  }
+
+  function getOffsetWithinShell(element) {
+    const shell = intakeShellRef.current;
+    if (!shell || !element) return 0;
+    const shellRect = shell.getBoundingClientRect();
+    const elementRect = element.getBoundingClientRect();
+    return (elementRect.top - shellRect.top) + (elementRect.height / 2);
+  }
+
+  function scrollFormTop() {
+    const shell = intakeShellRef.current;
+    if (postEmbedScroll(0, 'start')) return;
+    if (shell && typeof shell.scrollIntoView === 'function') {
+      shell.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+
+  function scrollFactToCentre() {
+    window.setTimeout(() => {
+      const factCard = document.querySelector('.guided-fact-card');
+      if (!factCard) return;
+      const offset = getOffsetWithinShell(factCard);
+      if (postEmbedScroll(offset, 'center')) return;
+      if (typeof factCard.scrollIntoView === 'function') {
+        factCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 80);
+  }
+
   function jumpTo(targetStep) {
     if (targetStep === step) return;
     if (targetStep < step) {
       setStep(targetStep);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      scrollFormTop();
       return;
     }
     showTransition(targetStep);
@@ -2048,18 +2089,19 @@ function IntakeFormApp() {
   function previousStep() {
     if (step > 1) {
       setStep(step - 1);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      scrollFormTop();
     }
   }
 
   function showTransition(targetStep) {
     const fact = funFacts[(targetStep + step) % funFacts.length];
     setTransition({ targetStep, fact });
+    scrollFactToCentre();
     window.setTimeout(() => {
       setTransition((current) => {
         if (!current || current.targetStep !== targetStep) return current;
         setStep(targetStep);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        scrollFormTop();
         return null;
       });
     }, 4000);
@@ -2070,7 +2112,7 @@ function IntakeFormApp() {
     const targetStep = transition.targetStep;
     setTransition(null);
     setStep(targetStep);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollFormTop();
   }
 
   const activeStep = steps.find((item) => item.id === step) || steps[0];
@@ -2410,16 +2452,6 @@ function IntakeFormApp() {
                 <IntakeCheckbox label="I understand this questionnaire is for initial assessment only and does not create an adviser-client relationship." checked={form.privacyAcknowledged} onChange={(v) => setField('privacyAcknowledged', v)} required />
               </div>
             </IntakeSection>
-          )}
-
-          {step === 1 && selectedGoal && !transition && (
-            <div className="guided-mobile-goal-bar" role="region" aria-label="Selected goal">
-              <div>
-                <span>Selected goal</span>
-                <strong>{selectedGoal.title}</strong>
-              </div>
-              <button className="btn dark" type="button" onClick={nextStep} disabled={submitting}>Continue →</button>
-            </div>
           )}
 
           <div className="guided-submit-bar">
