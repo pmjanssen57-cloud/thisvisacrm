@@ -1751,75 +1751,6 @@ function GuidedGoalIcon({ type }) {
 }
 
 
-function GuidedJourneyEntryCover({ state = 'ready', onStart }) {
-  const opening = state === 'opening';
-  return (
-    <section className={`guided-entry-cover ${opening ? 'opening' : ''}`} aria-label="Start your journey introduction">
-      <div className="guided-entry-card">
-        <div className="guided-entry-copy">
-          <div className="guided-entry-brand">
-            <span className="guided-entry-brand-mark">THiS</span>
-            <span>Turner Hopkins Immigration Specialists</span>
-          </div>
-          <p className="guided-entry-kicker">A guided first step</p>
-          <h1>Begin your journey with us...</h1>
-          <p>Open the door to a guided intake experience. We will ask the right questions, keep it practical, and help our advisers understand your next step.</p>
-          <div className="guided-entry-actions">
-            <button type="button" className="guided-entry-start" onClick={onStart} disabled={opening}>
-              <span>{opening ? 'Opening...' : 'Start your journey'}</span>
-              <span aria-hidden="true">→</span>
-            </button>
-            <span className="guided-entry-note">No visa category knowledge needed</span>
-          </div>
-        </div>
-        <div className="guided-entry-visual">
-          <div className="entry-door-stage" aria-hidden="true">
-            <div className="entry-pathway">
-              <svg viewBox="0 0 240 240" role="img">
-                <polyline points="36,174 72,151 101,160 127,120 163,126 203,78" />
-                <path className="entry-path-main" d="M62 200 C 96 175, 96 145, 118 130 S 166 107, 184 70" />
-              </svg>
-            </div>
-            <div className="entry-door-frame">
-              <div className="entry-door-view">
-                <div className="entry-sheep-field" aria-hidden="true">
-                  <span className="entry-field-cloud entry-cloud-one" />
-                  <span className="entry-field-cloud entry-cloud-two" />
-                  <span className="entry-field-hill entry-hill-one" />
-                  <span className="entry-field-hill entry-hill-two" />
-                  <span className="entry-field-path" />
-                  <GuidedEntrySheep className="entry-field-sheep entry-sheep-one" />
-                  <GuidedEntrySheep className="entry-field-sheep entry-sheep-two" />
-                </div>
-              </div>
-              <span className="entry-door-panel left" />
-              <span className="entry-door-panel right" />
-            </div>
-            <img className="entry-cover-kiwi" src="/kiwi-green-silhouette.png" alt="" />
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function GuidedEntrySheep({ className = '' }) {
-  return (
-    <svg className={className} viewBox="0 0 150 112" aria-hidden="true">
-      <g className="entry-sheep-line-art">
-        <path className="entry-sheep-wool" d="M23 70 C9 65 9 47 24 42 C28 26 48 21 60 30 C72 17 96 18 108 32 C123 30 138 43 136 59 C149 66 146 85 130 89 C126 105 105 106 94 96 C81 107 60 107 50 96 C35 105 18 94 23 70Z" />
-        <path className="entry-sheep-face" d="M88 43 C103 36 121 45 125 63 C129 84 116 98 99 98 C82 98 73 82 75 64 C76 53 80 47 88 43Z" />
-        <path className="entry-sheep-ear" d="M81 55 C65 55 56 62 53 74 C67 75 79 68 86 59" />
-        <path className="entry-sheep-ear" d="M121 55 C136 56 145 64 148 75 C133 76 122 68 116 59" />
-        <path className="entry-sheep-forelock" d="M78 39 C86 32 100 32 109 39" />
-        <circle className="entry-sheep-eye" cx="94" cy="66" r="3.2" />
-        <circle className="entry-sheep-eye" cx="111" cy="66" r="3.2" />
-        <path className="entry-sheep-nose" d="M103 76 C98 80 98 84 104 86 C110 84 111 80 106 76" />
-        <path className="entry-sheep-leg-line" d="M42 96 L44 109 M70 98 L72 109 M99 98 L101 109 M124 93 L126 109" />
-      </g>
-    </svg>
-  );
-}
 
 function IntakeFormApp() {
   const intakeShellRef = useRef(null);
@@ -1832,7 +1763,6 @@ function IntakeFormApp() {
   const [step, setStep] = useState(1);
   const [transition, setTransition] = useState(null);
   const [showFunds, setShowFunds] = useState(false);
-  const [entryRevealState, setEntryRevealState] = useState('ready');
 
   const hasPartner = form.hasPartner === 'Yes';
   const hasChildren = form.hasChildren === 'Yes';
@@ -2074,7 +2004,7 @@ function IntakeFormApp() {
       const response = await fetch('/.netlify/functions/intake', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ payload: { ...form, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.13.26b-guided-entry' } }),
+        body: JSON.stringify({ payload: { ...form, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.13.26d-guided-intake-animation-rollback' } }),
       });
       const body = await readJsonResponse(response);
       if (!response.ok) throw new Error(body.error || 'The questionnaire could not be submitted.');
@@ -2131,15 +2061,6 @@ function IntakeFormApp() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  function startEntryReveal() {
-    if (entryRevealState !== 'ready') return;
-    setEntryRevealState('opening');
-    window.setTimeout(() => {
-      setEntryRevealState('open');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, 5200);
-  }
-
   const activeStep = steps.find((item) => item.id === step) || steps[0];
   const selectedGoal = goalCards.find((goal) => goal.value === form.targetPathway);
   const completedSteps = steps.filter((item) => item.id < step).length;
@@ -2164,8 +2085,7 @@ function IntakeFormApp() {
   }
 
   return (
-    <div className={`intake-public-shell guided-intake-shell ${entryRevealState !== 'open' ? 'guided-entry-covered' : 'guided-entry-ready'}`} ref={intakeShellRef}>
-      {entryRevealState !== 'open' && <GuidedJourneyEntryCover state={entryRevealState} onStart={startEntryReveal} />}
+    <div className="intake-public-shell guided-intake-shell" ref={intakeShellRef}>
       <main className="intake-public-card guided-intake-card">
         <div className="guided-hero">
           <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="intake-brand-logo" />
@@ -2220,22 +2140,6 @@ function IntakeFormApp() {
         <form className="intake-form guided-form" onSubmit={submit}>
           {step === 1 && (
             <IntakeSection title="Your goal" description="Choose the option that best matches what you want to achieve. You can still continue if you are not sure.">
-              <div className="guided-doorway-card">
-                <div className="guided-door-scene" aria-hidden="true">
-                  <div className="guided-door-frame">
-                    <span className="guided-door-panel left" />
-                    <span className="guided-door-panel right" />
-                    <span className="guided-door-glow" />
-                    <span className="guided-door-path" />
-                    <span className="guided-nz-marker">NZ</span>
-                  </div>
-                </div>
-                <div>
-                  <p className="guided-kicker">Your first step</p>
-                  <h2>Open the door to your New Zealand plan</h2>
-                  <p>Start by choosing the goal closest to where you are heading. The form will guide the rest, one step at a time.</p>
-                </div>
-              </div>
               <div className="guided-goal-grid">
                 {goalCards.map((goal) => {
                   const selected = form.targetPathway === goal.value;
