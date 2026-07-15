@@ -1,25 +1,28 @@
-# THiS CRM v0.13.26n - Standalone Intake Opening Screen
+# THiS CRM v0.13.26o - Passport Opening Mobile Polish
 
-Hotfix for the guided intake passport-stamp opening screen.
+This is a narrow hotfix based on v0.13.26n.
 
-## Changes
-- Replaces the overlay-based opening screen with a standalone entry state.
-- Shows only the opening screen first; the guided form is rendered after the user clicks **Start your journey**.
-- Keeps the passport/stamp animation compact and self-contained.
-- Prevents the hidden form from influencing mobile spacing, opacity, clipping, or iframe height before the intake starts.
-- Triggers iframe remeasurement after the guided form appears.
+## Changed
+
+- Adjusted the standalone passport-stamp opening screen on mobile.
+- Stopped the passport/stamp illustration from clipping on mobile.
+- Made the opening screen background white so the Turner Hopkins logo blends more cleanly with the card.
+- Kept the bordered/shadowed card treatment.
+- Added extra breathing room above the logo.
 
 ## Not changed
-- Intake questions
-- Guided step structure
-- Conditional logic
-- CRM intake records
-- Adviser notification emails
-- CV uploads
-- Duplicate detection
-- Approval/decline workflow
-- Booking-link integration
-- Existing iframe auto-height behaviour
+
+- Guided intake questions.
+- Guided intake step structure.
+- Conditional logic.
+- CRM intake record creation.
+- Adviser notification emails.
+- CV upload handling.
+- Duplicate detection.
+- Approval/decline workflow.
+- Booking-link integration.
+- Existing iframe auto-height behaviour.
 
 ## Database
-No migration required.
+
+No database migration is required.
