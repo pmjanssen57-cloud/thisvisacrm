@@ -1869,6 +1869,18 @@ function IntakeFormApp() {
     if (isInvestmentMatter) setShowFunds(true);
   }, [isInvestmentMatter]);
 
+  useEffect(() => {
+    if (step !== 1 || !form.targetPathway || transition) return undefined;
+    if (typeof window === 'undefined' || !window.matchMedia('(max-width: 720px)').matches) return undefined;
+    const timeoutId = window.setTimeout(() => {
+      const confirmation = document.querySelector('.guided-selection-confirm');
+      if (confirmation && typeof confirmation.scrollIntoView === 'function') {
+        confirmation.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 180);
+    return () => window.clearTimeout(timeoutId);
+  }, [form.targetPathway, step, transition]);
+
   function setField(name, value) {
     if (name === 'hasPartner' && value !== 'Yes') setPartnerCvFile(null);
     setForm((current) => {
@@ -2004,7 +2016,7 @@ function IntakeFormApp() {
       const response = await fetch('/.netlify/functions/intake', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ payload: { ...form, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.13.26d-guided-intake-animation-rollback' } }),
+        body: JSON.stringify({ payload: { ...form, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.13.26e-mobile-intake-continue-cue' } }),
       });
       const body = await readJsonResponse(response);
       if (!response.ok) throw new Error(body.error || 'The questionnaire could not be submitted.');
@@ -2154,10 +2166,13 @@ function IntakeFormApp() {
                 })}
               </div>
               {selectedGoal && (
-                <div className="guided-selection-confirm">
-                  <strong>You selected: {selectedGoal.title}</strong>
-                  <span>We will guide the next questions around this, while still collecting core details that help our advisers assess your position properly.</span>
-                </div>
+                <>
+                  <div className="guided-selection-confirm">
+                    <strong>You selected: {selectedGoal.title}</strong>
+                    <span>We will guide the next questions around this, while still collecting core details that help our advisers assess your position properly.</span>
+                  </div>
+                  <div className="guided-mobile-continue-cue">Next: continue below ↓</div>
+                </>
               )}
               {isWorkResidenceGoal && (
                 <div className="guided-bridge-panel">
@@ -2395,6 +2410,16 @@ function IntakeFormApp() {
                 <IntakeCheckbox label="I understand this questionnaire is for initial assessment only and does not create an adviser-client relationship." checked={form.privacyAcknowledged} onChange={(v) => setField('privacyAcknowledged', v)} required />
               </div>
             </IntakeSection>
+          )}
+
+          {step === 1 && selectedGoal && !transition && (
+            <div className="guided-mobile-goal-bar" role="region" aria-label="Selected goal">
+              <div>
+                <span>Selected goal</span>
+                <strong>{selectedGoal.title}</strong>
+              </div>
+              <button className="btn dark" type="button" onClick={nextStep} disabled={submitting}>Continue →</button>
+            </div>
           )}
 
           <div className="guided-submit-bar">
