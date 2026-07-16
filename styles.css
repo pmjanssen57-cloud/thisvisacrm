@@ -12225,3 +12225,26 @@ body.intake-embed-mode .guided-opening-card {
     margin-top: 6px;
   }
 }
+
+/* v0.13.26p Intake usability hotfix */
+.intake-consent-grid.needs-attention {
+  border: 1px solid #f6b45f;
+  background: #fffaf0;
+  border-radius: 18px;
+  padding: 10px;
+  box-shadow: 0 0 0 4px rgba(246, 180, 95, .16);
+}
+.intake-consent-grid.needs-attention .intake-checkbox {
+  border-color: #f6b45f;
+  background: #fff;
+}
+@media (min-width: 721px) {
+  .guided-submit-bar {
+    scroll-margin-bottom: 24px;
+  }
+}
+@media (max-width: 720px) {
+  .intake-consent-grid.needs-attention {
+    scroll-margin-top: 18vh;
+  }
+}

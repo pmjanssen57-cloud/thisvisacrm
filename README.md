@@ -1,4 +1,4 @@
-# THiS CRM v0.13.26o - Passport Opening Mobile Polish
+# THiS CRM v0.13.26p - Passport Opening Mobile Polish
 
 This is a narrow hotfix based on v0.13.26n.
 
@@ -26,3 +26,9 @@ This is a narrow hotfix based on v0.13.26n.
 ## Database
 
 No database migration is required.
+
+
+## v0.13.26p - Intake Usability Hotfix
+- Desktop goal selection now scrolls to the bottom action area so the next step is obvious.
+- Mobile consent validation now scrolls to and highlights the consent checkboxes when they are missed on submit.
+- No form field, notification, upload, duplicate detection, booking or database changes.

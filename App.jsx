@@ -1765,6 +1765,7 @@ function IntakeFormApp() {
   const [showFunds, setShowFunds] = useState(false);
   const [introStarted, setIntroStarted] = useState(false);
   const [introRevealing, setIntroRevealing] = useState(false);
+  const [consentAttention, setConsentAttention] = useState(false);
 
   const hasPartner = form.hasPartner === 'Yes';
   const hasChildren = form.hasChildren === 'Yes';
@@ -1892,7 +1893,37 @@ function IntakeFormApp() {
     return () => window.clearTimeout(timeoutId);
   }, [form.targetPathway, step, transition]);
 
+  function scrollElementIntoView(selector, align = 'center') {
+    window.setTimeout(() => {
+      const target = document.querySelector(selector);
+      if (!target) return;
+      const offset = getOffsetWithinShell(target);
+      if (postEmbedScroll(offset, align)) return;
+      if (typeof target.scrollIntoView === 'function') {
+        target.scrollIntoView({ behavior: 'smooth', block: align === 'end' ? 'end' : align });
+      }
+    }, 80);
+  }
+
+  function selectGoal(value) {
+    setField('targetPathway', value);
+    if (typeof window === 'undefined') return;
+    const isMobile = window.matchMedia('(max-width: 720px)').matches;
+    const targetSelector = isMobile ? '.guided-selection-confirm' : '.guided-submit-bar';
+    const align = isMobile ? 'center' : 'end';
+    window.setTimeout(() => scrollElementIntoView(targetSelector, align), isMobile ? 180 : 220);
+  }
+
+  function scrollToConsentAttention() {
+    scrollElementIntoView('.intake-consent-grid', 'center');
+    window.setTimeout(() => {
+      const firstUnchecked = document.querySelector('.intake-consent-grid input:not(:checked)');
+      if (firstUnchecked && typeof firstUnchecked.focus === 'function') firstUnchecked.focus({ preventScroll: true });
+    }, 420);
+  }
+
   function setField(name, value) {
+    if (name === 'consentToContact' || name === 'privacyAcknowledged') setConsentAttention(false);
     if (name === 'hasPartner' && value !== 'Yes') setPartnerCvFile(null);
     setForm((current) => {
       const next = { ...current, [name]: value };
@@ -2014,6 +2045,16 @@ function IntakeFormApp() {
     return body;
   }
 
+  function handleInvalid(event) {
+    const target = event.target;
+    if (step === steps.length && target?.closest?.('.intake-consent-grid')) {
+      event.preventDefault();
+      setError('Please confirm the consent and acknowledgement before submitting.');
+      setConsentAttention(true);
+      scrollToConsentAttention();
+    }
+  }
+
   async function submit(event) {
     event.preventDefault();
     if (step < steps.length) {
@@ -2027,7 +2068,7 @@ function IntakeFormApp() {
       const response = await fetch('/.netlify/functions/intake', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ payload: { ...form, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.13.26o-passport-opening-mobile-polish' } }),
+        body: JSON.stringify({ payload: { ...form, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.13.26p-intake-usability-hotfix' } }),
       });
       const body = await readJsonResponse(response);
       if (!response.ok) throw new Error(body.error || 'The questionnaire could not be submitted.');
@@ -2036,7 +2077,12 @@ function IntakeFormApp() {
       setSubmitted(true);
       scrollFormTop();
     } catch (err) {
-      setError(err.message || String(err));
+      const message = err.message || String(err);
+      setError(message);
+      if (/consent|acknowledgement/i.test(message)) {
+        setConsentAttention(true);
+        scrollToConsentAttention();
+      }
     } finally {
       setSubmitting(false);
     }
@@ -2251,7 +2297,7 @@ function IntakeFormApp() {
 
         {error && <div className="error-box">{error}</div>}
 
-        <form className="intake-form guided-form" onSubmit={submit}>
+        <form className="intake-form guided-form" onSubmit={submit} onInvalid={handleInvalid}>
           {step === 1 && (
             <IntakeSection title="Your goal" description="Choose the option that best matches what you want to achieve. You can still continue if you are not sure.">
               <div className="guided-goal-grid">
@@ -2259,7 +2305,7 @@ function IntakeFormApp() {
                   const selected = form.targetPathway === goal.value;
                   const muted = form.targetPathway && !selected;
                   return (
-                    <button key={goal.value} type="button" className={`guided-goal-card ${selected ? 'selected' : ''} ${muted ? 'muted-choice' : ''}`} onClick={() => setField('targetPathway', goal.value)}>
+                    <button key={goal.value} type="button" className={`guided-goal-card ${selected ? 'selected' : ''} ${muted ? 'muted-choice' : ''}`} onClick={() => selectGoal(goal.value)}>
                       <span className="guided-goal-icon"><GuidedGoalIcon type={goal.icon} /></span>
                       <strong>{goal.title}</strong>
                       <small>{goal.text}</small>
@@ -2507,7 +2553,7 @@ function IntakeFormApp() {
                 <div><strong>{[form.firstName, form.lastName].filter(Boolean).join(' ') || 'Name missing'}</strong><span>Applicant</span></div>
               </div>
               <IntakeTextarea label="Anything else we should know?" value={form.additionalInfo} onChange={(v) => setField('additionalInfo', v)} rows={4} />
-              <div className="intake-consent-grid">
+              <div className={`intake-consent-grid ${consentAttention ? 'needs-attention' : ''}`}>
                 <IntakeCheckbox label="I agree Turner Hopkins may contact me about this enquiry." checked={form.consentToContact} onChange={(v) => setField('consentToContact', v)} required />
                 <IntakeCheckbox label="I understand this questionnaire is for initial assessment only and does not create an adviser-client relationship." checked={form.privacyAcknowledged} onChange={(v) => setField('privacyAcknowledged', v)} required />
               </div>
