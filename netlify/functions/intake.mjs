@@ -114,6 +114,28 @@ export default async function intakeRequestHandler(request) {
     `;
 
     const intakeId = rows[0]?.id || '';
+
+    try {
+      const mailchimpSync = await syncIntakeToMailchimp(payload);
+      if (mailchimpSync) {
+        payload.mailchimpSync = mailchimpSync;
+        await db().sql`UPDATE intake_enquiries SET raw_payload = CAST(${JSON.stringify(payload)} AS jsonb), updated_at = NOW() WHERE id = ${intakeId}`;
+      }
+    } catch (mailchimpError) {
+      console.warn('Mailchimp intake sync failed', mailchimpError?.message || mailchimpError);
+      payload.mailchimpSync = {
+        ok: false,
+        status: 'failed',
+        attemptedAt: new Date().toISOString(),
+        detail: safeIntegrationError(mailchimpError),
+      };
+      try {
+        await db().sql`UPDATE intake_enquiries SET raw_payload = CAST(${JSON.stringify(payload)} AS jsonb), updated_at = NOW() WHERE id = ${intakeId}`;
+      } catch (recordError) {
+        console.warn('Mailchimp sync status could not be recorded', recordError?.message || recordError);
+      }
+    }
+
     if (!expectedUploads.length) {
       try {
         await markAndSendNewIntakeNotification({ intakeId, payload, flags, createdAt: rows[0]?.created_at });
@@ -302,6 +324,7 @@ function normalisePayload(input = {}) {
     dateOfBirthAge: calculateAge(input.dateOfBirth),
     consentToContact: Boolean(input.consentToContact),
     privacyAcknowledged: Boolean(input.privacyAcknowledged),
+    marketingConsent: Boolean(input.marketingConsent),
     applicantCvExpected: Boolean(input.applicantCvExpected),
     partnerCvExpected: Boolean(input.partnerCvExpected),
     intakeUploads: normaliseStoredUploads(input.intakeUploads),
@@ -670,7 +693,7 @@ function intakeSummarySections(payload = {}) {
     { title: 'Health and character', rows: rows(payload, ['healthIssues', 'dependantHealthIssues', 'healthDetails', 'characterConvictions', 'characterPendingCharges', 'deportationRemoval', 'characterDetails']) },
     { title: 'Immigration history', rows: rows(payload, ['visaDeclines', 'overstayed', 'falseMisleadingIssue', 'appealOrDeadline', 'immigrationHistoryDetails', 'countriesLived', 'countriesLivedFiveYearsSince17', 'nzTravelHistory']) },
     { title: 'Funds and investment', rows: rows(payload, ['fundsAvailableSupport', 'availableFunds', 'fundsCurrency', 'sourceOfFunds', 'investmentInterest']), panels: [{ title: 'Investment background', rows: rows(payload, ['investmentFunds', 'investmentCurrency', 'fundsHeldByYou', 'fundsTransferableNz', 'fundsDetails']) }] },
-    { title: 'Final comments', rows: rows(payload, ['additionalInfo']) },
+    { title: 'Final comments and consent', rows: rows(payload, ['additionalInfo', 'marketingConsent']) },
   ];
   return sections.map((section) => ({ ...section, panels: (section.panels || []).filter((panel) => panel.rows.length) })).filter((section) => section.rows.length || (section.panels || []).length);
 }
@@ -756,7 +779,7 @@ function labelForKey(key = '') {
 }
 
 const INTAKE_LABELS = {
-  formType: 'Form type', contactSituation: 'Your situation', contactLocation: 'Location', bestTimeToCall: 'Best time to call', firstName: 'First name', lastName: 'Last name', email: 'Email', phone: 'Mobile phone', preferredContactMethod: 'Preferred contact', citizenship: 'Country of citizenship', dateOfBirth: 'Date of birth', dateOfBirthAge: 'Age', consentToContact: 'Consent to contact', privacyAcknowledged: 'Questionnaire acknowledgement', urgency: 'Urgency', urgentDeadline: 'Important deadline', targetPathway: 'Main goal', immediateNeed: 'Immediate need', longTermGoal: 'Long-term goal', desiredTimeframe: 'Desired timeframe', helpNeeded: 'Help needed', isInNewZealand: 'Currently in New Zealand', currentVisaType: 'Current visa type', currentVisaExpiry: 'Current visa expiry', visaConditions: 'Visa conditions', currentLocation: 'Current country / location', previouslyVisitedNz: 'Previously visited New Zealand', previouslyHeldNzVisa: 'Previously held a New Zealand visa', plannedTravelDate: 'Planned travel date (if known)', passportExpiry: 'Passport expiry', relationshipStatus: 'Relationship status', hasPartner: 'Partner included', partnerFullName: 'Partner full name', partnerDateOfBirth: 'Partner date of birth', partnerCitizenship: 'Partner citizenship', partnerCurrentCountry: 'Partner current country', partnerVisaStatus: 'Partner visa status', partnerNzStatus: 'Partner NZ status', livingTogether: 'Living together', relationshipStarted: 'Relationship started', startedLivingTogether: 'Started living together', partnerIncluded: 'Partner included in application', relationshipBackground: 'Relationship / family background', partnerCurrentEmploymentStatus: 'Partner employment status', partnerOccupation: 'Partner occupation', partnerCurrentEmployer: 'Partner employer / business', partnerEmploymentCountry: 'Partner employment country', partnerCurrentJobStartDate: 'Partner current job start date', partnerHoursPerWeek: 'Partner hours per week', partnerAnnualSalary: 'Partner salary / pay rate', partnerSalaryCurrency: 'Partner salary currency', partnerYearsExperience: 'Partner years of relevant experience', partnerEmploymentDetails: 'Partner current employment details', partnerPreviousWorkHistory: 'Partner previous work history', partnerHighestQualification: 'Partner highest qualification', partnerQualificationName: 'Partner qualification name', partnerQualificationInstitution: 'Partner institution', partnerQualificationCountry: 'Partner qualification country', partnerQualificationYearCompleted: 'Partner year completed', partnerQualificationStudyLength: 'Partner length of study', partnerTaughtInEnglish: 'Partner taught in English', partnerNzqaAssessed: 'Partner NZQA assessed', partnerQualificationRelatedToOccupation: 'Partner qualification related to occupation', partnerQualificationDetails: 'Partner other qualifications/training', hasChildren: 'Children', children: 'Children details', moreChildrenDetails: 'More children / family details', currentEmploymentStatus: 'Current employment status', occupation: 'Occupation / profession', currentEmployer: 'Current employer / business', employmentCountry: 'Employment country', currentJobStartDate: 'Current job start date', hoursPerWeek: 'Hours per week', annualSalary: 'Salary / pay rate', salaryCurrency: 'Salary currency', yearsExperience: 'Years of relevant experience', hasNzJobOffer: 'New Zealand job offer', employerName: 'Employer name', jobTitle: 'Job title', nzJobLocation: 'NZ job location', payRate: 'Pay rate', nzPayCurrency: 'NZ pay currency', nzJobHours: 'NZ job hours', employerAccredited: 'Employer accredited', employmentAgreementProvided: 'Employment agreement provided', proposedStartDate: 'Proposed start date', employmentDetails: 'Current employment details', previousWorkHistory: 'Previous work history', highestQualification: 'Highest qualification', qualificationName: 'Qualification name', qualificationInstitution: 'Institution', qualificationCountry: 'Qualification country', qualificationYearCompleted: 'Year completed', qualificationStudyLength: 'Length of study', taughtInEnglish: 'Taught in English', nzqaAssessed: 'NZQA assessed', qualificationRelatedToOccupation: 'Qualification related to occupation', qualificationDetails: 'Other qualifications/training', healthIssues: 'Health issues', dependantHealthIssues: 'Dependant health issues', healthDetails: 'Health details', characterIssues: 'Character issues', characterConvictions: 'Convictions', characterPendingCharges: 'Pending charges', deportationRemoval: 'Deportation/removal', characterDetails: 'Character details', visaDeclines: 'Visa declines', immigrationHistoryDetails: 'Immigration history details', overstayed: 'Overstayed', falseMisleadingIssue: 'False/misleading information issue', appealOrDeadline: 'Appeal or deadline', countriesLived: 'Countries spent 12 months or more in', countriesLivedFiveYearsSince17: 'Countries spent five years or more in since age 17', nzTravelHistory: 'NZ travel history', englishLevel: 'English level', englishTestDetails: 'English test details', fundsAvailableSupport: 'Funds available to support move', availableFunds: 'Available funds', fundsCurrency: 'Funds currency', sourceOfFunds: 'Source of funds', investmentInterest: 'Investment interest', investmentFunds: 'Investment funds', investmentCurrency: 'Investment currency', fundsHeldByYou: 'Funds held by applicant', fundsTransferableNz: 'Funds transferable to NZ', fundsDetails: 'Funds / investment details', additionalInfo: 'Additional information', applicantCv: 'Applicant CV', partnerCv: 'Partner CV'
+  formType: 'Form type', contactSituation: 'Your situation', contactLocation: 'Location', bestTimeToCall: 'Best time to call', firstName: 'First name', lastName: 'Last name', email: 'Email', phone: 'Mobile phone', preferredContactMethod: 'Preferred contact', citizenship: 'Country of citizenship', dateOfBirth: 'Date of birth', dateOfBirthAge: 'Age', consentToContact: 'Consent to contact', privacyAcknowledged: 'Questionnaire acknowledgement', marketingConsent: 'Marketing email consent', urgency: 'Urgency', urgentDeadline: 'Important deadline', targetPathway: 'Main goal', immediateNeed: 'Immediate need', longTermGoal: 'Long-term goal', desiredTimeframe: 'Desired timeframe', helpNeeded: 'Help needed', isInNewZealand: 'Currently in New Zealand', currentVisaType: 'Current visa type', currentVisaExpiry: 'Current visa expiry', visaConditions: 'Visa conditions', currentLocation: 'Current country / location', previouslyVisitedNz: 'Previously visited New Zealand', previouslyHeldNzVisa: 'Previously held a New Zealand visa', plannedTravelDate: 'Planned travel date (if known)', passportExpiry: 'Passport expiry', relationshipStatus: 'Relationship status', hasPartner: 'Partner included', partnerFullName: 'Partner full name', partnerDateOfBirth: 'Partner date of birth', partnerCitizenship: 'Partner citizenship', partnerCurrentCountry: 'Partner current country', partnerVisaStatus: 'Partner visa status', partnerNzStatus: 'Partner NZ status', livingTogether: 'Living together', relationshipStarted: 'Relationship started', startedLivingTogether: 'Started living together', partnerIncluded: 'Partner included in application', relationshipBackground: 'Relationship / family background', partnerCurrentEmploymentStatus: 'Partner employment status', partnerOccupation: 'Partner occupation', partnerCurrentEmployer: 'Partner employer / business', partnerEmploymentCountry: 'Partner employment country', partnerCurrentJobStartDate: 'Partner current job start date', partnerHoursPerWeek: 'Partner hours per week', partnerAnnualSalary: 'Partner salary / pay rate', partnerSalaryCurrency: 'Partner salary currency', partnerYearsExperience: 'Partner years of relevant experience', partnerEmploymentDetails: 'Partner current employment details', partnerPreviousWorkHistory: 'Partner previous work history', partnerHighestQualification: 'Partner highest qualification', partnerQualificationName: 'Partner qualification name', partnerQualificationInstitution: 'Partner institution', partnerQualificationCountry: 'Partner qualification country', partnerQualificationYearCompleted: 'Partner year completed', partnerQualificationStudyLength: 'Partner length of study', partnerTaughtInEnglish: 'Partner taught in English', partnerNzqaAssessed: 'Partner NZQA assessed', partnerQualificationRelatedToOccupation: 'Partner qualification related to occupation', partnerQualificationDetails: 'Partner other qualifications/training', hasChildren: 'Children', children: 'Children details', moreChildrenDetails: 'More children / family details', currentEmploymentStatus: 'Current employment status', occupation: 'Occupation / profession', currentEmployer: 'Current employer / business', employmentCountry: 'Employment country', currentJobStartDate: 'Current job start date', hoursPerWeek: 'Hours per week', annualSalary: 'Salary / pay rate', salaryCurrency: 'Salary currency', yearsExperience: 'Years of relevant experience', hasNzJobOffer: 'New Zealand job offer', employerName: 'Employer name', jobTitle: 'Job title', nzJobLocation: 'NZ job location', payRate: 'Pay rate', nzPayCurrency: 'NZ pay currency', nzJobHours: 'NZ job hours', employerAccredited: 'Employer accredited', employmentAgreementProvided: 'Employment agreement provided', proposedStartDate: 'Proposed start date', employmentDetails: 'Current employment details', previousWorkHistory: 'Previous work history', highestQualification: 'Highest qualification', qualificationName: 'Qualification name', qualificationInstitution: 'Institution', qualificationCountry: 'Qualification country', qualificationYearCompleted: 'Year completed', qualificationStudyLength: 'Length of study', taughtInEnglish: 'Taught in English', nzqaAssessed: 'NZQA assessed', qualificationRelatedToOccupation: 'Qualification related to occupation', qualificationDetails: 'Other qualifications/training', healthIssues: 'Health issues', dependantHealthIssues: 'Dependant health issues', healthDetails: 'Health details', characterIssues: 'Character issues', characterConvictions: 'Convictions', characterPendingCharges: 'Pending charges', deportationRemoval: 'Deportation/removal', characterDetails: 'Character details', visaDeclines: 'Visa declines', immigrationHistoryDetails: 'Immigration history details', overstayed: 'Overstayed', falseMisleadingIssue: 'False/misleading information issue', appealOrDeadline: 'Appeal or deadline', countriesLived: 'Countries spent 12 months or more in', countriesLivedFiveYearsSince17: 'Countries spent five years or more in since age 17', nzTravelHistory: 'NZ travel history', englishLevel: 'English level', englishTestDetails: 'English test details', fundsAvailableSupport: 'Funds available to support move', availableFunds: 'Available funds', fundsCurrency: 'Funds currency', sourceOfFunds: 'Source of funds', investmentInterest: 'Investment interest', investmentFunds: 'Investment funds', investmentCurrency: 'Investment currency', fundsHeldByYou: 'Funds held by applicant', fundsTransferableNz: 'Funds transferable to NZ', fundsDetails: 'Funds / investment details', additionalInfo: 'Additional information', applicantCv: 'Applicant CV', partnerCv: 'Partner CV'
 };
 
 function formatFileSize(value = 0) {
@@ -1018,6 +1041,177 @@ function renderTemplateText(value = '', context = {}) {
     const replacement = String(key || '').split('.').reduce((current, part) => (current && Object.prototype.hasOwnProperty.call(current, part) ? current[part] : ''), context);
     return replacement == null ? '' : String(replacement);
   });
+}
+
+
+
+async function syncIntakeToMailchimp(payload = {}) {
+  if (payload.formType === 'contact') return null;
+  if (!envFlag('MAILCHIMP_ENABLED', false)) return null;
+
+  const apiKey = clean(process.env.MAILCHIMP_API_KEY);
+  const audienceId = clean(process.env.MAILCHIMP_AUDIENCE_ID);
+  const serverPrefix = clean(process.env.MAILCHIMP_SERVER_PREFIX) || inferMailchimpServerPrefix(apiKey);
+  const missing = [
+    !apiKey && 'MAILCHIMP_API_KEY',
+    !audienceId && 'MAILCHIMP_AUDIENCE_ID',
+    !serverPrefix && 'MAILCHIMP_SERVER_PREFIX',
+  ].filter(Boolean);
+  if (missing.length) throw new Error(`Missing Mailchimp environment variables: ${missing.join(', ')}`);
+
+  const email = clean(payload.email).toLowerCase();
+  if (!isValidEmailAddress(email)) throw new Error('The intake email address is not valid for Mailchimp sync.');
+
+  const marketingConsent = Boolean(payload.marketingConsent);
+  const addNonSubscribed = envFlag('MAILCHIMP_ADD_NON_SUBSCRIBED_CONTACTS', true);
+  if (!marketingConsent && !addNonSubscribed) {
+    return {
+      ok: true,
+      status: 'skipped-no-marketing-consent',
+      syncedAt: new Date().toISOString(),
+      marketingConsent: false,
+    };
+  }
+
+  const doubleOptIn = envFlag('MAILCHIMP_DOUBLE_OPT_IN', true);
+  const desiredStatus = marketingConsent ? (doubleOptIn ? 'pending' : 'subscribed') : 'transactional';
+  const subscriberHash = crypto.createHash('md5').update(email).digest('hex');
+  const baseUrl = `https://${serverPrefix}.api.mailchimp.com/3.0`;
+  const memberUrl = `${baseUrl}/lists/${encodeURIComponent(audienceId)}/members/${subscriberHash}`;
+  const mergeFields = buildMailchimpMergeFields(payload);
+  const memberBody = {
+    email_address: email,
+    status_if_new: desiredStatus,
+    ...(Object.keys(mergeFields).length ? { merge_fields: mergeFields } : {}),
+  };
+
+  let member = await mailchimpJson(memberUrl, {
+    method: 'PUT',
+    apiKey,
+    body: memberBody,
+  });
+
+  const existingStatus = clean(member?.status).toLowerCase();
+  if (marketingConsent && !['subscribed', 'pending', 'cleaned'].includes(existingStatus)) {
+    member = await mailchimpJson(memberUrl, {
+      method: 'PATCH',
+      apiKey,
+      body: { status: desiredStatus },
+    });
+  }
+
+  const tags = buildMailchimpTags(payload);
+  let tagWarning = '';
+  if (tags.length) {
+    try {
+      await mailchimpJson(`${memberUrl}/tags`, {
+        method: 'POST',
+        apiKey,
+        body: { tags: tags.map((name) => ({ name, status: 'active' })) },
+        allowEmpty: true,
+      });
+    } catch (error) {
+      tagWarning = safeIntegrationError(error);
+      console.warn('Mailchimp tags could not be applied', tagWarning);
+    }
+  }
+
+  return {
+    ok: true,
+    status: clean(member?.status) || desiredStatus,
+    syncedAt: new Date().toISOString(),
+    marketingConsent,
+    doubleOptIn: marketingConsent ? doubleOptIn : false,
+    tags,
+    ...(tagWarning ? { tagWarning } : {}),
+  };
+}
+
+function buildMailchimpMergeFields(payload = {}) {
+  const fields = {};
+  setMailchimpMergeField(fields, process.env.MAILCHIMP_FIRST_NAME_FIELD || 'FNAME', payload.firstName);
+  setMailchimpMergeField(fields, process.env.MAILCHIMP_LAST_NAME_FIELD || 'LNAME', payload.lastName);
+  setMailchimpMergeField(fields, process.env.MAILCHIMP_PHONE_FIELD, payload.phone);
+  setMailchimpMergeField(fields, process.env.MAILCHIMP_CITIZENSHIP_FIELD, payload.citizenship);
+  setMailchimpMergeField(fields, process.env.MAILCHIMP_COUNTRY_FIELD, payload.currentLocation);
+  setMailchimpMergeField(fields, process.env.MAILCHIMP_GOAL_FIELD, payload.targetPathway);
+  setMailchimpMergeField(fields, process.env.MAILCHIMP_SOURCE_FIELD, 'Guided Intake Form');
+  return fields;
+}
+
+function setMailchimpMergeField(fields = {}, rawKey = '', rawValue = '') {
+  const key = clean(rawKey).toUpperCase().replace(/[^A-Z0-9_]/g, '').slice(0, 10);
+  const value = clean(rawValue).slice(0, 255);
+  if (key && value) fields[key] = value;
+}
+
+function buildMailchimpTags(payload = {}) {
+  const configured = String(process.env.MAILCHIMP_DEFAULT_TAGS || 'Guided Intake,Website Assessment')
+    .split(',')
+    .map((item) => clean(item))
+    .filter(Boolean);
+  const goal = mailchimpGoalTag(payload.targetPathway);
+  return [...new Set([...configured, goal].filter(Boolean))].slice(0, 20);
+}
+
+function mailchimpGoalTag(value = '') {
+  const text = clean(value).toLowerCase();
+  if (/permanent|residen/.test(text)) return 'Goal: Residence';
+  if (/work in new zealand|work visa/.test(text)) return 'Goal: Work Visa';
+  if (/partner|family/.test(text)) return 'Goal: Partnership or Family';
+  if (/study|student/.test(text)) return 'Goal: Study';
+  if (/bring|retain staff|employer/.test(text)) return 'Goal: Employer';
+  if (/invest|business/.test(text)) return 'Goal: Investor or Business';
+  if (/not sure/.test(text)) return 'Goal: Not Sure';
+  return text ? `Goal: ${clean(value).slice(0, 80)}` : 'Goal: General Assessment';
+}
+
+async function mailchimpJson(url, { method = 'GET', apiKey = '', body = null, allowEmpty = false } = {}) {
+  const controller = new AbortController();
+  const timeoutMs = Math.min(15000, Math.max(2000, Number(process.env.MAILCHIMP_TIMEOUT_MS || 8000) || 8000));
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      method,
+      headers: {
+        authorization: `Basic ${Buffer.from(`this-crm:${apiKey}`).toString('base64')}`,
+        accept: 'application/json',
+        'content-type': 'application/json',
+      },
+      body: body === null ? undefined : JSON.stringify(body),
+      signal: controller.signal,
+    });
+    const raw = await response.text();
+    let data = {};
+    if (raw) {
+      try { data = JSON.parse(raw); } catch { data = { detail: raw }; }
+    }
+    if (!response.ok) {
+      const detail = clean(data?.detail || data?.title || `Mailchimp request failed with status ${response.status}`);
+      throw new Error(detail);
+    }
+    return raw ? data : (allowEmpty ? {} : {});
+  } catch (error) {
+    if (error?.name === 'AbortError') throw new Error(`Mailchimp request timed out after ${timeoutMs} ms.`);
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function inferMailchimpServerPrefix(apiKey = '') {
+  const match = clean(apiKey).match(/-([a-z]{2}\d+)$/i);
+  return match ? match[1].toLowerCase() : '';
+}
+
+function envFlag(name, fallback = false) {
+  const value = String(process.env[name] ?? '').trim().toLowerCase();
+  if (!value) return fallback;
+  return ['1', 'true', 'yes', 'on', 'enabled'].includes(value);
+}
+
+function safeIntegrationError(error) {
+  return clean(error?.message || error || 'Unknown integration error').replace(/key-[a-z0-9_-]+/gi, '[redacted]').slice(0, 500);
 }
 
 function requireMicrosoftEmailConfig() {

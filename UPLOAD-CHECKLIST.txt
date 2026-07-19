@@ -1,27 +1,26 @@
-THiS CRM v0.13.21 — Email Template Preview Polish
+THiS CRM v0.13.28 — Public Form Standardisation
 
 Before deploying:
-[ ] Confirm this package is being deployed after v0.13.20 Client Feedback Form Integration.
-[ ] No new database migration is required for this package.
-[ ] Preserve the existing Netlify Database connection settings.
-[ ] Preserve the Microsoft Graph email environment variables.
-[ ] Preserve existing netlify/ and public/ folders when uploading through GitHub/Netlify.
+[ ] Preserve the existing Netlify Database and Microsoft Graph environment variables.
+[ ] Create or identify the Mailchimp audience that should receive intake contacts.
+[ ] Create a restricted Mailchimp Marketing API key for this integration.
+[ ] Confirm the audience has FNAME and LNAME merge fields, or adjust the merge-field environment variables.
+[ ] Add the Mailchimp environment variables from .env.example in Netlify.
+[ ] Keep MAILCHIMP_DOUBLE_OPT_IN=true unless there is a documented reason to use single opt-in.
+[ ] No database migration is required.
 
 After deploying:
-[ ] Open CRM > Tools > Templates.
-[ ] Confirm the template editor opens.
-[ ] Select Assessment form - next steps.
-[ ] Click Preview and confirm placeholders are replaced with sample data.
-[ ] Confirm the rendered subject appears above the email body preview.
-[ ] Send a preview test to an internal email address.
-[ ] Confirm the test email is received and appears in Tools > Email log.
-[ ] Select Client feedback - internal notification and confirm it appears in the template list.
-[ ] Submit a dummy public feedback form through /feedback?embed=1.
-[ ] Confirm the feedback appears in CRM > Enquiries & Intake > Feedback.
-[ ] Confirm the feedback notification email sends or logs correctly.
-[ ] Confirm existing intake, contact invite and seminar email workflows still operate normally.
+[ ] Submit a test intake without marketing consent.
+[ ] Confirm the intake appears in THiS CRM and the Mailchimp contact is transactional/non-subscribed.
+[ ] Confirm tags include Guided Intake, Website Assessment and the selected goal.
+[ ] Submit a second test intake with marketing consent.
+[ ] Confirm the Mailchimp contact is pending and receives the double opt-in email.
+[ ] Complete the Mailchimp confirmation and verify the contact becomes subscribed.
+[ ] Confirm health, character, immigration-history answers and CV uploads do not appear in Mailchimp.
+[ ] Temporarily use an invalid API key and confirm the intake still saves and adviser notifications still send.
+[ ] Restore the valid API key and redeploy.
 
-Build checks completed:
+Build checks:
 [ ] npm ci completed.
 [ ] npm run build completed.
 [ ] Netlify Function syntax checks completed.

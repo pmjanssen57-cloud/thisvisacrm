@@ -4124,6 +4124,9 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .intake-section > p { margin: -6px 0 0; color: var(--muted); line-height: 1.45; }
 .intake-textarea { grid-column: 1 / -1; }
 .intake-consent-grid { display: grid; gap: 10px; }
+.intake-marketing-consent { display: grid; gap: 8px; margin-top: 12px; padding-top: 14px; border-top: 1px solid var(--line); }
+.intake-marketing-consent .intake-checkbox { background: #ffffff; border-color: #b9d8ce; }
+.intake-marketing-consent p { margin: 0 4px; color: var(--muted); font-size: .84rem; line-height: 1.45; }
 .intake-checkbox { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--line); border-radius: 16px; padding: 12px 13px; background: var(--pale); color: var(--ink); font-weight: 700; line-height: 1.35; }
 .intake-checkbox input { margin-top: 3px; accent-color: var(--ink); }
 .intake-submit-bar { position: sticky; bottom: 0; display: flex; justify-content: space-between; align-items: center; gap: 14px; background: rgba(255,255,255,0.94); border: 1px solid var(--line); border-radius: 22px; padding: 14px; box-shadow: 0 -8px 22px rgba(15,23,42,0.06); }
@@ -12246,5 +12249,300 @@ body.intake-embed-mode .guided-opening-card {
 @media (max-width: 720px) {
   .intake-consent-grid.needs-attention {
     scroll-margin-top: 18vh;
+  }
+}
+
+/* v0.13.28 Public form standardisation */
+.public-form-shell {
+  min-height: 100vh;
+  padding: clamp(16px, 3vw, 32px) 16px;
+  background:
+    radial-gradient(circle at 10% 4%, rgba(85, 217, 160, .18), transparent 30%),
+    radial-gradient(circle at 92% 8%, rgba(0, 55, 54, .07), transparent 32%),
+    linear-gradient(180deg, #f7fcfa 0%, #ffffff 58%, #f8fafc 100%);
+}
+
+.public-form-card {
+  position: relative;
+  border: 1px solid rgba(185, 216, 206, .92);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, .98);
+  box-shadow: 0 22px 60px rgba(0, 55, 54, .10);
+  overflow: clip;
+}
+
+.public-form-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 7px;
+  background: linear-gradient(90deg, var(--ink), var(--mint), #dff7ec);
+  z-index: 1;
+}
+
+.contact-public-card,
+.feedback-public-card {
+  max-width: 900px;
+}
+
+.public-form-intro {
+  display: block;
+  width: 100%;
+  margin: 0 0 20px;
+  padding: 18px 20px;
+  border: 1px solid #d6e9e2;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #f4fbf8 0%, #ffffff 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.public-form-intro::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  background: var(--mint);
+}
+
+.public-form-intro p,
+.intake-public-head.public-form-intro p {
+  max-width: 760px;
+  margin: 0;
+  color: #4f6870;
+  font-size: 1rem;
+  line-height: 1.58;
+}
+
+.public-form-brand {
+  padding: 4px 2px 20px;
+  border-bottom-color: #d9e6e1;
+}
+
+.public-form-card .field span {
+  color: #536c73;
+  font-size: .76rem;
+  font-weight: 850;
+  letter-spacing: .045em;
+}
+
+.public-form-card .field input,
+.public-form-card .field select,
+.public-form-card .field textarea {
+  min-height: 48px;
+  border: 1px solid #bfd8cf;
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: #ffffff;
+  color: var(--text);
+  box-shadow: inset 0 1px 0 rgba(15, 23, 42, .02);
+  transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+}
+
+.public-form-card .field textarea {
+  min-height: 112px;
+  line-height: 1.5;
+}
+
+.public-form-card .field input:hover,
+.public-form-card .field select:hover,
+.public-form-card .field textarea:hover {
+  border-color: #91c9b5;
+}
+
+.public-form-card .field input:focus,
+.public-form-card .field select:focus,
+.public-form-card .field textarea:focus {
+  border-color: var(--mint);
+  box-shadow: 0 0 0 4px rgba(85, 217, 160, .15);
+}
+
+.public-form-card .intake-section,
+.public-form-card .booking-public-step {
+  border-color: #d4e6df;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfefd 100%);
+  box-shadow: 0 8px 24px rgba(0, 55, 54, .035);
+}
+
+.public-form-card .intake-section h2,
+.public-form-card .booking-public-step h2 {
+  color: var(--ink);
+  letter-spacing: -.015em;
+}
+
+.public-form-card .intake-checkbox,
+.public-form-card .intake-check {
+  border-color: #cfe1dc;
+  border-radius: 16px;
+  background: #f4fbf8;
+}
+
+.public-form-card .btn {
+  min-height: 46px;
+  border-radius: 14px;
+  padding: 11px 16px;
+}
+
+.contact-public-card .intake-submit-bar,
+.feedback-public-card .intake-submit-bar,
+.seminar-public-card .intake-submit-bar {
+  position: static;
+  justify-content: flex-end;
+  margin-top: 2px;
+  border-color: #d4e6df;
+  background: #fbfefd;
+  box-shadow: none;
+}
+
+.public-form-summary,
+.seminar-public-summary {
+  border-color: #cfe3db;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #eefaf5 0%, #ffffff 100%);
+  box-shadow: 0 10px 28px rgba(0, 55, 54, .05);
+}
+
+.seminar-public-card,
+.seminar-public-shell .intake-public-card {
+  box-shadow: 0 22px 60px rgba(0, 55, 54, .10) !important;
+}
+
+.public-booking-shell.public-form-shell {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.public-booking-card.public-form-card {
+  width: min(980px, 100%);
+  padding: clamp(20px, 3vw, 30px);
+  gap: 22px;
+}
+
+.public-booking-card .public-booking-intro {
+  padding: 2px 2px 0;
+}
+
+.public-booking-card .public-booking-intro h1 {
+  font-size: clamp(1.9rem, 4vw, 2.8rem);
+  line-height: 1.08;
+  letter-spacing: -.035em;
+}
+
+.public-booking-card .booking-timezone-note {
+  border-color: #cfe3db;
+  background: #f4fbf8;
+}
+
+.public-booking-card .public-type-grid button,
+.public-booking-card .public-slot-group button,
+.public-booking-card .public-slot-week {
+  border-color: #cfe1dc;
+}
+
+.public-booking-card .public-type-grid button:hover,
+.public-booking-card .public-slot-group button:hover {
+  border-color: var(--mint);
+  box-shadow: 0 8px 20px rgba(0, 55, 54, .07);
+}
+
+.public-booking-actions {
+  padding-top: 2px;
+}
+
+body.intake-embed-mode .public-form-shell {
+  min-height: auto;
+  background: transparent;
+}
+
+@media (max-width: 760px) {
+  .public-form-shell,
+  body.intake-embed-mode .public-form-shell {
+    padding: 8px;
+  }
+
+  .public-form-card,
+  body.intake-embed-mode .public-form-card {
+    border-radius: 20px;
+  }
+
+  .intake-public-card.public-form-card,
+  .public-booking-card.public-form-card {
+    padding: 16px;
+  }
+
+  .public-form-intro {
+    margin-bottom: 16px;
+    padding: 15px 16px;
+    border-radius: 16px;
+  }
+
+  .public-form-intro p,
+  .intake-public-head.public-form-intro p {
+    font-size: .96rem;
+    line-height: 1.5;
+  }
+
+  .public-form-card .form-grid,
+  .public-form-card .public-type-grid {
+    grid-template-columns: 1fr;
+    gap: 13px;
+  }
+
+  .public-form-card .field input,
+  .public-form-card .field select,
+  .public-form-card .field textarea {
+    font-size: 16px;
+    min-height: 48px;
+  }
+
+  .public-form-card .intake-section,
+  .public-form-card .booking-public-step {
+    border-radius: 18px;
+    padding: 15px;
+  }
+
+  .contact-public-card .intake-submit-bar,
+  .feedback-public-card .intake-submit-bar,
+  .seminar-public-card .intake-submit-bar,
+  .public-booking-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .contact-public-card .intake-submit-bar .btn,
+  .feedback-public-card .intake-submit-bar .btn,
+  .seminar-public-card .intake-submit-bar .btn,
+  .public-booking-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .public-booking-brand.public-form-brand {
+    gap: 10px;
+    padding-bottom: 16px;
+  }
+
+  .public-booking-brand.public-form-brand img {
+    width: 132px;
+  }
+}
+
+@media (max-width: 420px) {
+  .public-form-shell,
+  body.intake-embed-mode .public-form-shell {
+    padding: 4px;
+  }
+
+  .intake-public-card.public-form-card,
+  .public-booking-card.public-form-card {
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .public-form-card .intake-section,
+  .public-form-card .booking-public-step {
+    padding: 13px;
   }
 }

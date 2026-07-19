@@ -1530,9 +1530,9 @@ function ConsultationBookingPublicApp() {
   const showBookingForm = Boolean(payload?.ok && !confirmed && (!existingBooking || manageMode));
 
   return (
-    <div className="public-booking-shell">
-      <section className="public-booking-card">
-        <div className="public-booking-brand"><img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" /><div><strong>Book your consultation</strong><span>Turner Hopkins Immigration Specialists</span></div></div>
+    <div className="public-booking-shell public-form-shell">
+      <section className="public-booking-card public-form-card">
+        <div className="public-booking-brand public-form-brand"><img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" /><div><strong>Book your consultation</strong><span>Turner Hopkins Immigration Specialists</span></div></div>
         {loading && <div className="loading-card"><Database size={18} />Loading available consultation times...</div>}
         {!loading && error && <div className="error-banner"><AlertTriangle size={18} />{error}</div>}
         {!loading && payload?.unavailable && <div className="empty-state compact-empty"><CalendarDays size={34} /><h1>Booking link unavailable</h1><p>{payload.message || 'This booking link is no longer available.'}</p></div>}
@@ -1555,7 +1555,7 @@ function ConsultationBookingPublicApp() {
           </div>
         )}
         {showBookingForm && (
-          <form className="public-booking-form" onSubmit={submitBooking}>
+          <form className="public-booking-form public-standard-form" onSubmit={submitBooking}>
             <div className="public-booking-intro"><span className="eyebrow">Online consultation booking</span><h1>{existingBooking ? 'Choose a new time' : `Choose a time with ${payload.adviser?.name || 'your adviser'}`}</h1><p>All appointment slots are shown in New Zealand time (Pacific/Auckland). Where your browser timezone differs, your local equivalent is shown under the NZ time.</p></div>
             <div className="booking-timezone-note"><Globe2 size={17} /><span>NZ time: Pacific/Auckland. Your browser timezone: {getBrowserTimeZoneLabel()}.</span></div>
             <div className="booking-public-step"><h2>1. Consultation type</h2><div className="public-type-grid">{payload.consultationTypes.map((type) => <button key={type.id} type="button" className={selectedTypeId === type.id ? 'active' : ''} onClick={() => { setSelectedTypeId(type.id); setSelectedSlotId(''); }}><strong>{type.name}</strong><span>{type.durationMinutes} minutes · {type.paid ? `${formatCurrency(type.priceNzd)} NZD` : 'Free'}</span><small>{type.description}</small></button>)}</div></div>
@@ -1763,8 +1763,6 @@ function IntakeFormApp() {
   const [step, setStep] = useState(1);
   const [transition, setTransition] = useState(null);
   const [showFunds, setShowFunds] = useState(false);
-  const [introStarted, setIntroStarted] = useState(false);
-  const [introRevealing, setIntroRevealing] = useState(false);
   const [consentAttention, setConsentAttention] = useState(false);
 
   const hasPartner = form.hasPartner === 'Yes';
@@ -1875,7 +1873,7 @@ function IntakeFormApp() {
       window.removeEventListener('load', postHeight);
       window.removeEventListener('message', handleParentMessage);
     };
-  }, [form, submitted, error, step, transition, showFunds, introStarted, introRevealing]);
+  }, [form, submitted, error, step, transition, showFunds]);
 
   useEffect(() => {
     if (isInvestmentMatter) setShowFunds(true);
@@ -2068,7 +2066,7 @@ function IntakeFormApp() {
       const response = await fetch('/.netlify/functions/intake', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ payload: { ...form, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.13.26p-intake-usability-hotfix' } }),
+        body: JSON.stringify({ payload: { ...form, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.13.28-public-form-standardisation' } }),
       });
       const body = await readJsonResponse(response);
       if (!response.ok) throw new Error(body.error || 'The questionnaire could not be submitted.');
@@ -2172,24 +2170,14 @@ function IntakeFormApp() {
     scrollFormTop();
   }
 
-  function startIntro() {
-    if (introRevealing || introStarted) return;
-    setIntroRevealing(true);
-    window.setTimeout(() => {
-      setIntroStarted(true);
-      setIntroRevealing(false);
-      window.setTimeout(scrollFormTop, 60);
-    }, 2650);
-  }
-
   const activeStep = steps.find((item) => item.id === step) || steps[0];
   const selectedGoal = goalCards.find((goal) => goal.value === form.targetPathway);
   const completedSteps = steps.filter((item) => item.id < step).length;
 
   if (submitted) {
     return (
-      <div className="intake-public-shell guided-intake-shell" ref={intakeShellRef}>
-        <main className="intake-public-card intake-thanks-card guided-thanks-card">
+      <div className="intake-public-shell public-form-shell guided-intake-shell" ref={intakeShellRef}>
+        <main className="intake-public-card public-form-card intake-thanks-card guided-thanks-card">
           <CheckCircle2 size={42} className="portal-lock" />
           <h1>Your information has been sent.</h1>
           <p className="muted">Thank you. Turner Hopkins Immigration Specialists will review your details and contact you about the most suitable next step.</p>
@@ -2199,54 +2187,15 @@ function IntakeFormApp() {
             <div><strong>3</strong><span>We contact you about the next step</span></div>
           </div>
           <p className="guided-urgent-note">If you have an urgent query, an INZ deadline, or an immediate visa issue, please contact us directly at <a href="mailto:immigration@turnerhopkins.co.nz">immigration@turnerhopkins.co.nz</a>.</p>
-          <button className="btn dark" type="button" onClick={() => { setForm(makeBlankIntakePayload()); setApplicantCvFile(null); setPartnerCvFile(null); setSubmitted(false); setStep(1); setIntroStarted(false); setIntroRevealing(false); }}>Start another questionnaire</button>
-        </main>
-      </div>
-    );
-  }
-
-  const openingScreen = (
-    <div className={`guided-intro-cover guided-intro-standalone ${introRevealing ? 'is-started' : ''}`}>
-      <div className="guided-intro-grid">
-        <div className="guided-intro-copy">
-          <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="guided-intro-logo" />
-          <p className="guided-kicker">Turner Hopkins Immigration Specialists</p>
-          <h2>Begin your journey with us...</h2>
-          <p>Answer a few guided questions so our advisers can understand your situation and the best next step.</p>
-          <button className="guided-intro-button" type="button" onClick={startIntro} disabled={introRevealing}>
-            {introRevealing ? 'Opening your intake...' : 'Start your journey'} <span aria-hidden="true">→</span>
-          </button>
-        </div>
-        <div className="guided-passport-stage" aria-hidden="true">
-          <div className="guided-passport-scene">
-            <div className="guided-passport-book"><div className="guided-passport-emblem" /></div>
-            <div className="guided-passport-page">
-              <span className="line" /><span className="line" /><span className="line" /><span className="line" />
-              <span className="photo" />
-            </div>
-            <div className="guided-stamp-tool"><div className="guided-stamp-handle" /><div className="guided-stamp-base" /></div>
-            <div className="guided-stamp-imprint"><div><strong>Pathway<br />Started</strong><span>Turner Hopkins</span></div></div>
-            <div className="guided-nz-marker"><span className="guided-nz-pin" /><span>NZ</span></div>
-            <div className="guided-southern-cross"><span className="star s1" /><span className="star s2" /><span className="star s3" /><span className="star s4" /></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  if (!introStarted) {
-    return (
-      <div className="intake-public-shell guided-intake-shell" ref={intakeShellRef}>
-        <main className="intake-public-card guided-intake-card guided-opening-card">
-          {openingScreen}
+          <button className="btn dark" type="button" onClick={() => { setForm(makeBlankIntakePayload()); setApplicantCvFile(null); setPartnerCvFile(null); setSubmitted(false); setStep(1); }}>Start another questionnaire</button>
         </main>
       </div>
     );
   }
 
   return (
-    <div className="intake-public-shell guided-intake-shell" ref={intakeShellRef}>
-      <main className="intake-public-card guided-intake-card">
+    <div className="intake-public-shell public-form-shell guided-intake-shell" ref={intakeShellRef}>
+      <main className="intake-public-card public-form-card guided-intake-card">
         <div className="guided-hero">
           <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="intake-brand-logo" />
           <div>
@@ -2297,7 +2246,7 @@ function IntakeFormApp() {
 
         {error && <div className="error-box">{error}</div>}
 
-        <form className="intake-form guided-form" onSubmit={submit} onInvalid={handleInvalid}>
+        <form className="intake-form guided-form public-standard-form" onSubmit={submit} onInvalid={handleInvalid}>
           {step === 1 && (
             <IntakeSection title="Your goal" description="Choose the option that best matches what you want to achieve. You can still continue if you are not sure.">
               <div className="guided-goal-grid">
@@ -2557,6 +2506,10 @@ function IntakeFormApp() {
                 <IntakeCheckbox label="I agree Turner Hopkins may contact me about this enquiry." checked={form.consentToContact} onChange={(v) => setField('consentToContact', v)} required />
                 <IntakeCheckbox label="I understand this questionnaire is for initial assessment only and does not create an adviser-client relationship." checked={form.privacyAcknowledged} onChange={(v) => setField('privacyAcknowledged', v)} required />
               </div>
+              <div className="intake-marketing-consent">
+                <IntakeCheckbox label="Yes, send me occasional New Zealand immigration updates and news from Turner Hopkins. I can unsubscribe at any time." checked={form.marketingConsent} onChange={(v) => setField('marketingConsent', v)} />
+                <p>We send only your basic contact details and selected immigration goal to Mailchimp. Health, character, immigration-history answers and uploaded documents are never sent to Mailchimp.</p>
+              </div>
             </IntakeSection>
           )}
 
@@ -2675,8 +2628,8 @@ function ContactFormApp() {
 
   if (submitted) {
     return (
-      <div className="intake-public-shell" ref={contactShellRef}>
-        <main className="intake-public-card intake-thanks-card">
+      <div className="intake-public-shell public-form-shell" ref={contactShellRef}>
+        <main className="intake-public-card public-form-card intake-thanks-card">
           <CheckCircle2 size={40} className="portal-lock" />
           <h1>Thank you. Your message has been received.</h1>
           <p className="muted">Turner Hopkins will review your enquiry and come back to you if we can assist. This contact form is for initial enquiries only and does not create an adviser-client relationship.</p>
@@ -2687,13 +2640,13 @@ function ContactFormApp() {
   }
 
   return (
-    <div className="intake-public-shell contact-public-shell" ref={contactShellRef}>
-      <main className="intake-public-card contact-public-card">
-        <div className="intake-public-head compact contact-public-intro">
+    <div className="intake-public-shell public-form-shell contact-public-shell" ref={contactShellRef}>
+      <main className="intake-public-card public-form-card contact-public-card">
+        <div className="intake-public-head compact contact-public-intro public-form-intro">
           <p>Send us a short enquiry and our team will review how we may be able to assist.</p>
         </div>
         {error && <div className="error-banner"><AlertTriangle size={18} />{error}</div>}
-        <form className="intake-form contact-form" onSubmit={submit}>
+        <form className="intake-form contact-form public-standard-form" onSubmit={submit}>
           <IntakeSelect label="Your situation" value={form.contactSituation} onChange={(v) => setField('contactSituation', v)} options={CONTACT_SITUATION_OPTIONS} required />
           <div className="form-grid">
             <IntakeField label="First Name" value={form.firstName} onChange={(v) => setField('firstName', v)} required />
@@ -2809,8 +2762,8 @@ function FeedbackFormApp() {
 
   if (submitted) {
     return (
-      <div className="intake-public-shell feedback-public-shell" ref={feedbackShellRef}>
-        <main className="intake-public-card intake-thanks-card feedback-thanks-card">
+      <div className="intake-public-shell public-form-shell feedback-public-shell" ref={feedbackShellRef}>
+        <main className="intake-public-card public-form-card intake-thanks-card feedback-thanks-card">
           <CheckCircle2 size={40} className="portal-lock" />
           <h1>Thank you. Your feedback has been received.</h1>
           <p className="muted">We appreciate you taking the time to share your experience. Your comments have been sent to our team for review.</p>
@@ -2821,13 +2774,13 @@ function FeedbackFormApp() {
   }
 
   return (
-    <div className="intake-public-shell feedback-public-shell" ref={feedbackShellRef}>
-      <main className="intake-public-card contact-public-card feedback-public-card">
-        <div className="intake-public-head compact contact-public-intro feedback-public-intro">
+    <div className="intake-public-shell public-form-shell feedback-public-shell" ref={feedbackShellRef}>
+      <main className="intake-public-card public-form-card contact-public-card feedback-public-card">
+        <div className="intake-public-head compact contact-public-intro public-form-intro feedback-public-intro">
           <p>Tell us how we did. Your feedback helps us improve the way we support future clients.</p>
         </div>
         {error && <div className="error-banner"><AlertTriangle size={18} />{error}</div>}
-        <form className="intake-form contact-form feedback-form" onSubmit={submit}>
+        <form className="intake-form contact-form feedback-form public-standard-form" onSubmit={submit}>
           <div className="form-grid">
             <IntakeField label="First Name" value={form.firstName} onChange={(v) => setField('firstName', v)} required />
             <IntakeField label="Last Name" value={form.lastName} onChange={(v) => setField('lastName', v)} required />
@@ -2937,8 +2890,8 @@ function SeminarRegistrationFormApp() {
 
   if (submitted) {
     return (
-      <div className="intake-public-shell seminar-public-shell">
-        <main className="intake-public-card intake-thanks-card">
+      <div className="intake-public-shell public-form-shell seminar-public-shell">
+        <main className="intake-public-card public-form-card intake-thanks-card">
           <CheckCircle2 size={40} className="portal-lock" />
           <h1>Thank you. Your registration has been received.</h1>
           <p className="muted">We will review your details and confirm whether we are able to invite you to the seminar. If approved, you will receive the Zoom details by email.</p>
@@ -2948,9 +2901,9 @@ function SeminarRegistrationFormApp() {
   }
 
   return (
-    <div className="intake-public-shell seminar-public-shell">
-      <main className="intake-public-card seminar-public-card">
-        <div className="intake-public-head compact contact-public-intro">
+    <div className="intake-public-shell public-form-shell seminar-public-shell">
+      <main className="intake-public-card public-form-card seminar-public-card">
+        <div className="intake-public-head compact contact-public-intro public-form-intro">
           <p>Register your interest in the next Turner Hopkins immigration seminar. Registrations are reviewed before Zoom details are issued.</p>
         </div>
         {loading && <div className="loading-card"><Database size={18} />Loading seminar details...</div>}
@@ -2964,13 +2917,13 @@ function SeminarRegistrationFormApp() {
         )}
         {seminar && (
           <>
-            <section className="seminar-public-summary">
+            <section className="seminar-public-summary public-form-summary">
               <span className="eyebrow">Next seminar</span>
               <h1>{seminar.title || 'Upcoming immigration seminar'}</h1>
               <p><strong>{formatSeminarPublicDate(seminar)}</strong></p>
               <p className="muted">Presenter: {seminar.presenterName || 'Turner Hopkins adviser'}</p>
             </section>
-            <form className="intake-form seminar-form" onSubmit={submit}>
+            <form className="intake-form seminar-form public-standard-form" onSubmit={submit}>
               <IntakeSection title="Your details">
                 <div className="form-grid">
                   <IntakeField label="Full name" value={form.fullName} onChange={(v) => setField('fullName', v)} required />
@@ -4907,7 +4860,7 @@ function getIntakeQuestionnaireSections(record = {}) {
     },
     {
       title: 'Final comments and consent',
-      rows: intakeRows(payload, ['additionalInfo', 'consentToContact', 'privacyAcknowledged']),
+      rows: intakeRows(payload, ['additionalInfo', 'consentToContact', 'privacyAcknowledged', 'marketingConsent', 'mailchimpSyncStatus']),
     },
   ];
 
@@ -4925,6 +4878,13 @@ function intakeAnswerPayload(record = {}) {
   });
   if (hasIntakeValue(payload.dateOfBirth) && !hasIntakeValue(payload.dateOfBirthAge)) {
     payload.dateOfBirthAge = calculateAge(payload.dateOfBirth);
+  }
+  if (payload.mailchimpSync && typeof payload.mailchimpSync === 'object') {
+    const sync = payload.mailchimpSync;
+    const timing = sync.syncedAt || sync.attemptedAt || '';
+    payload.mailchimpSyncStatus = sync.ok
+      ? `Synced (${sync.status || 'complete'})${timing ? ` · ${formatDateTime(timing)}` : ''}`
+      : `Failed${sync.detail ? ` · ${sync.detail}` : ''}`;
   }
   return payload;
 }
@@ -11092,6 +11052,7 @@ function makeBlankIntakePayload() {
     dateOfBirthAge: '',
     consentToContact: false,
     privacyAcknowledged: false,
+    marketingConsent: false,
     applicantCvExpected: false,
     partnerCvExpected: false,
     intakeUploads: {},
@@ -11370,6 +11331,8 @@ function intakeLabelForKey(key = '') {
     fundsTransferableNz: 'Funds transferable to NZ',
     fundsDetails: 'Funds details',
     additionalInfo: 'Additional comments',
+    marketingConsent: 'Marketing email consent',
+    mailchimpSyncStatus: 'Mailchimp sync',
   };
   return labels[key] || key;
 }

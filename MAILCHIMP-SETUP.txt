@@ -1,0 +1,48 @@
+THiS CRM v0.13.27 - Mailchimp setup
+
+WHAT THIS BUILD DOES
+- Adds or updates every completed full assessment intake in one Mailchimp audience.
+- People who do not opt into marketing are stored as non-subscribed/transactional contacts.
+- People who tick the marketing box are set to pending by default and receive Mailchimp's double opt-in confirmation.
+- Contact forms and seminar registrations are not included.
+- Sensitive intake answers and uploaded CVs are never sent to Mailchimp.
+- A Mailchimp failure does not stop the intake from reaching the CRM.
+
+DETAILS TO OBTAIN FROM MAILCHIMP
+1. Marketing API key.
+2. Audience ID for the audience that will hold intake contacts.
+3. Server prefix, such as us21. This is normally visible in the Mailchimp account URL and at the end of a standard API key.
+
+NETLIFY ENVIRONMENT VARIABLES
+Required:
+MAILCHIMP_ENABLED=true
+MAILCHIMP_API_KEY=<your key>
+MAILCHIMP_SERVER_PREFIX=<for example us21>
+MAILCHIMP_AUDIENCE_ID=<your audience id>
+
+Recommended:
+MAILCHIMP_DOUBLE_OPT_IN=true
+MAILCHIMP_ADD_NON_SUBSCRIBED_CONTACTS=true
+MAILCHIMP_DEFAULT_TAGS=Guided Intake,Website Assessment
+MAILCHIMP_FIRST_NAME_FIELD=FNAME
+MAILCHIMP_LAST_NAME_FIELD=LNAME
+
+Optional merge fields:
+MAILCHIMP_PHONE_FIELD=
+MAILCHIMP_CITIZENSHIP_FIELD=
+MAILCHIMP_COUNTRY_FIELD=
+MAILCHIMP_GOAL_FIELD=
+MAILCHIMP_SOURCE_FIELD=
+
+Only set an optional merge-field variable after creating the matching field in the Mailchimp audience. Enter the Mailchimp merge tag, not the public field label.
+
+DEPLOYMENT
+1. Add the variables in Netlify's environment variable settings.
+2. Deploy this package through the existing GitHub/Netlify process.
+3. Trigger a fresh deployment after the variables are saved.
+4. Complete the tests in UPLOAD-CHECKLIST.txt.
+
+IMPORTANT
+- Do not paste the API key into source code or commit it to GitHub.
+- Non-subscribed contacts count toward Mailchimp contact limits and may affect pricing.
+- Update the website privacy statement to identify Mailchimp as a service provider used for basic contact and audience management.
