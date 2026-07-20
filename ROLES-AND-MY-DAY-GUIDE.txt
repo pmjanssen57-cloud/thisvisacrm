@@ -1,4 +1,4 @@
-THiS CRM v0.13.35 - Roles and My Day
+THiS CRM v0.13.36 - Roles and Standalone My Day
 =====================================
 
 CRM roles
@@ -36,9 +36,11 @@ explicitly assigned, a logged-in user whose email matches an adviser profile is
 treated as a bootstrap administrator so the roles can be configured. Assign at
 least one Admin immediately after deployment.
 
-My day
-------
-My day is now the first page shown after a successful login. It includes:
+Standalone My Day
+-----------------
+My Day is the first page shown after a successful login, but it is no longer part
+of the normal CRM page layout. It has its own minimal header and does not show the
+CRM toolbar, tab strip, drawers or mobile navigation. It includes:
 - Overdue and due-today action counts.
 - New enquiry count.
 - Consultations scheduled for today.
@@ -46,6 +48,8 @@ My day is now the first page shown after a successful login. It includes:
 - Direct cards for the main CRM workspaces.
 - Recently opened clients.
 - Admin shortcuts for administrators only.
+- A compact adviser / whole-practice scope selector.
 
-My day remains available as the first item in the desktop and mobile navigation.
-The existing Dashboard remains the detailed workload-management view.
+Use Enter CRM to open the main Dashboard. Workspace cards can also open a specific
+CRM area directly. Once inside the CRM, use the My Day button in the desktop header
+or the My Day item in mobile navigation to return to the standalone landing page.

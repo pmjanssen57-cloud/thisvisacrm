@@ -14303,3 +14303,152 @@ body.intake-embed-mode .public-form-shell {
 @media (max-width: 430px) {
   .landing-summary-grid, .landing-shortcut-grid { grid-template-columns: 1fr; }
 }
+
+/* v0.13.36: standalone My Day login landing page */
+.my-day-standalone-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(85, 217, 160, .16), transparent 25%),
+    radial-gradient(circle at 88% 0%, rgba(0, 55, 54, .07), transparent 22%),
+    linear-gradient(180deg, #f7fbf9 0%, #ffffff 48%, #f7faf9 100%);
+}
+.my-day-standalone-header {
+  width: min(1240px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 22px 0 18px;
+  display: grid;
+  grid-template-columns: minmax(230px, 1fr) minmax(210px, 290px) auto;
+  align-items: center;
+  gap: 18px;
+  border-bottom: 1px solid rgba(207, 231, 220, .9);
+}
+.my-day-standalone-brand {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.my-day-standalone-brand img {
+  width: 188px;
+  max-height: 58px;
+  object-fit: contain;
+}
+.my-day-standalone-brand > div {
+  display: grid;
+  gap: 1px;
+  padding-left: 15px;
+  border-left: 1px solid var(--line);
+}
+.my-day-standalone-brand span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.my-day-standalone-brand strong {
+  color: var(--ink);
+  font-size: 22px;
+  letter-spacing: -.025em;
+}
+.my-day-scope-control {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.my-day-scope-control span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.my-day-scope-control select {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 34px 8px 12px;
+  border: 1px solid #cfe7dc;
+  border-radius: 13px;
+  background: #fff;
+  color: var(--ink);
+  font-weight: 800;
+}
+.my-day-standalone-header .auth-status {
+  width: auto;
+  max-width: 390px;
+  justify-self: end;
+  background: rgba(255, 255, 255, .88);
+}
+.my-day-standalone-main {
+  width: min(1240px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 30px 0 44px;
+}
+.my-day-standalone-main .adviser-landing-pad { gap: 14px; }
+.my-day-standalone-main .landing-welcome-card {
+  border-color: #b9dfd0;
+  box-shadow: 0 18px 52px rgba(0, 63, 58, .09);
+}
+.my-day-loading-card {
+  min-height: 180px;
+  justify-content: center;
+  margin: 40px 0;
+}
+.my-day-standalone-footer {
+  width: min(1240px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 17px 0 23px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border-top: 1px solid rgba(207, 231, 220, .9);
+  color: var(--muted);
+}
+.my-day-standalone-footer span { color: var(--ink); font-weight: 900; }
+.my-day-standalone-footer small { text-align: right; }
+.crm-my-day-link { color: var(--ink) !important; border-color: #b9dfd0 !important; background: #f3fbf7 !important; }
+.crm-my-day-link:hover { background: #e8f7f0 !important; }
+
+@media (max-width: 980px) {
+  .my-day-standalone-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .my-day-scope-control {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    max-width: 340px;
+  }
+  .my-day-standalone-header .auth-status { grid-column: 2; grid-row: 1; }
+}
+
+@media (max-width: 720px) {
+  .my-day-standalone-header,
+  .my-day-standalone-main,
+  .my-day-standalone-footer {
+    width: min(100% - 24px, 1240px);
+  }
+  .my-day-standalone-header {
+    grid-template-columns: 1fr;
+    gap: 13px;
+    padding-top: 15px;
+  }
+  .my-day-standalone-brand img { width: 158px; }
+  .my-day-standalone-brand > div { padding-left: 11px; }
+  .my-day-standalone-brand strong { font-size: 19px; }
+  .my-day-scope-control,
+  .my-day-standalone-header .auth-status {
+    grid-column: auto;
+    grid-row: auto;
+    width: 100%;
+    max-width: none;
+    justify-self: stretch;
+  }
+  .my-day-standalone-main { padding-top: 18px; padding-bottom: 30px; }
+  .my-day-standalone-footer { align-items: flex-start; flex-direction: column; gap: 4px; }
+  .my-day-standalone-footer small { text-align: left; }
+  .mobile-header-actions { gap: 6px; }
+  .mobile-header-actions .btn { padding-left: 10px; padding-right: 10px; }
+}

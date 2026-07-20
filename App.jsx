@@ -144,7 +144,7 @@ const SUPPORT_CONTENT = {
       { heading: 'Quick access', text: 'Use the workspace cards to move into Dashboard, Tasks, Clients, Enquiries & Intake, Calendar or Bookings. Administrators also see a small administration area.' },
       { heading: 'Adviser scope', text: 'The page normally opens in the logged-in adviser’s own scope. Use the Viewing selector to switch to another adviser or the whole practice when required.' },
     ],
-    tips: ['Use My day as the starting point for each work session.', 'Open Dashboard when you need the full workload list and inline action-date controls.', 'Return to My day from the first navigation button at any time.'],
+    tips: ['Use My day as the starting point for each work session.', 'Open Dashboard when you need the full workload list and inline action-date controls.', 'Return to My Day from the dedicated button in the CRM header or the mobile navigation at any time.'],
   },
   dashboard: {
     title: 'Dashboard help',
@@ -1219,6 +1219,31 @@ export default function App() {
     );
   }
 
+  if (tab === 'home') {
+    return (
+      <StandaloneMyDayPage
+        loading={loading}
+        error={error}
+        adviser={headerSnapshotAdviser}
+        identityUser={identityUser}
+        accessRole={currentAccessRole}
+        accessCodeActive={Boolean(accessCode)}
+        onLogout={logoutIdentityUser}
+        clients={scopedClients}
+        activeClients={activeClients}
+        advisers={data.advisers}
+        dashboardAdviserFilter={dashboardAdviserFilter}
+        setDashboardAdviserFilter={setDashboardAdviserFilter}
+        taskRows={taskRows}
+        intakeEnquiries={data.intakeEnquiries || []}
+        consultationBookings={data.consultationBookings || []}
+        recentClientIds={recentClientIds}
+        setTab={switchTab}
+        openClientRecord={openClientRecord}
+      />
+    );
+  }
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -1232,6 +1257,7 @@ export default function App() {
         <HeaderLocalSnapshot adviser={headerSnapshotAdviser} />
         <AuthStatus user={identityUser} adviser={identityAdviser} accessRole={currentAccessRole} accessCodeActive={Boolean(accessCode)} onLogout={logoutIdentityUser} />
         <div className="top-actions desktop-only">
+          <button className="btn ghost compact-action crm-my-day-link" type="button" onClick={() => switchTab('home')}><CloudSun size={16} />My Day</button>
           <button className="btn ghost compact-action" onClick={() => { setSupportOpen(false); setToolsOpen(true); setNewMenuOpen(false); }}><Wrench size={16} />Tools</button>
           <div className="dropdown-shell new-action-shell">
             <button className="btn dark" type="button" onClick={() => setNewMenuOpen((open) => !open)}><Plus size={16} />New <ChevronDown size={15} /></button>
@@ -1246,6 +1272,7 @@ export default function App() {
           </div>
         </div>
         <div className="mobile-header-actions mobile-only">
+          <button className="btn ghost" type="button" onClick={() => switchTab('home')}><CloudSun size={16} />My Day</button>
           <button className="btn ghost" onClick={() => { setSupportOpen(false); setToolsOpen(true); }}><Wrench size={16} />Tools</button>
         </div>
       </header>
@@ -1280,7 +1307,6 @@ export default function App() {
               canViewAllAdvisers={canViewAllAdvisers}
             />
             <nav className="tabs desktop-tabs main-nav crm-main-nav-polished nav-expanded-row" aria-label="Main CRM navigation">
-              <TabButton active={tab === 'home'} onClick={() => switchTab('home')} icon={CloudSun} label="My day" />
               <TabButton active={tab === 'dashboard'} onClick={() => switchTab('dashboard')} icon={LayoutDashboard} label="Dashboard" />
               <TabButton active={tab === 'tasks'} onClick={() => switchTab('tasks')} icon={ListChecks} label="Tasks" />
               <TabButton active={tab === 'clients'} onClick={() => switchTab('clients')} icon={UsersRound} label="Clients" />
@@ -1292,23 +1318,6 @@ export default function App() {
               {canManageAdvisers && <TabButton active={tab === 'advisers'} onClick={() => switchTab('advisers')} icon={UsersRound} label="Advisers" />}
               {canManageBackups && <TabButton active={tab === 'backups'} onClick={() => switchTab('backups')} icon={Database} label="Backups" />}
             </nav>
-
-            {tab === 'home' && (
-              <AdviserLandingPad
-                adviser={headerSnapshotAdviser}
-                accessRole={currentAccessRole}
-                clients={scopedClients}
-                activeClients={activeClients}
-                advisers={data.advisers}
-                dashboardAdviserFilter={dashboardAdviserFilter}
-                taskRows={taskRows}
-                intakeEnquiries={data.intakeEnquiries || []}
-                consultationBookings={data.consultationBookings || []}
-                recentClientIds={recentClientIds}
-                setTab={switchTab}
-                openClientRecord={openClientRecord}
-              />
-            )}
 
             {tab === 'intake' && (
               <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} identityUser={identityUser} canExportContacts={canExportContacts} statuses={data.intakeStatuses || INTAKE_STATUSES} seminars={data.seminars || []} seminarRegistrations={data.seminarRegistrations || []} feedbackSubmissions={data.feedbackSubmissions || []} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} downloadIntakeUpload={downloadIntakeUpload} saveSeminar={saveSeminar} deleteSeminar={deleteSeminar} saveSeminarRegistration={saveSeminarRegistration} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail} saveFeedbackSubmission={saveFeedbackSubmission} deleteFeedbackSubmission={deleteFeedbackSubmission} saving={saving} openClientRecord={openClientRecord} confirmAction={askCrmConfirm} />
@@ -6534,7 +6543,7 @@ function adviserInitials(value = '') {
 
 function MobileBottomNav({ activeTab, onNavigate, onOpenMore }) {
   const navItems = [
-    { tab: 'home', label: 'Home', icon: CloudSun },
+    { tab: 'home', label: 'My Day', icon: CloudSun },
     { tab: 'tasks', label: 'Tasks', icon: ListChecks },
     { tab: 'clients', label: 'Clients', icon: UsersRound },
     { tab: 'intake', label: 'Enquiries', icon: ClipboardList },
@@ -7744,7 +7753,7 @@ function AccessScreen(props) {
         <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="access-logo" />
         <LockKeyhole size={34} />
         <h1>{isInvite ? 'Set your THiS CRM password' : isRecovery ? 'Choose a new password' : 'THiS CRM login'}</h1>
-        <p>{isInvite ? 'Your Netlify Identity invitation has been recognised. Set a password to finish activating your CRM access.' : isRecovery ? 'Enter a new password to complete the reset process.' : 'Access is restricted to invited THiS users only. After login, My day will show your immediate work and the main CRM shortcuts.'}</p>
+        <p>{isInvite ? 'Your Netlify Identity invitation has been recognised. Set a password to finish activating your CRM access.' : isRecovery ? 'Enter a new password to complete the reset process.' : 'Access is restricted to invited THiS users only. After login, My Day opens as a separate landing page with your immediate work and direct links into the CRM.'}</p>
 
         {isInvite && (
           <form className="access-form" onSubmit={handleInviteSubmit}>
@@ -7779,6 +7788,50 @@ function AccessScreen(props) {
   );
 }
 
+function StandaloneMyDayPage({ loading = false, error = '', adviser = null, identityUser = null, accessRole = 'User', accessCodeActive = false, onLogout, clients = [], activeClients = [], advisers = [], dashboardAdviserFilter = 'all', setDashboardAdviserFilter, taskRows = [], intakeEnquiries = [], consultationBookings = [], recentClientIds = [], setTab, openClientRecord }) {
+  return (
+    <div className="my-day-standalone-shell">
+      <header className="my-day-standalone-header">
+        <div className="my-day-standalone-brand">
+          <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" />
+          <div><span>Adviser workspace</span><strong>My Day</strong></div>
+        </div>
+        {advisers.length > 0 && <label className="my-day-scope-control">
+          <span>Work summary</span>
+          <select value={dashboardAdviserFilter} onChange={(event) => setDashboardAdviserFilter?.(event.target.value)}>
+            <option value="all">Whole practice</option>
+            {advisers.filter((item) => item.active !== false).map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}
+          </select>
+        </label>}
+        <AuthStatus user={identityUser} adviser={adviser} accessRole={accessRole} accessCodeActive={accessCodeActive} onLogout={onLogout} />
+      </header>
+      <main className="my-day-standalone-main">
+        {error && <div className="error-banner"><AlertTriangle size={18} />{error}</div>}
+        {loading ? (
+          <div className="loading-card my-day-loading-card"><Database size={18} />Preparing your work summary...</div>
+        ) : (
+          <AdviserLandingPad
+            adviser={adviser}
+            accessRole={accessRole}
+            clients={clients}
+            activeClients={activeClients}
+            advisers={advisers}
+            dashboardAdviserFilter={dashboardAdviserFilter}
+            taskRows={taskRows}
+            intakeEnquiries={intakeEnquiries}
+            consultationBookings={consultationBookings}
+            recentClientIds={recentClientIds}
+            setTab={setTab}
+            openClientRecord={openClientRecord}
+            standalone
+          />
+        )}
+      </main>
+      <footer className="my-day-standalone-footer"><span>THiS CRM</span><small>Use My Day as your daily starting point. Enter the CRM only when you need the full workspace.</small></footer>
+    </div>
+  );
+}
+
 function CrmToast({ toast, onClose }) {
   if (!toast) return null;
   return (
@@ -7790,7 +7843,7 @@ function CrmToast({ toast, onClose }) {
   );
 }
 
-function AdviserLandingPad({ adviser = null, accessRole = 'User', clients = [], activeClients = [], advisers = [], dashboardAdviserFilter = 'all', taskRows = [], intakeEnquiries = [], consultationBookings = [], recentClientIds = [], setTab, openClientRecord }) {
+function AdviserLandingPad({ adviser = null, accessRole = 'User', clients = [], activeClients = [], advisers = [], dashboardAdviserFilter = 'all', taskRows = [], intakeEnquiries = [], consultationBookings = [], recentClientIds = [], setTab, openClientRecord, standalone = false }) {
   const actionableRows = taskRows
     .map(withDeadlineSignal)
     .filter(isDashboardActionableTaskRow)
@@ -7843,9 +7896,9 @@ function AdviserLandingPad({ adviser = null, accessRole = 'User', clients = [], 
     <div className="stack adviser-landing-pad">
       <section className="landing-welcome-card">
         <div className="landing-welcome-copy">
-          <span className="eyebrow">My day · {dateLabel}</span>
+          <span className="eyebrow">{standalone ? 'Adviser landing page' : 'My day'} · {dateLabel}</span>
           <h1>{greeting}, {firstName}</h1>
-          <p>{focusRows.length ? `You have ${focusRows.length} item${focusRows.length === 1 ? '' : 's'} needing attention now.` : 'There are no overdue or due-today actions in the current view.'} This page is your starting point; the full Dashboard remains available for workload management.</p>
+          <p>{focusRows.length ? `You have ${focusRows.length} item${focusRows.length === 1 ? '' : 's'} needing attention now.` : 'There are no overdue or due-today actions in the current view.'} This is your login landing page. Enter the CRM for full workload management, or use a shortcut to open a specific workspace.</p>
           <div className="landing-welcome-meta">
             <span><UsersRound size={15} />{activeClients.length} active client{activeClients.length === 1 ? '' : 's'}</span>
             <span><CalendarDays size={15} />{todayBookings.length} consultation{todayBookings.length === 1 ? '' : 's'} today</span>
@@ -7855,7 +7908,7 @@ function AdviserLandingPad({ adviser = null, accessRole = 'User', clients = [], 
         <div className="landing-scope-card">
           <small>Current view</small>
           <strong>{viewLabel}</strong>
-          <button type="button" className="btn dark" onClick={() => setTab('dashboard')}><LayoutDashboard size={16} />Open full dashboard</button>
+          <button type="button" className="btn dark" onClick={() => setTab('dashboard')}><LayoutDashboard size={16} />Enter CRM</button>
         </div>
       </section>
 

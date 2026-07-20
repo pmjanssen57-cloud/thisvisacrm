@@ -1,15 +1,19 @@
-THiS CRM v0.13.35 validation
+THiS CRM v0.13.36 validation
 ============================
 
 Completed in the build workspace:
 - package.json JSON validation
-- App.jsx and main.jsx JSX syntax parsing
-- styles.css parser validation
-- Node syntax checks for all Netlify Functions and recovery scripts
-- verification that node_modules is not included
+- clean dependency installation against the pinned dependency set
+- full Vite production build
+- App.jsx and main.jsx transformation through Vite
+- styles.css production bundling
+- Node syntax checks for every Netlify Function
+- Node syntax check for the backup recovery script
+- verification that node_modules is not included in the release
 - verification that automatic Mailchimp API environment keys are not present
+- verification that My Day is removed from the CRM tab strip
+- verification that the CRM header and mobile navigation can return to My Day
 
-The dependency graph is unchanged from the working v0.13.34 Yarn deployment.
-A full Vite production build could not be rerun in this isolated workspace because
-external npm registry access was unavailable. Netlify will perform the production
-build using the existing Yarn configuration.
+The dependency graph and Yarn-based Netlify deployment configuration are unchanged
+from the working v0.13.35 release. The existing large JavaScript chunk warning remains
+unchanged and does not prevent a successful production build.

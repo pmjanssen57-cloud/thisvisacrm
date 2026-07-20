@@ -1,6 +1,6 @@
-# THiS CRM v0.13.35 — Adviser Roles and My Day
+# THiS CRM v0.13.36 — Standalone My Day Landing Page
 
-This release builds on the working v0.13.34 baseline. It preserves the lean dashboard, lean Enquiries & Intake workspace, incremental contact exports, Yarn deployment configuration and existing CRM workflows.
+This release builds on the working v0.13.35 role and login baseline. It preserves adviser roles, the lean dashboard, the lean Enquiries & Intake workspace, incremental contact exports, Yarn deployment configuration and existing CRM workflows.
 
 ## Access roles
 
@@ -11,9 +11,11 @@ This release builds on the working v0.13.34 baseline. It preserves the lean dash
 - The CRM prevents removal or deactivation of the final active Admin.
 - On first deployment, a matched adviser is temporarily treated as a bootstrap Admin until an Admin role is explicitly assigned.
 
-## My day
+## Standalone My Day landing page
 
-My day is the first CRM page after login and remains available from desktop and mobile navigation. It shows overdue and due-today work, new enquiries, consultations today, direct workspace cards, recently opened clients and administrator shortcuts where applicable. The existing Dashboard remains the detailed workload-management page.
+My Day is now visually and structurally separate from the CRM application shell. After login, advisers arrive on a dedicated landing page without the CRM toolbar, tab strip, drawers or mobile navigation. It shows overdue and due-today work, new enquiries, consultations today, direct workspace cards, recently opened clients and administrator shortcuts where applicable.
+
+The primary **Enter CRM** action opens the main Dashboard. Each workspace card can also open that part of the CRM directly. Once inside the CRM, advisers can return to My Day using the dedicated header button or the mobile **My Day** navigation item. The current adviser or whole-practice scope can be changed directly on the landing page.
 
 ## Contact export changes
 
