@@ -1,25 +1,16 @@
-THiS CRM v0.13.43 validation
+THiS CRM v0.13.44 validation
 
-SOURCE CHECKS
-- Package version updated to 0.13.43: PASS
-- Backup source version updated to 0.13.43: PASS
-- Migration 202607210003_add_commercial_compliance_suite.sql included: PASS
-- Daily commercial-reminders schedule present in netlify.toml: PASS
-- 90/60/30 reminder tiers with retry/catch-up windows and deduplication log: PASS
-- CRM and Employer Portal CSV worker import actions included: PASS
-- Direct commercial document upload/download function included: PASS
-- Commercial document Blob store included in encrypted backups: PASS
-- Commercial-client deletion cleans up stored commercial documents: PASS
-- Print-ready downloadable compliance report included: PASS
-- Direct Job Check ID relationship and automatic position usage included: PASS
-- Server-side approved-position capacity checks included: PASS
-- Full Job Checks disabled for new worker links in the UI: PASS
+Build correction
+- Removed the duplicate global formatFileSize declaration from App.jsx: PASS
+- Exactly one formatFileSize declaration remains in App.jsx: PASS
+- Package version updated to 0.13.44: PASS
+- Backup source version updated to 0.13.44: PASS
 
-TECHNICAL CHECKS
-- App.jsx and main.jsx transpiled successfully with the TypeScript compiler: PASS
-- Transpiled JavaScript syntax checks: PASS
-- All Netlify Function syntax checks: PASS
-- CSS parsed successfully with PostCSS: PASS
-- package.json and netlify.toml parsed successfully: PASS
-- Migration, function, schedule and backup source assertions: PASS
-- Dependency-backed Vite build: NOT RERUN — the isolated environment could not reach the Yarn registry. No dependency or build configuration change was made from v0.13.42.
+Commercial compliance suite retained
+- Automated accreditation, work visa and Job Check reminder functions retained
+- Worker CSV template/import retained
+- Secure commercial document upload/download retained
+- Compliance report retained
+- Job Check-to-worker relationship and position usage logic retained
+
+No database schema or dependency changes were made in this build-fix release.

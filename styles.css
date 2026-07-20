@@ -14987,7 +14987,7 @@ body.my-day-overlay-active { overflow: hidden; }
   .commercial-summary-grid{grid-template-columns:1fr}
 }
 
-/* v0.13.43 commercial compliance suite */
+/* v0.13.44 commercial compliance suite build fix */
 .commercial-client-head-meta .btn{margin-top:2px}
 .commercial-reminder-toggle{grid-column:1/-1;border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:var(--pale)}
 .commercial-reminder-toggle span{font-size:.78rem!important;line-height:1.35}

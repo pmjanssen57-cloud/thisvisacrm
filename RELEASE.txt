@@ -1,3 +1,5 @@
-v0.13.43 - Commercial Portal Compliance Suite
+v0.13.44 - Commercial Compliance Suite Build Fix
 
 Adds tiered commercial expiry reminders, Excel-compatible worker import, authenticated commercial document uploads, downloadable compliance reporting, and direct Job Check position tracking.
+
+Fixes a Vite/esbuild compile failure caused by two identical global formatFileSize helper declarations in App.jsx. No feature, schema, dependency or deployment configuration changes.

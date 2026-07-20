@@ -662,14 +662,6 @@ function downloadCommercialWorkerTemplate() {
   downloadBrowserFile('commercial-worker-import-template.csv', `${COMMERCIAL_WORKER_CSV_HEADERS.map(csvEscape).join(',')}\n${sample.map(csvEscape).join(',')}\n`, 'text/csv;charset=utf-8');
 }
 
-function formatFileSize(bytes = 0) {
-  const size = Number(bytes || 0);
-  if (!size) return '';
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 function escapeReportHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[char]));
 }
