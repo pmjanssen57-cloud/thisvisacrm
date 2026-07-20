@@ -1,0 +1,8 @@
+node_modules/
+.netlify/
+dist/
+npm-debug.log*
+yarn-error.log*
+.env
+.env.*
+!.env.example

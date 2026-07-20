@@ -1,11 +1,17 @@
-THiS CRM v0.13.32 - Netlify dependency-install settings
+THiS CRM v0.13.33 - dependency cache repair and automatic Mailchimp removal
 
-This package contains no CRM feature, database, function, migration or public-form changes.
+WHY THE PREVIOUS DEPLOY FAILED
+The Netlify log shows npm restoring or finding an old node_modules tree and then failing while renaming:
+  node_modules/bare-stream -> node_modules/.bare-stream-*
+with ENOTEMPTY. This is a stale/corrupted dependency tree problem, not a CRM compile error and not a Mailchimp error.
 
-Deployment-only changes:
-- Pins npm 10.8.2 explicitly in netlify.toml.
-- Disables npm audit, funding and progress checks during Netlify dependency installation.
-- Replaces long silent registry retries with one short retry and a 30-second fetch timeout.
-- Enables verbose npm and foreground install-script output so any registry or package error appears in the Netlify deploy log.
+DEPLOYMENT CHANGES
+- Automatic Mailchimp API syncing has been removed from the intake Netlify Function.
+- Mailchimp environment variables and setup documentation have been removed.
+- The manual Excel and Mailchimp-ready consent CSV exports remain available.
+- Netlify now uses Yarn Classic 1.22.22 instead of npm for dependency installation.
+- package-lock.json and npm-only configuration have been removed to avoid package-manager ambiguity.
+- .gitignore now explicitly excludes node_modules and Netlify local-state folders.
 
-Deploy this package as the replacement for the previous build, then use Netlify's Retry without cache option.
+FIRST DEPLOYMENT
+Use Netlify's Clear cache and deploy site option for this release. The deploy log should say that packages are being installed using Yarn rather than npm.

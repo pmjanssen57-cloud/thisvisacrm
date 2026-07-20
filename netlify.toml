@@ -1,15 +1,14 @@
 [build]
-  command = "npm run build"
+  command = "yarn build"
   publish = "dist"
   functions = "netlify/functions"
 
 [build.environment]
   NODE_VERSION = "20.19.0"
-  NPM_VERSION = "10.8.2"
-  NPM_FLAGS = "--no-audit --no-fund --prefer-online --foreground-scripts --loglevel=verbose"
+  YARN_FLAGS = "--no-ignore-optional --non-interactive --no-progress"
 
 [dev]
-  command = "npm run dev:vite"
+  command = "yarn dev:vite"
   targetPort = 5173
   publish = "dist"
   functions = "netlify/functions"

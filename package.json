@@ -1,6 +1,6 @@
 {
   "name": "turner-hopkins-crm-netlify-db",
-  "version": "0.13.32",
+  "version": "0.13.33",
   "private": true,
   "engines": {
     "node": ">=20.19.0 <21"
@@ -13,13 +13,14 @@
     "backup:decrypt": "node scripts/decrypt-this-backup.mjs"
   },
   "dependencies": {
-    "@netlify/blobs": "^10.7.9",
-    "@netlify/database": "^1.0.0",
-    "@netlify/identity": "^1.2.0",
-    "archiver": "^7.0.1",
-    "lucide-react": "^0.475.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "vite": "^5.4.11"
-  }
+    "@netlify/blobs": "10.7.9",
+    "@netlify/database": "1.0.0",
+    "@netlify/identity": "1.2.0",
+    "archiver": "7.0.1",
+    "lucide-react": "0.475.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "vite": "5.4.21"
+  },
+  "packageManager": "yarn@1.22.22"
 }

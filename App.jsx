@@ -4253,7 +4253,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
     }
     const dateStamp = new Date().toISOString().slice(0, 10);
     downloadCsvFile(`THiS-mailchimp-consented-contacts-${dateStamp}.csv`, result.headers, result.rows);
-    setContactExportNotice(`${result.rows.length} consented contact${result.rows.length === 1 ? '' : 's'} exported in a Mailchimp-friendly format.`);
+    setContactExportNotice(`${result.rows.length} consented contact${result.rows.length === 1 ? '' : 's'} exported for manual Mailchimp import.`);
   }
 
   const intakeTitle = draft ? ([draft.firstName, draft.lastName].filter(Boolean).join(' ') || 'Unnamed intake') : 'Intake record';
@@ -4275,7 +4275,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
             </button>
             <button type="button" onClick={(event) => { exportMailchimpConsentList(); event.currentTarget.closest('details')?.removeAttribute('open'); }}>
               <Mail size={16} />
-              <span><strong>Mailchimp consent list</strong><small>Only full assessment contacts who selected the optional marketing consent box.</small></span>
+              <span><strong>Mailchimp-ready consent CSV</strong><small>Manual import file containing only full assessment contacts who selected the optional marketing consent box.</small></span>
             </button>
           </div>
         </details>
@@ -5419,7 +5419,7 @@ function getIntakeQuestionnaireSections(record = {}) {
     },
     {
       title: 'Final comments and consent',
-      rows: intakeRows(payload, ['additionalInfo', 'consentToContact', 'privacyAcknowledged', 'marketingConsent', 'mailchimpSyncStatus']),
+      rows: intakeRows(payload, ['additionalInfo', 'consentToContact', 'privacyAcknowledged', 'marketingConsent']),
     },
   ];
 
@@ -5437,13 +5437,6 @@ function intakeAnswerPayload(record = {}) {
   });
   if (hasIntakeValue(payload.dateOfBirth) && !hasIntakeValue(payload.dateOfBirthAge)) {
     payload.dateOfBirthAge = calculateAge(payload.dateOfBirth);
-  }
-  if (payload.mailchimpSync && typeof payload.mailchimpSync === 'object') {
-    const sync = payload.mailchimpSync;
-    const timing = sync.syncedAt || sync.attemptedAt || '';
-    payload.mailchimpSyncStatus = sync.ok
-      ? `Synced (${sync.status || 'complete'})${timing ? ` · ${formatDateTime(timing)}` : ''}`
-      : `Failed${sync.detail ? ` · ${sync.detail}` : ''}`;
   }
   return payload;
 }
@@ -12041,7 +12034,6 @@ function intakeLabelForKey(key = '') {
     fundsDetails: 'Funds details',
     additionalInfo: 'Additional comments',
     marketingConsent: 'Marketing email consent',
-    mailchimpSyncStatus: 'Mailchimp sync',
   };
   return labels[key] || key;
 }

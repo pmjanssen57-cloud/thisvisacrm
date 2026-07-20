@@ -1,35 +1,30 @@
-# THiS CRM v0.13.32 — Contact Export for Excel and Mailchimp
+# THiS CRM v0.13.33 — Manual Contact Export and Netlify Cache Repair
 
-This release restructures the contact, intake, feedback and seminar-registration workspace around compact operational queues while preserving all existing CRM, submission, email, duplicate-detection, conversion and public-form behaviour.
+This release retains the lean adviser dashboard and lean Enquiries & Intake workspace from v0.13.30–v0.13.32.
 
-## Workspace changes
+## Contact exports
 
-- Replaces the large metric-card row with a compact, clickable workload strip for new contacts, new intake forms, new seminar registrations and new feedback.
-- Shortens the workspace tabs and uses new-item counts rather than total retained records.
-- Compresses search, status filters and reset controls into a single lean toolbar.
-- Contact forms now show a concise queue row with inline adviser assignment, inline status changes and the intake-email action.
-- Contact details, messages and related-enquiry information expand only when requested.
-- Intake forms now use compact queue rows with inline adviser and status controls, plus direct View, Convert and Open client actions.
-- Full intake editing remains in the existing pop-out editor.
-- Seminar setup and public-form controls are consolidated into one compact seminar header.
-- Seminar registrations now show a concise queue row with approval, decline and detail controls; the full registration information expands only when needed.
-- Feedback records use the same compact queue treatment for consistency.
-- Desktop and mobile layouts have been adjusted so filters and row controls remain usable without creating dense button stacks.
+The Enquiries & Intake workspace includes two browser-generated CSV downloads:
 
-## Data and deployment
+- **All contacts for Excel** — one deduplicated row per email from retained contact and full assessment forms.
+- **Mailchimp-ready consent CSV** — a manual import file containing only full-assessment applicants who selected the optional marketing consent box.
+
+The exports exclude dates of birth, visa history, health and character information, employment and qualification answers, funds information, adviser notes and uploaded files.
+
+## Mailchimp change
+
+The earlier automatic Mailchimp API integration has been removed completely. Intake submissions are no longer sent to Mailchimp by the Netlify Function, and no Mailchimp API environment variables are required. Existing marketing-consent answers remain available for the manual consent CSV.
+
+## Deployment repair
+
+The failed deploy was caused by a stale or corrupted cached `node_modules` tree. npm attempted to rename the existing `bare-stream` directory and received `ENOTEMPTY` before the CRM build began.
+
+This release switches Netlify dependency installation to Yarn Classic 1.22.22 and removes npm-specific install configuration and the npm lockfile. Use **Clear cache and deploy site** for the first deployment of this release. The Netlify log should report Yarn rather than npm during dependency installation.
+
+## Data and compatibility
 
 - No database migration is required.
-- No Netlify Function, migration, public form, guided-intake embed, Mailchimp workflow or secure-backup workflow was changed.
-- Existing v0.13.30 lean adviser dashboard functionality remains in place.
-
-Use Node 20.19.0 for deployment, as configured by the project files.
-
-## v0.13.32 contact export
-
-The Enquiries & Intake workspace now includes an `Export contacts` menu with two browser-generated CSV downloads:
-
-- **All contacts for Excel** — one deduplicated row per email from retained contact and full assessment forms, including contact details, source, CRM status, adviser, submission dates, and clearly separated contact/marketing consent fields.
-- **Mailchimp consent list** — only retained full assessment contacts who selected the optional marketing consent box, using Mailchimp-friendly column headings.
-
-The export excludes dates of birth, visa information, health, character, employment, qualifications, funds, free-text questionnaire answers, adviser assessment notes and uploaded files. It requires no database migration, Netlify Function change or new npm dependency.
-
+- Existing migrations are unchanged.
+- Public intake, contact and seminar forms remain in place.
+- Microsoft email, intake conversion, duplicate detection, bookings, client portal and secure backups remain in place.
+- Node 20.19.0 remains pinned.
