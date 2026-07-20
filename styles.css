@@ -13375,3 +13375,542 @@ body.intake-embed-mode .public-form-shell {
   .workload-inline-editor { padding: 11px; }
   .inline-action-buttons .btn { flex: 1; justify-content: center; }
 }
+
+/* v0.13.31: lean enquiries, intake and seminar queues */
+.enquiries-intake-workspace {
+  gap: 14px;
+}
+
+.enquiries-heading-polished {
+  margin-bottom: 0;
+}
+
+.enquiries-lean-overview {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.enquiries-lean-overview button {
+  min-width: 0;
+  border: 1px solid var(--line, #d9e6e1);
+  border-radius: 15px;
+  background: #fff;
+  color: var(--ink, #003736);
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 10px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .16s ease, background .16s ease, transform .16s ease;
+}
+
+.enquiries-lean-overview button:hover {
+  border-color: #9fd4c2;
+  transform: translateY(-1px);
+}
+
+.enquiries-lean-overview button.active {
+  border-color: #8fcfba;
+  background: #f2fbf7;
+}
+
+.enquiries-lean-overview button span {
+  color: #526a65;
+  font-size: .76rem;
+  font-weight: 850;
+  line-height: 1.25;
+}
+
+.enquiries-lean-overview button strong {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  align-self: center;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--ink, #003736);
+}
+
+.enquiries-lean-overview button small {
+  color: var(--muted, #64748b);
+  font-size: .72rem;
+}
+
+.enquiries-panel {
+  gap: 12px;
+  padding: 12px;
+  border-radius: 18px;
+  box-shadow: none;
+}
+
+.enquiries-tab-row-lean {
+  gap: 6px;
+  padding-bottom: 9px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.enquiries-tab-row-lean button {
+  min-height: 38px;
+  padding: 7px 11px;
+  flex: 0 0 auto;
+}
+
+.enquiries-toolbar {
+  grid-template-columns: minmax(230px, 340px) minmax(0, 1fr) auto;
+  gap: 9px;
+  padding: 0;
+}
+
+.enquiries-toolbar .enquiries-status-pills {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+
+.enquiries-status-pills button {
+  min-height: 38px;
+  padding: 7px 10px;
+  font-size: .84rem;
+}
+
+.enquiries-reset-button {
+  min-height: 38px;
+  padding: 8px 11px;
+}
+
+.enquiries-queue-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line, #d9e6e1);
+}
+
+.enquiries-queue-heading h2 {
+  margin: 2px 0 0;
+  color: var(--ink, #003736);
+  font-size: 1.2rem;
+}
+
+.enquiries-shown-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  border: 1px solid var(--line, #d9e6e1);
+  background: #f7faf9;
+  color: var(--ink, #003736);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: .78rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.enquiry-queue-list {
+  display: grid;
+  gap: 8px;
+}
+
+.enquiry-queue-card {
+  border: 1px solid var(--line, #d9e6e1);
+  border-radius: 16px;
+  background: #fff;
+  overflow: visible;
+  min-width: 0;
+  box-shadow: none;
+}
+
+.enquiry-queue-card.expanded {
+  border-color: #9fd4c2;
+  box-shadow: 0 10px 24px rgba(0, 55, 54, .06);
+}
+
+.enquiry-queue-row {
+  min-width: 0;
+}
+
+.enquiry-queue-summary {
+  width: 100%;
+  border: 0;
+  background: #fff;
+  color: inherit;
+  display: grid;
+  grid-template-columns: minmax(210px, 1.25fr) minmax(170px, .95fr) minmax(150px, .8fr) minmax(145px, .72fr);
+  gap: 12px;
+  align-items: center;
+  padding: 13px 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.enquiry-queue-summary:hover {
+  background: #fbfdfc;
+}
+
+.enquiry-queue-person,
+.enquiry-queue-cell {
+  min-width: 0;
+}
+
+.enquiry-queue-badges {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 5px;
+}
+
+.enquiry-queue-person h3 {
+  margin: 0 0 2px;
+  color: var(--ink, #003736);
+  font-size: .98rem;
+}
+
+.enquiry-queue-person p,
+.enquiry-queue-cell small {
+  margin: 0;
+  color: var(--muted, #64748b);
+  font-size: .78rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.enquiry-queue-cell {
+  display: grid;
+  gap: 3px;
+}
+
+.enquiry-queue-cell > span,
+.queue-compact-field > span {
+  color: var(--muted, #64748b);
+  font-size: .65rem;
+  font-weight: 900;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
+
+.enquiry-queue-cell strong {
+  color: var(--text, #172b2a);
+  font-size: .87rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.enquiry-queue-date {
+  position: relative;
+  padding-right: 24px;
+}
+
+.enquiry-queue-chevron {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted, #64748b);
+  transition: transform .16s ease;
+}
+
+.enquiry-queue-card.expanded .enquiry-queue-chevron {
+  transform: translateY(-50%) rotate(180deg);
+}
+
+.enquiry-queue-controls {
+  border-top: 1px solid #e8efec;
+  background: #fbfdfc;
+  padding: 8px 10px;
+  display: flex;
+  align-items: end;
+  justify-content: flex-end;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.queue-compact-field {
+  display: grid;
+  gap: 3px;
+  min-width: 150px;
+}
+
+.queue-status-field {
+  min-width: 140px;
+}
+
+.queue-compact-field select {
+  min-height: 36px;
+  border: 1px solid var(--line, #d9e6e1);
+  border-radius: 10px;
+  padding: 6px 31px 6px 9px;
+  background: #fff;
+  color: var(--ink, #003736);
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 750;
+}
+
+.enquiry-queue-controls .btn {
+  min-height: 36px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  font-size: .82rem;
+}
+
+.queue-primary-action {
+  margin-left: auto;
+}
+
+.queue-more-menu {
+  position: relative;
+}
+
+.queue-more-menu > summary {
+  list-style: none;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line, #d9e6e1);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink, #003736);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.queue-more-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.queue-more-menu > div {
+  position: absolute;
+  z-index: 24;
+  right: 0;
+  top: calc(100% + 6px);
+  min-width: 190px;
+  border: 1px solid var(--line, #d9e6e1);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 16px 34px rgba(0, 55, 54, .16);
+  padding: 6px;
+}
+
+.queue-more-menu button {
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink, #003736);
+  padding: 9px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.queue-more-menu button:hover {
+  background: #f5faf8;
+}
+
+.queue-more-menu button.danger {
+  color: #9a3412;
+}
+
+.enquiry-queue-expanded {
+  border-top: 1px solid var(--line, #d9e6e1);
+  background: #f8fbfa;
+  padding: 12px 14px 14px;
+}
+
+.enquiry-queue-expanded .contact-review-grid {
+  margin-top: 0;
+}
+
+.enquiry-queue-flags {
+  border-top: 1px solid #edf2f0;
+  padding: 7px 12px 9px;
+}
+
+.enquiry-queue-flags .intake-flags {
+  margin: 0;
+}
+
+.seminar-management-panel-lean {
+  gap: 12px;
+}
+
+.seminar-lean-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  border: 1px solid var(--line, #d9e6e1);
+  border-radius: 15px;
+  background: #f7fbf9;
+  padding: 12px 14px;
+}
+
+.seminar-lean-header h2 {
+  margin: 2px 0 3px;
+  color: var(--ink, #003736);
+  font-size: 1.15rem;
+}
+
+.seminar-lean-header p,
+.seminar-lean-header small {
+  margin: 0;
+  color: var(--muted, #64748b);
+}
+
+.seminar-lean-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.seminar-lean-actions .btn {
+  min-height: 36px;
+  padding: 7px 10px;
+  border-radius: 10px;
+}
+
+.seminar-registration-toolbar-lean {
+  align-items: end;
+  gap: 10px;
+}
+
+.seminar-registration-toolbar-lean .enquiries-status-pills {
+  flex: 1 1 520px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.seminar-registration-toolbar-lean .seminar-filter-control {
+  flex: 0 1 340px;
+  min-width: 260px;
+}
+
+@media (max-width: 1180px) {
+  .enquiries-lean-overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .enquiry-queue-summary {
+    grid-template-columns: minmax(210px, 1.15fr) minmax(160px, .9fr) minmax(140px, .75fr);
+  }
+  .enquiry-queue-summary .enquiry-queue-cell:nth-of-type(3) {
+    display: none;
+  }
+}
+
+@media (max-width: 920px) {
+  .enquiries-toolbar {
+    grid-template-columns: 1fr;
+  }
+  .enquiries-toolbar .intake-search-field,
+  .enquiries-toolbar .enquiries-status-pills,
+  .enquiries-toolbar > .btn {
+    grid-column: 1;
+    justify-self: stretch;
+  }
+  .enquiries-reset-button {
+    justify-content: center;
+  }
+  .seminar-lean-header {
+    grid-template-columns: 1fr;
+  }
+  .seminar-lean-actions {
+    justify-content: flex-start;
+  }
+  .seminar-registration-toolbar-lean {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .seminar-registration-toolbar-lean .seminar-filter-control {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .enquiries-lean-overview {
+    grid-template-columns: 1fr 1fr;
+  }
+  .enquiries-lean-overview button {
+    padding: 9px 10px;
+  }
+  .enquiries-panel {
+    padding: 9px;
+    border-radius: 15px;
+  }
+  .enquiries-queue-heading {
+    align-items: center;
+  }
+  .enquiry-queue-summary {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 12px;
+  }
+  .enquiry-queue-summary .enquiry-queue-cell {
+    display: none;
+  }
+  .enquiry-queue-summary .enquiry-queue-date {
+    display: grid;
+    min-width: 94px;
+  }
+  .enquiry-queue-controls {
+    justify-content: stretch;
+    padding: 8px;
+  }
+  .queue-compact-field {
+    flex: 1 1 145px;
+    min-width: 0;
+  }
+  .enquiry-queue-controls .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+  .queue-primary-action {
+    margin-left: 0;
+  }
+  .queue-more-menu {
+    margin-left: auto;
+  }
+  .enquiry-queue-expanded {
+    padding: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .enquiries-lean-overview {
+    grid-template-columns: 1fr;
+  }
+  .enquiries-tab-row-lean button {
+    flex: 1 0 auto;
+  }
+  .enquiries-status-pills button {
+    flex: 0 0 auto;
+  }
+  .enquiry-queue-summary {
+    grid-template-columns: 1fr;
+  }
+  .enquiry-queue-summary .enquiry-queue-date {
+    display: none;
+  }
+  .queue-compact-field {
+    flex-basis: 100%;
+  }
+  .seminar-lean-actions .btn,
+  .seminar-lean-actions .enquiries-shown-count {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}

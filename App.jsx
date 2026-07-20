@@ -3832,6 +3832,8 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
   const [draft, setDraft] = useState(null);
   const [contactInviteSendingId, setContactInviteSendingId] = useState('');
   const [contactInviteNotice, setContactInviteNotice] = useState('');
+  const [expandedContactId, setExpandedContactId] = useState('');
+  const [expandedFeedbackId, setExpandedFeedbackId] = useState('');
   const flagOptions = [
     { value: 'urgent', label: 'Urgent timing' },
     { value: 'visaExpirySoon', label: 'Visa expiry' },
@@ -4110,19 +4112,27 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
         </div>
       </div>
 
-      <div className="metric-grid four intake-metrics enquiries-metrics">
-        <MetricCard label="New contacts" value={newContactCount} note={`${contactCount} retained`} icon={MessageSquare} warning={newContactCount > 0} />
-        <MetricCard label="New intake" value={newIntakeCount} note="Awaiting triage" icon={ClipboardList} warning={newIntakeCount > 0} />
-        <MetricCard label="Contacted" value={contactedCount} note="Followed up" icon={Phone} />
-        <MetricCard label="Converted" value={convertedCount} note="Client records created" icon={UsersRound} />
+      <div className="enquiries-lean-overview" aria-label="Current enquiry workload">
+        <button type="button" className={workspaceTab === 'contact' ? 'active' : ''} onClick={() => { setWorkspaceTab('contact'); setContactStatusFilter('New'); }}>
+          <span>New contacts</span><strong>{newContactCount}</strong><small>{contactCount} retained</small>
+        </button>
+        <button type="button" className={workspaceTab === 'intake' ? 'active' : ''} onClick={() => { setWorkspaceTab('intake'); setStatusFilter('New'); }}>
+          <span>New intake</span><strong>{newIntakeCount}</strong><small>{flaggedCount} flagged</small>
+        </button>
+        <button type="button" className={workspaceTab === 'seminars' ? 'active' : ''} onClick={() => setWorkspaceTab('seminars')}>
+          <span>New seminar registrations</span><strong>{newSeminarRegistrationCount}</strong><small>{seminars.length} seminar{seminars.length === 1 ? '' : 's'}</small>
+        </button>
+        <button type="button" className={workspaceTab === 'feedback' ? 'active' : ''} onClick={() => { setWorkspaceTab('feedback'); setFeedbackStatusFilter('New'); }}>
+          <span>New feedback</span><strong>{newFeedbackCount}</strong><small>Website submissions</small>
+        </button>
       </div>
 
       <section className="intake-inbox-panel enquiries-panel">
-        <div className="enquiries-tab-row" role="tablist" aria-label="Enquiries and intake sections">
-          <button type="button" className={workspaceTab === 'contact' ? 'active' : ''} onClick={() => setWorkspaceTab('contact')}><MessageSquare size={16} />Contact Forms <span>{newContactCount}</span></button>
+        <div className="enquiries-tab-row enquiries-tab-row-lean" role="tablist" aria-label="Enquiries and intake sections">
+          <button type="button" className={workspaceTab === 'contact' ? 'active' : ''} onClick={() => setWorkspaceTab('contact')}><MessageSquare size={16} />Contacts <span>{newContactCount}</span></button>
+          <button type="button" className={workspaceTab === 'intake' ? 'active' : ''} onClick={() => setWorkspaceTab('intake')}><ClipboardList size={16} />Intake <span>{newIntakeCount}</span></button>
+          <button type="button" className={workspaceTab === 'seminars' ? 'active' : ''} onClick={() => setWorkspaceTab('seminars')}><CalendarDays size={16} />Seminars <span>{newSeminarRegistrationCount}</span></button>
           <button type="button" className={workspaceTab === 'feedback' ? 'active' : ''} onClick={() => setWorkspaceTab('feedback')}><MessageSquare size={16} />Feedback <span>{newFeedbackCount}</span></button>
-          <button type="button" className={workspaceTab === 'intake' ? 'active' : ''} onClick={() => setWorkspaceTab('intake')}><ClipboardList size={16} />Intake Forms <span>{intakeEnquiries.length}</span></button>
-          <button type="button" className={workspaceTab === 'seminars' ? 'active' : ''} onClick={() => setWorkspaceTab('seminars')}><CalendarDays size={16} />Seminar Registrations <span>{newSeminarRegistrationCount}</span></button>
         </div>
 
         {workspaceTab === 'seminars' ? (
@@ -4173,7 +4183,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
               ))}
             </div>
           )}
-          <button className="btn" type="button" onClick={clearSearch}>Reset view</button>
+          <button className="btn enquiries-reset-button" type="button" onClick={clearSearch}><RefreshCw size={15} />Reset</button>
         </div>
 
         {contactInviteNotice && (
@@ -4182,17 +4192,16 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
           </div>
         )}
 
-        <div className="intake-inbox-summary-row enquiries-summary-row">
+        <div className="enquiries-queue-heading">
           <div>
             <span className="eyebrow">{workspaceTab === 'contact' ? 'Short website enquiries' : workspaceTab === 'feedback' ? 'Client feedback submissions' : 'Full assessment questionnaires'}</span>
-            <h2>{workspaceTab === 'contact' ? `${contactStatusLabel(contactStatusFilter)} contact forms` : workspaceTab === 'feedback' ? `${feedbackStatusLabel(feedbackStatusFilter)} feedback` : `${statusFilter} intake forms`}</h2>
-            <p className="muted">{workspaceTab === 'contact' ? `The New view shows live contact enquiries only. Mark an enquiry as Dealt with once handled; it stays retained under that filter.${selectedScopeAdviser ? ` Showing unassigned records and records assigned to ${selectedScopeAdviser.name}.` : ''}` : workspaceTab === 'feedback' ? 'Client feedback submissions from the website. Mark as reviewed, follow up, or closed once handled.' : `Use the simple statuses to keep the pre-client queue tidy.${selectedScopeAdviser ? ` Showing unassigned records and records assigned to ${selectedScopeAdviser.name}.` : ''}`}</p>
+            <h2>{workspaceTab === 'contact' ? `${contactStatusLabel(contactStatusFilter)} contacts` : workspaceTab === 'feedback' ? `${feedbackStatusLabel(feedbackStatusFilter)} feedback` : `${statusFilter} intake`}</h2>
           </div>
-          <strong>{visibleRecords.length} shown</strong>
+          <span className="enquiries-shown-count">{visibleRecords.length} shown</span>
         </div>
 
         {workspaceTab === 'contact' ? (
-          <div className="contact-review-list">
+          <div className="contact-review-list enquiry-queue-list">
             {contactFiltered.map((item) => {
               const payload = intakeAnswerPayload(item);
               const name = [item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unnamed contact';
@@ -4200,48 +4209,77 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
               const location = payload.contactLocation || item.currentLocation || 'Not recorded';
               const bestTime = payload.bestTimeToCall || 'Not recorded';
               const message = payload.helpNeeded || 'No message recorded.';
+              const messagePreview = message.replace(/\s+/g, ' ').trim();
               const relatedMatches = relatedMatchesFor('contact', item);
+              const isExpanded = expandedContactId === item.id;
               return (
-                <article key={item.id} className="contact-review-card">
-                  <div className="contact-review-main">
-                    <div className="contact-review-head">
-                      <div>
-                        <span className="intake-type-badge contact">Contact form</span>
-                        <span className={`library-status ${statusClass(item.status)}`}>{contactStatusLabel(item.status)}</span>
-                        <span className="recommended-action-chip">Recommended: {intakeRecommendedAction(item, 'contact')}</span>
-                        <RelatedEnquirySummary matches={relatedMatches} />
+                <article key={item.id} className={`enquiry-queue-card contact-queue-card ${isExpanded ? 'expanded' : ''}`}>
+                  <div className="enquiry-queue-row">
+                    <button className="enquiry-queue-summary" type="button" onClick={() => setExpandedContactId(isExpanded ? '' : item.id)} aria-expanded={isExpanded}>
+                      <div className="enquiry-queue-person">
+                        <div className="enquiry-queue-badges">
+                          <span className={`library-status ${statusClass(item.status)}`}>{contactStatusLabel(item.status)}</span>
+                          <span className="recommended-action-chip">{intakeRecommendedAction(item, 'contact')}</span>
+                        </div>
                         <h3>{name}</h3>
-                        <p>{item.createdAt ? formatPortalDateTime(item.createdAt) : 'Submission date not recorded'}</p>
+                        <p>{item.email || 'No email'}{item.phone ? ` · ${item.phone}` : ''}</p>
+                        <RelatedEnquirySummary matches={relatedMatches} />
                       </div>
-                      <div className="contact-review-actions">
-                        <label className="contact-adviser-select">
-                          <span>Managed by</span>
-                          <select value={item.assignedAdviserId || ''} onChange={(event) => assignIntakeAdviser(item, event.target.value)} disabled={saving}>
-                            <option value="">Unassigned</option>
-                            {activeAdvisers.map((adviser) => (
-                              <option key={adviser.id} value={adviser.id}>{adviser.name}</option>
-                            ))}
-                          </select>
-                        </label>
-                        <button className="btn dark" type="button" onClick={() => sendIntakeInviteForContact(item)} disabled={saving || !item.email || Boolean(contactInviteSendingId)} title={!item.email ? 'No contact email recorded' : 'Send the full assessment form email from the CRM'}>
-                          <Mail size={16} />{contactInviteSendingId === item.id ? 'Sending...' : 'Send intake form email'}
-                        </button>
-                        {item.status !== 'Contacted' && <button className="btn" type="button" onClick={() => updateContactStatus(item, 'Contacted')} disabled={saving}>Mark dealt with</button>}
-                        {item.status !== 'Spam / Duplicate' && <button className="btn danger ghost" type="button" onClick={() => updateContactStatus(item, 'Spam / Duplicate')} disabled={saving}>Spam / Duplicate</button>}
-                        {item.status !== 'New' && <button className="btn" type="button" onClick={() => updateContactStatus(item, 'New')} disabled={saving}>Restore to New</button>}
-                        <button className="btn danger" type="button" onClick={() => deleteContactForm(item)} disabled={saving}><Trash2 size={16} />Delete</button>
+                      <div className="enquiry-queue-cell">
+                        <span>Enquiry</span>
+                        <strong>{situation}</strong>
+                        <small>{messagePreview.length > 92 ? `${messagePreview.slice(0, 92)}…` : messagePreview}</small>
                       </div>
+                      <div className="enquiry-queue-cell">
+                        <span>Location / timing</span>
+                        <strong>{location}</strong>
+                        <small>{bestTime}</small>
+                      </div>
+                      <div className="enquiry-queue-cell enquiry-queue-date">
+                        <span>Received</span>
+                        <strong>{item.createdAt ? formatPortalDateTime(item.createdAt) : 'No date'}</strong>
+                        <ChevronDown size={17} className="enquiry-queue-chevron" />
+                      </div>
+                    </button>
+                    <div className="enquiry-queue-controls">
+                      <label className="queue-compact-field">
+                        <span>Adviser</span>
+                        <select value={item.assignedAdviserId || ''} onChange={(event) => assignIntakeAdviser(item, event.target.value)} disabled={saving}>
+                          <option value="">Unassigned</option>
+                          {activeAdvisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}
+                        </select>
+                      </label>
+                      <label className="queue-compact-field queue-status-field">
+                        <span>Status</span>
+                        <select value={item.status || 'New'} onChange={(event) => updateContactStatus(item, event.target.value)} disabled={saving}>
+                          <option value="New">New</option>
+                          <option value="Contacted">Dealt with</option>
+                          <option value="Spam / Duplicate">Spam / Duplicate</option>
+                        </select>
+                      </label>
+                      <button className="btn dark queue-primary-action" type="button" onClick={() => sendIntakeInviteForContact(item)} disabled={saving || !item.email || Boolean(contactInviteSendingId)} title={!item.email ? 'No contact email recorded' : 'Send the full assessment form email from the CRM'}>
+                        <Mail size={16} />{contactInviteSendingId === item.id ? 'Sending...' : 'Send intake'}
+                      </button>
+                      <button className="btn queue-details-button" type="button" onClick={() => setExpandedContactId(isExpanded ? '' : item.id)}>{isExpanded ? 'Hide' : 'Details'}</button>
+                      <details className="queue-more-menu">
+                        <summary aria-label={`More actions for ${name}`}><MoreHorizontal size={18} /></summary>
+                        <div><button className="danger" type="button" onClick={() => deleteContactForm(item)} disabled={saving}><Trash2 size={15} />Delete contact</button></div>
+                      </details>
                     </div>
-                    <div className="contact-review-grid">
-                      <div><span>Email</span><strong>{item.email || 'Not provided'}</strong></div>
-                      <div><span>Phone</span><strong>{item.phone || 'Not provided'}</strong></div>
-                      <div><span>Situation</span><strong>{situation}</strong></div>
-                      <div><span>Location</span><strong>{location}</strong></div>
-                      <div><span>Best time to call</span><strong>{bestTime}</strong></div>
-                    </div>
-                    <div className="contact-review-message"><span>Message</span><p>{message}</p></div>
-                    <RelatedEnquiryPanel matches={relatedMatches} />
                   </div>
+                  {isExpanded && (
+                    <div className="enquiry-queue-expanded">
+                      <div className="contact-review-grid">
+                        <div><span>Email</span><strong>{item.email || 'Not provided'}</strong></div>
+                        <div><span>Phone</span><strong>{item.phone || 'Not provided'}</strong></div>
+                        <div><span>Situation</span><strong>{situation}</strong></div>
+                        <div><span>Location</span><strong>{location}</strong></div>
+                        <div><span>Best time to call</span><strong>{bestTime}</strong></div>
+                      </div>
+                      <div className="contact-review-message"><span>Message</span><p>{message}</p></div>
+                      <RelatedEnquiryPanel matches={relatedMatches} />
+                    </div>
+                  )}
                 </article>
               );
             })}
@@ -4254,41 +4292,53 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
             )}
           </div>
         ) : workspaceTab === 'feedback' ? (
-          <div className="contact-review-list feedback-review-list">
+          <div className="contact-review-list feedback-review-list enquiry-queue-list">
             {feedbackFiltered.map((item) => {
               const name = [item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unnamed feedback';
+              const isExpanded = expandedFeedbackId === item.id;
               return (
-                <article key={item.id} className="contact-review-card feedback-review-card">
-                  <div className="contact-review-main">
-                    <div className="contact-review-head">
-                      <div>
-                        <span className="intake-type-badge contact">Client feedback</span>
-                        <span className={`library-status ${statusClass(item.status)}`}>{feedbackStatusLabel(item.status)}</span>
-                        {item.permissionToUseFeedback !== 'No' && <span className="recommended-action-chip">Review permission: {item.permissionToUseFeedback}</span>}
+                <article key={item.id} className={`enquiry-queue-card feedback-queue-card ${isExpanded ? 'expanded' : ''}`}>
+                  <div className="enquiry-queue-row">
+                    <button className="enquiry-queue-summary" type="button" onClick={() => setExpandedFeedbackId(isExpanded ? '' : item.id)} aria-expanded={isExpanded}>
+                      <div className="enquiry-queue-person">
+                        <div className="enquiry-queue-badges">
+                          <span className={`library-status ${statusClass(item.status)}`}>{feedbackStatusLabel(item.status)}</span>
+                          {item.permissionToUseFeedback !== 'No' && <span className="recommended-action-chip">Review permission: {item.permissionToUseFeedback}</span>}
+                        </div>
                         <h3>{name}</h3>
-                        <p>{item.createdAt ? formatPortalDateTime(item.createdAt) : 'Submission date not recorded'}</p>
+                        <p>{item.email || 'No email'}{item.phone ? ` · ${item.phone}` : ''}</p>
                       </div>
-                      <div className="contact-review-actions">
-                        {item.status !== 'Reviewed' && <button className="btn" type="button" onClick={() => updateFeedbackStatus(item, 'Reviewed')} disabled={saving}>Mark reviewed</button>}
-                        {item.status !== 'Follow up' && <button className="btn" type="button" onClick={() => updateFeedbackStatus(item, 'Follow up')} disabled={saving}>Follow up</button>}
-                        {item.status !== 'Closed' && <button className="btn" type="button" onClick={() => updateFeedbackStatus(item, 'Closed')} disabled={saving}>Close</button>}
-                        {item.status !== 'New' && <button className="btn" type="button" onClick={() => updateFeedbackStatus(item, 'New')} disabled={saving}>Restore to New</button>}
-                        <button className="btn danger" type="button" onClick={() => deleteFeedback(item)} disabled={saving}><Trash2 size={16} />Delete</button>
-                      </div>
+                      <div className="enquiry-queue-cell"><span>Adviser / matter</span><strong>{item.adviserName || 'Not recorded'}</strong><small>{item.applicationType || 'Application type not recorded'}</small></div>
+                      <div className="enquiry-queue-cell"><span>Rating</span><strong>{item.overallRating || 'Not recorded'}</strong><small>Recommend: {item.recommendationRating || 'Not recorded'}</small></div>
+                      <div className="enquiry-queue-cell enquiry-queue-date"><span>Received</span><strong>{item.createdAt ? formatPortalDateTime(item.createdAt) : 'No date'}</strong><ChevronDown size={17} className="enquiry-queue-chevron" /></div>
+                    </button>
+                    <div className="enquiry-queue-controls feedback-queue-controls">
+                      <label className="queue-compact-field queue-status-field">
+                        <span>Status</span>
+                        <select value={item.status || 'New'} onChange={(event) => updateFeedbackStatus(item, event.target.value)} disabled={saving}>
+                          {feedbackStatusOptions.filter((option) => option.value !== 'All').map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                        </select>
+                      </label>
+                      <button className="btn queue-details-button" type="button" onClick={() => setExpandedFeedbackId(isExpanded ? '' : item.id)}>{isExpanded ? 'Hide' : 'Details'}</button>
+                      <details className="queue-more-menu"><summary aria-label={`More actions for ${name}`}><MoreHorizontal size={18} /></summary><div><button className="danger" type="button" onClick={() => deleteFeedback(item)} disabled={saving}><Trash2 size={15} />Delete feedback</button></div></details>
                     </div>
-                    <div className="contact-review-grid feedback-review-grid">
-                      <div><span>Email</span><strong>{item.email || 'Not provided'}</strong></div>
-                      <div><span>Phone</span><strong>{item.phone || 'Not provided'}</strong></div>
-                      <div><span>Adviser / team member</span><strong>{item.adviserName || 'Not recorded'}</strong></div>
-                      <div><span>Application type</span><strong>{item.applicationType || 'Not recorded'}</strong></div>
-                      <div><span>Overall rating</span><strong>{item.overallRating || 'Not recorded'}</strong></div>
-                      <div><span>Recommend</span><strong>{item.recommendationRating || 'Not recorded'}</strong></div>
-                      <div><span>May contact?</span><strong>{item.permissionToContact || 'Not recorded'}</strong></div>
-                      <div><span>Review permission</span><strong>{item.permissionToUseFeedback || 'No'}</strong></div>
-                    </div>
-                    <div className="contact-review-message"><span>What did we do well?</span><p>{item.serviceStrengths || 'No comment recorded.'}</p></div>
-                    <div className="contact-review-message"><span>What could we improve?</span><p>{item.improvementSuggestions || 'No comment recorded.'}</p></div>
                   </div>
+                  {isExpanded && (
+                    <div className="enquiry-queue-expanded">
+                      <div className="contact-review-grid feedback-review-grid">
+                        <div><span>Email</span><strong>{item.email || 'Not provided'}</strong></div>
+                        <div><span>Phone</span><strong>{item.phone || 'Not provided'}</strong></div>
+                        <div><span>Adviser / team member</span><strong>{item.adviserName || 'Not recorded'}</strong></div>
+                        <div><span>Application type</span><strong>{item.applicationType || 'Not recorded'}</strong></div>
+                        <div><span>Overall rating</span><strong>{item.overallRating || 'Not recorded'}</strong></div>
+                        <div><span>Recommend</span><strong>{item.recommendationRating || 'Not recorded'}</strong></div>
+                        <div><span>May contact?</span><strong>{item.permissionToContact || 'Not recorded'}</strong></div>
+                        <div><span>Review permission</span><strong>{item.permissionToUseFeedback || 'No'}</strong></div>
+                      </div>
+                      <div className="contact-review-message"><span>What did we do well?</span><p>{item.serviceStrengths || 'No comment recorded.'}</p></div>
+                      <div className="contact-review-message"><span>What could we improve?</span><p>{item.improvementSuggestions || 'No comment recorded.'}</p></div>
+                    </div>
+                  )}
                 </article>
               );
             })}
@@ -4301,46 +4351,52 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
             )}
           </div>
         ) : (
-          <div className="intake-inbox-list intake-review-list">
+          <div className="intake-inbox-list intake-review-list enquiry-queue-list">
             {intakeFiltered.map((item) => {
               const relatedMatches = relatedMatchesFor('intake', item);
+              const flagTotal = Object.values(item.flags || {}).filter(Boolean).length;
+              const name = [item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unnamed intake';
               return (
-              <article key={item.id} className="intake-inbox-card intake-review-card">
-                <button className="intake-inbox-card-head" type="button" onClick={() => openIntakeEditor(item)}>
-                  <div className="intake-inbox-person">
-                    <strong>{[item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unnamed intake'}</strong>
-                    <small>{item.email || 'No email'}{item.phone ? ` · ${item.phone}` : ''}</small>
+                <article key={item.id} className="enquiry-queue-card intake-queue-card">
+                  <div className="enquiry-queue-row intake-queue-row">
+                    <button className="enquiry-queue-summary" type="button" onClick={() => openIntakeEditor(item)}>
+                      <div className="enquiry-queue-person">
+                        <div className="enquiry-queue-badges">
+                          <span className={`library-status ${statusClass(item.status)}`}>{item.status}</span>
+                          <span className="recommended-action-chip">{intakeRecommendedAction(item, 'intake')}</span>
+                        </div>
+                        <h3>{name}</h3>
+                        <p>{item.email || 'No email'}{item.phone ? ` · ${item.phone}` : ''}</p>
+                        <RelatedEnquirySummary matches={relatedMatches} />
+                      </div>
+                      <div className="enquiry-queue-cell"><span>Goal</span><strong>{item.targetPathway || item.rawPayload?.helpNeeded || 'Not selected'}</strong><small>{item.currentVisaType || 'Visa type not recorded'}</small></div>
+                      <div className="enquiry-queue-cell"><span>Location</span><strong>{item.currentLocation || item.citizenship || 'Not recorded'}</strong><small>{flagTotal} flag{flagTotal === 1 ? '' : 's'}</small></div>
+                      <div className="enquiry-queue-cell enquiry-queue-date"><span>Submitted</span><strong>{item.createdAt ? formatPortalDateTime(item.createdAt) : 'No date'}</strong><small>{item.convertedClientId ? 'Client created' : 'Open full intake'}</small></div>
+                    </button>
+                    <div className="enquiry-queue-controls intake-queue-controls">
+                      <label className="queue-compact-field">
+                        <span>Adviser</span>
+                        <select value={item.assignedAdviserId || ''} onChange={(event) => assignIntakeAdviser(item, event.target.value)} disabled={saving}>
+                          <option value="">Unassigned</option>
+                          {activeAdvisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}
+                        </select>
+                      </label>
+                      <label className="queue-compact-field queue-status-field">
+                        <span>Status</span>
+                        <select value={item.status || 'New'} onChange={(event) => updateIntakeStatus(item, event.target.value)} disabled={saving}>
+                          {INTAKE_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}
+                        </select>
+                      </label>
+                      <button className="btn dark queue-primary-action" type="button" onClick={() => openIntakeEditor(item)}>View intake</button>
+                      {!item.convertedClientId ? (
+                        <button className="btn" type="button" onClick={() => convertIntake(item)} disabled={saving || item.status === 'Converted'}>Convert</button>
+                      ) : (
+                        <button className="btn" type="button" onClick={() => openClientRecord(item.convertedClientId)}><ExternalLink size={16} />Open client</button>
+                      )}
+                    </div>
                   </div>
-                  <div className="intake-inbox-detail"><span>Goal</span><strong>{item.targetPathway || item.rawPayload?.helpNeeded || 'Not selected'}</strong></div>
-                  <div className="intake-inbox-detail"><span>Location</span><strong>{item.currentLocation || item.citizenship || 'Not recorded'}</strong></div>
-                  <div className="intake-inbox-detail"><span>Submitted</span><strong>{item.createdAt ? formatPortalDateTime(item.createdAt) : 'No date'}</strong></div>
-                  <div className="intake-inbox-status-block">
-                    <span className={`library-status ${statusClass(item.status)}`}>{item.status}</span>
-                    <span className="recommended-action-chip">{intakeRecommendedAction(item, 'intake')}</span>
-                    <RelatedEnquirySummary matches={relatedMatches} />
-                    <small>{item.convertedClientId ? 'Client record created' : `${Object.values(item.flags || {}).filter(Boolean).length} flag${Object.values(item.flags || {}).filter(Boolean).length === 1 ? '' : 's'}`}</small>
-                  </div>
-                </button>
-                <div className="intake-inbox-flags-row"><IntakeFlagList flags={item.flags} compact /></div>
-                <RelatedEnquiryPanel matches={relatedMatches} />
-                <div className="intake-card-actions intake-card-actions-polished">
-                  <label className="contact-adviser-select intake-card-adviser-select">
-                    <span>Assigned to</span>
-                    <select value={item.assignedAdviserId || ''} onClick={(event) => event.stopPropagation()} onChange={(event) => assignIntakeAdviser(item, event.target.value)} disabled={saving}>
-                      <option value="">Unassigned</option>
-                      {activeAdvisers.map((adviser) => (
-                        <option key={adviser.id} value={adviser.id}>{adviser.name}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <button className="btn dark intake-view-button" type="button" onClick={() => openIntakeEditor(item)}>View intake</button>
-                  {item.status !== 'Contacted' && <button className="btn" type="button" onClick={() => updateIntakeStatus(item, 'Contacted')} disabled={saving}>Mark contacted</button>}
-                  {item.status !== 'Converted' && <button className="btn dark" type="button" onClick={() => convertIntake(item)} disabled={saving || Boolean(item.convertedClientId)}>Convert</button>}
-                  {item.status !== 'Spam / Duplicate' && <button className="btn danger" type="button" onClick={() => updateIntakeStatus(item, 'Spam / Duplicate')} disabled={saving}>Spam / Duplicate</button>}
-                  {item.status === 'Spam / Duplicate' && <button className="btn" type="button" onClick={() => updateIntakeStatus(item, 'New')} disabled={saving}>Restore to New</button>}
-                  {item.convertedClientId && <button className="btn" type="button" onClick={() => openClientRecord(item.convertedClientId)}><ExternalLink size={16} />Open client</button>}
-                </div>
-              </article>
+                  {flagTotal > 0 && <div className="enquiry-queue-flags"><IntakeFlagList flags={item.flags} compact /></div>}
+                </article>
               );
             })}
             {!intakeFiltered.length && (
@@ -4409,6 +4465,7 @@ function SeminarManagementPanel({ seminars = [], registrations = [], relatedSour
   const [registrationFilter, setRegistrationFilter] = useState('New');
   const [notice, setNotice] = useState('');
   const [sendingId, setSendingId] = useState('');
+  const [expandedRegistrationId, setExpandedRegistrationId] = useState('');
 
   useEffect(() => {
     if (selectedSeminarId === 'new') return;
@@ -4517,82 +4574,85 @@ function SeminarManagementPanel({ seminars = [], registrations = [], relatedSour
   const setupSelectOptions = [{ value: 'new', label: 'New seminar' }, ...sortedSeminars.map((item) => ({ value: item.id, label: `${item.status}: ${item.seminarDate || 'No date'} ${item.seminarTime || ''} - ${item.presenterName || item.title || 'Seminar'}` }))];
 
   return (
-    <div className="seminar-management-panel">
-      <div className="intake-inbox-summary-row enquiries-summary-row seminar-summary-row">
-        <div>
-          <span className="eyebrow">Seminar registrations</span>
-          <h2>Seminar registrations</h2>
-          <p className="muted">Review incoming seminar registrations and send approval or decline emails from this queue.</p>
-        </div>
-        <div className="seminar-summary-actions">
-          <strong>{newCount} new</strong>
-          <button className="btn" type="button" onClick={openSeminarSetup}><Wrench size={16} />Seminar setup</button>
-          <button className="btn" type="button" onClick={startNewSeminar}><Plus size={16} />New seminar</button>
-        </div>
-      </div>
-
-      <section className="seminar-active-strip">
+    <div className="seminar-management-panel seminar-management-panel-lean">
+      <section className="seminar-lean-header">
         <div>
           <span className="eyebrow">Current public seminar</span>
-          <h3>{activeSeminar?.title || 'No active seminar'}</h3>
-          <p><strong>{activeLabel}</strong>{activeSeminar?.presenterName ? ` · Presenter: ${activeSeminar.presenterName}` : ''}</p>
-          <p className="muted">The public Squarespace form shows the next active/open seminar. Zoom details remain internal until a registration is approved.</p>
+          <h2>{activeSeminar?.title || 'No active seminar'}</h2>
+          <p><strong>{activeLabel}</strong>{activeSeminar?.presenterName ? ` · ${activeSeminar.presenterName}` : ''}</p>
+          <small>The public form shows the next active/open seminar. Zoom details remain internal until approval.</small>
         </div>
-        <div className="seminar-active-actions">
-          <button className="btn dark" type="button" onClick={openSeminarSetup}><Wrench size={16} />Edit seminar setup</button>
-          <a className="btn" href="/seminar" target="_blank" rel="noreferrer"><ExternalLink size={16} />Open public form</a>
+        <div className="seminar-lean-actions">
+          <span className="enquiries-shown-count">{newCount} new</span>
+          <button className="btn dark" type="button" onClick={openSeminarSetup}><Wrench size={16} />Setup</button>
+          <button className="btn" type="button" onClick={startNewSeminar}><Plus size={16} />New seminar</button>
+          <a className="btn" href="/seminar" target="_blank" rel="noreferrer"><ExternalLink size={16} />Public form</a>
         </div>
       </section>
 
       {notice && <div className={notice.includes('could not') ? 'error-banner compact' : 'success-banner compact'}>{notice}</div>}
 
-      <div className="seminar-registration-toolbar">
+      <div className="seminar-registration-toolbar seminar-registration-toolbar-lean">
         <div className="seminar-filter-control">
-          <SelectField label="Showing registrations for" value={registrationSeminarFilter} onChange={selectRegistrationSeminar} options={seminarFilterOptions} />
+          <SelectField label="Registrations for" value={registrationSeminarFilter} onChange={selectRegistrationSeminar} options={seminarFilterOptions} />
         </div>
         <div className="enquiries-status-pills" aria-label="Seminar registration status filter">
           {[...SEMINAR_REGISTRATION_STATUSES, 'All'].map((status) => (
             <button key={status} type="button" className={registrationFilter === status ? 'active' : ''} onClick={() => setRegistrationFilter(status)}>
-              {status}
-              <span>{status === 'All' ? selectedRegistrations.length : selectedRegistrations.filter((item) => item.status === status).length}</span>
+              {status}<span>{status === 'All' ? selectedRegistrations.length : selectedRegistrations.filter((item) => item.status === status).length}</span>
             </button>
           ))}
         </div>
       </div>
 
-      <div className="seminar-registration-list">
+      <div className="seminar-registration-list enquiry-queue-list">
         {visibleRegistrations.map((registration) => {
           const relatedMatches = buildRelatedEnquiryMatches(makeEnquiryMatchRecord('seminar', registration), relatedSources);
+          const isExpanded = expandedRegistrationId === registration.id;
           return (
-          <article key={registration.id} className="intake-inbox-card seminar-registration-card">
-            <div className="seminar-registration-head">
-              <div>
-                <span className={`library-status ${statusClass(registration.status)}`}>{registration.status}</span>
-                <RelatedEnquirySummary matches={relatedMatches} />
-                <h3>{registration.fullName || 'Unnamed registrant'}</h3>
-                <p>{registration.email || 'No email'} · Submitted {registration.createdAt ? formatPortalDateTime(registration.createdAt) : 'No date'}</p>
+            <article key={registration.id} className={`enquiry-queue-card seminar-queue-card ${isExpanded ? 'expanded' : ''}`}>
+              <div className="enquiry-queue-row seminar-queue-row">
+                <button className="enquiry-queue-summary" type="button" onClick={() => setExpandedRegistrationId(isExpanded ? '' : registration.id)} aria-expanded={isExpanded}>
+                  <div className="enquiry-queue-person">
+                    <div className="enquiry-queue-badges"><span className={`library-status ${statusClass(registration.status)}`}>{registration.status}</span></div>
+                    <h3>{registration.fullName || 'Unnamed registrant'}</h3>
+                    <p>{registration.email || 'No email'}</p>
+                    <RelatedEnquirySummary matches={relatedMatches} />
+                  </div>
+                  <div className="enquiry-queue-cell"><span>Location</span><strong>{registration.residenceCountry || 'Not provided'}</strong><small>{registration.citizenshipCountry || 'Citizenship not provided'}</small></div>
+                  <div className="enquiry-queue-cell"><span>Occupation</span><strong>{registration.currentOccupation || 'Not provided'}</strong><small>{registration.highestQualification || 'Qualification not provided'}</small></div>
+                  <div className="enquiry-queue-cell enquiry-queue-date"><span>Submitted</span><strong>{registration.createdAt ? formatPortalDateTime(registration.createdAt) : 'No date'}</strong><ChevronDown size={17} className="enquiry-queue-chevron" /></div>
+                </button>
+                <div className="enquiry-queue-controls seminar-queue-controls">
+                  <button className="btn dark queue-primary-action" type="button" onClick={() => sendRegistrationEmail(registration, 'approve')} disabled={saving || sendingId === registration.id || !registration.email}><Mail size={16} />{sendingId === registration.id ? 'Sending...' : 'Approve'}</button>
+                  <button className="btn danger ghost" type="button" onClick={() => sendRegistrationEmail(registration, 'decline')} disabled={saving || sendingId === registration.id || !registration.email}>Decline</button>
+                  <button className="btn queue-details-button" type="button" onClick={() => setExpandedRegistrationId(isExpanded ? '' : registration.id)}>{isExpanded ? 'Hide' : 'Details'}</button>
+                  <details className="queue-more-menu">
+                    <summary aria-label={`More actions for ${registration.fullName || 'registrant'}`}><MoreHorizontal size={18} /></summary>
+                    <div>
+                      {registration.status !== 'Spam / Duplicate' ? <button type="button" onClick={() => markRegistration(registration, 'Spam / Duplicate')} disabled={saving}>Mark spam / duplicate</button> : <button type="button" onClick={() => markRegistration(registration, 'New')} disabled={saving}>Restore to New</button>}
+                    </div>
+                  </details>
+                </div>
               </div>
-              <div className="button-row">
-                <button className="btn dark" type="button" onClick={() => sendRegistrationEmail(registration, 'approve')} disabled={saving || sendingId === registration.id || !registration.email}><Mail size={16} />{sendingId === registration.id ? 'Sending...' : 'Approve + email'}</button>
-                <button className="btn danger" type="button" onClick={() => sendRegistrationEmail(registration, 'decline')} disabled={saving || sendingId === registration.id || !registration.email}><Mail size={16} />Decline + email</button>
-                {registration.status !== 'Spam / Duplicate' && <button className="btn" type="button" onClick={() => markRegistration(registration, 'Spam / Duplicate')} disabled={saving}>Spam / Duplicate</button>}
-                {registration.status === 'Spam / Duplicate' && <button className="btn" type="button" onClick={() => markRegistration(registration, 'New')} disabled={saving}>Restore</button>}
-              </div>
-            </div>
-            <div className="contact-review-grid seminar-registration-grid">
-              <div><span>Date of birth</span><strong>{registration.dateOfBirth || 'Not provided'}</strong></div>
-              <div><span>Citizenship</span><strong>{registration.citizenshipCountry || 'Not provided'}</strong></div>
-              <div><span>Current country</span><strong>{registration.residenceCountry || 'Not provided'}</strong></div>
-              <div><span>Timezone</span><strong>{registration.timezone || 'Not provided'}</strong></div>
-              <div><span>Partnership</span><strong>{registration.partnershipStatus || 'Not provided'}</strong></div>
-              <div><span>Qualification</span><strong>{registration.highestQualification || 'Not provided'}</strong></div>
-              <div><span>Occupation</span><strong>{registration.currentOccupation || 'Not provided'}</strong></div>
-              <div><span>English</span><strong>{registration.englishAbility || 'Not provided'}</strong></div>
-            </div>
-            <div className="contact-review-message"><span>Relevant work history</span><p>{registration.workHistory || 'Not provided.'}</p></div>
-            <div className="contact-review-message"><span>Health / character issues</span><p>{registration.healthCharacterIssues || 'Not provided.'}</p></div>
-            <RelatedEnquiryPanel matches={relatedMatches} />
-          </article>
+              {isExpanded && (
+                <div className="enquiry-queue-expanded">
+                  <div className="contact-review-grid seminar-registration-grid">
+                    <div><span>Date of birth</span><strong>{registration.dateOfBirth || 'Not provided'}</strong></div>
+                    <div><span>Citizenship</span><strong>{registration.citizenshipCountry || 'Not provided'}</strong></div>
+                    <div><span>Current country</span><strong>{registration.residenceCountry || 'Not provided'}</strong></div>
+                    <div><span>Timezone</span><strong>{registration.timezone || 'Not provided'}</strong></div>
+                    <div><span>Partnership</span><strong>{registration.partnershipStatus || 'Not provided'}</strong></div>
+                    <div><span>Qualification</span><strong>{registration.highestQualification || 'Not provided'}</strong></div>
+                    <div><span>Occupation</span><strong>{registration.currentOccupation || 'Not provided'}</strong></div>
+                    <div><span>English</span><strong>{registration.englishAbility || 'Not provided'}</strong></div>
+                  </div>
+                  <div className="contact-review-message"><span>Relevant work history</span><p>{registration.workHistory || 'Not provided.'}</p></div>
+                  <div className="contact-review-message"><span>Health / character issues</span><p>{registration.healthCharacterIssues || 'Not provided.'}</p></div>
+                  <RelatedEnquiryPanel matches={relatedMatches} />
+                </div>
+              )}
+            </article>
           );
         })}
         {!visibleRegistrations.length && (
