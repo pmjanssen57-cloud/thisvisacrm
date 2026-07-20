@@ -18,9 +18,16 @@ Not completed in this isolated environment:
 
 The pinned dependency list and Yarn/Netlify configuration are unchanged from the working v0.13.38 baseline.
 
-v0.13.40 COMMERCIAL PORTAL LOGIN FIX
+v0.13.41 EMPLOYER PORTAL BRANDING REFINEMENT
 - App.jsx parsed successfully using the TypeScript JSX parser.
 - All Netlify Function files passed node --check.
 - Commercial access-code PBKDF2 hash round-trip tests passed, including case, whitespace and Unicode dash normalisation.
 - Static assertions confirmed post-save access-code verification, automatic portal enabling, confirmation fields and robust email matching.
 - A dependency-backed Vite build was not rerun because the isolated environment could not reach the Yarn registry. No dependency or build-configuration change was made from v0.13.39.
+
+
+V0.13.41 CHECKS
+- Employer portal login heading is Employer Portal.
+- Employer portal header label is Employer Portal.
+- Portal logos have no CSS background, padding, border or rounded frame.
+- Authentication and portal function code unchanged.
