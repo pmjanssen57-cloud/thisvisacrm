@@ -1,0 +1,3 @@
+v0.13.43 - Commercial Portal Compliance Suite
+
+Adds tiered commercial expiry reminders, Excel-compatible worker import, authenticated commercial document uploads, downloadable compliance reporting, and direct Job Check position tracking.

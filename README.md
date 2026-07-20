@@ -1,54 +1,74 @@
-# THiS CRM v0.13.39 — Streamlined Navigation and Tools Hub
+# THiS CRM v0.13.43 — Commercial Portal Compliance Suite
 
-This release builds on v0.13.38 Commercial Clients and the Employer Portal.
+This release builds on v0.13.42 and completes the first practical compliance-management layer for commercial clients and their employer portal.
 
-## Navigation refinement
+## Automated expiry reminders
 
-The primary desktop navigation now contains only the workspaces advisers use regularly:
+Commercial clients can opt in to employer expiry reminders from the company record. A scheduled Netlify Function checks active commercial clients daily and sends tiered reminders for:
 
-- Dashboard
-- Tasks
-- Clients
-- Commercial
-- Enquiries & Intake
-- Bookings
-- Calendar
-- Billing
+- Employer accreditation expiry
+- Work visa expiry
+- Approved Job Check expiry
 
-Library, Advisers and Backups have been removed from the main navigation and consolidated into the existing Tools drawer.
+The reminder tiers are 90, 60 and 30 days. Each tier is recorded in `commercial_reminder_log` so the same reminder is not repeatedly sent. A tier window is used so a missed scheduled run can be caught on the next day.
 
-## Tools drawer
+Recipients are the primary employer contact and active Company Admin portal users. The primary Turner Hopkins adviser is copied where an adviser email is available. The existing Microsoft Graph email environment variables are reused.
 
-A new CRM resources section appears at the top of Tools:
+## Worker register import
 
-- **Library** — available to Admin and User roles.
-- **Advisers** — visible to Admins only.
-- **Backups** — visible to Admins only.
+Both the CRM and editable employer portal roles can download an Excel-compatible CSV template and import up to 500 work visa holder records at once.
 
-The existing weather, timezone, currency, calculator, email templates, email log, Help and Refresh utilities remain available below those workspace shortcuts.
+The import:
 
-The same low-frequency workspace links have also been removed from the mobile More menu, leaving Tools as the consistent access point on desktop and mobile.
+- Supports worker, visa, passport, employment, pay and Job Check fields
+- Skips duplicate rows using email, worker name and visa expiry
+- Links a worker to an existing Job Check where the reference matches
+- Marks employer-imported records for adviser review
+- Reports rows that cannot be imported
 
-## Existing features retained
+Dates in the template use `YYYY-MM-DD`.
 
-- Commercial clients and employer portal.
-- My Day briefing overlay and lean Dashboard.
-- Admin/User role enforcement.
-- Individual clients and client portal.
-- Enquiries, intake, seminars, feedback and contact exports.
-- Bookings, billing, calendar, email and encrypted backups.
-- Yarn/Netlify deployment baseline.
+## Secure commercial document uploads
+
+The commercial document register now supports direct uploads to the `commercial-documents` Netlify Blob store as well as approved external document links.
+
+- Maximum direct upload size: 4 MB
+- Accepted files: PDF, Word, Excel, CSV, JPG and PNG
+- Every upload and download is authenticated
+- Employer users can only access their own company and employer-visible documents
+- Read-only portal users cannot upload or delete documents
+- Deleted document entries remove the related Blob object
+- Deleting a commercial client also removes its stored commercial documents
+- The encrypted Backup Centre now includes the `commercial-documents` Blob store
+
+## Compliance report
+
+The CRM and Employer Portal can download a print-ready compliance report containing:
+
+- Accreditation details
+- Work visa holder register
+- Approved Job Checks and position usage
+- Compliance actions
+- Document register
+
+The downloaded HTML report can be opened in a browser and printed or saved as PDF.
+
+## Job Check position tracking
+
+Worker records now link directly to a Job Check ID while retaining the visible reference number.
+
+- Position usage is calculated automatically from active and upcoming linked workers
+- Job Checks automatically change between Active and Fully used
+- Full Job Checks are unavailable for new worker links
+- Server-side checks prevent active or upcoming workers from exceeding approved positions
+- Existing linked workers remain editable
+- Archiving a worker immediately releases the position
+- Worker and Job Check lists show the linked relationship clearly
 
 ## Deployment
 
-- No database migration.
-- No new dependency.
-- No Netlify Function behaviour change apart from the backup source version label.
-- No public form or Squarespace embed change.
-
-
-## v0.13.41 Employer Portal branding refinement
-
-- Removed the dark boxed treatment from the Turner Hopkins logo on the employer portal login and header.
-- Standardised the visible portal heading to “Employer Portal”.
-- No authentication, database, role or portal workflow changes.
+- Adds migration: `202607210003_add_commercial_compliance_suite.sql`
+- Adds Netlify Function: `commercial-file.mjs`
+- Adds scheduled Netlify Function: `commercial-reminders.mjs`
+- Adds no npm dependency
+- Keeps the existing Yarn and Node deployment configuration

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { acceptInvite, getUser, handleAuthCallback, login, logout, onAuthChange, requestPasswordRecovery, updateUser } from '@netlify/identity';
-import { AlertTriangle, ArrowUpDown, BookOpen, Building2, Calculator, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Clock, CloudSun, Copy, CreditCard, ClipboardList, Database, DollarSign, Download, ExternalLink, FileCheck2, FileText, Globe2, HelpCircle, KeyRound, LayoutDashboard, Link2, ListChecks, LockKeyhole, Mail, MessageSquare, MoreHorizontal, Phone, Plus, RefreshCw, Save, Search, Send, ShieldCheck, SlidersHorizontal, Trash2, UserRound, UsersRound, Wrench, X } from 'lucide-react';
+import { AlertTriangle, ArrowUpDown, BookOpen, Building2, Calculator, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Clock, CloudSun, Copy, CreditCard, ClipboardList, Database, DollarSign, Download, ExternalLink, FileCheck2, FileSpreadsheet, FileText, Globe2, HelpCircle, KeyRound, LayoutDashboard, Link2, ListChecks, LockKeyhole, Mail, MessageSquare, MoreHorizontal, Phone, Plus, RefreshCw, Save, Search, Send, ShieldCheck, SlidersHorizontal, Trash2, Upload, UserRound, UsersRound, Wrench, X } from 'lucide-react';
 
 const BRAND = {
   ink: '#003736',
@@ -484,9 +484,11 @@ function makeBlankCommercialClient(primaryAdviserId = '') {
     complianceSummary: '',
     internalNotes: '',
     portalEnabled: false,
+    reminderNotificationsEnabled: true,
     portalLastAccessedAt: '',
     portalUsers: [],
     workers: [],
+    jobChecks: [],
     complianceItems: [],
     documents: [],
     auditLog: [],
@@ -519,12 +521,14 @@ function normaliseCommercialClient(input = {}) {
     complianceSummary: input.complianceSummary || input.compliance_summary || '',
     internalNotes: input.internalNotes || input.internal_notes || '',
     portalEnabled: Boolean(input.portalEnabled ?? input.portal_enabled),
+    reminderNotificationsEnabled: input.reminderNotificationsEnabled ?? input.reminder_notifications_enabled ?? true,
     portalLastAccessedAt: input.portalLastAccessedAt || input.portal_last_accessed_at || '',
     portalUsers: Array.isArray(input.portalUsers) ? input.portalUsers.map((user) => ({
       id: user.id || '', name: user.name || '', email: user.email || '', role: user.role || 'Company User', active: user.active !== false,
       accessCodeSet: Boolean(user.accessCodeSet ?? user.access_code_set), lastAccessedAt: user.lastAccessedAt || user.last_accessed_at || '', newAccessCode: '',
     })) : [],
     workers: Array.isArray(input.workers) ? input.workers.map(normaliseCommercialWorker) : [],
+    jobChecks: Array.isArray(input.jobChecks) ? input.jobChecks.map(normaliseCommercialJobCheck) : [],
     complianceItems: Array.isArray(input.complianceItems) ? input.complianceItems.map(normaliseCommercialComplianceItem) : [],
     documents: Array.isArray(input.documents) ? input.documents.map(normaliseCommercialDocument) : [],
     auditLog: Array.isArray(input.auditLog) ? input.auditLog.map((item) => ({
@@ -541,10 +545,35 @@ function normaliseCommercialWorker(input = {}) {
     visaStartDate: normaliseIsoDate(input.visaStartDate || input.visa_start_date), visaExpiryDate: normaliseIsoDate(input.visaExpiryDate || input.visa_expiry_date),
     passportExpiryDate: normaliseIsoDate(input.passportExpiryDate || input.passport_expiry_date), employmentStartDate: normaliseIsoDate(input.employmentStartDate || input.employment_start_date),
     employmentEndDate: normaliseIsoDate(input.employmentEndDate || input.employment_end_date), hoursPerWeek: input.hoursPerWeek ?? input.hours_per_week ?? '',
-    payRate: input.payRate ?? input.pay_rate ?? '', jobCheckReference: input.jobCheckReference || input.job_check_reference || '', visaConditions: input.visaConditions || input.visa_conditions || '',
+    payRate: input.payRate ?? input.pay_rate ?? '', jobCheckReference: input.jobCheckReference || input.job_check_reference || '', jobCheckId: input.jobCheckId || input.job_check_id || '', visaConditions: input.visaConditions || input.visa_conditions || '',
     responsibleManager: input.responsibleManager || input.responsible_manager || '', status: input.status || 'Active', adviserReviewStatus: input.adviserReviewStatus || input.adviser_review_status || 'Needs review',
     employerNotes: input.employerNotes || input.employer_notes || '', internalNotes: input.internalNotes || input.internal_notes || '', createdBy: input.createdBy || input.created_by || '',
     updatedBy: input.updatedBy || input.updated_by || '', createdAt: input.createdAt || input.created_at || '', updatedAt: input.updatedAt || input.updated_at || '',
+  };
+}
+
+function normaliseCommercialJobCheck(input = {}) {
+  return {
+    id: input.id || '',
+    referenceNumber: input.referenceNumber || input.reference_number || '',
+    roleTitle: input.roleTitle || input.role_title || '',
+    skillLevel: input.skillLevel || input.skill_level || '',
+    workLocation: input.workLocation || input.work_location || '',
+    payRateMin: input.payRateMin ?? input.pay_rate_min ?? '',
+    payRateMax: input.payRateMax ?? input.pay_rate_max ?? '',
+    payFrequency: input.payFrequency || input.pay_frequency || 'Hourly',
+    positionsApproved: input.positionsApproved ?? input.positions_approved ?? 1,
+    positionsUsed: input.positionsUsed ?? input.positions_used ?? 0,
+    issueDate: normaliseIsoDate(input.issueDate || input.issue_date),
+    expiryDate: normaliseIsoDate(input.expiryDate || input.expiry_date),
+    status: input.status || 'Active',
+    employerNotes: input.employerNotes || input.employer_notes || '',
+    internalNotes: input.internalNotes || input.internal_notes || '',
+    adviserReviewStatus: input.adviserReviewStatus || input.adviser_review_status || 'Needs review',
+    createdBy: input.createdBy || input.created_by || '',
+    updatedBy: input.updatedBy || input.updated_by || '',
+    createdAt: input.createdAt || input.created_at || '',
+    updatedAt: input.updatedAt || input.updated_at || '',
   };
 }
 
@@ -561,10 +590,103 @@ function normaliseCommercialComplianceItem(input = {}) {
 function normaliseCommercialDocument(input = {}) {
   return {
     id: input.id || '', workerId: input.workerId || input.worker_id || '', title: input.title || '', category: input.category || 'Compliance',
-    documentUrl: input.documentUrl || input.document_url || '', expiryDate: normaliseIsoDate(input.expiryDate || input.expiry_date), notes: input.notes || '',
+    documentUrl: input.documentUrl || input.document_url || '', blobKey: input.blobKey || input.blob_key || '', fileName: input.fileName || input.file_name || '', mimeType: input.mimeType || input.mime_type || '', sizeBytes: Number(input.sizeBytes ?? input.size_bytes ?? 0), uploadedByType: input.uploadedByType || input.uploaded_by_type || '', expiryDate: normaliseIsoDate(input.expiryDate || input.expiry_date), notes: input.notes || '',
     visibleToEmployer: input.visibleToEmployer ?? input.visible_to_employer ?? true, createdBy: input.createdBy || input.created_by || '',
     createdAt: input.createdAt || input.created_at || '', updatedAt: input.updatedAt || input.updated_at || '',
   };
+}
+
+
+const COMMERCIAL_WORKER_CSV_HEADERS = [
+  'Full Name', 'Email', 'Phone', 'Job Title', 'Work Location', 'Visa Type', 'Visa Start Date', 'Visa Expiry Date',
+  'Passport Expiry Date', 'Employment Start Date', 'Employment End Date', 'Hours Per Week', 'Pay Rate',
+  'Job Check Reference', 'Responsible Manager', 'Status', 'Visa Conditions', 'Employer Notes',
+];
+
+function parseCommercialCsv(text = '') {
+  const rows = [];
+  let row = []; let value = ''; let quoted = false;
+  const source = String(text || '').replace(/^\uFEFF/, '');
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    if (quoted) {
+      if (char === '"' && source[index + 1] === '"') { value += '"'; index += 1; }
+      else if (char === '"') quoted = false;
+      else value += char;
+    } else if (char === '"') quoted = true;
+    else if (char === ',') { row.push(value); value = ''; }
+    else if (char === '\n') { row.push(value); rows.push(row); row = []; value = ''; }
+    else if (char !== '\r') value += char;
+  }
+  if (value || row.length) { row.push(value); rows.push(row); }
+  return rows.filter((entry) => entry.some((cell) => String(cell || '').trim()));
+}
+
+function normaliseCommercialCsvHeader(value = '') {
+  return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function commercialWorkersFromCsv(text = '') {
+  const rows = parseCommercialCsv(text);
+  if (rows.length < 2) throw new Error('The CSV must contain a header row and at least one worker row.');
+  const headers = rows[0].map(normaliseCommercialCsvHeader);
+  const indexes = Object.fromEntries(headers.map((header, index) => [header, index]));
+  const value = (row, name) => String(row[indexes[normaliseCommercialCsvHeader(name)]] ?? '').trim();
+  if (indexes['full name'] === undefined) throw new Error('The CSV must include a Full Name column.');
+  return rows.slice(1).map((row) => normaliseCommercialWorker({
+    fullName: value(row, 'Full Name'), email: value(row, 'Email'), phone: value(row, 'Phone'), jobTitle: value(row, 'Job Title'),
+    workLocation: value(row, 'Work Location'), visaType: value(row, 'Visa Type'), visaStartDate: value(row, 'Visa Start Date'),
+    visaExpiryDate: value(row, 'Visa Expiry Date'), passportExpiryDate: value(row, 'Passport Expiry Date'),
+    employmentStartDate: value(row, 'Employment Start Date'), employmentEndDate: value(row, 'Employment End Date'),
+    hoursPerWeek: value(row, 'Hours Per Week'), payRate: value(row, 'Pay Rate'), jobCheckReference: value(row, 'Job Check Reference'),
+    responsibleManager: value(row, 'Responsible Manager'), status: value(row, 'Status') || 'Active',
+    visaConditions: value(row, 'Visa Conditions'), employerNotes: value(row, 'Employer Notes'), adviserReviewStatus: 'Needs review',
+  })).filter((worker) => worker.fullName);
+}
+
+function csvEscape(value) {
+  const text = String(value ?? '');
+  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function downloadBrowserFile(fileName, content, type = 'text/plain;charset=utf-8') {
+  const blob = content instanceof Blob ? content : new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url; anchor.download = fileName; document.body.appendChild(anchor); anchor.click(); anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function downloadCommercialWorkerTemplate() {
+  const sample = ['Example Worker', 'worker@example.com', '', 'Chef', 'Auckland', 'Accredited Employer Work Visa', '2026-01-15', '2028-01-15', '2029-04-20', '2026-01-10', '', '40', '32.50', 'JC-123456', 'HR Manager', 'Active', '', ''];
+  downloadBrowserFile('commercial-worker-import-template.csv', `${COMMERCIAL_WORKER_CSV_HEADERS.map(csvEscape).join(',')}\n${sample.map(csvEscape).join(',')}\n`, 'text/csv;charset=utf-8');
+}
+
+function formatFileSize(bytes = 0) {
+  const size = Number(bytes || 0);
+  if (!size) return '';
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function escapeReportHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[char]));
+}
+
+function downloadCommercialComplianceReport(client = {}) {
+  const companyName = client.tradingName || client.legalName || 'Commercial client';
+  const workers = (client.workers || []).filter((item) => item.status !== 'Archived');
+  const jobChecks = (client.jobChecks || []).filter((item) => item.status !== 'Archived');
+  const compliance = (client.complianceItems || []).filter((item) => item.status !== 'Archived');
+  const documents = client.documents || [];
+  const workerRows = workers.map((worker) => `<tr><td>${escapeReportHtml(worker.fullName)}</td><td>${escapeReportHtml(worker.jobTitle)}</td><td>${escapeReportHtml(worker.visaType)}</td><td>${escapeReportHtml(worker.visaExpiryDate ? formatCommercialDate(worker.visaExpiryDate) : '')}</td><td>${escapeReportHtml(worker.jobCheckReference || 'Not linked')}</td><td>${escapeReportHtml(worker.status)}</td></tr>`).join('');
+  const jobRows = jobChecks.map((item) => `<tr><td>${escapeReportHtml(item.referenceNumber)}</td><td>${escapeReportHtml(item.roleTitle)}</td><td>${escapeReportHtml(item.skillLevel)}</td><td>${escapeReportHtml(formatJobCheckPay(item))}</td><td>${escapeReportHtml(item.expiryDate ? formatCommercialDate(item.expiryDate) : '')}</td><td>${Number(item.positionsUsed || 0)} / ${Number(item.positionsApproved || 0)}</td></tr>`).join('');
+  const complianceRows = compliance.map((item) => `<tr><td>${escapeReportHtml(item.title)}</td><td>${escapeReportHtml(item.category)}</td><td>${escapeReportHtml(item.status)}</td><td>${escapeReportHtml(item.dueDate ? formatCommercialDate(item.dueDate) : '')}</td><td>${escapeReportHtml(item.employerNotes)}</td></tr>`).join('');
+  const documentRows = documents.map((item) => `<tr><td>${escapeReportHtml(item.title)}</td><td>${escapeReportHtml(item.category)}</td><td>${escapeReportHtml(item.fileName || (item.documentUrl ? 'Linked document' : 'Reference only'))}</td><td>${escapeReportHtml(item.expiryDate ? formatCommercialDate(item.expiryDate) : '')}</td></tr>`).join('');
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeReportHtml(companyName)} compliance report</title><style>body{font-family:Arial,sans-serif;color:#294c48;margin:38px;line-height:1.45}h1,h2{color:#003f3a}header{border-bottom:3px solid #55d6a5;margin-bottom:26px;padding-bottom:18px}.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:18px 0}.meta div{border:1px solid #d6e6e0;border-radius:10px;padding:12px}table{width:100%;border-collapse:collapse;margin:12px 0 28px;font-size:12px}th,td{border:1px solid #d6e6e0;padding:8px;text-align:left;vertical-align:top}th{background:#f4fbf8;color:#003f3a}button{padding:10px 14px;background:#003f3a;color:#fff;border:0;border-radius:8px}@media print{button{display:none}body{margin:12mm}.section{break-inside:avoid}}</style></head><body><button onclick="window.print()">Print / save PDF</button><header><h1>${escapeReportHtml(companyName)}</h1><p>Employer immigration compliance report generated ${escapeReportHtml(new Intl.DateTimeFormat('en-NZ',{dateStyle:'long',timeStyle:'short'}).format(new Date()))}</p></header><div class="meta"><div><strong>Accreditation type</strong><br>${escapeReportHtml(client.accreditationType || 'Not recorded')}</div><div><strong>Accreditation status</strong><br>${escapeReportHtml(client.accreditationStatus || 'Not recorded')}</div><div><strong>Accreditation expiry</strong><br>${escapeReportHtml(client.accreditationExpiryDate ? formatCommercialDate(client.accreditationExpiryDate) : 'Not recorded')}</div></div><section class="section"><h2>Work visa holders</h2><table><thead><tr><th>Worker</th><th>Role</th><th>Visa type</th><th>Visa expiry</th><th>Job Check</th><th>Status</th></tr></thead><tbody>${workerRows || '<tr><td colspan="6">No worker records.</td></tr>'}</tbody></table></section><section class="section"><h2>Approved Job Checks</h2><table><thead><tr><th>Reference</th><th>Role</th><th>Skill level</th><th>Pay</th><th>Expiry</th><th>Positions used</th></tr></thead><tbody>${jobRows || '<tr><td colspan="6">No Job Check records.</td></tr>'}</tbody></table></section><section class="section"><h2>Compliance register</h2><table><thead><tr><th>Item</th><th>Category</th><th>Status</th><th>Due date</th><th>Notes</th></tr></thead><tbody>${complianceRows || '<tr><td colspan="5">No compliance items.</td></tr>'}</tbody></table></section><section class="section"><h2>Document register</h2><table><thead><tr><th>Document</th><th>Category</th><th>File/reference</th><th>Expiry</th></tr></thead><tbody>${documentRows || '<tr><td colspan="4">No document records.</td></tr>'}</tbody></table></section><p style="font-size:11px;color:#657d79">This report supports compliance administration but does not replace the employer's legal obligations or specific immigration advice.</p></body></html>`;
+  const safeName = companyName.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'commercial-client';
+  downloadBrowserFile(`${safeName}-compliance-report.html`, html, 'text/html;charset=utf-8');
 }
 
 export default function App() {
@@ -967,7 +1089,7 @@ export default function App() {
   }
 
   async function deleteCommercialClient(commercialClientId) {
-    const confirmed = await askCrmConfirm({ title: 'Delete commercial client?', message: 'This removes the company, portal users, worker register, compliance records and audit history.', confirmLabel: 'Delete commercial client', tone: 'danger' });
+    const confirmed = await askCrmConfirm({ title: 'Delete commercial client?', message: 'This removes the company, portal users, worker register, approved Job Checks, compliance records and audit history.', confirmLabel: 'Delete commercial client', tone: 'danger' });
     if (!confirmed) return;
     const body = await callApi('deleteCommercialClient', { commercialClientId });
     setSelectedCommercialClientId(body.commercialClients?.[0]?.id || '');
@@ -989,10 +1111,61 @@ export default function App() {
     return callApi('saveCommercialWorker', { commercialClientId, worker });
   }
 
+
+  async function importCommercialWorkers(commercialClientId, workers) {
+    const body = await callApi('importCommercialWorkers', { commercialClientId, workers });
+    const result = body.importResult || {};
+    showCrmToast(`Imported ${Number(result.imported || 0)} worker record${Number(result.imported || 0) === 1 ? '' : 's'}${result.skipped ? `; skipped ${result.skipped} duplicate${result.skipped === 1 ? '' : 's'}` : ''}.`, result.errors?.length ? 'warning' : 'success');
+    return body;
+  }
+
+  async function uploadCommercialDocument(commercialClientId, document, file) {
+    const form = new FormData();
+    form.append('commercialClientId', commercialClientId);
+    form.append('title', document.title || file?.name || 'Document');
+    form.append('category', document.category || 'Compliance');
+    form.append('workerId', document.workerId || '');
+    form.append('expiryDate', document.expiryDate || '');
+    form.append('notes', document.notes || '');
+    form.append('visibleToEmployer', document.visibleToEmployer === false ? 'false' : 'true');
+    form.append('file', file);
+    setSaving(true); setError('');
+    try {
+      const response = await fetch('/.netlify/functions/commercial-file', { method: 'POST', headers: authHeaders(accessCode, identityUser), credentials: 'same-origin', body: form });
+      const body = await readJsonResponse(response);
+      if (!response.ok) throw new Error(body.error || 'Commercial document upload failed.');
+      await load(accessCode, identityUser);
+      showCrmToast('Commercial document uploaded securely.');
+      return body;
+    } catch (err) { setError(err.message || String(err)); throw err; } finally { setSaving(false); }
+  }
+
+  async function downloadCommercialDocument(document) {
+    setSaving(true); setError('');
+    try {
+      const response = await fetch('/.netlify/functions/commercial-file', {
+        method: 'POST', headers: { 'content-type': 'application/json', ...authHeaders(accessCode, identityUser) }, credentials: 'same-origin',
+        body: JSON.stringify({ action: 'download', documentId: document.id }),
+      });
+      if (!response.ok) { const body = await readJsonResponse(response); throw new Error(body.error || 'Document download failed.'); }
+      downloadBrowserFile(document.fileName || document.title || 'commercial-document', await response.blob(), document.mimeType || 'application/octet-stream');
+    } catch (err) { setError(err.message || String(err)); throw err; } finally { setSaving(false); }
+  }
+
   async function archiveCommercialWorker(commercialClientId, workerId) {
     const confirmed = await askCrmConfirm({ title: 'Archive worker record?', message: 'The worker will be removed from the active register but retained in the audit history.', confirmLabel: 'Archive worker', tone: 'danger' });
     if (!confirmed) return;
     return callApi('archiveCommercialWorker', { commercialClientId, workerId });
+  }
+
+  async function saveCommercialJobCheck(commercialClientId, jobCheck) {
+    return callApi('saveCommercialJobCheck', { commercialClientId, jobCheck });
+  }
+
+  async function archiveCommercialJobCheck(commercialClientId, jobCheckId) {
+    const confirmed = await askCrmConfirm({ title: 'Archive Job Check?', message: 'The Job Check will leave the active register but remain in the audit history.', confirmLabel: 'Archive Job Check', tone: 'danger' });
+    if (!confirmed) return;
+    return callApi('archiveCommercialJobCheck', { commercialClientId, jobCheckId });
   }
 
   async function saveCommercialComplianceItem(commercialClientId, item) {
@@ -1511,10 +1684,15 @@ export default function App() {
                 saveCommercialPortalUser={saveCommercialPortalUser}
                 deleteCommercialPortalUser={deleteCommercialPortalUser}
                 saveCommercialWorker={saveCommercialWorker}
+                importCommercialWorkers={importCommercialWorkers}
                 archiveCommercialWorker={archiveCommercialWorker}
+                saveCommercialJobCheck={saveCommercialJobCheck}
+                archiveCommercialJobCheck={archiveCommercialJobCheck}
                 saveCommercialComplianceItem={saveCommercialComplianceItem}
                 archiveCommercialComplianceItem={archiveCommercialComplianceItem}
                 saveCommercialDocument={saveCommercialDocument}
+                uploadCommercialDocument={uploadCommercialDocument}
+                downloadCommercialDocument={downloadCommercialDocument}
                 deleteCommercialDocument={deleteCommercialDocument}
                 addCommercialClient={addCommercialClient}
                 saving={saving}
@@ -1681,8 +1859,9 @@ export default function App() {
 
 function CommercialClientsWorkspace({
   commercialClients = [], selectedCommercialClient, setSelectedCommercialClientId, advisers = [], saveCommercialClient, deleteCommercialClient,
-  saveCommercialPortalUser, deleteCommercialPortalUser, saveCommercialWorker, archiveCommercialWorker, saveCommercialComplianceItem,
-  archiveCommercialComplianceItem, saveCommercialDocument, deleteCommercialDocument, addCommercialClient, saving, isAdmin,
+  saveCommercialPortalUser, deleteCommercialPortalUser, saveCommercialWorker, importCommercialWorkers, archiveCommercialWorker, saveCommercialJobCheck,
+  archiveCommercialJobCheck, saveCommercialComplianceItem, archiveCommercialComplianceItem, saveCommercialDocument, uploadCommercialDocument,
+  downloadCommercialDocument, deleteCommercialDocument, addCommercialClient, saving, isAdmin,
 }) {
   const [query, setQuery] = useState('');
   const [section, setSection] = useState('overview');
@@ -1725,18 +1904,19 @@ function CommercialClientsWorkspace({
             <div className="panel commercial-empty-state"><Building2 size={38} /><h2>Create the first commercial client</h2><p>The employer record will hold accreditation details, worker records, compliance actions and portal users.</p><button className="btn dark" onClick={addCommercialClient}><Plus size={16} />New commercial client</button></div>
           ) : (
             <>
-              <CommercialClientHeader client={selectedCommercialClient} advisers={advisers} />
+              <CommercialClientHeader client={selectedCommercialClient} advisers={advisers} onDownloadReport={() => downloadCommercialComplianceReport(selectedCommercialClient)} />
               <CommercialSummaryCards client={selectedCommercialClient} />
               <nav className="commercial-section-tabs" aria-label="Commercial client sections">
                 {[
-                  ['overview', 'Company', Building2], ['workers', 'WV holders', UsersRound], ['compliance', 'Compliance', FileCheck2],
-                  ['documents', 'Documents', FileText], ['portal', 'Portal access', KeyRound], ['audit', 'Activity', Clock],
+                  ['overview', 'Company', Building2], ['workers', 'WV holders', UsersRound], ['job-checks', 'Job Checks', ClipboardList],
+                  ['compliance', 'Compliance', FileCheck2], ['documents', 'Documents', FileText], ['portal', 'Portal access', KeyRound], ['audit', 'Activity', Clock],
                 ].map(([value, label, Icon]) => <button key={value} type="button" className={section === value ? 'active' : ''} onClick={() => setSection(value)}><Icon size={16} />{label}</button>)}
               </nav>
               {section === 'overview' && <CommercialCompanyEditor client={selectedCommercialClient} advisers={advisers} saveCommercialClient={saveCommercialClient} deleteCommercialClient={deleteCommercialClient} saving={saving} isAdmin={isAdmin} />}
-              {section === 'workers' && <CommercialWorkerRegister client={selectedCommercialClient} saveWorker={saveCommercialWorker} archiveWorker={archiveCommercialWorker} saving={saving} />}
+              {section === 'workers' && <CommercialWorkerRegister client={selectedCommercialClient} saveWorker={saveCommercialWorker} importWorkers={importCommercialWorkers} archiveWorker={archiveCommercialWorker} saving={saving} />}
+              {section === 'job-checks' && <CommercialJobCheckRegister client={selectedCommercialClient} saveJobCheck={saveCommercialJobCheck} archiveJobCheck={archiveCommercialJobCheck} saving={saving} />}
               {section === 'compliance' && <CommercialComplianceRegister client={selectedCommercialClient} saveItem={saveCommercialComplianceItem} archiveItem={archiveCommercialComplianceItem} saving={saving} />}
-              {section === 'documents' && <CommercialDocumentRegister client={selectedCommercialClient} saveDocument={saveCommercialDocument} deleteDocument={deleteCommercialDocument} saving={saving} />}
+              {section === 'documents' && <CommercialDocumentRegister client={selectedCommercialClient} saveDocument={saveCommercialDocument} uploadDocument={uploadCommercialDocument} downloadDocument={downloadCommercialDocument} deleteDocument={deleteCommercialDocument} saving={saving} />}
               {section === 'portal' && <CommercialPortalAccess client={selectedCommercialClient} saveCommercialClient={saveCommercialClient} savePortalUser={saveCommercialPortalUser} deletePortalUser={deleteCommercialPortalUser} saving={saving} />}
               {section === 'audit' && <CommercialAuditTrail client={selectedCommercialClient} />}
             </>
@@ -1747,13 +1927,13 @@ function CommercialClientsWorkspace({
   );
 }
 
-function CommercialClientHeader({ client, advisers = [] }) {
+function CommercialClientHeader({ client, advisers = [], onDownloadReport }) {
   const primary = advisers.find((adviser) => adviser.id === client.primaryAdviserId);
   return (
     <div className="commercial-client-head panel">
       <div className="commercial-company-mark"><Building2 size={25} /></div>
       <div><span>Commercial client</span><h2>{client.tradingName || client.legalName || 'New commercial client'}</h2><p>{client.legalName && client.tradingName ? client.legalName : (client.industry || 'Employer compliance record')}</p></div>
-      <div className="commercial-client-head-meta"><span className={`status-badge ${statusClass(client.clientStatus)}`}>{client.clientStatus}</span><small>{primary ? `Lead: ${primary.name}` : 'Lead adviser not assigned'}</small></div>
+      <div className="commercial-client-head-meta"><span className={`status-badge ${statusClass(client.clientStatus)}`}>{client.clientStatus}</span><small>{primary ? `Lead: ${primary.name}` : 'Lead adviser not assigned'}</small><button className="btn mini ghost" type="button" onClick={onDownloadReport}><Download size={14} />Compliance report</button></div>
     </div>
   );
 }
@@ -1761,12 +1941,15 @@ function CommercialClientHeader({ client, advisers = [] }) {
 function CommercialSummaryCards({ client }) {
   const activeWorkers = (client.workers || []).filter((worker) => worker.status === 'Active').length;
   const visaAlerts = (client.workers || []).filter((worker) => worker.status !== 'Archived' && dateDiff(worker.visaExpiryDate) !== null && dateDiff(worker.visaExpiryDate) <= 90).length;
+  const activeJobChecks = (client.jobChecks || []).filter((item) => ['Active', 'Fully used'].includes(item.status) && (dateDiff(item.expiryDate) === null || dateDiff(item.expiryDate) >= 0)).length;
+  const jobCheckAlerts = (client.jobChecks || []).filter((item) => item.status !== 'Archived' && dateDiff(item.expiryDate) !== null && dateDiff(item.expiryDate) <= 30).length;
   const openCompliance = (client.complianceItems || []).filter((item) => !['Completed', 'Archived'].includes(item.status)).length;
-  const needsReview = [...(client.workers || []), ...(client.complianceItems || [])].filter((item) => item.adviserReviewStatus === 'Needs review').length;
+  const needsReview = [...(client.workers || []), ...(client.jobChecks || []), ...(client.complianceItems || [])].filter((item) => item.adviserReviewStatus === 'Needs review').length;
   return (
     <div className="commercial-summary-grid">
-      <article><span>Accreditation</span><strong>{client.accreditationStatus || 'Not recorded'}</strong><small>{client.accreditationExpiryDate ? `Expires ${formatShortDate(client.accreditationExpiryDate)}` : 'No expiry recorded'}</small></article>
+      <article><span>Accreditation</span><strong>{client.accreditationType || client.accreditationStatus || 'Not recorded'}</strong><small>{client.accreditationExpiryDate ? `${client.accreditationStatus || 'Accreditation'} · expires ${formatCommercialDate(client.accreditationExpiryDate)}` : (client.accreditationStatus || 'No expiry recorded')}</small></article>
       <article><span>Active WV holders</span><strong>{activeWorkers}</strong><small>{visaAlerts ? `${visaAlerts} expiring within 90 days` : 'No near-term visa alerts'}</small></article>
+      <article><span>Approved Job Checks</span><strong>{activeJobChecks}</strong><small>{jobCheckAlerts ? `${jobCheckAlerts} expiring or expired` : 'No near-term Job Check alerts'}</small></article>
       <article><span>Open compliance</span><strong>{openCompliance}</strong><small>{openCompliance ? 'Items requiring action' : 'No open items'}</small></article>
       <article><span>Employer updates</span><strong>{needsReview}</strong><small>{needsReview ? 'Awaiting adviser review' : 'Nothing waiting for review'}</small></article>
     </div>
@@ -1804,6 +1987,7 @@ function CommercialCompanyEditor({ client, advisers, saveCommercialClient, delet
         <label><span>Approval date</span><input type="date" value={draft.accreditationApprovalDate} onChange={(e) => update('accreditationApprovalDate', e.target.value)} /></label>
         <label><span>Expiry date</span><input type="date" value={draft.accreditationExpiryDate} onChange={(e) => update('accreditationExpiryDate', e.target.value)} /></label>
         <label><span>Renewal preparation date</span><input type="date" value={draft.accreditationRenewalDate} onChange={(e) => update('accreditationRenewalDate', e.target.value)} /></label>
+        <label className="checkbox-label commercial-reminder-toggle"><input type="checkbox" checked={draft.reminderNotificationsEnabled !== false} onChange={(e) => update('reminderNotificationsEnabled', e.target.checked)} /><span>Send automated 90, 60 and 30-day employer expiry reminders</span></label>
         <label className="span-2"><span>Accreditation notes</span><textarea rows="3" value={draft.accreditationNotes} onChange={(e) => update('accreditationNotes', e.target.value)} /></label>
         <label className="span-2"><span>Compliance summary visible to employer</span><textarea rows="3" value={draft.complianceSummary} onChange={(e) => update('complianceSummary', e.target.value)} /></label>
         <label className="span-2"><span>Internal adviser notes</span><textarea rows="4" value={draft.internalNotes} onChange={(e) => update('internalNotes', e.target.value)} /></label>
@@ -1812,38 +1996,45 @@ function CommercialCompanyEditor({ client, advisers, saveCommercialClient, delet
   );
 }
 
-function CommercialWorkerRegister({ client, saveWorker, archiveWorker, saving, portalMode = false, readOnly = false }) {
+function CommercialWorkerRegister({ client, saveWorker, importWorkers, archiveWorker, saving, portalMode = false, readOnly = false }) {
   const [editing, setEditing] = useState(null);
+  const [importing, setImporting] = useState(false);
   const workers = (client.workers || []).filter((worker) => worker.status !== 'Archived');
   return (
     <section className="panel commercial-register-panel">
-      <div className="commercial-panel-head"><div><span>Worker register</span><h3>Work visa holders</h3><p>Visa, passport, employment and Job Check information.</p></div>{!readOnly && <button className="btn dark" disabled={String(client.id).startsWith('temp-')} onClick={() => setEditing(normaliseCommercialWorker({ status: 'Active', adviserReviewStatus: portalMode ? 'Needs review' : 'Reviewed' }))}><Plus size={16} />Add worker</button>}</div>
+      <div className="commercial-panel-head"><div><span>Worker register</span><h3>Work visa holders</h3><p>Visa, passport, employment and approved Job Check information.</p></div>{!readOnly && <div className="button-row"><button className="btn ghost" type="button" onClick={downloadCommercialWorkerTemplate}><Download size={16} />CSV template</button><button className="btn ghost" type="button" disabled={String(client.id).startsWith('temp-')} onClick={() => setImporting(true)}><FileSpreadsheet size={16} />Import CSV</button><button className="btn dark" disabled={String(client.id).startsWith('temp-')} onClick={() => setEditing(normaliseCommercialWorker({ status: 'Active', adviserReviewStatus: portalMode ? 'Needs review' : 'Reviewed' }))}><Plus size={16} />Add worker</button></div>}</div>
       <div className="commercial-record-list">
-        {workers.map((worker) => <CommercialWorkerRow key={worker.id} worker={worker} onEdit={() => setEditing({ ...worker })} onArchive={() => archiveWorker(client.id, worker.id)} readOnly={readOnly} />)}
+        {workers.map((worker) => <CommercialWorkerRow key={worker.id} worker={worker} jobCheck={(client.jobChecks || []).find((item) => item.id === worker.jobCheckId) || (client.jobChecks || []).find((item) => item.referenceNumber === worker.jobCheckReference)} onEdit={() => setEditing({ ...worker })} onArchive={() => archiveWorker(client.id, worker.id)} readOnly={readOnly} />)}
         {!workers.length && <div className="commercial-empty-mini">No work visa holders have been recorded.</div>}
       </div>
-      {editing && <CommercialWorkerEditor worker={editing} saving={saving} portalMode={portalMode} onClose={() => setEditing(null)} onSave={async (draft) => { await saveWorker(client.id, draft); setEditing(null); }} />}
+      {editing && <CommercialWorkerEditor worker={editing} jobChecks={client.jobChecks || []} saving={saving} portalMode={portalMode} onClose={() => setEditing(null)} onSave={async (draft) => { await saveWorker(client.id, draft); setEditing(null); }} />}
+      {importing && <CommercialWorkerImportModal saving={saving} onClose={() => setImporting(false)} onImport={async (rows) => { await importWorkers(client.id, rows); setImporting(false); }} />}
     </section>
   );
 }
 
-function CommercialWorkerRow({ worker, onEdit, onArchive, readOnly }) {
+function CommercialWorkerRow({ worker, jobCheck, onEdit, onArchive, readOnly }) {
   const visaDays = dateDiff(worker.visaExpiryDate);
   const alert = visaDays !== null && visaDays <= 90;
   return (
     <article className={`commercial-record-row ${alert ? 'alert' : ''}`}>
       <div className="commercial-record-primary"><strong>{worker.fullName}</strong><span>{worker.jobTitle || 'Job title not recorded'}{worker.workLocation ? ` · ${worker.workLocation}` : ''}</span></div>
-      <div><small>Visa</small><strong>{worker.visaType || 'Not recorded'}</strong><span className={alert ? 'text-alert' : ''}>{worker.visaExpiryDate ? `Expires ${formatShortDate(worker.visaExpiryDate)}` : 'No expiry date'}</span></div>
-      <div><small>Job Check</small><strong>{worker.jobCheckReference || 'Not recorded'}</strong><span>{worker.responsibleManager || 'Manager not recorded'}</span></div>
+      <div><small>Visa</small><strong>{worker.visaType || 'Not recorded'}</strong><span className={alert ? 'text-alert' : ''}>{worker.visaExpiryDate ? `Expires ${formatCommercialDate(worker.visaExpiryDate)}` : 'No expiry date'}</span></div>
+      <div><small>Approved Job Check</small><strong>{jobCheck?.referenceNumber || worker.jobCheckReference || 'Not linked'}</strong><span>{jobCheck?.roleTitle || 'Link the worker to an approved position'}</span></div>
       <div><span className={`review-chip ${statusClass(worker.adviserReviewStatus)}`}>{worker.adviserReviewStatus}</span><span className={`status-badge ${statusClass(worker.status)}`}>{worker.status}</span></div>
       {!readOnly && <div className="commercial-row-actions"><button className="btn mini ghost" onClick={onEdit}>Edit</button><button className="icon-button danger" onClick={onArchive} aria-label="Archive worker"><Trash2 size={15} /></button></div>}
     </article>
   );
 }
 
-function CommercialWorkerEditor({ worker, onSave, onClose, saving, portalMode }) {
+function CommercialWorkerEditor({ worker, jobChecks = [], onSave, onClose, saving, portalMode }) {
   const [draft, setDraft] = useState({ ...worker });
   const update = (field, value) => setDraft((current) => ({ ...current, [field]: value }));
+  const activeJobChecks = jobChecks.filter((item) => item.status !== 'Archived' && item.status !== 'Withdrawn');
+  function selectJobCheck(value) {
+    const match = activeJobChecks.find((item) => item.id === value);
+    setDraft((current) => ({ ...current, jobCheckId: value, jobCheckReference: match?.referenceNumber || '' }));
+  }
   return (
     <CommercialEditorModal title={worker.id ? 'Edit worker' : 'Add work visa holder'} eyebrow="Worker register" onClose={onClose}>
       <div className="commercial-form-grid">
@@ -1861,7 +2052,7 @@ function CommercialWorkerEditor({ worker, onSave, onClose, saving, portalMode })
         <label><span>Employment end</span><input type="date" value={draft.employmentEndDate} onChange={(e) => update('employmentEndDate', e.target.value)} /></label>
         <label><span>Hours per week</span><input type="number" step="0.5" value={draft.hoursPerWeek} onChange={(e) => update('hoursPerWeek', e.target.value)} /></label>
         <label><span>Hourly pay rate</span><input type="number" step="0.01" value={draft.payRate} onChange={(e) => update('payRate', e.target.value)} /></label>
-        <label><span>Job Check reference</span><input value={draft.jobCheckReference} onChange={(e) => update('jobCheckReference', e.target.value)} /></label>
+        <label className="span-2"><span>Approved Job Check</span><select value={draft.jobCheckId || ''} onChange={(e) => selectJobCheck(e.target.value)}><option value="">Not linked</option>{activeJobChecks.map((item) => { const full = Number(item.positionsUsed || 0) >= Number(item.positionsApproved || 0) && draft.jobCheckId !== item.id; return <option key={item.id} value={item.id} disabled={full}>{item.referenceNumber} — {item.roleTitle} ({Number(item.positionsUsed || 0)}/{Number(item.positionsApproved || 0)} used{full ? ', full' : ''})</option>; })}</select>{!draft.jobCheckId && draft.jobCheckReference && <small>Existing unlinked reference: {draft.jobCheckReference}</small>}</label>
         <label><span>Responsible manager</span><input value={draft.responsibleManager} onChange={(e) => update('responsibleManager', e.target.value)} /></label>
         <label className="span-2"><span>Visa conditions</span><textarea rows="3" value={draft.visaConditions} onChange={(e) => update('visaConditions', e.target.value)} /></label>
         <label className="span-2"><span>{portalMode ? 'Employer notes' : 'Employer-visible notes'}</span><textarea rows="3" value={draft.employerNotes} onChange={(e) => update('employerNotes', e.target.value)} /></label>
@@ -1870,6 +2061,84 @@ function CommercialWorkerEditor({ worker, onSave, onClose, saving, portalMode })
       <div className="modal-actions"><button className="btn dark" disabled={saving || !draft.fullName.trim()} onClick={() => onSave(draft)}><Save size={16} />Save worker</button><button className="btn ghost" onClick={onClose}>Cancel</button></div>
     </CommercialEditorModal>
   );
+}
+
+function CommercialWorkerImportModal({ onImport, onClose, saving }) {
+  const [rows, setRows] = useState([]);
+  const [fileName, setFileName] = useState('');
+  const [error, setError] = useState('');
+  async function chooseFile(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name); setError('');
+    try { const parsed = commercialWorkersFromCsv(await file.text()); if (!parsed.length) throw new Error('No worker rows were found.'); setRows(parsed); }
+    catch (err) { setRows([]); setError(err.message || String(err)); }
+  }
+  return <CommercialEditorModal title="Import work visa holders" eyebrow="Excel-compatible CSV" onClose={onClose}>
+    <div className="commercial-import-intro"><FileSpreadsheet size={28} /><div><h3>Import an existing worker register</h3><p>Use the supplied CSV template. Dates should use YYYY-MM-DD. Existing rows with the same email, name and visa expiry are skipped.</p></div></div>
+    <div className="commercial-import-actions"><button className="btn ghost" type="button" onClick={downloadCommercialWorkerTemplate}><Download size={16} />Download template</button><label className="btn dark file-button"><Upload size={16} />Choose CSV<input type="file" accept=".csv,text/csv" onChange={chooseFile} /></label></div>
+    {fileName && <p className="muted">Selected: {fileName}</p>}{error && <div className="error-banner"><AlertTriangle size={17} />{error}</div>}
+    {rows.length > 0 && <div className="commercial-import-preview"><strong>{rows.length} worker row{rows.length === 1 ? '' : 's'} ready to import</strong>{rows.slice(0, 6).map((worker, index) => <div key={`${worker.fullName}-${index}`}><span>{worker.fullName}</span><small>{worker.jobTitle || 'Role not recorded'} · {worker.visaExpiryDate || 'No visa expiry'} · {worker.jobCheckReference || 'No Job Check'}</small></div>)}{rows.length > 6 && <small>Plus {rows.length - 6} more rows.</small>}</div>}
+    <div className="modal-actions"><button className="btn dark" disabled={saving || !rows.length} onClick={() => onImport(rows)}><Upload size={16} />Import {rows.length || ''} worker{rows.length === 1 ? '' : 's'}</button><button className="btn ghost" onClick={onClose}>Cancel</button></div>
+  </CommercialEditorModal>;
+}
+
+function CommercialJobCheckRegister({ client, saveJobCheck, archiveJobCheck, saving, portalMode = false, readOnly = false }) {
+  const [editing, setEditing] = useState(null);
+  const jobChecks = (client.jobChecks || []).filter((item) => item.status !== 'Archived');
+  return (
+    <section className="panel commercial-register-panel">
+      <div className="commercial-panel-head"><div><span>Approved Job Checks</span><h3>Roles available for migrant recruitment</h3><p>Workers are linked directly to approved positions. Position usage is calculated from the active worker register.</p></div>{!readOnly && <button className="btn dark" disabled={String(client.id).startsWith('temp-')} onClick={() => setEditing(normaliseCommercialJobCheck({ status: 'Active', positionsApproved: 1, positionsUsed: 0, adviserReviewStatus: portalMode ? 'Needs review' : 'Reviewed' }))}><Plus size={16} />Add Job Check</button>}</div>
+      <div className="commercial-record-list">
+        {jobChecks.map((item) => <CommercialJobCheckRow key={item.id} item={item} linkedWorkers={(client.workers || []).filter((worker) => ['Active', 'Upcoming'].includes(worker.status) && (worker.jobCheckId === item.id || (!worker.jobCheckId && worker.jobCheckReference === item.referenceNumber)))} onEdit={() => setEditing({ ...item })} onArchive={() => archiveJobCheck(client.id, item.id)} readOnly={readOnly} />)}
+        {!jobChecks.length && <div className="commercial-empty-mini">No approved Job Checks have been recorded.</div>}
+      </div>
+      {editing && <CommercialJobCheckEditor jobCheck={editing} saving={saving} portalMode={portalMode} onClose={() => setEditing(null)} onSave={async (draft) => { await saveJobCheck(client.id, draft); setEditing(null); }} />}
+    </section>
+  );
+}
+
+function CommercialJobCheckRow({ item, linkedWorkers = [], onEdit, onArchive, readOnly }) {
+  const days = dateDiff(item.expiryDate);
+  const alert = days !== null && days <= 30;
+  const displayStatus = days !== null && days < 0 && item.status === 'Active' ? 'Expired' : item.status;
+  const pay = formatJobCheckPay(item);
+  return <article className={`commercial-record-row job-check ${alert ? 'alert' : ''}`}>
+    <div className="commercial-record-primary"><strong>{item.roleTitle || 'Role not recorded'}</strong><span>{item.referenceNumber || 'Reference not recorded'}{item.workLocation ? ` · ${item.workLocation}` : ''}</span>{linkedWorkers.length > 0 && <small className="commercial-linked-workers">Linked: {linkedWorkers.map((worker) => worker.fullName).join(', ')}</small>}</div>
+    <div><small>Skill and pay</small><strong>{item.skillLevel ? `Skill level ${item.skillLevel}` : 'Skill level not recorded'}</strong><span>{pay}</span></div>
+    <div><small>Validity</small><strong>{item.issueDate ? formatCommercialDate(item.issueDate) : 'No issue date'}</strong><span className={alert ? 'text-alert' : ''}>{item.expiryDate ? `Expires ${formatCommercialDate(item.expiryDate)}` : 'Expiry calculated from issue date'}</span></div>
+    <div><small>Approved positions</small><strong>{linkedWorkers.length} / {Number(item.positionsApproved || 0)} linked</strong><span className={`status-badge ${statusClass(displayStatus)}`}>{displayStatus}</span></div>
+    {!readOnly && <div className="commercial-row-actions"><button className="btn mini ghost" onClick={onEdit}>Edit</button><button className="icon-button danger" onClick={onArchive} aria-label="Archive Job Check"><Trash2 size={15} /></button></div>}
+  </article>;
+}
+
+function CommercialJobCheckEditor({ jobCheck, onSave, onClose, saving, portalMode }) {
+  const [draft, setDraft] = useState({ ...jobCheck });
+  const update = (field, value) => setDraft((current) => {
+    const next = { ...current, [field]: value };
+    if (field === 'issueDate') next.expiryDate = addMonthsIso(value, 6);
+    return next;
+  });
+  return <CommercialEditorModal title={jobCheck.id ? 'Edit Job Check' : 'Add approved Job Check'} eyebrow="Employer compliance" onClose={onClose}>
+    <div className="commercial-form-grid">
+      <label><span>Job Check reference *</span><input value={draft.referenceNumber} onChange={(e) => update('referenceNumber', e.target.value)} /></label>
+      <label><span>Status</span><select value={draft.status} onChange={(e) => update('status', e.target.value)}>{['Active','Fully used','Withdrawn'].map((value) => <option key={value}>{value}</option>)}</select></label>
+      <label className="span-2"><span>Approved role *</span><input value={draft.roleTitle} onChange={(e) => update('roleTitle', e.target.value)} /></label>
+      <label><span>Skill level</span><select value={draft.skillLevel} onChange={(e) => update('skillLevel', e.target.value)}><option value="">Not recorded</option>{['1','2','3','4','5'].map((value) => <option key={value} value={value}>Skill level {value}</option>)}</select></label>
+      <label><span>Work location</span><input value={draft.workLocation} onChange={(e) => update('workLocation', e.target.value)} /></label>
+      <label><span>Minimum pay rate</span><input type="number" min="0" step="0.01" value={draft.payRateMin} onChange={(e) => update('payRateMin', e.target.value)} /></label>
+      <label><span>Maximum pay rate</span><input type="number" min="0" step="0.01" value={draft.payRateMax} onChange={(e) => update('payRateMax', e.target.value)} /></label>
+      <label><span>Pay basis</span><select value={draft.payFrequency} onChange={(e) => update('payFrequency', e.target.value)}>{['Hourly','Annual salary'].map((value) => <option key={value}>{value}</option>)}</select></label>
+      <label><span>Issue date *</span><input type="date" value={draft.issueDate} onChange={(e) => update('issueDate', e.target.value)} /></label>
+      <label><span>Expiry date</span><input type="date" value={draft.expiryDate || addMonthsIso(draft.issueDate, 6)} readOnly aria-readonly="true" /></label>
+      <label><span>Positions approved</span><input type="number" min="1" step="1" value={draft.positionsApproved} onChange={(e) => update('positionsApproved', e.target.value)} /></label>
+      <label><span>Positions currently linked</span><input value={Number(draft.positionsUsed || 0)} readOnly aria-readonly="true" /></label>
+      <label className="span-2"><span>{portalMode ? 'Employer notes' : 'Employer-visible notes'}</span><textarea rows="3" value={draft.employerNotes} onChange={(e) => update('employerNotes', e.target.value)} /></label>
+      {!portalMode && <><label><span>Adviser review</span><select value={draft.adviserReviewStatus} onChange={(e) => update('adviserReviewStatus', e.target.value)}><option>Needs review</option><option>Reviewed</option><option>Issue identified</option></select></label><label className="span-2"><span>Internal adviser notes</span><textarea rows="3" value={draft.internalNotes} onChange={(e) => update('internalNotes', e.target.value)} /></label></>}
+    </div>
+    <div className="commercial-date-note"><Clock size={16} /><span>The expiry date is six calendar months from issue. Position usage updates automatically when workers are linked or archived.</span></div>
+    <div className="modal-actions"><button className="btn dark" disabled={saving || !draft.referenceNumber.trim() || !draft.roleTitle.trim() || !draft.issueDate} onClick={() => onSave({ ...draft, expiryDate: addMonthsIso(draft.issueDate, 6) })}><Save size={16} />Save Job Check</button><button className="btn ghost" onClick={onClose}>Cancel</button></div>
+  </CommercialEditorModal>;
 }
 
 function CommercialComplianceRegister({ client, saveItem, archiveItem, saving, portalMode = false, readOnly = false }) {
@@ -1884,7 +2153,7 @@ function CommercialComplianceRegister({ client, saveItem, archiveItem, saving, p
           const due = dateDiff(item.dueDate);
           return <article className={`commercial-record-row compliance ${due !== null && due <= 14 && item.status !== 'Completed' ? 'alert' : ''}`} key={item.id}>
             <div className="commercial-record-primary"><strong>{item.title}</strong><span>{item.category}{worker ? ` · ${worker.fullName}` : ''}</span></div>
-            <div><small>Due</small><strong>{item.dueDate ? formatShortDate(item.dueDate) : 'No date'}</strong><span>{item.completedDate ? `Completed ${formatShortDate(item.completedDate)}` : item.employerNotes || 'No notes'}</span></div>
+            <div><small>Due</small><strong>{item.dueDate ? formatCommercialDate(item.dueDate) : 'No date'}</strong><span>{item.completedDate ? `Completed ${formatCommercialDate(item.completedDate)}` : item.employerNotes || 'No notes'}</span></div>
             <div><span className={`review-chip ${statusClass(item.adviserReviewStatus)}`}>{item.adviserReviewStatus}</span><span className={`status-badge ${statusClass(item.status)}`}>{item.status}</span></div>
             {!readOnly && <div className="commercial-row-actions"><button className="btn mini ghost" onClick={() => setEditing({ ...item })}>Edit</button><button className="icon-button danger" onClick={() => archiveItem(client.id, item.id)}><Trash2 size={15} /></button></div>}
           </article>;
@@ -1914,38 +2183,49 @@ function CommercialComplianceEditor({ item, workers, portalMode, saving, onSave,
   </CommercialEditorModal>;
 }
 
-function CommercialDocumentRegister({ client, saveDocument, deleteDocument, saving, portalMode = false, readOnly = false }) {
+function CommercialDocumentRegister({ client, saveDocument, uploadDocument, downloadDocument, deleteDocument, saving, portalMode = false, readOnly = false }) {
   const [editing, setEditing] = useState(null);
   const documents = client.documents || [];
   return <section className="panel commercial-register-panel">
-    <div className="commercial-panel-head"><div><span>Document register</span><h3>Compliance references</h3><p>Record SharePoint or secure document links and important expiry dates.</p></div>{!readOnly && <button className="btn dark" disabled={String(client.id).startsWith('temp-')} onClick={() => setEditing(normaliseCommercialDocument({ visibleToEmployer: true }))}><Plus size={16} />Add document</button>}</div>
+    <div className="commercial-panel-head"><div><span>Document register</span><h3>Secure compliance documents</h3><p>Upload files directly to secure storage or retain an approved SharePoint link. Direct uploads are limited to 4 MB.</p></div>{!readOnly && <button className="btn dark" disabled={String(client.id).startsWith('temp-')} onClick={() => setEditing(normaliseCommercialDocument({ visibleToEmployer: true }))}><Plus size={16} />Add document</button>}</div>
     <div className="commercial-record-list">
       {documents.map((doc) => { const worker = (client.workers || []).find((entry) => entry.id === doc.workerId); return <article className="commercial-record-row document" key={doc.id}>
-        <div className="commercial-record-primary"><strong>{doc.title}</strong><span>{doc.category}{worker ? ` · ${worker.fullName}` : ''}</span></div>
-        <div><small>Expiry</small><strong>{doc.expiryDate ? formatShortDate(doc.expiryDate) : 'No expiry'}</strong><span>{doc.notes || 'No notes'}</span></div>
-        <div>{doc.documentUrl ? <a className="btn mini ghost" href={doc.documentUrl} target="_blank" rel="noreferrer"><ExternalLink size={14} />Open</a> : <span className="muted">No link</span>}</div>
+        <div className="commercial-record-primary"><strong>{doc.title}</strong><span>{doc.category}{worker ? ` · ${worker.fullName}` : ''}</span>{doc.fileName && <small>{doc.fileName}{doc.sizeBytes ? ` · ${formatFileSize(doc.sizeBytes)}` : ''}</small>}</div>
+        <div><small>Expiry</small><strong>{doc.expiryDate ? formatCommercialDate(doc.expiryDate) : 'No expiry'}</strong><span>{doc.notes || (doc.blobKey ? 'Secure uploaded document' : 'No notes')}</span></div>
+        <div>{doc.blobKey ? <button className="btn mini ghost" type="button" onClick={() => downloadDocument(doc)}><Download size={14} />Download</button> : doc.documentUrl ? <a className="btn mini ghost" href={doc.documentUrl} target="_blank" rel="noreferrer"><ExternalLink size={14} />Open link</a> : <span className="muted">No file</span>}</div>
         {!readOnly && <div className="commercial-row-actions"><button className="btn mini ghost" onClick={() => setEditing({ ...doc })}>Edit</button><button className="icon-button danger" onClick={() => deleteDocument(client.id, doc.id)}><Trash2 size={15} /></button></div>}
       </article>; })}
-      {!documents.length && <div className="commercial-empty-mini">No document references have been recorded.</div>}
+      {!documents.length && <div className="commercial-empty-mini">No compliance documents have been recorded.</div>}
     </div>
-    {editing && <CommercialDocumentEditor document={editing} workers={client.workers || []} portalMode={portalMode} saving={saving} onClose={() => setEditing(null)} onSave={async (draft) => { await saveDocument(client.id, draft); setEditing(null); }} />}
+    {editing && <CommercialDocumentEditor document={editing} workers={client.workers || []} portalMode={portalMode} saving={saving} onClose={() => setEditing(null)} onSave={async (draft, file) => { if (file) await uploadDocument(client.id, draft, file); else await saveDocument(client.id, draft); setEditing(null); }} />}
   </section>;
 }
 
 function CommercialDocumentEditor({ document, workers, portalMode, saving, onSave, onClose }) {
   const [draft, setDraft] = useState({ ...document });
+  const [file, setFile] = useState(null);
+  const [fileError, setFileError] = useState('');
   const update = (field, value) => setDraft((current) => ({ ...current, [field]: value }));
-  return <CommercialEditorModal title={document.id ? 'Edit document' : 'Add document reference'} eyebrow="Document register" onClose={onClose}>
+  function chooseFile(event) {
+    const nextFile = event.target.files?.[0] || null;
+    if (nextFile && nextFile.size > 4 * 1024 * 1024) { setFile(null); setFileError('The maximum direct upload size is 4 MB.'); return; }
+    setFile(nextFile); setFileError('');
+    if (nextFile && !draft.title) update('title', nextFile.name.replace(/\.[^.]+$/, ''));
+  }
+  return <CommercialEditorModal title={document.id ? 'Edit document' : 'Add compliance document'} eyebrow="Document register" onClose={onClose}>
     <div className="commercial-form-grid">
       <label className="span-2"><span>Document title *</span><input value={draft.title} onChange={(e) => update('title', e.target.value)} /></label>
       <label><span>Category</span><select value={draft.category} onChange={(e) => update('category', e.target.value)}>{['Compliance','Accreditation','Visa','Passport','Employment agreement','Job Check','Training','Other'].map((v) => <option key={v}>{v}</option>)}</select></label>
       <label><span>Linked worker</span><select value={draft.workerId} onChange={(e) => update('workerId', e.target.value)}><option value="">Company-wide</option>{workers.filter((w) => w.status !== 'Archived').map((w) => <option key={w.id} value={w.id}>{w.fullName}</option>)}</select></label>
-      <label className="span-2"><span>Secure document URL</span><input value={draft.documentUrl} onChange={(e) => update('documentUrl', e.target.value)} placeholder="https://..." /></label>
+      {!document.blobKey && <label className="span-2 commercial-file-upload"><span>Secure file upload</span><input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={chooseFile} /><small>PDF, Word, Excel, CSV, JPG or PNG. Maximum 4 MB.</small></label>}
+      {document.blobKey && <div className="span-2 commercial-existing-file"><FileText size={18} /><div><strong>{document.fileName || 'Uploaded document'}</strong><small>{formatFileSize(document.sizeBytes)} · replace by deleting this entry and uploading a new version</small></div></div>}
+      <label className="span-2"><span>Approved external document URL (optional)</span><input value={draft.documentUrl} onChange={(e) => update('documentUrl', e.target.value)} placeholder="https://..." /></label>
       <label><span>Expiry date</span><input type="date" value={draft.expiryDate} onChange={(e) => update('expiryDate', e.target.value)} /></label>
       {!portalMode && <label className="checkbox-label"><input type="checkbox" checked={draft.visibleToEmployer !== false} onChange={(e) => update('visibleToEmployer', e.target.checked)} /><span>Visible in employer portal</span></label>}
       <label className="span-2"><span>Notes</span><textarea rows="3" value={draft.notes} onChange={(e) => update('notes', e.target.value)} /></label>
     </div>
-    <div className="modal-actions"><button className="btn dark" disabled={saving || !draft.title.trim()} onClick={() => onSave(draft)}><Save size={16} />Save document</button><button className="btn ghost" onClick={onClose}>Cancel</button></div>
+    {fileError && <div className="error-banner"><AlertTriangle size={17} />{fileError}</div>}
+    <div className="modal-actions"><button className="btn dark" disabled={saving || !draft.title.trim() || Boolean(fileError)} onClick={() => onSave(draft, file)}>{file ? <Upload size={16} /> : <Save size={16} />}{file ? 'Upload document' : 'Save document'}</button><button className="btn ghost" onClick={onClose}>Cancel</button></div>
   </CommercialEditorModal>;
 }
 
@@ -2040,22 +2320,75 @@ function CommercialPortalApp() {
 
   const company = snapshot.company || {};
   const readOnly = session?.role === 'Read Only';
-  const portalClient = { ...company, workers: snapshot.workers || [], complianceItems: snapshot.complianceItems || [], documents: snapshot.documents || [], auditLog: snapshot.auditLog || [] };
+  const portalClient = { ...company, workers: snapshot.workers || [], jobChecks: snapshot.jobChecks || [], complianceItems: snapshot.complianceItems || [], documents: snapshot.documents || [], auditLog: snapshot.auditLog || [] };
   const portalSaveWorker = async (_clientId, worker) => request('saveWorker', { worker });
+  const portalImportWorkers = async (_clientId, workers) => {
+    const body = await request('importWorkers', { workers });
+    const result = body.importResult || {};
+    if (result.errors?.length) setError(`Imported ${Number(result.imported || 0)} worker records; ${result.errors.length} row${result.errors.length === 1 ? '' : 's'} could not be imported. ${result.errors.slice(0, 3).join(' ')}`);
+    return body;
+  };
   const portalArchiveWorker = async (_clientId, workerId) => request('archiveWorker', { workerId });
+  const portalSaveJobCheck = async (_clientId, jobCheck) => request('saveJobCheck', { jobCheck });
+  const portalArchiveJobCheck = async (_clientId, jobCheckId) => request('archiveJobCheck', { jobCheckId });
   const portalSaveCompliance = async (_clientId, item) => request('saveComplianceItem', { item });
   const portalArchiveCompliance = async (_clientId, itemId) => request('archiveComplianceItem', { itemId });
   const portalSaveDocument = async (_clientId, document) => request('saveDocument', { document });
+  const portalUploadDocument = async (_clientId, document, file) => {
+    const form = new FormData();
+    form.append('commercialClientId', company.id);
+    form.append('email', auth.email); form.append('accessCode', auth.accessCode);
+    form.append('title', document.title || file?.name || 'Document'); form.append('category', document.category || 'Compliance');
+    form.append('workerId', document.workerId || ''); form.append('expiryDate', document.expiryDate || ''); form.append('notes', document.notes || ''); form.append('visibleToEmployer', 'true'); form.append('file', file);
+    setLoading(true); setError('');
+    try {
+      const response = await fetch('/.netlify/functions/commercial-file', { method: 'POST', body: form });
+      const body = await readJsonResponse(response); if (!response.ok) throw new Error(body.error || 'Document upload failed.');
+      await request('login'); return body;
+    } catch (err) { setError(err.message || String(err)); throw err; } finally { setLoading(false); }
+  };
+  const portalDownloadDocument = async (document) => {
+    setLoading(true); setError('');
+    try {
+      const response = await fetch('/.netlify/functions/commercial-file', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'download', documentId: document.id, email: auth.email, accessCode: auth.accessCode }) });
+      if (!response.ok) { const body = await readJsonResponse(response); throw new Error(body.error || 'Document download failed.'); }
+      downloadBrowserFile(document.fileName || document.title || 'commercial-document', await response.blob(), document.mimeType || 'application/octet-stream');
+    } catch (err) { setError(err.message || String(err)); throw err; } finally { setLoading(false); }
+  };
   const portalDeleteDocument = async (_clientId, documentId) => request('deleteDocument', { documentId });
 
-  return <div className="commercial-portal-shell"><header className="commercial-portal-header"><div><img src={LOGO_SRC} alt="Turner Hopkins" /><span>Employer Portal</span></div><div><strong>{session?.name || auth.email}</strong><span>{session?.role}</span><button className="btn mini ghost" onClick={signOut}>Sign out</button></div></header><main className="commercial-portal-main"><section className="commercial-portal-hero"><div><span>{company.industry || 'Commercial client'}</span><h1>{company.tradingName || company.legalName}</h1><p>Keep your migrant workforce and accreditation information current. Turner Hopkins can review employer-entered changes inside the CRM.</p></div><div className="commercial-portal-accreditation"><span>Accreditation</span><strong>{company.accreditationStatus || 'Not recorded'}</strong><small>{company.accreditationExpiryDate ? `Expires ${formatShortDate(company.accreditationExpiryDate)}` : 'No expiry recorded'}</small></div></section><CommercialSummaryCards client={portalClient} /><nav className="commercial-portal-tabs">{[['overview','Overview'],['workers','WV holders'],['compliance','Compliance'],['documents','Documents'],['activity','Activity']].map(([value,label]) => <button className={tab === value ? 'active' : ''} key={value} onClick={() => setTab(value)}>{label}</button>)}</nav>{error && <div className="error-banner"><AlertTriangle size={18} />{error}</div>}{tab === 'overview' && <CommercialPortalOverview company={company} session={session} loading={loading} saveAccreditation={async (accreditation) => request('saveAccreditation', { accreditation })} />}{tab === 'workers' && <CommercialWorkerRegister client={portalClient} saveWorker={portalSaveWorker} archiveWorker={portalArchiveWorker} saving={loading} portalMode readOnly={readOnly} />}{tab === 'compliance' && <CommercialComplianceRegister client={portalClient} saveItem={portalSaveCompliance} archiveItem={portalArchiveCompliance} saving={loading} portalMode readOnly={readOnly} />}{tab === 'documents' && <CommercialDocumentRegister client={portalClient} saveDocument={portalSaveDocument} deleteDocument={portalDeleteDocument} saving={loading} portalMode readOnly={readOnly} />}{tab === 'activity' && <CommercialAuditTrail client={portalClient} />}</main><footer className="commercial-portal-footer"><p>This register assists with compliance administration but does not replace the employer's legal obligations or specific immigration advice.</p></footer></div>;
+  return <div className="commercial-portal-shell">
+    <header className="commercial-portal-header"><div><img src={LOGO_SRC} alt="Turner Hopkins" /><span>Employer Portal</span></div><div><strong>{session?.name || auth.email}</strong><span>{session?.role}</span><button className="btn mini ghost" onClick={signOut}>Sign out</button></div></header>
+    <main className="commercial-portal-main">
+      <section className="commercial-portal-hero"><div><span>{company.industry || 'Commercial client'}</span><h1>{company.tradingName || company.legalName}</h1><p>Keep your migrant workforce, approved Job Checks and accreditation information current. Turner Hopkins can review employer-entered changes inside the CRM.</p><button className="btn mini ghost commercial-report-button" type="button" onClick={() => downloadCommercialComplianceReport(portalClient)}><Download size={14} />Download compliance report</button></div><div className="commercial-portal-accreditation"><span>Accreditation</span><strong>{company.accreditationType || 'Type not recorded'}</strong><b>{company.accreditationStatus || 'Not recorded'}</b><small>{company.accreditationExpiryDate ? `Expires ${formatCommercialDate(company.accreditationExpiryDate)}` : 'No expiry recorded'}</small></div></section>
+      <CommercialSummaryCards client={portalClient} />
+      <nav className="commercial-portal-tabs">{[['overview','Overview'],['workers','WV holders'],['job-checks','Job Checks'],['compliance','Compliance'],['documents','Documents'],['activity','Activity']].map(([value,label]) => <button className={tab === value ? 'active' : ''} key={value} onClick={() => setTab(value)}>{label}</button>)}</nav>
+      {error && <div className="error-banner"><AlertTriangle size={18} />{error}</div>}
+      {tab === 'overview' && <CommercialPortalOverview company={company} workers={portalClient.workers} jobChecks={portalClient.jobChecks} session={session} loading={loading} saveAccreditation={async (accreditation) => request('saveAccreditation', { accreditation })} setTab={setTab} />}
+      {tab === 'workers' && <CommercialWorkerRegister client={portalClient} saveWorker={portalSaveWorker} importWorkers={portalImportWorkers} archiveWorker={portalArchiveWorker} saving={loading} portalMode readOnly={readOnly} />}
+      {tab === 'job-checks' && <CommercialJobCheckRegister client={portalClient} saveJobCheck={portalSaveJobCheck} archiveJobCheck={portalArchiveJobCheck} saving={loading} portalMode readOnly={readOnly} />}
+      {tab === 'compliance' && <CommercialComplianceRegister client={portalClient} saveItem={portalSaveCompliance} archiveItem={portalArchiveCompliance} saving={loading} portalMode readOnly={readOnly} />}
+      {tab === 'documents' && <CommercialDocumentRegister client={portalClient} saveDocument={portalSaveDocument} uploadDocument={portalUploadDocument} downloadDocument={portalDownloadDocument} deleteDocument={portalDeleteDocument} saving={loading} portalMode readOnly={readOnly} />}
+      {tab === 'activity' && <CommercialAuditTrail client={portalClient} />}
+    </main>
+    <footer className="commercial-portal-footer"><p>This register assists with compliance administration but does not replace the employer's legal obligations or specific immigration advice.</p></footer>
+  </div>;
 }
 
-function CommercialPortalOverview({ company, session, loading, saveAccreditation }) {
+function CommercialPortalOverview({ company, workers = [], jobChecks = [], session, loading, saveAccreditation, setTab }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ ...company });
   useEffect(() => setDraft({ ...company }), [company]);
-  return <section className="commercial-portal-overview-grid"><article className="panel"><span>Company details</span><h3>{company.legalName}</h3><dl><div><dt>NZBN</dt><dd>{company.nzbn || 'Not recorded'}</dd></div><div><dt>Company number</dt><dd>{company.companyNumber || 'Not recorded'}</dd></div><div><dt>Primary contact</dt><dd>{company.primaryContactName || 'Not recorded'}</dd></div><div><dt>Contact email</dt><dd>{company.primaryContactEmail || 'Not recorded'}</dd></div><div><dt>Address</dt><dd>{company.address || 'Not recorded'}</dd></div></dl></article><article className="panel"><div className="commercial-panel-head"><div><span>Accreditation details</span><h3>{company.accreditationType || 'Type not recorded'}</h3></div>{session?.role === 'Company Admin' && <button className="btn mini ghost" onClick={() => setEditing(true)}>Update</button>}</div><dl><div><dt>Status</dt><dd>{company.accreditationStatus || 'Not recorded'}</dd></div><div><dt>Approval date</dt><dd>{company.accreditationApprovalDate ? formatShortDate(company.accreditationApprovalDate) : 'Not recorded'}</dd></div><div><dt>Expiry date</dt><dd>{company.accreditationExpiryDate ? formatShortDate(company.accreditationExpiryDate) : 'Not recorded'}</dd></div><div><dt>Renewal preparation</dt><dd>{company.accreditationRenewalDate ? formatShortDate(company.accreditationRenewalDate) : 'Not recorded'}</dd></div></dl><p>{company.accreditationNotes || 'No accreditation notes have been published.'}</p></article><article className="panel span-2"><span>Compliance summary</span><h3>Current employer position</h3><p>{company.complianceSummary || 'Turner Hopkins has not published a compliance summary yet.'}</p></article>{editing && <CommercialAccreditationEditor draft={draft} setDraft={setDraft} loading={loading} onClose={() => setEditing(false)} onSave={async () => { await saveAccreditation(draft); setEditing(false); }} />}</section>;
+  const visibleWorkers = workers.filter((worker) => worker.status !== 'Archived').sort((a, b) => String(a.visaExpiryDate || '9999').localeCompare(String(b.visaExpiryDate || '9999')));
+  const activeJobChecks = jobChecks.filter((item) => item.status !== 'Archived').sort((a, b) => String(a.expiryDate || '9999').localeCompare(String(b.expiryDate || '9999')));
+  return <section className="commercial-portal-overview-grid">
+    <article className="panel"><span>Company details</span><h3>{company.legalName}</h3><dl><div><dt>NZBN</dt><dd>{company.nzbn || 'Not recorded'}</dd></div><div><dt>Company number</dt><dd>{company.companyNumber || 'Not recorded'}</dd></div><div><dt>Primary contact</dt><dd>{company.primaryContactName || 'Not recorded'}</dd></div><div><dt>Contact email</dt><dd>{company.primaryContactEmail || 'Not recorded'}</dd></div><div><dt>Address</dt><dd>{company.address || 'Not recorded'}</dd></div></dl></article>
+    <article className="panel"><div className="commercial-panel-head"><div><span>Accreditation details</span><h3>{company.accreditationType || 'Type not recorded'}</h3></div>{session?.role === 'Company Admin' && <button className="btn mini ghost" onClick={() => setEditing(true)}>Update</button>}</div><dl><div><dt>Type</dt><dd>{company.accreditationType || 'Not recorded'}</dd></div><div><dt>Status</dt><dd>{company.accreditationStatus || 'Not recorded'}</dd></div><div><dt>Approval date</dt><dd>{company.accreditationApprovalDate ? formatCommercialDate(company.accreditationApprovalDate) : 'Not recorded'}</dd></div><div><dt>Expiry date</dt><dd>{company.accreditationExpiryDate ? formatCommercialDate(company.accreditationExpiryDate) : 'Not recorded'}</dd></div><div><dt>Renewal preparation</dt><dd>{company.accreditationRenewalDate ? formatCommercialDate(company.accreditationRenewalDate) : 'Not recorded'}</dd></div></dl><p>{company.accreditationNotes || 'No accreditation notes have been published.'}</p><div className={`commercial-reminder-status ${company.reminderNotificationsEnabled === false ? 'off' : ''}`}><Mail size={15} /><span>{company.reminderNotificationsEnabled === false ? 'Automated expiry reminders are currently off.' : 'Automated expiry reminders are scheduled at 90, 60 and 30 days.'}</span></div></article>
+    <article className="panel span-2"><span>Compliance summary</span><h3>Current employer position</h3><p>{company.complianceSummary || 'Turner Hopkins has not published a compliance summary yet.'}</p></article>
+    <article className="panel span-2 commercial-overview-register"><div className="commercial-panel-head"><div><span>Work visa holder summary</span><h3>{visibleWorkers.length} current worker record{visibleWorkers.length === 1 ? '' : 's'}</h3><p>Sorted by the next visa expiry date.</p></div><button className="btn mini ghost" onClick={() => setTab('workers')}>Open register</button></div><div className="commercial-overview-table"><div className="commercial-overview-table-head"><span>Worker and role</span><span>Visa</span><span>Visa dates</span><span>Job Check</span><span>Status</span></div>{visibleWorkers.slice(0, 12).map((worker) => { const alert = dateDiff(worker.visaExpiryDate) !== null && dateDiff(worker.visaExpiryDate) <= 90; const linkedJobCheck = activeJobChecks.find((item) => item.id === worker.jobCheckId) || activeJobChecks.find((item) => item.referenceNumber === worker.jobCheckReference); return <div className={`commercial-overview-table-row ${alert ? 'alert' : ''}`} key={worker.id}><div><strong>{worker.fullName}</strong><small>{worker.jobTitle || 'Role not recorded'}</small></div><div><strong>{worker.visaType || 'Not recorded'}</strong><small>{worker.workLocation || 'Location not recorded'}</small></div><div><strong>{worker.visaExpiryDate ? formatCommercialDate(worker.visaExpiryDate) : 'No expiry date'}</strong><small>{worker.visaStartDate ? `From ${formatCommercialDate(worker.visaStartDate)}` : 'Start date not recorded'}</small></div><div><strong>{linkedJobCheck?.referenceNumber || worker.jobCheckReference || 'Not linked'}</strong><small>{linkedJobCheck?.roleTitle || worker.responsibleManager || 'Approved position not linked'}</small></div><div><span className={`status-badge ${statusClass(worker.status)}`}>{worker.status}</span></div></div>; })}{!visibleWorkers.length && <div className="commercial-empty-mini">No work visa holders have been recorded.</div>}</div></article>
+    <article className="panel span-2 commercial-overview-register"><div className="commercial-panel-head"><div><span>Approved Job Checks</span><h3>{activeJobChecks.length} Job Check record{activeJobChecks.length === 1 ? '' : 's'}</h3><p>Current roles and six-month validity periods.</p></div><button className="btn mini ghost" onClick={() => setTab('job-checks')}>Open register</button></div><div className="commercial-overview-jobchecks">{activeJobChecks.slice(0, 6).map((item) => <div key={item.id}><strong>{item.roleTitle || 'Role not recorded'}</strong><span>{item.referenceNumber || 'Reference not recorded'} · {item.skillLevel ? `Skill level ${item.skillLevel}` : 'Skill level not recorded'}</span><small>{formatJobCheckPay(item)} · {Number(item.positionsUsed || 0)}/{Number(item.positionsApproved || 0)} positions linked · {item.expiryDate ? `expires ${formatCommercialDate(item.expiryDate)}` : 'expiry not recorded'}</small></div>)}{!activeJobChecks.length && <div className="commercial-empty-mini">No approved Job Checks have been recorded.</div>}</div></article>
+    {editing && <CommercialAccreditationEditor draft={draft} setDraft={setDraft} loading={loading} onClose={() => setEditing(false)} onSave={async () => { await saveAccreditation(draft); setEditing(false); }} />}
+  </section>;
 }
 
 function CommercialAccreditationEditor({ draft, setDraft, loading, onClose, onSave }) {
@@ -8217,6 +8550,34 @@ function weatherCodeLabel(code) {
     80: 'Rain showers', 81: 'Rain showers', 82: 'Heavy showers', 95: 'Thunderstorm', 96: 'Thunderstorm with hail', 99: 'Thunderstorm with hail',
   };
   return labels[code] || 'Weather update';
+}
+
+function formatCommercialDate(value) {
+  if (!value) return '';
+  return new Intl.DateTimeFormat('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${String(value).slice(0, 10)}T12:00:00`));
+}
+
+function addMonthsIso(value, months) {
+  const text = String(value || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return '';
+  const [year, month, day] = text.split('-').map(Number);
+  const targetMonthIndex = (month - 1) + Number(months || 0);
+  const targetYear = year + Math.floor(targetMonthIndex / 12);
+  const targetMonth = ((targetMonthIndex % 12) + 12) % 12;
+  const lastDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+  return `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}-${String(Math.min(day, lastDay)).padStart(2, '0')}`;
+}
+
+function formatJobCheckPay(item = {}) {
+  const min = Number(item.payRateMin);
+  const max = Number(item.payRateMax);
+  const hasMin = Number.isFinite(min) && min > 0;
+  const hasMax = Number.isFinite(max) && max > 0;
+  if (!hasMin && !hasMax) return 'Pay rate not recorded';
+  const formatter = new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD', maximumFractionDigits: 2 });
+  const basis = item.payFrequency === 'Annual salary' ? ' per year' : ' per hour';
+  if (hasMin && hasMax && max !== min) return `${formatter.format(min)}–${formatter.format(max)}${basis}`;
+  return `${formatter.format(hasMin ? min : max)}${basis}`;
 }
 
 function formatShortDate(value) {

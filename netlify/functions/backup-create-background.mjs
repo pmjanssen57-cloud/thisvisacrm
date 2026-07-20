@@ -19,7 +19,7 @@ import {
 import { deleteBackupArtifacts } from './_backup-cleanup.mjs';
 
 const scryptAsync = promisify(crypto.scrypt);
-const SOURCE_VERSION = '0.13.39';
+const SOURCE_VERSION = '0.13.43';
 const BACKUP_FORMAT_VERSION = 1;
 const MAGIC = Buffer.from('THISCRM1', 'ascii');
 const AUTH_TAG_BYTES = 16;
@@ -27,6 +27,7 @@ const BACKUP_PART_BYTES = 16 * 1024 * 1024;
 const BLOB_STORES = [
   { name: 'intake-uploads', archiveFolder: 'intake-uploads' },
   { name: 'client-portal-documents', archiveFolder: 'client-portal-documents' },
+  { name: 'commercial-documents', archiveFolder: 'commercial-documents' },
 ];
 
 export default async function createBackupHandler(request) {

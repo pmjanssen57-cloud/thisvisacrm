@@ -70,6 +70,7 @@ const SEMINAR_REGISTRATION_STATUSES = ['New', 'Approved', 'Declined', 'Spam / Du
 const PORTAL_RESOURCE_KEYS = ['jobSearchCv', 'lifeInNz', 'usefulLinks', 'relocationResources'];
 const PORTAL_DOCUMENT_STORE = 'client-portal-documents';
 const INTAKE_UPLOAD_STORE = 'intake-uploads';
+const COMMERCIAL_DOCUMENT_STORE = 'commercial-documents';
 const CONSULTATION_BOOKING_STATUSES = ['Reserved', 'Confirmed', 'Cancelled', 'Completed', 'No-show'];
 const CONSULTATION_LINK_STATUSES = ['Active', 'Used', 'Expired', 'Cancelled'];
 const DEFAULT_CONSULTATION_TYPES = [
@@ -621,8 +622,23 @@ async function handleCrmEvent(event) {
       return json({ commercialClient, ...(await readCrmData()) });
     }
 
+    if (action === 'importCommercialWorkers') {
+      const result = await importCommercialWorkers(body.commercialClientId, body.workers || [], auth.user, 'CRM adviser');
+      return json({ ...result, ...(await readCrmData()) });
+    }
+
     if (action === 'archiveCommercialWorker') {
       const commercialClient = await archiveCommercialWorker(body.commercialClientId, body.workerId, auth.user, 'CRM adviser');
+      return json({ commercialClient, ...(await readCrmData()) });
+    }
+
+    if (action === 'saveCommercialJobCheck') {
+      const commercialClient = await saveCommercialJobCheck(body.commercialClientId, body.jobCheck || {}, auth.user, 'CRM adviser');
+      return json({ commercialClient, ...(await readCrmData()) });
+    }
+
+    if (action === 'archiveCommercialJobCheck') {
+      const commercialClient = await archiveCommercialJobCheck(body.commercialClientId, body.jobCheckId, auth.user, 'CRM adviser');
       return json({ commercialClient, ...(await readCrmData()) });
     }
 
@@ -1170,6 +1186,7 @@ async function ensureCommercialSchema(database = db()) {
       compliance_summary TEXT,
       internal_notes TEXT,
       portal_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+      reminder_notifications_enabled BOOLEAN NOT NULL DEFAULT TRUE,
       portal_last_accessed_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -1206,12 +1223,37 @@ async function ensureCommercialSchema(database = db()) {
       hours_per_week NUMERIC(6,2),
       pay_rate NUMERIC(12,2),
       job_check_reference TEXT,
+      job_check_id UUID,
       visa_conditions TEXT,
       responsible_manager TEXT,
       status TEXT NOT NULL DEFAULT 'Active',
       adviser_review_status TEXT NOT NULL DEFAULT 'Needs review',
       employer_notes TEXT,
       internal_notes TEXT,
+      created_by TEXT,
+      updated_by TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`;
+  await database.sql`
+    CREATE TABLE IF NOT EXISTS commercial_job_checks (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      commercial_client_id UUID NOT NULL REFERENCES commercial_clients(id) ON DELETE CASCADE,
+      reference_number TEXT NOT NULL,
+      role_title TEXT NOT NULL,
+      skill_level TEXT,
+      work_location TEXT,
+      pay_rate_min NUMERIC(12,2),
+      pay_rate_max NUMERIC(12,2),
+      pay_frequency TEXT NOT NULL DEFAULT 'Hourly',
+      positions_approved INTEGER NOT NULL DEFAULT 1,
+      positions_used INTEGER NOT NULL DEFAULT 0,
+      issue_date DATE NOT NULL,
+      expiry_date DATE NOT NULL,
+      status TEXT NOT NULL DEFAULT 'Active',
+      employer_notes TEXT,
+      internal_notes TEXT,
+      adviser_review_status TEXT NOT NULL DEFAULT 'Needs review',
       created_by TEXT,
       updated_by TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -1243,6 +1285,11 @@ async function ensureCommercialSchema(database = db()) {
       title TEXT NOT NULL,
       category TEXT NOT NULL DEFAULT 'Compliance',
       document_url TEXT,
+      blob_key TEXT,
+      file_name TEXT,
+      mime_type TEXT,
+      size_bytes BIGINT,
+      uploaded_by_type TEXT,
       expiry_date DATE,
       notes TEXT,
       visible_to_employer BOOLEAN NOT NULL DEFAULT TRUE,
@@ -1263,13 +1310,37 @@ async function ensureCommercialSchema(database = db()) {
       changes JSONB NOT NULL DEFAULT '{}'::jsonb,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )`;
+  await database.sql`ALTER TABLE commercial_clients ADD COLUMN IF NOT EXISTS reminder_notifications_enabled BOOLEAN NOT NULL DEFAULT TRUE`;
+  await database.sql`ALTER TABLE commercial_workers ADD COLUMN IF NOT EXISTS job_check_id UUID`;
+  await database.sql`ALTER TABLE commercial_documents ADD COLUMN IF NOT EXISTS blob_key TEXT`;
+  await database.sql`ALTER TABLE commercial_documents ADD COLUMN IF NOT EXISTS file_name TEXT`;
+  await database.sql`ALTER TABLE commercial_documents ADD COLUMN IF NOT EXISTS mime_type TEXT`;
+  await database.sql`ALTER TABLE commercial_documents ADD COLUMN IF NOT EXISTS size_bytes BIGINT`;
+  await database.sql`ALTER TABLE commercial_documents ADD COLUMN IF NOT EXISTS uploaded_by_type TEXT`;
+  await database.sql`DO $$ BEGIN
+    ALTER TABLE commercial_workers ADD CONSTRAINT commercial_workers_job_check_id_fkey FOREIGN KEY (job_check_id) REFERENCES commercial_job_checks(id) ON DELETE SET NULL;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$`;
+  await database.sql`CREATE TABLE IF NOT EXISTS commercial_reminder_log (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(), commercial_client_id UUID NOT NULL REFERENCES commercial_clients(id) ON DELETE CASCADE,
+    record_type TEXT NOT NULL, record_id UUID, threshold_days INTEGER NOT NULL, expiry_date DATE NOT NULL, recipient_email TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'Pending', provider_request_id TEXT, error_message TEXT, sent_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (commercial_client_id, record_type, record_id, threshold_days, expiry_date, recipient_email))`;
+  await database.sql`UPDATE commercial_workers w SET job_check_id=j.id FROM commercial_job_checks j
+    WHERE w.job_check_id IS NULL AND w.commercial_client_id=j.commercial_client_id
+      AND LOWER(BTRIM(COALESCE(w.job_check_reference,'')))=LOWER(BTRIM(j.reference_number)) AND BTRIM(COALESCE(w.job_check_reference,''))<>''`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_commercial_clients_adviser ON commercial_clients(primary_adviser_id)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_commercial_clients_accreditation_expiry ON commercial_clients(accreditation_expiry_date)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_commercial_portal_users_email ON commercial_portal_users(LOWER(email))`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_commercial_workers_company ON commercial_workers(commercial_client_id, status)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_commercial_workers_visa_expiry ON commercial_workers(visa_expiry_date)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_commercial_workers_job_check ON commercial_workers(commercial_client_id, job_check_id, status)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_commercial_job_checks_company ON commercial_job_checks(commercial_client_id, status, expiry_date)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_commercial_job_checks_reference ON commercial_job_checks(commercial_client_id, reference_number)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_commercial_compliance_company ON commercial_compliance_items(commercial_client_id, status, due_date)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_commercial_documents_company ON commercial_documents(commercial_client_id, created_at DESC)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_commercial_documents_blob_key ON commercial_documents(blob_key) WHERE blob_key IS NOT NULL`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_commercial_reminder_due ON commercial_reminder_log(commercial_client_id, expiry_date, threshold_days, status)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_commercial_audit_company ON commercial_audit_log(commercial_client_id, created_at DESC)`;
 }
 
@@ -1293,6 +1364,7 @@ function normaliseCommercialUrl(value) {
 }
 
 function nullableCommercialNumber(value) {
+  if (value === '' || value === null || value === undefined) return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
 }
@@ -1343,12 +1415,39 @@ function mapCommercialWorker(row = {}) {
     hoursPerWeek: row.hours_per_week === null || row.hours_per_week === undefined ? '' : Number(row.hours_per_week),
     payRate: row.pay_rate === null || row.pay_rate === undefined ? '' : Number(row.pay_rate),
     jobCheckReference: row.job_check_reference || '',
+    jobCheckId: row.job_check_id || '',
     visaConditions: row.visa_conditions || '',
     responsibleManager: row.responsible_manager || '',
     status: row.status || 'Active',
     adviserReviewStatus: row.adviser_review_status || 'Needs review',
     employerNotes: row.employer_notes || '',
     internalNotes: row.internal_notes || '',
+    createdBy: row.created_by || '',
+    updatedBy: row.updated_by || '',
+    createdAt: row.created_at || '',
+    updatedAt: row.updated_at || '',
+  };
+}
+
+function mapCommercialJobCheck(row = {}) {
+  return {
+    id: row.id || '',
+    commercialClientId: row.commercial_client_id || '',
+    referenceNumber: row.reference_number || '',
+    roleTitle: row.role_title || '',
+    skillLevel: row.skill_level || '',
+    workLocation: row.work_location || '',
+    payRateMin: row.pay_rate_min === null || row.pay_rate_min === undefined ? '' : Number(row.pay_rate_min),
+    payRateMax: row.pay_rate_max === null || row.pay_rate_max === undefined ? '' : Number(row.pay_rate_max),
+    payFrequency: row.pay_frequency || 'Hourly',
+    positionsApproved: row.positions_approved === null || row.positions_approved === undefined ? 1 : Number(row.positions_approved),
+    positionsUsed: row.positions_used === null || row.positions_used === undefined ? 0 : Number(row.positions_used),
+    issueDate: toDateOnly(row.issue_date),
+    expiryDate: toDateOnly(row.expiry_date),
+    status: row.status || 'Active',
+    employerNotes: row.employer_notes || '',
+    internalNotes: row.internal_notes || '',
+    adviserReviewStatus: row.adviser_review_status || 'Needs review',
     createdBy: row.created_by || '',
     updatedBy: row.updated_by || '',
     createdAt: row.created_at || '',
@@ -1384,6 +1483,11 @@ function mapCommercialDocument(row = {}) {
     title: row.title || '',
     category: row.category || 'Compliance',
     documentUrl: row.document_url || '',
+    blobKey: row.blob_key || '',
+    fileName: row.file_name || '',
+    mimeType: row.mime_type || '',
+    sizeBytes: row.size_bytes === null || row.size_bytes === undefined ? 0 : Number(row.size_bytes),
+    uploadedByType: row.uploaded_by_type || '',
     expiryDate: toDateOnly(row.expiry_date),
     notes: row.notes || '',
     visibleToEmployer: row.visible_to_employer !== false,
@@ -1408,7 +1512,7 @@ function mapCommercialAudit(row = {}) {
   };
 }
 
-function mapCommercialClient(row = {}, portalUsers = [], workers = [], complianceItems = [], documents = [], auditLog = []) {
+function mapCommercialClient(row = {}, portalUsers = [], workers = [], jobChecks = [], complianceItems = [], documents = [], auditLog = []) {
   return {
     id: row.id || '',
     legalName: row.legal_name || '',
@@ -1435,9 +1539,11 @@ function mapCommercialClient(row = {}, portalUsers = [], workers = [], complianc
     complianceSummary: row.compliance_summary || '',
     internalNotes: row.internal_notes || '',
     portalEnabled: Boolean(row.portal_enabled),
+    reminderNotificationsEnabled: row.reminder_notifications_enabled !== false,
     portalLastAccessedAt: row.portal_last_accessed_at || '',
     portalUsers: portalUsers.filter((item) => item.commercial_client_id === row.id).map(mapCommercialPortalUser),
     workers: workers.filter((item) => item.commercial_client_id === row.id).map(mapCommercialWorker),
+    jobChecks: jobChecks.filter((item) => item.commercial_client_id === row.id).map(mapCommercialJobCheck),
     complianceItems: complianceItems.filter((item) => item.commercial_client_id === row.id).map(mapCommercialComplianceItem),
     documents: documents.filter((item) => item.commercial_client_id === row.id).map(mapCommercialDocument),
     auditLog: auditLog.filter((item) => item.commercial_client_id === row.id).map(mapCommercialAudit),
@@ -1447,15 +1553,16 @@ function mapCommercialClient(row = {}, portalUsers = [], workers = [], complianc
 }
 
 async function readCommercialClients(database = db()) {
-  const [clients, portalUsers, workers, complianceItems, documents, auditLog] = await Promise.all([
+  const [clients, portalUsers, workers, jobChecks, complianceItems, documents, auditLog] = await Promise.all([
     database.sql`SELECT * FROM commercial_clients ORDER BY updated_at DESC, legal_name ASC`,
     database.sql`SELECT * FROM commercial_portal_users ORDER BY active DESC, name ASC`,
     database.sql`SELECT * FROM commercial_workers ORDER BY status ASC, visa_expiry_date ASC NULLS LAST, full_name ASC`,
+    database.sql`SELECT * FROM commercial_job_checks ORDER BY status ASC, expiry_date ASC NULLS LAST, role_title ASC`,
     database.sql`SELECT * FROM commercial_compliance_items ORDER BY status ASC, due_date ASC NULLS LAST, created_at DESC`,
     database.sql`SELECT * FROM commercial_documents ORDER BY expiry_date ASC NULLS LAST, created_at DESC`,
     database.sql`SELECT * FROM commercial_audit_log ORDER BY created_at DESC LIMIT 1000`,
   ]);
-  return clients.map((row) => mapCommercialClient(row, portalUsers, workers, complianceItems, documents, auditLog));
+  return clients.map((row) => mapCommercialClient(row, portalUsers, workers, jobChecks, complianceItems, documents, auditLog));
 }
 
 async function readCommercialClientById(commercialClientId, database = db()) {
@@ -1496,6 +1603,7 @@ async function saveCommercialClient(input = {}, authUser = null) {
     complianceSummary: cleanCommercialText(input.complianceSummary || input.compliance_summary, 12000),
     internalNotes: cleanCommercialText(input.internalNotes || input.internal_notes, 12000),
     portalEnabled: Boolean(input.portalEnabled ?? input.portal_enabled),
+    reminderNotificationsEnabled: input.reminderNotificationsEnabled ?? input.reminder_notifications_enabled ?? true,
   };
   let savedId = id;
   if (id) {
@@ -1508,7 +1616,7 @@ async function saveCommercialClient(input = {}, authUser = null) {
         sharepoint_folder_url=${values.sharepointFolderUrl}, one_law_client_number=${values.oneLawClientNumber}, accreditation_type=${values.accreditationType},
         accreditation_status=${values.accreditationStatus}, accreditation_approval_date=${values.accreditationApprovalDate}, accreditation_expiry_date=${values.accreditationExpiryDate},
         accreditation_renewal_date=${values.accreditationRenewalDate}, accreditation_notes=${values.accreditationNotes}, compliance_summary=${values.complianceSummary},
-        internal_notes=${values.internalNotes}, portal_enabled=${values.portalEnabled}, updated_at=NOW()
+        internal_notes=${values.internalNotes}, portal_enabled=${values.portalEnabled}, reminder_notifications_enabled=${Boolean(values.reminderNotificationsEnabled)}, updated_at=NOW()
       WHERE id=${id}`;
     await recordCommercialAudit(id, 'commercial_client', id, 'updated', actor, 'CRM adviser', `Updated commercial client ${legalName}.`, {});
   } else {
@@ -1518,13 +1626,13 @@ async function saveCommercialClient(input = {}, authUser = null) {
         primary_contact_name, primary_contact_email, primary_contact_phone, primary_adviser_id, backup_adviser_id,
         client_status, sharepoint_folder_url, one_law_client_number, accreditation_type, accreditation_status,
         accreditation_approval_date, accreditation_expiry_date, accreditation_renewal_date, accreditation_notes,
-        compliance_summary, internal_notes, portal_enabled
+        compliance_summary, internal_notes, portal_enabled, reminder_notifications_enabled
       ) VALUES (
         ${values.legalName}, ${values.tradingName}, ${values.nzbn}, ${values.companyNumber}, ${values.industry}, ${values.businessDescription}, ${values.address},
         ${values.primaryContactName}, ${values.primaryContactEmail}, ${values.primaryContactPhone}, ${values.primaryAdviserId}, ${values.backupAdviserId},
         ${values.clientStatus}, ${values.sharepointFolderUrl}, ${values.oneLawClientNumber}, ${values.accreditationType}, ${values.accreditationStatus},
         ${values.accreditationApprovalDate}, ${values.accreditationExpiryDate}, ${values.accreditationRenewalDate}, ${values.accreditationNotes},
-        ${values.complianceSummary}, ${values.internalNotes}, ${values.portalEnabled}
+        ${values.complianceSummary}, ${values.internalNotes}, ${values.portalEnabled}, ${Boolean(values.reminderNotificationsEnabled)}
       ) RETURNING id`;
     savedId = rows[0]?.id;
     await recordCommercialAudit(savedId, 'commercial_client', savedId, 'created', actor, 'CRM adviser', `Created commercial client ${legalName}.`, {});
@@ -1534,7 +1642,13 @@ async function saveCommercialClient(input = {}, authUser = null) {
 
 async function deleteCommercialClient(commercialClientId) {
   if (!isUuid(commercialClientId)) return;
-  await db().sql`DELETE FROM commercial_clients WHERE id=${commercialClientId}`;
+  const database = db();
+  const documents = await database.sql`SELECT blob_key FROM commercial_documents WHERE commercial_client_id=${commercialClientId} AND blob_key IS NOT NULL`;
+  await database.sql`DELETE FROM commercial_clients WHERE id=${commercialClientId}`;
+  const store = getStore(COMMERCIAL_DOCUMENT_STORE);
+  for (const document of documents) {
+    try { await store.delete(document.blob_key); } catch (error) { console.warn('Commercial document blob cleanup failed', error?.message || error); }
+  }
 }
 
 async function saveCommercialPortalUser(commercialClientId, input = {}, authUser = null) {
@@ -1598,6 +1712,66 @@ async function deleteCommercialPortalUser(commercialClientId, portalUserId, auth
   return readCommercialClientById(commercialClientId, database);
 }
 
+async function resolveCommercialJobCheckLink(database, commercialClientId, input = {}) {
+  const requestedId = nullableUuid(input.jobCheckId || input.job_check_id);
+  const requestedReference = cleanCommercialText(input.jobCheckReference || input.job_check_reference, 300);
+  let rows = [];
+  if (requestedId) {
+    rows = await database.sql`SELECT id, reference_number FROM commercial_job_checks WHERE id=${requestedId} AND commercial_client_id=${commercialClientId} AND status <> 'Archived' LIMIT 1`;
+  } else if (requestedReference) {
+    rows = await database.sql`SELECT id, reference_number FROM commercial_job_checks WHERE commercial_client_id=${commercialClientId} AND LOWER(BTRIM(reference_number))=${requestedReference.toLowerCase()} AND status <> 'Archived' ORDER BY updated_at DESC LIMIT 1`;
+  }
+  return rows[0] ? { id: rows[0].id, reference: rows[0].reference_number || requestedReference } : { id: null, reference: requestedReference };
+}
+
+async function syncCommercialJobCheckUsage(commercialClientId, database = db()) {
+  await database.sql`UPDATE commercial_job_checks j SET positions_used=usage.used, updated_at=NOW()
+    FROM (SELECT j2.id, COUNT(w.id)::int AS used FROM commercial_job_checks j2
+      LEFT JOIN commercial_workers w ON w.job_check_id=j2.id AND w.status IN ('Active','Upcoming')
+      WHERE j2.commercial_client_id=${commercialClientId} GROUP BY j2.id) usage
+    WHERE j.id=usage.id AND j.commercial_client_id=${commercialClientId}`;
+  await database.sql`UPDATE commercial_job_checks SET status='Fully used', updated_at=NOW()
+    WHERE commercial_client_id=${commercialClientId} AND status='Active' AND positions_used >= positions_approved`;
+  await database.sql`UPDATE commercial_job_checks SET status='Active', updated_at=NOW()
+    WHERE commercial_client_id=${commercialClientId} AND status='Fully used' AND positions_used < positions_approved`;
+}
+
+async function ensureCommercialJobCheckCapacity(database, commercialClientId, jobCheckId, workerId, workerStatus) {
+  if (!jobCheckId || !['Active', 'Upcoming'].includes(workerStatus)) return;
+  if (workerId) {
+    const currentRows = await database.sql`SELECT job_check_id, status FROM commercial_workers WHERE id=${workerId} AND commercial_client_id=${commercialClientId} LIMIT 1`;
+    const current = currentRows[0];
+    if (String(current?.job_check_id || '') === String(jobCheckId) && ['Active', 'Upcoming'].includes(current?.status)) return;
+  }
+  const rows = await database.sql`SELECT j.positions_approved, COUNT(w.id)::int AS positions_used
+    FROM commercial_job_checks j
+    LEFT JOIN commercial_workers w ON w.job_check_id=j.id AND w.status IN ('Active','Upcoming') AND (${workerId}::uuid IS NULL OR w.id<>${workerId}::uuid)
+    WHERE j.id=${jobCheckId} AND j.commercial_client_id=${commercialClientId} AND j.status NOT IN ('Archived','Withdrawn')
+    GROUP BY j.id, j.positions_approved LIMIT 1`;
+  const row = rows[0];
+  if (!row) throw new Error('The selected Job Check is no longer available.');
+  if (Number(row.positions_used || 0) >= Number(row.positions_approved || 0)) {
+    throw new Error('All approved positions under the selected Job Check are already linked to active or upcoming workers.');
+  }
+}
+
+function commercialWorkerValues(input = {}, actorType = 'CRM adviser') {
+  return {
+    email: cleanCommercialText(input.email, 500).toLowerCase(), phone: cleanCommercialText(input.phone, 200),
+    jobTitle: cleanCommercialText(input.jobTitle || input.job_title, 500), workLocation: cleanCommercialText(input.workLocation || input.work_location, 500),
+    visaType: cleanCommercialText(input.visaType || input.visa_type, 300), visaStartDate: nullableDate(input.visaStartDate || input.visa_start_date),
+    visaExpiryDate: nullableDate(input.visaExpiryDate || input.visa_expiry_date), passportExpiryDate: nullableDate(input.passportExpiryDate || input.passport_expiry_date),
+    employmentStartDate: nullableDate(input.employmentStartDate || input.employment_start_date), employmentEndDate: nullableDate(input.employmentEndDate || input.employment_end_date),
+    hoursPerWeek: nullableCommercialNumber(input.hoursPerWeek ?? input.hours_per_week), payRate: nullableCommercialNumber(input.payRate ?? input.pay_rate),
+    visaConditions: cleanCommercialText(input.visaConditions || input.visa_conditions, 6000),
+    responsibleManager: cleanCommercialText(input.responsibleManager || input.responsible_manager, 500),
+    status: normaliseCommercialStatus(input.status, ['Active', 'Upcoming', 'Former', 'Archived'], 'Active'),
+    adviserReviewStatus: actorType === 'Employer portal' ? 'Needs review' : normaliseCommercialStatus(input.adviserReviewStatus || input.adviser_review_status, ['Needs review', 'Reviewed', 'Issue identified'], 'Reviewed'),
+    employerNotes: cleanCommercialText(input.employerNotes || input.employer_notes, 12000),
+    internalNotes: actorType === 'Employer portal' ? '' : cleanCommercialText(input.internalNotes || input.internal_notes, 12000),
+  };
+}
+
 async function saveCommercialWorker(commercialClientId, input = {}, authUser = null, actorType = 'CRM adviser') {
   if (!isUuid(commercialClientId)) throw new Error('Save the commercial client before adding workers.');
   const database = db();
@@ -1605,43 +1779,66 @@ async function saveCommercialWorker(commercialClientId, input = {}, authUser = n
   const fullName = cleanCommercialText(input.fullName || input.full_name, 500);
   if (!fullName) throw new Error('Enter the worker name.');
   const actor = actorType === 'Employer portal' ? cleanCommercialText(authUser?.email || authUser?.name || 'Employer portal user', 300) : commercialActor(authUser);
-  const values = {
-    email: cleanCommercialText(input.email, 500).toLowerCase(), phone: cleanCommercialText(input.phone, 200),
-    jobTitle: cleanCommercialText(input.jobTitle || input.job_title, 500), workLocation: cleanCommercialText(input.workLocation || input.work_location, 500),
-    visaType: cleanCommercialText(input.visaType || input.visa_type, 300), visaStartDate: nullableDate(input.visaStartDate || input.visa_start_date),
-    visaExpiryDate: nullableDate(input.visaExpiryDate || input.visa_expiry_date), passportExpiryDate: nullableDate(input.passportExpiryDate || input.passport_expiry_date),
-    employmentStartDate: nullableDate(input.employmentStartDate || input.employment_start_date), employmentEndDate: nullableDate(input.employmentEndDate || input.employment_end_date),
-    hoursPerWeek: nullableCommercialNumber(input.hoursPerWeek ?? input.hours_per_week), payRate: nullableCommercialNumber(input.payRate ?? input.pay_rate),
-    jobCheckReference: cleanCommercialText(input.jobCheckReference || input.job_check_reference, 300), visaConditions: cleanCommercialText(input.visaConditions || input.visa_conditions, 6000),
-    responsibleManager: cleanCommercialText(input.responsibleManager || input.responsible_manager, 500),
-    status: normaliseCommercialStatus(input.status, ['Active', 'Upcoming', 'Former', 'Archived'], 'Active'),
-    adviserReviewStatus: actorType === 'Employer portal' ? 'Needs review' : normaliseCommercialStatus(input.adviserReviewStatus || input.adviser_review_status, ['Needs review', 'Reviewed', 'Issue identified'], 'Reviewed'),
-    employerNotes: cleanCommercialText(input.employerNotes || input.employer_notes, 12000),
-    internalNotes: actorType === 'Employer portal' ? '' : cleanCommercialText(input.internalNotes || input.internal_notes, 12000),
-  };
+  const values = commercialWorkerValues(input, actorType);
+  const jobCheck = await resolveCommercialJobCheckLink(database, commercialClientId, input);
+  await ensureCommercialJobCheckCapacity(database, commercialClientId, jobCheck.id, id, values.status);
   let savedId = id;
   if (id) {
-    await database.sql`
-      UPDATE commercial_workers SET full_name=${fullName}, email=${values.email}, phone=${values.phone}, job_title=${values.jobTitle}, work_location=${values.workLocation},
-        visa_type=${values.visaType}, visa_start_date=${values.visaStartDate}, visa_expiry_date=${values.visaExpiryDate}, passport_expiry_date=${values.passportExpiryDate},
-        employment_start_date=${values.employmentStartDate}, employment_end_date=${values.employmentEndDate}, hours_per_week=${values.hoursPerWeek}, pay_rate=${values.payRate},
-        job_check_reference=${values.jobCheckReference}, visa_conditions=${values.visaConditions}, responsible_manager=${values.responsibleManager}, status=${values.status},
-        adviser_review_status=${values.adviserReviewStatus}, employer_notes=${values.employerNotes},
-        internal_notes=CASE WHEN ${actorType}='Employer portal' THEN internal_notes ELSE ${values.internalNotes} END,
-        updated_by=${actor}, updated_at=NOW()
-      WHERE id=${id} AND commercial_client_id=${commercialClientId}`;
+    await database.sql`UPDATE commercial_workers SET full_name=${fullName}, email=${values.email}, phone=${values.phone}, job_title=${values.jobTitle}, work_location=${values.workLocation},
+      visa_type=${values.visaType}, visa_start_date=${values.visaStartDate}, visa_expiry_date=${values.visaExpiryDate}, passport_expiry_date=${values.passportExpiryDate},
+      employment_start_date=${values.employmentStartDate}, employment_end_date=${values.employmentEndDate}, hours_per_week=${values.hoursPerWeek}, pay_rate=${values.payRate},
+      job_check_reference=${jobCheck.reference}, job_check_id=${jobCheck.id}, visa_conditions=${values.visaConditions}, responsible_manager=${values.responsibleManager}, status=${values.status},
+      adviser_review_status=${values.adviserReviewStatus}, employer_notes=${values.employerNotes},
+      internal_notes=CASE WHEN ${actorType}='Employer portal' THEN internal_notes ELSE ${values.internalNotes} END,
+      updated_by=${actor}, updated_at=NOW() WHERE id=${id} AND commercial_client_id=${commercialClientId}`;
   } else {
-    const rows = await database.sql`
-      INSERT INTO commercial_workers (commercial_client_id, full_name, email, phone, job_title, work_location, visa_type, visa_start_date, visa_expiry_date,
-        passport_expiry_date, employment_start_date, employment_end_date, hours_per_week, pay_rate, job_check_reference, visa_conditions, responsible_manager,
-        status, adviser_review_status, employer_notes, internal_notes, created_by, updated_by)
+    const rows = await database.sql`INSERT INTO commercial_workers (commercial_client_id, full_name, email, phone, job_title, work_location, visa_type, visa_start_date, visa_expiry_date,
+      passport_expiry_date, employment_start_date, employment_end_date, hours_per_week, pay_rate, job_check_reference, job_check_id, visa_conditions, responsible_manager,
+      status, adviser_review_status, employer_notes, internal_notes, created_by, updated_by)
       VALUES (${commercialClientId}, ${fullName}, ${values.email}, ${values.phone}, ${values.jobTitle}, ${values.workLocation}, ${values.visaType}, ${values.visaStartDate}, ${values.visaExpiryDate},
-        ${values.passportExpiryDate}, ${values.employmentStartDate}, ${values.employmentEndDate}, ${values.hoursPerWeek}, ${values.payRate}, ${values.jobCheckReference}, ${values.visaConditions}, ${values.responsibleManager},
-        ${values.status}, ${values.adviserReviewStatus}, ${values.employerNotes}, ${values.internalNotes}, ${actor}, ${actor}) RETURNING id`;
+      ${values.passportExpiryDate}, ${values.employmentStartDate}, ${values.employmentEndDate}, ${values.hoursPerWeek}, ${values.payRate}, ${jobCheck.reference}, ${jobCheck.id}, ${values.visaConditions}, ${values.responsibleManager},
+      ${values.status}, ${values.adviserReviewStatus}, ${values.employerNotes}, ${values.internalNotes}, ${actor}, ${actor}) RETURNING id`;
     savedId = rows[0]?.id;
   }
-  await recordCommercialAudit(commercialClientId, 'worker', savedId, id ? 'updated' : 'created', actor, actorType, `${id ? 'Updated' : 'Created'} worker ${fullName}.`, { visaExpiryDate: values.visaExpiryDate, status: values.status });
+  await syncCommercialJobCheckUsage(commercialClientId, database);
+  await recordCommercialAudit(commercialClientId, 'worker', savedId, id ? 'updated' : 'created', actor, actorType, `${id ? 'Updated' : 'Created'} worker ${fullName}.`, { visaExpiryDate: values.visaExpiryDate, status: values.status, jobCheckReference: jobCheck.reference });
   return readCommercialClientById(commercialClientId, database);
+}
+
+async function importCommercialWorkers(commercialClientId, workers = [], authUser = null, actorType = 'CRM adviser') {
+  if (!isUuid(commercialClientId)) throw new Error('Save the commercial client before importing workers.');
+  if (!Array.isArray(workers) || !workers.length) throw new Error('No worker rows were supplied.');
+  if (workers.length > 500) throw new Error('A maximum of 500 worker rows can be imported at once.');
+  const database = db();
+  const actor = actorType === 'Employer portal' ? cleanCommercialText(authUser?.email || authUser?.name || 'Employer portal user', 300) : commercialActor(authUser);
+  const existing = await database.sql`SELECT LOWER(COALESCE(email,'')) AS email_key, LOWER(BTRIM(full_name)) AS name_key, COALESCE(visa_expiry_date::text,'') AS expiry_key FROM commercial_workers WHERE commercial_client_id=${commercialClientId} AND status <> 'Archived'`;
+  const seen = new Set(existing.map((row) => `${row.email_key || ''}|${row.name_key || ''}|${row.expiry_key || ''}`));
+  let imported = 0; let skipped = 0; const errors = [];
+  for (let index = 0; index < workers.length; index += 1) {
+    const input = workers[index] || {};
+    const fullName = cleanCommercialText(input.fullName || input.full_name, 500);
+    if (!fullName) { errors.push(`Row ${index + 2}: Full Name is required.`); continue; }
+    const values = commercialWorkerValues(input, actorType);
+    const key = `${values.email}|${fullName.toLowerCase()}|${values.visaExpiryDate || ''}`;
+    if (seen.has(key)) { skipped += 1; continue; }
+    const jobCheck = await resolveCommercialJobCheckLink(database, commercialClientId, input);
+    try {
+      await ensureCommercialJobCheckCapacity(database, commercialClientId, jobCheck.id, null, values.status);
+    } catch (error) {
+      errors.push(`Row ${index + 2}: ${String(error?.message || error)}`);
+      continue;
+    }
+    await database.sql`INSERT INTO commercial_workers (commercial_client_id, full_name, email, phone, job_title, work_location, visa_type, visa_start_date, visa_expiry_date,
+      passport_expiry_date, employment_start_date, employment_end_date, hours_per_week, pay_rate, job_check_reference, job_check_id, visa_conditions, responsible_manager,
+      status, adviser_review_status, employer_notes, internal_notes, created_by, updated_by)
+      VALUES (${commercialClientId}, ${fullName}, ${values.email}, ${values.phone}, ${values.jobTitle}, ${values.workLocation}, ${values.visaType}, ${values.visaStartDate}, ${values.visaExpiryDate},
+      ${values.passportExpiryDate}, ${values.employmentStartDate}, ${values.employmentEndDate}, ${values.hoursPerWeek}, ${values.payRate}, ${jobCheck.reference}, ${jobCheck.id}, ${values.visaConditions}, ${values.responsibleManager},
+      ${values.status}, ${values.adviserReviewStatus}, ${values.employerNotes}, ${values.internalNotes}, ${actor}, ${actor})`;
+    seen.add(key); imported += 1;
+  }
+  await syncCommercialJobCheckUsage(commercialClientId, database);
+  await recordCommercialAudit(commercialClientId, 'worker_import', null, 'imported', actor, actorType, `Imported ${imported} worker record${imported === 1 ? '' : 's'}${skipped ? `; skipped ${skipped} duplicate${skipped === 1 ? '' : 's'}` : ''}.`, { imported, skipped, errors: errors.slice(0, 20) });
+  return { commercialClient: await readCommercialClientById(commercialClientId, database), importResult: { imported, skipped, errors } };
 }
 
 async function archiveCommercialWorker(commercialClientId, workerId, authUser = null, actorType = 'CRM adviser') {
@@ -1650,7 +1847,75 @@ async function archiveCommercialWorker(commercialClientId, workerId, authUser = 
   const actor = actorType === 'Employer portal' ? cleanCommercialText(authUser?.email || authUser?.name || 'Employer portal user', 300) : commercialActor(authUser);
   const rows = await database.sql`SELECT full_name FROM commercial_workers WHERE id=${workerId} AND commercial_client_id=${commercialClientId} LIMIT 1`;
   await database.sql`UPDATE commercial_workers SET status='Archived', updated_by=${actor}, updated_at=NOW() WHERE id=${workerId} AND commercial_client_id=${commercialClientId}`;
+  await syncCommercialJobCheckUsage(commercialClientId, database);
   await recordCommercialAudit(commercialClientId, 'worker', workerId, 'archived', actor, actorType, `Archived worker ${rows[0]?.full_name || ''}.`, {});
+  return readCommercialClientById(commercialClientId, database);
+}
+
+async function saveCommercialJobCheck(commercialClientId, input = {}, authUser = null, actorType = 'CRM adviser') {
+  if (!isUuid(commercialClientId)) throw new Error('Save the commercial client before adding Job Checks.');
+  const database = db();
+  const id = isUuid(input.id) ? input.id : null;
+  const referenceNumber = cleanCommercialText(input.referenceNumber || input.reference_number, 300);
+  const roleTitle = cleanCommercialText(input.roleTitle || input.role_title, 500);
+  const issueDate = nullableDate(input.issueDate || input.issue_date);
+  if (!referenceNumber || !roleTitle || !issueDate) throw new Error('Job Check reference, approved role and issue date are required.');
+  const expiryDate = addCalendarMonthsDate(issueDate, 6);
+  const actor = actorType === 'Employer portal' ? cleanCommercialText(authUser?.email || authUser?.name || 'Employer portal user', 300) : commercialActor(authUser);
+  const status = normaliseCommercialStatus(input.status, ['Active', 'Fully used', 'Withdrawn', 'Archived'], 'Active');
+  const review = actorType === 'Employer portal' ? 'Needs review' : normaliseCommercialStatus(input.adviserReviewStatus || input.adviser_review_status, ['Needs review', 'Reviewed', 'Issue identified'], 'Reviewed');
+  const positionsApproved = Math.max(1, Math.trunc(Number(input.positionsApproved ?? input.positions_approved ?? 1) || 1));
+  const positionsUsed = Math.max(0, Math.min(positionsApproved, Math.trunc(Number(input.positionsUsed ?? input.positions_used ?? 0) || 0)));
+  const values = {
+    referenceNumber,
+    roleTitle,
+    skillLevel: cleanCommercialText(input.skillLevel || input.skill_level, 50),
+    workLocation: cleanCommercialText(input.workLocation || input.work_location, 500),
+    payRateMin: nullableCommercialNumber(input.payRateMin ?? input.pay_rate_min),
+    payRateMax: nullableCommercialNumber(input.payRateMax ?? input.pay_rate_max),
+    payFrequency: normaliseCommercialStatus(input.payFrequency || input.pay_frequency, ['Hourly', 'Annual salary'], 'Hourly'),
+    positionsApproved,
+    positionsUsed,
+    issueDate,
+    expiryDate,
+    status,
+    employerNotes: cleanCommercialText(input.employerNotes || input.employer_notes, 12000),
+    internalNotes: actorType === 'Employer portal' ? '' : cleanCommercialText(input.internalNotes || input.internal_notes, 12000),
+    adviserReviewStatus: review,
+  };
+  let savedId = id;
+  if (id) {
+    await database.sql`
+      UPDATE commercial_job_checks SET reference_number=${values.referenceNumber}, role_title=${values.roleTitle}, skill_level=${values.skillLevel},
+        work_location=${values.workLocation}, pay_rate_min=${values.payRateMin}, pay_rate_max=${values.payRateMax}, pay_frequency=${values.payFrequency},
+        positions_approved=${values.positionsApproved}, positions_used=${values.positionsUsed}, issue_date=${values.issueDate}, expiry_date=${values.expiryDate},
+        status=${values.status}, employer_notes=${values.employerNotes},
+        internal_notes=CASE WHEN ${actorType}='Employer portal' THEN internal_notes ELSE ${values.internalNotes} END,
+        adviser_review_status=${values.adviserReviewStatus}, updated_by=${actor}, updated_at=NOW()
+      WHERE id=${id} AND commercial_client_id=${commercialClientId}`;
+  } else {
+    const rows = await database.sql`
+      INSERT INTO commercial_job_checks (commercial_client_id, reference_number, role_title, skill_level, work_location, pay_rate_min, pay_rate_max,
+        pay_frequency, positions_approved, positions_used, issue_date, expiry_date, status, employer_notes, internal_notes, adviser_review_status, created_by, updated_by)
+      VALUES (${commercialClientId}, ${values.referenceNumber}, ${values.roleTitle}, ${values.skillLevel}, ${values.workLocation}, ${values.payRateMin}, ${values.payRateMax},
+        ${values.payFrequency}, ${values.positionsApproved}, ${values.positionsUsed}, ${values.issueDate}, ${values.expiryDate}, ${values.status}, ${values.employerNotes},
+        ${values.internalNotes}, ${values.adviserReviewStatus}, ${actor}, ${actor}) RETURNING id`;
+    savedId = rows[0]?.id;
+  }
+  await syncCommercialJobCheckUsage(commercialClientId, database);
+  await recordCommercialAudit(commercialClientId, 'job_check', savedId, id ? 'updated' : 'created', actor, actorType, `${id ? 'Updated' : 'Created'} Job Check ${referenceNumber} for ${roleTitle}.`, { issueDate, expiryDate, status });
+  return readCommercialClientById(commercialClientId, database);
+}
+
+async function archiveCommercialJobCheck(commercialClientId, jobCheckId, authUser = null, actorType = 'CRM adviser') {
+  if (!isUuid(commercialClientId) || !isUuid(jobCheckId)) throw new Error('Job Check was not found.');
+  const database = db();
+  const actor = actorType === 'Employer portal' ? cleanCommercialText(authUser?.email || authUser?.name || 'Employer portal user', 300) : commercialActor(authUser);
+  const rows = await database.sql`SELECT reference_number, role_title FROM commercial_job_checks WHERE id=${jobCheckId} AND commercial_client_id=${commercialClientId} LIMIT 1`;
+  await database.sql`UPDATE commercial_job_checks SET status='Archived', adviser_review_status=${actorType === 'Employer portal' ? 'Needs review' : 'Reviewed'}, updated_by=${actor}, updated_at=NOW() WHERE id=${jobCheckId} AND commercial_client_id=${commercialClientId}`;
+  await database.sql`UPDATE commercial_workers SET job_check_id=NULL, updated_at=NOW() WHERE commercial_client_id=${commercialClientId} AND job_check_id=${jobCheckId}`;
+  await syncCommercialJobCheckUsage(commercialClientId, database);
+  await recordCommercialAudit(commercialClientId, 'job_check', jobCheckId, 'archived', actor, actorType, `Archived Job Check ${rows[0]?.reference_number || ''} ${rows[0]?.role_title ? `for ${rows[0].role_title}` : ''}.`, {});
   return readCommercialClientById(commercialClientId, database);
 }
 
@@ -1722,8 +1987,11 @@ async function saveCommercialDocument(commercialClientId, input = {}, authUser =
 async function deleteCommercialDocument(commercialClientId, documentId, authUser = null, actorType = 'CRM adviser') {
   if (!isUuid(commercialClientId) || !isUuid(documentId)) throw new Error('Document was not found.');
   const database = db();
-  const rows = await database.sql`SELECT title FROM commercial_documents WHERE id=${documentId} AND commercial_client_id=${commercialClientId} LIMIT 1`;
+  const rows = await database.sql`SELECT title, blob_key FROM commercial_documents WHERE id=${documentId} AND commercial_client_id=${commercialClientId} LIMIT 1`;
   await database.sql`DELETE FROM commercial_documents WHERE id=${documentId} AND commercial_client_id=${commercialClientId}`;
+  if (rows[0]?.blob_key) {
+    try { await getStore(COMMERCIAL_DOCUMENT_STORE).delete(rows[0].blob_key); } catch (error) { console.warn('Commercial document blob cleanup failed', error?.message || error); }
+  }
   const actor = actorType === 'Employer portal' ? cleanCommercialText(authUser?.email || authUser?.name || 'Employer portal user', 300) : commercialActor(authUser);
   await recordCommercialAudit(commercialClientId, 'document', documentId, 'deleted', actor, actorType, `Removed document ${rows[0]?.title || ''}.`, {});
   return readCommercialClientById(commercialClientId, database);
@@ -4979,6 +5247,17 @@ function isUuid(value) {
 
 function nullableUuid(value) {
   return isUuid(value) ? value : null;
+}
+
+function addCalendarMonthsDate(value, months) {
+  const text = String(value || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return null;
+  const [year, month, day] = text.split('-').map(Number);
+  const monthIndex = (month - 1) + Number(months || 0);
+  const targetYear = year + Math.floor(monthIndex / 12);
+  const targetMonth = ((monthIndex % 12) + 12) % 12;
+  const lastDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+  return `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}-${String(Math.min(day, lastDay)).padStart(2, '0')}`;
 }
 
 function nullableDate(value) {

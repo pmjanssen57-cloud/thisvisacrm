@@ -6,6 +6,7 @@ WHAT THE BACKUP CONTAINS
 - All public CRM database tables except backup_jobs data.
 - Applicant and partner CVs in the intake-uploads Netlify Blob store.
 - Client portal documents in the client-portal-documents Netlify Blob store.
+- Commercial employer documents in the commercial-documents Netlify Blob store.
 - A database schema snapshot.
 - The packaged database migration files.
 - A manifest, per-store file indexes and SHA-256 checksums.

@@ -1,61 +1,104 @@
-THiS CRM v0.13.38 - Commercial Clients and Employer Portal
+THiS CRM v0.13.43 - Commercial Clients and Employer Portal
 ============================================================
 
-WHAT THIS RELEASE ADDS
-----------------------
-1. A separate Commercial workspace in the CRM.
-2. Thinned-down organisation records rather than reusing individual-client records.
-3. Employer accreditation dates, status, notes and renewal preparation dates.
-4. A work visa holder register with visa, passport, Job Check and employment information.
-5. A compliance action register, including company-wide and worker-linked items.
-6. A document reference register for secure SharePoint or other approved links.
-7. Individual employer portal users with Company Admin, Company User or Read Only access.
-8. A separate employer portal at /commercial-portal.
-9. Audit history for changes made by CRM advisers and employer portal users.
-10. Adviser review flags on employer-entered worker and compliance records.
-
-FIRST SETUP
+CORE MODULE
 -----------
-1. Deploy the release. The included database migration creates the commercial tables.
-2. In the CRM, open Commercial and choose New commercial client.
-3. Save the company record before adding portal users or register entries.
-4. Enable Employer portal in the Portal access tab.
-5. Add an employer portal user and set an access code of at least 8 characters.
-6. Copy the portal URL and access details to the employer using an approved secure method.
+The Commercial workspace stores organisation records separately from individual clients. It includes accreditation, employer contacts, work visa holders, approved Job Checks, compliance actions, documents, portal users and audit history.
+
+The employer portal is available at:
+https://YOUR-SITE-DOMAIN/commercial-portal
 
 PORTAL ROLES
 ------------
 Company Admin:
-- View all employer portal data.
-- Add and update workers, compliance items and document references.
+- View all employer-visible company data.
+- Add and update workers, Job Checks, compliance items and documents.
 - Update accreditation details.
 
 Company User:
-- View all employer portal data.
-- Add and update workers, compliance items and document references.
+- View all employer-visible company data.
+- Add and update workers, Job Checks, compliance items and documents.
 - Cannot update accreditation details.
 
 Read Only:
 - View employer portal information.
-- Cannot create, update or archive records.
+- Cannot create, update, import, upload or archive records.
 
-IMPORTANT SECURITY AND COMPLIANCE NOTES
----------------------------------------
-- Portal access codes are stored as one-way PBKDF2 hashes and cannot be recovered later.
-- Employer users can only access their own commercial client record.
-- Internal adviser notes are never returned to the employer portal.
-- Employer-entered worker and compliance changes are marked Needs review in the CRM.
-- Document entries are references/links; this release does not add a new employer file-upload store.
-- The portal register assists administration. It does not replace an employer's legal obligations or specific immigration advice.
-- Existing encrypted backups automatically include the new commercial database tables.
+FIRST SETUP
+-----------
+1. Deploy the release and allow the included migration to run.
+2. Open Commercial in the CRM and create or select the company.
+3. Save the company before adding portal users or register entries.
+4. Enable Employer portal in Portal access.
+5. Add an individual portal user and set and confirm an access code of at least eight characters.
+6. Supply the portal URL, email and access code using an approved secure method.
 
-EMPLOYER PORTAL URL
+ACCESS CODE SECURITY
+--------------------
+Access codes are stored as one-way PBKDF2 hashes and cannot be recovered. The CRM verifies a new code before saving and verifies the stored hash again after saving. Reset the code if a user no longer knows it.
+
+WORK VISA HOLDER REGISTER
+-------------------------
+Worker records include identity/contact details, role, location, visa dates, passport expiry, employment dates, hours, pay, manager, conditions, notes and an approved Job Check link.
+
+The worker editor shows the Job Check reference, role and current position usage. A Job Check with all positions linked cannot be selected for another active or upcoming worker. Archiving or changing the status of a worker releases the position automatically.
+
+WORKER CSV IMPORT
+-----------------
+Use CSV template from the Work visa holders page. The file opens and can be completed in Excel.
+
+- Use the supplied column names.
+- Use YYYY-MM-DD for dates.
+- Up to 500 rows can be imported at once.
+- Duplicates with the same email, worker name and visa expiry are skipped.
+- Matching Job Check references are linked automatically.
+- Rows exceeding approved Job Check positions are reported rather than imported.
+- Employer imports are marked Needs review.
+
+APPROVED JOB CHECKS
 -------------------
-https://YOUR-SITE-DOMAIN/commercial-portal
+Each Job Check records reference, role, skill level, location, pay range, pay basis, positions approved, issue date, calculated expiry date, status and notes.
 
+The expiry date is always recalculated server-side as six calendar months after issue. Position usage is derived from active and upcoming linked workers; it is not manually entered.
 
-PORTAL ACCESS CODE VERIFICATION (v0.13.40)
-------------------------------------------
-When creating or resetting an employer portal access code, enter it twice. The CRM verifies the secured hash before and after it is stored. An active portal user also keeps the employer portal enabled.
+AUTOMATED EXPIRY REMINDERS
+--------------------------
+Enable or disable automated reminders in the commercial client company details.
 
-If a user created in v0.13.38 or v0.13.39 receives "Email or access code was not recognised", edit the portal user, set a fresh access code, confirm it, and select Save and verify access.
+A scheduled daily check sends 90, 60 and 30-day reminders for:
+- Accreditation expiry
+- Work visa expiry
+- Job Check expiry
+
+Recipients are the primary employer contact and active Company Admin portal users. The primary Turner Hopkins adviser is copied where their adviser record includes an email address. Reminder history is stored so a tier is not sent twice to the same recipient.
+
+The scheduled function uses the existing Microsoft Graph settings:
+- MICROSOFT_TENANT_ID
+- MICROSOFT_CLIENT_ID
+- MICROSOFT_CLIENT_SECRET
+- MICROSOFT_NOTIFICATION_FROM_EMAIL
+- MICROSOFT_NOTIFICATION_FROM_NAME (optional)
+
+SECURE DOCUMENTS
+----------------
+The document register accepts either an approved external URL or a direct secure upload.
+
+Direct upload limits:
+- Maximum 4 MB
+- PDF, Word, Excel, CSV, JPG or PNG
+
+Employer users can only access their own organisation and employer-visible documents. Internal-only document entries are not returned to the employer portal. Read Only users cannot upload or delete files.
+
+The encrypted CRM backup includes the commercial-documents Blob store. SharePoint or external files represented only by a URL remain outside the backup.
+
+COMPLIANCE REPORT
+-----------------
+Select Download compliance report from the commercial CRM record or employer portal. The report downloads as a print-ready HTML document containing accreditation, workers, Job Checks, compliance actions and document references. Open it in a browser and use Print / save PDF when a PDF copy is required.
+
+AUDIT AND REVIEW
+----------------
+Employer-created or employer-amended workers, Job Checks and compliance records are marked Needs review. Material changes are recorded with the actor, source, record, action and timestamp. Internal adviser notes are never returned to the employer portal.
+
+IMPORTANT LIMITS
+----------------
+The portal assists compliance administration. It does not replace the employer's legal obligations, independent record keeping, VisaView checks or specific immigration advice.
