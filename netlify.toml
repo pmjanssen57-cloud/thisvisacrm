@@ -5,6 +5,8 @@
 
 [build.environment]
   NODE_VERSION = "20.19.0"
+  NPM_VERSION = "10.8.2"
+  NPM_FLAGS = "--no-audit --no-fund --prefer-online --foreground-scripts --loglevel=verbose"
 
 [dev]
   command = "npm run dev:vite"

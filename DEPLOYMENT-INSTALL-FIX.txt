@@ -1,0 +1,11 @@
+THiS CRM v0.13.31 - Netlify dependency-install patch
+
+This package contains no CRM feature, database, function, migration or public-form changes.
+
+Deployment-only changes:
+- Pins npm 10.8.2 explicitly in netlify.toml.
+- Disables npm audit, funding and progress checks during Netlify dependency installation.
+- Replaces long silent registry retries with one short retry and a 30-second fetch timeout.
+- Enables verbose npm and foreground install-script output so any registry or package error appears in the Netlify deploy log.
+
+Deploy this package as the replacement for the previous v0.13.31 package, then use Netlify's Retry without cache option.
