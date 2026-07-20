@@ -52,3 +52,10 @@ IMPORTANT SECURITY AND COMPLIANCE NOTES
 EMPLOYER PORTAL URL
 -------------------
 https://YOUR-SITE-DOMAIN/commercial-portal
+
+
+PORTAL ACCESS CODE VERIFICATION (v0.13.40)
+------------------------------------------
+When creating or resetting an employer portal access code, enter it twice. The CRM verifies the secured hash before and after it is stored. An active portal user also keeps the employer portal enabled.
+
+If a user created in v0.13.38 or v0.13.39 receives "Email or access code was not recognised", edit the portal user, set a fresh access code, confirm it, and select Save and verify access.

@@ -974,7 +974,9 @@ export default function App() {
   }
 
   async function saveCommercialPortalUser(commercialClientId, portalUser) {
-    return callApi('saveCommercialPortalUser', { commercialClientId, portalUser });
+    const body = await callApi('saveCommercialPortalUser', { commercialClientId, portalUser });
+    showCrmToast(portalUser?.newAccessCode ? 'Employer portal user saved and access code verified.' : 'Employer portal user saved.');
+    return body;
   }
 
   async function deleteCommercialPortalUser(commercialClientId, portalUserId) {
@@ -1957,7 +1959,7 @@ function CommercialPortalAccess({ client, saveCommercialClient, savePortalUser, 
     <div className="commercial-panel-subhead"><div><h4>Portal users</h4><p>Company Admin can update accreditation; Company User can update registers; Read Only can only view.</p></div><button className="btn dark" disabled={!client.portalEnabled || String(client.id).startsWith('temp-')} onClick={() => setEditing({ id: '', name: '', email: '', role: 'Company User', active: true, newAccessCode: '' })}><Plus size={16} />Add portal user</button></div>
     <div className="commercial-record-list">
       {(client.portalUsers || []).map((user) => <article className="commercial-record-row portal-user" key={user.id}>
-        <div className="commercial-record-primary"><strong>{user.name}</strong><span>{user.email}</span></div><div><small>Role</small><strong>{user.role}</strong><span>{user.lastAccessedAt ? `Last access ${formatDateTime(user.lastAccessedAt)}` : 'Not accessed yet'}</span></div><div><span className={`status-badge ${user.active ? 'active' : 'closed'}`}>{user.active ? 'Active' : 'Inactive'}</span></div><div className="commercial-row-actions"><button className="btn mini ghost" onClick={() => setEditing({ ...user, newAccessCode: '' })}>Edit</button><button className="icon-button danger" onClick={() => deletePortalUser(client.id, user.id)}><Trash2 size={15} /></button></div>
+        <div className="commercial-record-primary"><strong>{user.name}</strong><span>{user.email}</span></div><div><small>Role</small><strong>{user.role}</strong><span>{user.lastAccessedAt ? `Last access ${formatDateTime(user.lastAccessedAt)}` : 'Not accessed yet'}</span></div><div><span className={`status-badge ${user.active ? 'active' : 'closed'}`}>{user.active ? 'Active' : 'Inactive'}</span><span className={`review-chip ${user.accessCodeSet ? 'reviewed' : 'issue-identified'}`}>{user.accessCodeSet ? 'Access code set' : 'Access code missing'}</span></div><div className="commercial-row-actions"><button className="btn mini ghost" onClick={() => setEditing({ ...user, newAccessCode: '', confirmAccessCode: '' })}>Edit / reset code</button><button className="icon-button danger" onClick={() => deletePortalUser(client.id, user.id)}><Trash2 size={15} /></button></div>
       </article>)}
       {!(client.portalUsers || []).length && <div className="commercial-empty-mini">No employer portal users have been created.</div>}
     </div>
@@ -1966,18 +1968,25 @@ function CommercialPortalAccess({ client, saveCommercialClient, savePortalUser, 
 }
 
 function CommercialPortalUserEditor({ user, saving, onClose, onSave }) {
-  const [draft, setDraft] = useState({ ...user });
+  const [draft, setDraft] = useState({ ...user, newAccessCode: user.newAccessCode || '', confirmAccessCode: user.confirmAccessCode || '' });
   const update = (field, value) => setDraft((current) => ({ ...current, [field]: value }));
+  const codeEntered = Boolean(draft.newAccessCode);
+  const codeLongEnough = !codeEntered || draft.newAccessCode.length >= 8;
+  const codesMatch = draft.newAccessCode === draft.confirmAccessCode;
+  const codeValid = user.id ? (!codeEntered || (codeLongEnough && codesMatch)) : (codeEntered && codeLongEnough && codesMatch);
   return <CommercialEditorModal title={user.id ? 'Edit portal user' : 'Add portal user'} eyebrow="Employer portal" onClose={onClose}>
     <div className="commercial-form-grid">
       <label><span>Name *</span><input value={draft.name} onChange={(e) => update('name', e.target.value)} /></label>
-      <label><span>Email *</span><input type="email" value={draft.email} onChange={(e) => update('email', e.target.value)} /></label>
+      <label><span>Email *</span><input type="email" autoComplete="email" value={draft.email} onChange={(e) => update('email', e.target.value)} /></label>
       <label><span>Portal role</span><select value={draft.role} onChange={(e) => update('role', e.target.value)}><option>Company Admin</option><option>Company User</option><option>Read Only</option></select></label>
-      <label><span>{user.id ? 'New access code (optional)' : 'Initial access code *'}</span><input value={draft.newAccessCode} onChange={(e) => update('newAccessCode', e.target.value)} placeholder="At least 8 characters" /></label>
+      <label><span>{user.id ? 'Reset access code (optional)' : 'Initial access code *'}</span><input type="password" autoComplete="new-password" value={draft.newAccessCode} onChange={(e) => update('newAccessCode', e.target.value)} placeholder="At least 8 characters" /></label>
+      <label><span>{user.id ? 'Confirm new access code' : 'Confirm access code *'}</span><input type="password" autoComplete="new-password" value={draft.confirmAccessCode} onChange={(e) => update('confirmAccessCode', e.target.value)} placeholder="Enter the same code again" disabled={user.id && !codeEntered} /></label>
       <label className="checkbox-label"><input type="checkbox" checked={draft.active !== false} onChange={(e) => update('active', e.target.checked)} /><span>Portal user active</span></label>
     </div>
-    <div className="commercial-code-notice"><LockKeyhole size={18} /><p>The access code is stored as a one-way hash. Copy it to the employer before saving; it cannot be viewed later.</p></div>
-    <div className="modal-actions"><button className="btn dark" disabled={saving || !draft.name.trim() || !draft.email.trim() || (!user.id && draft.newAccessCode.length < 8)} onClick={() => onSave(draft)}><Save size={16} />Save portal user</button><button className="btn ghost" onClick={onClose}>Cancel</button></div>
+    {codeEntered && !codeLongEnough && <div className="warning-banner"><AlertTriangle size={16} />Access codes must contain at least eight characters.</div>}
+    {codeEntered && codeLongEnough && !codesMatch && <div className="warning-banner"><AlertTriangle size={16} />The two access codes do not match.</div>}
+    <div className="commercial-code-notice"><LockKeyhole size={18} /><p>The code is verified immediately after it is stored. Saving an active portal user also ensures the company portal is enabled. Copy the code before saving because it cannot be viewed later.</p></div>
+    <div className="modal-actions"><button className="btn dark" disabled={saving || !draft.name.trim() || !draft.email.trim() || !codeValid} onClick={() => onSave({ ...draft, confirmAccessCode: undefined })}><Save size={16} />Save and verify access</button><button className="btn ghost" onClick={onClose}>Cancel</button></div>
   </CommercialEditorModal>;
 }
 
@@ -2027,7 +2036,7 @@ function CommercialPortalApp() {
 
   function signOut() { sessionStorage.removeItem('this_commercial_portal_auth'); sessionStorage.removeItem('this_commercial_portal_snapshot'); setAuth(null); setSnapshot(null); setSession(null); setAccessCode(''); }
 
-  if (!auth || !snapshot) return <div className="commercial-portal-shell login"><main className="commercial-portal-login-card"><img src={LOGO_SRC} alt="Turner Hopkins" /><span>Secure employer portal</span><h1>Employer compliance portal</h1><p>Maintain your work visa holder register, accreditation dates and compliance actions in one secure workspace.</p><form onSubmit={submit}><label><span>Email</span><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label><label><span>Access code</span><input type="password" value={accessCode} onChange={(e) => setAccessCode(e.target.value)} required /></label><button className="btn dark" disabled={loading}>{loading ? 'Checking...' : 'Open employer portal'}</button></form>{error && <p className="portal-error">{error}</p>}<small>Use the individual login details supplied by Turner Hopkins.</small></main></div>;
+  if (!auth || !snapshot) return <div className="commercial-portal-shell login"><main className="commercial-portal-login-card"><img src={LOGO_SRC} alt="Turner Hopkins" /><span>Secure employer portal</span><h1>Employer compliance portal</h1><p>Maintain your work visa holder register, accreditation dates and compliance actions in one secure workspace.</p><form onSubmit={submit}><label><span>Email</span><input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label><label><span>Access code</span><input type="password" autoComplete="current-password" value={accessCode} onChange={(e) => setAccessCode(e.target.value)} required /></label><button className="btn dark" disabled={loading}>{loading ? 'Checking...' : 'Open employer portal'}</button></form>{error && <p className="portal-error">{error}</p>}<small>Use the individual login details supplied by Turner Hopkins.</small></main></div>;
 
   const company = snapshot.company || {};
   const readOnly = session?.role === 'Read Only';

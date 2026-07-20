@@ -8,7 +8,7 @@ export default async function commercialPortalRequestHandler(request) {
   try {
     await ensureCommercialSchema();
     const body = await request.json();
-    const email = String(body.email || '').trim().toLowerCase();
+    const email = normalisePortalEmail(body.email);
     const accessCode = String(body.accessCode || '').trim();
     const session = await authenticatePortalUser(email, accessCode);
     if (!session) return json({ error: 'Email or access code was not recognised.' }, 401);
@@ -88,18 +88,19 @@ async function ensureCommercialSchema() {
 async function authenticatePortalUser(email, accessCode) {
   if (!email || !accessCode) return null;
   const rows = await db().sql`
-    SELECT u.id, u.commercial_client_id, u.name, u.email, u.role, u.access_code_hash, c.legal_name, c.trading_name
+    SELECT u.id, u.commercial_client_id, u.name, u.email, u.role, u.active, u.access_code_hash,
+      c.legal_name, c.trading_name, c.portal_enabled, c.client_status
     FROM commercial_portal_users u
     JOIN commercial_clients c ON c.id=u.commercial_client_id
-    WHERE LOWER(u.email)=${email} AND u.active=TRUE AND c.portal_enabled=TRUE AND c.client_status <> 'Closed'
+    WHERE LOWER(BTRIM(u.email))=${email}
     ORDER BY u.updated_at DESC`;
   const row = rows.find((item) => verifyAccessCode(accessCode, item.access_code_hash));
-  if (!row) return null;
+  if (!row || row.active !== true || row.portal_enabled !== true || row.client_status === 'Closed') return null;
   return {
     id: row.id,
     commercialClientId: row.commercial_client_id,
     name: row.name || '',
-    email: row.email || '',
+    email: normalisePortalEmail(row.email),
     role: ['Company Admin', 'Company User', 'Read Only'].includes(row.role) ? row.role : 'Company User',
     companyName: row.trading_name || row.legal_name || '',
   };
@@ -266,20 +267,39 @@ async function audit(session, recordType, recordId, action, summary, changes) {
 function verifyAccessCode(code, stored) {
   if (!code || !stored) return false;
   const parts = String(stored).split(':');
-  if (parts.length !== 3 || parts[0] !== 'pbkdf2') return false;
-  const [, salt, expected] = parts;
+  let iterations = 120000;
+  let salt = '';
+  let expected = '';
+  if (parts.length === 3 && parts[0] === 'pbkdf2') {
+    [, salt, expected] = parts;
+  } else if (parts.length === 4 && parts[0] === 'pbkdf2-sha256') {
+    iterations = Number(parts[1]) || 120000;
+    salt = parts[2];
+    expected = parts[3];
+  } else {
+    return false;
+  }
+  if (!/^[0-9a-f]+$/i.test(expected) || expected.length !== 64 || !salt) return false;
   const expectedBuffer = Buffer.from(expected, 'hex');
   for (const candidate of accessCodeVariants(code)) {
-    const actual = crypto.pbkdf2Sync(candidate, salt, 120000, 32, 'sha256').toString('hex');
-    try { if (crypto.timingSafeEqual(Buffer.from(actual, 'hex'), expectedBuffer)) return true; } catch { /* continue */ }
+    const actual = crypto.pbkdf2Sync(candidate, salt, iterations, 32, 'sha256');
+    try {
+      if (actual.length === expectedBuffer.length && crypto.timingSafeEqual(actual, expectedBuffer)) return true;
+    } catch {
+      // Try the next normalised variant.
+    }
   }
   return false;
 }
 
 function accessCodeVariants(code) {
-  const raw = String(code || '').trim();
+  const raw = String(code || '').normalize('NFKC').trim();
   const normalised = raw.replace(/[\u2010-\u2015]/g, '-').replace(/\s+/g, '').toUpperCase();
   return [...new Set([raw, normalised, normalised.replace(/-/g, '')].filter(Boolean))];
+}
+
+function normalisePortalEmail(value) {
+  return String(value || '').normalize('NFKC').trim().toLowerCase();
 }
 
 function clean(value, max = 12000) { return String(value ?? '').trim().slice(0, max); }

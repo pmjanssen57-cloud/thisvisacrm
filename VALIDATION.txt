@@ -17,3 +17,10 @@ Not completed in this isolated environment:
 - Full Vite production build. Corepack could not reach registry.yarnpkg.com (EAI_AGAIN), and dependencies were not present locally.
 
 The pinned dependency list and Yarn/Netlify configuration are unchanged from the working v0.13.38 baseline.
+
+v0.13.40 COMMERCIAL PORTAL LOGIN FIX
+- App.jsx parsed successfully using the TypeScript JSX parser.
+- All Netlify Function files passed node --check.
+- Commercial access-code PBKDF2 hash round-trip tests passed, including case, whitespace and Unicode dash normalisation.
+- Static assertions confirmed post-save access-code verification, automatic portal enabling, confirmation fields and robust email matching.
+- A dependency-backed Vite build was not rerun because the isolated environment could not reach the Yarn registry. No dependency or build-configuration change was made from v0.13.39.

@@ -1542,25 +1542,50 @@ async function saveCommercialPortalUser(commercialClientId, input = {}, authUser
   const database = db();
   const id = isUuid(input.id) ? input.id : null;
   const name = cleanCommercialText(input.name, 500);
-  const email = cleanCommercialText(input.email, 500).toLowerCase();
+  const email = normaliseCommercialPortalEmail(input.email);
   const role = normaliseCommercialStatus(input.role, ['Company Admin', 'Company User', 'Read Only'], 'Company User');
   const newAccessCode = cleanCommercialText(input.newAccessCode || input.accessCode, 200);
+  const active = input.active !== false;
   if (!name || !email) throw new Error('Portal user name and email are required.');
+  if (!isValidEmailAddress(email)) throw new Error('Enter a valid employer portal email address.');
   if (!id && newAccessCode.length < 8) throw new Error('Set an initial portal access code of at least 8 characters.');
   if (id && newAccessCode && newAccessCode.length < 8) throw new Error('New access codes must be at least 8 characters.');
+
+  const nextAccessHash = newAccessCode ? hashPortalAccessCode(newAccessCode) : null;
+  if (nextAccessHash && !verifyStoredPortalAccessCode(newAccessCode, nextAccessHash)) {
+    throw new Error('The portal access code could not be secured correctly. Please try a different code.');
+  }
+
   let savedId = id;
   if (id) {
     await database.sql`
-      UPDATE commercial_portal_users SET name=${name}, email=${email}, role=${role}, active=${input.active !== false},
-        access_code_hash=COALESCE(${newAccessCode ? hashPortalAccessCode(newAccessCode) : null}, access_code_hash), updated_at=NOW()
+      UPDATE commercial_portal_users SET name=${name}, email=${email}, role=${role}, active=${active},
+        access_code_hash=COALESCE(${nextAccessHash}, access_code_hash), updated_at=NOW()
       WHERE id=${id} AND commercial_client_id=${commercialClientId}`;
   } else {
     const rows = await database.sql`
       INSERT INTO commercial_portal_users (commercial_client_id, name, email, role, active, access_code_hash)
-      VALUES (${commercialClientId}, ${name}, ${email}, ${role}, ${input.active !== false}, ${hashPortalAccessCode(newAccessCode)}) RETURNING id`;
+      VALUES (${commercialClientId}, ${name}, ${email}, ${role}, ${active}, ${nextAccessHash}) RETURNING id`;
     savedId = rows[0]?.id;
   }
-  await recordCommercialAudit(commercialClientId, 'portal_user', savedId, id ? 'updated' : 'created', commercialActor(authUser), 'CRM adviser', `${id ? 'Updated' : 'Created'} portal user ${name}.`, { role, email });
+
+  if (!savedId) throw new Error('The employer portal user could not be saved.');
+
+  // An active portal user should never be left behind a disabled company portal.
+  if (active) {
+    await database.sql`UPDATE commercial_clients SET portal_enabled=TRUE, updated_at=NOW() WHERE id=${commercialClientId}`;
+  }
+
+  const savedRows = await database.sql`
+    SELECT access_code_hash, active FROM commercial_portal_users
+    WHERE id=${savedId} AND commercial_client_id=${commercialClientId} LIMIT 1`;
+  const savedUser = savedRows[0];
+  if (!savedUser) throw new Error('The employer portal user could not be reloaded after saving.');
+  if (newAccessCode && !verifyStoredPortalAccessCode(newAccessCode, savedUser.access_code_hash)) {
+    throw new Error('The employer portal access code did not pass the post-save verification check. Please reset it.');
+  }
+
+  await recordCommercialAudit(commercialClientId, 'portal_user', savedId, id ? 'updated' : 'created', commercialActor(authUser), 'CRM adviser', `${id ? 'Updated' : 'Created'} portal user ${name}.`, { role, email, active, accessCodeVerified: Boolean(newAccessCode) });
   return readCommercialClientById(commercialClientId, database);
 }
 
@@ -4622,8 +4647,47 @@ function hashPortalAccessCode(code) {
   return `pbkdf2:${salt}:${hash}`;
 }
 
+function verifyStoredPortalAccessCode(code, stored) {
+  if (!code || !stored) return false;
+  const parts = String(stored).split(':');
+  let iterations = 120000;
+  let salt = '';
+  let expected = '';
+  if (parts.length === 3 && parts[0] === 'pbkdf2') {
+    [, salt, expected] = parts;
+  } else if (parts.length === 4 && parts[0] === 'pbkdf2-sha256') {
+    iterations = Number(parts[1]) || 120000;
+    salt = parts[2];
+    expected = parts[3];
+  } else {
+    return false;
+  }
+  if (!/^[0-9a-f]+$/i.test(expected) || expected.length !== 64 || !salt) return false;
+  const expectedBuffer = Buffer.from(expected, 'hex');
+  for (const candidate of portalAccessCodeVariants(code)) {
+    const actual = crypto.pbkdf2Sync(candidate, salt, iterations, 32, 'sha256');
+    try {
+      if (actual.length === expectedBuffer.length && crypto.timingSafeEqual(actual, expectedBuffer)) return true;
+    } catch {
+      // Try the next normalised variant.
+    }
+  }
+  return false;
+}
+
+function portalAccessCodeVariants(code) {
+  const raw = String(code || '').normalize('NFKC').trim();
+  const normalised = normalisePortalAccessCodeForStorage(raw);
+  const compact = normalised.replace(/-/g, '');
+  return [...new Set([raw, normalised, compact].filter(Boolean))];
+}
+
 function normalisePortalAccessCodeForStorage(code) {
-  return String(code || '').trim().replace(/[\u2010-\u2015]/g, '-').replace(/\s+/g, '').toUpperCase();
+  return String(code || '').normalize('NFKC').trim().replace(/[\u2010-\u2015]/g, '-').replace(/\s+/g, '').toUpperCase();
+}
+
+function normaliseCommercialPortalEmail(value) {
+  return String(value || '').normalize('NFKC').trim().toLowerCase();
 }
 
 function toDateTimeLabel(value) {

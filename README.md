@@ -1,4 +1,4 @@
-# THiS CRM v0.13.39 — Streamlined Navigation and Tools Hub
+# THiS CRM v0.13.40 — Commercial Portal Login Verification Fix
 
 This release builds on v0.13.38 Commercial Clients and the Employer Portal.
 
@@ -45,3 +45,14 @@ The same low-frequency workspace links have also been removed from the mobile Mo
 - No new dependency.
 - No Netlify Function behaviour change apart from the backup source version label.
 - No public form or Squarespace embed change.
+
+## v0.13.40 commercial portal authentication fix
+
+- Employer portal access codes are now verified immediately after being hashed and again after being written to the database.
+- Saving an active employer portal user automatically ensures the company portal is enabled.
+- Access-code entry now requires confirmation and uses password fields.
+- Existing access-code hashes remain supported.
+- Email and access-code normalisation is more robust, including copied Unicode characters and dash variants.
+- The CRM now displays whether each employer portal user has an access code set.
+
+For an employer user created before this release who cannot sign in, edit that portal user and set a new access code once. The new save process will verify the stored credential before confirming success.
