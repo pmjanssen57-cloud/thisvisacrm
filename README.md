@@ -1,59 +1,47 @@
-# THiS CRM v0.13.38 — Commercial Clients and Employer Portal
+# THiS CRM v0.13.39 — Streamlined Navigation and Tools Hub
 
-This release builds on the working v0.13.37 My Day overlay, Admin/User roles, lean operational workspaces, incremental contact exports and Yarn deployment baseline.
+This release builds on v0.13.38 Commercial Clients and the Employer Portal.
 
-## Commercial client records
+## Navigation refinement
 
-Commercial clients are a separate CRM entity rather than individual clients with hidden fields. Each organisation record includes:
+The primary desktop navigation now contains only the workspaces advisers use regularly:
 
-- Legal and trading names, NZBN, company number, industry and address.
-- Primary contact and Turner Hopkins adviser assignments.
-- OneLaw and SharePoint references.
-- Accreditation type, status, approval, expiry and renewal preparation dates.
-- Employer-visible compliance summary and separate internal adviser notes.
+- Dashboard
+- Tasks
+- Clients
+- Commercial
+- Enquiries & Intake
+- Bookings
+- Calendar
+- Billing
 
-## Employer compliance registers
+Library, Advisers and Backups have been removed from the main navigation and consolidated into the existing Tools drawer.
 
-Each commercial client has dedicated registers for:
+## Tools drawer
 
-- Work visa holders and their visa, passport, employment, pay, Job Check and manager details.
-- Company-wide or worker-linked compliance actions.
-- Document references and expiry dates.
-- Employer portal users.
-- Audit history.
+A new CRM resources section appears at the top of Tools:
 
-Employer-entered worker and compliance records are marked **Needs review** so advisers can identify portal changes requiring confirmation.
+- **Library** — available to Admin and User roles.
+- **Advisers** — visible to Admins only.
+- **Backups** — visible to Admins only.
 
-## Employer portal
+The existing weather, timezone, currency, calculator, email templates, email log, Help and Refresh utilities remain available below those workspace shortcuts.
 
-The separate employer portal is available at `/commercial-portal`.
-
-Portal roles:
-
-- **Company Admin** — can update accreditation, workers, compliance and documents.
-- **Company User** — can update workers, compliance and documents.
-- **Read Only** — can view but cannot edit.
-
-Each portal user has an individual email and access code. Access codes are stored as one-way PBKDF2 hashes. Internal adviser notes are not returned to the portal.
+The same low-frequency workspace links have also been removed from the mobile More menu, leaving Tools as the consistent access point on desktop and mobile.
 
 ## Existing features retained
 
-- My Day briefing overlay and lean adviser Dashboard.
-- Admin/User CRM roles.
-- Individual client CRM and client portal.
-- Enquiries, full intake forms, seminar registrations and feedback.
-- Manual Excel and Mailchimp-consent CSV exports.
-- Consultation bookings, calendar, billing, library and email workflows.
-- Encrypted Backup Centre. The new commercial tables are included automatically in database backups.
-- Automatic Mailchimp API submission remains removed.
+- Commercial clients and employer portal.
+- My Day briefing overlay and lean Dashboard.
+- Admin/User role enforcement.
+- Individual clients and client portal.
+- Enquiries, intake, seminars, feedback and contact exports.
+- Bookings, billing, calendar, email and encrypted backups.
+- Yarn/Netlify deployment baseline.
 
 ## Deployment
 
-- Node 20.19.0
-- Yarn Classic 1.22.22 through Corepack
-- No new npm dependency
-- One new database migration: `202607210001_add_commercial_client_portal.sql`
-- One new Netlify Function: `commercial-portal.mjs`
-- No public intake form or Squarespace embed changes
-
-See `COMMERCIAL-CLIENT-PORTAL-GUIDE.txt` for setup and role details.
+- No database migration.
+- No new dependency.
+- No Netlify Function behaviour change apart from the backup source version label.
+- No public form or Squarespace embed change.

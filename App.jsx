@@ -1496,9 +1496,6 @@ export default function App() {
               <TabButton active={tab === 'bookings'} onClick={() => switchTab('bookings')} icon={CalendarDays} label="Bookings" />
               <TabButton active={tab === 'calendar'} onClick={() => switchTab('calendar')} icon={CalendarDays} label="Calendar" />
               <TabButton active={tab === 'billing'} onClick={() => switchTab('billing')} icon={CreditCard} label="Billing" />
-              <TabButton active={tab === 'library'} onClick={() => switchTab('library')} icon={BookOpen} label="Library" />
-              {canManageAdvisers && <TabButton active={tab === 'advisers'} onClick={() => switchTab('advisers')} icon={UsersRound} label="Advisers" />}
-              {canManageBackups && <TabButton active={tab === 'backups'} onClick={() => switchTab('backups')} icon={Database} label="Backups" />}
             </nav>
 
             {tab === 'commercial' && (
@@ -1610,7 +1607,25 @@ export default function App() {
         )}
       </main>
       <SupportDrawer open={supportOpen} onOpen={() => { setToolsOpen(false); setSupportOpen(true); }} onClose={() => setSupportOpen(false)} tab={tab} />
-      <ToolsDrawer open={toolsOpen} onOpen={() => { setSupportOpen(false); setToolsOpen(true); }} onClose={() => setToolsOpen(false)} onOpenHelp={() => { setToolsOpen(false); setSupportOpen(true); }} onRefresh={refreshData} loading={loading} sendTestEmail={sendTestEmail} saveEmailTemplate={saveEmailTemplate} resetEmailTemplate={resetEmailTemplate} emailLogs={data.emailLogs || []} emailTemplates={data.emailTemplates || []} emailConfig={data.emailConfig || emptyData.emailConfig} saving={saving} />
+      <ToolsDrawer
+        open={toolsOpen}
+        onOpen={() => { setSupportOpen(false); setToolsOpen(true); }}
+        onClose={() => setToolsOpen(false)}
+        onOpenHelp={() => { setToolsOpen(false); setSupportOpen(true); }}
+        onNavigate={switchTab}
+        activeTab={tab}
+        canManageAdvisers={canManageAdvisers}
+        canManageBackups={canManageBackups}
+        onRefresh={refreshData}
+        loading={loading}
+        sendTestEmail={sendTestEmail}
+        saveEmailTemplate={saveEmailTemplate}
+        resetEmailTemplate={resetEmailTemplate}
+        emailLogs={data.emailLogs || []}
+        emailTemplates={data.emailTemplates || []}
+        emailConfig={data.emailConfig || emptyData.emailConfig}
+        saving={saving}
+      />
       <MobileBottomNav activeTab={tab} onNavigate={switchTab} onOpenMore={() => setMobileMoreOpen(true)} />
       <MobileMoreSheet
         open={mobileMoreOpen}
@@ -7196,9 +7211,6 @@ function MobileMoreSheet({ open, onClose, onNavigate, activeTab, onOpenHelp, onO
           <button type="button" className={activeTab === 'intake' ? 'active' : ''} onClick={() => go('intake')}><ClipboardList size={18} /><span>Enquiries</span></button>
           <button type="button" className={activeTab === 'bookings' ? 'active' : ''} onClick={() => go('bookings')}><CalendarDays size={18} /><span>Bookings</span></button>
           <button type="button" className={activeTab === 'billing' ? 'active' : ''} onClick={() => go('billing')}><CreditCard size={18} /><span>Billing</span></button>
-          <button type="button" className={activeTab === 'library' ? 'active' : ''} onClick={() => go('library')}><BookOpen size={18} /><span>Library</span></button>
-          {canManageAdvisers && <button type="button" className={activeTab === 'advisers' ? 'active' : ''} onClick={() => go('advisers')}><UserRound size={18} /><span>Advisers</span></button>}
-          {canManageBackups && <button type="button" className={activeTab === 'backups' ? 'active' : ''} onClick={() => go('backups')}><Database size={18} /><span>Backups</span></button>}
           <button type="button" onClick={onOpenTools}><Wrench size={18} /><span>Tools</span></button>
           <button type="button" onClick={onOpenHelp}><HelpCircle size={18} /><span>Help</span></button>
           <button type="button" onClick={onRefresh} disabled={loading}><RefreshCw size={18} /><span>Refresh</span></button>
@@ -7228,10 +7240,15 @@ const TOOL_TIMEZONES = [
   { value: 'America/New_York', label: 'New York, USA' },
 ];
 
-function ToolsDrawer({ open, onOpen, onClose, onOpenHelp, onRefresh, loading = false, sendTestEmail, saveEmailTemplate, resetEmailTemplate, emailLogs = [], emailTemplates = [], emailConfig = {}, saving = false }) {
+function ToolsDrawer({ open, onOpen, onClose, onOpenHelp, onNavigate, activeTab, canManageAdvisers = false, canManageBackups = false, onRefresh, loading = false, sendTestEmail, saveEmailTemplate, resetEmailTemplate, emailLogs = [], emailTemplates = [], emailConfig = {}, saving = false }) {
   const [activeTool, setActiveTool] = useState('weather');
   const [emailLogOpen, setEmailLogOpen] = useState(false);
   const [templateEditorOpen, setTemplateEditorOpen] = useState(false);
+
+  function openWorkspace(nextTab) {
+    onClose();
+    onNavigate?.(nextTab);
+  }
 
   return (
     <>
@@ -7242,13 +7259,47 @@ function ToolsDrawer({ open, onOpen, onClose, onOpenHelp, onRefresh, loading = f
       <aside className={`tools-drawer ${open ? 'open' : ''}`} aria-hidden={!open}>
         <div className="support-head">
           <div>
-            <span>Adviser tools</span>
-            <h2>Working tools</h2>
+            <span>CRM tools</span>
+            <h2>Tools and resources</h2>
           </div>
-          <button className="icon-btn" type="button" onClick={onClose} aria-label="Close adviser tools"><X size={18} /></button>
+          <button className="icon-btn" type="button" onClick={onClose} aria-label="Close CRM tools"><X size={18} /></button>
         </div>
-        <p className="support-summary">Quick tools for client calls, international client work and day-to-day file work. Email logs and email templates open in separate review windows.</p>
-        <div className="tool-tabs" role="tablist" aria-label="Adviser tools">
+        <p className="support-summary">Reference, administration and day-to-day adviser tools kept outside the main navigation.</p>
+        <section className="tools-workspace-section" aria-label="CRM resource workspaces">
+          <div className="tools-workspace-heading">
+            <div>
+              <span>CRM resources</span>
+              <strong>Open a supporting workspace</strong>
+            </div>
+            <small>Administration options are shown to Admins only.</small>
+          </div>
+          <div className="tools-workspace-grid">
+            <button type="button" className={activeTab === 'library' ? 'active' : ''} onClick={() => openWorkspace('library')}>
+              <span className="tools-workspace-icon"><BookOpen size={19} /></span>
+              <span><strong>Library</strong><small>Policy notes, forms and internal guidance</small></span>
+              <ChevronRight size={17} />
+            </button>
+            {canManageAdvisers && (
+              <button type="button" className={activeTab === 'advisers' ? 'active' : ''} onClick={() => openWorkspace('advisers')}>
+                <span className="tools-workspace-icon"><UsersRound size={19} /></span>
+                <span><strong>Advisers</strong><small>Team profiles, login emails and CRM roles</small></span>
+                <ChevronRight size={17} />
+              </button>
+            )}
+            {canManageBackups && (
+              <button type="button" className={activeTab === 'backups' ? 'active' : ''} onClick={() => openWorkspace('backups')}>
+                <span className="tools-workspace-icon"><Database size={19} /></span>
+                <span><strong>Backups</strong><small>Create and download secure CRM backups</small></span>
+                <ChevronRight size={17} />
+              </button>
+            )}
+          </div>
+        </section>
+        <div className="tools-utility-heading">
+          <span>Quick utilities</span>
+          <small>Useful during calls and day-to-day file work</small>
+        </div>
+        <div className="tool-tabs" role="tablist" aria-label="Adviser utilities">
           <button type="button" className={activeTool === 'weather' ? 'active' : ''} onClick={() => setActiveTool('weather')}><CloudSun size={16} />Weather</button>
           <button type="button" className={activeTool === 'timezone' ? 'active' : ''} onClick={() => setActiveTool('timezone')}><Globe2 size={16} />Time</button>
           <button type="button" className={activeTool === 'currency' ? 'active' : ''} onClick={() => setActiveTool('currency')}><DollarSign size={16} />Currency</button>
