@@ -1,0 +1,54 @@
+THiS CRM v0.13.38 - Commercial Clients and Employer Portal
+============================================================
+
+WHAT THIS RELEASE ADDS
+----------------------
+1. A separate Commercial workspace in the CRM.
+2. Thinned-down organisation records rather than reusing individual-client records.
+3. Employer accreditation dates, status, notes and renewal preparation dates.
+4. A work visa holder register with visa, passport, Job Check and employment information.
+5. A compliance action register, including company-wide and worker-linked items.
+6. A document reference register for secure SharePoint or other approved links.
+7. Individual employer portal users with Company Admin, Company User or Read Only access.
+8. A separate employer portal at /commercial-portal.
+9. Audit history for changes made by CRM advisers and employer portal users.
+10. Adviser review flags on employer-entered worker and compliance records.
+
+FIRST SETUP
+-----------
+1. Deploy the release. The included database migration creates the commercial tables.
+2. In the CRM, open Commercial and choose New commercial client.
+3. Save the company record before adding portal users or register entries.
+4. Enable Employer portal in the Portal access tab.
+5. Add an employer portal user and set an access code of at least 8 characters.
+6. Copy the portal URL and access details to the employer using an approved secure method.
+
+PORTAL ROLES
+------------
+Company Admin:
+- View all employer portal data.
+- Add and update workers, compliance items and document references.
+- Update accreditation details.
+
+Company User:
+- View all employer portal data.
+- Add and update workers, compliance items and document references.
+- Cannot update accreditation details.
+
+Read Only:
+- View employer portal information.
+- Cannot create, update or archive records.
+
+IMPORTANT SECURITY AND COMPLIANCE NOTES
+---------------------------------------
+- Portal access codes are stored as one-way PBKDF2 hashes and cannot be recovered later.
+- Employer users can only access their own commercial client record.
+- Internal adviser notes are never returned to the employer portal.
+- Employer-entered worker and compliance changes are marked Needs review in the CRM.
+- Document entries are references/links; this release does not add a new employer file-upload store.
+- The portal register assists administration. It does not replace an employer's legal obligations or specific immigration advice.
+- Existing encrypted backups automatically include the new commercial database tables.
+
+EMPLOYER PORTAL URL
+-------------------
+https://YOUR-SITE-DOMAIN/commercial-portal

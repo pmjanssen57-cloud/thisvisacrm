@@ -1,59 +1,59 @@
-# THiS CRM v0.13.37 — My Day Briefing Overlay
+# THiS CRM v0.13.38 — Commercial Clients and Employer Portal
 
-This release builds on the working v0.13.36 role and login baseline. It preserves the Admin/User permission model, lean Dashboard, lean Enquiries & Intake workspace, incremental contact exports, manual Mailchimp-consent CSV workflow, Yarn deployment configuration and existing CRM functions.
+This release builds on the working v0.13.37 My Day overlay, Admin/User roles, lean operational workspaces, incremental contact exports and Yarn deployment baseline.
 
-## My Day overlay
+## Commercial client records
 
-My Day is now a full briefing layer above the normal CRM rather than a separate page or a standard CRM tab.
+Commercial clients are a separate CRM entity rather than individual clients with hidden fields. Each organisation record includes:
 
-After login:
+- Legal and trading names, NZBN, company number, industry and address.
+- Primary contact and Turner Hopkins adviser assignments.
+- OneLaw and SharePoint references.
+- Accreditation type, status, approval, expiry and renewal preparation dates.
+- Employer-visible compliance summary and separate internal adviser notes.
 
-- The normal CRM Dashboard is loaded underneath.
-- My Day opens automatically as a centred, full-screen briefing overlay.
-- The underlying CRM remains visibly present but dimmed and unavailable until the briefing is dismissed.
-- **Enter CRM** closes My Day and reveals the Dashboard.
-- Clicking a workspace shortcut closes the overlay and opens that workspace directly.
-- The dedicated **My Day** control in the CRM header and mobile navigation reopens the overlay above the adviser’s current workspace.
-- Opening My Day does not discard unsaved client or calendar edits.
+## Employer compliance registers
 
-The desktop briefing is designed to keep its principal information within one viewport:
+Each commercial client has dedicated registers for:
 
-- Greeting, date and selected adviser/practice scope.
-- Overdue, due-today, new-enquiry and consultation counts.
-- A concise vertical action list.
-- Today’s consultations.
-- Recently opened clients.
-- Compact CRM workspace shortcuts.
+- Work visa holders and their visa, passport, employment, pay, Job Check and manager details.
+- Company-wide or worker-linked compliance actions.
+- Document references and expiry dates.
+- Employer portal users.
+- Audit history.
 
-On smaller screens the same content remains available in a controlled full-screen scrolling layout.
+Employer-entered worker and compliance records are marked **Needs review** so advisers can identify portal changes requiring confirmation.
 
-## Access roles
+## Employer portal
 
-- **Admin** — all operational access plus adviser management, Backup Centre and contact CSV exports.
-- **User** — all operational CRM workspaces without adviser administration, backups or contact exports.
-- Roles remain assigned on the Adviser profile and matched to Netlify Identity through Login Email.
-- The server continues to enforce administrator access for adviser changes and backups.
-- The final active Admin cannot be removed or deactivated.
+The separate employer portal is available at `/commercial-portal`.
 
-## Contact exports
+Portal roles:
 
-The incremental and complete CSV exports remain unchanged:
+- **Company Admin** — can update accreditation, workers, compliance and documents.
+- **Company User** — can update workers, compliance and documents.
+- **Read Only** — can view but cannot edit.
 
-- New contacts since last export.
-- All contacts.
-- New consented contacts since last export.
-- All consented contacts.
-- Reset export history.
+Each portal user has an individual email and access code. Access codes are stored as one-way PBKDF2 hashes. Internal adviser notes are not returned to the portal.
 
-Automatic Mailchimp API submission remains removed. Mailchimp transfers are completed manually with the consent CSV.
+## Existing features retained
+
+- My Day briefing overlay and lean adviser Dashboard.
+- Admin/User CRM roles.
+- Individual client CRM and client portal.
+- Enquiries, full intake forms, seminar registrations and feedback.
+- Manual Excel and Mailchimp-consent CSV exports.
+- Consultation bookings, calendar, billing, library and email workflows.
+- Encrypted Backup Centre. The new commercial tables are included automatically in database backups.
+- Automatic Mailchimp API submission remains removed.
 
 ## Deployment
 
 - Node 20.19.0
 - Yarn Classic 1.22.22 through Corepack
-- No new package dependency
-- No database migration
-- No Netlify Function change
-- No public form or Squarespace embed change
+- No new npm dependency
+- One new database migration: `202607210001_add_commercial_client_portal.sql`
+- One new Netlify Function: `commercial-portal.mjs`
+- No public intake form or Squarespace embed changes
 
-Use **Clear cache and deploy site** only if Netlify restores an incompatible dependency directory from an older npm-based build.
+See `COMMERCIAL-CLIENT-PORTAL-GUIDE.txt` for setup and role details.

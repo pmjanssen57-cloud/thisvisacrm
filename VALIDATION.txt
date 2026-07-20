@@ -1,24 +1,18 @@
-THiS CRM v0.13.37 validation
+THiS CRM v0.13.38 validation
 ============================
 
-Completed
----------
-- Production Vite build completed successfully.
-- 1,589 modules transformed.
-- All Netlify .mjs Function files passed Node syntax checks.
-- My Day now renders as a fixed briefing overlay above the normal CRM shell.
-- Login, invitation and password-recovery flows reset the underlying CRM to Dashboard and open My Day.
-- Enter CRM and workspace shortcuts close the overlay and expose the selected CRM area.
-- The desktop and mobile My Day controls reopen the overlay without navigating away from the current CRM workspace.
-- Opening My Day does not invoke the unsaved-edit discard workflow.
-- Automatic Mailchimp submission remains absent.
-- Incremental contact CSV exports remain present.
-- No database migration, package dependency, Netlify Function or public form was changed.
+Completed checks:
+- App.jsx parsed and transpiled with TypeScript JSX parser: PASS
+- main.jsx parsed and transpiled with TypeScript JSX parser: PASS
+- All Netlify .mjs functions passed node --check: PASS
+- Commercial portal function syntax: PASS
+- CRM commercial action handlers syntax: PASS
+- CSS brace balance: PASS
+- Commercial database migration present: PASS
+- Package version updated to 0.13.38: PASS
+- Existing Yarn/Netlify deployment configuration retained: PASS
 
-Build note
-----------
-The validation container used Node 22.16.0 with the unchanged dependency graph because Node 20.19.0 was not installed in that container. The production package remains pinned to Node 20.19.0 and Yarn 1.22.22 for Netlify.
+Not completed in this isolated environment:
+- Full Vite production build. External package-registry access was unavailable and dependencies were not present locally.
 
-Existing advisory
------------------
-Vite continues to report the existing large JavaScript chunk warning. This is unchanged from earlier releases and does not prevent deployment.
+The dependency list is unchanged from the deployed v0.13.37 baseline. Netlify will install the same pinned dependencies and run `yarn build` during deployment.

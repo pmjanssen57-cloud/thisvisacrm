@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { acceptInvite, getUser, handleAuthCallback, login, logout, onAuthChange, requestPasswordRecovery, updateUser } from '@netlify/identity';
-import { AlertTriangle, ArrowUpDown, BookOpen, Calculator, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Clock, CloudSun, Copy, CreditCard, ClipboardList, Database, DollarSign, Download, ExternalLink, FileText, Globe2, HelpCircle, LayoutDashboard, Link2, ListChecks, LockKeyhole, Mail, MessageSquare, MoreHorizontal, Phone, Plus, RefreshCw, Save, Search, Send, ShieldCheck, SlidersHorizontal, Trash2, UserRound, UsersRound, Wrench, X } from 'lucide-react';
+import { AlertTriangle, ArrowUpDown, BookOpen, Building2, Calculator, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Clock, CloudSun, Copy, CreditCard, ClipboardList, Database, DollarSign, Download, ExternalLink, FileCheck2, FileText, Globe2, HelpCircle, KeyRound, LayoutDashboard, Link2, ListChecks, LockKeyhole, Mail, MessageSquare, MoreHorizontal, Phone, Plus, RefreshCw, Save, Search, Send, ShieldCheck, SlidersHorizontal, Trash2, UserRound, UsersRound, Wrench, X } from 'lucide-react';
 
 const BRAND = {
   ink: '#003736',
@@ -382,6 +382,7 @@ const ADDRESS_LOOKUP_EXAMPLES = [
 const emptyData = {
   advisers: [],
   clients: [],
+  commercialClients: [],
   caseTypes: DEFAULT_CASE_TYPES,
   deadlineTypes: DEFAULT_DEADLINE_TYPES,
   stageTemplates: DEFAULT_STAGE_TEMPLATES,
@@ -455,17 +456,130 @@ function makeBlankClient(data) {
   };
 }
 
+
+function makeBlankCommercialClient(primaryAdviserId = '') {
+  return {
+    id: `temp-commercial-${Date.now()}`,
+    legalName: '',
+    tradingName: '',
+    nzbn: '',
+    companyNumber: '',
+    industry: '',
+    businessDescription: '',
+    address: '',
+    primaryContactName: '',
+    primaryContactEmail: '',
+    primaryContactPhone: '',
+    primaryAdviserId,
+    backupAdviserId: '',
+    clientStatus: 'Active',
+    sharepointFolderUrl: '',
+    oneLawClientNumber: '',
+    accreditationType: '',
+    accreditationStatus: 'Not recorded',
+    accreditationApprovalDate: '',
+    accreditationExpiryDate: '',
+    accreditationRenewalDate: '',
+    accreditationNotes: '',
+    complianceSummary: '',
+    internalNotes: '',
+    portalEnabled: false,
+    portalLastAccessedAt: '',
+    portalUsers: [],
+    workers: [],
+    complianceItems: [],
+    documents: [],
+    auditLog: [],
+  };
+}
+
+function normaliseCommercialClient(input = {}) {
+  return {
+    ...makeBlankCommercialClient(input.primaryAdviserId || input.primary_adviser_id || ''),
+    ...input,
+    id: input.id || `temp-commercial-${Date.now()}`,
+    legalName: input.legalName || input.legal_name || '',
+    tradingName: input.tradingName || input.trading_name || '',
+    companyNumber: input.companyNumber || input.company_number || '',
+    businessDescription: input.businessDescription || input.business_description || '',
+    primaryContactName: input.primaryContactName || input.primary_contact_name || '',
+    primaryContactEmail: input.primaryContactEmail || input.primary_contact_email || '',
+    primaryContactPhone: input.primaryContactPhone || input.primary_contact_phone || '',
+    primaryAdviserId: input.primaryAdviserId || input.primary_adviser_id || '',
+    backupAdviserId: input.backupAdviserId || input.backup_adviser_id || '',
+    clientStatus: input.clientStatus || input.client_status || 'Active',
+    sharepointFolderUrl: input.sharepointFolderUrl || input.sharepoint_folder_url || '',
+    oneLawClientNumber: input.oneLawClientNumber || input.one_law_client_number || '',
+    accreditationType: input.accreditationType || input.accreditation_type || '',
+    accreditationStatus: input.accreditationStatus || input.accreditation_status || 'Not recorded',
+    accreditationApprovalDate: normaliseIsoDate(input.accreditationApprovalDate || input.accreditation_approval_date),
+    accreditationExpiryDate: normaliseIsoDate(input.accreditationExpiryDate || input.accreditation_expiry_date),
+    accreditationRenewalDate: normaliseIsoDate(input.accreditationRenewalDate || input.accreditation_renewal_date),
+    accreditationNotes: input.accreditationNotes || input.accreditation_notes || '',
+    complianceSummary: input.complianceSummary || input.compliance_summary || '',
+    internalNotes: input.internalNotes || input.internal_notes || '',
+    portalEnabled: Boolean(input.portalEnabled ?? input.portal_enabled),
+    portalLastAccessedAt: input.portalLastAccessedAt || input.portal_last_accessed_at || '',
+    portalUsers: Array.isArray(input.portalUsers) ? input.portalUsers.map((user) => ({
+      id: user.id || '', name: user.name || '', email: user.email || '', role: user.role || 'Company User', active: user.active !== false,
+      accessCodeSet: Boolean(user.accessCodeSet ?? user.access_code_set), lastAccessedAt: user.lastAccessedAt || user.last_accessed_at || '', newAccessCode: '',
+    })) : [],
+    workers: Array.isArray(input.workers) ? input.workers.map(normaliseCommercialWorker) : [],
+    complianceItems: Array.isArray(input.complianceItems) ? input.complianceItems.map(normaliseCommercialComplianceItem) : [],
+    documents: Array.isArray(input.documents) ? input.documents.map(normaliseCommercialDocument) : [],
+    auditLog: Array.isArray(input.auditLog) ? input.auditLog.map((item) => ({
+      id: item.id || '', recordType: item.recordType || item.record_type || '', recordId: item.recordId || item.record_id || '', action: item.action || '',
+      changedBy: item.changedBy || item.changed_by || '', changedByType: item.changedByType || item.changed_by_type || '', summary: item.summary || '', createdAt: item.createdAt || item.created_at || '',
+    })) : [],
+  };
+}
+
+function normaliseCommercialWorker(input = {}) {
+  return {
+    id: input.id || '', fullName: input.fullName || input.full_name || '', email: input.email || '', phone: input.phone || '',
+    jobTitle: input.jobTitle || input.job_title || '', workLocation: input.workLocation || input.work_location || '', visaType: input.visaType || input.visa_type || '',
+    visaStartDate: normaliseIsoDate(input.visaStartDate || input.visa_start_date), visaExpiryDate: normaliseIsoDate(input.visaExpiryDate || input.visa_expiry_date),
+    passportExpiryDate: normaliseIsoDate(input.passportExpiryDate || input.passport_expiry_date), employmentStartDate: normaliseIsoDate(input.employmentStartDate || input.employment_start_date),
+    employmentEndDate: normaliseIsoDate(input.employmentEndDate || input.employment_end_date), hoursPerWeek: input.hoursPerWeek ?? input.hours_per_week ?? '',
+    payRate: input.payRate ?? input.pay_rate ?? '', jobCheckReference: input.jobCheckReference || input.job_check_reference || '', visaConditions: input.visaConditions || input.visa_conditions || '',
+    responsibleManager: input.responsibleManager || input.responsible_manager || '', status: input.status || 'Active', adviserReviewStatus: input.adviserReviewStatus || input.adviser_review_status || 'Needs review',
+    employerNotes: input.employerNotes || input.employer_notes || '', internalNotes: input.internalNotes || input.internal_notes || '', createdBy: input.createdBy || input.created_by || '',
+    updatedBy: input.updatedBy || input.updated_by || '', createdAt: input.createdAt || input.created_at || '', updatedAt: input.updatedAt || input.updated_at || '',
+  };
+}
+
+function normaliseCommercialComplianceItem(input = {}) {
+  return {
+    id: input.id || '', workerId: input.workerId || input.worker_id || '', title: input.title || '', category: input.category || 'General compliance',
+    status: input.status || 'Open', dueDate: normaliseIsoDate(input.dueDate || input.due_date), completedDate: normaliseIsoDate(input.completedDate || input.completed_date),
+    employerNotes: input.employerNotes || input.employer_notes || '', internalNotes: input.internalNotes || input.internal_notes || '',
+    adviserReviewStatus: input.adviserReviewStatus || input.adviser_review_status || 'Needs review', createdBy: input.createdBy || input.created_by || '',
+    updatedBy: input.updatedBy || input.updated_by || '', createdAt: input.createdAt || input.created_at || '', updatedAt: input.updatedAt || input.updated_at || '',
+  };
+}
+
+function normaliseCommercialDocument(input = {}) {
+  return {
+    id: input.id || '', workerId: input.workerId || input.worker_id || '', title: input.title || '', category: input.category || 'Compliance',
+    documentUrl: input.documentUrl || input.document_url || '', expiryDate: normaliseIsoDate(input.expiryDate || input.expiry_date), notes: input.notes || '',
+    visibleToEmployer: input.visibleToEmployer ?? input.visible_to_employer ?? true, createdBy: input.createdBy || input.created_by || '',
+    createdAt: input.createdAt || input.created_at || '', updatedAt: input.updatedAt || input.updated_at || '',
+  };
+}
+
 export default function App() {
   if (window.location.pathname.startsWith('/feedback')) return <FeedbackFormApp />;
   if (window.location.pathname.startsWith('/contact')) return <ContactFormApp />;
   if (window.location.pathname.startsWith('/intake')) return <IntakeFormApp />;
   if (window.location.pathname.startsWith('/seminar')) return <SeminarRegistrationFormApp />;
   if (window.location.pathname.startsWith('/book')) return <ConsultationBookingPublicApp />;
+  if (window.location.pathname.startsWith('/commercial-portal')) return <CommercialPortalApp />;
   if (window.location.pathname.startsWith('/portal')) return <ClientPortalApp />;
   const [data, setData] = useState(emptyData);
   const [tab, setTab] = useState('dashboard');
   const [myDayOpen, setMyDayOpen] = useState(true);
   const [selectedClientId, setSelectedClientId] = useState('');
+  const [selectedCommercialClientId, setSelectedCommercialClientId] = useState('');
   const [clientQuery, setClientQuery] = useState('');
   const [adviserFilter, setAdviserFilter] = useState('all');
   const [caseTypeFilter, setCaseTypeFilter] = useState('all');
@@ -647,6 +761,7 @@ export default function App() {
       setData(normaliseData(body));
       setAuthRequired(false);
       if (!selectedClientId && body.clients?.[0]?.id) setSelectedClientId(body.clients[0].id);
+      if (!selectedCommercialClientId && body.commercialClients?.[0]?.id) setSelectedCommercialClientId(body.commercialClients[0].id);
     } catch (err) {
       setError(err.message || String(err));
     } finally {
@@ -841,6 +956,61 @@ export default function App() {
       showCrmToast(body.emailLog.status === 'Sent' ? 'Related client email sent.' : 'Email logged as failed. Check email log.', body.emailLog.status === 'Sent' ? 'success' : 'warning');
     }
     return body;
+  }
+
+  async function saveCommercialClient(commercialClient) {
+    const wasNew = String(commercialClient?.id || '').startsWith('temp-') || !commercialClient?.id;
+    const body = await callApi('saveCommercialClient', { commercialClient });
+    if (body.commercialClient?.id) setSelectedCommercialClientId(body.commercialClient.id);
+    showCrmToast(wasNew ? 'Commercial client created.' : 'Commercial client saved.');
+    return body;
+  }
+
+  async function deleteCommercialClient(commercialClientId) {
+    const confirmed = await askCrmConfirm({ title: 'Delete commercial client?', message: 'This removes the company, portal users, worker register, compliance records and audit history.', confirmLabel: 'Delete commercial client', tone: 'danger' });
+    if (!confirmed) return;
+    const body = await callApi('deleteCommercialClient', { commercialClientId });
+    setSelectedCommercialClientId(body.commercialClients?.[0]?.id || '');
+  }
+
+  async function saveCommercialPortalUser(commercialClientId, portalUser) {
+    return callApi('saveCommercialPortalUser', { commercialClientId, portalUser });
+  }
+
+  async function deleteCommercialPortalUser(commercialClientId, portalUserId) {
+    const confirmed = await askCrmConfirm({ title: 'Remove employer portal user?', message: 'This login will no longer be able to access the employer portal.', confirmLabel: 'Remove user', tone: 'danger' });
+    if (!confirmed) return;
+    return callApi('deleteCommercialPortalUser', { commercialClientId, portalUserId });
+  }
+
+  async function saveCommercialWorker(commercialClientId, worker) {
+    return callApi('saveCommercialWorker', { commercialClientId, worker });
+  }
+
+  async function archiveCommercialWorker(commercialClientId, workerId) {
+    const confirmed = await askCrmConfirm({ title: 'Archive worker record?', message: 'The worker will be removed from the active register but retained in the audit history.', confirmLabel: 'Archive worker', tone: 'danger' });
+    if (!confirmed) return;
+    return callApi('archiveCommercialWorker', { commercialClientId, workerId });
+  }
+
+  async function saveCommercialComplianceItem(commercialClientId, item) {
+    return callApi('saveCommercialComplianceItem', { commercialClientId, item });
+  }
+
+  async function archiveCommercialComplianceItem(commercialClientId, itemId) {
+    const confirmed = await askCrmConfirm({ title: 'Archive compliance item?', message: 'This item will leave the active compliance list but remain in audit history.', confirmLabel: 'Archive item', tone: 'danger' });
+    if (!confirmed) return;
+    return callApi('archiveCommercialComplianceItem', { commercialClientId, itemId });
+  }
+
+  async function saveCommercialDocument(commercialClientId, document) {
+    return callApi('saveCommercialDocument', { commercialClientId, document });
+  }
+
+  async function deleteCommercialDocument(commercialClientId, documentId) {
+    const confirmed = await askCrmConfirm({ title: 'Remove document entry?', message: 'This removes the document reference from the commercial client register.', confirmLabel: 'Remove document', tone: 'danger' });
+    if (!confirmed) return;
+    return callApi('deleteCommercialDocument', { commercialClientId, documentId });
   }
 
   async function updatePortalMessageStatus(clientId, messageId, status = 'Reviewed') {
@@ -1108,6 +1278,15 @@ export default function App() {
     setTab('clients');
   }
 
+  function addCommercialClient() {
+    if (!confirmDiscardPendingEdits()) return;
+    const selectedAdviserId = dashboardAdviserFilter !== 'all' ? dashboardAdviserFilter : '';
+    const commercialClient = makeBlankCommercialClient(selectedAdviserId);
+    setData((current) => ({ ...current, commercialClients: [commercialClient, ...(current.commercialClients || [])] }));
+    setSelectedCommercialClientId(commercialClient.id);
+    setTab('commercial');
+  }
+
   function addAdviser() {
     if (!confirmDiscardPendingEdits()) return;
     setClientEditorDirty(false);
@@ -1130,6 +1309,8 @@ export default function App() {
   }
 
   const scopedClients = useMemo(() => data.clients.filter((client) => matchesAdviserScope(client, dashboardAdviserFilter)), [data.clients, dashboardAdviserFilter]);
+  const scopedCommercialClients = useMemo(() => (data.commercialClients || []).filter((client) => dashboardAdviserFilter === 'all' || client.primaryAdviserId === dashboardAdviserFilter || client.backupAdviserId === dashboardAdviserFilter), [data.commercialClients, dashboardAdviserFilter]);
+  const selectedCommercialClient = (data.commercialClients || []).find((client) => client.id === selectedCommercialClientId) || scopedCommercialClients[0] || null;
   const scopedPersonalTasks = useMemo(() => data.personalTasks.filter((task) => matchesPersonalTaskScope(task, dashboardAdviserFilter)), [data.personalTasks, dashboardAdviserFilter]);
   const scopedCalendarEntries = useMemo(() => data.calendarEntries.filter((entry) => matchesCalendarEntryScope(entry, dashboardAdviserFilter, data.clients)), [data.calendarEntries, dashboardAdviserFilter, data.clients]);
   const activeClients = scopedClients.filter((client) => client.clientStatus !== 'Closed');
@@ -1167,6 +1348,13 @@ export default function App() {
       setSelectedClientId(scopedClients[0].id);
     }
   }, [selectedClientId, scopedClients]);
+
+  useEffect(() => {
+    if (!scopedCommercialClients.length) return;
+    if (!selectedCommercialClientId || !scopedCommercialClients.some((client) => client.id === selectedCommercialClientId)) {
+      setSelectedCommercialClientId(scopedCommercialClients[0].id);
+    }
+  }, [selectedCommercialClientId, scopedCommercialClients]);
 
   const filteredClients = useMemo(() => {
     const q = clientQuery.trim().toLowerCase();
@@ -1256,6 +1444,7 @@ export default function App() {
             {newMenuOpen && (
               <div className="dropdown-menu action-dropdown-menu">
                 <button type="button" onClick={() => { setNewMenuOpen(false); addClient(); }}><UsersRound size={16} /><span><strong>New client</strong><small>Create an active client record</small></span></button>
+                <button type="button" onClick={() => { setNewMenuOpen(false); addCommercialClient(); }}><Building2 size={16} /><span><strong>New commercial client</strong><small>Create an employer compliance record</small></span></button>
                 <button type="button" onClick={() => { setNewMenuOpen(false); setTab('intake'); }}><ClipboardList size={16} /><span><strong>New enquiry / intake</strong><small>Open the enquiry workspace</small></span></button>
                 <button type="button" onClick={() => { setNewMenuOpen(false); setTab('intake'); }}><CalendarDays size={16} /><span><strong>New seminar</strong><small>Use seminar setup in Enquiries & Intake</small></span></button>
                 {canManageAdvisers && <button type="button" onClick={() => { setNewMenuOpen(false); addAdviser(); }}><UserRound size={16} /><span><strong>New adviser</strong><small>Add a team profile</small></span></button>}
@@ -1275,7 +1464,7 @@ export default function App() {
         {error && <div className="error-banner"><AlertTriangle size={18} />{error}</div>}
         {loading && <div className="loading-card"><Database size={18} />Loading database-backed CRM data...</div>}
 
-        {!loading && !data.clients.length && !data.advisers.length && !data.intakeEnquiries.length && !data.seminars.length && !data.seminarRegistrations.length && !data.feedbackSubmissions.length && !data.consultationBookings.length && (
+        {!loading && !data.clients.length && !(data.commercialClients || []).length && !data.advisers.length && !data.intakeEnquiries.length && !data.seminars.length && !data.seminarRegistrations.length && !data.feedbackSubmissions.length && !data.consultationBookings.length && (
           <section className="empty-state">
             <Database size={40} />
             <h1>Database is connected, but no CRM records exist yet.</h1>
@@ -1284,7 +1473,7 @@ export default function App() {
           </section>
         )}
 
-        {(data.clients.length > 0 || data.advisers.length > 0 || data.libraryEntries.length > 0 || data.intakeEnquiries.length > 0 || data.seminars.length > 0 || data.seminarRegistrations.length > 0 || data.feedbackSubmissions.length > 0 || data.consultationBookings.length > 0 || data.bookingLinks.length > 0) && (
+        {(data.clients.length > 0 || (data.commercialClients || []).length > 0 || data.advisers.length > 0 || data.libraryEntries.length > 0 || data.intakeEnquiries.length > 0 || data.seminars.length > 0 || data.seminarRegistrations.length > 0 || data.feedbackSubmissions.length > 0 || data.consultationBookings.length > 0 || data.bookingLinks.length > 0) && (
           <>
             <ViewToolbar
               advisers={scopeAdvisers}
@@ -1302,6 +1491,7 @@ export default function App() {
               <TabButton active={tab === 'dashboard'} onClick={() => switchTab('dashboard')} icon={LayoutDashboard} label="Dashboard" />
               <TabButton active={tab === 'tasks'} onClick={() => switchTab('tasks')} icon={ListChecks} label="Tasks" />
               <TabButton active={tab === 'clients'} onClick={() => switchTab('clients')} icon={UsersRound} label="Clients" />
+              <TabButton active={tab === 'commercial'} onClick={() => switchTab('commercial')} icon={Building2} label="Commercial" />
               <TabButton active={tab === 'intake'} onClick={() => switchTab('intake')} icon={ClipboardList} label="Enquiries & Intake" />
               <TabButton active={tab === 'bookings'} onClick={() => switchTab('bookings')} icon={CalendarDays} label="Bookings" />
               <TabButton active={tab === 'calendar'} onClick={() => switchTab('calendar')} icon={CalendarDays} label="Calendar" />
@@ -1310,6 +1500,28 @@ export default function App() {
               {canManageAdvisers && <TabButton active={tab === 'advisers'} onClick={() => switchTab('advisers')} icon={UsersRound} label="Advisers" />}
               {canManageBackups && <TabButton active={tab === 'backups'} onClick={() => switchTab('backups')} icon={Database} label="Backups" />}
             </nav>
+
+            {tab === 'commercial' && (
+              <CommercialClientsWorkspace
+                commercialClients={scopedCommercialClients}
+                selectedCommercialClient={selectedCommercialClient}
+                setSelectedCommercialClientId={setSelectedCommercialClientId}
+                advisers={data.advisers}
+                saveCommercialClient={saveCommercialClient}
+                deleteCommercialClient={deleteCommercialClient}
+                saveCommercialPortalUser={saveCommercialPortalUser}
+                deleteCommercialPortalUser={deleteCommercialPortalUser}
+                saveCommercialWorker={saveCommercialWorker}
+                archiveCommercialWorker={archiveCommercialWorker}
+                saveCommercialComplianceItem={saveCommercialComplianceItem}
+                archiveCommercialComplianceItem={archiveCommercialComplianceItem}
+                saveCommercialDocument={saveCommercialDocument}
+                deleteCommercialDocument={deleteCommercialDocument}
+                addCommercialClient={addCommercialClient}
+                saving={saving}
+                isAdmin={isAdmin}
+              />
+            )}
 
             {tab === 'intake' && (
               <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} identityUser={identityUser} canExportContacts={canExportContacts} statuses={data.intakeStatuses || INTAKE_STATUSES} seminars={data.seminars || []} seminarRegistrations={data.seminarRegistrations || []} feedbackSubmissions={data.feedbackSubmissions || []} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} downloadIntakeUpload={downloadIntakeUpload} saveSeminar={saveSeminar} deleteSeminar={deleteSeminar} saveSeminarRegistration={saveSeminarRegistration} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail} saveFeedbackSubmission={saveFeedbackSubmission} deleteFeedbackSubmission={deleteFeedbackSubmission} saving={saving} openClientRecord={openClientRecord} confirmAction={askCrmConfirm} />
@@ -1409,6 +1621,7 @@ export default function App() {
         onOpenTools={() => { setMobileMoreOpen(false); setSupportOpen(false); setToolsOpen(true); }}
         onRefresh={refreshData}
         onAddClient={() => { setMobileMoreOpen(false); addClient(); }}
+        onAddCommercialClient={() => { setMobileMoreOpen(false); addCommercialClient(); }}
         onAddAdviser={() => { setMobileMoreOpen(false); addAdviser(); }}
         loading={loading}
         canManageAdvisers={canManageAdvisers}
@@ -1428,6 +1641,7 @@ export default function App() {
           onLogout={logoutIdentityUser}
           onClose={() => setMyDayOpen(false)}
           clients={scopedClients}
+          commercialClients={scopedCommercialClients}
           activeClients={activeClients}
           advisers={data.advisers}
           dashboardAdviserFilter={dashboardAdviserFilter}
@@ -1446,6 +1660,384 @@ export default function App() {
 
 }
 
+
+
+function CommercialClientsWorkspace({
+  commercialClients = [], selectedCommercialClient, setSelectedCommercialClientId, advisers = [], saveCommercialClient, deleteCommercialClient,
+  saveCommercialPortalUser, deleteCommercialPortalUser, saveCommercialWorker, archiveCommercialWorker, saveCommercialComplianceItem,
+  archiveCommercialComplianceItem, saveCommercialDocument, deleteCommercialDocument, addCommercialClient, saving, isAdmin,
+}) {
+  const [query, setQuery] = useState('');
+  const [section, setSection] = useState('overview');
+  const filtered = commercialClients.filter((client) => [client.legalName, client.tradingName, client.nzbn, client.primaryContactName, client.primaryContactEmail]
+    .join(' ').toLowerCase().includes(query.trim().toLowerCase()));
+
+  useEffect(() => { setSection('overview'); }, [selectedCommercialClient?.id]);
+
+  return (
+    <section className="commercial-workspace">
+      <div className="commercial-page-head">
+        <div>
+          <span>Employer compliance</span>
+          <h1>Commercial clients</h1>
+          <p>Manage employer accreditation, work visa holders, compliance actions and secure employer portal access.</p>
+        </div>
+        <button className="btn dark" type="button" onClick={addCommercialClient}><Plus size={16} />New commercial client</button>
+      </div>
+      <div className="commercial-layout">
+        <aside className="commercial-client-list panel">
+          <label className="commercial-search"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search companies" /></label>
+          <div className="commercial-client-list-scroll">
+            {filtered.map((client) => {
+              const workerAlerts = (client.workers || []).filter((worker) => worker.status !== 'Archived' && dateDiff(worker.visaExpiryDate) !== null && dateDiff(worker.visaExpiryDate) <= 90).length;
+              const complianceAlerts = (client.complianceItems || []).filter((item) => item.status !== 'Completed' && item.status !== 'Archived' && dateDiff(item.dueDate) !== null && dateDiff(item.dueDate) <= 30).length;
+              return (
+                <button type="button" key={client.id} className={`commercial-client-list-item ${selectedCommercialClient?.id === client.id ? 'active' : ''}`} onClick={() => setSelectedCommercialClientId(client.id)}>
+                  <span className="commercial-company-icon"><Building2 size={18} /></span>
+                  <span className="commercial-company-copy"><strong>{client.tradingName || client.legalName || 'New commercial client'}</strong><small>{client.accreditationStatus || 'Not recorded'} · {(client.workers || []).filter((worker) => worker.status === 'Active').length} active workers</small></span>
+                  {(workerAlerts + complianceAlerts) > 0 && <b className="commercial-alert-count">{workerAlerts + complianceAlerts}</b>}
+                </button>
+              );
+            })}
+            {!filtered.length && <div className="commercial-empty-mini">No matching commercial clients.</div>}
+          </div>
+        </aside>
+
+        <div className="commercial-main">
+          {!selectedCommercialClient ? (
+            <div className="panel commercial-empty-state"><Building2 size={38} /><h2>Create the first commercial client</h2><p>The employer record will hold accreditation details, worker records, compliance actions and portal users.</p><button className="btn dark" onClick={addCommercialClient}><Plus size={16} />New commercial client</button></div>
+          ) : (
+            <>
+              <CommercialClientHeader client={selectedCommercialClient} advisers={advisers} />
+              <CommercialSummaryCards client={selectedCommercialClient} />
+              <nav className="commercial-section-tabs" aria-label="Commercial client sections">
+                {[
+                  ['overview', 'Company', Building2], ['workers', 'WV holders', UsersRound], ['compliance', 'Compliance', FileCheck2],
+                  ['documents', 'Documents', FileText], ['portal', 'Portal access', KeyRound], ['audit', 'Activity', Clock],
+                ].map(([value, label, Icon]) => <button key={value} type="button" className={section === value ? 'active' : ''} onClick={() => setSection(value)}><Icon size={16} />{label}</button>)}
+              </nav>
+              {section === 'overview' && <CommercialCompanyEditor client={selectedCommercialClient} advisers={advisers} saveCommercialClient={saveCommercialClient} deleteCommercialClient={deleteCommercialClient} saving={saving} isAdmin={isAdmin} />}
+              {section === 'workers' && <CommercialWorkerRegister client={selectedCommercialClient} saveWorker={saveCommercialWorker} archiveWorker={archiveCommercialWorker} saving={saving} />}
+              {section === 'compliance' && <CommercialComplianceRegister client={selectedCommercialClient} saveItem={saveCommercialComplianceItem} archiveItem={archiveCommercialComplianceItem} saving={saving} />}
+              {section === 'documents' && <CommercialDocumentRegister client={selectedCommercialClient} saveDocument={saveCommercialDocument} deleteDocument={deleteCommercialDocument} saving={saving} />}
+              {section === 'portal' && <CommercialPortalAccess client={selectedCommercialClient} saveCommercialClient={saveCommercialClient} savePortalUser={saveCommercialPortalUser} deletePortalUser={deleteCommercialPortalUser} saving={saving} />}
+              {section === 'audit' && <CommercialAuditTrail client={selectedCommercialClient} />}
+            </>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CommercialClientHeader({ client, advisers = [] }) {
+  const primary = advisers.find((adviser) => adviser.id === client.primaryAdviserId);
+  return (
+    <div className="commercial-client-head panel">
+      <div className="commercial-company-mark"><Building2 size={25} /></div>
+      <div><span>Commercial client</span><h2>{client.tradingName || client.legalName || 'New commercial client'}</h2><p>{client.legalName && client.tradingName ? client.legalName : (client.industry || 'Employer compliance record')}</p></div>
+      <div className="commercial-client-head-meta"><span className={`status-badge ${statusClass(client.clientStatus)}`}>{client.clientStatus}</span><small>{primary ? `Lead: ${primary.name}` : 'Lead adviser not assigned'}</small></div>
+    </div>
+  );
+}
+
+function CommercialSummaryCards({ client }) {
+  const activeWorkers = (client.workers || []).filter((worker) => worker.status === 'Active').length;
+  const visaAlerts = (client.workers || []).filter((worker) => worker.status !== 'Archived' && dateDiff(worker.visaExpiryDate) !== null && dateDiff(worker.visaExpiryDate) <= 90).length;
+  const openCompliance = (client.complianceItems || []).filter((item) => !['Completed', 'Archived'].includes(item.status)).length;
+  const needsReview = [...(client.workers || []), ...(client.complianceItems || [])].filter((item) => item.adviserReviewStatus === 'Needs review').length;
+  return (
+    <div className="commercial-summary-grid">
+      <article><span>Accreditation</span><strong>{client.accreditationStatus || 'Not recorded'}</strong><small>{client.accreditationExpiryDate ? `Expires ${formatShortDate(client.accreditationExpiryDate)}` : 'No expiry recorded'}</small></article>
+      <article><span>Active WV holders</span><strong>{activeWorkers}</strong><small>{visaAlerts ? `${visaAlerts} expiring within 90 days` : 'No near-term visa alerts'}</small></article>
+      <article><span>Open compliance</span><strong>{openCompliance}</strong><small>{openCompliance ? 'Items requiring action' : 'No open items'}</small></article>
+      <article><span>Employer updates</span><strong>{needsReview}</strong><small>{needsReview ? 'Awaiting adviser review' : 'Nothing waiting for review'}</small></article>
+    </div>
+  );
+}
+
+function CommercialCompanyEditor({ client, advisers, saveCommercialClient, deleteCommercialClient, saving, isAdmin }) {
+  const [draft, setDraft] = useState(() => ({ ...client }));
+  useEffect(() => setDraft({ ...client }), [client]);
+  function update(field, value) { setDraft((current) => ({ ...current, [field]: value })); }
+  return (
+    <section className="panel commercial-editor-panel">
+      <div className="commercial-panel-head"><div><span>Company record</span><h3>Organisation and accreditation</h3></div><div className="button-row"><button className="btn dark" type="button" disabled={saving || !draft.legalName.trim()} onClick={() => saveCommercialClient(draft)}><Save size={16} />Save company</button>{isAdmin && !String(client.id).startsWith('temp-') && <button className="btn danger" type="button" onClick={() => deleteCommercialClient(client.id)}><Trash2 size={16} />Delete</button>}</div></div>
+      <div className="commercial-form-grid">
+        <label><span>Legal name *</span><input value={draft.legalName} onChange={(e) => update('legalName', e.target.value)} /></label>
+        <label><span>Trading name</span><input value={draft.tradingName} onChange={(e) => update('tradingName', e.target.value)} /></label>
+        <label><span>NZBN</span><input value={draft.nzbn} onChange={(e) => update('nzbn', e.target.value)} /></label>
+        <label><span>Company number</span><input value={draft.companyNumber} onChange={(e) => update('companyNumber', e.target.value)} /></label>
+        <label><span>Industry</span><input value={draft.industry} onChange={(e) => update('industry', e.target.value)} /></label>
+        <label><span>Status</span><select value={draft.clientStatus} onChange={(e) => update('clientStatus', e.target.value)}><option>Active</option><option>On hold</option><option>Closed</option></select></label>
+        <label><span>Primary contact</span><input value={draft.primaryContactName} onChange={(e) => update('primaryContactName', e.target.value)} /></label>
+        <label><span>Contact email</span><input type="email" value={draft.primaryContactEmail} onChange={(e) => update('primaryContactEmail', e.target.value)} /></label>
+        <label><span>Contact phone</span><input value={draft.primaryContactPhone} onChange={(e) => update('primaryContactPhone', e.target.value)} /></label>
+        <label><span>Primary adviser</span><select value={draft.primaryAdviserId} onChange={(e) => update('primaryAdviserId', e.target.value)}><option value="">Unassigned</option>{advisers.filter((a) => a.active !== false).map((a) => <option value={a.id} key={a.id}>{a.name}</option>)}</select></label>
+        <label><span>Backup adviser</span><select value={draft.backupAdviserId} onChange={(e) => update('backupAdviserId', e.target.value)}><option value="">None</option>{advisers.filter((a) => a.active !== false).map((a) => <option value={a.id} key={a.id}>{a.name}</option>)}</select></label>
+        <label><span>OneLaw client number</span><input value={draft.oneLawClientNumber} onChange={(e) => update('oneLawClientNumber', e.target.value)} /></label>
+        <label className="span-2"><span>Business address</span><textarea rows="2" value={draft.address} onChange={(e) => update('address', e.target.value)} /></label>
+        <label className="span-2"><span>Business description</span><textarea rows="3" value={draft.businessDescription} onChange={(e) => update('businessDescription', e.target.value)} /></label>
+        <label className="span-2"><span>SharePoint folder URL</span><input value={draft.sharepointFolderUrl} onChange={(e) => update('sharepointFolderUrl', e.target.value)} placeholder="https://..." /></label>
+      </div>
+      <div className="commercial-form-divider"><span>Accreditation</span></div>
+      <div className="commercial-form-grid">
+        <label><span>Accreditation type</span><input value={draft.accreditationType} onChange={(e) => update('accreditationType', e.target.value)} placeholder="Standard, High-volume..." /></label>
+        <label><span>Accreditation status</span><select value={draft.accreditationStatus} onChange={(e) => update('accreditationStatus', e.target.value)}>{['Not recorded','Preparing','Submitted','Accredited','Suspended','Expired'].map((v) => <option key={v}>{v}</option>)}</select></label>
+        <label><span>Approval date</span><input type="date" value={draft.accreditationApprovalDate} onChange={(e) => update('accreditationApprovalDate', e.target.value)} /></label>
+        <label><span>Expiry date</span><input type="date" value={draft.accreditationExpiryDate} onChange={(e) => update('accreditationExpiryDate', e.target.value)} /></label>
+        <label><span>Renewal preparation date</span><input type="date" value={draft.accreditationRenewalDate} onChange={(e) => update('accreditationRenewalDate', e.target.value)} /></label>
+        <label className="span-2"><span>Accreditation notes</span><textarea rows="3" value={draft.accreditationNotes} onChange={(e) => update('accreditationNotes', e.target.value)} /></label>
+        <label className="span-2"><span>Compliance summary visible to employer</span><textarea rows="3" value={draft.complianceSummary} onChange={(e) => update('complianceSummary', e.target.value)} /></label>
+        <label className="span-2"><span>Internal adviser notes</span><textarea rows="4" value={draft.internalNotes} onChange={(e) => update('internalNotes', e.target.value)} /></label>
+      </div>
+    </section>
+  );
+}
+
+function CommercialWorkerRegister({ client, saveWorker, archiveWorker, saving, portalMode = false, readOnly = false }) {
+  const [editing, setEditing] = useState(null);
+  const workers = (client.workers || []).filter((worker) => worker.status !== 'Archived');
+  return (
+    <section className="panel commercial-register-panel">
+      <div className="commercial-panel-head"><div><span>Worker register</span><h3>Work visa holders</h3><p>Visa, passport, employment and Job Check information.</p></div>{!readOnly && <button className="btn dark" disabled={String(client.id).startsWith('temp-')} onClick={() => setEditing(normaliseCommercialWorker({ status: 'Active', adviserReviewStatus: portalMode ? 'Needs review' : 'Reviewed' }))}><Plus size={16} />Add worker</button>}</div>
+      <div className="commercial-record-list">
+        {workers.map((worker) => <CommercialWorkerRow key={worker.id} worker={worker} onEdit={() => setEditing({ ...worker })} onArchive={() => archiveWorker(client.id, worker.id)} readOnly={readOnly} />)}
+        {!workers.length && <div className="commercial-empty-mini">No work visa holders have been recorded.</div>}
+      </div>
+      {editing && <CommercialWorkerEditor worker={editing} saving={saving} portalMode={portalMode} onClose={() => setEditing(null)} onSave={async (draft) => { await saveWorker(client.id, draft); setEditing(null); }} />}
+    </section>
+  );
+}
+
+function CommercialWorkerRow({ worker, onEdit, onArchive, readOnly }) {
+  const visaDays = dateDiff(worker.visaExpiryDate);
+  const alert = visaDays !== null && visaDays <= 90;
+  return (
+    <article className={`commercial-record-row ${alert ? 'alert' : ''}`}>
+      <div className="commercial-record-primary"><strong>{worker.fullName}</strong><span>{worker.jobTitle || 'Job title not recorded'}{worker.workLocation ? ` · ${worker.workLocation}` : ''}</span></div>
+      <div><small>Visa</small><strong>{worker.visaType || 'Not recorded'}</strong><span className={alert ? 'text-alert' : ''}>{worker.visaExpiryDate ? `Expires ${formatShortDate(worker.visaExpiryDate)}` : 'No expiry date'}</span></div>
+      <div><small>Job Check</small><strong>{worker.jobCheckReference || 'Not recorded'}</strong><span>{worker.responsibleManager || 'Manager not recorded'}</span></div>
+      <div><span className={`review-chip ${statusClass(worker.adviserReviewStatus)}`}>{worker.adviserReviewStatus}</span><span className={`status-badge ${statusClass(worker.status)}`}>{worker.status}</span></div>
+      {!readOnly && <div className="commercial-row-actions"><button className="btn mini ghost" onClick={onEdit}>Edit</button><button className="icon-button danger" onClick={onArchive} aria-label="Archive worker"><Trash2 size={15} /></button></div>}
+    </article>
+  );
+}
+
+function CommercialWorkerEditor({ worker, onSave, onClose, saving, portalMode }) {
+  const [draft, setDraft] = useState({ ...worker });
+  const update = (field, value) => setDraft((current) => ({ ...current, [field]: value }));
+  return (
+    <CommercialEditorModal title={worker.id ? 'Edit worker' : 'Add work visa holder'} eyebrow="Worker register" onClose={onClose}>
+      <div className="commercial-form-grid">
+        <label><span>Full name *</span><input value={draft.fullName} onChange={(e) => update('fullName', e.target.value)} /></label>
+        <label><span>Status</span><select value={draft.status} onChange={(e) => update('status', e.target.value)}><option>Active</option><option>Upcoming</option><option>Former</option></select></label>
+        <label><span>Email</span><input type="email" value={draft.email} onChange={(e) => update('email', e.target.value)} /></label>
+        <label><span>Phone</span><input value={draft.phone} onChange={(e) => update('phone', e.target.value)} /></label>
+        <label><span>Job title</span><input value={draft.jobTitle} onChange={(e) => update('jobTitle', e.target.value)} /></label>
+        <label><span>Work location</span><input value={draft.workLocation} onChange={(e) => update('workLocation', e.target.value)} /></label>
+        <label><span>Visa type</span><input value={draft.visaType} onChange={(e) => update('visaType', e.target.value)} /></label>
+        <label><span>Visa start</span><input type="date" value={draft.visaStartDate} onChange={(e) => update('visaStartDate', e.target.value)} /></label>
+        <label><span>Visa expiry</span><input type="date" value={draft.visaExpiryDate} onChange={(e) => update('visaExpiryDate', e.target.value)} /></label>
+        <label><span>Passport expiry</span><input type="date" value={draft.passportExpiryDate} onChange={(e) => update('passportExpiryDate', e.target.value)} /></label>
+        <label><span>Employment start</span><input type="date" value={draft.employmentStartDate} onChange={(e) => update('employmentStartDate', e.target.value)} /></label>
+        <label><span>Employment end</span><input type="date" value={draft.employmentEndDate} onChange={(e) => update('employmentEndDate', e.target.value)} /></label>
+        <label><span>Hours per week</span><input type="number" step="0.5" value={draft.hoursPerWeek} onChange={(e) => update('hoursPerWeek', e.target.value)} /></label>
+        <label><span>Hourly pay rate</span><input type="number" step="0.01" value={draft.payRate} onChange={(e) => update('payRate', e.target.value)} /></label>
+        <label><span>Job Check reference</span><input value={draft.jobCheckReference} onChange={(e) => update('jobCheckReference', e.target.value)} /></label>
+        <label><span>Responsible manager</span><input value={draft.responsibleManager} onChange={(e) => update('responsibleManager', e.target.value)} /></label>
+        <label className="span-2"><span>Visa conditions</span><textarea rows="3" value={draft.visaConditions} onChange={(e) => update('visaConditions', e.target.value)} /></label>
+        <label className="span-2"><span>{portalMode ? 'Employer notes' : 'Employer-visible notes'}</span><textarea rows="3" value={draft.employerNotes} onChange={(e) => update('employerNotes', e.target.value)} /></label>
+        {!portalMode && <><label><span>Adviser review</span><select value={draft.adviserReviewStatus} onChange={(e) => update('adviserReviewStatus', e.target.value)}><option>Needs review</option><option>Reviewed</option><option>Issue identified</option></select></label><label className="span-2"><span>Internal adviser notes</span><textarea rows="3" value={draft.internalNotes} onChange={(e) => update('internalNotes', e.target.value)} /></label></>}
+      </div>
+      <div className="modal-actions"><button className="btn dark" disabled={saving || !draft.fullName.trim()} onClick={() => onSave(draft)}><Save size={16} />Save worker</button><button className="btn ghost" onClick={onClose}>Cancel</button></div>
+    </CommercialEditorModal>
+  );
+}
+
+function CommercialComplianceRegister({ client, saveItem, archiveItem, saving, portalMode = false, readOnly = false }) {
+  const [editing, setEditing] = useState(null);
+  const items = (client.complianceItems || []).filter((item) => item.status !== 'Archived');
+  return (
+    <section className="panel commercial-register-panel">
+      <div className="commercial-panel-head"><div><span>Compliance register</span><h3>Reviews and actions</h3><p>Track accreditation, employment and migrant-worker compliance requirements.</p></div>{!readOnly && <button className="btn dark" disabled={String(client.id).startsWith('temp-')} onClick={() => setEditing(normaliseCommercialComplianceItem({ status: 'Open' }))}><Plus size={16} />Add item</button>}</div>
+      <div className="commercial-record-list">
+        {items.map((item) => {
+          const worker = (client.workers || []).find((entry) => entry.id === item.workerId);
+          const due = dateDiff(item.dueDate);
+          return <article className={`commercial-record-row compliance ${due !== null && due <= 14 && item.status !== 'Completed' ? 'alert' : ''}`} key={item.id}>
+            <div className="commercial-record-primary"><strong>{item.title}</strong><span>{item.category}{worker ? ` · ${worker.fullName}` : ''}</span></div>
+            <div><small>Due</small><strong>{item.dueDate ? formatShortDate(item.dueDate) : 'No date'}</strong><span>{item.completedDate ? `Completed ${formatShortDate(item.completedDate)}` : item.employerNotes || 'No notes'}</span></div>
+            <div><span className={`review-chip ${statusClass(item.adviserReviewStatus)}`}>{item.adviserReviewStatus}</span><span className={`status-badge ${statusClass(item.status)}`}>{item.status}</span></div>
+            {!readOnly && <div className="commercial-row-actions"><button className="btn mini ghost" onClick={() => setEditing({ ...item })}>Edit</button><button className="icon-button danger" onClick={() => archiveItem(client.id, item.id)}><Trash2 size={15} /></button></div>}
+          </article>;
+        })}
+        {!items.length && <div className="commercial-empty-mini">No compliance items have been recorded.</div>}
+      </div>
+      {editing && <CommercialComplianceEditor item={editing} workers={client.workers || []} portalMode={portalMode} saving={saving} onClose={() => setEditing(null)} onSave={async (draft) => { await saveItem(client.id, draft); setEditing(null); }} />}
+    </section>
+  );
+}
+
+function CommercialComplianceEditor({ item, workers, portalMode, saving, onSave, onClose }) {
+  const [draft, setDraft] = useState({ ...item });
+  const update = (field, value) => setDraft((current) => ({ ...current, [field]: value }));
+  return <CommercialEditorModal title={item.id ? 'Edit compliance item' : 'Add compliance item'} eyebrow="Compliance register" onClose={onClose}>
+    <div className="commercial-form-grid">
+      <label className="span-2"><span>Title *</span><input value={draft.title} onChange={(e) => update('title', e.target.value)} /></label>
+      <label><span>Category</span><select value={draft.category} onChange={(e) => update('category', e.target.value)}>{['General compliance','Accreditation','Migrant employment','Visa entitlement','Pay and hours','Settlement support','Employment agreement','Training','Record keeping','Internal review'].map((v) => <option key={v}>{v}</option>)}</select></label>
+      <label><span>Linked worker</span><select value={draft.workerId} onChange={(e) => update('workerId', e.target.value)}><option value="">Company-wide</option>{workers.filter((w) => w.status !== 'Archived').map((w) => <option key={w.id} value={w.id}>{w.fullName}</option>)}</select></label>
+      <label><span>Status</span><select value={draft.status} onChange={(e) => update('status', e.target.value)}>{['Open','In progress','Completed','Issue'].map((v) => <option key={v}>{v}</option>)}</select></label>
+      <label><span>Due date</span><input type="date" value={draft.dueDate} onChange={(e) => update('dueDate', e.target.value)} /></label>
+      <label><span>Completed date</span><input type="date" value={draft.completedDate} onChange={(e) => update('completedDate', e.target.value)} /></label>
+      <label className="span-2"><span>Employer-visible notes</span><textarea rows="3" value={draft.employerNotes} onChange={(e) => update('employerNotes', e.target.value)} /></label>
+      {!portalMode && <><label><span>Adviser review</span><select value={draft.adviserReviewStatus} onChange={(e) => update('adviserReviewStatus', e.target.value)}><option>Needs review</option><option>Reviewed</option><option>Issue identified</option></select></label><label className="span-2"><span>Internal adviser notes</span><textarea rows="3" value={draft.internalNotes} onChange={(e) => update('internalNotes', e.target.value)} /></label></>}
+    </div>
+    <div className="modal-actions"><button className="btn dark" disabled={saving || !draft.title.trim()} onClick={() => onSave(draft)}><Save size={16} />Save item</button><button className="btn ghost" onClick={onClose}>Cancel</button></div>
+  </CommercialEditorModal>;
+}
+
+function CommercialDocumentRegister({ client, saveDocument, deleteDocument, saving, portalMode = false, readOnly = false }) {
+  const [editing, setEditing] = useState(null);
+  const documents = client.documents || [];
+  return <section className="panel commercial-register-panel">
+    <div className="commercial-panel-head"><div><span>Document register</span><h3>Compliance references</h3><p>Record SharePoint or secure document links and important expiry dates.</p></div>{!readOnly && <button className="btn dark" disabled={String(client.id).startsWith('temp-')} onClick={() => setEditing(normaliseCommercialDocument({ visibleToEmployer: true }))}><Plus size={16} />Add document</button>}</div>
+    <div className="commercial-record-list">
+      {documents.map((doc) => { const worker = (client.workers || []).find((entry) => entry.id === doc.workerId); return <article className="commercial-record-row document" key={doc.id}>
+        <div className="commercial-record-primary"><strong>{doc.title}</strong><span>{doc.category}{worker ? ` · ${worker.fullName}` : ''}</span></div>
+        <div><small>Expiry</small><strong>{doc.expiryDate ? formatShortDate(doc.expiryDate) : 'No expiry'}</strong><span>{doc.notes || 'No notes'}</span></div>
+        <div>{doc.documentUrl ? <a className="btn mini ghost" href={doc.documentUrl} target="_blank" rel="noreferrer"><ExternalLink size={14} />Open</a> : <span className="muted">No link</span>}</div>
+        {!readOnly && <div className="commercial-row-actions"><button className="btn mini ghost" onClick={() => setEditing({ ...doc })}>Edit</button><button className="icon-button danger" onClick={() => deleteDocument(client.id, doc.id)}><Trash2 size={15} /></button></div>}
+      </article>; })}
+      {!documents.length && <div className="commercial-empty-mini">No document references have been recorded.</div>}
+    </div>
+    {editing && <CommercialDocumentEditor document={editing} workers={client.workers || []} portalMode={portalMode} saving={saving} onClose={() => setEditing(null)} onSave={async (draft) => { await saveDocument(client.id, draft); setEditing(null); }} />}
+  </section>;
+}
+
+function CommercialDocumentEditor({ document, workers, portalMode, saving, onSave, onClose }) {
+  const [draft, setDraft] = useState({ ...document });
+  const update = (field, value) => setDraft((current) => ({ ...current, [field]: value }));
+  return <CommercialEditorModal title={document.id ? 'Edit document' : 'Add document reference'} eyebrow="Document register" onClose={onClose}>
+    <div className="commercial-form-grid">
+      <label className="span-2"><span>Document title *</span><input value={draft.title} onChange={(e) => update('title', e.target.value)} /></label>
+      <label><span>Category</span><select value={draft.category} onChange={(e) => update('category', e.target.value)}>{['Compliance','Accreditation','Visa','Passport','Employment agreement','Job Check','Training','Other'].map((v) => <option key={v}>{v}</option>)}</select></label>
+      <label><span>Linked worker</span><select value={draft.workerId} onChange={(e) => update('workerId', e.target.value)}><option value="">Company-wide</option>{workers.filter((w) => w.status !== 'Archived').map((w) => <option key={w.id} value={w.id}>{w.fullName}</option>)}</select></label>
+      <label className="span-2"><span>Secure document URL</span><input value={draft.documentUrl} onChange={(e) => update('documentUrl', e.target.value)} placeholder="https://..." /></label>
+      <label><span>Expiry date</span><input type="date" value={draft.expiryDate} onChange={(e) => update('expiryDate', e.target.value)} /></label>
+      {!portalMode && <label className="checkbox-label"><input type="checkbox" checked={draft.visibleToEmployer !== false} onChange={(e) => update('visibleToEmployer', e.target.checked)} /><span>Visible in employer portal</span></label>}
+      <label className="span-2"><span>Notes</span><textarea rows="3" value={draft.notes} onChange={(e) => update('notes', e.target.value)} /></label>
+    </div>
+    <div className="modal-actions"><button className="btn dark" disabled={saving || !draft.title.trim()} onClick={() => onSave(draft)}><Save size={16} />Save document</button><button className="btn ghost" onClick={onClose}>Cancel</button></div>
+  </CommercialEditorModal>;
+}
+
+function CommercialPortalAccess({ client, saveCommercialClient, savePortalUser, deletePortalUser, saving }) {
+  const [editing, setEditing] = useState(null);
+  const portalUrl = `${window.location.origin}/commercial-portal`;
+  async function togglePortal() { await saveCommercialClient({ ...client, portalEnabled: !client.portalEnabled }); }
+  return <section className="panel commercial-register-panel">
+    <div className="commercial-panel-head"><div><span>Employer portal</span><h3>Access and users</h3><p>Each employer user receives an individual email and access code.</p></div><button className={`btn ${client.portalEnabled ? 'danger' : 'dark'}`} onClick={togglePortal} disabled={saving}>{client.portalEnabled ? 'Disable portal' : 'Enable portal'}</button></div>
+    <div className={`commercial-portal-status ${client.portalEnabled ? 'enabled' : ''}`}><ShieldCheck size={20} /><div><strong>{client.portalEnabled ? 'Employer portal enabled' : 'Employer portal disabled'}</strong><span>{portalUrl}</span></div><button className="btn mini ghost" onClick={() => navigator.clipboard?.writeText(portalUrl)}><Copy size={14} />Copy link</button></div>
+    <div className="commercial-panel-subhead"><div><h4>Portal users</h4><p>Company Admin can update accreditation; Company User can update registers; Read Only can only view.</p></div><button className="btn dark" disabled={!client.portalEnabled || String(client.id).startsWith('temp-')} onClick={() => setEditing({ id: '', name: '', email: '', role: 'Company User', active: true, newAccessCode: '' })}><Plus size={16} />Add portal user</button></div>
+    <div className="commercial-record-list">
+      {(client.portalUsers || []).map((user) => <article className="commercial-record-row portal-user" key={user.id}>
+        <div className="commercial-record-primary"><strong>{user.name}</strong><span>{user.email}</span></div><div><small>Role</small><strong>{user.role}</strong><span>{user.lastAccessedAt ? `Last access ${formatDateTime(user.lastAccessedAt)}` : 'Not accessed yet'}</span></div><div><span className={`status-badge ${user.active ? 'active' : 'closed'}`}>{user.active ? 'Active' : 'Inactive'}</span></div><div className="commercial-row-actions"><button className="btn mini ghost" onClick={() => setEditing({ ...user, newAccessCode: '' })}>Edit</button><button className="icon-button danger" onClick={() => deletePortalUser(client.id, user.id)}><Trash2 size={15} /></button></div>
+      </article>)}
+      {!(client.portalUsers || []).length && <div className="commercial-empty-mini">No employer portal users have been created.</div>}
+    </div>
+    {editing && <CommercialPortalUserEditor user={editing} saving={saving} onClose={() => setEditing(null)} onSave={async (draft) => { await savePortalUser(client.id, draft); setEditing(null); }} />}
+  </section>;
+}
+
+function CommercialPortalUserEditor({ user, saving, onClose, onSave }) {
+  const [draft, setDraft] = useState({ ...user });
+  const update = (field, value) => setDraft((current) => ({ ...current, [field]: value }));
+  return <CommercialEditorModal title={user.id ? 'Edit portal user' : 'Add portal user'} eyebrow="Employer portal" onClose={onClose}>
+    <div className="commercial-form-grid">
+      <label><span>Name *</span><input value={draft.name} onChange={(e) => update('name', e.target.value)} /></label>
+      <label><span>Email *</span><input type="email" value={draft.email} onChange={(e) => update('email', e.target.value)} /></label>
+      <label><span>Portal role</span><select value={draft.role} onChange={(e) => update('role', e.target.value)}><option>Company Admin</option><option>Company User</option><option>Read Only</option></select></label>
+      <label><span>{user.id ? 'New access code (optional)' : 'Initial access code *'}</span><input value={draft.newAccessCode} onChange={(e) => update('newAccessCode', e.target.value)} placeholder="At least 8 characters" /></label>
+      <label className="checkbox-label"><input type="checkbox" checked={draft.active !== false} onChange={(e) => update('active', e.target.checked)} /><span>Portal user active</span></label>
+    </div>
+    <div className="commercial-code-notice"><LockKeyhole size={18} /><p>The access code is stored as a one-way hash. Copy it to the employer before saving; it cannot be viewed later.</p></div>
+    <div className="modal-actions"><button className="btn dark" disabled={saving || !draft.name.trim() || !draft.email.trim() || (!user.id && draft.newAccessCode.length < 8)} onClick={() => onSave(draft)}><Save size={16} />Save portal user</button><button className="btn ghost" onClick={onClose}>Cancel</button></div>
+  </CommercialEditorModal>;
+}
+
+function CommercialAuditTrail({ client }) {
+  return <section className="panel commercial-register-panel"><div className="commercial-panel-head"><div><span>Audit history</span><h3>Recent activity</h3><p>Changes made by Turner Hopkins and employer portal users.</p></div></div><div className="commercial-audit-list">{(client.auditLog || []).map((item) => <article key={item.id}><span className="commercial-audit-icon"><Clock size={15} /></span><div><strong>{item.summary || `${item.action} ${item.recordType}`}</strong><span>{item.changedByType}{item.changedBy ? ` · ${item.changedBy}` : ''}</span></div><time>{formatDateTime(item.createdAt)}</time></article>)}{!(client.auditLog || []).length && <div className="commercial-empty-mini">No activity has been recorded yet.</div>}</div></section>;
+}
+
+function CommercialEditorModal({ title, eyebrow, onClose, children }) {
+  useEffect(() => { const handler = (event) => { if (event.key === 'Escape') onClose(); }; window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler); }, [onClose]);
+  return <div className="modal-layer commercial-modal-layer" role="dialog" aria-modal="true" aria-label={title}><button className="modal-backdrop" onClick={onClose} aria-label="Close" /><div className="modal-card commercial-modal-card"><div className="modal-head"><div><span>{eyebrow}</span><h2>{title}</h2></div><button className="icon-button" onClick={onClose}><X size={18} /></button></div>{children}</div></div>;
+}
+
+function CommercialPortalApp() {
+  const storedAuth = safeJsonParse(sessionStorage.getItem('this_commercial_portal_auth'), null);
+  const storedSnapshot = safeJsonParse(sessionStorage.getItem('this_commercial_portal_snapshot'), null);
+  const [auth, setAuth] = useState(storedAuth);
+  const [snapshot, setSnapshot] = useState(storedSnapshot);
+  const [session, setSession] = useState(null);
+  const [email, setEmail] = useState(storedAuth?.email || '');
+  const [accessCode, setAccessCode] = useState(storedAuth?.accessCode || '');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [tab, setTab] = useState('overview');
+
+  async function request(action, payload = {}, credentials = auth) {
+    if (!credentials?.email || !credentials?.accessCode) throw new Error('Enter your email and access code.');
+    setLoading(true); setError('');
+    try {
+      const response = await fetch('/.netlify/functions/commercial-portal', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action, email: credentials.email, accessCode: credentials.accessCode, ...payload }) });
+      const body = await readJsonResponse(response);
+      if (!response.ok) throw new Error(body.error || 'Employer portal request failed.');
+      setSnapshot(body.snapshot); setSession(body.session); sessionStorage.setItem('this_commercial_portal_snapshot', JSON.stringify(body.snapshot));
+      return body;
+    } catch (err) {
+      setError(err.message || String(err));
+      throw err;
+    } finally { setLoading(false); }
+  }
+
+  async function submit(event) {
+    event.preventDefault();
+    const nextAuth = { email: email.trim().toLowerCase(), accessCode: accessCode.trim() };
+    try { const body = await request('login', {}, nextAuth); setAuth(nextAuth); setSession(body.session); sessionStorage.setItem('this_commercial_portal_auth', JSON.stringify(nextAuth)); } catch (err) { setError(err.message || String(err)); }
+  }
+
+  useEffect(() => { if (!storedAuth) return; request('login', {}, storedAuth).then((body) => setSession(body.session)).catch(() => { sessionStorage.removeItem('this_commercial_portal_auth'); sessionStorage.removeItem('this_commercial_portal_snapshot'); setAuth(null); setSnapshot(null); }); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+
+  function signOut() { sessionStorage.removeItem('this_commercial_portal_auth'); sessionStorage.removeItem('this_commercial_portal_snapshot'); setAuth(null); setSnapshot(null); setSession(null); setAccessCode(''); }
+
+  if (!auth || !snapshot) return <div className="commercial-portal-shell login"><main className="commercial-portal-login-card"><img src={LOGO_SRC} alt="Turner Hopkins" /><span>Secure employer portal</span><h1>Employer compliance portal</h1><p>Maintain your work visa holder register, accreditation dates and compliance actions in one secure workspace.</p><form onSubmit={submit}><label><span>Email</span><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label><label><span>Access code</span><input type="password" value={accessCode} onChange={(e) => setAccessCode(e.target.value)} required /></label><button className="btn dark" disabled={loading}>{loading ? 'Checking...' : 'Open employer portal'}</button></form>{error && <p className="portal-error">{error}</p>}<small>Use the individual login details supplied by Turner Hopkins.</small></main></div>;
+
+  const company = snapshot.company || {};
+  const readOnly = session?.role === 'Read Only';
+  const portalClient = { ...company, workers: snapshot.workers || [], complianceItems: snapshot.complianceItems || [], documents: snapshot.documents || [], auditLog: snapshot.auditLog || [] };
+  const portalSaveWorker = async (_clientId, worker) => request('saveWorker', { worker });
+  const portalArchiveWorker = async (_clientId, workerId) => request('archiveWorker', { workerId });
+  const portalSaveCompliance = async (_clientId, item) => request('saveComplianceItem', { item });
+  const portalArchiveCompliance = async (_clientId, itemId) => request('archiveComplianceItem', { itemId });
+  const portalSaveDocument = async (_clientId, document) => request('saveDocument', { document });
+  const portalDeleteDocument = async (_clientId, documentId) => request('deleteDocument', { documentId });
+
+  return <div className="commercial-portal-shell"><header className="commercial-portal-header"><div><img src={LOGO_SRC} alt="Turner Hopkins" /><span>Employer compliance portal</span></div><div><strong>{session?.name || auth.email}</strong><span>{session?.role}</span><button className="btn mini ghost" onClick={signOut}>Sign out</button></div></header><main className="commercial-portal-main"><section className="commercial-portal-hero"><div><span>{company.industry || 'Commercial client'}</span><h1>{company.tradingName || company.legalName}</h1><p>Keep your migrant workforce and accreditation information current. Turner Hopkins can review employer-entered changes inside the CRM.</p></div><div className="commercial-portal-accreditation"><span>Accreditation</span><strong>{company.accreditationStatus || 'Not recorded'}</strong><small>{company.accreditationExpiryDate ? `Expires ${formatShortDate(company.accreditationExpiryDate)}` : 'No expiry recorded'}</small></div></section><CommercialSummaryCards client={portalClient} /><nav className="commercial-portal-tabs">{[['overview','Overview'],['workers','WV holders'],['compliance','Compliance'],['documents','Documents'],['activity','Activity']].map(([value,label]) => <button className={tab === value ? 'active' : ''} key={value} onClick={() => setTab(value)}>{label}</button>)}</nav>{error && <div className="error-banner"><AlertTriangle size={18} />{error}</div>}{tab === 'overview' && <CommercialPortalOverview company={company} session={session} loading={loading} saveAccreditation={async (accreditation) => request('saveAccreditation', { accreditation })} />}{tab === 'workers' && <CommercialWorkerRegister client={portalClient} saveWorker={portalSaveWorker} archiveWorker={portalArchiveWorker} saving={loading} portalMode readOnly={readOnly} />}{tab === 'compliance' && <CommercialComplianceRegister client={portalClient} saveItem={portalSaveCompliance} archiveItem={portalArchiveCompliance} saving={loading} portalMode readOnly={readOnly} />}{tab === 'documents' && <CommercialDocumentRegister client={portalClient} saveDocument={portalSaveDocument} deleteDocument={portalDeleteDocument} saving={loading} portalMode readOnly={readOnly} />}{tab === 'activity' && <CommercialAuditTrail client={portalClient} />}</main><footer className="commercial-portal-footer"><p>This register assists with compliance administration but does not replace the employer's legal obligations or specific immigration advice.</p></footer></div>;
+}
+
+function CommercialPortalOverview({ company, session, loading, saveAccreditation }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState({ ...company });
+  useEffect(() => setDraft({ ...company }), [company]);
+  return <section className="commercial-portal-overview-grid"><article className="panel"><span>Company details</span><h3>{company.legalName}</h3><dl><div><dt>NZBN</dt><dd>{company.nzbn || 'Not recorded'}</dd></div><div><dt>Company number</dt><dd>{company.companyNumber || 'Not recorded'}</dd></div><div><dt>Primary contact</dt><dd>{company.primaryContactName || 'Not recorded'}</dd></div><div><dt>Contact email</dt><dd>{company.primaryContactEmail || 'Not recorded'}</dd></div><div><dt>Address</dt><dd>{company.address || 'Not recorded'}</dd></div></dl></article><article className="panel"><div className="commercial-panel-head"><div><span>Accreditation details</span><h3>{company.accreditationType || 'Type not recorded'}</h3></div>{session?.role === 'Company Admin' && <button className="btn mini ghost" onClick={() => setEditing(true)}>Update</button>}</div><dl><div><dt>Status</dt><dd>{company.accreditationStatus || 'Not recorded'}</dd></div><div><dt>Approval date</dt><dd>{company.accreditationApprovalDate ? formatShortDate(company.accreditationApprovalDate) : 'Not recorded'}</dd></div><div><dt>Expiry date</dt><dd>{company.accreditationExpiryDate ? formatShortDate(company.accreditationExpiryDate) : 'Not recorded'}</dd></div><div><dt>Renewal preparation</dt><dd>{company.accreditationRenewalDate ? formatShortDate(company.accreditationRenewalDate) : 'Not recorded'}</dd></div></dl><p>{company.accreditationNotes || 'No accreditation notes have been published.'}</p></article><article className="panel span-2"><span>Compliance summary</span><h3>Current employer position</h3><p>{company.complianceSummary || 'Turner Hopkins has not published a compliance summary yet.'}</p></article>{editing && <CommercialAccreditationEditor draft={draft} setDraft={setDraft} loading={loading} onClose={() => setEditing(false)} onSave={async () => { await saveAccreditation(draft); setEditing(false); }} />}</section>;
+}
+
+function CommercialAccreditationEditor({ draft, setDraft, loading, onClose, onSave }) {
+  const update = (field, value) => setDraft((current) => ({ ...current, [field]: value }));
+  return <CommercialEditorModal title="Update accreditation" eyebrow="Employer portal" onClose={onClose}><div className="commercial-form-grid"><label><span>Accreditation type</span><input value={draft.accreditationType || ''} onChange={(e) => update('accreditationType', e.target.value)} /></label><label><span>Status</span><select value={draft.accreditationStatus || 'Not recorded'} onChange={(e) => update('accreditationStatus', e.target.value)}>{['Not recorded','Preparing','Submitted','Accredited','Suspended','Expired'].map((v) => <option key={v}>{v}</option>)}</select></label><label><span>Approval date</span><input type="date" value={draft.accreditationApprovalDate || ''} onChange={(e) => update('accreditationApprovalDate', e.target.value)} /></label><label><span>Expiry date</span><input type="date" value={draft.accreditationExpiryDate || ''} onChange={(e) => update('accreditationExpiryDate', e.target.value)} /></label><label><span>Renewal preparation</span><input type="date" value={draft.accreditationRenewalDate || ''} onChange={(e) => update('accreditationRenewalDate', e.target.value)} /></label><label className="span-2"><span>Accreditation notes</span><textarea rows="4" value={draft.accreditationNotes || ''} onChange={(e) => update('accreditationNotes', e.target.value)} /></label></div><div className="modal-actions"><button className="btn dark" disabled={loading} onClick={onSave}><Save size={16} />Save accreditation</button><button className="btn ghost" onClick={onClose}>Cancel</button></div></CommercialEditorModal>;
+}
 
 
 function CrmConfirmDialog({ dialog, onResolve }) {
@@ -6563,7 +7155,7 @@ function MobileBottomNav({ activeTab, onNavigate, onOpenMore }) {
     { tab: 'clients', label: 'Clients', icon: UsersRound },
     { tab: 'intake', label: 'Enquiries', icon: ClipboardList },
   ];
-  const moreActive = ['dashboard', 'calendar', 'billing', 'advisers', 'library', 'bookings', 'backups'].includes(activeTab);
+  const moreActive = ['dashboard', 'commercial', 'calendar', 'billing', 'advisers', 'library', 'bookings', 'backups'].includes(activeTab);
   return (
     <nav className="mobile-bottom-nav" aria-label="Mobile CRM navigation">
       {navItems.map(({ tab, label, icon: Icon }) => (
@@ -6580,7 +7172,7 @@ function MobileBottomNav({ activeTab, onNavigate, onOpenMore }) {
   );
 }
 
-function MobileMoreSheet({ open, onClose, onNavigate, activeTab, onOpenHelp, onOpenTools, onRefresh, onAddClient, onAddAdviser, loading, canManageAdvisers, canManageBackups, onLogout, identityUser, accessCodeActive }) {
+function MobileMoreSheet({ open, onClose, onNavigate, activeTab, onOpenHelp, onOpenTools, onRefresh, onAddClient, onAddCommercialClient, onAddAdviser, loading, canManageAdvisers, canManageBackups, onLogout, identityUser, accessCodeActive }) {
   function go(tab) {
     onClose();
     onNavigate(tab);
@@ -6599,6 +7191,7 @@ function MobileMoreSheet({ open, onClose, onNavigate, activeTab, onOpenHelp, onO
         </div>
         <div className="mobile-more-grid">
           <button type="button" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => go('dashboard')}><LayoutDashboard size={18} /><span>Dashboard</span></button>
+          <button type="button" className={activeTab === 'commercial' ? 'active' : ''} onClick={() => go('commercial')}><Building2 size={18} /><span>Commercial</span></button>
           <button type="button" className={activeTab === 'calendar' ? 'active' : ''} onClick={() => go('calendar')}><CalendarDays size={18} /><span>Calendar</span></button>
           <button type="button" className={activeTab === 'intake' ? 'active' : ''} onClick={() => go('intake')}><ClipboardList size={18} /><span>Enquiries</span></button>
           <button type="button" className={activeTab === 'bookings' ? 'active' : ''} onClick={() => go('bookings')}><CalendarDays size={18} /><span>Bookings</span></button>
@@ -6610,6 +7203,7 @@ function MobileMoreSheet({ open, onClose, onNavigate, activeTab, onOpenHelp, onO
           <button type="button" onClick={onOpenHelp}><HelpCircle size={18} /><span>Help</span></button>
           <button type="button" onClick={onRefresh} disabled={loading}><RefreshCw size={18} /><span>Refresh</span></button>
           <button type="button" onClick={onAddClient}><Plus size={18} /><span>New client</span></button>
+          <button type="button" onClick={onAddCommercialClient}><Building2 size={18} /><span>New commercial</span></button>
           {canManageAdvisers && <button type="button" onClick={onAddAdviser}><Plus size={18} /><span>New adviser</span></button>}
           {(identityUser || accessCodeActive) && <button type="button" onClick={onLogout}><LockKeyhole size={18} /><span>Sign out</span></button>}
         </div>
@@ -7803,7 +8397,7 @@ function AccessScreen(props) {
   );
 }
 
-function MyDayOverlay({ loading = false, error = '', adviser = null, identityUser = null, accessRole = 'User', accessCodeActive = false, onLogout, onClose, clients = [], activeClients = [], advisers = [], dashboardAdviserFilter = 'all', setDashboardAdviserFilter, taskRows = [], intakeEnquiries = [], consultationBookings = [], recentClientIds = [], setTab, openClientRecord }) {
+function MyDayOverlay({ loading = false, error = '', adviser = null, identityUser = null, accessRole = 'User', accessCodeActive = false, onLogout, onClose, clients = [], commercialClients = [], activeClients = [], advisers = [], dashboardAdviserFilter = 'all', setDashboardAdviserFilter, taskRows = [], intakeEnquiries = [], consultationBookings = [], recentClientIds = [], setTab, openClientRecord }) {
   useEffect(() => {
     function handleKeyDown(event) {
       if (event.key === 'Escape') onClose?.();
@@ -7846,6 +8440,7 @@ function MyDayOverlay({ loading = false, error = '', adviser = null, identityUse
               adviser={adviser}
               accessRole={accessRole}
               clients={clients}
+              commercialClients={commercialClients}
               activeClients={activeClients}
               advisers={advisers}
               dashboardAdviserFilter={dashboardAdviserFilter}
@@ -7875,7 +8470,7 @@ function CrmToast({ toast, onClose }) {
   );
 }
 
-function AdviserLandingPad({ adviser = null, accessRole = 'User', clients = [], activeClients = [], advisers = [], dashboardAdviserFilter = 'all', taskRows = [], intakeEnquiries = [], consultationBookings = [], recentClientIds = [], setTab, openClientRecord, overlay = false }) {
+function AdviserLandingPad({ adviser = null, accessRole = 'User', clients = [], commercialClients = [], activeClients = [], advisers = [], dashboardAdviserFilter = 'all', taskRows = [], intakeEnquiries = [], consultationBookings = [], recentClientIds = [], setTab, openClientRecord, overlay = false }) {
   const actionableRows = taskRows
     .map(withDeadlineSignal)
     .filter(isDashboardActionableTaskRow)
@@ -7998,11 +8593,12 @@ function AdviserLandingPad({ adviser = null, accessRole = 'User', clients = [], 
       </div>
 
       <section className="landing-launch-strip" aria-label="CRM shortcuts">
-        <div className="landing-launch-label"><strong>Go straight to</strong><span>{activeClients.length} active clients · {accessRole} access</span></div>
+        <div className="landing-launch-label"><strong>Go straight to</strong><span>{activeClients.length} individual · {commercialClients.filter((client) => client.clientStatus !== 'Closed').length} commercial · {accessRole} access</span></div>
         <div className="landing-launch-buttons">
           <button type="button" onClick={() => setTab('dashboard')}><LayoutDashboard size={17} /><span>Dashboard</span></button>
           <button type="button" onClick={() => setTab('tasks')}><ListChecks size={17} /><span>Tasks</span></button>
           <button type="button" onClick={() => setTab('clients')}><UsersRound size={17} /><span>Clients</span></button>
+          <button type="button" onClick={() => setTab('commercial')}><Building2 size={17} /><span>Commercial</span></button>
           <button type="button" onClick={() => setTab('intake')}><ClipboardList size={17} /><span>Enquiries</span></button>
           <button type="button" onClick={() => setTab('calendar')}><CalendarDays size={17} /><span>Calendar</span></button>
           {accessRole === 'Admin' && <button type="button" className="admin" onClick={() => setTab('backups')}><ShieldCheck size={17} /><span>Admin</span></button>}
@@ -12599,6 +13195,7 @@ function normaliseData(body) {
   return {
     advisers: (body.advisers || []).map((adviser) => ({ ...adviser, loginEmail: adviser.loginEmail || adviser.login_email || '', accessRole: normaliseCrmAccessRole(adviser.accessRole || adviser.access_role), availability: adviser.availability === 'Away' ? 'Away' : 'Available' })),
     clients: (body.clients || []).map((client) => normaliseClientFromApi(client, body.stageTemplates || DEFAULT_STAGE_TEMPLATES)),
+    commercialClients: (body.commercialClients || []).map(normaliseCommercialClient),
     caseTypes: body.caseTypes || DEFAULT_CASE_TYPES,
     deadlineTypes: body.deadlineTypes || DEFAULT_DEADLINE_TYPES,
     stageTemplates: body.stageTemplates || DEFAULT_STAGE_TEMPLATES,
