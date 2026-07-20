@@ -1,9 +1,9 @@
-THiS CRM v0.13.36 - Roles and Standalone My Day
-=====================================
+THiS CRM v0.13.37 - Roles and My Day Briefing Overlay
+=====================================================
 
 CRM roles
 ---------
-The CRM now uses two adviser access roles:
+The CRM uses two adviser access roles:
 
 Admin
 - Full operational CRM access.
@@ -13,10 +13,10 @@ Admin
 - Can create new adviser profiles.
 
 User
-- Full access to operational CRM workspaces, including My day, Dashboard,
-  Tasks, Clients, Enquiries & Intake, Bookings, Calendar, Billing and Library.
+- Full access to operational CRM workspaces, including Dashboard, Tasks,
+  Clients, Enquiries & Intake, Bookings, Calendar, Billing and Library.
 - Cannot open Adviser management or Backup Centre.
-- Cannot download the contact-register or Mailchimp CSV exports.
+- Cannot download contact-register or Mailchimp CSV exports.
 
 Assigning a role
 ----------------
@@ -26,30 +26,28 @@ Assigning a role
 4. Set CRM access role to Admin or User.
 5. Save the adviser profile.
 
-At least one active adviser must remain an Admin. The CRM blocks an attempt to
-remove or deactivate the final active administrator.
+At least one active adviser must remain an Admin.
 
-First deployment
-----------------
-Existing adviser rows are initially set to User. Until the first Admin is
-explicitly assigned, a logged-in user whose email matches an adviser profile is
-treated as a bootstrap administrator so the roles can be configured. Assign at
-least one Admin immediately after deployment.
+My Day briefing overlay
+-----------------------
+My Day opens automatically after login as a focused layer above the normal CRM.
+The Dashboard is loaded underneath and remains visibly present, but dimmed, until
+My Day is closed.
 
-Standalone My Day
------------------
-My Day is the first page shown after a successful login, but it is no longer part
-of the normal CRM page layout. It has its own minimal header and does not show the
-CRM toolbar, tab strip, drawers or mobile navigation. It includes:
-- Overdue and due-today action counts.
+The overlay includes:
+- Overdue and due-today work counts.
 - New enquiry count.
 - Consultations scheduled for today.
-- A concise action list.
-- Direct cards for the main CRM workspaces.
-- Recently opened clients.
-- Admin shortcuts for administrators only.
-- A compact adviser / whole-practice scope selector.
+- A concise list of work requiring immediate attention.
+- Today's consultation details.
+- Recently opened client files.
+- Direct shortcuts into the main CRM workspaces.
+- An adviser / whole-practice scope selector.
 
-Use Enter CRM to open the main Dashboard. Workspace cards can also open a specific
-CRM area directly. Once inside the CRM, use the My Day button in the desktop header
-or the My Day item in mobile navigation to return to the standalone landing page.
+Use Enter CRM to close the overlay and reveal the Dashboard. A shortcut can also
+open a specific workspace directly. Click outside the briefing, use the close
+button, or press Escape to dismiss it.
+
+Inside the CRM, use the My Day button in the desktop header or the My Day item in
+mobile navigation to reopen the briefing above the current workspace. Opening My
+Day does not navigate away from that workspace or discard unsaved edits.

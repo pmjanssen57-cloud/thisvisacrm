@@ -1,19 +1,24 @@
-THiS CRM v0.13.36 validation
+THiS CRM v0.13.37 validation
 ============================
 
-Completed in the build workspace:
-- package.json JSON validation
-- clean dependency installation against the pinned dependency set
-- full Vite production build
-- App.jsx and main.jsx transformation through Vite
-- styles.css production bundling
-- Node syntax checks for every Netlify Function
-- Node syntax check for the backup recovery script
-- verification that node_modules is not included in the release
-- verification that automatic Mailchimp API environment keys are not present
-- verification that My Day is removed from the CRM tab strip
-- verification that the CRM header and mobile navigation can return to My Day
+Completed
+---------
+- Production Vite build completed successfully.
+- 1,589 modules transformed.
+- All Netlify .mjs Function files passed Node syntax checks.
+- My Day now renders as a fixed briefing overlay above the normal CRM shell.
+- Login, invitation and password-recovery flows reset the underlying CRM to Dashboard and open My Day.
+- Enter CRM and workspace shortcuts close the overlay and expose the selected CRM area.
+- The desktop and mobile My Day controls reopen the overlay without navigating away from the current CRM workspace.
+- Opening My Day does not invoke the unsaved-edit discard workflow.
+- Automatic Mailchimp submission remains absent.
+- Incremental contact CSV exports remain present.
+- No database migration, package dependency, Netlify Function or public form was changed.
 
-The dependency graph and Yarn-based Netlify deployment configuration are unchanged
-from the working v0.13.35 release. The existing large JavaScript chunk warning remains
-unchanged and does not prevent a successful production build.
+Build note
+----------
+The validation container used Node 22.16.0 with the unchanged dependency graph because Node 20.19.0 was not installed in that container. The production package remains pinned to Node 20.19.0 and Yarn 1.22.22 for Netlify.
+
+Existing advisory
+-----------------
+Vite continues to report the existing large JavaScript chunk warning. This is unchanged from earlier releases and does not prevent deployment.
