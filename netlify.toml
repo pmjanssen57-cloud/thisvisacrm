@@ -12,6 +12,9 @@
   publish = "dist"
   functions = "netlify/functions"
 
+[functions."backup-create-background"]
+  included_files = ["netlify/database/migrations/*.sql"]
+
 [[redirects]]
   from = "/api/crm"
   to = "/.netlify/functions/crm"

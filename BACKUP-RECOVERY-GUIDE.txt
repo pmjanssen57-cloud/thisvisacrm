@@ -1,0 +1,45 @@
+THiS CRM v0.13.29 - Secure Backup Centre
+=========================================
+
+WHAT THE BACKUP CONTAINS
+------------------------
+- All public CRM database tables except backup_jobs data.
+- Applicant and partner CVs in the intake-uploads Netlify Blob store.
+- Client portal documents in the client-portal-documents Netlify Blob store.
+- A database schema snapshot.
+- The packaged database migration files.
+- A manifest, per-store file indexes and SHA-256 checksums.
+
+WHAT IS EXCLUDED
+----------------
+- Environment variable values and API credentials.
+- Database connection strings.
+- Microsoft 365 and Mailchimp credentials.
+- SharePoint files referenced only by URL.
+- GitHub source history and Netlify deployment history.
+
+SECURITY MODEL
+--------------
+The downloaded .thisbackup file is an AES-256-GCM encrypted ZIP container. The encryption key is derived from the password entered in the Backup Centre using scrypt. The password is not stored by the CRM, in Postgres, in Netlify Blobs or inside the backup file.
+
+Keep the backup file and password in separate secure locations. A forgotten password cannot be recovered.
+
+DECRYPTING A BACKUP
+-------------------
+Node.js 20.19 or later is required.
+
+From the CRM source directory, run:
+
+  node scripts/decrypt-this-backup.mjs "C:\path\to\THiS-CRM-Backup.thisbackup"
+
+The script securely prompts for the password and creates a ZIP beside the encrypted backup. You can provide a different output path as the second argument.
+
+After decryption:
+1. Open the ZIP.
+2. Read RESTORE-INSTRUCTIONS.txt.
+3. Review manifest.json for record and file counts and any file warnings.
+4. Verify checksums.sha256 before relying on the archive.
+
+PHASE 1 LIMITATION
+------------------
+This release creates, encrypts and downloads a full operational backup. It does not automatically restore records or files into production. Any restoration should first be rehearsed against a test database and test Blob stores.

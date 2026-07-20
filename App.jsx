@@ -138,13 +138,13 @@ const SUPPORT_CONTENT = {
   },
   dashboard: {
     title: 'Dashboard help',
-    summary: 'The dashboard is the daily operational view. It shows the current adviser workload, urgent bring-up items, active clients, deadlines and billing pressure points based on the selected adviser view.',
+    summary: 'The dashboard is the daily operational view. It prioritises overdue work, today’s bring-up items and tasks due within 30 days, with client workload and quick action-date editing directly underneath.',
     sections: [
       { heading: 'Adviser scope', text: 'Use the Adviser scope selector above the tabs to switch between all advisers and one adviser. The dashboard, task counts, billing figures and workload lists update to match that scope.' },
       { heading: "Today's bring-up list", text: 'This panel highlights next-action, billing and personal tasks due today. Treat it as the morning file bring-up list: review the task, open the client where relevant, complete or update the task, then save.' },
-      { heading: 'Client workload list', text: 'The workload list shows clients for the selected adviser view, their current stage, primary/backup adviser and earliest upcoming action or deadline. Use the column filters to narrow the list.' },
+      { heading: 'Client workload list', text: 'The workload list shows clients for the selected adviser view, their current stage, advisers and next action. Use Adjust action to change the action wording or bring-up date without opening the full client record.' },
     ],
-    tips: ['Set the adviser view first before reviewing workload.', 'Use next-action dates consistently so the bring-up list stays reliable.', 'Use the client search field to jump from dashboard review to the client record.'],
+    tips: ['Set the adviser view first before reviewing workload.', 'Use the Overdue, Today and Next 30 days tabs as the daily work queue.', 'Longer-dated tasks remain in the full Tasks page and do not crowd the dashboard.'],
   },
   tasks: {
     title: 'Tasks help',
@@ -207,6 +207,16 @@ const SUPPORT_CONTENT = {
       { heading: 'Login mapping', text: 'Use the Login Email field to match a Netlify Identity user to the adviser profile. The main adviser email can still be used for client communication.' },
     ],
     tips: ['Match each adviser profile to their Netlify Identity email address.', 'Use clear head-and-shoulders profile photos so clients can identify their adviser in the portal.', 'Avoid deleting advisers if they are linked to historical client records.'],
+  },
+  backups: {
+    title: 'Backup Centre help',
+    summary: 'The Backup Centre creates a password-protected desktop copy of the CRM database and the files managed by this application. Access is restricted to administrators and managers.',
+    sections: [
+      { heading: 'Creating a backup', text: 'Enter a strong password twice and create the backup. The job continues in the background while the page reports its progress. The password is not stored and cannot be recovered.' },
+      { heading: 'Downloading and storing', text: 'Download the completed .thisbackup file before it expires. Keep the encrypted file and its password in separate secure locations. Delete the temporary server copy once the desktop copy has been checked.' },
+      { heading: 'Scope and recovery', text: 'The archive contains CRM database records, intake CVs, portal documents, schema information, migration files, a manifest and checksums. Phase 1 does not automatically restore production data.' },
+    ],
+    tips: ['Create a backup before significant CRM or database changes.', 'Do not email the backup and password together.', 'Review any file warnings shown against the completed backup.'],
   },
 };
 
@@ -1088,6 +1098,7 @@ export default function App() {
   const identityAdviser = useMemo(() => findAdviserForIdentity(data.advisers, identityUser), [data.advisers, identityUser]);
   const canViewAllAdvisers = !identityUser || identityHasRole(identityUser, ['admin', 'manager']);
   const canManageAdvisers = !identityUser || identityHasRole(identityUser, ['admin', 'manager']);
+  const canManageBackups = canManageAdvisers;
   const scopeAdvisers = canViewAllAdvisers ? data.advisers : (identityAdviser ? [identityAdviser] : data.advisers);
   const headerSnapshotAdviser = useMemo(() => {
     if (dashboardAdviserFilter !== 'all') return data.advisers.find((adviser) => adviser.id === dashboardAdviserFilter) || null;
@@ -1255,6 +1266,7 @@ export default function App() {
               <TabButton active={tab === 'billing'} onClick={() => switchTab('billing')} icon={CreditCard} label="Billing" />
               <TabButton active={tab === 'library'} onClick={() => switchTab('library')} icon={BookOpen} label="Library" />
               {canManageAdvisers && <TabButton active={tab === 'advisers'} onClick={() => switchTab('advisers')} icon={UsersRound} label="Advisers" />}
+              {canManageBackups && <TabButton active={tab === 'backups'} onClick={() => switchTab('backups')} icon={Database} label="Backups" />}
             </nav>
 
             {tab === 'intake' && (
@@ -1288,7 +1300,7 @@ export default function App() {
             )}
 
             {tab === 'dashboard' && (
-              <Dashboard clients={scopedClients} activeClients={activeClients} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} deadlineRows={deadlineRows} taskRows={taskRows} stageTemplates={data.stageTemplates} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} intakeEnquiries={data.intakeEnquiries || []} recentClientIds={recentClientIds} />
+              <Dashboard clients={scopedClients} activeClients={activeClients} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} deadlineRows={deadlineRows} taskRows={taskRows} stageTemplates={data.stageTemplates} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} saveClient={saveClient} saving={saving} intakeEnquiries={data.intakeEnquiries || []} recentClientIds={recentClientIds} />
             )}
 
             {tab === 'tasks' && (
@@ -1336,6 +1348,10 @@ export default function App() {
             {tab === 'advisers' && canManageAdvisers && (
               <AdviserProfiles advisers={data.advisers} clients={data.clients} saveAdviser={saveAdviser} saving={saving} />
             )}
+
+            {tab === 'backups' && canManageBackups && (
+              <BackupWorkspace accessCode={accessCode} identityUser={identityUser} confirmAction={askCrmConfirm} notify={showCrmToast} />
+            )}
           </>
         )}
       </main>
@@ -1354,6 +1370,7 @@ export default function App() {
         onAddAdviser={() => { setMobileMoreOpen(false); addAdviser(); }}
         loading={loading}
         canManageAdvisers={canManageAdvisers}
+        canManageBackups={canManageBackups}
         onLogout={logoutIdentityUser}
         identityUser={identityUser}
         accessCodeActive={Boolean(accessCode)}
@@ -2994,6 +3011,312 @@ const BOOKING_DAY_OPTIONS = [
 ];
 const BOOKING_STATUS_OPTIONS = ['Reserved', 'Confirmed', 'Cancelled', 'Completed', 'No-show'];
 const BOOKING_LINK_STATUS_OPTIONS = ['Active', 'Used', 'Expired', 'Cancelled'];
+
+
+function BackupWorkspace({ accessCode = '', identityUser = null, confirmAction, notify }) {
+  const [jobs, setJobs] = useState([]);
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loadingJobs, setLoadingJobs] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [busyJobId, setBusyJobId] = useState('');
+  const [downloadProgress, setDownloadProgress] = useState(null);
+  const [retentionHours, setRetentionHours] = useState(24);
+  const [backupError, setBackupError] = useState('');
+
+  async function loadJobs({ silent = false } = {}) {
+    if (!silent) setLoadingJobs(true);
+    try {
+      const response = await fetch('/api/backup', {
+        headers: authHeaders(accessCode, identityUser),
+        credentials: 'same-origin',
+      });
+      const body = await readJsonResponse(response);
+      if (!response.ok) throw new Error(formatApiError(body, 'Unable to load backups'));
+      setJobs(Array.isArray(body.jobs) ? body.jobs : []);
+      if (Number.isFinite(Number(body.retentionHours))) setRetentionHours(Number(body.retentionHours));
+      setBackupError('');
+    } catch (error) {
+      if (!silent) setBackupError(error.message || String(error));
+    } finally {
+      if (!silent) setLoadingJobs(false);
+    }
+  }
+
+  useEffect(() => {
+    loadJobs();
+    const interval = window.setInterval(() => loadJobs({ silent: true }), 5000);
+    return () => window.clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessCode, identityUser]);
+
+  async function createBackup(event) {
+    event.preventDefault();
+    const strengthError = backupPasswordStrengthError(password);
+    if (strengthError) {
+      setBackupError(strengthError);
+      return;
+    }
+    if (password !== confirmPassword) {
+      setBackupError('The two backup passwords do not match.');
+      return;
+    }
+    const confirmed = await confirmAction?.({
+      eyebrow: 'Encrypted CRM backup',
+      title: 'Create a full CRM backup?',
+      message: 'The CRM will export all database records and the two managed file stores into one encrypted archive.',
+      confirmLabel: 'Create backup',
+      tone: 'send',
+      details: [
+        'The password is not stored and cannot be recovered.',
+        `The temporary server copy expires automatically after ${retentionHours} hour${retentionHours === 1 ? '' : 's'}.`,
+        'Keep the downloaded file and password in separate secure locations.',
+      ],
+    });
+    if (confirmed === false) return;
+
+    setCreating(true);
+    setBackupError('');
+    try {
+      const response = await fetch('/api/backup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...authHeaders(accessCode, identityUser) },
+        credentials: 'same-origin',
+        body: JSON.stringify({ password }),
+      });
+      const body = await readJsonResponse(response);
+      if (!response.ok) throw new Error(formatApiError(body, 'Unable to start backup'));
+      if (body.job) setJobs((current) => [body.job, ...current.filter((item) => item.id !== body.job.id)]);
+      if (Number.isFinite(Number(body.retentionHours))) setRetentionHours(Number(body.retentionHours));
+      setPassword('');
+      setConfirmPassword('');
+      notify?.('Encrypted backup started. You can remain on this page while it completes.');
+      window.setTimeout(() => loadJobs({ silent: true }), 1200);
+    } catch (error) {
+      setBackupError(error.message || String(error));
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function downloadBackup(job) {
+    if (!job?.id || !job.ready) return;
+    const fileName = job.fileName || 'THiS-CRM-Backup.thisbackup';
+    const partCount = Math.max(1, Number(job.partCount || job.parts?.length || 1));
+    let writable = null;
+    let fileHandle = null;
+    const chunks = [];
+    let totalBytes = 0;
+
+    setBusyJobId(job.id);
+    setDownloadProgress({ jobId: job.id, current: 0, total: partCount });
+    setBackupError('');
+    try {
+      if (typeof window.showSaveFilePicker === 'function') {
+        fileHandle = await window.showSaveFilePicker({
+          suggestedName: fileName,
+          types: [{ description: 'THiS CRM encrypted backup', accept: { 'application/octet-stream': ['.thisbackup'] } }],
+        });
+        writable = await fileHandle.createWritable();
+      }
+
+      for (let index = 0; index < partCount; index += 1) {
+        const response = await fetch(`/api/backup?download=${encodeURIComponent(job.id)}&part=${index}`, {
+          headers: authHeaders(accessCode, identityUser),
+          credentials: 'same-origin',
+        });
+        if (!response.ok) {
+          const body = await readJsonResponse(response);
+          throw new Error(formatApiError(body, `Unable to download backup part ${index + 1}`));
+        }
+
+        const buffer = await response.arrayBuffer();
+        const expectedPart = Array.isArray(job.parts) ? job.parts.find((part) => Number(part.index) === index) : null;
+        const expectedHash = String(response.headers.get('x-backup-part-sha256') || expectedPart?.sha256 || '').toLowerCase();
+        if (!expectedHash) throw new Error(`Backup part ${index + 1} did not include an integrity checksum.`);
+        const actualHash = await arrayBufferSha256Hex(buffer);
+        if (actualHash !== expectedHash) throw new Error(`Backup part ${index + 1} failed its integrity check. No completed file has been saved.`);
+
+        totalBytes += buffer.byteLength;
+        if (writable) await writable.write(new Uint8Array(buffer));
+        else chunks.push(buffer);
+        setDownloadProgress({ jobId: job.id, current: index + 1, total: partCount });
+      }
+
+      if (Number(job.sizeBytes || 0) > 0 && totalBytes !== Number(job.sizeBytes)) {
+        throw new Error('The assembled backup size did not match the server record. No completed file has been saved.');
+      }
+
+      if (writable) {
+        await writable.close();
+        writable = null;
+      } else {
+        const blob = new Blob(chunks, { type: 'application/octet-stream' });
+        const href = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = href;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(href), 1000);
+      }
+
+      notify?.('Backup downloaded and verified. Store the password separately.');
+      await loadJobs({ silent: true });
+    } catch (error) {
+      if (writable) await writable.abort().catch(() => {});
+      if (error?.name === 'AbortError') notify?.('Backup download cancelled.');
+      else setBackupError(error.message || String(error));
+    } finally {
+      setDownloadProgress(null);
+      setBusyJobId('');
+    }
+  }
+
+  async function deleteBackup(job) {
+    if (!job?.id) return;
+    const confirmed = await confirmAction?.({
+      eyebrow: 'Backup Centre',
+      title: 'Delete this temporary backup?',
+      message: 'This removes the server-side archive. It does not affect any copy already downloaded to your computer.',
+      confirmLabel: 'Delete backup',
+      tone: 'danger',
+      details: [job.fileName || `Backup ${job.id}`],
+    });
+    if (confirmed === false) return;
+    setBusyJobId(job.id);
+    try {
+      const response = await fetch(`/api/backup?id=${encodeURIComponent(job.id)}`, {
+        method: 'DELETE',
+        headers: authHeaders(accessCode, identityUser),
+        credentials: 'same-origin',
+      });
+      const body = await readJsonResponse(response);
+      if (!response.ok) throw new Error(formatApiError(body, 'Unable to delete backup'));
+      notify?.('Temporary backup deleted.');
+      await loadJobs({ silent: true });
+    } catch (error) {
+      setBackupError(error.message || String(error));
+    } finally {
+      setBusyJobId('');
+    }
+  }
+
+  const activeJob = jobs.find((job) => ['Queued', 'Processing'].includes(job.status));
+  const strengthError = password ? backupPasswordStrengthError(password) : '';
+
+  return (
+    <section className="backup-workspace">
+      <div className="page-heading-row backup-heading-row">
+        <div>
+          <span className="eyebrow">Administration</span>
+          <h1>Backup Centre</h1>
+          <p>Create an encrypted desktop backup of the CRM database, intake CVs and client portal documents.</p>
+        </div>
+        <button className="btn ghost" type="button" onClick={() => loadJobs()} disabled={loadingJobs}><RefreshCw size={16} />Refresh</button>
+      </div>
+
+      {backupError && <div className="error-banner"><AlertTriangle size={18} />{backupError}</div>}
+
+      <div className="backup-layout-grid">
+        <form className="sub-panel backup-create-panel" onSubmit={createBackup}>
+          <div className="backup-panel-icon"><ShieldCheck size={24} /></div>
+          <h2>Create full encrypted backup</h2>
+          <p className="muted">This includes every public CRM database table except the backup audit table, plus all files held in the intake and client portal Blob stores.</p>
+          <label className="field">
+            <span>Backup password</span>
+            <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" placeholder="At least 12 characters" />
+          </label>
+          <label className="field">
+            <span>Confirm password</span>
+            <input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" placeholder="Enter the password again" />
+          </label>
+          <div className={`backup-password-status ${password && strengthError ? 'warning' : password ? 'good' : ''}`}>
+            <LockKeyhole size={16} />
+            <span>{password ? (strengthError || 'Password meets the minimum strength requirement.') : 'The password is used only in memory and is never stored.'}</span>
+          </div>
+          <button className="btn dark backup-create-button" type="submit" disabled={creating || Boolean(activeJob)}>
+            <Database size={17} />{creating ? 'Starting backup...' : activeJob ? 'Backup already running' : 'Create full CRM backup'}
+          </button>
+          <small className="backup-retention-note">The downloadable server copy expires after {retentionHours} hour{retentionHours === 1 ? '' : 's'}. Download it promptly and keep it in secure offline storage.</small>
+        </form>
+
+        <section className="sub-panel backup-scope-panel">
+          <h2>Included</h2>
+          <div className="backup-scope-list">
+            <div><Database size={18} /><span><strong>CRM database</strong><small>Clients, advisers, tasks, deadlines, billing, enquiries, bookings, templates and related records.</small></span></div>
+            <div><FileText size={18} /><span><strong>Intake uploads</strong><small>Applicant and partner CVs held in the managed intake Blob store.</small></span></div>
+            <div><Download size={18} /><span><strong>Portal documents</strong><small>PDFs uploaded for client portal access.</small></span></div>
+            <div><ShieldCheck size={18} /><span><strong>Integrity records</strong><small>Manifest, schema snapshot, migration files where packaged, file indexes and SHA-256 checksums.</small></span></div>
+          </div>
+          <div className="backup-exclusion-note">
+            <strong>Not included</strong>
+            <p>Environment variables, API keys, database connection strings, Microsoft 365 credentials, Mailchimp credentials, SharePoint files or GitHub source history.</p>
+          </div>
+        </section>
+      </div>
+
+      <section className="sub-panel backup-history-panel">
+        <div className="backup-history-heading">
+          <div><h2>Backup history</h2><p className="muted">Temporary archives are retained for download only and then expire automatically.</p></div>
+          {activeJob && <span className="backup-running-badge"><Clock size={15} />Backup in progress</span>}
+        </div>
+        {loadingJobs && <div className="loading-card"><Database size={18} />Loading backup history...</div>}
+        {!loadingJobs && !jobs.length && <div className="backup-empty-state"><Database size={28} /><strong>No backups created yet</strong><span>Your first completed backup will appear here.</span></div>}
+        <div className="backup-job-list">
+          {jobs.map((job) => {
+            const running = ['Queued', 'Processing'].includes(job.status);
+            const canDelete = !running && job.status !== 'Deleted';
+            return (
+              <article className={`backup-job-card ${String(job.status || '').toLowerCase()}`} key={job.id}>
+                <div className="backup-job-main">
+                  <div className="backup-job-title-row">
+                    <div>
+                      <strong>{job.fileName || `CRM backup requested ${formatPortalDateTime(job.createdAt)}`}</strong>
+                      <span>{job.currentStep || job.status}</span>
+                    </div>
+                    <span className={`backup-status-pill ${String(job.status || '').toLowerCase()}`}>{job.status}</span>
+                  </div>
+                  {running && <div className="backup-progress-track"><span style={{ width: `${Math.max(2, Math.min(100, Number(job.progress || 0)))}%` }}></span></div>}
+                  <div className="backup-job-meta">
+                    <span>Requested {formatPortalDateTime(job.createdAt) || 'date unavailable'}</span>
+                    {job.sizeBytes > 0 && <span>{formatFileSize(job.sizeBytes)}</span>}
+                    {job.recordCount > 0 && <span>{job.recordCount.toLocaleString('en-NZ')} records</span>}
+                    {job.fileCount > 0 && <span>{job.fileCount.toLocaleString('en-NZ')} files</span>}
+                    {job.expiresAt && job.status === 'Ready' && <span>Expires {formatPortalDateTime(job.expiresAt)}</span>}
+                  </div>
+                  {job.errorMessage && <p className="backup-job-error">{job.errorMessage}</p>}
+                  {job.failedFiles?.length > 0 && <p className="backup-job-warning">Archive completed with {job.failedFiles.length} file warning{job.failedFiles.length === 1 ? '' : 's'}. Review the manifest before relying on it.</p>}
+                  {job.archiveSha256 && <code className="backup-hash">SHA-256: {job.archiveSha256}</code>}
+                </div>
+                <div className="backup-job-actions">
+                  {job.ready && <button className="btn dark mini" type="button" onClick={() => downloadBackup(job)} disabled={busyJobId === job.id}><Download size={15} />{downloadProgress?.jobId === job.id ? `Downloading ${downloadProgress.current}/${downloadProgress.total}...` : 'Download'}</button>}
+                  {canDelete && <button className="btn ghost mini" type="button" onClick={() => deleteBackup(job)} disabled={busyJobId === job.id}><Trash2 size={15} />Delete</button>}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+    </section>
+  );
+}
+
+
+async function arrayBufferSha256Hex(buffer) {
+  if (!window.crypto?.subtle) throw new Error('This browser cannot verify backup checksums. Use a current desktop browser.');
+  const digest = await window.crypto.subtle.digest('SHA-256', buffer);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function backupPasswordStrengthError(value = '') {
+  const password = String(value || '');
+  if (password.length < 12) return 'Use at least 12 characters.';
+  const groups = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^A-Za-z0-9]/].filter((pattern) => pattern.test(password)).length;
+  if (groups < 3) return 'Use at least three of: lowercase letters, uppercase letters, numbers and symbols.';
+  return '';
+}
 
 function ConsultationBookingWorkspace({ advisers = [], intakeEnquiries = [], consultationTypes = [], bookingAvailability = [], bookingBlocks = [], bookingLinks = [], consultationBookings = [], dashboardAdviserFilter = 'all', saveConsultationType, deleteConsultationType, saveBookingAvailability, saveBookingAvailabilityBulk, deleteBookingAvailability, saveBookingBlock, saveBookingBlockBulk, deleteBookingBlock, saveBookingLink, deleteBookingLink, saveConsultationBooking, cancelConsultationBooking, saving = false }) {
   const [activeTab, setActiveTab] = useState('overview');
@@ -5813,7 +6136,7 @@ function MobileBottomNav({ activeTab, onNavigate, onOpenMore }) {
     { tab: 'clients', label: 'Clients', icon: UsersRound },
     { tab: 'intake', label: 'Enquiries', icon: ClipboardList },
   ];
-  const moreActive = ['billing', 'advisers', 'library', 'intake', 'bookings'].includes(activeTab);
+  const moreActive = ['billing', 'advisers', 'library', 'intake', 'bookings', 'backups'].includes(activeTab);
   return (
     <nav className="mobile-bottom-nav" aria-label="Mobile CRM navigation">
       {navItems.map(({ tab, label, icon: Icon }) => (
@@ -5830,7 +6153,7 @@ function MobileBottomNav({ activeTab, onNavigate, onOpenMore }) {
   );
 }
 
-function MobileMoreSheet({ open, onClose, onNavigate, activeTab, onOpenHelp, onOpenTools, onRefresh, onAddClient, onAddAdviser, loading, canManageAdvisers, onLogout, identityUser, accessCodeActive }) {
+function MobileMoreSheet({ open, onClose, onNavigate, activeTab, onOpenHelp, onOpenTools, onRefresh, onAddClient, onAddAdviser, loading, canManageAdvisers, canManageBackups, onLogout, identityUser, accessCodeActive }) {
   function go(tab) {
     onClose();
     onNavigate(tab);
@@ -5853,6 +6176,7 @@ function MobileMoreSheet({ open, onClose, onNavigate, activeTab, onOpenHelp, onO
           <button type="button" className={activeTab === 'billing' ? 'active' : ''} onClick={() => go('billing')}><CreditCard size={18} /><span>Billing</span></button>
           <button type="button" className={activeTab === 'library' ? 'active' : ''} onClick={() => go('library')}><BookOpen size={18} /><span>Library</span></button>
           {canManageAdvisers && <button type="button" className={activeTab === 'advisers' ? 'active' : ''} onClick={() => go('advisers')}><UserRound size={18} /><span>Advisers</span></button>}
+          {canManageBackups && <button type="button" className={activeTab === 'backups' ? 'active' : ''} onClick={() => go('backups')}><Database size={18} /><span>Backups</span></button>}
           <button type="button" onClick={onOpenTools}><Wrench size={18} /><span>Tools</span></button>
           <button type="button" onClick={onOpenHelp}><HelpCircle size={18} /><span>Help</span></button>
           <button type="button" onClick={onRefresh} disabled={loading}><RefreshCw size={18} /><span>Refresh</span></button>
@@ -7061,99 +7385,150 @@ function CrmToast({ toast, onClose }) {
   );
 }
 
-function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, deadlineRows, taskRows, stageTemplates, setTab, setSelectedClientId, openClientRecord, intakeEnquiries = [], recentClientIds = [] }) {
+function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, deadlineRows, taskRows, stageTemplates, setTab, setSelectedClientId, openClientRecord, saveClient, saving, intakeEnquiries = [], recentClientIds = [] }) {
+  const [queueView, setQueueView] = useState('today');
   const pendingInvoices = clients.flatMap((client) => (client.billing || []).map((item) => ({ item, client }))).filter(({ item, client }) => effectiveBillingStatus(item, client) !== 'Invoiced');
   const actionableDeadlineRows = deadlineRows.filter(isDashboardActionableDeadlineRow);
   const quietDeadlineRows = deadlineRows.filter((row) => !isDashboardActionableDeadlineRow(row));
-  const dashboardTaskRows = taskRows.map(withDeadlineSignal).filter(isDashboardActionableTaskRow);
-  const overdueRows = actionableDeadlineRows.filter((row) => dateDiff(row.date) < 0 || row.deadlineSignal?.kind === 'review-due');
-  const next14 = actionableDeadlineRows.filter((row) => dateDiff(row.date) >= 0 && dateDiff(row.date) <= 14);
+  const dashboardTaskRows = taskRows
+    .map(withDeadlineSignal)
+    .filter(isDashboardActionableTaskRow)
+    .filter((row) => row.deadlineSignal?.kind === 'review-due' || row.diff === null || row.diff === undefined || row.diff <= 30);
+  const overdueRows = dashboardTaskRows.filter((row) => row.diff < 0 || row.deadlineSignal?.kind === 'review-due');
+  const todayRows = dashboardTaskRows.filter((row) => row.diff === 0 || row.deadlineSignal?.kind === 'review-due');
   const clientsWithoutNextAction = activeClients.filter((client) => !client.nextActionDue);
-  const todayActionRows = dashboardTaskRows.filter((row) => row.diff <= 0 || row.deadlineSignal?.kind === 'review-due');
-  const urgentTaskRows = dashboardTaskRows.filter((row) => row.diff < 0 || row.diff <= 7 || row.deadlineSignal?.kind === 'review-due');
   const newEnquiryCount = (intakeEnquiries || []).filter((item) => item.status === 'New' || !item.status).length;
-  const recentClients = (recentClientIds || []).map((id) => clients.find((client) => client.id === id)).filter(Boolean).slice(0, 5);
+  const recentClients = (recentClientIds || []).map((id) => clients.find((client) => client.id === id)).filter(Boolean).slice(0, 6);
   const overdueCalendarItems = taskRows.filter((row) => row.source === 'calendar-entry' && row.diff < 0);
   const newPortalMessages = activeClients.flatMap((client) => (client.portalMessages || [])
     .filter((message) => message.status === 'New')
     .map((message) => ({ client, message })))
     .sort((a, b) => String(b.message.createdAt || '').localeCompare(String(a.message.createdAt || '')));
-
-  const visibleAdvisers = dashboardAdviserFilter === 'all' ? advisers : advisers.filter((adviser) => adviser.id === dashboardAdviserFilter);
+  const pendingBillingTotal = pendingInvoices.reduce((sum, row) => sum + Number(row.item.amount || 0), 0);
   const viewTitle = dashboardAdviserFilter === 'all' ? 'Whole-practice dashboard' : `${advisers.find((adviser) => adviser.id === dashboardAdviserFilter)?.name || 'Adviser'} dashboard`;
+
   return (
-    <div className="stack">
-      <section className="panel dashboard-heading">
+    <div className="stack dashboard-lean">
+      <section className="panel dashboard-compact-heading">
         <div>
           <h2>{viewTitle}</h2>
-          <p className="muted">Dashboard metrics show dates that advisers have chosen to watch. File-only dates stay on the client record without adding noise here.</p>
+          <p className="muted">Focused on work due now or within 30 days. Longer-dated tasks remain available in the full Tasks view.</p>
         </div>
-        <span>{clients.length} client{clients.length === 1 ? '' : 's'} in view</span>
+        <span className="dashboard-view-count">{clients.length} client{clients.length === 1 ? '' : 's'} in view</span>
       </section>
-      <DashboardCommandCards todayActionRows={todayActionRows} urgentTaskRows={urgentTaskRows} newEnquiryCount={newEnquiryCount} setTab={setTab} />
 
-      {recentClients.length > 0 && <RecentClientsStrip clients={recentClients} openClientRecord={openClientRecord} />}
+      <section className="dashboard-stat-strip" aria-label="Dashboard summary">
+        <button type="button" onClick={() => setTab('clients')}><UsersRound size={17} /><span><b>{activeClients.length}</b><small>Active clients</small></span></button>
+        <button type="button" onClick={() => { setQueueView('today'); document.getElementById('dashboard-action-queue')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}><CalendarDays size={17} /><span><b>{todayRows.length}</b><small>Due today</small></span></button>
+        <button type="button" className={overdueRows.length ? 'warning' : ''} onClick={() => { setQueueView('overdue'); document.getElementById('dashboard-action-queue')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}><AlertTriangle size={17} /><span><b>{overdueRows.length}</b><small>Overdue</small></span></button>
+        <button type="button" onClick={() => setTab('intake')}><ClipboardList size={17} /><span><b>{newEnquiryCount}</b><small>New enquiries</small></span></button>
+        <button type="button" className={newPortalMessages.length ? 'warning' : ''} onClick={() => newPortalMessages[0]?.client && openClientRecord?.(newPortalMessages[0].client.id)}><MessageSquare size={17} /><span><b>{newPortalMessages.length}</b><small>Portal notes</small></span></button>
+        <button type="button" onClick={() => setTab('billing')}><CreditCard size={17} /><span><b>{formatCurrency(pendingBillingTotal)}</b><small>WIP / overdue</small></span></button>
+      </section>
 
-      <div className="metric-grid">
-        <MetricCard label="Active clients" value={activeClients.length} note="Live client records" icon={UsersRound} />
-        <MetricCard label="Action dates next 14 days" value={next14.length} note="Marked for dashboard" icon={CalendarDays} />
-        <MetricCard label="Actionable overdue" value={overdueRows.length} note="File-only dates excluded" icon={AlertTriangle} warning={overdueRows.length > 0} />
-        <MetricCard label="Overdue calendar" value={overdueCalendarItems.length} note="Open appointments in the past" icon={CalendarDays} warning={overdueCalendarItems.length > 0} />
-        <MetricCard label="Client portal notes" value={newPortalMessages.length} note="New client-submitted items" icon={MessageSquare} warning={newPortalMessages.length > 0} />
-        <MetricCard label="WIP / overdue billing" value={formatCurrency(pendingInvoices.reduce((sum, row) => sum + Number(row.item.amount || 0), 0))} note="Billing not yet invoiced" icon={CreditCard} />
-      </div>
+      <div className="dashboard-focus-grid">
+        <div className="dashboard-main-column">
+          <DailyBringUpPanel taskRows={dashboardTaskRows} advisers={advisers} queueView={queueView} setQueueView={setQueueView} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} />
+          <AdviserClientWorkloadList clients={activeClients} advisers={advisers} taskRows={taskRows} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} saveClient={saveClient} saving={saving} />
+        </div>
 
-
-      <DailyBringUpPanel taskRows={dashboardTaskRows} advisers={advisers} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} />
-
-      <QuickTaskPanel taskRows={dashboardTaskRows} advisers={advisers} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} />
-
-      <PortalMessageAlertPanel messages={newPortalMessages} openClientRecord={openClientRecord} />
-
-      <ClientsWithoutNextActionPanel clients={clientsWithoutNextAction} openClientRecord={openClientRecord} />
-
-      <div className="dashboard-grid">
-        <section className="panel wide-panel">
-          <h2>Adviser workload</h2>
-          <p className="muted">Active client numbers and selected-stage progress.</p>
-          <div className="adviser-cards">
-            {visibleAdvisers.map((adviser) => {
-              const assigned = activeClients.filter((client) => client.primaryAdviserId === adviser.id);
-              const backup = activeClients.filter((client) => client.backupAdviserId === adviser.id);
-              const average = assigned.length ? Math.round(assigned.reduce((sum, client) => sum + progressPercent(client), 0) / assigned.length) : 0;
-              return (
-                <div className="adviser-card" key={adviser.id}>
-                  <div className="split">
-                    <div><strong>{adviser.name}</strong><span>{adviser.role}</span></div>
-                    <b>{assigned.length} lead</b>
-                  </div>
-                  <ProgressBar value={average} />
-                  <div className="mini-grid"><span><b>{assigned.length}</b> Primary</span><span><b>{backup.length}</b> Backup</span></div>
-                </div>
-              );
-            })}
-          </div>
-          <AdviserClientWorkloadList clients={activeClients} advisers={advisers} taskRows={dashboardTaskRows} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} />
-        </section>
-
-        <section className="panel">
-          <h2>Next critical dates</h2>
-          <p className="muted">Only dates marked for the dashboard and inside their warning window, plus overdue watched dates.</p>
-          <div className="date-list">
-            {actionableDeadlineRows.slice(0, 10).map((row, index) => (
-              <button className="date-row" key={`${row.client.id}-${row.type}-${index}`} onClick={() => openClientRecord ? openClientRecord(row.client.id) : (setSelectedClientId(row.client.id), setTab('clients'))}>
-                <span><strong>{row.client.firstName} {row.client.lastName}</strong><small>{row.type} · {row.date}</small><small>{row.deadlineSignal?.reason || ''}</small></span>
-                <DeadlineSignalBadge row={row} />
-              </button>
-            ))}
-            {!actionableDeadlineRows.length && <p className="muted center">No dashboard dates need attention in this view.</p>}
-          </div>
-          {quietDeadlineRows.length > 0 && <QuietDeadlineSummary rows={quietDeadlineRows} setTab={setTab} />}
-        </section>
+        <aside className="dashboard-side-column" aria-label="Dashboard side information">
+          <DashboardAttentionPanel
+            clientsWithoutNextAction={clientsWithoutNextAction}
+            newPortalMessages={newPortalMessages}
+            overdueCalendarItems={overdueCalendarItems}
+            newEnquiryCount={newEnquiryCount}
+            pendingBillingTotal={pendingBillingTotal}
+            setTab={setTab}
+            openClientRecord={openClientRecord}
+          />
+          {recentClients.length > 0 && <RecentClientsSidebar clients={recentClients} openClientRecord={openClientRecord} />}
+          <NextCriticalDatesSidebar rows={actionableDeadlineRows} quietRows={quietDeadlineRows} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} />
+          <AdviserSnapshot advisers={advisers} activeClients={activeClients} dashboardAdviserFilter={dashboardAdviserFilter} />
+        </aside>
       </div>
     </div>
   );
+}
 
+function DashboardAttentionPanel({ clientsWithoutNextAction = [], newPortalMessages = [], overdueCalendarItems = [], newEnquiryCount = 0, pendingBillingTotal = 0, setTab, openClientRecord }) {
+  return (
+    <section className="panel dashboard-side-panel attention-panel">
+      <div className="dashboard-side-head"><div><h3>Needs attention</h3><p className="muted">Items outside the main action queue.</p></div></div>
+      <div className="attention-summary-list">
+        <button type="button" onClick={() => setTab('intake')}><ClipboardList size={16} /><span><strong>{newEnquiryCount}</strong><small>New enquiries</small></span><ChevronRight size={15} /></button>
+        <button type="button" onClick={() => setTab('calendar')} className={overdueCalendarItems.length ? 'warning' : ''}><CalendarDays size={16} /><span><strong>{overdueCalendarItems.length}</strong><small>Past calendar items</small></span><ChevronRight size={15} /></button>
+        <button type="button" onClick={() => setTab('billing')}><CreditCard size={16} /><span><strong>{formatCurrency(pendingBillingTotal)}</strong><small>WIP / overdue billing</small></span><ChevronRight size={15} /></button>
+      </div>
+
+      {newPortalMessages.length > 0 && <div className="attention-mini-section">
+        <div className="attention-mini-title"><MessageSquare size={15} /><strong>Portal notes</strong><span>{newPortalMessages.length}</span></div>
+        {newPortalMessages.slice(0, 3).map(({ client, message }) => (
+          <button type="button" className="attention-client-row" key={message.id} onClick={() => openClientRecord?.(client.id)}>
+            <span><strong>{client.firstName} {client.lastName}</strong><small>{message.title || 'Client note'}</small></span><ChevronRight size={14} />
+          </button>
+        ))}
+      </div>}
+
+      {clientsWithoutNextAction.length > 0 && <div className="attention-mini-section">
+        <div className="attention-mini-title"><Clock size={15} /><strong>No next action</strong><span>{clientsWithoutNextAction.length}</span></div>
+        {clientsWithoutNextAction.slice(0, 4).map((client) => (
+          <button type="button" className="attention-client-row" key={client.id} onClick={() => openClientRecord?.(client.id)}>
+            <span><strong>{client.firstName} {client.lastName}</strong><small>{client.caseType || currentStageLabel(client)}</small></span><ChevronRight size={14} />
+          </button>
+        ))}
+        {clientsWithoutNextAction.length > 4 && <small className="attention-more">+{clientsWithoutNextAction.length - 4} more shown in the workload list</small>}
+      </div>}
+    </section>
+  );
+}
+
+function RecentClientsSidebar({ clients = [], openClientRecord }) {
+  return (
+    <section className="panel dashboard-side-panel recent-sidebar" aria-label="Recently viewed clients">
+      <div className="dashboard-side-head"><div><h3>Recently viewed</h3><p className="muted">Return to a file without searching.</p></div><Clock size={17} /></div>
+      <div className="recent-sidebar-list">
+        {clients.map((client) => (
+          <button key={client.id} type="button" onClick={() => openClientRecord?.(client.id)}>
+            <span><strong>{client.firstName} {client.lastName}</strong><small>{currentStageLabel(client)}</small></span><ChevronRight size={14} />
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function NextCriticalDatesSidebar({ rows = [], quietRows = [], setTab, setSelectedClientId, openClientRecord }) {
+  return (
+    <section className="panel dashboard-side-panel critical-sidebar">
+      <div className="dashboard-side-head"><div><h3>Critical dates</h3><p className="muted">Watched dates inside their warning window.</p></div><CalendarDays size={17} /></div>
+      <div className="critical-sidebar-list">
+        {rows.slice(0, 6).map((row, index) => (
+          <button type="button" key={`${row.client.id}-${row.type}-${index}`} onClick={() => openClientRecord ? openClientRecord(row.client.id) : (setSelectedClientId(row.client.id), setTab('clients'))}>
+            <span><strong>{row.client.firstName} {row.client.lastName}</strong><small>{row.type} · {row.date}</small></span><DeadlineSignalBadge row={row} />
+          </button>
+        ))}
+        {!rows.length && <p className="muted center compact-empty">No watched dates need attention.</p>}
+      </div>
+      {quietRows.length > 0 && <button className="dashboard-side-footer" type="button" onClick={() => setTab('tasks')}><ShieldCheck size={14} />{quietRows.length} other saved date{quietRows.length === 1 ? '' : 's'}<ChevronRight size={14} /></button>}
+    </section>
+  );
+}
+
+function AdviserSnapshot({ advisers = [], activeClients = [], dashboardAdviserFilter = 'all' }) {
+  const visibleAdvisers = dashboardAdviserFilter === 'all' ? advisers : advisers.filter((adviser) => adviser.id === dashboardAdviserFilter);
+  return (
+    <section className="panel dashboard-side-panel adviser-snapshot">
+      <div className="dashboard-side-head"><div><h3>Adviser load</h3><p className="muted">Active lead and backup files.</p></div><UsersRound size={17} /></div>
+      <div className="adviser-snapshot-list">
+        {visibleAdvisers.map((adviser) => {
+          const primary = activeClients.filter((client) => client.primaryAdviserId === adviser.id).length;
+          const backup = activeClients.filter((client) => client.backupAdviserId === adviser.id).length;
+          return <div key={adviser.id}><span><strong>{adviser.name}</strong><small>{adviser.role}</small></span><b>{primary}<small> lead</small></b><em>{backup} backup</em></div>;
+        })}
+      </div>
+    </section>
+  );
 }
 
 
@@ -7259,52 +7634,75 @@ function ClientsWithoutNextActionPanel({ clients, openClientRecord }) {
   );
 }
 
-function DailyBringUpPanel({ taskRows, advisers, setTab, setSelectedClientId, openClientRecord }) {
-  const todayActions = useMemo(() => taskRows
-    .filter((row) => ['next-action', 'billing', 'personal-task', 'document-expiry', 'calendar-entry'].includes(row.source) && row.diff === 0)
-    .sort((a, b) => taskDisplayName(a).localeCompare(taskDisplayName(b))), [taskRows]);
+function DailyBringUpPanel({ taskRows, advisers, queueView, setQueueView, setTab, setSelectedClientId, openClientRecord }) {
+  const queueRows = useMemo(() => {
+    const filtered = taskRows.filter((row) => {
+      if (queueView === 'overdue') return row.diff < 0 || row.deadlineSignal?.kind === 'review-due';
+      if (queueView === 'next-30') return row.diff > 0 && row.diff <= 30;
+      return row.diff === 0 || row.deadlineSignal?.kind === 'review-due';
+    });
+    return filtered.sort((a, b) => compareTasks(a, b, queueView === 'today' ? 'client' : 'priority'));
+  }, [taskRows, queueView]);
+
+  const counts = useMemo(() => ({
+    overdue: taskRows.filter((row) => row.diff < 0 || row.deadlineSignal?.kind === 'review-due').length,
+    today: taskRows.filter((row) => row.diff === 0 || row.deadlineSignal?.kind === 'review-due').length,
+    next30: taskRows.filter((row) => row.diff > 0 && row.diff <= 30).length,
+  }), [taskRows]);
 
   function openTask(row) {
     if (row.source === 'calendar-entry' && row.calendarEntry) {
-      setSelectedCalendarEntry(row.calendarEntry);
+      setTab('calendar');
       return;
     }
-    if (!row.client) return;
-    if (openClientRecord) return openClientRecord(row.client.id);
-    setSelectedClientId(row.client.id);
-    setTab('clients');
+    if (row.client) {
+      if (openClientRecord) return openClientRecord(row.client.id);
+      setSelectedClientId(row.client.id);
+      setTab('clients');
+      return;
+    }
+    setTab('tasks');
   }
 
+  const emptyCopy = queueView === 'overdue'
+    ? 'No overdue tasks in this adviser view.'
+    : queueView === 'next-30'
+      ? 'No tasks due in the next 30 days.'
+      : 'No tasks are due today.';
+
   return (
-    <section className="panel daily-bringup-panel">
-      <div className="quick-task-head">
+    <section className="panel daily-bringup-panel lean-action-queue" id="dashboard-action-queue">
+      <div className="lean-panel-head">
         <div>
           <h2>Today’s bring-up list</h2>
-          <p className="muted">Next-action, calendar, document-expiry, billing and personal tasks due today for the current adviser view. Use this like the daily file bring-up list.</p>
+          <p className="muted">A single operational queue for overdue work, today, and the next 30 days.</p>
         </div>
-        <div className="quick-task-counts"><span><b>{todayActions.length}</b> due today</span></div>
-        <button className="btn dark" type="button" onClick={() => setTab('tasks')}><ListChecks size={16} />Full task list</button>
+        <button className="btn ghost mini" type="button" onClick={() => setTab('tasks')}><ListChecks size={15} />Full task list</button>
       </div>
-      <div className="quick-task-list daily-bringup-list">
-        {todayActions.map((row) => {
+      <div className="action-queue-tabs" role="tablist" aria-label="Bring-up queue range">
+        <button type="button" className={queueView === 'overdue' ? 'active warning' : ''} onClick={() => setQueueView('overdue')}><span>Overdue</span><b>{counts.overdue}</b></button>
+        <button type="button" className={queueView === 'today' ? 'active' : ''} onClick={() => setQueueView('today')}><span>Today</span><b>{counts.today}</b></button>
+        <button type="button" className={queueView === 'next-30' ? 'active' : ''} onClick={() => setQueueView('next-30')}><span>Next 30 days</span><b>{counts.next30}</b></button>
+      </div>
+      <div className="action-queue-list">
+        {queueRows.map((row) => {
           const adviserName = taskAdviserName(row, advisers);
           return (
-            <button className="quick-task today" key={row.id} onClick={() => openTask(row)} disabled={!row.client}>
+            <button className={`action-queue-row ${taskStatusKey(row)}`} key={row.id} type="button" onClick={() => openTask(row)}>
               <DeadlineBadge diff={row.diff} />
-              <span>
-                <strong>{taskDisplayName(row)}</strong>
-                <small>{row.note || row.type}</small>
-                <small>{adviserName} · {taskContextLabel(row)}</small>
-              </span>
+              <span className="action-queue-client"><strong>{taskDisplayName(row)}</strong><small>{row.note || row.type}</small></span>
+              <span className="action-queue-context"><strong>{row.type}</strong><small>{adviserName} · {taskContextLabel(row)}</small></span>
+              <span className="action-queue-date"><strong>{row.date}</strong><small>{row.source === 'next-action' ? 'Next action' : 'Watched item'}</small></span>
               {row.client ? <ChevronRight size={16} /> : <ListChecks size={16} />}
             </button>
           );
         })}
-        {!todayActions.length && <div className="quick-task-empty"><CheckCircle2 size={20} /><span>No next-action, calendar, document-expiry, billing or personal tasks due today in this view.</span></div>}
+        {!queueRows.length && <div className="quick-task-empty"><CheckCircle2 size={20} /><span>{emptyCopy}</span></div>}
       </div>
     </section>
   );
 }
+
 
 function QuickTaskPanel({ taskRows, advisers, setTab, setSelectedClientId, openClientRecord }) {
   const immediateTasks = useMemo(() => taskRows
@@ -7366,12 +7764,17 @@ function QuickTaskPanel({ taskRows, advisers, setTab, setSelectedClientId, openC
   );
 }
 
-function AdviserClientWorkloadList({ clients, advisers, taskRows, setTab, setSelectedClientId, openClientRecord }) {
+function AdviserClientWorkloadList({ clients, advisers, taskRows, setTab, setSelectedClientId, openClientRecord, saveClient, saving }) {
   const [clientFilter, setClientFilter] = useState('');
   const [stageFilter, setStageFilter] = useState('all');
   const [caseTypeFilter, setCaseTypeFilter] = useState('all');
   const [adviserFilter, setAdviserFilter] = useState('all');
   const [taskFilter, setTaskFilter] = useState('all');
+  const [showFilters, setShowFilters] = useState(false);
+  const [editingClientId, setEditingClientId] = useState('');
+  const [actionDraft, setActionDraft] = useState({ nextAction: '', nextActionDue: '' });
+  const [actionSaving, setActionSaving] = useState(false);
+  const [actionError, setActionError] = useState('');
 
   const stages = useMemo(() => Array.from(new Set(clients.map(currentStageLabel))).sort(), [clients]);
   const caseTypes = useMemo(() => Array.from(new Set(clients.map((client) => client.caseType).filter(Boolean))).sort(), [clients]);
@@ -7380,63 +7783,133 @@ function AdviserClientWorkloadList({ clients, advisers, taskRows, setTab, setSel
     const nextTask = nextTaskForClient(client, taskRows);
     const primary = advisers.find((adviser) => adviser.id === client.primaryAdviserId);
     const backup = advisers.find((adviser) => adviser.id === client.backupAdviserId);
-    return { client, nextTask, primary, backup, currentStage: currentStageLabel(client) };
+    const actionDiff = client.nextActionDue ? dateDiff(client.nextActionDue) : null;
+    const sortDate = client.nextActionDue || nextTask?.date || '9999-12-31';
+    return { client, nextTask, primary, backup, currentStage: currentStageLabel(client), actionDiff, sortDate };
   })
     .filter((row) => {
       const q = clientFilter.trim().toLowerCase();
-      const text = [row.client.firstName, row.client.lastName, row.client.email, row.client.caseType, row.client.nationality, row.client.sharepointFolderUrl, row.client.oneLawClientNumber, row.client.caseStrategy, row.primary?.name, row.backup?.name].join(' ').toLowerCase();
+      const text = [row.client.firstName, row.client.lastName, row.client.email, row.client.caseType, row.client.nationality, row.client.sharepointFolderUrl, row.client.oneLawClientNumber, row.client.caseStrategy, row.client.nextAction, row.primary?.name, row.backup?.name].join(' ').toLowerCase();
       const matchesClient = !q || text.includes(q);
       const matchesStage = stageFilter === 'all' || row.currentStage === stageFilter;
       const matchesCase = caseTypeFilter === 'all' || row.client.caseType === caseTypeFilter;
       const matchesAdviser = adviserFilter === 'all' || row.client.primaryAdviserId === adviserFilter || row.client.backupAdviserId === adviserFilter;
-      const status = row.nextTask ? taskStatusKey(row.nextTask) : 'none';
-      const matchesTask = taskFilter === 'all' || status === taskFilter || (taskFilter === 'next-30' && row.nextTask?.diff >= 0 && row.nextTask?.diff <= 30) || (taskFilter === 'none' && !row.nextTask);
+      const diff = row.actionDiff ?? row.nextTask?.diff;
+      const status = diff === null || diff === undefined ? 'none' : diff < 0 ? 'overdue' : diff === 0 ? 'today' : diff <= 7 ? 'next-7' : 'future';
+      const matchesTask = taskFilter === 'all' || status === taskFilter || (taskFilter === 'next-30' && diff >= 0 && diff <= 30) || (taskFilter === 'none' && (diff === null || diff === undefined));
       return matchesClient && matchesStage && matchesCase && matchesAdviser && matchesTask;
     })
-    .sort((a, b) => {
-      const aDate = a.nextTask?.date || '9999-12-31';
-      const bDate = b.nextTask?.date || '9999-12-31';
-      return aDate.localeCompare(bDate) || clientName(a.client).localeCompare(clientName(b.client));
-    }), [clients, advisers, taskRows, clientFilter, stageFilter, caseTypeFilter, adviserFilter, taskFilter]);
+    .sort((a, b) => a.sortDate.localeCompare(b.sortDate) || clientName(a.client).localeCompare(clientName(b.client))), [clients, advisers, taskRows, clientFilter, stageFilter, caseTypeFilter, adviserFilter, taskFilter]);
+
+  function startActionEdit(client) {
+    setEditingClientId(client.id);
+    setActionDraft({ nextAction: client.nextAction || '', nextActionDue: client.nextActionDue || '' });
+    setActionError('');
+  }
+
+  function closeActionEdit() {
+    if (actionSaving) return;
+    setEditingClientId('');
+    setActionError('');
+  }
+
+  function setPresetDate(days) {
+    setActionDraft((current) => ({ ...current, nextActionDue: addDaysIso(todayIso(), days) }));
+  }
+
+  async function saveInlineAction(client) {
+    setActionError('');
+    setActionSaving(true);
+    try {
+      await saveClient?.({ ...client, nextAction: actionDraft.nextAction.trim(), nextActionDue: actionDraft.nextActionDue || '' }, { resetNewClientForm: false });
+      setEditingClientId('');
+    } catch (err) {
+      setActionError(err.message || 'The next action could not be updated.');
+    } finally {
+      setActionSaving(false);
+    }
+  }
+
+  const activeFilterCount = [stageFilter, caseTypeFilter, adviserFilter, taskFilter].filter((value) => value !== 'all').length;
 
   return (
-    <div className="workload-client-panel">
-      <div className="sub-panel-head">
+    <section className="panel workload-client-panel lean-workload-panel">
+      <div className="lean-panel-head workload-title-row">
         <div>
-          <h3>Client workload list</h3>
-          <p className="muted">Ordered by the next action date or next critical deadline date, whichever comes first.</p>
+          <h2>Client workload</h2>
+          <p className="muted">Ordered by next action first, then the nearest watched date. Adjust bring-up dates without leaving the dashboard.</p>
         </div>
         <span className="workload-count">{rows.length} client{rows.length === 1 ? '' : 's'}</span>
       </div>
-      <div className="workload-filters">
-        <label><span>Client</span><input value={clientFilter} onChange={(event) => setClientFilter(event.target.value)} placeholder="Search client, email, strategy" /></label>
+
+      <div className="workload-compact-toolbar">
+        <label className="workload-search"><Search size={16} /><input value={clientFilter} onChange={(event) => setClientFilter(event.target.value)} placeholder="Search client, matter or action" /></label>
+        <button className={`btn ghost mini ${showFilters || activeFilterCount ? 'active-filter' : ''}`} type="button" onClick={() => setShowFilters((value) => !value)}><SlidersHorizontal size={15} />Filters{activeFilterCount ? ` (${activeFilterCount})` : ''}<ChevronDown size={14} /></button>
+      </div>
+
+      {showFilters && <div className="workload-filters lean-workload-filters">
         <label><span>Stage</span><select value={stageFilter} onChange={(event) => setStageFilter(event.target.value)}><option value="all">All stages</option>{stages.map((stage) => <option key={stage} value={stage}>{stage}</option>)}</select></label>
         <label><span>Case type</span><select value={caseTypeFilter} onChange={(event) => setCaseTypeFilter(event.target.value)}><option value="all">All case types</option>{caseTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
         <label><span>Adviser</span><select value={adviserFilter} onChange={(event) => setAdviserFilter(event.target.value)}><option value="all">All advisers in view</option>{advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}</select></label>
-        <label><span>Next date</span><select value={taskFilter} onChange={(event) => setTaskFilter(event.target.value)}><option value="all">All</option><option value="overdue">Overdue</option><option value="today">Due today</option><option value="next-7">Next 7 days</option><option value="next-30">Next 30 days</option><option value="future">Future</option><option value="none">No date</option></select></label>
-      </div>
-      <div className="workload-table">
-        <div className="workload-head"><span>Client</span><span>Case type</span><span>Current stage</span><span>Next date</span><span>Adviser</span><span>Folder</span><span></span></div>
+        <label><span>Next action</span><select value={taskFilter} onChange={(event) => setTaskFilter(event.target.value)}><option value="all">All dates</option><option value="overdue">Overdue</option><option value="today">Due today</option><option value="next-7">Next 7 days</option><option value="next-30">Next 30 days</option><option value="future">More than 30 days</option><option value="none">No date</option></select></label>
+      </div>}
+
+      <div className="workload-table lean-workload-table">
+        <div className="workload-head"><span>Client</span><span>Matter / stage</span><span>Next action</span><span>Adviser</span><span>Quick access</span></div>
         <div className="workload-scroll">
-        {rows.map((row) => {
-          const folderLink = normaliseExternalUrl(row.client.sharepointFolderUrl);
-          return (
-          <div className="workload-line" key={row.client.id}>
-            <span><strong>{row.client.firstName} {row.client.lastName}</strong><small>{row.client.email || 'No email'} · {row.client.clientStatus}</small></span>
-            <span>{row.client.caseType || '—'}</span>
-            <span><strong>{row.currentStage}</strong><small>{progressPercent(row.client)}% complete</small></span>
-            <span>{row.nextTask ? <><DeadlineBadge diff={row.nextTask.diff} /><small>{row.nextTask.type} · {row.nextTask.date}</small></> : <small>No action/deadline date</small>}</span>
-            <span><strong>{row.primary?.name || 'Unassigned'}</strong><small>{row.backup?.name ? `Backup: ${row.backup.name}` : 'No backup'}</small></span>
-            <span><button className="btn ghost folder-btn" type="button" disabled={!folderLink} onClick={() => window.open(folderLink, '_blank', 'noopener,noreferrer')}><ExternalLink size={14} />Folder</button></span>
-            <button className="btn ghost" type="button" onClick={() => openClientRecord ? openClientRecord(row.client.id) : (setSelectedClientId(row.client.id), setTab('clients'))}>Open</button>
-          </div>
-        );})}
-        {!rows.length && <p className="muted center">No clients match the selected workload filters.</p>}
+          {rows.map((row) => {
+            const folderLink = normaliseExternalUrl(row.client.sharepointFolderUrl);
+            const isEditing = editingClientId === row.client.id;
+            const watchedDate = row.nextTask && row.nextTask.source !== 'next-action' ? row.nextTask : null;
+            return (
+              <div className={`workload-row-group ${isEditing ? 'editing' : ''}`} key={row.client.id}>
+                <div className="workload-line">
+                  <span className="workload-client-cell"><strong>{row.client.firstName} {row.client.lastName}</strong><small>{row.client.email || 'No email'} · {row.client.clientStatus}</small></span>
+                  <span><strong>{row.client.caseType || 'No case type'}</strong><small>{row.currentStage} · {progressPercent(row.client)}% complete</small></span>
+                  <span className="workload-action-cell">
+                    <span className="workload-action-summary">
+                      {row.client.nextActionDue ? <DeadlineBadge diff={row.actionDiff} /> : <b className="badge quiet">No date</b>}
+                      <strong>{row.client.nextActionDue || 'No next action date'}</strong>
+                    </span>
+                    <small>{row.client.nextAction || 'No next action recorded'}</small>
+                    {watchedDate && <small className="workload-watched-date">Next watched: {watchedDate.type} · {watchedDate.date}</small>}
+                    <button className="inline-action-link" type="button" onClick={() => isEditing ? closeActionEdit() : startActionEdit(row.client)}><CalendarDays size={14} />{isEditing ? 'Close editor' : 'Adjust action'}</button>
+                  </span>
+                  <span><strong>{row.primary?.name || 'Unassigned'}</strong><small>{row.backup?.name ? `Backup: ${row.backup.name}` : 'No backup'}</small></span>
+                  <span className="workload-quick-actions">
+                    <button className="icon-btn" type="button" disabled={!folderLink} onClick={() => window.open(folderLink, '_blank', 'noopener,noreferrer')} aria-label={`Open ${row.client.firstName} ${row.client.lastName} SharePoint folder`} title="Open SharePoint folder"><ExternalLink size={15} /></button>
+                    <button className="btn ghost mini" type="button" onClick={() => openClientRecord ? openClientRecord(row.client.id) : (setSelectedClientId(row.client.id), setTab('clients'))}>Open</button>
+                  </span>
+                </div>
+
+                {isEditing && <div className="workload-inline-editor">
+                  <div className="inline-action-fields">
+                    <label><span>Next action</span><input value={actionDraft.nextAction} onChange={(event) => setActionDraft((current) => ({ ...current, nextAction: event.target.value }))} placeholder="What needs to happen next?" autoFocus /></label>
+                    <label><span>Action date</span><input type="date" value={actionDraft.nextActionDue} onChange={(event) => setActionDraft((current) => ({ ...current, nextActionDue: event.target.value }))} /></label>
+                  </div>
+                  <div className="inline-action-presets" aria-label="Quick action date choices">
+                    <button type="button" onClick={() => setPresetDate(0)}>Today</button>
+                    <button type="button" onClick={() => setPresetDate(7)}>+7 days</button>
+                    <button type="button" onClick={() => setPresetDate(14)}>+14 days</button>
+                    <button type="button" onClick={() => setPresetDate(30)}>+30 days</button>
+                    <button type="button" onClick={() => setActionDraft((current) => ({ ...current, nextActionDue: '' }))}>Clear date</button>
+                  </div>
+                  {actionError && <small className="inline-action-error">{actionError}</small>}
+                  <div className="inline-action-buttons">
+                    <button className="btn ghost mini" type="button" onClick={closeActionEdit} disabled={actionSaving}>Cancel</button>
+                    <button className="btn dark mini" type="button" onClick={() => saveInlineAction(row.client)} disabled={actionSaving || saving}><Save size={15} />{actionSaving ? 'Saving…' : 'Save action'}</button>
+                  </div>
+                </div>}
+              </div>
+            );
+          })}
+          {!rows.length && <p className="muted center">No clients match the selected workload filters.</p>}
         </div>
       </div>
-    </div>
+    </section>
   );
 }
+
 
 function ProgressMap({ client }) {
   const stages = appliedStages(client);

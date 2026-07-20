@@ -1,26 +1,15 @@
-THiS CRM v0.13.28 — Public Form Standardisation
+THiS CRM v0.13.30 — Lean Adviser Dashboard
 
-Before deploying:
-[ ] Preserve the existing Netlify Database and Microsoft Graph environment variables.
-[ ] Create or identify the Mailchimp audience that should receive intake contacts.
-[ ] Create a restricted Mailchimp Marketing API key for this integration.
-[ ] Confirm the audience has FNAME and LNAME merge fields, or adjust the merge-field environment variables.
-[ ] Add the Mailchimp environment variables from .env.example in Netlify.
-[ ] Keep MAILCHIMP_DOUBLE_OPT_IN=true unless there is a documented reason to use single opt-in.
-[ ] No database migration is required.
-
-After deploying:
-[ ] Submit a test intake without marketing consent.
-[ ] Confirm the intake appears in THiS CRM and the Mailchimp contact is transactional/non-subscribed.
-[ ] Confirm tags include Guided Intake, Website Assessment and the selected goal.
-[ ] Submit a second test intake with marketing consent.
-[ ] Confirm the Mailchimp contact is pending and receives the double opt-in email.
-[ ] Complete the Mailchimp confirmation and verify the contact becomes subscribed.
-[ ] Confirm health, character, immigration-history answers and CV uploads do not appear in Mailchimp.
-[ ] Temporarily use an invalid API key and confirm the intake still saves and adviser notifications still send.
-[ ] Restore the valid API key and redeploy.
-
-Build checks:
-[ ] npm ci completed.
-[ ] npm run build completed.
-[ ] Netlify Function syntax checks completed.
+1. Upload the complete package to the existing GitHub repository.
+2. Preserve the netlify/ and public/ folders.
+3. No database migration is required for this release.
+4. Allow Netlify to build using Node 20.19.0.
+5. Confirm the dashboard opens for an administrator and an adviser-scoped user.
+6. Confirm tasks more than 30 days away do not appear in the dashboard action queue but remain in Tasks.
+7. Test the Overdue, Today and Next 30 days queue tabs.
+8. Open several client records, return to Dashboard, and confirm Recently viewed appears vertically in the sidebar.
+9. Use Adjust action on a workload row, change the wording/date, save, and confirm the row updates.
+10. Open the client record and confirm the replaced action was preserved in the next-action log.
+11. Test the workload search and collapsed filters.
+12. Check desktop, tablet and mobile dashboard layouts.
+13. Regression-test intake, CV upload, adviser notification, approval/decline, consultation booking, duplicate detection, client portal, Mailchimp and Backup Centre workflows.
