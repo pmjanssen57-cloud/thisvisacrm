@@ -2993,6 +2993,139 @@ function isContactIntake(record = {}) {
   return String(payload.formType || '').toLowerCase() === 'contact' || String(payload.submittedVia || '').toLowerCase().includes('contact form');
 }
 
+function csvCellValue(value) {
+  let text = value == null ? '' : String(value);
+  text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const trimmed = text.trim();
+  const phoneLike = /^[+\-]\d[\d\s().\-]*$/.test(trimmed);
+  if (!phoneLike && /^[\s]*[=+\-@]/.test(text)) text = `'${text}`;
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function downloadCsvFile(fileName, headers, rows) {
+  const csv = `\uFEFF${[headers, ...rows].map((row) => row.map(csvCellValue).join(',')).join('\r\n')}`;
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function exportDateTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return new Intl.DateTimeFormat('en-NZ', {
+    timeZone: 'Pacific/Auckland',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date);
+}
+
+function exportTruthy(value) {
+  if (value === true) return true;
+  return ['yes', 'true', '1', 'on', 'consented'].includes(String(value || '').trim().toLowerCase());
+}
+
+function buildEnquiryContactExport(contactRecords = [], intakeRecords = [], advisers = [], options = {}) {
+  const marketingOnly = Boolean(options.marketingOnly);
+  const adviserNames = new Map(advisers.map((adviser) => [String(adviser.id || ''), adviser.name || adviser.email || '']));
+  const sourceRecords = [
+    ...contactRecords.map((record) => ({ record, source: 'Contact form' })),
+    ...intakeRecords.map((record) => ({ record, source: 'Full assessment questionnaire' })),
+  ].filter(({ record }) => String(record?.email || '').trim());
+
+  const groups = new Map();
+  sourceRecords.forEach((item) => {
+    const emailKey = String(item.record.email || '').trim().toLowerCase();
+    if (!emailKey) return;
+    const existing = groups.get(emailKey) || [];
+    existing.push(item);
+    groups.set(emailKey, existing);
+  });
+
+  const latestValue = (items, getter) => {
+    for (const item of items) {
+      const value = getter(item);
+      if (value !== undefined && value !== null && String(value).trim() !== '') return value;
+    }
+    return '';
+  };
+
+  const rows = [];
+  [...groups.values()].forEach((items) => {
+    const sorted = [...items].sort((a, b) => (Date.parse(b.record.createdAt || b.record.updatedAt || '') || 0) - (Date.parse(a.record.createdAt || a.record.updatedAt || '') || 0));
+    const latest = sorted[0];
+    const fullIntakes = sorted.filter((item) => item.source === 'Full assessment questionnaire' && item.record.status !== 'Spam / Duplicate');
+    const latestConsentRecord = fullIntakes.find((item) => Object.prototype.hasOwnProperty.call(intakeAnswerPayload(item.record), 'marketingConsent')) || null;
+    const marketingConsent = Boolean(latestConsentRecord && exportTruthy(intakeAnswerPayload(latestConsentRecord.record).marketingConsent));
+    if (marketingOnly && !marketingConsent) return;
+
+    const firstSubmitted = [...sorted].sort((a, b) => (Date.parse(a.record.createdAt || a.record.updatedAt || '') || 0) - (Date.parse(b.record.createdAt || b.record.updatedAt || '') || 0))[0];
+    const sources = [...new Set(sorted.map((item) => item.source))].join('; ');
+    const assignedAdvisers = [...new Set(sorted.map((item) => adviserNames.get(String(item.record.assignedAdviserId || ''))).filter(Boolean))].join('; ');
+    const statuses = [...new Set(sorted.map((item) => `${item.source === 'Contact form' ? 'Contact' : 'Intake'}: ${item.record.status || 'New'}`))].join('; ');
+    const contactPermission = sorted.some((item) => exportTruthy(intakeAnswerPayload(item.record).consentToContact) || item.source === 'Contact form');
+
+    if (marketingOnly) {
+      rows.push([
+        latest.record.email || '',
+        latestValue(sorted, (item) => item.record.firstName || intakeAnswerPayload(item.record).firstName),
+        latestValue(sorted, (item) => item.record.lastName || intakeAnswerPayload(item.record).lastName),
+        latestValue(sorted, (item) => item.record.phone || intakeAnswerPayload(item.record).phone),
+        latestValue(sorted, (item) => item.record.citizenship || intakeAnswerPayload(item.record).citizenship),
+        latestValue(sorted, (item) => item.record.currentLocation || intakeAnswerPayload(item.record).currentLocation || intakeAnswerPayload(item.record).contactLocation),
+        latestValue(sorted, (item) => item.record.targetPathway || intakeAnswerPayload(item.record).targetPathway || intakeAnswerPayload(item.record).contactSituation),
+        sources,
+        'THiS CRM; Full assessment; Marketing consent',
+      ]);
+      return;
+    }
+
+    rows.push([
+      latest.record.email || '',
+      latestValue(sorted, (item) => item.record.firstName || intakeAnswerPayload(item.record).firstName),
+      latestValue(sorted, (item) => item.record.lastName || intakeAnswerPayload(item.record).lastName),
+      latestValue(sorted, (item) => item.record.phone || intakeAnswerPayload(item.record).phone),
+      latestValue(sorted, (item) => item.record.citizenship || intakeAnswerPayload(item.record).citizenship),
+      latestValue(sorted, (item) => item.record.currentLocation || intakeAnswerPayload(item.record).currentLocation || intakeAnswerPayload(item.record).contactLocation),
+      latestValue(sorted, (item) => item.record.targetPathway || intakeAnswerPayload(item.record).targetPathway || intakeAnswerPayload(item.record).contactSituation),
+      latestValue(sorted, (item) => intakeAnswerPayload(item.record).preferredContactMethod),
+      sources,
+      contactPermission ? 'Yes' : 'No',
+      marketingConsent ? 'Yes' : 'No',
+      marketingConsent ? 'Eligible for subscribed Mailchimp import' : 'Do not import as subscribed without separate consent',
+      statuses,
+      assignedAdvisers,
+      exportDateTime(firstSubmitted?.record?.createdAt || firstSubmitted?.record?.updatedAt),
+      exportDateTime(latest?.record?.createdAt || latest?.record?.updatedAt),
+      sorted.length,
+    ]);
+  });
+
+  rows.sort((a, b) => String(a[0] || '').localeCompare(String(b[0] || ''), 'en', { sensitivity: 'base' }));
+
+  if (marketingOnly) {
+    return {
+      headers: ['Email Address', 'First Name', 'Last Name', 'Phone Number', 'Citizenship', 'Current Country', 'Immigration Goal', 'Source', 'Tags'],
+      rows,
+    };
+  }
+
+  return {
+    headers: ['Email Address', 'First Name', 'Last Name', 'Phone Number', 'Citizenship', 'Current Country', 'Immigration Goal', 'Preferred Contact Method', 'Source', 'Contact Permission', 'Marketing Consent', 'Mailchimp Import Guidance', 'CRM Status', 'Assigned Adviser', 'First Submitted (NZ time)', 'Latest Submitted (NZ time)', 'Submission Count'],
+    rows,
+  };
+}
+
 function matchesIntakeAdviserScope(item = {}, adviserScope = 'all') {
   if (!adviserScope || adviserScope === 'all') return true;
   const assignedAdviserId = String(item.assignedAdviserId || '');
@@ -3834,6 +3967,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
   const [contactInviteNotice, setContactInviteNotice] = useState('');
   const [expandedContactId, setExpandedContactId] = useState('');
   const [expandedFeedbackId, setExpandedFeedbackId] = useState('');
+  const [contactExportNotice, setContactExportNotice] = useState('');
   const flagOptions = [
     { value: 'urgent', label: 'Urgent timing' },
     { value: 'visaExpirySoon', label: 'Visa expiry' },
@@ -4100,6 +4234,28 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
     await convertIntakeToClient(draft.id);
   }
 
+  function exportContactRegister() {
+    const result = buildEnquiryContactExport(contactEnquiries, intakeEnquiries, advisers, { marketingOnly: false });
+    if (!result.rows.length) {
+      setContactExportNotice('There are no contact or intake records with an email address to export.');
+      return;
+    }
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    downloadCsvFile(`THiS-contact-register-${dateStamp}.csv`, result.headers, result.rows);
+    setContactExportNotice(`${result.rows.length} unique contact${result.rows.length === 1 ? '' : 's'} exported for Excel. Sensitive questionnaire answers and uploaded documents were excluded.`);
+  }
+
+  function exportMailchimpConsentList() {
+    const result = buildEnquiryContactExport(contactEnquiries, intakeEnquiries, advisers, { marketingOnly: true });
+    if (!result.rows.length) {
+      setContactExportNotice('No retained full assessment questionnaires currently record marketing consent.');
+      return;
+    }
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    downloadCsvFile(`THiS-mailchimp-consented-contacts-${dateStamp}.csv`, result.headers, result.rows);
+    setContactExportNotice(`${result.rows.length} consented contact${result.rows.length === 1 ? '' : 's'} exported in a Mailchimp-friendly format.`);
+  }
+
   const intakeTitle = draft ? ([draft.firstName, draft.lastName].filter(Boolean).join(' ') || 'Unnamed intake') : 'Intake record';
   const visibleRecords = workspaceTab === 'contact' ? contactFiltered : workspaceTab === 'feedback' ? feedbackFiltered : workspaceTab === 'intake' ? intakeFiltered : (seminarRegistrations || []);
 
@@ -4110,7 +4266,27 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
           <h1>Enquiries & Intake</h1>
           <p className="muted">Review contact forms, assessment questionnaires, client feedback and seminar registrations separately from active client work.</p>
         </div>
+        <details className="enquiries-export-menu">
+          <summary className="btn"><Download size={16} />Export contacts</summary>
+          <div>
+            <button type="button" onClick={(event) => { exportContactRegister(); event.currentTarget.closest('details')?.removeAttribute('open'); }}>
+              <FileText size={16} />
+              <span><strong>All contacts for Excel</strong><small>One row per email from retained intake and contact forms, with consent and source fields.</small></span>
+            </button>
+            <button type="button" onClick={(event) => { exportMailchimpConsentList(); event.currentTarget.closest('details')?.removeAttribute('open'); }}>
+              <Mail size={16} />
+              <span><strong>Mailchimp consent list</strong><small>Only full assessment contacts who selected the optional marketing consent box.</small></span>
+            </button>
+          </div>
+        </details>
       </div>
+
+      {contactExportNotice && (
+        <div className="success-banner compact enquiries-export-notice">
+          <Download size={17} />{contactExportNotice}
+          <button type="button" onClick={() => setContactExportNotice('')} aria-label="Dismiss export notice"><X size={15} /></button>
+        </div>
+      )}
 
       <div className="enquiries-lean-overview" aria-label="Current enquiry workload">
         <button type="button" className={workspaceTab === 'contact' ? 'active' : ''} onClick={() => { setWorkspaceTab('contact'); setContactStatusFilter('New'); }}>
