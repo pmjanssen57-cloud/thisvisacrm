@@ -20,7 +20,7 @@ export default async function backupHandler(request) {
   try {
     const auth = await authenticateBackupRequest(request);
     if (!auth.ok) return jsonResponse({ error: 'Unauthorised.' }, 401);
-    if (!hasBackupAdminAccess(auth)) return jsonResponse({ error: 'Backup access is restricted to CRM administrators.' }, 403);
+    if (!(await hasBackupAdminAccess(auth))) return jsonResponse({ error: 'Backup access is restricted to CRM administrators.' }, 403);
 
     const database = databaseClient();
     await ensureBackupSchema(database);

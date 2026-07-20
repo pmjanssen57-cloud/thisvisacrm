@@ -379,10 +379,11 @@ async function handleCrmEvent(event) {
     if (!auth.ok) return json({ error: 'Unauthorised. Enter the internal CRM access code.' }, 401);
 
     await ensureSchema();
+    const accessContext = await resolveCrmAccess(auth);
 
     if (method === 'GET') {
       const data = await readCrmData();
-      return json({ ...data, securityMode: auth.mode, authUser: serialiseIdentityUser(auth.user) });
+      return json({ ...data, securityMode: auth.mode, authUser: serialiseIdentityUser(auth.user), accessContext });
     }
 
     if (method !== 'POST') return json({ error: 'Method not allowed' }, 405);
@@ -391,13 +392,16 @@ async function handleCrmEvent(event) {
     const action = body.action;
 
     if (action === 'seed') {
+      requireAdminAccess(accessContext, 'Seed sample data');
       await seedSampleData();
-      return json(await readCrmData());
+      return json({ ...(await readCrmData()), accessContext });
     }
 
     if (action === 'saveAdviser') {
+      requireAdminAccess(accessContext, 'Adviser management');
       const adviser = await saveAdviser(body.adviser);
-      return json({ adviser, ...(await readCrmData()) });
+      const refreshedAccessContext = await resolveCrmAccess(auth);
+      return json({ adviser, ...(await readCrmData()), accessContext: refreshedAccessContext });
     }
 
     if (action === 'savePersonalTask') {
@@ -599,7 +603,8 @@ async function handleCrmEvent(event) {
     return json({ error: `Unknown action: ${action}` }, 400);
   } catch (error) {
     console.error(error);
-    return json({ error: 'CRM function error', detail: String(error?.message || error) }, 500);
+    const status = Number(error?.statusCode || 500);
+    return json({ error: status === 403 ? String(error?.message || 'Administrator access required.') : 'CRM function error', detail: String(error?.message || error) }, status);
   }
 }
 
@@ -621,6 +626,61 @@ async function checkAuth(event) {
   }
 
   return { ok: false, mode: expected ? 'none' : 'identity-required' };
+}
+
+async function resolveCrmAccess(auth = {}) {
+  if (!auth?.ok) return { role: 'User', adviserId: '', source: 'unauthorised' };
+  if (auth.mode === 'token-fallback') return { role: 'Admin', adviserId: '', source: 'access-token' };
+
+  const identityRoles = new Set([
+    ...(Array.isArray(auth.user?.roles) ? auth.user.roles : []),
+    ...(Array.isArray(auth.user?.app_metadata?.roles) ? auth.user.app_metadata.roles : []),
+    ...(Array.isArray(auth.user?.appMetadata?.roles) ? auth.user.appMetadata.roles : []),
+    auth.user?.role,
+  ].filter(Boolean).map((role) => String(role).trim().toLowerCase()));
+  const identityAdmin = identityRoles.has('admin') || identityRoles.has('manager');
+
+  const email = normaliseEmailAddress(auth.user?.email);
+  if (!email) return { role: identityAdmin ? 'Admin' : 'User', adviserId: '', source: identityAdmin ? 'identity-role' : 'identity-default' };
+
+  const database = db();
+  const rows = await database.sql`
+    SELECT id, access_role
+    FROM advisers
+    WHERE LOWER(COALESCE(login_email, '')) = ${email}
+       OR LOWER(COALESCE(email, '')) = ${email}
+    ORDER BY CASE WHEN LOWER(COALESCE(login_email, '')) = ${email} THEN 0 ELSE 1 END
+    LIMIT 1
+  `;
+  const adviser = rows[0] || null;
+  const adminCountRows = await database.sql`SELECT COUNT(*)::int AS count FROM advisers WHERE access_role = 'Admin' AND active = TRUE`;
+  const hasAssignedAdmin = Number(adminCountRows[0]?.count || 0) > 0;
+
+  if (!adviser) {
+    return { role: identityAdmin ? 'Admin' : 'User', adviserId: '', source: identityAdmin ? 'identity-role' : 'identity-default' };
+  }
+
+  const role = hasAssignedAdmin ? normaliseCrmAccessRole(adviser.access_role) : 'Admin';
+  return {
+    role,
+    adviserId: adviser.id || '',
+    source: hasAssignedAdmin ? 'adviser-profile' : 'bootstrap-first-admin',
+  };
+}
+
+function requireAdminAccess(accessContext = {}, feature = 'This action') {
+  if (normaliseCrmAccessRole(accessContext.role) === 'Admin') return;
+  const error = new Error(`${feature} is restricted to CRM administrators.`);
+  error.statusCode = 403;
+  throw error;
+}
+
+function normaliseCrmAccessRole(value) {
+  return String(value || '').trim().toLowerCase() === 'admin' ? 'Admin' : 'User';
+}
+
+function normaliseEmailAddress(value) {
+  return String(value || '').trim().toLowerCase();
 }
 
 function serialiseIdentityUser(user) {
@@ -668,6 +728,8 @@ async function ensureSchema() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+  await database.sql`ALTER TABLE advisers ADD COLUMN IF NOT EXISTS access_role TEXT NOT NULL DEFAULT 'User'`;
+  await database.sql`UPDATE advisers SET access_role = 'User' WHERE access_role IS NULL OR access_role NOT IN ('Admin', 'User')`;
   await database.sql`
     CREATE TABLE IF NOT EXISTS clients (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1120,7 +1182,7 @@ async function readCrmData() {
   const database = db();
   await pruneOldEmailNotifications(database);
   const [advisers, clients, stages, deadlines, billing, personalTasks, calendarEntries, libraryEntries, portalMessages, portalDocuments, intakeEnquiries, seminars, seminarRegistrations, feedbackSubmissions, emailLogs, emailTemplates, consultationTypes, bookingAvailability, bookingBlocks, bookingLinks, consultationBookings] = await Promise.all([
-    database.sql`SELECT id, name, role, email, login_email, profile_photo_url, availability_status, phone, licence, active FROM advisers ORDER BY name ASC`,
+    database.sql`SELECT id, name, role, email, login_email, access_role, profile_photo_url, availability_status, phone, licence, active FROM advisers ORDER BY name ASC`,
     database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, one_law_client_number, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, portal_enabled, portal_email, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_resource_settings, portal_access_code_hash, portal_last_published_at, portal_last_accessed_at, notes, family_members, document_checklist FROM clients ORDER BY updated_at DESC`,
     database.sql`SELECT id, client_id, stage_key, stage_label, mandatory, applied, completed, completed_date, sort_order FROM client_stages ORDER BY sort_order ASC`,
     database.sql`SELECT id, client_id, deadline_type, deadline_date, note, action_status, review_date FROM client_deadlines ORDER BY deadline_date ASC NULLS LAST`,
@@ -1189,6 +1251,7 @@ function mapAdviserFromDb(row) {
     role: row.role || '',
     email: row.email || '',
     loginEmail: row.login_email || '',
+    accessRole: normaliseCrmAccessRole(row.access_role),
     profilePhotoUrl: row.profile_photo_url || '',
     phone: row.phone || '',
     availability: row.availability_status || row.availability || 'Available',
@@ -1800,14 +1863,25 @@ function mapPortalDocumentFromDb(row = {}) {
 async function saveAdviser(adviser = {}) {
   const database = db();
   const id = isUuid(adviser.id) ? adviser.id : null;
+  const accessRole = normaliseCrmAccessRole(adviser.accessRole || adviser.access_role);
 
   if (id) {
+    const currentRows = await database.sql`SELECT id, access_role FROM advisers WHERE id = ${id} LIMIT 1`;
+    const current = currentRows[0] || null;
+    if (current && normaliseCrmAccessRole(current.access_role) === 'Admin' && (accessRole !== 'Admin' || adviser.active === false)) {
+      const otherAdmins = await database.sql`SELECT COUNT(*)::int AS count FROM advisers WHERE access_role = 'Admin' AND active = TRUE AND id <> ${id}`;
+      if (Number(otherAdmins[0]?.count || 0) === 0) {
+        throw new Error('At least one active adviser must retain the Admin role. Assign another administrator before changing or deactivating this profile.');
+      }
+    }
+
     const rows = await database.sql`
       UPDATE advisers
       SET name = ${adviser.name || 'Unnamed adviser'},
           role = ${adviser.role || ''},
           email = ${adviser.email || ''},
           login_email = ${adviser.loginEmail || adviser.login_email || ''},
+          access_role = ${accessRole},
           profile_photo_url = ${normaliseProfilePhotoUrl(adviser.profilePhotoUrl || adviser.profile_photo_url || '')},
           availability_status = ${normaliseAdviserAvailability(adviser.availability || adviser.availabilityStatus || adviser.availability_status)},
           phone = ${adviser.phone || ''},
@@ -1815,15 +1889,15 @@ async function saveAdviser(adviser = {}) {
           active = ${adviser.active !== false},
           updated_at = NOW()
       WHERE id = ${id}
-      RETURNING id, name, role, email, login_email, profile_photo_url, availability_status, phone, licence, active
+      RETURNING id, name, role, email, login_email, access_role, profile_photo_url, availability_status, phone, licence, active
     `;
     return mapAdviserFromDb(rows[0]);
   }
 
   const rows = await database.sql`
-    INSERT INTO advisers (name, role, email, login_email, profile_photo_url, availability_status, phone, licence, active)
-    VALUES (${adviser.name || 'New adviser'}, ${adviser.role || 'Licensed Immigration Adviser'}, ${adviser.email || ''}, ${adviser.loginEmail || adviser.login_email || ''}, ${normaliseProfilePhotoUrl(adviser.profilePhotoUrl || adviser.profile_photo_url || '')}, ${normaliseAdviserAvailability(adviser.availability || adviser.availabilityStatus || adviser.availability_status)}, ${adviser.phone || ''}, ${adviser.licence || ''}, ${adviser.active !== false})
-    RETURNING id, name, role, email, login_email, profile_photo_url, availability_status, phone, licence, active
+    INSERT INTO advisers (name, role, email, login_email, access_role, profile_photo_url, availability_status, phone, licence, active)
+    VALUES (${adviser.name || 'New adviser'}, ${adviser.role || 'Licensed Immigration Adviser'}, ${adviser.email || ''}, ${adviser.loginEmail || adviser.login_email || ''}, ${accessRole}, ${normaliseProfilePhotoUrl(adviser.profilePhotoUrl || adviser.profile_photo_url || '')}, ${normaliseAdviserAvailability(adviser.availability || adviser.availabilityStatus || adviser.availability_status)}, ${adviser.phone || ''}, ${adviser.licence || ''}, ${adviser.active !== false})
+    RETURNING id, name, role, email, login_email, access_role, profile_photo_url, availability_status, phone, licence, active
   `;
   return mapAdviserFromDb(rows[0]);
 }

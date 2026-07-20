@@ -1,0 +1,51 @@
+THiS CRM v0.13.35 - Roles and My Day
+=====================================
+
+CRM roles
+---------
+The CRM now uses two adviser access roles:
+
+Admin
+- Full operational CRM access.
+- Adviser profile and role management.
+- Backup Centre access.
+- Contact and Mailchimp-consent CSV exports.
+- Can create new adviser profiles.
+
+User
+- Full access to operational CRM workspaces, including My day, Dashboard,
+  Tasks, Clients, Enquiries & Intake, Bookings, Calendar, Billing and Library.
+- Cannot open Adviser management or Backup Centre.
+- Cannot download the contact-register or Mailchimp CSV exports.
+
+Assigning a role
+----------------
+1. Sign in as an Admin.
+2. Open Advisers.
+3. Confirm the adviser Login Email matches their Netlify Identity login email.
+4. Set CRM access role to Admin or User.
+5. Save the adviser profile.
+
+At least one active adviser must remain an Admin. The CRM blocks an attempt to
+remove or deactivate the final active administrator.
+
+First deployment
+----------------
+Existing adviser rows are initially set to User. Until the first Admin is
+explicitly assigned, a logged-in user whose email matches an adviser profile is
+treated as a bootstrap administrator so the roles can be configured. Assign at
+least one Admin immediately after deployment.
+
+My day
+------
+My day is now the first page shown after a successful login. It includes:
+- Overdue and due-today action counts.
+- New enquiry count.
+- Consultations scheduled for today.
+- A concise action list.
+- Direct cards for the main CRM workspaces.
+- Recently opened clients.
+- Admin shortcuts for administrators only.
+
+My day remains available as the first item in the desktop and mobile navigation.
+The existing Dashboard remains the detailed workload-management view.

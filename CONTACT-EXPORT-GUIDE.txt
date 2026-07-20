@@ -1,0 +1,32 @@
+THiS CRM v0.13.35 - CONTACT EXPORT GUIDE
+
+Location:
+Enquiries & Intake > Export contacts
+
+EXCEL CONTACT REGISTER
+1. New contacts since last export
+   - Exports only email groups with a new contact-form or intake submission after the previous Excel export.
+   - The first use on a browser exports all matching records and establishes the baseline.
+
+2. All contacts
+   - Exports the complete retained register.
+   - Establishes a fresh baseline for future incremental exports.
+
+MAILCHIMP CONSENT CSV
+1. New consented contacts since last export
+   - Exports only full-assessment contacts whose latest recorded marketing consent was submitted after the previous Mailchimp CSV export.
+
+2. All consented contacts
+   - Exports the complete retained consent list.
+   - Establishes a fresh Mailchimp baseline.
+
+RESET EXPORT HISTORY
+Clears both local baselines. The next incremental downloads will include all matching retained records.
+
+IMPORTANT
+Export history is tracked separately for the current login, adviser view and browser. It does not automatically follow the user to another device or browser.
+
+
+Administrator access
+--------------------
+The Export contacts menu is available only to adviser profiles with the Admin CRM access role.

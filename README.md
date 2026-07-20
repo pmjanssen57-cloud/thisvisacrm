@@ -1,30 +1,47 @@
-# THiS CRM v0.13.33 — Manual Contact Export and Netlify Cache Repair
+# THiS CRM v0.13.35 — Adviser Roles and My Day
 
-This release retains the lean adviser dashboard and lean Enquiries & Intake workspace from v0.13.30–v0.13.32.
+This release builds on the working v0.13.34 baseline. It preserves the lean dashboard, lean Enquiries & Intake workspace, incremental contact exports, Yarn deployment configuration and existing CRM workflows.
 
-## Contact exports
+## Access roles
 
-The Enquiries & Intake workspace includes two browser-generated CSV downloads:
+- **Admin** — all operational access plus adviser management, Backup Centre and contact CSV exports.
+- **User** — all operational CRM workspaces without adviser administration, backups or contact exports.
+- Roles are assigned on the Adviser profile and matched to Netlify Identity through Login Email.
+- The server enforces administrator access for adviser changes and backups.
+- The CRM prevents removal or deactivation of the final active Admin.
+- On first deployment, a matched adviser is temporarily treated as a bootstrap Admin until an Admin role is explicitly assigned.
 
-- **All contacts for Excel** — one deduplicated row per email from retained contact and full assessment forms.
-- **Mailchimp-ready consent CSV** — a manual import file containing only full-assessment applicants who selected the optional marketing consent box.
+## My day
 
-The exports exclude dates of birth, visa history, health and character information, employment and qualification answers, funds information, adviser notes and uploaded files.
+My day is the first CRM page after login and remains available from desktop and mobile navigation. It shows overdue and due-today work, new enquiries, consultations today, direct workspace cards, recently opened clients and administrator shortcuts where applicable. The existing Dashboard remains the detailed workload-management page.
 
-## Mailchimp change
+## Contact export changes
 
-The earlier automatic Mailchimp API integration has been removed completely. Intake submissions are no longer sent to Mailchimp by the Netlify Function, and no Mailchimp API environment variables are required. Existing marketing-consent answers remain available for the manual consent CSV.
+The `Export contacts` menu now supports separate incremental and complete exports:
 
-## Deployment repair
+- **New contacts since last export** — Excel-compatible contact register containing only email groups with a new contact-form or full-assessment submission after the previous Excel export.
+- **All contacts** — complete retained contact and intake register. This also establishes a new incremental baseline.
+- **New consented contacts since last export** — Mailchimp-ready CSV containing only newly consented full-assessment contacts after the previous Mailchimp CSV export.
+- **All consented contacts** — complete retained consent list. This also establishes a new Mailchimp baseline.
+- **Reset export history** — clears both baselines so the next incremental exports include all matching retained records.
 
-The failed deploy was caused by a stale or corrupted cached `node_modules` tree. npm attempted to rename the existing `bare-stream` directory and received `ENOTEMPTY` before the CRM build began.
+The export menu shows the previous Excel and Mailchimp CSV download times. Export history is stored locally for the current login, selected adviser view and browser. A different browser, device, login or adviser filter maintains a separate baseline.
 
-This release switches Netlify dependency installation to Yarn Classic 1.22.22 and removes npm-specific install configuration and the npm lockfile. Use **Clear cache and deploy site** for the first deployment of this release. The Netlify log should report Yarn rather than npm during dependency installation.
+The first incremental download on a browser has no earlier baseline, so it includes all matching retained records and then records the new baseline.
 
-## Data and compatibility
+## Privacy and data handling
 
-- No database migration is required.
-- Existing migrations are unchanged.
-- Public intake, contact and seminar forms remain in place.
-- Microsoft email, intake conversion, duplicate detection, bookings, client portal and secure backups remain in place.
-- Node 20.19.0 remains pinned.
+The exports remain deduplicated by email and exclude sensitive questionnaire content, including dates of birth, visa history, health and character answers, employment and qualification detail, financial information, adviser notes and uploaded files.
+
+The automatic Mailchimp API integration remains removed. Mailchimp transfers are completed manually using the consent CSV.
+
+## Deployment
+
+- Node 20.19.0
+- Yarn Classic 1.22.22 through Corepack
+- The adviser access-role column is added automatically on first CRM load; no manual migration step is required.
+- No new npm dependency
+- Existing CRM and backup Functions are updated for administrator enforcement; no new Function is added.
+- No public form or Squarespace embed change
+
+Use **Clear cache and deploy site** if Netlify restores an incompatible dependency directory from an older npm-based build.

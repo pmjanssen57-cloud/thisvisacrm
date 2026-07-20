@@ -1,0 +1,15 @@
+THiS CRM v0.13.35 validation
+============================
+
+Completed in the build workspace:
+- package.json JSON validation
+- App.jsx and main.jsx JSX syntax parsing
+- styles.css parser validation
+- Node syntax checks for all Netlify Functions and recovery scripts
+- verification that node_modules is not included
+- verification that automatic Mailchimp API environment keys are not present
+
+The dependency graph is unchanged from the working v0.13.34 Yarn deployment.
+A full Vite production build could not be rerun in this isolated workspace because
+external npm registry access was unavailable. Netlify will perform the production
+build using the existing Yarn configuration.

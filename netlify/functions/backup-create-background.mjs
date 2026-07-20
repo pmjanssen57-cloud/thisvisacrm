@@ -31,7 +31,7 @@ const BLOB_STORES = [
 
 export default async function createBackupHandler(request) {
   const auth = await authenticateBackupRequest(request);
-  if (!auth.ok || !hasBackupAdminAccess(auth)) {
+  if (!auth.ok || !(await hasBackupAdminAccess(auth))) {
     console.warn('Rejected unauthorised backup worker invocation.');
     return;
   }

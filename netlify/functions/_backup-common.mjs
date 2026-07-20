@@ -30,7 +30,7 @@ export async function authenticateBackupRequest(request) {
   return { ok: false, mode: expected ? 'none' : 'identity-required', user: null };
 }
 
-export function hasBackupAdminAccess(auth) {
+export async function hasBackupAdminAccess(auth) {
   if (!auth?.ok) return false;
   if (auth.mode === 'token-fallback') return true;
   const user = auth.user || {};
@@ -40,7 +40,28 @@ export function hasBackupAdminAccess(auth) {
     ...(Array.isArray(user.appMetadata?.roles) ? user.appMetadata.roles : []),
     user.role,
   ].filter(Boolean).map((role) => String(role).toLowerCase()));
-  return roles.has('admin') || roles.has('manager');
+  const identityAdmin = roles.has('admin') || roles.has('manager');
+
+  const email = String(user.email || '').trim().toLowerCase();
+  if (!email) return identityAdmin;
+  try {
+    const database = databaseClient();
+    const rows = await database.sql`
+      SELECT access_role
+      FROM advisers
+      WHERE LOWER(COALESCE(login_email, '')) = ${email}
+         OR LOWER(COALESCE(email, '')) = ${email}
+      ORDER BY CASE WHEN LOWER(COALESCE(login_email, '')) = ${email} THEN 0 ELSE 1 END
+      LIMIT 1
+    `;
+    const adminRows = await database.sql`SELECT COUNT(*)::int AS count FROM advisers WHERE access_role = 'Admin' AND active = TRUE`;
+    const hasAssignedAdmin = Number(adminRows[0]?.count || 0) > 0;
+    if (rows[0]) return hasAssignedAdmin ? String(rows[0].access_role || '').trim().toLowerCase() === 'admin' : true;
+    return identityAdmin;
+  } catch (error) {
+    console.warn('CRM adviser-role backup check failed', error?.message || error);
+    return false;
+  }
 }
 
 export function requestingUser(auth) {

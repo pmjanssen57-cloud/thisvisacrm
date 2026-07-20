@@ -136,6 +136,16 @@ const SUPPORT_CONTENT = {
     ],
     tips: ['Keep contact forms light-touch.', 'Use New as the weekend triage queue.', 'Mark contacted or spam promptly so the active queue stays clean.'],
   },
+  home: {
+    title: 'My day help',
+    summary: 'My day is the adviser landing page shown after login. It gives a concise view of overdue work, today’s actions, new enquiries and recently used client records, with direct links into the relevant CRM workspace.',
+    sections: [
+      { heading: 'Today first', text: 'The action list prioritises overdue items and work due today. Open an item to move directly to the client, calendar entry or full task list.' },
+      { heading: 'Quick access', text: 'Use the workspace cards to move into Dashboard, Tasks, Clients, Enquiries & Intake, Calendar or Bookings. Administrators also see a small administration area.' },
+      { heading: 'Adviser scope', text: 'The page normally opens in the logged-in adviser’s own scope. Use the Viewing selector to switch to another adviser or the whole practice when required.' },
+    ],
+    tips: ['Use My day as the starting point for each work session.', 'Open Dashboard when you need the full workload list and inline action-date controls.', 'Return to My day from the first navigation button at any time.'],
+  },
   dashboard: {
     title: 'Dashboard help',
     summary: 'The dashboard is the daily operational view. It prioritises overdue work, today’s bring-up items and tasks due within 30 days, with client workload and quick action-date editing directly underneath.',
@@ -204,9 +214,9 @@ const SUPPORT_CONTENT = {
     sections: [
       { heading: 'Adviser profiles', text: 'Keep adviser names, emails, phone numbers and profile photos accurate. These records drive primary and backup adviser assignments and the adviser details clients see in the portal.' },
       { heading: 'Active status', text: 'Use inactive status for advisers who should remain in historical records but should not usually receive new clients.' },
-      { heading: 'Login mapping', text: 'Use the Login Email field to match a Netlify Identity user to the adviser profile. The main adviser email can still be used for client communication.' },
+      { heading: 'Login mapping and role', text: 'Use the Login Email field to match a Netlify Identity user to the adviser profile, then assign Admin or User access. The main adviser email can still be used for client communication.' },
     ],
-    tips: ['Match each adviser profile to their Netlify Identity email address.', 'Use clear head-and-shoulders profile photos so clients can identify their adviser in the portal.', 'Avoid deleting advisers if they are linked to historical client records.'],
+    tips: ['Match each adviser profile to their Netlify Identity email address.', 'Keep at least one active adviser assigned as Admin.', 'Use clear head-and-shoulders profile photos so clients can identify their adviser in the portal.', 'Avoid deleting advisers if they are linked to historical client records.'],
   },
   backups: {
     title: 'Backup Centre help',
@@ -392,6 +402,7 @@ const emptyData = {
   consultationBookings: [],
   emailConfig: { configured: false, fromEmail: '', fromName: '' },
   securityMode: 'unknown',
+  accessContext: {},
 };
 
 function makeStableLocalId(prefix = 'temp') {
@@ -452,7 +463,7 @@ export default function App() {
   if (window.location.pathname.startsWith('/book')) return <ConsultationBookingPublicApp />;
   if (window.location.pathname.startsWith('/portal')) return <ClientPortalApp />;
   const [data, setData] = useState(emptyData);
-  const [tab, setTab] = useState('dashboard');
+  const [tab, setTab] = useState('home');
   const [selectedClientId, setSelectedClientId] = useState('');
   const [clientQuery, setClientQuery] = useState('');
   const [adviserFilter, setAdviserFilter] = useState('all');
@@ -674,7 +685,13 @@ export default function App() {
       }
       const body = await readJsonResponse(response);
       if (!response.ok) throw new Error(formatApiError(body, 'CRM save failed'));
-      if (!options.skipDataUpdate) setData(normaliseData(body));
+      if (!options.skipDataUpdate) {
+        setData((current) => {
+          const next = normaliseData(body);
+          if (!body.accessContext) next.accessContext = current.accessContext || {};
+          return next;
+        });
+      }
       return body;
     } catch (err) {
       setError(err.message || String(err));
@@ -698,6 +715,7 @@ export default function App() {
       const user = await login(email, password);
       setIdentityUser(user);
       setAuthFlow({ type: 'login' });
+      setTab('home');
       setAuthRequired(false);
       await load(accessCode, user);
     } catch (err) {
@@ -715,6 +733,7 @@ export default function App() {
       const user = await acceptInvite(authFlow.token, password);
       setIdentityUser(user);
       setAuthFlow({ type: 'login' });
+      setTab('home');
       setAuthRequired(false);
       await load(accessCode, user);
     } catch (err) {
@@ -732,6 +751,7 @@ export default function App() {
       const user = await updateUser({ password });
       setIdentityUser(user);
       setAuthFlow({ type: 'login' });
+      setTab('home');
       setAuthRequired(false);
       await load(accessCode, user);
     } catch (err) {
@@ -765,6 +785,7 @@ export default function App() {
     setPendingCode('');
     setIdentityUser(null);
     identityScopeAppliedRef.current = false;
+    setTab('home');
     setAuthRequired(true);
     setData(emptyData);
   }
@@ -1080,6 +1101,7 @@ export default function App() {
       role: 'Licensed Immigration Adviser',
       email: '',
       loginEmail: '',
+      accessRole: 'User',
       profilePhotoUrl: '',
       availability: 'Available',
       phone: '',
@@ -1096,10 +1118,13 @@ export default function App() {
   const activeClients = scopedClients.filter((client) => client.clientStatus !== 'Closed');
   const selectedClient = data.clients.find((client) => client.id === selectedClientId) || data.clients[0] || null;
   const identityAdviser = useMemo(() => findAdviserForIdentity(data.advisers, identityUser), [data.advisers, identityUser]);
-  const canViewAllAdvisers = !identityUser || identityHasRole(identityUser, ['admin', 'manager']);
-  const canManageAdvisers = !identityUser || identityHasRole(identityUser, ['admin', 'manager']);
-  const canManageBackups = canManageAdvisers;
-  const scopeAdvisers = canViewAllAdvisers ? data.advisers : (identityAdviser ? [identityAdviser] : data.advisers);
+  const currentAccessRole = resolveCurrentAccessRole(data.accessContext, identityAdviser, identityUser, Boolean(accessCode));
+  const isAdmin = currentAccessRole === 'Admin';
+  const canViewAllAdvisers = true;
+  const canManageAdvisers = isAdmin;
+  const canManageBackups = isAdmin;
+  const canExportContacts = isAdmin;
+  const scopeAdvisers = data.advisers;
   const headerSnapshotAdviser = useMemo(() => {
     if (dashboardAdviserFilter !== 'all') return data.advisers.find((adviser) => adviser.id === dashboardAdviserFilter) || null;
     if (identityAdviser) return identityAdviser;
@@ -1116,10 +1141,8 @@ export default function App() {
   }, [identityUser, data.advisers]);
 
   useEffect(() => {
-    if (identityUser && identityAdviser && !canViewAllAdvisers && dashboardAdviserFilter !== identityAdviser.id) {
-      setDashboardAdviserFilter(identityAdviser.id);
-    }
-  }, [identityUser, identityAdviser, canViewAllAdvisers, dashboardAdviserFilter]);
+    if (!isAdmin && ['advisers', 'backups'].includes(tab)) setTab('home');
+  }, [isAdmin, tab]);
 
   useEffect(() => {
     if (!selectedClientId || !scopedClients.length) return;
@@ -1207,7 +1230,7 @@ export default function App() {
           </div>
         </div>
         <HeaderLocalSnapshot adviser={headerSnapshotAdviser} />
-        <AuthStatus user={identityUser} adviser={identityAdviser} accessCodeActive={Boolean(accessCode)} onLogout={logoutIdentityUser} />
+        <AuthStatus user={identityUser} adviser={identityAdviser} accessRole={currentAccessRole} accessCodeActive={Boolean(accessCode)} onLogout={logoutIdentityUser} />
         <div className="top-actions desktop-only">
           <button className="btn ghost compact-action" onClick={() => { setSupportOpen(false); setToolsOpen(true); setNewMenuOpen(false); }}><Wrench size={16} />Tools</button>
           <div className="dropdown-shell new-action-shell">
@@ -1257,6 +1280,7 @@ export default function App() {
               canViewAllAdvisers={canViewAllAdvisers}
             />
             <nav className="tabs desktop-tabs main-nav crm-main-nav-polished nav-expanded-row" aria-label="Main CRM navigation">
+              <TabButton active={tab === 'home'} onClick={() => switchTab('home')} icon={CloudSun} label="My day" />
               <TabButton active={tab === 'dashboard'} onClick={() => switchTab('dashboard')} icon={LayoutDashboard} label="Dashboard" />
               <TabButton active={tab === 'tasks'} onClick={() => switchTab('tasks')} icon={ListChecks} label="Tasks" />
               <TabButton active={tab === 'clients'} onClick={() => switchTab('clients')} icon={UsersRound} label="Clients" />
@@ -1269,8 +1293,25 @@ export default function App() {
               {canManageBackups && <TabButton active={tab === 'backups'} onClick={() => switchTab('backups')} icon={Database} label="Backups" />}
             </nav>
 
+            {tab === 'home' && (
+              <AdviserLandingPad
+                adviser={headerSnapshotAdviser}
+                accessRole={currentAccessRole}
+                clients={scopedClients}
+                activeClients={activeClients}
+                advisers={data.advisers}
+                dashboardAdviserFilter={dashboardAdviserFilter}
+                taskRows={taskRows}
+                intakeEnquiries={data.intakeEnquiries || []}
+                consultationBookings={data.consultationBookings || []}
+                recentClientIds={recentClientIds}
+                setTab={switchTab}
+                openClientRecord={openClientRecord}
+              />
+            )}
+
             {tab === 'intake' && (
-              <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} statuses={data.intakeStatuses || INTAKE_STATUSES} seminars={data.seminars || []} seminarRegistrations={data.seminarRegistrations || []} feedbackSubmissions={data.feedbackSubmissions || []} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} downloadIntakeUpload={downloadIntakeUpload} saveSeminar={saveSeminar} deleteSeminar={deleteSeminar} saveSeminarRegistration={saveSeminarRegistration} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail} saveFeedbackSubmission={saveFeedbackSubmission} deleteFeedbackSubmission={deleteFeedbackSubmission} saving={saving} openClientRecord={openClientRecord} confirmAction={askCrmConfirm} />
+              <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} identityUser={identityUser} canExportContacts={canExportContacts} statuses={data.intakeStatuses || INTAKE_STATUSES} seminars={data.seminars || []} seminarRegistrations={data.seminarRegistrations || []} feedbackSubmissions={data.feedbackSubmissions || []} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} downloadIntakeUpload={downloadIntakeUpload} saveSeminar={saveSeminar} deleteSeminar={deleteSeminar} saveSeminarRegistration={saveSeminarRegistration} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail} saveFeedbackSubmission={saveFeedbackSubmission} deleteFeedbackSubmission={deleteFeedbackSubmission} saving={saving} openClientRecord={openClientRecord} confirmAction={askCrmConfirm} />
             )}
 
             {tab === 'bookings' && (
@@ -3035,8 +3076,34 @@ function exportTruthy(value) {
   return ['yes', 'true', '1', 'on', 'consented'].includes(String(value || '').trim().toLowerCase());
 }
 
+function contactExportRecordTime(record = {}) {
+  const value = Date.parse(record.createdAt || record.updatedAt || '');
+  return Number.isFinite(value) ? value : 0;
+}
+
+function readContactExportHistory(storageKey) {
+  if (!storageKey || typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    const cutoffAt = String(parsed.cutoffAt || '');
+    const downloadedAt = String(parsed.downloadedAt || '');
+    if (!cutoffAt || Number.isNaN(Date.parse(cutoffAt))) return null;
+    return {
+      cutoffAt,
+      downloadedAt: downloadedAt && !Number.isNaN(Date.parse(downloadedAt)) ? downloadedAt : cutoffAt,
+      rowCount: Number(parsed.rowCount || 0),
+    };
+  } catch {
+    return null;
+  }
+}
+
 function buildEnquiryContactExport(contactRecords = [], intakeRecords = [], advisers = [], options = {}) {
   const marketingOnly = Boolean(options.marketingOnly);
+  const sinceTime = Date.parse(options.since || '') || 0;
   const adviserNames = new Map(advisers.map((adviser) => [String(adviser.id || ''), adviser.name || adviser.email || '']));
   const sourceRecords = [
     ...contactRecords.map((record) => ({ record, source: 'Contact form' })),
@@ -3061,19 +3128,26 @@ function buildEnquiryContactExport(contactRecords = [], intakeRecords = [], advi
   };
 
   const rows = [];
+  let latestSourceTime = 0;
   [...groups.values()].forEach((items) => {
-    const sorted = [...items].sort((a, b) => (Date.parse(b.record.createdAt || b.record.updatedAt || '') || 0) - (Date.parse(a.record.createdAt || a.record.updatedAt || '') || 0));
+    const sorted = [...items].sort((a, b) => contactExportRecordTime(b.record) - contactExportRecordTime(a.record));
     const latest = sorted[0];
     const fullIntakes = sorted.filter((item) => item.source === 'Full assessment questionnaire' && item.record.status !== 'Spam / Duplicate');
     const latestConsentRecord = fullIntakes.find((item) => Object.prototype.hasOwnProperty.call(intakeAnswerPayload(item.record), 'marketingConsent')) || null;
     const marketingConsent = Boolean(latestConsentRecord && exportTruthy(intakeAnswerPayload(latestConsentRecord.record).marketingConsent));
     if (marketingOnly && !marketingConsent) return;
 
-    const firstSubmitted = [...sorted].sort((a, b) => (Date.parse(a.record.createdAt || a.record.updatedAt || '') || 0) - (Date.parse(b.record.createdAt || b.record.updatedAt || '') || 0))[0];
+    const groupLatestTime = sorted.reduce((latestTime, item) => Math.max(latestTime, contactExportRecordTime(item.record)), 0);
+    const qualifyingTime = marketingOnly ? contactExportRecordTime(latestConsentRecord?.record) : groupLatestTime;
+    if (sinceTime && qualifyingTime <= sinceTime) return;
+
+    const firstSubmitted = [...sorted].sort((a, b) => contactExportRecordTime(a.record) - contactExportRecordTime(b.record))[0];
     const sources = [...new Set(sorted.map((item) => item.source))].join('; ');
     const assignedAdvisers = [...new Set(sorted.map((item) => adviserNames.get(String(item.record.assignedAdviserId || ''))).filter(Boolean))].join('; ');
     const statuses = [...new Set(sorted.map((item) => `${item.source === 'Contact form' ? 'Contact' : 'Intake'}: ${item.record.status || 'New'}`))].join('; ');
     const contactPermission = sorted.some((item) => exportTruthy(intakeAnswerPayload(item.record).consentToContact) || item.source === 'Contact form');
+
+    latestSourceTime = Math.max(latestSourceTime, qualifyingTime);
 
     if (marketingOnly) {
       rows.push([
@@ -3112,17 +3186,20 @@ function buildEnquiryContactExport(contactRecords = [], intakeRecords = [], advi
   });
 
   rows.sort((a, b) => String(a[0] || '').localeCompare(String(b[0] || ''), 'en', { sensitivity: 'base' }));
+  const latestSourceAt = latestSourceTime ? new Date(latestSourceTime).toISOString() : '';
 
   if (marketingOnly) {
     return {
       headers: ['Email Address', 'First Name', 'Last Name', 'Phone Number', 'Citizenship', 'Current Country', 'Immigration Goal', 'Source', 'Tags'],
       rows,
+      latestSourceAt,
     };
   }
 
   return {
     headers: ['Email Address', 'First Name', 'Last Name', 'Phone Number', 'Citizenship', 'Current Country', 'Immigration Goal', 'Preferred Contact Method', 'Source', 'Contact Permission', 'Marketing Consent', 'Mailchimp Import Guidance', 'CRM Status', 'Assigned Adviser', 'First Submitted (NZ time)', 'Latest Submitted (NZ time)', 'Submission Count'],
     rows,
+    latestSourceAt,
   };
 }
 
@@ -3953,7 +4030,7 @@ function RelatedEnquiryPanel({ matches = [] }) {
 }
 
 
-function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', statuses, seminars = [], seminarRegistrations = [], feedbackSubmissions = [], saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, sendContactIntakeInviteEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saveFeedbackSubmission, deleteFeedbackSubmission, saving, openClientRecord, confirmAction }) {
+function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', identityUser = null, canExportContacts = false, statuses, seminars = [], seminarRegistrations = [], feedbackSubmissions = [], saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, sendContactIntakeInviteEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saveFeedbackSubmission, deleteFeedbackSubmission, saving, openClientRecord, confirmAction }) {
   const askConfirm = confirmAction || (async ({ message }) => window.confirm(message || 'Continue?'));
   const simplifiedStatuses = (statuses || INTAKE_STATUSES).filter((status) => INTAKE_STATUSES.includes(status));
   const [workspaceTab, setWorkspaceTab] = useState('contact');
@@ -3968,6 +4045,15 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
   const [expandedContactId, setExpandedContactId] = useState('');
   const [expandedFeedbackId, setExpandedFeedbackId] = useState('');
   const [contactExportNotice, setContactExportNotice] = useState('');
+  const exportHistoryKeyBase = useMemo(() => {
+    const userKey = String(identityUser?.email || identityUser?.id || 'temporary-access')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9@._-]+/g, '-');
+    const scopeKey = String(dashboardAdviserFilter || 'all').replace(/[^a-zA-Z0-9_-]+/g, '-');
+    return `this_crm_contact_export_v1:${userKey}:${scopeKey}`;
+  }, [identityUser?.email, identityUser?.id, dashboardAdviserFilter]);
+  const [contactExportHistory, setContactExportHistory] = useState({ register: null, mailchimp: null });
   const flagOptions = [
     { value: 'urgent', label: 'Urgent timing' },
     { value: 'visaExpirySoon', label: 'Visa expiry' },
@@ -4081,6 +4167,13 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
   const flaggedCount = intakeEnquiries.filter((item) => hasAnyIntakeFlag(item.flags)).length;
   const expandedItem = expandedId ? intakeEnquiries.find((item) => item.id === expandedId) : null;
   const draftDirty = Boolean(draft && expandedItem && JSON.stringify(intakeCompareSnapshot(draft)) !== JSON.stringify(intakeCompareSnapshot(expandedItem)));
+
+  useEffect(() => {
+    setContactExportHistory({
+      register: readContactExportHistory(`${exportHistoryKeyBase}:register`),
+      mailchimp: readContactExportHistory(`${exportHistoryKeyBase}:mailchimp`),
+    });
+  }, [exportHistoryKeyBase]);
 
   useEffect(() => {
     if (!expandedId) {
@@ -4234,26 +4327,80 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
     await convertIntakeToClient(draft.id);
   }
 
-  function exportContactRegister() {
-    const result = buildEnquiryContactExport(contactEnquiries, intakeEnquiries, advisers, { marketingOnly: false });
-    if (!result.rows.length) {
-      setContactExportNotice('There are no contact or intake records with an email address to export.');
-      return;
+  function saveExportHistory(kind, result) {
+    if (!result?.latestSourceAt) return;
+    const entry = {
+      cutoffAt: result.latestSourceAt,
+      downloadedAt: new Date().toISOString(),
+      rowCount: result.rows.length,
+    };
+    try {
+      window.localStorage.setItem(`${exportHistoryKeyBase}:${kind}`, JSON.stringify(entry));
+    } catch {
+      // The CSV is still valid if browser storage is unavailable.
     }
-    const dateStamp = new Date().toISOString().slice(0, 10);
-    downloadCsvFile(`THiS-contact-register-${dateStamp}.csv`, result.headers, result.rows);
-    setContactExportNotice(`${result.rows.length} unique contact${result.rows.length === 1 ? '' : 's'} exported for Excel. Sensitive questionnaire answers and uploaded documents were excluded.`);
+    setContactExportHistory((current) => ({ ...current, [kind]: entry }));
   }
 
-  function exportMailchimpConsentList() {
-    const result = buildEnquiryContactExport(contactEnquiries, intakeEnquiries, advisers, { marketingOnly: true });
+  function resetContactExportHistory() {
+    try {
+      window.localStorage.removeItem(`${exportHistoryKeyBase}:register`);
+      window.localStorage.removeItem(`${exportHistoryKeyBase}:mailchimp`);
+    } catch {
+      // Ignore storage restrictions and still reset the visible state.
+    }
+    setContactExportHistory({ register: null, mailchimp: null });
+    setContactExportNotice('Export history reset for the current login and adviser view. The next “new contacts” export will include all retained matching records.');
+  }
+
+  function exportHistoryLabel(entry) {
+    return entry?.downloadedAt ? exportDateTime(entry.downloadedAt) : 'Not downloaded yet';
+  }
+
+  function exportContactRegister(onlyNew = false) {
+    const history = contactExportHistory.register;
+    const result = buildEnquiryContactExport(contactEnquiries, intakeEnquiries, advisers, {
+      marketingOnly: false,
+      since: onlyNew ? history?.cutoffAt : '',
+    });
     if (!result.rows.length) {
-      setContactExportNotice('No retained full assessment questionnaires currently record marketing consent.');
+      setContactExportNotice(onlyNew && history
+        ? `No new contact or intake submissions have been received since the last Excel export on ${exportHistoryLabel(history)}.`
+        : 'There are no contact or intake records with an email address to export.');
       return;
     }
     const dateStamp = new Date().toISOString().slice(0, 10);
-    downloadCsvFile(`THiS-mailchimp-consented-contacts-${dateStamp}.csv`, result.headers, result.rows);
-    setContactExportNotice(`${result.rows.length} consented contact${result.rows.length === 1 ? '' : 's'} exported for manual Mailchimp import.`);
+    const filePrefix = onlyNew ? 'THiS-new-contacts-since-last-export' : 'THiS-all-contact-register';
+    downloadCsvFile(`${filePrefix}-${dateStamp}.csv`, result.headers, result.rows);
+    saveExportHistory('register', result);
+    if (onlyNew && !history) {
+      setContactExportNotice(`${result.rows.length} unique contact${result.rows.length === 1 ? '' : 's'} exported. No previous Excel export was recorded on this browser, so the first incremental file included all retained matching contacts and set the new baseline.`);
+    } else {
+      setContactExportNotice(`${result.rows.length} ${onlyNew ? 'new ' : ''}unique contact${result.rows.length === 1 ? '' : 's'} exported for Excel. Sensitive questionnaire answers and uploaded documents were excluded.`);
+    }
+  }
+
+  function exportMailchimpConsentList(onlyNew = false) {
+    const history = contactExportHistory.mailchimp;
+    const result = buildEnquiryContactExport(contactEnquiries, intakeEnquiries, advisers, {
+      marketingOnly: true,
+      since: onlyNew ? history?.cutoffAt : '',
+    });
+    if (!result.rows.length) {
+      setContactExportNotice(onlyNew && history
+        ? `No newly consented full-assessment contacts have been received since the last Mailchimp CSV export on ${exportHistoryLabel(history)}.`
+        : 'No retained full assessment questionnaires currently record marketing consent.');
+      return;
+    }
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    const filePrefix = onlyNew ? 'THiS-new-mailchimp-consented-contacts' : 'THiS-all-mailchimp-consented-contacts';
+    downloadCsvFile(`${filePrefix}-${dateStamp}.csv`, result.headers, result.rows);
+    saveExportHistory('mailchimp', result);
+    if (onlyNew && !history) {
+      setContactExportNotice(`${result.rows.length} consented contact${result.rows.length === 1 ? '' : 's'} exported. No previous Mailchimp CSV export was recorded on this browser, so the first incremental file included all retained consented contacts and set the new baseline.`);
+    } else {
+      setContactExportNotice(`${result.rows.length} ${onlyNew ? 'newly ' : ''}consented contact${result.rows.length === 1 ? '' : 's'} exported for manual Mailchimp import.`);
+    }
   }
 
   const intakeTitle = draft ? ([draft.firstName, draft.lastName].filter(Boolean).join(' ') || 'Unnamed intake') : 'Intake record';
@@ -4266,19 +4413,46 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
           <h1>Enquiries & Intake</h1>
           <p className="muted">Review contact forms, assessment questionnaires, client feedback and seminar registrations separately from active client work.</p>
         </div>
-        <details className="enquiries-export-menu">
+        {canExportContacts && <details className="enquiries-export-menu">
           <summary className="btn"><Download size={16} />Export contacts</summary>
           <div>
-            <button type="button" onClick={(event) => { exportContactRegister(); event.currentTarget.closest('details')?.removeAttribute('open'); }}>
-              <FileText size={16} />
-              <span><strong>All contacts for Excel</strong><small>One row per email from retained intake and contact forms, with consent and source fields.</small></span>
-            </button>
-            <button type="button" onClick={(event) => { exportMailchimpConsentList(); event.currentTarget.closest('details')?.removeAttribute('open'); }}>
-              <Mail size={16} />
-              <span><strong>Mailchimp-ready consent CSV</strong><small>Manual import file containing only full assessment contacts who selected the optional marketing consent box.</small></span>
+            <div className="enquiries-export-history">
+              <strong>Export history</strong>
+              <small>Excel: {exportHistoryLabel(contactExportHistory.register)}</small>
+              <small>Mailchimp CSV: {exportHistoryLabel(contactExportHistory.mailchimp)}</small>
+              <em>Tracked for this login, adviser view and browser.</em>
+            </div>
+
+            <div className="enquiries-export-section">
+              <span className="enquiries-export-section-title">Excel contact register</span>
+              <button type="button" onClick={(event) => { exportContactRegister(true); event.currentTarget.closest('details')?.removeAttribute('open'); }}>
+                <Download size={16} />
+                <span><strong>New contacts since last export</strong><small>Downloads only contacts with a new contact-form or intake submission after the previous Excel export.</small></span>
+              </button>
+              <button type="button" onClick={(event) => { exportContactRegister(false); event.currentTarget.closest('details')?.removeAttribute('open'); }}>
+                <FileText size={16} />
+                <span><strong>All contacts</strong><small>Downloads the complete retained contact and intake register and resets the incremental baseline.</small></span>
+              </button>
+            </div>
+
+            <div className="enquiries-export-section">
+              <span className="enquiries-export-section-title">Mailchimp consent CSV</span>
+              <button type="button" onClick={(event) => { exportMailchimpConsentList(true); event.currentTarget.closest('details')?.removeAttribute('open'); }}>
+                <Mail size={16} />
+                <span><strong>New consented contacts since last export</strong><small>Downloads newly consented full-assessment contacts for the next manual Mailchimp import.</small></span>
+              </button>
+              <button type="button" onClick={(event) => { exportMailchimpConsentList(false); event.currentTarget.closest('details')?.removeAttribute('open'); }}>
+                <FileText size={16} />
+                <span><strong>All consented contacts</strong><small>Downloads the complete retained consent list and resets the Mailchimp incremental baseline.</small></span>
+              </button>
+            </div>
+
+            <button className="enquiries-export-reset" type="button" onClick={(event) => { resetContactExportHistory(); event.currentTarget.closest('details')?.removeAttribute('open'); }}>
+              <RefreshCw size={16} />
+              <span><strong>Reset export history</strong><small>Use this when you want the next incremental downloads to start again from all retained records.</small></span>
             </button>
           </div>
-        </details>
+        </details>}
       </div>
 
       {contactExportNotice && (
@@ -6325,9 +6499,9 @@ function formatHeaderClock(date, timeZone = 'Pacific/Auckland') {
   }
 }
 
-function AuthStatus({ user, adviser, accessCodeActive, onLogout }) {
+function AuthStatus({ user, adviser, accessRole = 'User', accessCodeActive, onLogout }) {
   if (!user && !accessCodeActive) return null;
-  const roleLabel = identityRoleLabel(user);
+  const roleLabel = accessCodeActive && !user ? 'Admin access' : `${accessRole} access`;
   return (
     <div className="auth-status" title={user?.email || 'Temporary access-code session'}>
       {user && adviser ? <AdviserAvatar adviser={adviser} size="sm" /> : <ShieldCheck size={16} />}
@@ -6360,12 +6534,12 @@ function adviserInitials(value = '') {
 
 function MobileBottomNav({ activeTab, onNavigate, onOpenMore }) {
   const navItems = [
-    { tab: 'dashboard', label: 'Home', icon: LayoutDashboard },
+    { tab: 'home', label: 'Home', icon: CloudSun },
     { tab: 'tasks', label: 'Tasks', icon: ListChecks },
     { tab: 'clients', label: 'Clients', icon: UsersRound },
     { tab: 'intake', label: 'Enquiries', icon: ClipboardList },
   ];
-  const moreActive = ['billing', 'advisers', 'library', 'intake', 'bookings', 'backups'].includes(activeTab);
+  const moreActive = ['dashboard', 'calendar', 'billing', 'advisers', 'library', 'bookings', 'backups'].includes(activeTab);
   return (
     <nav className="mobile-bottom-nav" aria-label="Mobile CRM navigation">
       {navItems.map(({ tab, label, icon: Icon }) => (
@@ -6400,6 +6574,8 @@ function MobileMoreSheet({ open, onClose, onNavigate, activeTab, onOpenHelp, onO
           <button className="icon-btn" type="button" onClick={onClose} aria-label="Close mobile menu"><X size={18} /></button>
         </div>
         <div className="mobile-more-grid">
+          <button type="button" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => go('dashboard')}><LayoutDashboard size={18} /><span>Dashboard</span></button>
+          <button type="button" className={activeTab === 'calendar' ? 'active' : ''} onClick={() => go('calendar')}><CalendarDays size={18} /><span>Calendar</span></button>
           <button type="button" className={activeTab === 'intake' ? 'active' : ''} onClick={() => go('intake')}><ClipboardList size={18} /><span>Enquiries</span></button>
           <button type="button" className={activeTab === 'bookings' ? 'active' : ''} onClick={() => go('bookings')}><CalendarDays size={18} /><span>Bookings</span></button>
           <button type="button" className={activeTab === 'billing' ? 'active' : ''} onClick={() => go('billing')}><CreditCard size={18} /><span>Billing</span></button>
@@ -7568,7 +7744,7 @@ function AccessScreen(props) {
         <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="access-logo" />
         <LockKeyhole size={34} />
         <h1>{isInvite ? 'Set your THiS CRM password' : isRecovery ? 'Choose a new password' : 'THiS CRM login'}</h1>
-        <p>{isInvite ? 'Your Netlify Identity invitation has been recognised. Set a password to finish activating your CRM access.' : isRecovery ? 'Enter a new password to complete the reset process.' : 'Access is restricted to invited THiS users only.'}</p>
+        <p>{isInvite ? 'Your Netlify Identity invitation has been recognised. Set a password to finish activating your CRM access.' : isRecovery ? 'Enter a new password to complete the reset process.' : 'Access is restricted to invited THiS users only. After login, My day will show your immediate work and the main CRM shortcuts.'}</p>
 
         {isInvite && (
           <form className="access-form" onSubmit={handleInviteSubmit}>
@@ -7610,6 +7786,139 @@ function CrmToast({ toast, onClose }) {
       <CheckCircle2 size={18} />
       <span>{toast.message}</span>
       <button type="button" onClick={onClose} aria-label="Dismiss notification"><X size={15} /></button>
+    </div>
+  );
+}
+
+function AdviserLandingPad({ adviser = null, accessRole = 'User', clients = [], activeClients = [], advisers = [], dashboardAdviserFilter = 'all', taskRows = [], intakeEnquiries = [], consultationBookings = [], recentClientIds = [], setTab, openClientRecord }) {
+  const actionableRows = taskRows
+    .map(withDeadlineSignal)
+    .filter(isDashboardActionableTaskRow)
+    .filter((row) => row.deadlineSignal?.kind === 'review-due' || row.diff === null || row.diff === undefined || row.diff <= 30);
+  const overdueRows = actionableRows.filter((row) => row.diff < 0 || row.deadlineSignal?.kind === 'review-due');
+  const todayRows = actionableRows.filter((row) => row.diff === 0 || row.deadlineSignal?.kind === 'review-due');
+  const seen = new Set();
+  const focusRows = [...overdueRows, ...todayRows]
+    .filter((row) => {
+      const key = row.id || `${row.source}-${row.client?.id || ''}-${row.date || ''}-${row.type || ''}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => compareTasks(a, b, 'priority'))
+    .slice(0, 8);
+  const newEnquiries = (intakeEnquiries || [])
+    .filter((item) => matchesIntakeAdviserScope(item, dashboardAdviserFilter))
+    .filter((item) => !item.status || item.status === 'New');
+  const today = todayIso();
+  const todayBookings = (consultationBookings || []).filter((booking) => {
+    if (booking.bookingDate !== today || ['Cancelled', 'Completed', 'No-show'].includes(booking.status)) return false;
+    return dashboardAdviserFilter === 'all' || booking.adviserId === dashboardAdviserFilter;
+  });
+  const recentClients = (recentClientIds || [])
+    .map((id) => clients.find((client) => client.id === id))
+    .filter(Boolean)
+    .slice(0, 4);
+  const firstName = String(adviser?.name || '').trim().split(/\s+/)[0] || 'there';
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  const dateLabel = new Intl.DateTimeFormat('en-NZ', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date());
+  const viewLabel = dashboardAdviserFilter === 'all'
+    ? 'Whole practice'
+    : advisers.find((item) => item.id === dashboardAdviserFilter)?.name || adviser?.name || 'Adviser';
+
+  function openFocusItem(row) {
+    if (row.source === 'calendar-entry') {
+      setTab('calendar');
+      return;
+    }
+    if (row.client?.id) {
+      openClientRecord?.(row.client.id);
+      return;
+    }
+    setTab('tasks');
+  }
+
+  return (
+    <div className="stack adviser-landing-pad">
+      <section className="landing-welcome-card">
+        <div className="landing-welcome-copy">
+          <span className="eyebrow">My day · {dateLabel}</span>
+          <h1>{greeting}, {firstName}</h1>
+          <p>{focusRows.length ? `You have ${focusRows.length} item${focusRows.length === 1 ? '' : 's'} needing attention now.` : 'There are no overdue or due-today actions in the current view.'} This page is your starting point; the full Dashboard remains available for workload management.</p>
+          <div className="landing-welcome-meta">
+            <span><UsersRound size={15} />{activeClients.length} active client{activeClients.length === 1 ? '' : 's'}</span>
+            <span><CalendarDays size={15} />{todayBookings.length} consultation{todayBookings.length === 1 ? '' : 's'} today</span>
+            <span className={accessRole === 'Admin' ? 'admin' : ''}><ShieldCheck size={15} />{accessRole}</span>
+          </div>
+        </div>
+        <div className="landing-scope-card">
+          <small>Current view</small>
+          <strong>{viewLabel}</strong>
+          <button type="button" className="btn dark" onClick={() => setTab('dashboard')}><LayoutDashboard size={16} />Open full dashboard</button>
+        </div>
+      </section>
+
+      <section className="landing-summary-grid" aria-label="Current work summary">
+        <button type="button" className={overdueRows.length ? 'warning' : ''} onClick={() => setTab('tasks')}>
+          <AlertTriangle size={19} /><span><b>{overdueRows.length}</b><small>Overdue</small></span><ChevronRight size={16} />
+        </button>
+        <button type="button" onClick={() => setTab('dashboard')}>
+          <Clock size={19} /><span><b>{todayRows.length}</b><small>Due today</small></span><ChevronRight size={16} />
+        </button>
+        <button type="button" onClick={() => setTab('intake')}>
+          <ClipboardList size={19} /><span><b>{newEnquiries.length}</b><small>New enquiries</small></span><ChevronRight size={16} />
+        </button>
+        <button type="button" onClick={() => setTab('bookings')}>
+          <CalendarDays size={19} /><span><b>{todayBookings.length}</b><small>Consultations today</small></span><ChevronRight size={16} />
+        </button>
+      </section>
+
+      <div className="landing-content-grid">
+        <section className="panel landing-today-panel">
+          <div className="landing-panel-head">
+            <div><h2>Needs attention today</h2><p className="muted">Overdue work and items due today, ordered by priority.</p></div>
+            <button className="btn ghost mini" type="button" onClick={() => setTab('tasks')}><ListChecks size={15} />All tasks</button>
+          </div>
+          <div className="landing-action-list">
+            {focusRows.map((row) => (
+              <button type="button" className={`landing-action-row ${taskStatusKey(row)}`} key={row.id} onClick={() => openFocusItem(row)}>
+                <DeadlineBadge diff={row.diff} />
+                <span><strong>{taskDisplayName(row)}</strong><small>{row.note || row.type}</small></span>
+                <span className="landing-action-context"><strong>{row.type}</strong><small>{taskAdviserName(row, advisers)} · {row.date || 'No date'}</small></span>
+                <ChevronRight size={16} />
+              </button>
+            ))}
+            {!focusRows.length && <div className="landing-clear-state"><CheckCircle2 size={28} /><strong>Nothing urgent in this view</strong><span>Use Dashboard for the next 30 days or Tasks for the complete register.</span></div>}
+          </div>
+        </section>
+
+        <aside className="landing-side-stack">
+          <section className="panel landing-shortcuts-panel">
+            <div className="landing-panel-head"><div><h2>Workspaces</h2><p className="muted">Go directly to the part of the CRM you need.</p></div></div>
+            <div className="landing-shortcut-grid">
+              <button type="button" onClick={() => setTab('dashboard')}><LayoutDashboard size={18} /><span><strong>Dashboard</strong><small>Workload and action dates</small></span></button>
+              <button type="button" onClick={() => setTab('tasks')}><ListChecks size={18} /><span><strong>Tasks</strong><small>Full deadline register</small></span></button>
+              <button type="button" onClick={() => setTab('clients')}><UsersRound size={18} /><span><strong>Clients</strong><small>Open and update files</small></span></button>
+              <button type="button" onClick={() => setTab('intake')}><ClipboardList size={18} /><span><strong>Enquiries</strong><small>Contact, intake and seminars</small></span></button>
+              <button type="button" onClick={() => setTab('calendar')}><CalendarDays size={18} /><span><strong>Calendar</strong><small>Appointments and diary</small></span></button>
+              <button type="button" onClick={() => setTab('bookings')}><Clock size={18} /><span><strong>Bookings</strong><small>Availability and consultations</small></span></button>
+            </div>
+          </section>
+
+          {recentClients.length > 0 && <section className="panel landing-recent-panel">
+            <div className="landing-panel-head"><div><h2>Continue working</h2><p className="muted">Recently opened client files.</p></div></div>
+            <div className="landing-recent-list">
+              {recentClients.map((client) => <button type="button" key={client.id} onClick={() => openClientRecord?.(client.id)}><span><strong>{clientName(client)}</strong><small>{currentStageLabel(client)}</small></span><ChevronRight size={15} /></button>)}
+            </div>
+          </section>}
+
+          {accessRole === 'Admin' && <section className="panel landing-admin-panel">
+            <div><ShieldCheck size={18} /><span><strong>Administration</strong><small>Restricted management tools</small></span></div>
+            <div><button type="button" onClick={() => setTab('advisers')}><UserRound size={16} />Adviser roles</button><button type="button" onClick={() => setTab('backups')}><Database size={16} />Backups</button><button type="button" onClick={() => setTab('intake')}><Download size={16} />Contact exports</button></div>
+          </section>}
+        </aside>
+      </div>
     </div>
   );
 }
@@ -10320,7 +10629,8 @@ function AdviserProfiles({ advisers, clients, saveAdviser, saving }) {
   return (
     <section className="panel">
       <h2>Adviser profiles</h2>
-      <p className="muted">Add or edit adviser details used for allocation, reporting, login mapping and client portal adviser cards.</p>
+      <p className="muted">Add or edit adviser details used for allocation, reporting, login mapping, CRM permissions and client portal adviser cards.</p>
+      <div className="adviser-role-guide"><ShieldCheck size={18} /><span><strong>Admin</strong> can manage advisers, backups and contact exports. <strong>User</strong> can use all operational CRM workspaces but cannot access administration tools.</span></div>
       <div className="adviser-edit-grid">
         {drafts.map((adviser) => {
           const primary = clients.filter((client) => client.primaryAdviserId === adviser.id && client.clientStatus !== 'Closed').length;
@@ -10346,6 +10656,7 @@ function AdviserProfiles({ advisers, clients, saveAdviser, saving }) {
                 <Field label="Role" value={adviser.role} onChange={(v) => updateAdviser(adviser.id, { role: v })} />
                 <Field label="Email" value={adviser.email} onChange={(v) => updateAdviser(adviser.id, { email: v })} />
                 <Field label="Login Email" value={adviser.loginEmail} onChange={(v) => updateAdviser(adviser.id, { loginEmail: v })} />
+                <SelectField label="CRM access role" value={normaliseCrmAccessRole(adviser.accessRole)} onChange={(v) => updateAdviser(adviser.id, { accessRole: v })} options={['Admin', 'User']} />
                 <Field label="Phone" value={adviser.phone} onChange={(v) => updateAdviser(adviser.id, { phone: v })} />
                 <Field label="LIA licence" value={adviser.licence} onChange={(v) => updateAdviser(adviser.id, { licence: v })} />
                 <SelectField label="Portal availability" value={adviser.availability === 'Away' ? 'Away' : 'Available'} onChange={(v) => updateAdviser(adviser.id, { availability: v })} options={ADVISER_AVAILABILITY_OPTIONS} />
@@ -12197,7 +12508,7 @@ function normalisePortalDocument(doc = {}) {
 
 function normaliseData(body) {
   return {
-    advisers: (body.advisers || []).map((adviser) => ({ ...adviser, loginEmail: adviser.loginEmail || adviser.login_email || '', availability: adviser.availability === 'Away' ? 'Away' : 'Available' })),
+    advisers: (body.advisers || []).map((adviser) => ({ ...adviser, loginEmail: adviser.loginEmail || adviser.login_email || '', accessRole: normaliseCrmAccessRole(adviser.accessRole || adviser.access_role), availability: adviser.availability === 'Away' ? 'Away' : 'Available' })),
     clients: (body.clients || []).map((client) => normaliseClientFromApi(client, body.stageTemplates || DEFAULT_STAGE_TEMPLATES)),
     caseTypes: body.caseTypes || DEFAULT_CASE_TYPES,
     deadlineTypes: body.deadlineTypes || DEFAULT_DEADLINE_TYPES,
@@ -12219,6 +12530,7 @@ function normaliseData(body) {
     consultationBookings: (body.consultationBookings || []).map(normaliseConsultationBooking),
     emailConfig: normaliseEmailConfig(body.emailConfig || {}),
     securityMode: body.securityMode || 'unknown',
+    accessContext: body.accessContext || {},
   };
 }
 
@@ -12743,6 +13055,18 @@ function identityRoles(user = null) {
 function identityHasRole(user = null, allowedRoles = []) {
   const allowed = allowedRoles.map((role) => role.toLowerCase());
   return identityRoles(user).some((role) => allowed.includes(String(role).toLowerCase()));
+}
+
+function normaliseCrmAccessRole(value) {
+  return String(value || '').trim().toLowerCase() === 'admin' ? 'Admin' : 'User';
+}
+
+function resolveCurrentAccessRole(accessContext = {}, adviser = null, user = null, accessCodeActive = false) {
+  if (accessCodeActive) return 'Admin';
+  if (accessContext?.role) return normaliseCrmAccessRole(accessContext.role);
+  if (adviser?.accessRole || adviser?.access_role) return normaliseCrmAccessRole(adviser.accessRole || adviser.access_role);
+  if (identityHasRole(user, ['admin', 'manager'])) return 'Admin';
+  return 'User';
 }
 
 function identityRoleLabel(user = null) {

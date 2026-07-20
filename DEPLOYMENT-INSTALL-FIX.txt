@@ -1,4 +1,4 @@
-THiS CRM v0.13.33 - dependency cache repair and automatic Mailchimp removal
+THiS CRM v0.13.35 - dependency cache repair and automatic Mailchimp removal
 
 WHY THE PREVIOUS DEPLOY FAILED
 The Netlify log shows npm restoring or finding an old node_modules tree and then failing while renaming:
