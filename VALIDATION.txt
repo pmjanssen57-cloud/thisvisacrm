@@ -1,16 +1,25 @@
-THiS CRM v0.13.44 validation
+THiS CRM v0.13.45 validation
 
-Build correction
-- Removed the duplicate global formatFileSize declaration from App.jsx: PASS
-- Exactly one formatFileSize declaration remains in App.jsx: PASS
-- Package version updated to 0.13.44: PASS
-- Backup source version updated to 0.13.44: PASS
+Adviser workflow changes
+- Dashboard workload date filter defaults to Due today: PASS
+- Contacted intake view bypasses adviser assignment scope: PASS
+- Intake searches bypass adviser assignment scope: PASS
+- Intake contact exports remain adviser-scoped: PASS
+- Clients default to logged-in adviser as primary adviser: PASS
+- Optional backup-adviser toggle and green marker added: PASS
 
-Commercial compliance suite retained
-- Automated accreditation, work visa and Job Check reminder functions retained
-- Worker CSV template/import retained
-- Secure commercial document upload/download retained
-- Compliance report retained
-- Job Check-to-worker relationship and position usage logic retained
+Documents and intake
+- Medical certificate and Chest X-ray are separate checklist templates: PASS
+- Legacy Medicals data maps to Medical certificate: PASS
+- Physical address added to the public full assessment form: PASS
+- Physical address included in review, notification and conversion paths: PASS
 
-No database schema or dependency changes were made in this build-fix release.
+Technical checks
+- Package version updated to 0.13.45: PASS
+- Backup source version updated to 0.13.45: PASS
+- App.jsx and main.jsx parse/transpile successfully: PASS
+- Netlify Function syntax checks: PASS
+- netlify.toml and package.json parse: PASS
+- Exactly one global formatFileSize declaration remains: PASS
+
+No database migration or dependency change is included. A full dependency-backed Vite build was not run because the isolated environment could not complete registry access; the dependency graph is unchanged from v0.13.44.

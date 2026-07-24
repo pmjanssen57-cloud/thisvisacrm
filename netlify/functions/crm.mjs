@@ -57,7 +57,8 @@ const DOCUMENT_CHECKLIST_TEMPLATES = [
   { id: 'work-experience', name: 'Work experience' },
   { id: 'qualifications', name: 'Qualifications' },
   { id: 'custody-documents', name: 'Custody documents' },
-  { id: 'medicals', name: 'Medicals' },
+  { id: 'medical-certificate', name: 'Medical certificate' },
+  { id: 'chest-xray', name: 'Chest X-ray' },
   { id: 'police-clearances', name: 'Police Clearances' },
 ];
 
@@ -3179,7 +3180,7 @@ function buildClientFromIntake(intake = {}) {
     phone: intake.phone || payload.phone || '',
     nationality: intake.citizenship || payload.citizenship || '',
     dateOfBirth: intake.dateOfBirth || payload.dateOfBirth || '',
-    location: intake.currentLocation || payload.currentLocation || '',
+    location: payload.physicalAddress || intake.currentLocation || payload.currentLocation || '',
     matterName: intake.targetPathway || payload.targetPathway || '',
     caseStrategy: strategyParts,
     caseType: inferCaseTypeFromIntake(intake),
@@ -5129,7 +5130,10 @@ function buildDocumentChecklist(items = []) {
 function normaliseDocumentChecklist(items = []) {
   const input = Array.isArray(items) ? items : [];
   const templateRows = DOCUMENT_CHECKLIST_TEMPLATES.map((template) => {
-    const existing = input.find((item) => item.id === template.id || String(item.name || '').toLowerCase() === template.name.toLowerCase()) || {};
+    const legacyMedical = template.id === 'medical-certificate'
+      ? input.find((item) => item.id === 'medicals' || String(item.name || '').trim().toLowerCase() === 'medicals')
+      : null;
+    const existing = input.find((item) => item.id === template.id || String(item.name || '').toLowerCase() === template.name.toLowerCase()) || legacyMedical || {};
     const applied = existing.applied !== false;
     return {
       id: template.id,
@@ -5148,6 +5152,7 @@ function normaliseDocumentChecklist(items = []) {
     .filter((item) => {
       const id = String(item.id || '').trim();
       const name = String(item.name || '').trim().toLowerCase();
+      if (id === 'medicals' || name === 'medicals') return false;
       return item.custom || (id && !templateIds.has(id)) || (name && !templateNames.has(name));
     })
     .map((item, index) => {

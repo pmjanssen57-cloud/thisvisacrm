@@ -1,5 +1,9 @@
-v0.13.44 - Commercial Compliance Suite Build Fix
+v0.13.45 - Adviser Views, Intake Visibility and Document Refinements
 
-Adds tiered commercial expiry reminders, Excel-compatible worker import, authenticated commercial document uploads, downloadable compliance reporting, and direct Job Check position tracking.
+- Defaults the dashboard client workload date filter to items due today.
+- Shows Contacted intake forms and intake search results across the whole practice, while preserving adviser-scoped export files.
+- Defaults the Clients list to the logged-in adviser as primary adviser, with an optional backup-matter toggle and green backup indicator.
+- Separates Medical certificate and Chest X-ray checklist items, each with its own expiry date, while carrying legacy Medicals data into Medical certificate.
+- Adds current physical address to the full intake questionnaire, internal review, notifications and intake-to-client conversion.
 
-Fixes a Vite/esbuild compile failure caused by two identical global formatFileSize helper declarations in App.jsx. No feature, schema, dependency or deployment configuration changes.
+No database migration or new dependency is required.

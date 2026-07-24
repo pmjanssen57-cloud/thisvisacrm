@@ -83,7 +83,8 @@ const DOCUMENT_CHECKLIST_TEMPLATES = [
   { id: 'work-experience', name: 'Work experience' },
   { id: 'qualifications', name: 'Qualifications' },
   { id: 'custody-documents', name: 'Custody documents' },
-  { id: 'medicals', name: 'Medicals' },
+  { id: 'medical-certificate', name: 'Medical certificate' },
+  { id: 'chest-xray', name: 'Chest X-ray' },
   { id: 'police-clearances', name: 'Police Clearances' },
 ];
 
@@ -696,6 +697,8 @@ export default function App() {
   const [selectedCommercialClientId, setSelectedCommercialClientId] = useState('');
   const [clientQuery, setClientQuery] = useState('');
   const [adviserFilter, setAdviserFilter] = useState('all');
+  const [clientAdviserFilter, setClientAdviserFilter] = useState('mine');
+  const [includeBackupClients, setIncludeBackupClients] = useState(false);
   const [caseTypeFilter, setCaseTypeFilter] = useState('all');
   const [dashboardAdviserFilter, setDashboardAdviserFilter] = useState(() => localStorage.getItem('this_crm_dashboard_adviser_filter') || 'all');
   const [accessCode, setAccessCode] = useState('');
@@ -1523,6 +1526,8 @@ export default function App() {
     }
   }, [selectedCommercialClientId, scopedCommercialClients]);
 
+  const defaultClientListAdviserId = identityAdviser?.id || (dashboardAdviserFilter !== 'all' ? dashboardAdviserFilter : '');
+  const effectiveClientListAdviserId = clientAdviserFilter === 'mine' ? defaultClientListAdviserId : clientAdviserFilter === 'all' ? '' : clientAdviserFilter;
   const filteredClients = useMemo(() => {
     const q = clientQuery.trim().toLowerCase();
     return scopedClients.filter((client) => {
@@ -1530,11 +1535,18 @@ export default function App() {
         .join(' ')
         .toLowerCase()
         .includes(q);
-      const matchesAdviser = adviserFilter === 'all' || client.primaryAdviserId === adviserFilter || client.backupAdviserId === adviserFilter;
+      const matchesAdviser = clientAdviserFilter === 'all' || !effectiveClientListAdviserId
+        || client.primaryAdviserId === effectiveClientListAdviserId
+        || (includeBackupClients && client.backupAdviserId === effectiveClientListAdviserId);
       const matchesCaseType = caseTypeFilter === 'all' || client.caseType === caseTypeFilter;
       return matchesQuery && matchesAdviser && matchesCaseType;
     });
-  }, [scopedClients, clientQuery, adviserFilter, caseTypeFilter]);
+  }, [scopedClients, clientQuery, clientAdviserFilter, effectiveClientListAdviserId, includeBackupClients, caseTypeFilter]);
+
+  useEffect(() => {
+    if (tab !== 'clients' || !filteredClients.length) return;
+    if (!filteredClients.some((client) => client.id === selectedClientId)) setSelectedClientId(filteredClients[0].id);
+  }, [tab, filteredClients, selectedClientId]);
 
   const deadlineRows = useMemo(() => {
     return [
@@ -1747,8 +1759,11 @@ export default function App() {
                 deadlineTypes={data.deadlineTypes}
                 clientQuery={clientQuery}
                 setClientQuery={setClientQuery}
-                adviserFilter={adviserFilter}
-                setAdviserFilter={setAdviserFilter}
+                adviserFilter={clientAdviserFilter}
+                setAdviserFilter={setClientAdviserFilter}
+                includeBackupClients={includeBackupClients}
+                setIncludeBackupClients={setIncludeBackupClients}
+                effectiveAdviserId={effectiveClientListAdviserId}
                 caseTypeFilter={caseTypeFilter}
                 setCaseTypeFilter={setCaseTypeFilter}
                 setSelectedClientId={selectClient}
@@ -3316,6 +3331,7 @@ function IntakeFormApp() {
                 <IntakeSelect label="Preferred contact method" value={form.preferredContactMethod} onChange={(v) => setField('preferredContactMethod', v)} options={['Email', 'Mobile']} />
                 <IntakeSelect label="Country of citizenship" value={form.citizenship} onChange={(v) => setField('citizenship', v)} options={guidedCountryOptions()} />
                 <IntakeField label="Date of birth" type="date" value={form.dateOfBirth} onChange={(v) => setField('dateOfBirth', v)} />
+                <div className="span-2"><IntakeField label="Current physical address" value={form.physicalAddress} onChange={(v) => setField('physicalAddress', v)} placeholder="Street address, suburb, city and country" /></div>
               </div>
               <IntakeFileField label="Upload CV" file={applicantCvFile} onChange={(file) => handleCvFile('applicantCv', file)} />
             </IntakeSection>
@@ -5055,9 +5071,10 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
   const contactEnquiries = normalisedEnquiries
     .filter((item) => isContactIntake(item))
     .filter((item) => matchesIntakeAdviserScope(item, dashboardAdviserFilter));
-  const intakeEnquiries = normalisedEnquiries
-    .filter((item) => !isContactIntake(item))
-    .filter((item) => matchesIntakeAdviserScope(item, dashboardAdviserFilter));
+  const allIntakeEnquiries = normalisedEnquiries.filter((item) => !isContactIntake(item));
+  const scopedIntakeEnquiries = allIntakeEnquiries.filter((item) => matchesIntakeAdviserScope(item, dashboardAdviserFilter));
+  const intakeScopeOverride = workspaceTab === 'intake' && (statusFilter === 'Contacted' || Boolean(query.trim()));
+  const intakeEnquiries = intakeScopeOverride ? allIntakeEnquiries : scopedIntakeEnquiries;
   const normalisedFeedbackSubmissions = (feedbackSubmissions || [])
     .map(normaliseFeedbackSubmission)
     .sort((a, b) => intakeSortTime(b) - intakeSortTime(a));
@@ -5097,6 +5114,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
       item.targetPathway,
       item.currentVisaType,
       item.currentLocation,
+      intakeAnswerPayload(item).physicalAddress,
       item.citizenship,
       item.urgency,
       item.recommendedPathway,
@@ -5324,7 +5342,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
 
   function exportContactRegister(onlyNew = false) {
     const history = contactExportHistory.register;
-    const result = buildEnquiryContactExport(contactEnquiries, intakeEnquiries, advisers, {
+    const result = buildEnquiryContactExport(contactEnquiries, scopedIntakeEnquiries, advisers, {
       marketingOnly: false,
       since: onlyNew ? history?.cutoffAt : '',
     });
@@ -5347,7 +5365,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
 
   function exportMailchimpConsentList(onlyNew = false) {
     const history = contactExportHistory.mailchimp;
-    const result = buildEnquiryContactExport(contactEnquiries, intakeEnquiries, advisers, {
+    const result = buildEnquiryContactExport(contactEnquiries, scopedIntakeEnquiries, advisers, {
       marketingOnly: true,
       since: onlyNew ? history?.cutoffAt : '',
     });
@@ -5511,6 +5529,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
           <div>
             <span className="eyebrow">{workspaceTab === 'contact' ? 'Short website enquiries' : workspaceTab === 'feedback' ? 'Client feedback submissions' : 'Full assessment questionnaires'}</span>
             <h2>{workspaceTab === 'contact' ? `${contactStatusLabel(contactStatusFilter)} contacts` : workspaceTab === 'feedback' ? `${feedbackStatusLabel(feedbackStatusFilter)} feedback` : `${statusFilter} intake`}</h2>
+            {workspaceTab === 'intake' && intakeScopeOverride && <p className="intake-scope-note">Showing matching intake forms across the whole practice.</p>}
           </div>
           <span className="enquiries-shown-count">{visibleRecords.length} shown</span>
         </div>
@@ -6506,7 +6525,7 @@ function getIntakeQuestionnaireSections(record = {}) {
   const sections = [
     {
       title: 'Your details',
-      rows: intakeRows(payload, ['firstName', 'lastName', 'email', 'phone', 'preferredContactMethod', 'citizenship', 'dateOfBirth', 'dateOfBirthAge', 'applicantCv']),
+      rows: intakeRows(payload, ['firstName', 'lastName', 'email', 'phone', 'preferredContactMethod', 'citizenship', 'dateOfBirth', 'dateOfBirthAge', 'physicalAddress', 'applicantCv']),
     },
     {
       title: 'Immigration goal',
@@ -9405,7 +9424,7 @@ function AdviserClientWorkloadList({ clients, advisers, taskRows, setTab, setSel
   const [stageFilter, setStageFilter] = useState('all');
   const [caseTypeFilter, setCaseTypeFilter] = useState('all');
   const [adviserFilter, setAdviserFilter] = useState('all');
-  const [taskFilter, setTaskFilter] = useState('all');
+  const [taskFilter, setTaskFilter] = useState('today');
   const [showFilters, setShowFilters] = useState(false);
   const [editingClientId, setEditingClientId] = useState('');
   const [actionDraft, setActionDraft] = useState({ nextAction: '', nextActionDue: '' });
@@ -9893,7 +9912,7 @@ function PortalDocumentAdminRow({ doc, updatePortalDocument, deletePortalDocumen
 
 
 function ClientsWorkspace(props) {
-  const { clients, selectedClient, advisers, caseTypes, deadlineTypes, clientQuery, setClientQuery, adviserFilter, setAdviserFilter, caseTypeFilter, setCaseTypeFilter, setSelectedClientId, onDirtyChange, saveClient, updatePortalMessageStatus, uploadPortalDocument, updatePortalDocument, deletePortalDocument, deleteClient, saving, calendarEntries = [] } = props;
+  const { clients, selectedClient, advisers, caseTypes, deadlineTypes, clientQuery, setClientQuery, adviserFilter, setAdviserFilter, includeBackupClients = false, setIncludeBackupClients, effectiveAdviserId = '', caseTypeFilter, setCaseTypeFilter, setSelectedClientId, onDirtyChange, saveClient, updatePortalMessageStatus, uploadPortalDocument, updatePortalDocument, deletePortalDocument, deleteClient, saving, calendarEntries = [] } = props;
   const [popoutOpen, setPopoutOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [popoutDirty, setPopoutDirty] = useState(false);
@@ -9928,18 +9947,42 @@ function ClientsWorkspace(props) {
         <div className="search-box"><Search size={16} /><input value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} placeholder="Search clients" /></div>
         {filtersOpen && (
           <div className="client-filter-panel">
-            <label><span>Adviser</span><select value={adviserFilter} onChange={(event) => setAdviserFilter(event.target.value)}><option value="all">All advisers</option>{advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}</select></label>
+            <label><span>Adviser</span><select value={adviserFilter} onChange={(event) => setAdviserFilter(event.target.value)}><option value="mine">My clients</option><option value="all">All clients in current view</option>{advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}</select></label>
             <label><span>Case type</span><select value={caseTypeFilter} onChange={(event) => setCaseTypeFilter(event.target.value)}><option value="all">All case types</option>{caseTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
           </div>
         )}
+        {adviserFilter !== 'all' && effectiveAdviserId && (
+          <label className="client-scope-toggle">
+            <input type="checkbox" checked={includeBackupClients} onChange={(event) => setIncludeBackupClients?.(event.target.checked)} />
+            <span>{adviserFilter === 'mine' ? 'Include clients where I am the backup adviser' : 'Include clients where this adviser is the backup'}</span>
+          </label>
+        )}
         <div className="client-list">
-          {clients.map((client) => (
-            <button className={`client-card ${selectedClient.id === client.id ? 'active' : ''}`} key={client.id} onClick={() => setSelectedClientId(client.id)}>
-              <span><strong>{[client.firstName, client.lastName].filter(Boolean).join(' ') || 'New client'}</strong><small>{client.caseType}</small><small>{client.caseStrategy ? 'Strategy added' : 'No case strategy yet'}</small><small>{client.oneLawClientNumber ? `OneLaw ${client.oneLawClientNumber}` : 'No OneLaw number'}</small><small>{client.sharepointFolderUrl ? 'SharePoint linked' : 'No SharePoint link'}</small></span>
-              <ChevronRight size={16} />
-              <ProgressBar value={progressPercent(client)} />
-            </button>
-          ))}
+          {clients.map((client) => {
+            const isBackupMatter = Boolean(
+              includeBackupClients
+              && effectiveAdviserId
+              && client.backupAdviserId === effectiveAdviserId
+              && client.primaryAdviserId !== effectiveAdviserId
+            );
+            return (
+              <button className={`client-card ${selectedClient.id === client.id ? 'active' : ''} ${isBackupMatter ? 'backup-matter' : ''}`} key={client.id} onClick={() => setSelectedClientId(client.id)}>
+                <span>
+                  <span className="client-card-title-row">
+                    <strong>{[client.firstName, client.lastName].filter(Boolean).join(' ') || 'New client'}</strong>
+                    {isBackupMatter && <span className="client-backup-marker" title="Backup adviser matter" aria-label="Backup adviser matter"><UserRound size={13} /></span>}
+                  </span>
+                  <small>{client.caseType}</small>
+                  <small>{client.caseStrategy ? 'Strategy added' : 'No case strategy yet'}</small>
+                  <small>{client.oneLawClientNumber ? `OneLaw ${client.oneLawClientNumber}` : 'No OneLaw number'}</small>
+                  <small>{client.sharepointFolderUrl ? 'SharePoint linked' : 'No SharePoint link'}</small>
+                </span>
+                <ChevronRight size={16} />
+                <ProgressBar value={progressPercent(client)} />
+              </button>
+            );
+          })}
+          {!clients.length && <p className="muted center client-list-empty">No clients match this adviser view.</p>}
         </div>
       </aside>
       <section className="panel detail-panel">
@@ -13179,6 +13222,7 @@ function makeBlankIntakePayload() {
     currentVisaExpiry: '',
     visaConditions: '',
     currentLocation: '',
+    physicalAddress: '',
     previouslyVisitedNz: '',
     previouslyHeldNzVisa: '',
     plannedTravelDate: '',
@@ -13339,6 +13383,7 @@ function intakeLabelForKey(key = '') {
     helpNeeded: 'Help needed',
     isInNewZealand: 'Currently in New Zealand',
     currentLocation: 'Current country / location',
+    physicalAddress: 'Current physical address',
     currentVisaType: 'Current visa',
     currentVisaExpiry: 'Visa expiry',
     visaConditions: 'Visa conditions',
@@ -13977,7 +14022,10 @@ function buildDocumentChecklist(items = []) {
 function normaliseDocumentChecklist(items = []) {
   const input = Array.isArray(items) ? items : [];
   const templateRows = DOCUMENT_CHECKLIST_TEMPLATES.map((template) => {
-    const existing = input.find((item) => item.id === template.id || String(item.name || '').toLowerCase() === template.name.toLowerCase()) || {};
+    const legacyMedical = template.id === 'medical-certificate'
+      ? input.find((item) => item.id === 'medicals' || String(item.name || '').trim().toLowerCase() === 'medicals')
+      : null;
+    const existing = input.find((item) => item.id === template.id || String(item.name || '').toLowerCase() === template.name.toLowerCase()) || legacyMedical || {};
     const applied = existing.applied !== false;
     return {
       id: template.id,
@@ -13996,6 +14044,7 @@ function normaliseDocumentChecklist(items = []) {
     .filter((item) => {
       const id = String(item.id || '').trim();
       const name = String(item.name || '').trim().toLowerCase();
+      if (id === 'medicals' || name === 'medicals') return false;
       return item.custom || (id && !templateIds.has(id)) || (name && !templateNames.has(name));
     })
     .map((item, index) => ({

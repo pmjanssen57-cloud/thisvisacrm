@@ -1,74 +1,42 @@
-# THiS CRM v0.13.44 — Commercial Compliance Suite Build Fix
+# THiS CRM v0.13.45 — Adviser Views, Intake Visibility and Document Refinements
 
-This release builds on v0.13.42 and completes the first practical compliance-management layer for commercial clients and their employer portal.
+This release refines the daily adviser workflow without changing the existing commercial compliance, portal, booking, email, backup or export modules.
 
-## Automated expiry reminders
+## Dashboard tasks
 
-Commercial clients can opt in to employer expiry reminders from the company record. A scheduled Netlify Function checks active commercial clients daily and sends tiered reminders for:
+The dashboard client workload list now opens with **Due today** selected. Advisers can still switch to overdue, next 7 days, next 30 days, future, undated or all actions.
 
-- Employer accreditation expiry
-- Work visa expiry
-- Approved Job Check expiry
+## Intake visibility
 
-The reminder tiers are 90, 60 and 30 days. Each tier is recorded in `commercial_reminder_log` so the same reminder is not repeatedly sent. A tier window is used so a missed scheduled run can be caught on the next day.
+The normal intake queue remains scoped to the selected adviser. Two operational views now search across the whole practice:
 
-Recipients are the primary employer contact and active Company Admin portal users. The primary Turner Hopkins adviser is copied where an adviser email is available. The existing Microsoft Graph email environment variables are reused.
+- The **Contacted** status view
+- Any active search in the Intake Forms tab
 
-## Worker register import
+This prevents older or previously assigned forms being hidden when an adviser is following up or locating a known applicant. Contact exports retain their existing adviser scope.
 
-Both the CRM and editable employer portal roles can download an Excel-compatible CSV template and import up to 500 work visa holder records at once.
+## Client adviser views
 
-The import:
+The Clients workspace now defaults to matters where the logged-in adviser is the **primary adviser**. A toggle adds matters where that adviser is recorded only as the backup adviser. Backup-only matters have a small green adviser marker and green edge in the client list.
 
-- Supports worker, visa, passport, employment, pay and Job Check fields
-- Skips duplicate rows using email, worker name and visa expiry
-- Links a worker to an existing Job Check where the reference matches
-- Marks employer-imported records for adviser review
-- Reports rows that cannot be imported
+The adviser filter also retains the ability to view another adviser or all clients within the current CRM scope.
 
-Dates in the template use `YYYY-MM-DD`.
+## Medical and Chest X-ray documents
 
-## Secure commercial document uploads
+The standard document checklist now has separate entries for:
 
-The commercial document register now supports direct uploads to the `commercial-documents` Netlify Blob store as well as approved external document links.
+- Medical certificate
+- Chest X-ray
 
-- Maximum direct upload size: 4 MB
-- Accepted files: PDF, Word, Excel, CSV, JPG and PNG
-- Every upload and download is authenticated
-- Employer users can only access their own company and employer-visible documents
-- Read-only portal users cannot upload or delete documents
-- Deleted document entries remove the related Blob object
-- Deleting a commercial client also removes its stored commercial documents
-- The encrypted Backup Centre now includes the `commercial-documents` Blob store
+Each item has its own obtained status and expiry date. Existing legacy **Medicals** data is carried into the Medical certificate entry so previous records are not lost or duplicated.
 
-## Compliance report
+## Intake physical address
 
-The CRM and Employer Portal can download a print-ready compliance report containing:
-
-- Accreditation details
-- Work visa holder register
-- Approved Job Checks and position usage
-- Compliance actions
-- Document register
-
-The downloaded HTML report can be opened in a browser and printed or saved as PDF.
-
-## Job Check position tracking
-
-Worker records now link directly to a Job Check ID while retaining the visible reference number.
-
-- Position usage is calculated automatically from active and upcoming linked workers
-- Job Checks automatically change between Active and Fully used
-- Full Job Checks are unavailable for new worker links
-- Server-side checks prevent active or upcoming workers from exceeding approved positions
-- Existing linked workers remain editable
-- Archiving a worker immediately releases the position
-- Worker and Job Check lists show the linked relationship clearly
+The full assessment form now captures the applicant's current physical address. It appears in internal intake review and notification summaries and is used as the new client's location when an intake is converted. The value is stored inside the existing intake payload, so no database migration is required.
 
 ## Deployment
 
-- Adds migration: `202607210003_add_commercial_compliance_suite.sql`
-- Adds Netlify Function: `commercial-file.mjs`
-- Adds scheduled Netlify Function: `commercial-reminders.mjs`
-- Adds no npm dependency
-- Keeps the existing Yarn and Node deployment configuration
+- No database migration
+- No new npm dependency
+- Existing Node and Yarn deployment configuration retained
+- Commercial compliance suite and Employer Portal retained unchanged
