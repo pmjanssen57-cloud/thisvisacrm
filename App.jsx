@@ -9043,18 +9043,14 @@ function AdviserLandingPad({ adviser = null, accessRole = 'User', clients = [], 
 function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, deadlineRows, taskRows, stageTemplates, setTab, setSelectedClientId, openClientRecord, saveClient, saving, intakeEnquiries = [], recentClientIds = [] }) {
   const [queueView, setQueueView] = useState('today');
   const pendingInvoices = clients.flatMap((client) => (client.billing || []).map((item) => ({ item, client }))).filter(({ item, client }) => effectiveBillingStatus(item, client) !== 'Invoiced');
-  const actionableDeadlineRows = deadlineRows.filter(isDashboardActionableDeadlineRow);
-  const quietDeadlineRows = deadlineRows.filter((row) => !isDashboardActionableDeadlineRow(row));
   const dashboardTaskRows = taskRows
     .map(withDeadlineSignal)
     .filter(isDashboardActionableTaskRow)
     .filter((row) => row.deadlineSignal?.kind === 'review-due' || row.diff === null || row.diff === undefined || row.diff <= 30);
   const overdueRows = dashboardTaskRows.filter((row) => row.diff < 0 || row.deadlineSignal?.kind === 'review-due');
   const todayRows = dashboardTaskRows.filter((row) => row.diff === 0 || row.deadlineSignal?.kind === 'review-due');
-  const clientsWithoutNextAction = activeClients.filter((client) => !client.nextActionDue);
   const newEnquiryCount = (intakeEnquiries || []).filter((item) => item.status === 'New' || !item.status).length;
   const recentClients = (recentClientIds || []).map((id) => clients.find((client) => client.id === id)).filter(Boolean).slice(0, 6);
-  const overdueCalendarItems = taskRows.filter((row) => row.source === 'calendar-entry' && row.diff < 0);
   const newPortalMessages = activeClients.flatMap((client) => (client.portalMessages || [])
     .filter((message) => message.status === 'New')
     .map((message) => ({ client, message })))
@@ -9084,21 +9080,11 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
       <div className="dashboard-focus-grid">
         <div className="dashboard-main-column">
           <DailyBringUpPanel taskRows={dashboardTaskRows} advisers={advisers} queueView={queueView} setQueueView={setQueueView} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} />
-          <AdviserClientWorkloadList clients={activeClients} advisers={advisers} taskRows={taskRows} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} saveClient={saveClient} saving={saving} />
+          <AdviserClientWorkloadList clients={activeClients} advisers={advisers} workloadAdviserId={dashboardAdviserFilter !== 'all' ? dashboardAdviserFilter : ''} taskRows={taskRows} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} saveClient={saveClient} saving={saving} />
         </div>
 
         <aside className="dashboard-side-column" aria-label="Dashboard side information">
-          <DashboardAttentionPanel
-            clientsWithoutNextAction={clientsWithoutNextAction}
-            newPortalMessages={newPortalMessages}
-            overdueCalendarItems={overdueCalendarItems}
-            newEnquiryCount={newEnquiryCount}
-            pendingBillingTotal={pendingBillingTotal}
-            setTab={setTab}
-            openClientRecord={openClientRecord}
-          />
           {recentClients.length > 0 && <RecentClientsSidebar clients={recentClients} openClientRecord={openClientRecord} />}
-          <NextCriticalDatesSidebar rows={actionableDeadlineRows} quietRows={quietDeadlineRows} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} />
           <AdviserSnapshot advisers={advisers} activeClients={activeClients} dashboardAdviserFilter={dashboardAdviserFilter} />
         </aside>
       </div>
@@ -9419,8 +9405,9 @@ function QuickTaskPanel({ taskRows, advisers, setTab, setSelectedClientId, openC
   );
 }
 
-function AdviserClientWorkloadList({ clients, advisers, taskRows, setTab, setSelectedClientId, openClientRecord, saveClient, saving }) {
+function AdviserClientWorkloadList({ clients, advisers, workloadAdviserId = '', taskRows, setTab, setSelectedClientId, openClientRecord, saveClient, saving }) {
   const [clientFilter, setClientFilter] = useState('');
+  const [includeBackupClients, setIncludeBackupClients] = useState(false);
   const [stageFilter, setStageFilter] = useState('all');
   const [caseTypeFilter, setCaseTypeFilter] = useState('all');
   const [adviserFilter, setAdviserFilter] = useState('all');
@@ -9431,16 +9418,26 @@ function AdviserClientWorkloadList({ clients, advisers, taskRows, setTab, setSel
   const [actionSaving, setActionSaving] = useState(false);
   const [actionError, setActionError] = useState('');
 
-  const stages = useMemo(() => Array.from(new Set(clients.map(currentStageLabel))).sort(), [clients]);
-  const caseTypes = useMemo(() => Array.from(new Set(clients.map((client) => client.caseType).filter(Boolean))).sort(), [clients]);
+  useEffect(() => {
+    setIncludeBackupClients(false);
+  }, [workloadAdviserId]);
 
-  const rows = useMemo(() => clients.map((client) => {
+  const workloadAdviser = advisers.find((adviser) => adviser.id === workloadAdviserId) || null;
+  const workloadClients = useMemo(() => {
+    if (!workloadAdviserId) return clients;
+    return clients.filter((client) => client.primaryAdviserId === workloadAdviserId || (includeBackupClients && client.backupAdviserId === workloadAdviserId));
+  }, [clients, workloadAdviserId, includeBackupClients]);
+  const stages = useMemo(() => Array.from(new Set(workloadClients.map(currentStageLabel))).sort(), [workloadClients]);
+  const caseTypes = useMemo(() => Array.from(new Set(workloadClients.map((client) => client.caseType).filter(Boolean))).sort(), [workloadClients]);
+
+  const rows = useMemo(() => workloadClients.map((client) => {
     const nextTask = nextTaskForClient(client, taskRows);
     const primary = advisers.find((adviser) => adviser.id === client.primaryAdviserId);
     const backup = advisers.find((adviser) => adviser.id === client.backupAdviserId);
     const actionDiff = client.nextActionDue ? dateDiff(client.nextActionDue) : null;
     const sortDate = client.nextActionDue || nextTask?.date || '9999-12-31';
-    return { client, nextTask, primary, backup, currentStage: currentStageLabel(client), actionDiff, sortDate };
+    const isBackupMatter = Boolean(workloadAdviserId && client.backupAdviserId === workloadAdviserId && client.primaryAdviserId !== workloadAdviserId);
+    return { client, nextTask, primary, backup, currentStage: currentStageLabel(client), actionDiff, sortDate, isBackupMatter };
   })
     .filter((row) => {
       const q = clientFilter.trim().toLowerCase();
@@ -9454,7 +9451,7 @@ function AdviserClientWorkloadList({ clients, advisers, taskRows, setTab, setSel
       const matchesTask = taskFilter === 'all' || status === taskFilter || (taskFilter === 'next-30' && diff >= 0 && diff <= 30) || (taskFilter === 'none' && (diff === null || diff === undefined));
       return matchesClient && matchesStage && matchesCase && matchesAdviser && matchesTask;
     })
-    .sort((a, b) => a.sortDate.localeCompare(b.sortDate) || clientName(a.client).localeCompare(clientName(b.client))), [clients, advisers, taskRows, clientFilter, stageFilter, caseTypeFilter, adviserFilter, taskFilter]);
+    .sort((a, b) => a.sortDate.localeCompare(b.sortDate) || clientName(a.client).localeCompare(clientName(b.client))), [workloadClients, advisers, taskRows, workloadAdviserId, clientFilter, stageFilter, caseTypeFilter, adviserFilter, taskFilter]);
 
   function startActionEdit(client) {
     setEditingClientId(client.id);
@@ -9497,6 +9494,11 @@ function AdviserClientWorkloadList({ clients, advisers, taskRows, setTab, setSel
         <span className="workload-count">{rows.length} client{rows.length === 1 ? '' : 's'}</span>
       </div>
 
+      {workloadAdviserId && <label className="workload-scope-toggle">
+        <input type="checkbox" checked={includeBackupClients} onChange={(event) => setIncludeBackupClients(event.target.checked)} />
+        <span>Include clients where {workloadAdviser?.name || 'this adviser'} is the backup adviser</span>
+      </label>}
+
       <div className="workload-compact-toolbar">
         <label className="workload-search"><Search size={16} /><input value={clientFilter} onChange={(event) => setClientFilter(event.target.value)} placeholder="Search client, matter or action" /></label>
         <button className={`btn ghost mini ${showFilters || activeFilterCount ? 'active-filter' : ''}`} type="button" onClick={() => setShowFilters((value) => !value)}><SlidersHorizontal size={15} />Filters{activeFilterCount ? ` (${activeFilterCount})` : ''}<ChevronDown size={14} /></button>
@@ -9517,9 +9519,9 @@ function AdviserClientWorkloadList({ clients, advisers, taskRows, setTab, setSel
             const isEditing = editingClientId === row.client.id;
             const watchedDate = row.nextTask && row.nextTask.source !== 'next-action' ? row.nextTask : null;
             return (
-              <div className={`workload-row-group ${isEditing ? 'editing' : ''}`} key={row.client.id}>
+              <div className={`workload-row-group ${isEditing ? 'editing' : ''} ${row.isBackupMatter ? 'backup-matter' : ''}`} key={row.client.id}>
                 <div className="workload-line">
-                  <span className="workload-client-cell"><strong>{row.client.firstName} {row.client.lastName}</strong><small>{row.client.email || 'No email'} · {row.client.clientStatus}</small></span>
+                  <span className="workload-client-cell"><span className="workload-client-name"><strong>{row.client.firstName} {row.client.lastName}</strong>{row.isBackupMatter && <span className="client-backup-marker" title="Backup adviser matter" aria-label="Backup adviser matter"><UserRound size={13} /></span>}</span><small>{row.client.email || 'No email'} · {row.client.clientStatus}</small></span>
                   <span><strong>{row.client.caseType || 'No case type'}</strong><small>{row.currentStage} · {progressPercent(row.client)}% complete</small></span>
                   <span className="workload-action-cell">
                     <span className="workload-action-summary">

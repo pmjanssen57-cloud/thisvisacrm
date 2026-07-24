@@ -1,9 +1,9 @@
-v0.13.45 - Adviser Views, Intake Visibility and Document Refinements
+v0.13.47 - Dashboard Workload Adviser Scope
 
-- Defaults the dashboard client workload date filter to items due today.
-- Shows Contacted intake forms and intake search results across the whole practice, while preserving adviser-scoped export files.
-- Defaults the Clients list to the logged-in adviser as primary adviser, with an optional backup-matter toggle and green backup indicator.
-- Separates Medical certificate and Chest X-ray checklist items, each with its own expiry date, while carrying legacy Medicals data into Medical certificate.
-- Adds current physical address to the full intake questionnaire, internal review, notifications and intake-to-client conversion.
+- Restricts the dashboard Client workload list to clients where the selected/logged-in adviser is the primary adviser by default.
+- Adds a toggle to include matters where that adviser is recorded only as the backup adviser.
+- Marks backup-only workload rows with the same green adviser indicator used in the Clients list.
+- Removes the dashboard Needs attention and Critical dates side cards.
+- Retains Recently viewed and Adviser load beside the workload area.
 
-No database migration or new dependency is required.
+No database migration, dependency or backend API change is required.

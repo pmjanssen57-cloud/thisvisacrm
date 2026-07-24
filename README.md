@@ -1,38 +1,31 @@
-# THiS CRM v0.13.45 — Adviser Views, Intake Visibility and Document Refinements
+# THiS CRM v0.13.47 — Dashboard Workload Adviser Scope
 
-This release refines the daily adviser workflow without changing the existing commercial compliance, portal, booking, email, backup or export modules.
+This release is based on v0.13.45 and makes a focused dashboard refinement without applying the broader v0.13.46 interface redesign.
 
-## Dashboard tasks
+## Client workload scope
 
-The dashboard client workload list now opens with **Due today** selected. Advisers can still switch to overdue, next 7 days, next 30 days, future, undated or all actions.
+When the dashboard is scoped to an adviser, the **Client workload** list now shows only clients where that adviser is the primary adviser. This matches the default behaviour already used in the Clients workspace.
 
-## Intake visibility
+A new toggle adds clients where the selected adviser is recorded only as the backup adviser. Backup-only workload rows display the same small green adviser icon and green edge used in the Clients list.
 
-The normal intake queue remains scoped to the selected adviser. Two operational views now search across the whole practice:
+When the dashboard is deliberately changed to **Whole practice**, the workload continues to show the whole-practice client set because there is no single adviser role to apply.
 
-- The **Contacted** status view
-- Any active search in the Intake Forms tab
+## Dashboard side cards
 
-This prevents older or previously assigned forms being hidden when an adviser is following up or locating a known applicant. Contact exports retain their existing adviser scope.
+The following cards have been removed from the dashboard:
 
-## Client adviser views
+- Needs attention
+- Critical dates
 
-The Clients workspace now defaults to matters where the logged-in adviser is the **primary adviser**. A toggle adds matters where that adviser is recorded only as the backup adviser. Backup-only matters have a small green adviser marker and green edge in the client list.
+The **Recently viewed** card remains available beside the workload area, together with the compact Adviser load summary. Detailed dates and attention items remain available through the Tasks, Calendar, Billing, Enquiries and client record views.
 
-The adviser filter also retains the ability to view another adviser or all clients within the current CRM scope.
+## Retained v0.13.45 changes
 
-## Medical and Chest X-ray documents
-
-The standard document checklist now has separate entries for:
-
-- Medical certificate
-- Chest X-ray
-
-Each item has its own obtained status and expiry date. Existing legacy **Medicals** data is carried into the Medical certificate entry so previous records are not lost or duplicated.
-
-## Intake physical address
-
-The full assessment form now captures the applicant's current physical address. It appears in internal intake review and notification summaries and is used as the new client's location when an intake is converted. The value is stored inside the existing intake payload, so no database migration is required.
+- Dashboard action filters default to Due today
+- Contacted and searched intake forms can be viewed practice-wide
+- Clients list defaults to primary-adviser matters with an optional backup toggle
+- Medical certificate and Chest X-ray have separate document expiry dates
+- The intake form captures current physical address
 
 ## Deployment
 
