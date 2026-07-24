@@ -1,25 +1,25 @@
-THiS CRM v0.13.45 validation
+THiS CRM v0.13.46 validation
 
-Adviser workflow changes
-- Dashboard workload date filter defaults to Due today: PASS
-- Contacted intake view bypasses adviser assignment scope: PASS
-- Intake searches bypass adviser assignment scope: PASS
-- Intake contact exports remain adviser-scoped: PASS
-- Clients default to logged-in adviser as primary adviser: PASS
-- Optional backup-adviser toggle and green marker added: PASS
-
-Documents and intake
-- Medical certificate and Chest X-ray are separate checklist templates: PASS
-- Legacy Medicals data maps to Medical certificate: PASS
-- Physical address added to the public full assessment form: PASS
-- Physical address included in review, notification and conversion paths: PASS
+Interface simplification
+- Dashboard defaults to the Today queue and shows four primary signals only: PASS
+- Dashboard client workload and billing/adviser summary panels removed: PASS
+- Commercial, Calendar and Billing grouped under Practice navigation: PASS
+- Global work-view/search toolbar simplified: PASS
+- Client list replaced with compact work-queue rows: PASS
+- Backup-adviser marker retained: PASS
+- Client workspace primary and secondary sections separated: PASS
+- Clean save-status bar hidden until needed: PASS
+- Core file details collapsed by default: PASS
+- Optional snapshot items hidden when empty: PASS
+- Responsive CSS rules included: PASS
 
 Technical checks
-- Package version updated to 0.13.45: PASS
-- Backup source version updated to 0.13.45: PASS
-- App.jsx and main.jsx parse/transpile successfully: PASS
-- Netlify Function syntax checks: PASS
-- netlify.toml and package.json parse: PASS
+- Package version updated to 0.13.46: PASS
+- Backup source version updated to 0.13.46: PASS
+- App.jsx parses/transpiles successfully with the TypeScript parser: PASS
+- All Netlify Function files pass node --check: PASS
+- package.json and netlify.toml parse successfully: PASS
 - Exactly one global formatFileSize declaration remains: PASS
+- Release archive integrity verified: PASS
 
-No database migration or dependency change is included. A full dependency-backed Vite build was not run because the isolated environment could not complete registry access; the dependency graph is unchanged from v0.13.44.
+No database migration or dependency change is included. A full dependency-backed Vite build may depend on package-registry access in the isolated validation environment.

@@ -764,6 +764,7 @@ export default function App() {
   }
 
   function switchTab(nextTab) {
+    setMainNavMoreOpen(false);
     if (nextTab === 'home') {
       setMobileMoreOpen(false);
       setMyDayOpen(true);
@@ -1666,15 +1667,20 @@ export default function App() {
               setCaseTypeFilter={setCaseTypeFilter}
               canViewAllAdvisers={canViewAllAdvisers}
             />
-            <nav className="tabs desktop-tabs main-nav crm-main-nav-polished nav-expanded-row" aria-label="Main CRM navigation">
+            <nav className="tabs desktop-tabs main-nav crm-main-nav-polished calm-main-nav" aria-label="Main CRM navigation">
               <TabButton active={tab === 'dashboard'} onClick={() => switchTab('dashboard')} icon={LayoutDashboard} label="Dashboard" />
               <TabButton active={tab === 'tasks'} onClick={() => switchTab('tasks')} icon={ListChecks} label="Tasks" />
               <TabButton active={tab === 'clients'} onClick={() => switchTab('clients')} icon={UsersRound} label="Clients" />
-              <TabButton active={tab === 'commercial'} onClick={() => switchTab('commercial')} icon={Building2} label="Commercial" />
-              <TabButton active={tab === 'intake'} onClick={() => switchTab('intake')} icon={ClipboardList} label="Enquiries & Intake" />
+              <TabButton active={tab === 'intake'} onClick={() => switchTab('intake')} icon={ClipboardList} label="Enquiries" />
               <TabButton active={tab === 'bookings'} onClick={() => switchTab('bookings')} icon={CalendarDays} label="Bookings" />
-              <TabButton active={tab === 'calendar'} onClick={() => switchTab('calendar')} icon={CalendarDays} label="Calendar" />
-              <TabButton active={tab === 'billing'} onClick={() => switchTab('billing')} icon={CreditCard} label="Billing" />
+              <div className="dropdown-shell main-nav-practice-shell">
+                <button className={`tab practice-nav-button ${['commercial', 'calendar', 'billing'].includes(tab) ? 'active' : ''}`} type="button" onClick={() => setMainNavMoreOpen((open) => !open)}><MoreHorizontal size={17} /><span>Practice</span><ChevronDown size={13} /></button>
+                {mainNavMoreOpen && <div className="dropdown-menu main-nav-practice-menu">
+                  <button type="button" onClick={() => { setMainNavMoreOpen(false); switchTab('commercial'); }}><Building2 size={16} /><span><strong>Commercial</strong><small>Employer and compliance records</small></span></button>
+                  <button type="button" onClick={() => { setMainNavMoreOpen(false); switchTab('calendar'); }}><CalendarDays size={16} /><span><strong>Calendar</strong><small>Appointments and diary items</small></span></button>
+                  <button type="button" onClick={() => { setMainNavMoreOpen(false); switchTab('billing'); }}><CreditCard size={16} /><span><strong>Billing</strong><small>Milestones and reporting</small></span></button>
+                </div>}
+              </div>
             </nav>
 
             {tab === 'commercial' && (
@@ -8677,7 +8683,8 @@ function SupportDrawer({ open, onOpen, onClose, tab }) {
 
 function ViewToolbar({ advisers, dashboardAdviserFilter, setDashboardAdviserFilter, clientQuery, setClientQuery, matchingClientCount, setTab, setAdviserFilter, setCaseTypeFilter, canViewAllAdvisers = true }) {
   const selectedAdviser = advisers.find((adviser) => adviser.id === dashboardAdviserFilter);
-  const viewLabel = selectedAdviser ? selectedAdviser.name : 'All advisers';
+  const viewLabel = selectedAdviser ? selectedAdviser.name : 'Whole practice';
+  const hasActiveView = dashboardAdviserFilter !== 'all' || Boolean(clientQuery.trim());
 
   function submitSearch(event) {
     event.preventDefault();
@@ -8692,24 +8699,21 @@ function ViewToolbar({ advisers, dashboardAdviserFilter, setDashboardAdviserFilt
   }
 
   return (
-    <section className="view-toolbar compact-view-toolbar">
+    <section className="view-toolbar compact-view-toolbar calm-view-toolbar">
       <label className="scope-select compact-scope-select">
-        <span>Viewing</span>
+        <span>Work view</span>
         <select value={dashboardAdviserFilter} onChange={(event) => setDashboardAdviserFilter(event.target.value)}>
-          {canViewAllAdvisers && <option value="all">All advisers</option>}
+          {canViewAllAdvisers && <option value="all">Whole practice</option>}
           {advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}
         </select>
       </label>
       <form className="global-search compact-global-search" onSubmit={submitSearch}>
         <Search size={16} />
-        <input value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} placeholder="Search clients, citizenship, case type, strategy..." />
-        <button className="btn dark" type="submit">Search</button>
+        <input value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} placeholder="Find a client" aria-label="Find a client" />
+        <button className="btn dark compact-search-button" type="submit">Search</button>
       </form>
-      <div className="view-result compact-view-result" title={`${matchingClientCount} matching clients in ${viewLabel} view`}>
-        <strong>{matchingClientCount}</strong>
-        <span>result{matchingClientCount === 1 ? '' : 's'}</span>
-      </div>
-      <button className="btn ghost compact-clear-btn" type="button" onClick={clearView}><X size={16} />Clear</button>
+      {clientQuery.trim() && <div className="view-result compact-view-result" title={`${matchingClientCount} matching clients in ${viewLabel}`}><strong>{matchingClientCount}</strong><span>found</span></div>}
+      {hasActiveView && <button className="btn ghost compact-clear-btn" type="button" onClick={clearView}><X size={16} />Reset</button>}
     </section>
   );
 }
@@ -9042,64 +9046,67 @@ function AdviserLandingPad({ adviser = null, accessRole = 'User', clients = [], 
 
 function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, deadlineRows, taskRows, stageTemplates, setTab, setSelectedClientId, openClientRecord, saveClient, saving, intakeEnquiries = [], recentClientIds = [] }) {
   const [queueView, setQueueView] = useState('today');
-  const pendingInvoices = clients.flatMap((client) => (client.billing || []).map((item) => ({ item, client }))).filter(({ item, client }) => effectiveBillingStatus(item, client) !== 'Invoiced');
   const actionableDeadlineRows = deadlineRows.filter(isDashboardActionableDeadlineRow);
-  const quietDeadlineRows = deadlineRows.filter((row) => !isDashboardActionableDeadlineRow(row));
   const dashboardTaskRows = taskRows
     .map(withDeadlineSignal)
     .filter(isDashboardActionableTaskRow)
     .filter((row) => row.deadlineSignal?.kind === 'review-due' || row.diff === null || row.diff === undefined || row.diff <= 30);
   const overdueRows = dashboardTaskRows.filter((row) => row.diff < 0 || row.deadlineSignal?.kind === 'review-due');
   const todayRows = dashboardTaskRows.filter((row) => row.diff === 0 || row.deadlineSignal?.kind === 'review-due');
+  const todayAppointments = taskRows.filter((row) => row.source === 'calendar-entry' && row.diff === 0).slice(0, 5);
   const clientsWithoutNextAction = activeClients.filter((client) => !client.nextActionDue);
   const newEnquiryCount = (intakeEnquiries || []).filter((item) => item.status === 'New' || !item.status).length;
-  const recentClients = (recentClientIds || []).map((id) => clients.find((client) => client.id === id)).filter(Boolean).slice(0, 6);
-  const overdueCalendarItems = taskRows.filter((row) => row.source === 'calendar-entry' && row.diff < 0);
+  const recentClients = (recentClientIds || []).map((id) => clients.find((client) => client.id === id)).filter(Boolean).slice(0, 5);
   const newPortalMessages = activeClients.flatMap((client) => (client.portalMessages || [])
     .filter((message) => message.status === 'New')
     .map((message) => ({ client, message })))
     .sort((a, b) => String(b.message.createdAt || '').localeCompare(String(a.message.createdAt || '')));
-  const pendingBillingTotal = pendingInvoices.reduce((sum, row) => sum + Number(row.item.amount || 0), 0);
-  const viewTitle = dashboardAdviserFilter === 'all' ? 'Whole-practice dashboard' : `${advisers.find((adviser) => adviser.id === dashboardAdviserFilter)?.name || 'Adviser'} dashboard`;
+  const criticalDates = actionableDeadlineRows.slice(0, 5);
+  const viewTitle = dashboardAdviserFilter === 'all' ? 'Today across the practice' : `Today for ${advisers.find((adviser) => adviser.id === dashboardAdviserFilter)?.name || 'adviser'}`;
 
   return (
-    <div className="stack dashboard-lean">
-      <section className="panel dashboard-compact-heading">
-        <div>
-          <h2>{viewTitle}</h2>
-          <p className="muted">Focused on work due now or within 30 days. Longer-dated tasks remain available in the full Tasks view.</p>
-        </div>
-        <span className="dashboard-view-count">{clients.length} client{clients.length === 1 ? '' : 's'} in view</span>
+    <div className="stack dashboard-calm">
+      <section className="dashboard-calm-heading">
+        <div><span className="eyebrow">Daily focus</span><h1>{viewTitle}</h1><p>Only work requiring attention now is shown here. Use Tasks or Clients for the full record.</p></div>
+        <button className="btn ghost mini" type="button" onClick={() => setTab('tasks')}>Open all tasks <ChevronRight size={15} /></button>
       </section>
 
-      <section className="dashboard-stat-strip" aria-label="Dashboard summary">
-        <button type="button" onClick={() => setTab('clients')}><UsersRound size={17} /><span><b>{activeClients.length}</b><small>Active clients</small></span></button>
-        <button type="button" onClick={() => { setQueueView('today'); document.getElementById('dashboard-action-queue')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}><CalendarDays size={17} /><span><b>{todayRows.length}</b><small>Due today</small></span></button>
-        <button type="button" className={overdueRows.length ? 'warning' : ''} onClick={() => { setQueueView('overdue'); document.getElementById('dashboard-action-queue')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}><AlertTriangle size={17} /><span><b>{overdueRows.length}</b><small>Overdue</small></span></button>
-        <button type="button" onClick={() => setTab('intake')}><ClipboardList size={17} /><span><b>{newEnquiryCount}</b><small>New enquiries</small></span></button>
-        <button type="button" className={newPortalMessages.length ? 'warning' : ''} onClick={() => newPortalMessages[0]?.client && openClientRecord?.(newPortalMessages[0].client.id)}><MessageSquare size={17} /><span><b>{newPortalMessages.length}</b><small>Portal notes</small></span></button>
-        <button type="button" onClick={() => setTab('billing')}><CreditCard size={17} /><span><b>{formatCurrency(pendingBillingTotal)}</b><small>WIP / overdue</small></span></button>
+      <section className="dashboard-focus-metrics" aria-label="Today's work summary">
+        <button type="button" onClick={() => { setQueueView('today'); document.getElementById('dashboard-action-queue')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}><CalendarDays size={18} /><span><b>{todayRows.length}</b><small>Due today</small></span></button>
+        <button type="button" className={overdueRows.length ? 'warning' : ''} onClick={() => { setQueueView('overdue'); document.getElementById('dashboard-action-queue')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}><AlertTriangle size={18} /><span><b>{overdueRows.length}</b><small>Overdue</small></span></button>
+        <button type="button" onClick={() => setTab('intake')}><ClipboardList size={18} /><span><b>{newEnquiryCount}</b><small>New enquiries</small></span></button>
+        <button type="button" onClick={() => setTab('calendar')}><Clock size={18} /><span><b>{todayAppointments.length}</b><small>Today's appointments</small></span></button>
       </section>
 
-      <div className="dashboard-focus-grid">
-        <div className="dashboard-main-column">
+      <div className="dashboard-calm-grid">
+        <div className="dashboard-calm-main">
           <DailyBringUpPanel taskRows={dashboardTaskRows} advisers={advisers} queueView={queueView} setQueueView={setQueueView} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} />
-          <AdviserClientWorkloadList clients={activeClients} advisers={advisers} taskRows={taskRows} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} saveClient={saveClient} saving={saving} />
         </div>
+        <aside className="dashboard-calm-sidebar" aria-label="Other items needing attention">
+          <section className="panel dashboard-calm-panel">
+            <div className="dashboard-side-head"><div><h3>Other attention</h3><p className="muted">Exceptions worth checking.</p></div></div>
+            <div className="calm-attention-list">
+              <button type="button" onClick={() => newPortalMessages[0]?.client && openClientRecord?.(newPortalMessages[0].client.id)} className={newPortalMessages.length ? 'warning' : ''}><MessageSquare size={16} /><span><strong>{newPortalMessages.length}</strong><small>New portal notes</small></span><ChevronRight size={14} /></button>
+              <button type="button" onClick={() => setTab('clients')} className={clientsWithoutNextAction.length ? 'warning' : ''}><Clock size={16} /><span><strong>{clientsWithoutNextAction.length}</strong><small>Clients without next action</small></span><ChevronRight size={14} /></button>
+            </div>
+          </section>
 
-        <aside className="dashboard-side-column" aria-label="Dashboard side information">
-          <DashboardAttentionPanel
-            clientsWithoutNextAction={clientsWithoutNextAction}
-            newPortalMessages={newPortalMessages}
-            overdueCalendarItems={overdueCalendarItems}
-            newEnquiryCount={newEnquiryCount}
-            pendingBillingTotal={pendingBillingTotal}
-            setTab={setTab}
-            openClientRecord={openClientRecord}
-          />
+          <section className="panel dashboard-calm-panel">
+            <div className="dashboard-side-head"><div><h3>Today's appointments</h3><p className="muted">Open calendar commitments.</p></div><button className="text-link" type="button" onClick={() => setTab('calendar')}>Calendar</button></div>
+            <div className="calm-list">
+              {todayAppointments.map((row) => <button type="button" key={row.id} onClick={() => row.client?.id ? openClientRecord?.(row.client.id) : setTab('calendar')}><span><strong>{row.title || row.type}</strong><small>{row.client ? clientName(row.client) : 'Unlinked'}{row.time ? ` · ${row.time}` : ''}</small></span><ChevronRight size={14} /></button>)}
+              {!todayAppointments.length && <p className="muted compact-empty">No appointments today.</p>}
+            </div>
+          </section>
+
+          {criticalDates.length > 0 && <section className="panel dashboard-calm-panel">
+            <div className="dashboard-side-head"><div><h3>Critical dates</h3><p className="muted">Inside their warning window.</p></div></div>
+            <div className="calm-list">
+              {criticalDates.map((row, index) => <button type="button" key={`${row.client.id}-${row.type}-${index}`} onClick={() => openClientRecord?.(row.client.id)}><span><strong>{clientName(row.client)}</strong><small>{row.type} · {row.date}</small></span><DeadlineSignalBadge row={row} /></button>)}
+            </div>
+          </section>}
+
           {recentClients.length > 0 && <RecentClientsSidebar clients={recentClients} openClientRecord={openClientRecord} />}
-          <NextCriticalDatesSidebar rows={actionableDeadlineRows} quietRows={quietDeadlineRows} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} />
-          <AdviserSnapshot advisers={advisers} activeClients={activeClients} dashboardAdviserFilter={dashboardAdviserFilter} />
         </aside>
       </div>
     </div>
@@ -9935,73 +9942,44 @@ function ClientsWorkspace(props) {
     onDirtyChange?.(Boolean(dirty));
   }
 
-  const clientName = [selectedClient?.firstName, selectedClient?.lastName].filter(Boolean).join(' ') || 'New client';
+  const clientLabel = [selectedClient?.firstName, selectedClient?.lastName].filter(Boolean).join(' ') || 'New client';
+  const scopeLabel = adviserFilter === 'mine' ? (includeBackupClients ? 'My main and backup matters' : 'My main matters') : adviserFilter === 'all' ? 'All clients in view' : (includeBackupClients ? 'Main and backup matters' : 'Main matters');
 
   return (
-    <div className="workspace-grid">
-      <aside className="panel list-panel">
-        <div className="client-list-head">
-          <h2>Clients</h2>
+    <div className="workspace-grid calm-clients-workspace">
+      <aside className="panel list-panel client-queue-panel">
+        <div className="client-list-head calm-client-list-head">
+          <div><h2>Clients</h2><span>{scopeLabel} · {clients.length}</span></div>
           <button className={`btn mini filter-toggle ${filtersOpen ? 'active' : ''}`} type="button" onClick={() => setFiltersOpen((open) => !open)}><SlidersHorizontal size={14} />Filters</button>
         </div>
-        <div className="search-box"><Search size={16} /><input value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} placeholder="Search clients" /></div>
-        {filtersOpen && (
-          <div className="client-filter-panel">
-            <label><span>Adviser</span><select value={adviserFilter} onChange={(event) => setAdviserFilter(event.target.value)}><option value="mine">My clients</option><option value="all">All clients in current view</option>{advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}</select></label>
-            <label><span>Case type</span><select value={caseTypeFilter} onChange={(event) => setCaseTypeFilter(event.target.value)}><option value="all">All case types</option>{caseTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
-          </div>
-        )}
-        {adviserFilter !== 'all' && effectiveAdviserId && (
-          <label className="client-scope-toggle">
-            <input type="checkbox" checked={includeBackupClients} onChange={(event) => setIncludeBackupClients?.(event.target.checked)} />
-            <span>{adviserFilter === 'mine' ? 'Include clients where I am the backup adviser' : 'Include clients where this adviser is the backup'}</span>
-          </label>
-        )}
-        <div className="client-list">
+        <div className="search-box calm-client-search"><Search size={16} /><input value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} placeholder="Find a client" /></div>
+        {filtersOpen && <div className="client-filter-panel calm-client-filters">
+          <label><span>Adviser</span><select value={adviserFilter} onChange={(event) => setAdviserFilter(event.target.value)}><option value="mine">My clients</option><option value="all">All clients in current view</option>{advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}</select></label>
+          <label><span>Matter type</span><select value={caseTypeFilter} onChange={(event) => setCaseTypeFilter(event.target.value)}><option value="all">All matter types</option>{caseTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
+        </div>}
+        {adviserFilter !== 'all' && effectiveAdviserId && <label className="client-scope-toggle calm-client-scope-toggle"><input type="checkbox" checked={includeBackupClients} onChange={(event) => setIncludeBackupClients?.(event.target.checked)} /><span>{adviserFilter === 'mine' ? 'Include matters where I am backup' : 'Include backup matters'}</span></label>}
+        <div className="client-list calm-client-list">
           {clients.map((client) => {
-            const isBackupMatter = Boolean(
-              includeBackupClients
-              && effectiveAdviserId
-              && client.backupAdviserId === effectiveAdviserId
-              && client.primaryAdviserId !== effectiveAdviserId
-            );
-            return (
-              <button className={`client-card ${selectedClient.id === client.id ? 'active' : ''} ${isBackupMatter ? 'backup-matter' : ''}`} key={client.id} onClick={() => setSelectedClientId(client.id)}>
-                <span>
-                  <span className="client-card-title-row">
-                    <strong>{[client.firstName, client.lastName].filter(Boolean).join(' ') || 'New client'}</strong>
-                    {isBackupMatter && <span className="client-backup-marker" title="Backup adviser matter" aria-label="Backup adviser matter"><UserRound size={13} /></span>}
-                  </span>
-                  <small>{client.caseType}</small>
-                  <small>{client.caseStrategy ? 'Strategy added' : 'No case strategy yet'}</small>
-                  <small>{client.oneLawClientNumber ? `OneLaw ${client.oneLawClientNumber}` : 'No OneLaw number'}</small>
-                  <small>{client.sharepointFolderUrl ? 'SharePoint linked' : 'No SharePoint link'}</small>
-                </span>
-                <ChevronRight size={16} />
-                <ProgressBar value={progressPercent(client)} />
-              </button>
-            );
+            const isBackupMatter = Boolean(includeBackupClients && effectiveAdviserId && client.backupAdviserId === effectiveAdviserId && client.primaryAdviserId !== effectiveAdviserId);
+            const primary = advisers.find((adviser) => adviser.id === client.primaryAdviserId);
+            const actionDiff = client.nextActionDue ? dateDiff(client.nextActionDue) : null;
+            return <button className={`client-queue-row ${selectedClient.id === client.id ? 'active' : ''} ${isBackupMatter ? 'backup-matter' : ''}`} key={client.id} onClick={() => setSelectedClientId(client.id)}>
+              <span className="client-queue-copy">
+                <span className="client-card-title-row"><strong>{[client.firstName, client.lastName].filter(Boolean).join(' ') || 'New client'}</strong>{isBackupMatter && <span className="client-backup-marker" title="Backup adviser matter" aria-label="Backup adviser matter"><UserRound size={12} /></span>}</span>
+                <small>{client.caseType || 'No matter type'} · {currentStageLabel(client)}</small>
+                <span className="client-queue-action">{client.nextActionDue ? <DeadlineBadge diff={actionDiff} /> : <b className="badge quiet">No date</b>}<small>{client.nextAction || 'No next action recorded'}</small></span>
+                <small className="client-queue-adviser">{primary?.name || 'Unassigned'}</small>
+              </span>
+              <ChevronRight size={16} />
+            </button>;
           })}
-          {!clients.length && <p className="muted center client-list-empty">No clients match this adviser view.</p>}
+          {!clients.length && <p className="muted center client-list-empty">No clients match this view.</p>}
         </div>
       </aside>
-      <section className="panel detail-panel">
-        {popoutOpen ? (
-          <div className="client-popout-placeholder">
-            <ExternalLink size={28} />
-            <h2>{clientName} is open in the pop-out editor</h2>
-            <p className="muted">Use the larger editor window to update the client record. Save and close it to return to the standard client view.</p>
-            <button className="btn dark" type="button" onClick={() => setPopoutOpen(true)}><ExternalLink size={16} />Resume pop-out editor</button>
-          </div>
-        ) : (
-          <ClientEditor client={selectedClient} advisers={advisers} caseTypes={caseTypes} deadlineTypes={deadlineTypes} calendarEntries={calendarEntries} saveClient={saveClient} updatePortalMessageStatus={updatePortalMessageStatus} uploadPortalDocument={uploadPortalDocument} updatePortalDocument={updatePortalDocument} deletePortalDocument={deletePortalDocument} deleteClient={deleteClient} saving={saving} onDirtyChange={onDirtyChange} onOpenPopout={openPopoutEditor} />
-        )}
+      <section className="panel detail-panel calm-client-detail">
+        {popoutOpen ? <div className="client-popout-placeholder"><ExternalLink size={28} /><h2>{clientLabel} is open in the full editor</h2><p className="muted">Use the larger editor to update the record, then save and close it to return here.</p><button className="btn dark" type="button" onClick={() => setPopoutOpen(true)}><ExternalLink size={16} />Resume full editor</button></div> : <ClientEditor client={selectedClient} advisers={advisers} caseTypes={caseTypes} deadlineTypes={deadlineTypes} calendarEntries={calendarEntries} saveClient={saveClient} updatePortalMessageStatus={updatePortalMessageStatus} uploadPortalDocument={uploadPortalDocument} updatePortalDocument={updatePortalDocument} deletePortalDocument={deletePortalDocument} deleteClient={deleteClient} saving={saving} onDirtyChange={onDirtyChange} onOpenPopout={openPopoutEditor} />}
       </section>
-      {popoutOpen && (
-        <ClientRecordPopoutModal title={clientName} onClose={requestPopoutClose}>
-          <ClientEditor client={selectedClient} advisers={advisers} caseTypes={caseTypes} deadlineTypes={deadlineTypes} calendarEntries={calendarEntries} saveClient={saveClient} updatePortalMessageStatus={updatePortalMessageStatus} uploadPortalDocument={uploadPortalDocument} updatePortalDocument={updatePortalDocument} deletePortalDocument={deletePortalDocument} deleteClient={deleteClient} saving={saving} onDirtyChange={handlePopoutDirtyChange} popoutMode initialSection={popoutInitialSection} onRequestClose={requestPopoutClose} />
-        </ClientRecordPopoutModal>
-      )}
+      {popoutOpen && <ClientRecordPopoutModal title={clientLabel} onClose={requestPopoutClose}><ClientEditor client={selectedClient} advisers={advisers} caseTypes={caseTypes} deadlineTypes={deadlineTypes} calendarEntries={calendarEntries} saveClient={saveClient} updatePortalMessageStatus={updatePortalMessageStatus} uploadPortalDocument={uploadPortalDocument} updatePortalDocument={updatePortalDocument} deletePortalDocument={deletePortalDocument} deleteClient={deleteClient} saving={saving} onDirtyChange={handlePopoutDirtyChange} popoutMode initialSection={popoutInitialSection} onRequestClose={requestPopoutClose} /></ClientRecordPopoutModal>}
     </div>
   );
 }
@@ -10414,12 +10392,12 @@ The portal is a secure, read-only space where you can check application updates,
     { id: 'overview', label: 'Overview', icon: LayoutDashboard, summary: `${currentStage} · ${progressPercent(draft)}% progress`, badge: draft.clientStatus || 'Status' },
     { id: 'actions', label: 'Actions', icon: Clock, summary: draft.nextActionDue ? `Next due ${draft.nextActionDue}` : 'No next action date', badge: normaliseNextActionLog(draft.nextActionLog).length ? `${normaliseNextActionLog(draft.nextActionLog).length} logged` : 'Action' },
     { id: 'documents', label: 'Documents', icon: ListChecks, summary: `${outstandingDocuments.length}/${requiredDocuments.length} outstanding`, badge: outstandingDocuments.length ? `${outstandingDocuments.length} open` : 'Clear' },
-    { id: 'portal', label: 'Portal', icon: LockKeyhole, summary: portalStatusSummary, badge: portalNewMessageCount ? `${portalNewMessageCount} new` : (draft.portalEnabled ? 'Active' : 'Inactive') },
-    { id: 'stages', label: 'Stages', icon: ArrowUpDown, summary: `${completedStageCount}/${appliedStageCount || 0} applied stages complete`, badge: `${progressPercent(draft)}%` },
-    { id: 'dates', label: 'Key dates', icon: CalendarDays, summary: `${deadlineCount} deadline${deadlineCount === 1 ? '' : 's'} recorded`, badge: upcomingDeadlines[0]?.date || 'Dates' },
-    { id: 'billing', label: 'Billing', icon: CreditCard, summary: `${billingItems.length} milestone${billingItems.length === 1 ? '' : 's'} · ${formatCurrency(activeBillingAmount)} active`, badge: activeBillingItems.length ? `${activeBillingItems.length} active` : 'Billing' },
-    { id: 'family', label: 'Family', icon: UsersRound, summary: `${(draft.familyMembers || []).length} family/dependant record${(draft.familyMembers || []).length === 1 ? '' : 's'}`, badge: (draft.familyMembers || []).length ? `${(draft.familyMembers || []).length}` : 'Family' },
-    { id: 'notes', label: 'Notes & strategy', icon: FileText, summary: draft.caseStrategy ? 'Case strategy added' : 'No case strategy yet', badge: 'Internal' },
+    { id: 'stages', label: 'Progress', icon: ArrowUpDown, summary: `${completedStageCount}/${appliedStageCount || 0} stages complete`, badge: `${progressPercent(draft)}%` },
+    { id: 'dates', label: 'Key dates', icon: CalendarDays, summary: `${deadlineCount} date${deadlineCount === 1 ? '' : 's'} recorded`, badge: upcomingDeadlines[0]?.date || 'Dates' },
+    { id: 'portal', label: 'Portal', icon: LockKeyhole, summary: portalStatusSummary, badge: portalNewMessageCount ? `${portalNewMessageCount} new` : (draft.portalEnabled ? 'Active' : 'Inactive'), secondary: true },
+    { id: 'billing', label: 'Billing', icon: CreditCard, summary: `${billingItems.length} milestone${billingItems.length === 1 ? '' : 's'} · ${formatCurrency(activeBillingAmount)} active`, badge: activeBillingItems.length ? `${activeBillingItems.length} active` : 'Billing', secondary: true },
+    { id: 'family', label: 'Family', icon: UsersRound, summary: `${(draft.familyMembers || []).length} family/dependant record${(draft.familyMembers || []).length === 1 ? '' : 's'}`, badge: (draft.familyMembers || []).length ? `${(draft.familyMembers || []).length}` : 'Family', secondary: true },
+    { id: 'notes', label: 'Notes & strategy', icon: FileText, summary: draft.caseStrategy ? 'Case strategy added' : 'No case strategy yet', badge: 'Internal', secondary: true },
   ];
 
   return (
@@ -10444,13 +10422,13 @@ The portal is a secure, read-only space where you can check application updates,
         </div>
       </div>
 
-      <div className={`client-save-bar status-only ${isDirty ? 'dirty' : 'clean'}`}>
+      {(isDirty || saving || validationMessage || statusMessage) && <div className={`client-save-bar status-only ${isDirty ? 'dirty' : 'clean'}`}>
         <div>
-          <strong>{saving ? 'Saving...' : isDirty ? 'Unsaved changes' : 'No unsaved changes'}</strong>
-          <span>{validationMessage || statusMessage || (isDirty ? 'Use Save or Save & close in the header before switching clients, changing page, or refreshing.' : 'Client record is aligned with the last saved version.')}</span>
+          <strong>{saving ? 'Saving...' : isDirty ? 'Unsaved changes' : validationMessage ? 'Action needed' : 'Update'}</strong>
+          <span>{validationMessage || statusMessage || 'Save before switching clients, changing page, or refreshing.'}</span>
         </div>
         <span className={`save-state-pill ${saving ? 'saving' : isDirty ? 'dirty' : 'clean'}`}>{saving ? 'Saving' : isDirty ? 'Unsaved' : 'Saved'}</span>
-      </div>
+      </div>}
 
       {showActionLog && <NextActionLogModal client={draft} onClose={() => setShowActionLog(false)} />}
       {showTimeline && <ClientTimelineModal client={draft} calendarEntries={calendarEntries} advisers={advisers} onClose={() => setShowTimeline(false)} />}
@@ -10470,28 +10448,28 @@ The portal is a secure, read-only space where you can check application updates,
         {activeClientSection === 'overview' && (
           <div className="client-workspace-section-stack">
             <ClientWorkspaceIntro title="Client overview" description="Use this front page to orient yourself quickly before working in a specific file section." />
-            <div className="client-overview-stats">
+            <div className="client-overview-stats calm-overview-stats">
               <WorkspaceStat label="Current stage" value={currentStage} />
+              <WorkspaceStat label="Next action" value={draft.nextActionDue || 'No date'} />
+              <WorkspaceStat label="Documents" value={`${outstandingDocuments.length}/${requiredDocuments.length} outstanding`} />
               <WorkspaceStat label="Progress" value={`${progressPercent(draft)}%`} />
-              <WorkspaceStat label="Documents outstanding" value={`${outstandingDocuments.length}/${requiredDocuments.length}`} />
-              <WorkspaceStat label="Portal" value={draft.portalEnabled ? 'Active' : 'Inactive'} />
-              <WorkspaceStat label="Active billing" value={formatCurrency(activeBillingAmount)} />
-              <WorkspaceStat label="Upcoming appointments" value={linkedAppointments.length} />
             </div>
             <ClientSummaryPanel draft={draft} setField={setField} onOpenActionLog={() => setShowActionLog(true)} onOpenTimeline={() => setShowTimeline(true)} onPrintProfile={handlePrintClientProfile} calendarEntries={calendarEntries} />
-            <section className="sub-panel workspace-panel">
-              <div className="sub-panel-head compact"><div><h2>Core file details</h2><p className="muted">Details used for allocation, search, reporting and client contact.</p></div></div>
-              <div className="form-grid">
-                <Field label="Email" value={draft.email} onChange={(v) => setField('email', v)} />
-                <Field label="Phone" value={draft.phone} onChange={(v) => setField('phone', v)} />
-                <LookupField label="Citizenship" value={draft.nationality} onChange={(v) => setField('nationality', v)} options={COUNTRY_OPTIONS} listId="citizenship-options" placeholder="Start typing a country of citizenship" />
-                <LookupField label="Current address" value={draft.location} onChange={(v) => setField('location', v)} options={ADDRESS_LOOKUP_EXAMPLES} listId="address-options" placeholder="Start typing the current address" />
-                <SelectField label="Case type / application type" value={draft.caseType} onChange={(v) => setField('caseType', v)} options={caseTypes} placeholder="Select case type" />
-                <SelectField label="Primary adviser" value={draft.primaryAdviserId} onChange={(v) => setField('primaryAdviserId', v)} options={advisers.map((a) => ({ label: a.name, value: a.id }))} placeholder="Select primary adviser" />
-                <SelectField label="Backup adviser" value={draft.backupAdviserId} onChange={(v) => setField('backupAdviserId', v)} options={advisers.map((a) => ({ label: a.name, value: a.id }))} placeholder="Select backup adviser" />
-                <SelectField label="Priority" value={draft.priority} onChange={(v) => setField('priority', v)} options={['Normal', 'High', 'Urgent']} />
-              </div>
-            </section>
+            <details className="client-overview-details">
+              <summary><span><strong>Core file details</strong><small>Contact, allocation and reporting fields</small></span><ChevronDown size={16} /></summary>
+              <section className="sub-panel workspace-panel">
+                <div className="form-grid">
+                  <Field label="Email" value={draft.email} onChange={(v) => setField('email', v)} />
+                  <Field label="Phone" value={draft.phone} onChange={(v) => setField('phone', v)} />
+                  <LookupField label="Citizenship" value={draft.nationality} onChange={(v) => setField('nationality', v)} options={COUNTRY_OPTIONS} listId="citizenship-options" placeholder="Start typing a country of citizenship" />
+                  <LookupField label="Current address" value={draft.location} onChange={(v) => setField('location', v)} options={ADDRESS_LOOKUP_EXAMPLES} listId="address-options" placeholder="Start typing the current address" />
+                  <SelectField label="Case type / application type" value={draft.caseType} onChange={(v) => setField('caseType', v)} options={caseTypes} placeholder="Select case type" />
+                  <SelectField label="Primary adviser" value={draft.primaryAdviserId} onChange={(v) => setField('primaryAdviserId', v)} options={advisers.map((a) => ({ label: a.name, value: a.id }))} placeholder="Select primary adviser" />
+                  <SelectField label="Backup adviser" value={draft.backupAdviserId} onChange={(v) => setField('backupAdviserId', v)} options={advisers.map((a) => ({ label: a.name, value: a.id }))} placeholder="Select backup adviser" />
+                  <SelectField label="Priority" value={draft.priority} onChange={(v) => setField('priority', v)} options={['Normal', 'High', 'Urgent']} />
+                </div>
+              </section>
+            </details>
           </div>
         )}
 
@@ -10828,22 +10806,18 @@ function ClientSnapshotCard({ client, advisers = [], currentStage, outstandingDo
   const nextAppointment = linkedAppointments.slice().sort((a, b) => String(a.appointmentDate || '').localeCompare(String(b.appointmentDate || '')))[0];
   const health = clientHealthStatus(client, outstandingDocuments, nearestDiff, portalNewMessageCount);
   return (
-    <section className="client-snapshot-card" aria-label="Client snapshot">
+    <section className="client-snapshot-card calm-client-snapshot" aria-label="Client snapshot">
       <div className="client-snapshot-head">
-        <div>
-          <span className="eyebrow">Client snapshot</span>
-          <h2>{clientName(client)}</h2>
-          <p>{client.caseType || 'No case type selected'} · {primary?.name || 'Unassigned'}</p>
-        </div>
+        <div><span className="eyebrow">At a glance</span><h2>{clientName(client)}</h2><p>{client.caseType || 'No case type selected'} · {primary?.name || 'Unassigned'}</p></div>
         <span className={`client-health-pill ${health.key}`}>{health.label}</span>
       </div>
-      <div className="client-snapshot-grid">
+      <div className="client-snapshot-grid calm-snapshot-grid">
         <div><span>Stage</span><strong>{currentStage || 'Not set'}</strong></div>
         <div><span>Next action</span><strong>{client.nextActionDue || 'No date'}</strong><small>{client.nextAction || 'No next action set'}</small></div>
-        <div><span>Nearest action date</span><strong>{nearestDeadline?.date || 'None actionable'}</strong>{nearestDiff !== null && <DeadlineSignalBadge row={nearestDeadline} />}</div>
         <div><span>Documents</span><strong>{outstandingDocuments.length}/{requiredDocuments.length} outstanding</strong></div>
-        <div><span>Portal</span><strong>{client.portalEnabled ? 'Active' : 'Inactive'}</strong><small>{portalNewMessageCount ? `${portalNewMessageCount} new client note${portalNewMessageCount === 1 ? '' : 's'}` : 'No new client notes'}</small></div>
-        <div><span>Next appointment</span><strong>{nextAppointment?.appointmentDate || 'None booked'}</strong><small>{nextAppointment?.title || ''}</small></div>
+        {nearestDeadline && <div><span>Nearest critical date</span><strong>{nearestDeadline.date}</strong><small>{nearestDeadline.type}</small></div>}
+        {(client.portalEnabled || portalNewMessageCount > 0) && <div><span>Portal</span><strong>{client.portalEnabled ? 'Active' : 'Inactive'}</strong><small>{portalNewMessageCount ? `${portalNewMessageCount} new client note${portalNewMessageCount === 1 ? '' : 's'}` : 'No new client notes'}</small></div>}
+        {nextAppointment && <div><span>Next appointment</span><strong>{nextAppointment.appointmentDate}</strong><small>{nextAppointment.title || ''}</small></div>}
       </div>
     </section>
   );
@@ -10856,26 +10830,27 @@ function clientHealthStatus(client, outstandingDocuments = [], nearestDeadlineDi
 }
 
 function ClientWorkspaceShell({ sections, activeSection, onSelect, children }) {
+  const activeIsSecondary = sections.some((section) => section.id === activeSection && section.secondary);
+  const [showMore, setShowMore] = useState(activeIsSecondary);
+  useEffect(() => { if (activeIsSecondary) setShowMore(true); }, [activeIsSecondary]);
+  const primarySections = sections.filter((section) => !section.secondary);
+  const secondarySections = sections.filter((section) => section.secondary);
+
+  function renderSection(section) {
+    const Icon = section.icon || FileText;
+    const active = activeSection === section.id;
+    return <button key={section.id} type="button" className={`client-workspace-nav-card ${active ? 'active' : ''}`} onClick={() => onSelect(section.id)}><span className="client-workspace-nav-icon"><Icon size={18} /></span><span className="client-workspace-nav-copy"><strong>{section.label}</strong><small>{section.summary}</small></span>{section.badge && <b className="client-workspace-nav-badge">{section.badge}</b>}</button>;
+  }
+
   return (
-    <section className="client-workspace">
+    <section className="client-workspace calm-client-workspace">
       <aside className="client-workspace-nav" aria-label="Client record sections">
-        <div className="client-workspace-nav-head">
-          <strong>Client workspace</strong>
-          <span>Work through one section at a time.</span>
-        </div>
-        <div className="client-workspace-section-list">
-          {sections.map((section) => {
-            const Icon = section.icon || FileText;
-            const active = activeSection === section.id;
-            return (
-              <button key={section.id} type="button" className={`client-workspace-nav-card ${active ? 'active' : ''}`} onClick={() => onSelect(section.id)}>
-                <span className="client-workspace-nav-icon"><Icon size={18} /></span>
-                <span className="client-workspace-nav-copy"><strong>{section.label}</strong><small>{section.summary}</small></span>
-                {section.badge && <b className="client-workspace-nav-badge">{section.badge}</b>}
-              </button>
-            );
-          })}
-        </div>
+        <div className="client-workspace-nav-head"><strong>Client file</strong><span>Open only the section you need.</span></div>
+        <div className="client-workspace-section-list">{primarySections.map(renderSection)}</div>
+        {secondarySections.length > 0 && <div className="client-workspace-more">
+          <button className={`client-workspace-more-toggle ${showMore ? 'open' : ''}`} type="button" onClick={() => setShowMore((value) => !value)}><MoreHorizontal size={16} /><span>More sections</span><ChevronDown size={14} /></button>
+          {showMore && <div className="client-workspace-section-list secondary">{secondarySections.map(renderSection)}</div>}
+        </div>}
       </aside>
       <div className="client-workspace-body">{children}</div>
     </section>
