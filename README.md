@@ -1,64 +1,42 @@
-# THiS CRM v0.13.46 — Streamlined Adviser Interface
+# THiS CRM v0.13.45 — Adviser Views, Intake Visibility and Document Refinements
 
-This release applies a coordinated interface simplification across the adviser Dashboard, navigation, Clients list and client record. Existing database records, Netlify Functions, commercial compliance tools, client and employer portals, bookings, intake workflows, email, backups and exports are retained.
+This release refines the daily adviser workflow without changing the existing commercial compliance, portal, booking, email, backup or export modules.
 
-## Interface changes
+## Dashboard tasks
 
-### Daily Dashboard
+The dashboard client workload list now opens with **Due today** selected. Advisers can still switch to overdue, next 7 days, next 30 days, future, undated or all actions.
 
-The Dashboard is now a focused daily attention screen. It shows:
+## Intake visibility
 
-- Tasks due today
-- Overdue tasks
-- New enquiries
-- Today's appointments
-- Compact secondary alerts for portal notes, clients without next actions and critical dates
+The normal intake queue remains scoped to the selected adviser. Two operational views now search across the whole practice:
 
-The full task register remains in **Tasks** and the complete client portfolio remains in **Clients**.
+- The **Contacted** status view
+- Any active search in the Intake Forms tab
 
-### Navigation
+This prevents older or previously assigned forms being hidden when an adviser is following up or locating a known applicant. Contact exports retain their existing adviser scope.
 
-The main adviser navigation is reduced to:
+## Client adviser views
 
-- Dashboard
-- Tasks
-- Clients
-- Enquiries
-- Bookings
+The Clients workspace now defaults to matters where the logged-in adviser is the **primary adviser**. A toggle adds matters where that adviser is recorded only as the backup adviser. Backup-only matters have a small green adviser marker and green edge in the client list.
 
-Commercial, Calendar and Billing are grouped under **Practice**. Library, Advisers, Backups, email tools and system utilities remain in **Tools**, subject to role permissions.
+The adviser filter also retains the ability to view another adviser or all clients within the current CRM scope.
 
-### Clients list
+## Medical and Chest X-ray documents
 
-The Clients workspace now uses a compact work-queue row showing only the client, matter and stage, next action and adviser. Secondary information such as OneLaw number, SharePoint status, case strategy and progress detail remains inside the client record.
+The standard document checklist now has separate entries for:
 
-The list still defaults to the logged-in adviser as main adviser. The backup-matter toggle and green backup marker remain available.
+- Medical certificate
+- Chest X-ray
 
-### Client record
+Each item has its own obtained status and expiry date. Existing legacy **Medicals** data is carried into the Medical certificate entry so previous records are not lost or duplicated.
 
-The record is organised around five primary sections:
+## Intake physical address
 
-- Overview
-- Actions
-- Documents
-- Progress
-- Key dates
-
-Portal, Billing, Family and Notes & strategy are grouped under **More sections**. Core contact and allocation fields are collapsed on the Overview until needed. Clean records no longer display a persistent save-status bar.
-
-## Changes retained from v0.13.45
-
-- Contacted intake forms and intake search results can be reviewed across the practice.
-- Medical certificate and Chest X-ray are separate checklist items with separate expiry dates.
-- The full intake questionnaire captures current physical address.
-- The Clients list defaults to main-adviser matters with an optional backup-matter view.
+The full assessment form now captures the applicant's current physical address. It appears in internal intake review and notification summaries and is used as the new client's location when an intake is converted. The value is stored inside the existing intake payload, so no database migration is required.
 
 ## Deployment
 
-- Node 20.19.0
-- Yarn Classic 1.22.22
-- Netlify Functions and Netlify Database retained
-- No new dependency
-- No database migration for this release
-
-Deploy through the existing GitHub and Netlify workflow. Use **Clear cache and deploy site** only when Netlify dependency caching causes an installation issue.
+- No database migration
+- No new npm dependency
+- Existing Node and Yarn deployment configuration retained
+- Commercial compliance suite and Employer Portal retained unchanged

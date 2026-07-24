@@ -19,7 +19,7 @@ import {
 import { deleteBackupArtifacts } from './_backup-cleanup.mjs';
 
 const scryptAsync = promisify(crypto.scrypt);
-const SOURCE_VERSION = '0.13.46';
+const SOURCE_VERSION = '0.13.45';
 const BACKUP_FORMAT_VERSION = 1;
 const MAGIC = Buffer.from('THISCRM1', 'ascii');
 const AUTH_TAG_BYTES = 16;

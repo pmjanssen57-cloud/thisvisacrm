@@ -1,33 +1,9 @@
-v0.13.46 - Streamlined Adviser Interface
+v0.13.45 - Adviser Views, Intake Visibility and Document Refinements
 
-This release applies the four interface simplification passes together while preserving the existing CRM data model and workflows.
+- Defaults the dashboard client workload date filter to items due today.
+- Shows Contacted intake forms and intake search results across the whole practice, while preserving adviser-scoped export files.
+- Defaults the Clients list to the logged-in adviser as primary adviser, with an optional backup-matter toggle and green backup indicator.
+- Separates Medical certificate and Chest X-ray checklist items, each with its own expiry date, while carrying legacy Medicals data into Medical certificate.
+- Adds current physical address to the full intake questionnaire, internal review, notifications and intake-to-client conversion.
 
-Dashboard and navigation
-- Reframes the Dashboard as a daily attention view rather than a whole-system summary.
-- Shows four primary signals only: due today, overdue, new enquiries and today's appointments.
-- Removes the full client workload, billing totals and adviser snapshot from the Dashboard.
-- Keeps portal notes, clients without next actions, critical dates and recent clients in compact secondary panels.
-- Reduces the main navigation to Dashboard, Tasks, Clients, Enquiries and Bookings.
-- Groups Commercial, Calendar and Billing under a Practice menu.
-- Simplifies the global work-view and client-search toolbar.
-
-Client list
-- Replaces dense client cards with a compact work-queue row.
-- Shows client name, matter type, current stage, next action, adviser and backup marker only.
-- Removes OneLaw, SharePoint, strategy and progress detail from the list view.
-- Retains adviser, matter-type and backup-matter filters behind a single Filters control.
-
-Client record
-- Keeps the client record summary-first and reduces the visible workspace sections.
-- Makes Overview, Actions, Documents, Progress and Key dates the primary sections.
-- Places Portal, Billing, Family and Notes & strategy under a More sections disclosure.
-- Hides the save-status bar when the record is clean and no message needs attention.
-- Reduces the overview statistics and places core contact/allocation fields in a collapsed disclosure.
-- Hides empty optional snapshot items such as portal and appointments.
-
-Visual polish
-- Reduces shadows, borders, badge size and competing card treatments in the adviser workflow.
-- Uses quieter navigation, list rows and panels with more consistent spacing.
-- Retains responsive mobile and tablet layouts.
-
-No database migration, dependency or backend API change is required.
+No database migration or new dependency is required.
