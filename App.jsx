@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { acceptInvite, getUser, handleAuthCallback, login, logout, onAuthChange, requestPasswordRecovery, updateUser } from '@netlify/identity';
-import { AlertTriangle, ArrowUpDown, BookOpen, Building2, Calculator, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Clock, CloudSun, Copy, CreditCard, ClipboardList, Database, DollarSign, Download, ExternalLink, FileCheck2, FileSpreadsheet, FileText, Globe2, HelpCircle, KeyRound, LayoutDashboard, Link2, ListChecks, LockKeyhole, Mail, MessageSquare, MoreHorizontal, Phone, Plus, RefreshCw, Save, Search, Send, ShieldCheck, SlidersHorizontal, Trash2, Upload, UserRound, UsersRound, Wrench, X } from 'lucide-react';
+import { AlertTriangle, ArrowUpDown, BookOpen, Building2, Calculator, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Clock, CloudSun, Copy, CreditCard, ClipboardList, Database, DollarSign, Download, ExternalLink, FileCheck2, FileSpreadsheet, FileText, Globe2, HelpCircle, KeyRound, LayoutDashboard, Link2, ListChecks, LockKeyhole, Mail, MessageSquare, MoreHorizontal, Phone, Pencil, Plus, RefreshCw, Save, Search, Send, ShieldCheck, SlidersHorizontal, Trash2, Upload, UserRound, UsersRound, Wrench, X } from 'lucide-react';
 
 const BRAND = {
   ink: '#003736',
@@ -8596,6 +8596,11 @@ function formatShortDate(value) {
   return new Intl.DateTimeFormat('en-NZ', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(`${value}T12:00:00`));
 }
 
+function formatRecordDate(value) {
+  if (!value) return '';
+  return new Intl.DateTimeFormat('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${String(value).slice(0, 10)}T12:00:00`));
+}
+
 function formatCurrencyAmount(value, currency) {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency }).format(value || 0);
 }
@@ -10399,9 +10404,7 @@ The portal is a secure, read-only space where you can check application updates,
   const deadlineCount = (draft.deadlines || []).length;
   const billingItems = normaliseBillingItems(draft.billing || []);
   const activeBillingItems = billingItems.filter((item) => effectiveBillingStatus(item, draft) !== 'Invoiced');
-  const activeBillingAmount = activeBillingItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const portalNewMessageCount = (draft.portalMessages || []).filter((message) => message.status === 'New').length;
-  const portalStatusSummary = draft.portalEnabled ? `Active for ${draft.portalEmail || draft.email || 'client email not set'}. Last published ${formatPortalDateTime(draft.portalLastPublishedAt) || 'not yet'}.${portalNewMessageCount ? ` ${portalNewMessageCount} new client note${portalNewMessageCount === 1 ? '' : 's'} waiting.` : ''}` : 'Inactive. Expand to enable portal access for this client.';
   const requiredDocuments = normaliseDocumentChecklist(draft.documentChecklist || []).filter((item) => item.applied);
   const outstandingDocuments = requiredDocuments.filter((item) => !item.obtained);
   const upcomingDeadlines = (draft.deadlines || [])
@@ -10412,16 +10415,17 @@ The portal is a secure, read-only space where you can check application updates,
   const linkedAppointments = (calendarEntries || []).filter((entry) => entry.clientId === draft.id && entry.status !== 'Completed');
   const visiblePortalPdfCount = (Array.isArray(draft.portalDocuments) ? draft.portalDocuments.map(normalisePortalDocument) : []).filter((doc) => doc.visibleToClient !== false).length;
   const currentStage = currentStageLabel(draft);
+  const actionLogCount = normaliseNextActionLog(draft.nextActionLog).length;
   const workspaceSections = [
-    { id: 'overview', label: 'Overview', icon: LayoutDashboard, summary: `${currentStage} · ${progressPercent(draft)}% progress`, badge: draft.clientStatus || 'Status' },
-    { id: 'actions', label: 'Actions', icon: Clock, summary: draft.nextActionDue ? `Next due ${draft.nextActionDue}` : 'No next action date', badge: normaliseNextActionLog(draft.nextActionLog).length ? `${normaliseNextActionLog(draft.nextActionLog).length} logged` : 'Action' },
-    { id: 'documents', label: 'Documents', icon: ListChecks, summary: `${outstandingDocuments.length}/${requiredDocuments.length} outstanding`, badge: outstandingDocuments.length ? `${outstandingDocuments.length} open` : 'Clear' },
-    { id: 'portal', label: 'Portal', icon: LockKeyhole, summary: portalStatusSummary, badge: portalNewMessageCount ? `${portalNewMessageCount} new` : (draft.portalEnabled ? 'Active' : 'Inactive') },
-    { id: 'stages', label: 'Stages', icon: ArrowUpDown, summary: `${completedStageCount}/${appliedStageCount || 0} applied stages complete`, badge: `${progressPercent(draft)}%` },
-    { id: 'dates', label: 'Key dates', icon: CalendarDays, summary: `${deadlineCount} deadline${deadlineCount === 1 ? '' : 's'} recorded`, badge: upcomingDeadlines[0]?.date || 'Dates' },
-    { id: 'billing', label: 'Billing', icon: CreditCard, summary: `${billingItems.length} milestone${billingItems.length === 1 ? '' : 's'} · ${formatCurrency(activeBillingAmount)} active`, badge: activeBillingItems.length ? `${activeBillingItems.length} active` : 'Billing' },
-    { id: 'family', label: 'Family', icon: UsersRound, summary: `${(draft.familyMembers || []).length} family/dependant record${(draft.familyMembers || []).length === 1 ? '' : 's'}`, badge: (draft.familyMembers || []).length ? `${(draft.familyMembers || []).length}` : 'Family' },
-    { id: 'notes', label: 'Notes & strategy', icon: FileText, summary: draft.caseStrategy ? 'Case strategy added' : 'No case strategy yet', badge: 'Internal' },
+    { id: 'overview', label: 'Overview', icon: LayoutDashboard, summary: currentStage, badge: draft.clientStatus || '' },
+    { id: 'actions', label: 'Actions', icon: Clock, summary: draft.nextActionDue ? `Due ${formatRecordDate(draft.nextActionDue)}` : 'No action date', badge: actionLogCount ? `${actionLogCount} logged` : '' },
+    { id: 'documents', label: 'Documents', icon: ListChecks, summary: outstandingDocuments.length ? `${outstandingDocuments.length} outstanding` : 'Checklist clear', badge: outstandingDocuments.length ? `${outstandingDocuments.length}` : '' },
+    { id: 'stages', label: 'Stages', icon: ArrowUpDown, summary: `${completedStageCount}/${appliedStageCount || 0} complete`, badge: `${progressPercent(draft)}%` },
+    { id: 'dates', label: 'Key dates', icon: CalendarDays, summary: deadlineCount ? `${deadlineCount} recorded` : 'No dates recorded', badge: upcomingDeadlines[0]?.date ? formatRecordDate(upcomingDeadlines[0].date) : '' },
+    { id: 'billing', label: 'Billing', icon: CreditCard, summary: billingItems.length ? `${billingItems.length} milestone${billingItems.length === 1 ? '' : 's'}` : 'No milestones', badge: activeBillingItems.length ? `${activeBillingItems.length} active` : '' },
+    { id: 'portal', label: 'Portal', icon: LockKeyhole, summary: draft.portalEnabled ? 'Client access active' : 'Client access inactive', badge: portalNewMessageCount ? `${portalNewMessageCount} new` : '', secondary: true },
+    { id: 'family', label: 'Family', icon: UsersRound, summary: (draft.familyMembers || []).length ? `${(draft.familyMembers || []).length} recorded` : 'No family records', badge: '', secondary: true },
+    { id: 'notes', label: 'Notes & strategy', icon: FileText, summary: draft.caseStrategy ? 'Strategy recorded' : 'No strategy recorded', badge: '', secondary: true },
   ];
 
   return (
@@ -10446,13 +10450,13 @@ The portal is a secure, read-only space where you can check application updates,
         </div>
       </div>
 
-      <div className={`client-save-bar status-only ${isDirty ? 'dirty' : 'clean'}`}>
+      {(isDirty || saving || validationMessage || statusMessage) && <div className={`client-save-bar status-only ${isDirty ? 'dirty' : 'clean'}`}>
         <div>
-          <strong>{saving ? 'Saving...' : isDirty ? 'Unsaved changes' : 'No unsaved changes'}</strong>
-          <span>{validationMessage || statusMessage || (isDirty ? 'Use Save or Save & close in the header before switching clients, changing page, or refreshing.' : 'Client record is aligned with the last saved version.')}</span>
+          <strong>{saving ? 'Saving...' : isDirty ? 'Unsaved changes' : validationMessage ? 'Action needed' : 'Update'}</strong>
+          <span>{validationMessage || statusMessage || 'Save before switching clients, changing page, or refreshing.'}</span>
         </div>
         <span className={`save-state-pill ${saving ? 'saving' : isDirty ? 'dirty' : 'clean'}`}>{saving ? 'Saving' : isDirty ? 'Unsaved' : 'Saved'}</span>
-      </div>
+      </div>}
 
       {showActionLog && <NextActionLogModal client={draft} onClose={() => setShowActionLog(false)} />}
       {showTimeline && <ClientTimelineModal client={draft} calendarEntries={calendarEntries} advisers={advisers} onClose={() => setShowTimeline(false)} />}
@@ -10471,29 +10475,23 @@ The portal is a secure, read-only space where you can check application updates,
       <ClientWorkspaceShell sections={workspaceSections} activeSection={activeClientSection} onSelect={setActiveClientSection}>
         {activeClientSection === 'overview' && (
           <div className="client-workspace-section-stack">
-            <ClientWorkspaceIntro title="Client overview" description="Use this front page to orient yourself quickly before working in a specific file section." />
-            <div className="client-overview-stats">
+            <ClientWorkspaceIntro title="Client overview" description="The current matter position and the details most often needed by the team." />
+            <div className="client-overview-stats streamlined-overview-stats">
               <WorkspaceStat label="Current stage" value={currentStage} />
-              <WorkspaceStat label="Progress" value={`${progressPercent(draft)}%`} />
+              <WorkspaceStat label="Next action due" value={draft.nextActionDue ? formatRecordDate(draft.nextActionDue) : 'No date'} />
+              <WorkspaceStat label="Next key date" value={upcomingDeadlines[0]?.date ? formatRecordDate(upcomingDeadlines[0].date) : 'None'} />
               <WorkspaceStat label="Documents outstanding" value={`${outstandingDocuments.length}/${requiredDocuments.length}`} />
-              <WorkspaceStat label="Portal" value={draft.portalEnabled ? 'Active' : 'Inactive'} />
-              <WorkspaceStat label="Active billing" value={formatCurrency(activeBillingAmount)} />
-              <WorkspaceStat label="Upcoming appointments" value={linkedAppointments.length} />
             </div>
-            <ClientSummaryPanel draft={draft} setField={setField} onOpenActionLog={() => setShowActionLog(true)} onOpenTimeline={() => setShowTimeline(true)} onPrintProfile={handlePrintClientProfile} calendarEntries={calendarEntries} />
-            <section className="sub-panel workspace-panel">
-              <div className="sub-panel-head compact"><div><h2>Core file details</h2><p className="muted">Details used for allocation, search, reporting and client contact.</p></div></div>
-              <div className="form-grid">
-                <Field label="Email" value={draft.email} onChange={(v) => setField('email', v)} />
-                <Field label="Phone" value={draft.phone} onChange={(v) => setField('phone', v)} />
-                <LookupField label="Citizenship" value={draft.nationality} onChange={(v) => setField('nationality', v)} options={COUNTRY_OPTIONS} listId="citizenship-options" placeholder="Start typing a country of citizenship" />
-                <LookupField label="Current address" value={draft.location} onChange={(v) => setField('location', v)} options={ADDRESS_LOOKUP_EXAMPLES} listId="address-options" placeholder="Start typing the current address" />
-                <SelectField label="Case type / application type" value={draft.caseType} onChange={(v) => setField('caseType', v)} options={caseTypes} placeholder="Select case type" />
-                <SelectField label="Primary adviser" value={draft.primaryAdviserId} onChange={(v) => setField('primaryAdviserId', v)} options={advisers.map((a) => ({ label: a.name, value: a.id }))} placeholder="Select primary adviser" />
-                <SelectField label="Backup adviser" value={draft.backupAdviserId} onChange={(v) => setField('backupAdviserId', v)} options={advisers.map((a) => ({ label: a.name, value: a.id }))} placeholder="Select backup adviser" />
-                <SelectField label="Priority" value={draft.priority} onChange={(v) => setField('priority', v)} options={['Normal', 'High', 'Urgent']} />
-              </div>
-            </section>
+            <ClientSummaryPanel
+              draft={draft}
+              setField={setField}
+              advisers={advisers}
+              caseTypes={caseTypes}
+              onOpenActionLog={() => setShowActionLog(true)}
+              onOpenTimeline={() => setShowTimeline(true)}
+              onPrintProfile={handlePrintClientProfile}
+              calendarEntries={calendarEntries}
+            />
           </div>
         )}
 
@@ -10827,26 +10825,20 @@ function ClientSnapshotCard({ client, advisers = [], currentStage, outstandingDo
   const primary = advisers.find((adviser) => adviser.id === client.primaryAdviserId);
   const nearestDeadline = upcomingDeadlines[0];
   const nearestDiff = nearestDeadline?.date ? dateDiff(nearestDeadline.date) : null;
-  const nextAppointment = linkedAppointments.slice().sort((a, b) => String(a.appointmentDate || '').localeCompare(String(b.appointmentDate || '')))[0];
   const health = clientHealthStatus(client, outstandingDocuments, nearestDiff, portalNewMessageCount);
   return (
-    <section className="client-snapshot-card" aria-label="Client snapshot">
-      <div className="client-snapshot-head">
-        <div>
-          <span className="eyebrow">Client snapshot</span>
-          <h2>{clientName(client)}</h2>
-          <p>{client.caseType || 'No case type selected'} · {primary?.name || 'Unassigned'}</p>
-        </div>
-        <span className={`client-health-pill ${health.key}`}>{health.label}</span>
+    <section className="client-action-strip" aria-label="Current client action">
+      <div className="client-action-strip-main">
+        <span className="eyebrow">Next action</span>
+        <strong>{client.nextAction || 'No next action has been set'}</strong>
+        <small>{client.nextActionDue ? `Due ${formatRecordDate(client.nextActionDue)}` : 'No due date'}{primary?.name ? ` · ${primary.name}` : ''}</small>
       </div>
-      <div className="client-snapshot-grid">
-        <div><span>Stage</span><strong>{currentStage || 'Not set'}</strong></div>
-        <div><span>Next action</span><strong>{client.nextActionDue || 'No date'}</strong><small>{client.nextAction || 'No next action set'}</small></div>
-        <div><span>Nearest action date</span><strong>{nearestDeadline?.date || 'None actionable'}</strong>{nearestDiff !== null && <DeadlineSignalBadge row={nearestDeadline} />}</div>
-        <div><span>Documents</span><strong>{outstandingDocuments.length}/{requiredDocuments.length} outstanding</strong></div>
-        <div><span>Portal</span><strong>{client.portalEnabled ? 'Active' : 'Inactive'}</strong><small>{portalNewMessageCount ? `${portalNewMessageCount} new client note${portalNewMessageCount === 1 ? '' : 's'}` : 'No new client notes'}</small></div>
-        <div><span>Next appointment</span><strong>{nextAppointment?.appointmentDate || 'None booked'}</strong><small>{nextAppointment?.title || ''}</small></div>
+      <div className="client-action-strip-facts">
+        <div><span>Stage</span><b>{currentStage || 'Not set'}</b></div>
+        <div><span>Documents</span><b>{outstandingDocuments.length}/{requiredDocuments.length} outstanding</b></div>
+        {nearestDeadline && <div><span>Next key date</span><b>{formatRecordDate(nearestDeadline.date)}</b><small>{nearestDeadline.type}</small></div>}
       </div>
+      <span className={`client-health-pill ${health.key}`}>{health.label}</span>
     </section>
   );
 }
@@ -10858,26 +10850,38 @@ function clientHealthStatus(client, outstandingDocuments = [], nearestDeadlineDi
 }
 
 function ClientWorkspaceShell({ sections, activeSection, onSelect, children }) {
+  const activeIsSecondary = sections.some((section) => section.id === activeSection && section.secondary);
+  const [showMore, setShowMore] = useState(activeIsSecondary);
+  useEffect(() => { if (activeIsSecondary) setShowMore(true); }, [activeIsSecondary]);
+  const primarySections = sections.filter((section) => !section.secondary);
+  const secondarySections = sections.filter((section) => section.secondary);
+
+  function renderSection(section) {
+    const Icon = section.icon || FileText;
+    const active = activeSection === section.id;
+    return (
+      <button key={section.id} type="button" className={`client-workspace-nav-card ${active ? 'active' : ''}`} onClick={() => onSelect(section.id)}>
+        <span className="client-workspace-nav-icon"><Icon size={18} /></span>
+        <span className="client-workspace-nav-copy"><strong>{section.label}</strong><small>{section.summary}</small></span>
+        {section.badge && <b className="client-workspace-nav-badge">{section.badge}</b>}
+      </button>
+    );
+  }
+
   return (
-    <section className="client-workspace">
+    <section className="client-workspace streamlined-client-workspace">
       <aside className="client-workspace-nav" aria-label="Client record sections">
         <div className="client-workspace-nav-head">
-          <strong>Client workspace</strong>
-          <span>Work through one section at a time.</span>
+          <strong>Client file</strong>
+          <span>Open the section you need.</span>
         </div>
-        <div className="client-workspace-section-list">
-          {sections.map((section) => {
-            const Icon = section.icon || FileText;
-            const active = activeSection === section.id;
-            return (
-              <button key={section.id} type="button" className={`client-workspace-nav-card ${active ? 'active' : ''}`} onClick={() => onSelect(section.id)}>
-                <span className="client-workspace-nav-icon"><Icon size={18} /></span>
-                <span className="client-workspace-nav-copy"><strong>{section.label}</strong><small>{section.summary}</small></span>
-                {section.badge && <b className="client-workspace-nav-badge">{section.badge}</b>}
-              </button>
-            );
-          })}
-        </div>
+        <div className="client-workspace-section-list">{primarySections.map(renderSection)}</div>
+        {secondarySections.length > 0 && <div className="client-workspace-more">
+          <button className={`client-workspace-more-toggle ${showMore ? 'open' : ''}`} type="button" onClick={() => setShowMore((value) => !value)}>
+            <MoreHorizontal size={16} /><span>More sections</span><ChevronDown size={14} />
+          </button>
+          {showMore && <div className="client-workspace-section-list secondary">{secondarySections.map(renderSection)}</div>}
+        </div>}
       </aside>
       <div className="client-workspace-body">{children}</div>
     </section>
@@ -10890,7 +10894,7 @@ function ClientWorkspaceIntro({ title, description }) {
       <div>
         <span className="eyebrow">Client file section</span>
         <h2>{title}</h2>
-        <p>{description}</p>
+        {description && <p>{description}</p>}
       </div>
     </div>
   );
@@ -11964,12 +11968,16 @@ function DateWithAgeField({ label, value, onChange }) {
 
 
 
-function ClientSummaryPanel({ draft, setField, onOpenActionLog, onOpenTimeline, onPrintProfile, calendarEntries = [] }) {
+function ClientSummaryPanel({ draft, setField, advisers = [], caseTypes = [], onOpenActionLog, onOpenTimeline, onPrintProfile, calendarEntries = [] }) {
   const link = normaliseExternalUrl(draft.sharepointFolderUrl);
   const hasValue = Boolean(String(draft.sharepointFolderUrl || '').trim());
   const looksSharePoint = isSharePointLike(draft.sharepointFolderUrl);
   const [copyMessage, setCopyMessage] = useState('');
+  const [editingDetails, setEditingDetails] = useState(false);
   const linkedCalendarCount = calendarEntries.filter((entry) => entry.clientId === draft.id).length;
+  const primary = advisers.find((adviser) => adviser.id === draft.primaryAdviserId);
+  const backup = advisers.find((adviser) => adviser.id === draft.backupAdviserId);
+  const age = calculateAge(draft.dateOfBirth);
 
   async function copyLink() {
     if (!hasValue) return;
@@ -11988,61 +11996,64 @@ function ClientSummaryPanel({ draft, setField, onOpenActionLog, onOpenTimeline, 
   }
 
   return (
-    <section className="client-summary-panel">
-      <div className="sub-panel-head">
+    <section className="client-summary-panel streamlined-client-summary">
+      <div className="sub-panel-head compact">
+        <div><h2>Client details</h2><p className="muted">Identity, contact and adviser allocation.</p></div>
+        <button className="btn ghost mini" type="button" onClick={() => setEditingDetails((value) => !value)}>{editingDetails ? <X size={15} /> : <Pencil size={15} />}{editingDetails ? 'Close editor' : 'Edit client details'}</button>
+      </div>
+
+      <div className="client-detail-summary-grid">
+        <ClientDetailItem label="Client" value={clientName(draft)} note={draft.clientStatus || 'No status'} />
+        <ClientDetailItem label="Date of birth" value={draft.dateOfBirth ? formatRecordDate(draft.dateOfBirth) : 'Not recorded'} note={age === null ? '' : `${age} years`} />
+        <ClientDetailItem label="Citizenship" value={draft.nationality || 'Not recorded'} />
+        <ClientDetailItem label="Contact" value={draft.email || 'No email'} note={draft.phone || 'No phone'} />
+        <ClientDetailItem label="Address" value={draft.location || 'Not recorded'} wide />
+        <ClientDetailItem label="Main adviser" value={primary?.name || 'Unassigned'} note={backup?.name ? `Backup: ${backup.name}` : 'No backup adviser'} />
+        {draft.oneLawClientNumber && <ClientDetailItem label="OneLaw" value={draft.oneLawClientNumber} />}
+      </div>
+
+      <div className="client-file-tools">
+        <span>File tools</span>
         <div>
-          <h2>Client quick view</h2>
-          <p className="muted">Core details and bring-up fields. Use the full record below for strategy, stages, deadlines, family details and billing.</p>
-        </div>
-        <span className="summary-status-pill">{draft.clientStatus || 'No status'}</span>
-      </div>
-      <div className="form-grid summary-grid">
-        <Field label="First name" value={draft.firstName} onChange={(v) => setField('firstName', v)} />
-        <Field label="Last name" value={draft.lastName} onChange={(v) => setField('lastName', v)} />
-        <DateWithAgeField label="Date of birth" value={draft.dateOfBirth} onChange={(v) => setField('dateOfBirth', v)} />
-        <Field label="OneLaw Client Number" value={draft.oneLawClientNumber || ''} onChange={(v) => setField('oneLawClientNumber', v)} placeholder="Internal OneLaw reference" />
-        <SelectField label="Current status" value={draft.clientStatus} onChange={(v) => setField('clientStatus', v)} options={['Active', 'Waiting on client', 'Waiting on INZ', 'On hold', 'Closed']} />
-      </div>
-      <div className="form-grid two summary-action-grid">
-        <TextArea label="Next action" value={draft.nextAction} onChange={(v) => setField('nextAction', v)} rows={3} />
-        <DateField label="Next action date" value={draft.nextActionDue} onChange={(v) => setField('nextActionDue', v)} />
-      </div>
-      <div className="client-quick-actions">
-        <div className="client-quick-actions-text">
-          <strong>Client tools</strong>
-          <span>Review history, timeline and internal profile exports.</span>
-        </div>
-        <div className="client-quick-actions-buttons">
-          <button className="quick-action-button" type="button" onClick={onOpenActionLog}>
-            <Clock size={20} />
-            <span>Action log</span>
-            <b>{normaliseNextActionLog(draft.nextActionLog).length}</b>
-          </button>
-          <button className="quick-action-button" type="button" onClick={onOpenTimeline}>
-            <CalendarDays size={20} />
-            <span>Timeline</span>
-            <b>{linkedCalendarCount}</b>
-          </button>
-          <button className="quick-action-button" type="button" onClick={onPrintProfile}>
-            <FileText size={20} />
-            <span>Print profile</span>
-          </button>
+          <button className="btn ghost mini" type="button" onClick={onOpenActionLog}><Clock size={15} />Action log <b>{normaliseNextActionLog(draft.nextActionLog).length}</b></button>
+          <button className="btn ghost mini" type="button" onClick={onOpenTimeline}><CalendarDays size={15} />Timeline <b>{linkedCalendarCount}</b></button>
+          <button className="btn ghost mini" type="button" onClick={onPrintProfile}><FileText size={15} />Print profile</button>
+          {link && <button className="btn ghost mini" type="button" onClick={openLink}><ExternalLink size={15} />SharePoint</button>}
         </div>
       </div>
-      <div className="summary-sharepoint-row">
-        <label className="field sharepoint-field">
-          <span>SharePoint folder link</span>
-          <input value={draft.sharepointFolderUrl || ''} onChange={(event) => setField('sharepointFolderUrl', event.target.value)} placeholder="Paste the SharePoint folder link" />
-        </label>
-        <div className="button-row sharepoint-actions">
-          <button className="btn" type="button" onClick={openLink} disabled={!link}><ExternalLink size={16} />Open folder</button>
-          <button className="btn" type="button" onClick={copyLink} disabled={!hasValue}><Copy size={16} />Copy link</button>
+
+      {editingDetails && <div className="client-detail-editor">
+        <div className="form-grid">
+          <Field label="First name" value={draft.firstName} onChange={(v) => setField('firstName', v)} />
+          <Field label="Last name" value={draft.lastName} onChange={(v) => setField('lastName', v)} />
+          <DateWithAgeField label="Date of birth" value={draft.dateOfBirth} onChange={(v) => setField('dateOfBirth', v)} />
+          <Field label="OneLaw Client Number" value={draft.oneLawClientNumber || ''} onChange={(v) => setField('oneLawClientNumber', v)} placeholder="Internal OneLaw reference" />
+          <SelectField label="Current status" value={draft.clientStatus} onChange={(v) => setField('clientStatus', v)} options={['Active', 'Waiting on client', 'Waiting on INZ', 'On hold', 'Closed']} />
+          <Field label="Email" value={draft.email} onChange={(v) => setField('email', v)} />
+          <Field label="Phone" value={draft.phone} onChange={(v) => setField('phone', v)} />
+          <LookupField label="Citizenship" value={draft.nationality} onChange={(v) => setField('nationality', v)} options={COUNTRY_OPTIONS} listId="citizenship-options" placeholder="Start typing a country of citizenship" />
+          <LookupField label="Current address" value={draft.location} onChange={(v) => setField('location', v)} options={ADDRESS_LOOKUP_EXAMPLES} listId="address-options" placeholder="Start typing the current address" />
+          <SelectField label="Case type / application type" value={draft.caseType} onChange={(v) => setField('caseType', v)} options={caseTypes} placeholder="Select case type" />
+          <SelectField label="Primary adviser" value={draft.primaryAdviserId} onChange={(v) => setField('primaryAdviserId', v)} options={advisers.map((a) => ({ label: a.name, value: a.id }))} placeholder="Select primary adviser" />
+          <SelectField label="Backup adviser" value={draft.backupAdviserId} onChange={(v) => setField('backupAdviserId', v)} options={advisers.map((a) => ({ label: a.name, value: a.id }))} placeholder="Select backup adviser" />
+          <SelectField label="Priority" value={draft.priority} onChange={(v) => setField('priority', v)} options={['Normal', 'High', 'Urgent']} />
         </div>
-      </div>
-      {copyMessage && <p className="inline-status">{copyMessage}</p>}
-      {hasValue && !looksSharePoint && <p className="field-warning">This does not look like a SharePoint or OneDrive link. It will still save, but the Open button only works for normal web URLs.</p>}
+        <div className="summary-sharepoint-row">
+          <label className="field sharepoint-field"><span>SharePoint folder link</span><input value={draft.sharepointFolderUrl || ''} onChange={(event) => setField('sharepointFolderUrl', event.target.value)} placeholder="Paste the SharePoint folder link" /></label>
+          <div className="button-row sharepoint-actions">
+            <button className="btn" type="button" onClick={openLink} disabled={!link}><ExternalLink size={16} />Open folder</button>
+            <button className="btn" type="button" onClick={copyLink} disabled={!hasValue}><Copy size={16} />Copy link</button>
+          </div>
+        </div>
+        {copyMessage && <p className="inline-status">{copyMessage}</p>}
+        {hasValue && !looksSharePoint && <p className="field-warning">This does not look like a SharePoint or OneDrive link. It will still save, but the Open button only works for normal web URLs.</p>}
+      </div>}
     </section>
   );
+}
+
+function ClientDetailItem({ label, value, note = '', wide = false }) {
+  return <div className={`client-detail-item ${wide ? 'wide' : ''}`}><span>{label}</span><strong>{value || 'Not recorded'}</strong>{note && <small>{note}</small>}</div>;
 }
 
 

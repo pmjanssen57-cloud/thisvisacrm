@@ -1,26 +1,52 @@
-# THiS CRM v0.13.47 — Dashboard Workload Adviser Scope
+# THiS CRM v0.13.48 — Streamlined Client Record
 
-This release is based on v0.13.45 and makes a focused dashboard refinement without applying the broader v0.13.46 interface redesign.
+This release is based on v0.13.47 and refines only the individual client record. The dashboard workload adviser scope and all other v0.13.47 behaviour are retained.
 
-## Client workload scope
+## Primary client-file navigation
 
-When the dashboard is scoped to an adviser, the **Client workload** list now shows only clients where that adviser is the primary adviser. This matches the default behaviour already used in the Clients workspace.
+The client workspace now presents the six sections used most often in a fixed order:
 
-A new toggle adds clients where the selected adviser is recorded only as the backup adviser. Backup-only workload rows display the same small green adviser icon and green edge used in the Clients list.
+1. Overview
+2. Actions
+3. Documents
+4. Stages
+5. Key dates
+6. Billing
 
-When the dashboard is deliberately changed to **Whole practice**, the workload continues to show the whole-practice client set because there is no single adviser role to apply.
+Portal, Family and Notes & strategy remain available under an expandable **More sections** control. If one of those sections is opened directly, the group expands automatically.
 
-## Dashboard side cards
+Navigation cards use shorter summaries and only show badges where they convey a useful count, date or status.
 
-The following cards have been removed from the dashboard:
+## Overview refinement
 
-- Needs attention
-- Critical dates
+The former large snapshot has been replaced by a compact next-action strip showing the current action, due date, main adviser, stage, document position and nearest key date.
 
-The **Recently viewed** card remains available beside the workload area, together with the compact Adviser load summary. Detailed dates and attention items remain available through the Tasks, Calendar, Billing, Enquiries and client record views.
+The Overview page now contains four operational indicators:
 
-## Retained v0.13.45 changes
+- Current stage
+- Next action due
+- Next key date
+- Documents outstanding
 
+The client-details panel is read-only by default. It shows identity, contact, citizenship, address, adviser allocation and OneLaw information without presenting the user with a full data-entry form. **Edit client details** reveals the existing fields when changes are required.
+
+Action log, timeline, print profile and SharePoint access remain available as compact file tools.
+
+## Visual reduction
+
+- Lighter borders and no card shadows in the client workspace
+- Smaller navigation cards
+- Less instructional text
+- Fewer decorative status pills
+- Saved-status bar hidden unless there is a change, update or validation message
+- Responsive navigation retained for tablet and mobile
+
+## Retained v0.13.47 changes
+
+- Dashboard workload defaults to primary-adviser clients
+- Optional dashboard backup-adviser toggle
+- Recently viewed and Adviser load remain beside dashboard workload
+- Needs attention and Critical dates dashboard cards remain removed
 - Dashboard action filters default to Due today
 - Contacted and searched intake forms can be viewed practice-wide
 - Clients list defaults to primary-adviser matters with an optional backup toggle

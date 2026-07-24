@@ -1,25 +1,26 @@
-THiS CRM v0.13.47 validation
+THiS CRM v0.13.48 validation
 
-Dashboard workload
-- Adviser-scoped workload defaults to primary-adviser clients only: PASS
-- Optional backup-adviser toggle added: PASS
-- Backup-only workload rows use green indicator and edge: PASS
-- Whole-practice workload remains available when that dashboard scope is selected: PASS
-- Existing Due today workload date default retained: PASS
+Client navigation
+- Primary order is Overview, Actions, Documents, Stages, Key dates and Billing: PASS
+- Portal, Family and Notes & strategy are grouped under More sections: PASS
+- More sections expands automatically for an active secondary section: PASS
+- Navigation summaries and badges reduced: PASS
 
-Dashboard side cards
-- Needs attention card removed from dashboard render: PASS
-- Critical dates card removed from dashboard render: PASS
-- Recently viewed card retained: PASS
-- Adviser load summary retained: PASS
+Client overview
+- Large snapshot replaced with compact next-action strip: PASS
+- Overview reduced to four operational summary cards: PASS
+- Client details are read-only by default: PASS
+- Edit client details reveals existing editable fields: PASS
+- Action log, timeline, print profile and SharePoint tools retained: PASS
+- Permanent clean save-state bar removed: PASS
 
 Technical checks
-- Package version updated to 0.13.47: PASS
-- Backup source version updated to 0.13.47: PASS
+- Package version updated to 0.13.48: PASS
+- Backup source version updated to 0.13.48: PASS
 - App.jsx and main.jsx parse/transpile successfully: PASS
 - All Netlify Function syntax checks: PASS
 - netlify.toml and package.json parse: PASS
 - CSS brace structure: PASS
 - Exactly one global formatFileSize declaration remains: PASS
 
-No database migration, dependency or backend API change is included. A full dependency-backed Vite build was not run because this isolated environment does not have the project dependencies installed and registry access is unavailable; the dependency graph and deployment configuration are unchanged from v0.13.45.
+No database migration, dependency or backend API change is included. A full dependency-backed Vite build was not run because this isolated environment does not have the project dependencies installed and registry access is unavailable; the dependency graph and deployment configuration are unchanged from v0.13.47.

@@ -1,9 +1,12 @@
-v0.13.47 - Dashboard Workload Adviser Scope
+v0.13.48 - Streamlined Client Record
 
-- Restricts the dashboard Client workload list to clients where the selected/logged-in adviser is the primary adviser by default.
-- Adds a toggle to include matters where that adviser is recorded only as the backup adviser.
-- Marks backup-only workload rows with the same green adviser indicator used in the Clients list.
-- Removes the dashboard Needs attention and Critical dates side cards.
-- Retains Recently viewed and Adviser load beside the workload area.
+- Keeps Overview, Actions, Documents, Stages, Key dates and Billing visible as the primary client-file sections.
+- Moves Portal, Family and Notes & strategy into an expandable More sections group.
+- Replaces the large client snapshot with a compact next-action strip.
+- Reduces the Overview to four operational summary cards.
+- Converts the client details area to a concise read-only summary with an explicit Edit client details control.
+- Consolidates contact, allocation, OneLaw and SharePoint editing into that optional editor.
+- Removes repetitive labels, decorative badges and the permanent saved-status message.
+- Retains all underlying client, portal, billing, document, stage and deadline workflows.
 
 No database migration, dependency or backend API change is required.
