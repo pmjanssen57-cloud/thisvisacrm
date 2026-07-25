@@ -1,61 +1,52 @@
-# THiS CRM v0.13.48 — Streamlined Client Record
+# THiS CRM v0.13.49 — Installable Android PWA
 
-This release is based on v0.13.47 and refines only the individual client record. The dashboard workload adviser scope and all other v0.13.47 behaviour are retained.
+This release is based on v0.13.48 and adds the first stage of Android app support without creating a separate native codebase. The Netlify-hosted CRM can now be installed from a supported Android browser and launched from the home screen or app drawer.
 
-## Primary client-file navigation
+## PWA features
 
-The client workspace now presents the six sections used most often in a fixed order:
+- App name: **THiS CRM**
+- Standalone Android app window
+- Branded THiS launcher and splash-screen icons
+- Install control on the CRM login page and adviser header
+- Android safe-area handling for modern phones and tablets
+- Automatic updates from the existing Netlify deployment
+- Controlled offline reconnect screen
 
-1. Overview
-2. Actions
-3. Documents
-4. Stages
-5. Key dates
-6. Billing
+## Security model
 
-Portal, Family and Notes & strategy remain available under an expandable **More sections** control. If one of those sections is opened directly, the group expands automatically.
+The service worker is deliberately limited to the static application shell:
 
-Navigation cards use shorter summaries and only show badges where they convey a useful count, date or status.
+- Client records are not cached for offline access.
+- Intake forms, portal information, documents and email data are not cached.
+- `/api/*`, `/.netlify/functions/*` and Netlify Identity requests bypass service-worker caching.
+- The app remains online-first and continues to use the existing Netlify Identity, database and Functions architecture.
 
-## Overview refinement
+## Install on Android
 
-The former large snapshot has been replaced by a compact next-action strip showing the current action, due date, main adviser, stage, document position and nearest key date.
+1. Deploy this release to the normal HTTPS Netlify site.
+2. Open the CRM URL in Chrome on the Android device.
+3. Select **Install THiS CRM on this device** on the login page, or **Install app** in the CRM header.
+4. Confirm the Android installation prompt.
 
-The Overview page now contains four operational indicators:
+Chrome's three-dot menu can also be used: **Install app** or **Add to Home screen**.
 
-- Current stage
-- Next action due
-- Next key date
-- Documents outstanding
+See `PWA-INSTALL-GUIDE.txt` for troubleshooting and security notes.
 
-The client-details panel is read-only by default. It shows identity, contact, citizenship, address, adviser allocation and OneLaw information without presenting the user with a full data-entry form. **Edit client details** reveals the existing fields when changes are required.
+## Retained v0.13.48 functionality
 
-Action log, timeline, print profile and SharePoint access remain available as compact file tools.
-
-## Visual reduction
-
-- Lighter borders and no card shadows in the client workspace
-- Smaller navigation cards
-- Less instructional text
-- Fewer decorative status pills
-- Saved-status bar hidden unless there is a change, update or validation message
-- Responsive navigation retained for tablet and mobile
-
-## Retained v0.13.47 changes
-
-- Dashboard workload defaults to primary-adviser clients
-- Optional dashboard backup-adviser toggle
-- Recently viewed and Adviser load remain beside dashboard workload
-- Needs attention and Critical dates dashboard cards remain removed
-- Dashboard action filters default to Due today
-- Contacted and searched intake forms can be viewed practice-wide
-- Clients list defaults to primary-adviser matters with an optional backup toggle
-- Medical certificate and Chest X-ray have separate document expiry dates
-- The intake form captures current physical address
+- Streamlined six-section individual client record
+- Dashboard lead-adviser workload with optional backup matters
+- Practice-wide contacted and searched intake visibility
+- Separate Medical certificate and Chest X-ray documents
+- Physical address in the intake form
+- Commercial compliance suite and Employer Portal
+- Existing adviser login, roles, My Day, backups and public forms
 
 ## Deployment
 
+- Existing `yarn build` and `dist` deployment retained
 - No database migration
 - No new npm dependency
-- Existing Node and Yarn deployment configuration retained
-- Commercial compliance suite and Employer Portal retained unchanged
+- Service worker served from `/sw.js`
+- Manifest served from `/manifest.webmanifest`
+- Netlify prevents stale service-worker caching through response headers

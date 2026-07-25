@@ -1,12 +1,12 @@
-v0.13.48 - Streamlined Client Record
+v0.13.49 - Installable Android PWA
 
-- Keeps Overview, Actions, Documents, Stages, Key dates and Billing visible as the primary client-file sections.
-- Moves Portal, Family and Notes & strategy into an expandable More sections group.
-- Replaces the large client snapshot with a compact next-action strip.
-- Reduces the Overview to four operational summary cards.
-- Converts the client details area to a concise read-only summary with an explicit Edit client details control.
-- Consolidates contact, allocation, OneLaw and SharePoint editing into that optional editor.
-- Removes repetitive labels, decorative badges and the permanent saved-status message.
-- Retains all underlying client, portal, billing, document, stage and deadline workflows.
+- Converts the existing THiS CRM web application into an installable Progressive Web App for supported Android phones and tablets.
+- Adds a THiS CRM web-app manifest, branded launcher icons and Android maskable icons.
+- Adds an install button to the adviser login screen and CRM header when the browser reports that installation is available.
+- Adds standalone app display, theme colour, Android splash-screen metadata and mobile safe-area handling.
+- Adds a versioned service worker for the static application shell and a controlled offline reconnect page.
+- Explicitly excludes CRM APIs, Netlify Functions and Netlify Identity traffic from service-worker caching.
+- Keeps all client records, enquiries, documents, portal information and authentication network-only.
+- Retains the complete v0.13.48 CRM, Employer Portal and public-form functionality.
 
-No database migration, dependency or backend API change is required.
+No database migration or new npm dependency is required.

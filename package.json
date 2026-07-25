@@ -1,6 +1,6 @@
 {
   "name": "turner-hopkins-crm-netlify-db",
-  "version": "0.13.48",
+  "version": "0.13.49",
   "private": true,
   "engines": {
     "node": ">=20.19.0 <21"
@@ -10,7 +10,8 @@
     "dev:vite": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "backup:decrypt": "node scripts/decrypt-this-backup.mjs"
+    "backup:decrypt": "node scripts/decrypt-this-backup.mjs",
+    "validate:pwa": "node scripts/validate-pwa.mjs"
   },
   "dependencies": {
     "@netlify/blobs": "10.7.9",

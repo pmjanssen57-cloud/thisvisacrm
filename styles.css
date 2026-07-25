@@ -15222,3 +15222,54 @@ body.my-day-overlay-active { overflow: hidden; }
   .client-file-tools > div { width: 100%; }
   .client-file-tools .btn { flex: 1 1 auto; }
 }
+
+/* v0.13.49: installable Android PWA shell */
+html, body, #root { min-height: 100%; }
+.app-shell { min-height: 100vh; min-height: 100dvh; }
+.topbar {
+  padding-top: max(16px, env(safe-area-inset-top));
+  padding-right: max(28px, env(safe-area-inset-right));
+  padding-left: max(28px, env(safe-area-inset-left));
+}
+.layout {
+  padding-right: max(26px, env(safe-area-inset-right));
+  padding-bottom: max(34px, env(safe-area-inset-bottom));
+  padding-left: max(26px, env(safe-area-inset-left));
+}
+.pwa-install-button { white-space: nowrap; }
+.access-install-button {
+  width: 100%;
+  justify-content: center;
+  margin-top: 4px;
+  border-color: #b9d8ce;
+  background: var(--pale);
+  color: var(--ink);
+}
+.access-install-button svg { margin: 0; width: 16px; height: 16px; padding: 0; border: 0; background: transparent; }
+
+@media (display-mode: standalone) {
+  body { overscroll-behavior-y: none; }
+  .topbar { border-top: 0; }
+}
+
+@media (max-width: 760px) {
+  .topbar {
+    padding-top: max(14px, env(safe-area-inset-top));
+    padding-right: max(14px, env(safe-area-inset-right));
+    padding-left: max(14px, env(safe-area-inset-left));
+  }
+  .layout {
+    padding-right: max(14px, env(safe-area-inset-right));
+    padding-left: max(14px, env(safe-area-inset-left));
+  }
+  .mobile-header-actions:has(.mobile-pwa-install) { width: 100%; flex-wrap: wrap; }
+  .mobile-pwa-install { flex: 1 1 auto; justify-content: center; }
+  .access-screen {
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding-top: max(24px, env(safe-area-inset-top));
+    padding-right: max(18px, env(safe-area-inset-right));
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+    padding-left: max(18px, env(safe-area-inset-left));
+  }
+}

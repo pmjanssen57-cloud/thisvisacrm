@@ -1,0 +1,39 @@
+THiS CRM v0.13.49 — Android PWA installation guide
+
+Purpose
+-------
+This release makes the existing Netlify-hosted THiS CRM installable on supported Android phones and tablets as a Progressive Web App (PWA). It is still the same web CRM and uses the same login, database and Netlify Functions.
+
+Android installation
+--------------------
+1. Deploy v0.13.49 to the normal THiS CRM Netlify site over HTTPS.
+2. Open the CRM URL in Chrome on the Android device.
+3. Log in, or use the Install THiS CRM button on the login page when it appears.
+4. Select Install.
+5. THiS CRM will appear on the home screen and in the Android app drawer.
+
+Chrome can also install the CRM from its menu using Install app or Add to Home screen.
+
+Security and offline behaviour
+------------------------------
+- Client records, enquiries, documents, portal information, emails and API responses are not cached for offline use.
+- When the device is offline, the app shows a controlled reconnect screen.
+- The service worker caches only the static application shell, branding and generated JavaScript/CSS assets.
+- Authentication and all CRM data continue to be handled by the existing live Netlify deployment.
+
+Updates
+-------
+The installed app continues to load from the Netlify site. New CRM deployments update the application automatically. An open app may refresh once when a newly deployed service worker takes control.
+
+Removal
+-------
+On Android, long-press the app icon and choose Uninstall, or remove it from Chrome's installed apps settings.
+
+Troubleshooting
+---------------
+If the Install button does not appear:
+- Confirm the CRM is being opened from its HTTPS Netlify URL, not Netlify deploy preview inside another browser frame.
+- Use current Chrome, Edge or Samsung Internet.
+- Confirm the app is not already installed.
+- Reload once after the first deployment so the service worker is active.
+- In Chrome, open the three-dot menu and look for Install app or Add to Home screen.

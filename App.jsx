@@ -667,6 +667,44 @@ function escapeReportHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[char]));
 }
 
+function isPwaStandalone() {
+  return window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+function PwaInstallButton({ className = 'btn ghost', label = 'Install app' }) {
+  const [available, setAvailable] = useState(() => Boolean(window.__thisPwaInstallPrompt));
+  const [installed, setInstalled] = useState(() => isPwaStandalone());
+
+  useEffect(() => {
+    const showInstall = () => setAvailable(Boolean(window.__thisPwaInstallPrompt));
+    const markInstalled = () => { setInstalled(true); setAvailable(false); };
+    const media = window.matchMedia?.('(display-mode: standalone)');
+    const handleDisplayMode = () => setInstalled(isPwaStandalone());
+    window.addEventListener('this-pwa-install-available', showInstall);
+    window.addEventListener('this-pwa-installed', markInstalled);
+    media?.addEventListener?.('change', handleDisplayMode);
+    showInstall();
+    return () => {
+      window.removeEventListener('this-pwa-install-available', showInstall);
+      window.removeEventListener('this-pwa-installed', markInstalled);
+      media?.removeEventListener?.('change', handleDisplayMode);
+    };
+  }, []);
+
+  async function installApp() {
+    const promptEvent = window.__thisPwaInstallPrompt;
+    if (!promptEvent) return;
+    await promptEvent.prompt();
+    const choice = await promptEvent.userChoice;
+    window.__thisPwaInstallPrompt = null;
+    setAvailable(false);
+    if (choice?.outcome === 'accepted') setInstalled(true);
+  }
+
+  if (installed || !available) return null;
+  return <button className={className} type="button" onClick={installApp}><Download size={16} />{label}</button>;
+}
+
 function downloadCommercialComplianceReport(client = {}) {
   const companyName = client.tradingName || client.legalName || 'Commercial client';
   const workers = (client.workers || []).filter((item) => item.status !== 'Archived');
@@ -1616,6 +1654,7 @@ export default function App() {
         <HeaderLocalSnapshot adviser={headerSnapshotAdviser} />
         <AuthStatus user={identityUser} adviser={identityAdviser} accessRole={currentAccessRole} accessCodeActive={Boolean(accessCode)} onLogout={logoutIdentityUser} />
         <div className="top-actions desktop-only">
+          <PwaInstallButton className="btn ghost compact-action pwa-install-button" label="Install app" />
           <button className="btn ghost compact-action crm-my-day-link" type="button" onClick={() => switchTab('home')}><CloudSun size={16} />My Day</button>
           <button className="btn ghost compact-action" onClick={() => { setSupportOpen(false); setToolsOpen(true); setNewMenuOpen(false); }}><Wrench size={16} />Tools</button>
           <div className="dropdown-shell new-action-shell">
@@ -1632,6 +1671,7 @@ export default function App() {
           </div>
         </div>
         <div className="mobile-header-actions mobile-only">
+          <PwaInstallButton className="btn ghost pwa-install-button mobile-pwa-install" label="Install" />
           <button className="btn ghost" type="button" onClick={() => switchTab('home')}><CloudSun size={16} />My Day</button>
           <button className="btn ghost" onClick={() => { setSupportOpen(false); setToolsOpen(true); }}><Wrench size={16} />Tools</button>
         </div>
@@ -8829,6 +8869,7 @@ function AccessScreen(props) {
         )}
 
         {(message || localError || error) && <small className={message && !localError && !error ? 'success-text' : ''}>{localError || error || message}</small>}
+        <PwaInstallButton className="btn ghost access-install-button" label="Install THiS CRM on this device" />
       </div>
     </div>
   );
