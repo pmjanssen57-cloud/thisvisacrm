@@ -15275,3 +15275,13 @@ html, body, #root { min-height: 100%; }
 }
 
 /* v0.13.50: desktop installed-app icon refinement (manifest assets only) */
+
+/* v0.13.51: persistent PWA install controls and browser fallback help */
+.pwa-install-help-layer { z-index: 1200; }
+.pwa-install-help-card { width: min(540px, 96vw); }
+.pwa-install-help-body { padding: 18px 2px 2px; color: var(--text); }
+.pwa-install-help-body > p { margin: 0 0 14px; color: var(--muted); line-height: 1.55; }
+.pwa-install-help-body ol { margin: 0 0 18px; padding-left: 24px; display: grid; gap: 10px; }
+.pwa-install-help-body li { padding-left: 4px; line-height: 1.45; }
+.pwa-install-help-note { display: flex; align-items: flex-start; gap: 9px; border: 1px solid var(--line); background: var(--pale); border-radius: 14px; padding: 12px 13px; }
+.pwa-install-help-note svg { flex: 0 0 auto; color: var(--ink); margin-top: 2px; }

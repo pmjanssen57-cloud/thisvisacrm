@@ -671,38 +671,113 @@ function isPwaStandalone() {
   return window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
 
+function getPwaInstallInstructions() {
+  const agent = String(window.navigator.userAgent || '').toLowerCase();
+  if (/iphone|ipad|ipod/.test(agent)) {
+    return {
+      title: 'Add THiS CRM to this device',
+      steps: [
+        'Open this page in Safari.',
+        'Tap the Share button.',
+        'Choose Add to Home Screen, then confirm Add.',
+      ],
+    };
+  }
+  if (/android/.test(agent)) {
+    return {
+      title: 'Install THiS CRM on Android',
+      steps: [
+        'Open this page in Chrome or Samsung Internet.',
+        'Open the browser menu.',
+        'Choose Install app or Add to Home screen.',
+      ],
+    };
+  }
+  if (/edg\//.test(agent)) {
+    return {
+      title: 'Install THiS CRM in Microsoft Edge',
+      steps: [
+        'Open the browser menu (three dots).',
+        'Choose Apps.',
+        'Select Install THiS CRM.',
+      ],
+    };
+  }
+  return {
+    title: 'Install THiS CRM on this computer',
+    steps: [
+      'Open this page in Google Chrome or Microsoft Edge.',
+      'Use the install icon at the right of the address bar, or open the browser menu.',
+      'Choose Install THiS CRM and confirm.',
+    ],
+  };
+}
+
 function PwaInstallButton({ className = 'btn ghost', label = 'Install app' }) {
   const [available, setAvailable] = useState(() => Boolean(window.__thisPwaInstallPrompt));
   const [installed, setInstalled] = useState(() => isPwaStandalone());
+  const [helpOpen, setHelpOpen] = useState(false);
+  const instructions = getPwaInstallInstructions();
 
   useEffect(() => {
     const showInstall = () => setAvailable(Boolean(window.__thisPwaInstallPrompt));
-    const markInstalled = () => { setInstalled(true); setAvailable(false); };
+    const markInstalled = () => { setInstalled(true); setAvailable(false); setHelpOpen(false); };
     const media = window.matchMedia?.('(display-mode: standalone)');
     const handleDisplayMode = () => setInstalled(isPwaStandalone());
     window.addEventListener('this-pwa-install-available', showInstall);
     window.addEventListener('this-pwa-installed', markInstalled);
+    window.addEventListener('focus', showInstall);
     media?.addEventListener?.('change', handleDisplayMode);
     showInstall();
     return () => {
       window.removeEventListener('this-pwa-install-available', showInstall);
       window.removeEventListener('this-pwa-installed', markInstalled);
+      window.removeEventListener('focus', showInstall);
       media?.removeEventListener?.('change', handleDisplayMode);
     };
   }, []);
 
   async function installApp() {
     const promptEvent = window.__thisPwaInstallPrompt;
-    if (!promptEvent) return;
-    await promptEvent.prompt();
-    const choice = await promptEvent.userChoice;
-    window.__thisPwaInstallPrompt = null;
-    setAvailable(false);
-    if (choice?.outcome === 'accepted') setInstalled(true);
+    if (!promptEvent) {
+      setHelpOpen(true);
+      return;
+    }
+    try {
+      await promptEvent.prompt();
+      const choice = await promptEvent.userChoice;
+      window.__thisPwaInstallPrompt = null;
+      setAvailable(false);
+      if (choice?.outcome === 'accepted') setInstalled(true);
+    } catch (error) {
+      console.warn('THiS CRM install prompt could not be opened:', error);
+      setHelpOpen(true);
+    }
   }
 
-  if (installed || !available) return null;
-  return <button className={className} type="button" onClick={installApp}><Download size={16} />{label}</button>;
+  if (installed) return null;
+  return (
+    <>
+      <button className={className} type="button" onClick={installApp} title={available ? 'Install THiS CRM' : 'Show installation steps'}><Download size={16} />{label}</button>
+      {helpOpen && (
+        <div className="modal-layer pwa-install-help-layer" role="dialog" aria-modal="true" aria-label={instructions.title}>
+          <button className="modal-backdrop" type="button" aria-label="Close installation help" onClick={() => setHelpOpen(false)}></button>
+          <section className="modal-card pwa-install-help-card">
+            <header className="modal-head">
+              <div><span>Installable app</span><h2>{instructions.title}</h2></div>
+              <button className="icon-button" type="button" aria-label="Close" onClick={() => setHelpOpen(false)}><X size={18} /></button>
+            </header>
+            <div className="pwa-install-help-body">
+              <p>The automatic browser prompt is not available at the moment. Use the browser’s own installation control:</p>
+              <ol>{instructions.steps.map((step) => <li key={step}>{step}</li>)}</ol>
+              <p className="pwa-install-help-note"><HelpCircle size={17} />If the browser does not offer an install option, THiS CRM may already be installed, the prompt may have been dismissed recently, or the current browser may not support installation.</p>
+            </div>
+            <div className="modal-actions"><button className="btn dark" type="button" onClick={() => setHelpOpen(false)}>Done</button></div>
+          </section>
+        </div>
+      )}
+    </>
+  );
 }
 
 function downloadCommercialComplianceReport(client = {}) {

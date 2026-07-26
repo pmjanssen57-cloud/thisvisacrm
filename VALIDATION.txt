@@ -1,30 +1,22 @@
-THiS CRM v0.13.50 validation
+THiS CRM v0.13.51 validation
 
-Desktop icon refinement
-- Dedicated 64px, 128px, 192px and 512px desktop manifest icons: PASS
-- Desktop artwork remains legible at 24px taskbar size: PASS
-- Manifest uses new icon filenames to avoid stale cached artwork: PASS
-- Multi-resolution Windows favicon includes 16px through 256px sizes: PASS
-- SVG favicon matches the desktop app identity: PASS
-- Existing 192px and 512px Android maskable icons remain unchanged: PASS
-- Apple touch icon remains unchanged: PASS
+Release focus
+- Restore visible PWA installation controls on the login screen and adviser header.
+- Preserve v0.13.50 desktop icon assets and Android maskable icons.
 
-PWA and security
-- Web-app manifest is linked from index.html: PASS
-- Manifest name, start URL, standalone display and THiS theme colours: PASS
-- Service-worker cache version updated to v0.13.50: PASS
-- Desktop and mobile icon assets are precached: PASS
-- CRM APIs, Netlify Functions and Netlify Identity remain excluded from service-worker caching: PASS
-
-Technical checks
-- Package version updated to 0.13.50: PASS
-- Backup source version updated to 0.13.50: PASS
-- package.json and manifest.webmanifest parse as JSON: PASS
-- netlify.toml parses successfully: PASS
-- App.jsx and main.jsx parse/transpile successfully: PASS
-- Service-worker syntax check: PASS
-- All Netlify Function syntax checks: PASS
+Checks completed
+- App.jsx parsed and transpiled with the TypeScript JSX parser: PASS
+- Generated JavaScript passed node --check: PASS
+- All Netlify Function .mjs files passed node --check: PASS
+- Service worker passed node --check: PASS
 - PWA validation script: PASS
-- ZIP integrity: PASS
+- manifest.webmanifest JSON parse: PASS
+- Install button no longer depends on beforeinstallprompt availability: PASS
+- Browser-specific fallback installation dialog present: PASS
+- Standalone app still hides the installation control: PASS
+- Service-worker cache version updated to v0.13.51: PASS
+- Package version updated to 0.13.51: PASS
+- Backup source version updated to 0.13.51: PASS
 
-No database migration, new dependency or backend API change is included.
+Build note
+A full Vite build was not run because node_modules are not present in the isolated environment. No dependency or build-configuration change is included in this release.

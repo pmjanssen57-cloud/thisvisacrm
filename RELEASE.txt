@@ -1,11 +1,14 @@
-v0.13.50 - Desktop App Icon Refinement
+v0.13.51 - PWA Install Option Restored
 
-- Refines the installed desktop PWA icon so it remains recognisable at Windows taskbar and desktop shortcut sizes.
-- Replaces the small white-tile treatment with a high-contrast THiS monogram on the core dark-green brand colour.
-- Adds dedicated 64px, 128px, 192px and 512px desktop-oriented manifest icons for cleaner scaling.
-- Rebuilds the multi-resolution Windows favicon at 16px, 24px, 32px, 48px, 64px, 128px and 256px.
-- Updates the SVG favicon to the same visual identity.
-- Retains the existing Android maskable icons and mobile installation appearance unchanged.
-- Retains all v0.13.49 PWA, CRM, Employer Portal and public-form functionality.
+Based on v0.13.50.
 
-No database migration, dependency or backend API change is required.
+Changes:
+- Restores the Install app control on the login screen and adviser header whenever the CRM is being viewed in a normal browser.
+- The control no longer disappears merely because the browser has not emitted beforeinstallprompt.
+- Uses the native browser install prompt when available.
+- Shows concise browser-specific installation steps when the automatic prompt is unavailable.
+- Continues to hide the control inside the already-installed standalone app.
+- Retains the v0.13.50 desktop taskbar icon refinement and existing Android maskable icons.
+- Updates the service-worker shell cache to v0.13.51.
+
+No database migration, dependency, authentication or backend API change.

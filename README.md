@@ -1,4 +1,4 @@
-# THiS CRM v0.13.50 — Desktop App Icon Refinement
+# THiS CRM v0.13.51 — PWA Install Option Restored
 
 This release is based on v0.13.49 and refines the icon used when the CRM Progressive Web App is installed on a desktop computer.
 
