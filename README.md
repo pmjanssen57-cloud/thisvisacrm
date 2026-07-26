@@ -1,39 +1,30 @@
-# THiS CRM v0.13.49 — Installable Android PWA
+# THiS CRM v0.13.50 — Desktop App Icon Refinement
 
-This release is based on v0.13.48 and adds the first stage of Android app support without creating a separate native codebase. The Netlify-hosted CRM can now be installed from a supported Android browser and launched from the home screen or app drawer.
+This release is based on v0.13.49 and refines the icon used when the CRM Progressive Web App is installed on a desktop computer.
 
-## PWA features
+## Desktop icon changes
 
-- App name: **THiS CRM**
-- Standalone Android app window
-- Branded THiS launcher and splash-screen icons
-- Install control on the CRM login page and adviser header
-- Android safe-area handling for modern phones and tablets
-- Automatic updates from the existing Netlify deployment
-- Controlled offline reconnect screen
+- High-contrast dark-green THiS monogram designed for small Windows taskbar sizes
+- Dedicated 64px, 128px, 192px and 512px manifest icons
+- Multi-resolution Windows favicon from 16px through 256px
+- Matching SVG browser favicon
+- New icon filenames to avoid browsers continuing to use the previously cached artwork
 
-## Security model
+The existing Android maskable icons and mobile launcher appearance are unchanged.
 
-The service worker is deliberately limited to the static application shell:
+## Applying the updated icon
 
-- Client records are not cached for offline access.
-- Intake forms, portal information, documents and email data are not cached.
-- `/api/*`, `/.netlify/functions/*` and Netlify Identity requests bypass service-worker caching.
-- The app remains online-first and continues to use the existing Netlify Identity, database and Functions architecture.
+After deploying this release, desktop operating systems may continue to show a cached icon for an app that is already installed. For the quickest refresh:
 
-## Install on Android
+1. Close the installed THiS CRM app.
+2. Uninstall the desktop PWA from Chrome or Edge.
+3. Clear the site icon cache if the old artwork remains.
+4. Reopen the CRM website and install the app again.
+5. Remove and repin the taskbar shortcut if Windows retains the old pinned icon.
 
-1. Deploy this release to the normal HTTPS Netlify site.
-2. Open the CRM URL in Chrome on the Android device.
-3. Select **Install THiS CRM on this device** on the login page, or **Install app** in the CRM header.
-4. Confirm the Android installation prompt.
+## Retained functionality
 
-Chrome's three-dot menu can also be used: **Install app** or **Add to Home screen**.
-
-See `PWA-INSTALL-GUIDE.txt` for troubleshooting and security notes.
-
-## Retained v0.13.48 functionality
-
+- Installable Android and desktop PWA
 - Streamlined six-section individual client record
 - Dashboard lead-adviser workload with optional backup matters
 - Practice-wide contacted and searched intake visibility
@@ -49,4 +40,3 @@ See `PWA-INSTALL-GUIDE.txt` for troubleshooting and security notes.
 - No new npm dependency
 - Service worker served from `/sw.js`
 - Manifest served from `/manifest.webmanifest`
-- Netlify prevents stale service-worker caching through response headers

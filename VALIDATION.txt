@@ -1,41 +1,30 @@
-THiS CRM v0.13.49 validation
+THiS CRM v0.13.50 validation
 
-PWA installation
+Desktop icon refinement
+- Dedicated 64px, 128px, 192px and 512px desktop manifest icons: PASS
+- Desktop artwork remains legible at 24px taskbar size: PASS
+- Manifest uses new icon filenames to avoid stale cached artwork: PASS
+- Multi-resolution Windows favicon includes 16px through 256px sizes: PASS
+- SVG favicon matches the desktop app identity: PASS
+- Existing 192px and 512px Android maskable icons remain unchanged: PASS
+- Apple touch icon remains unchanged: PASS
+
+PWA and security
 - Web-app manifest is linked from index.html: PASS
 - Manifest name, start URL, standalone display and THiS theme colours: PASS
-- 192px and 512px standard launcher icons: PASS
-- 192px and 512px maskable Android launcher icons: PASS
-- Apple touch icon updated to the same THiS app identity: PASS
-- Login-screen and adviser-header install controls: PASS
-- Install controls hide when unavailable or already running in standalone mode: PASS
-- Service worker registration and install-prompt capture occur before React renders: PASS
-
-Security and offline behaviour
-- Service worker is restricted to same-origin GET requests: PASS
-- /api/* requests bypass service-worker caching: PASS
-- /.netlify/functions/* requests bypass service-worker caching: PASS
-- /.netlify/identity/* requests bypass service-worker caching: PASS
-- Static JavaScript, CSS, image and font assets may be cached: PASS
-- Controlled offline reconnect page contains no CRM data: PASS
-- Service-worker response is configured no-cache in netlify.toml: PASS
-- Existing Content Security Policy remains in place: PASS
-
-Mobile shell
-- Standalone display and Android theme metadata: PASS
-- Safe-area handling added for the top bar, page content and access screen: PASS
-- Branded THiS launcher icon generated and visually inspected: PASS
+- Service-worker cache version updated to v0.13.50: PASS
+- Desktop and mobile icon assets are precached: PASS
+- CRM APIs, Netlify Functions and Netlify Identity remain excluded from service-worker caching: PASS
 
 Technical checks
-- Package version updated to 0.13.49: PASS
-- Backup source version updated to 0.13.49: PASS
+- Package version updated to 0.13.50: PASS
+- Backup source version updated to 0.13.50: PASS
 - package.json and manifest.webmanifest parse as JSON: PASS
 - netlify.toml parses successfully: PASS
 - App.jsx and main.jsx parse/transpile successfully: PASS
-- Generated JavaScript syntax checks: PASS
 - Service-worker syntax check: PASS
 - All Netlify Function syntax checks: PASS
-- CSS brace structure: PASS
-- Exactly one global formatFileSize declaration remains: PASS
-- scripts/validate-pwa.mjs: PASS
+- PWA validation script: PASS
+- ZIP integrity: PASS
 
-No database migration or new npm dependency is included. A full dependency-backed Vite build was attempted but could not run because Yarn 1.22.22 was not available locally and the isolated environment could not reach registry.yarnpkg.com. The dependency graph and existing Netlify build configuration are unchanged from v0.13.48.
+No database migration, new dependency or backend API change is included.

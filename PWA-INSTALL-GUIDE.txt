@@ -1,4 +1,4 @@
-THiS CRM v0.13.49 — Android PWA installation guide
+THiS CRM v0.13.50 — Android PWA installation guide
 
 Purpose
 -------
@@ -6,7 +6,7 @@ This release makes the existing Netlify-hosted THiS CRM installable on supported
 
 Android installation
 --------------------
-1. Deploy v0.13.49 to the normal THiS CRM Netlify site over HTTPS.
+1. Deploy v0.13.50 to the normal THiS CRM Netlify site over HTTPS.
 2. Open the CRM URL in Chrome on the Android device.
 3. Log in, or use the Install THiS CRM button on the login page when it appears.
 4. Select Install.

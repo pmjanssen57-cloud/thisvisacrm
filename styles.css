@@ -15273,3 +15273,5 @@ html, body, #root { min-height: 100%; }
     padding-left: max(18px, env(safe-area-inset-left));
   }
 }
+
+/* v0.13.50: desktop installed-app icon refinement (manifest assets only) */

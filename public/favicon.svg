@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="THiS CRM">
-  <rect width="64" height="64" rx="14" fill="#003f3a"/>
-  <circle cx="32" cy="32" r="23" fill="#b9d8ce" opacity="0.18"/>
-  <circle cx="32" cy="32" r="17" fill="#b9d8ce" opacity="0.42"/>
-  <circle cx="32" cy="32" r="11.5" fill="#f4efe2"/>
+  <rect width="64" height="64" rx="12" fill="#003736"/>
+  <rect x="3" y="3" width="58" height="58" rx="10" fill="none" stroke="#58D8A9" stroke-opacity=".48" stroke-width="1.5"/>
+  <text x="32" y="40" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" letter-spacing="-1.6" fill="#FFFFFF">TH<tspan fill="#58D8A9">i</tspan>S</text>
+  <path d="M34 19l8-4-6 7h-5z" fill="#58D8A9"/>
 </svg>
