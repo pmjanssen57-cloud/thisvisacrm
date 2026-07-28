@@ -1375,6 +1375,18 @@ export default function App() {
     return body;
   }
 
+  async function sendContactUnableToAssistEmail(contact) {
+    const body = await callApi('sendContactUnableToAssistEmail', { contact }, { skipDataUpdate: true });
+    if (body.emailLog) {
+      setData((current) => ({
+        ...current,
+        emailLogs: [normaliseEmailLog(body.emailLog), ...(current.emailLogs || [])].slice(0, 200),
+        emailConfig: body.emailConfig ? normaliseEmailConfig(body.emailConfig) : current.emailConfig,
+      }));
+    }
+    return body;
+  }
+
   async function downloadIntakeUpload(intakeId, kind) {
     const body = await callApi('downloadIntakeUpload', { intakeId, kind }, { skipDataUpdate: true });
     if (body.upload?.dataBase64) downloadBase64File(body.upload);
@@ -1820,7 +1832,7 @@ export default function App() {
             )}
 
             {tab === 'intake' && (
-              <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} identityUser={identityUser} canExportContacts={canExportContacts} statuses={data.intakeStatuses || INTAKE_STATUSES} seminars={data.seminars || []} seminarRegistrations={data.seminarRegistrations || []} feedbackSubmissions={data.feedbackSubmissions || []} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} downloadIntakeUpload={downloadIntakeUpload} saveSeminar={saveSeminar} deleteSeminar={deleteSeminar} saveSeminarRegistration={saveSeminarRegistration} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail} saveFeedbackSubmission={saveFeedbackSubmission} deleteFeedbackSubmission={deleteFeedbackSubmission} saving={saving} openClientRecord={openClientRecord} confirmAction={askCrmConfirm} />
+              <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} identityUser={identityUser} canExportContacts={canExportContacts} statuses={data.intakeStatuses || INTAKE_STATUSES} seminars={data.seminars || []} seminarRegistrations={data.seminarRegistrations || []} feedbackSubmissions={data.feedbackSubmissions || []} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} sendContactUnableToAssistEmail={sendContactUnableToAssistEmail} downloadIntakeUpload={downloadIntakeUpload} saveSeminar={saveSeminar} deleteSeminar={deleteSeminar} saveSeminarRegistration={saveSeminarRegistration} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail} saveFeedbackSubmission={saveFeedbackSubmission} deleteFeedbackSubmission={deleteFeedbackSubmission} saving={saving} openClientRecord={openClientRecord} confirmAction={askCrmConfirm} />
             )}
 
             {tab === 'bookings' && (
@@ -5126,7 +5138,7 @@ function RelatedEnquiryPanel({ matches = [] }) {
 }
 
 
-function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', identityUser = null, canExportContacts = false, statuses, seminars = [], seminarRegistrations = [], feedbackSubmissions = [], saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, sendContactIntakeInviteEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saveFeedbackSubmission, deleteFeedbackSubmission, saving, openClientRecord, confirmAction }) {
+function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', identityUser = null, canExportContacts = false, statuses, seminars = [], seminarRegistrations = [], feedbackSubmissions = [], saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, sendContactIntakeInviteEmail, sendContactUnableToAssistEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saveFeedbackSubmission, deleteFeedbackSubmission, saving, openClientRecord, confirmAction }) {
   const askConfirm = confirmAction || (async ({ message }) => window.confirm(message || 'Continue?'));
   const simplifiedStatuses = (statuses || INTAKE_STATUSES).filter((status) => INTAKE_STATUSES.includes(status));
   const [workspaceTab, setWorkspaceTab] = useState('contact');
@@ -5137,6 +5149,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
   const [expandedId, setExpandedId] = useState('');
   const [draft, setDraft] = useState(null);
   const [contactInviteSendingId, setContactInviteSendingId] = useState('');
+  const [contactUnableSendingId, setContactUnableSendingId] = useState('');
   const [contactInviteNotice, setContactInviteNotice] = useState('');
   const [expandedContactId, setExpandedContactId] = useState('');
   const [expandedFeedbackId, setExpandedFeedbackId] = useState('');
@@ -5378,6 +5391,40 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
       setContactInviteNotice(error?.message || 'Assessment form email could not be sent.');
     } finally {
       setContactInviteSendingId('');
+    }
+  }
+
+  async function sendUnableToAssistForContact(item) {
+    if (!item?.id || contactUnableSendingId) return;
+    const name = [item.firstName, item.lastName].filter(Boolean).join(' ') || 'this contact';
+    const adviser = assignedAdviserFor(item);
+    const confirmed = await askConfirm({
+      title: 'Send unable to assist email?',
+      message: `Send a polite unable to assist email to ${name}?`,
+      details: [
+        'The contact will be moved to Dealt with after the email is sent.',
+        adviser?.email ? `The email will be copied to ${adviser.name || 'the assigned adviser'} (${adviser.email}).` : 'No assigned adviser email is recorded, so no adviser copy will be sent.',
+        'The wording can be changed under Tools > Email templates.',
+      ],
+      confirmLabel: 'Send email',
+      tone: 'send',
+    });
+    if (!confirmed) return;
+    setContactInviteNotice('');
+    setContactUnableSendingId(item.id);
+    try {
+      const body = await sendContactUnableToAssistEmail?.(item);
+      const log = body?.emailLog;
+      if (log?.status === 'Sent') {
+        setContactInviteNotice(`Unable to assist email sent to ${item.email}. Contact form moved to Dealt with.`);
+        await saveIntakeEnquiry({ ...item, status: 'Contacted' });
+      } else {
+        setContactInviteNotice(`Unable to assist email could not be sent: ${log?.failureMessage || 'Microsoft did not accept the send request.'}`);
+      }
+    } catch (error) {
+      setContactInviteNotice(error?.message || 'Unable to assist email could not be sent.');
+    } finally {
+      setContactUnableSendingId('');
     }
   }
 
@@ -5706,8 +5753,11 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
                           <option value="Spam / Duplicate">Spam / Duplicate</option>
                         </select>
                       </label>
-                      <button className="btn dark queue-primary-action" type="button" onClick={() => sendIntakeInviteForContact(item)} disabled={saving || !item.email || Boolean(contactInviteSendingId)} title={!item.email ? 'No contact email recorded' : 'Send the full assessment form email from the CRM'}>
+                      <button className="btn dark queue-primary-action" type="button" onClick={() => sendIntakeInviteForContact(item)} disabled={saving || !item.email || Boolean(contactInviteSendingId) || Boolean(contactUnableSendingId)} title={!item.email ? 'No contact email recorded' : 'Send the full assessment form email from the CRM'}>
                         <Mail size={16} />{contactInviteSendingId === item.id ? 'Sending...' : 'Send intake'}
+                      </button>
+                      <button className="btn queue-secondary-action" type="button" onClick={() => sendUnableToAssistForContact(item)} disabled={saving || !item.email || Boolean(contactInviteSendingId) || Boolean(contactUnableSendingId)} title={!item.email ? 'No contact email recorded' : 'Send the unable to assist email from the CRM'}>
+                        <Mail size={16} />{contactUnableSendingId === item.id ? 'Sending...' : 'Unable to assist'}
                       </button>
                       <button className="btn queue-details-button" type="button" onClick={() => setExpandedContactId(isExpanded ? '' : item.id)}>{isExpanded ? 'Hide' : 'Details'}</button>
                       <details className="queue-more-menu">

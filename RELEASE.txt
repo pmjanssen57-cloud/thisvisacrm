@@ -1,14 +1,15 @@
-v0.13.51 - PWA Install Option Restored
+v0.13.52 - Contact Unable to Assist Email
 
-Based on v0.13.50.
+Based on v0.13.51.
 
 Changes:
-- Restores the Install app control on the login screen and adviser header whenever the CRM is being viewed in a normal browser.
-- The control no longer disappears merely because the browser has not emitted beforeinstallprompt.
-- Uses the native browser install prompt when available.
-- Shows concise browser-specific installation steps when the automatic prompt is unavailable.
-- Continues to hide the control inside the already-installed standalone app.
-- Retains the v0.13.50 desktop taskbar icon refinement and existing Android maskable icons.
-- Updates the service-worker shell cache to v0.13.51.
+- Adds an Unable to assist action to short Contact Form records in Enquiries & Intake.
+- Sends a polite branded email through the existing Microsoft 365 shared mailbox integration.
+- Copies the assigned adviser where a valid adviser email is recorded.
+- Automatically moves the contact form to Dealt with after a successful send.
+- Records successful and failed sends in the existing CRM email log.
+- Adds an editable Contact form - unable to assist template under Tools > Email templates.
+- Keeps the PWA install controls, Android icons and refined desktop app icon from v0.13.51.
+- Advances the service-worker shell cache and backup source version to v0.13.52.
 
-No database migration, dependency, authentication or backend API change.
+No database migration or new dependency.

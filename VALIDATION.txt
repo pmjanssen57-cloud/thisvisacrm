@@ -1,22 +1,27 @@
-THiS CRM v0.13.51 validation
+THiS CRM v0.13.52 validation
 
-Release focus
-- Restore visible PWA installation controls on the login screen and adviser header.
-- Preserve v0.13.50 desktop icon assets and Android maskable icons.
+Release scope:
+- Contact Form Unable to assist email action
+- Editable contact_unable_to_assist email template
+- Existing Microsoft 365 send and email-log workflow
+- PWA cache and backup version advancement
 
-Checks completed
-- App.jsx parsed and transpiled with the TypeScript JSX parser: PASS
-- Generated JavaScript passed node --check: PASS
-- All Netlify Function .mjs files passed node --check: PASS
-- Service worker passed node --check: PASS
-- PWA validation script: PASS
-- manifest.webmanifest JSON parse: PASS
-- Install button no longer depends on beforeinstallprompt availability: PASS
-- Browser-specific fallback installation dialog present: PASS
-- Standalone app still hides the installation control: PASS
-- Service-worker cache version updated to v0.13.51: PASS
-- Package version updated to 0.13.51: PASS
-- Backup source version updated to 0.13.51: PASS
+Validation results:
+- App.jsx JSX/JavaScript transpilation: PASS
+- Generated App JavaScript syntax: PASS
+- All Netlify Function syntax checks: PASS
+- Service-worker syntax: PASS
+- PWA manifest and asset validation: PASS
+- Frontend and backend API wiring: PASS
+- New default email template and fallback content: PASS
+- Successful-send workflow moves the contact to Dealt with: PASS (source assertion)
+- Adviser-copy handling and email-log insertion: PASS (source assertion)
+- CSS brace structure: PASS
+- package.json and Netlify configuration parsing: PASS
+- Service-worker cache version updated to v0.13.52: PASS
+- Package version updated to 0.13.52: PASS
+- Backup source version updated to 0.13.52: PASS
 
-Build note
-A full Vite build was not run because node_modules are not present in the isolated environment. No dependency or build-configuration change is included in this release.
+A full dependency-backed Vite build was not run because this isolated environment does not contain the project node_modules and Yarn is unavailable. No dependency or build-configuration change is included in this release.
+
+No database migration or new dependency.

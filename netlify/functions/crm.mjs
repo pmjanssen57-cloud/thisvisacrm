@@ -101,6 +101,24 @@ Kind regards,`,
     placeholders: ['firstName', 'assessmentFormUrl'],
   },
   {
+    key: 'contact_unable_to_assist',
+    name: 'Contact form - unable to assist',
+    description: 'Sent from a contact-form card when Turner Hopkins is unable to assist with the enquiry.',
+    subject: 'Your enquiry to Turner Hopkins Immigration Specialists',
+    bodyText: `Hi {{firstName}},
+
+Thank you for contacting Turner Hopkins Immigration Specialists and for taking the time to provide information about your circumstances.
+
+We have reviewed your enquiry. Based on the information provided, we do not believe we are able to assist you with this matter at this stage.
+
+This response is based only on the limited information included in your initial enquiry and is not a full immigration assessment or immigration advice. You may wish to seek advice from another licensed immigration adviser or lawyer if you would like your circumstances considered further.
+
+We appreciate you getting in touch and wish you all the best.
+
+Kind regards,`,
+    placeholders: ['firstName', 'applicantName'],
+  },
+  {
     key: 'intake_approve',
     name: 'Assessment form - next steps',
     description: 'Sent when a full assessment/intake form appears suitable for a consultation or further advice.',
@@ -503,6 +521,11 @@ async function handleCrmEvent(event) {
 
     if (action === 'sendContactIntakeInviteEmail') {
       const emailLog = await sendContactIntakeInviteEmail(body.contact || {}, auth.user);
+      return json({ emailLog, emailConfig: getEmailConfigStatus() });
+    }
+
+    if (action === 'sendContactUnableToAssistEmail') {
+      const emailLog = await sendContactUnableToAssistEmail(body.contact || {}, auth.user);
       return json({ emailLog, emailConfig: getEmailConfigStatus() });
     }
 
@@ -4221,6 +4244,95 @@ async function sendContactIntakeInviteEmail(input = {}, authUser = null) {
        RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
     return mapEmailLogFromDb(failed);
   }
+}
+
+async function sendContactUnableToAssistEmail(input = {}, authUser = null) {
+  const contact = normaliseIntakeInput(input);
+  if (!isValidEmailAddress(contact.email)) throw new Error('This contact form does not have a valid email address.');
+
+  const advisers = await db().sql`SELECT id, name, email FROM advisers ORDER BY name ASC`;
+  const adviser = advisers.find((item) => String(item.id || '') === String(contact.assignedAdviserId || '')) || null;
+  const adviserEmail = String(adviser?.email || '').trim();
+  const ccEmail = isValidEmailAddress(adviserEmail) ? adviserEmail : '';
+  const fallbackDraft = buildContactUnableToAssistEmailContent(contact);
+  const config = requireMicrosoftEmailConfig();
+  const database = db();
+  const sentBy = authUser?.email || authUser?.name || 'CRM adviser';
+  const emailContent = await buildEmailFromTemplate('contact_unable_to_assist', {
+    firstName: String(contact.firstName || '').trim() || 'there',
+    applicantName: [contact.firstName, contact.lastName].filter(Boolean).join(' ').trim() || contact.email || 'contact',
+  }, fallbackDraft);
+  const emailDraft = { to: fallbackDraft.to, ...emailContent };
+
+  const [created] = await database.sql`
+    INSERT INTO email_notifications (related_record_type, related_record_id, intake_id, template_key, from_email, from_name, to_email, cc, subject, body_text, body_html, status, sent_by)
+    VALUES ('intake', ${nullableUuid(contact.id)}, ${nullableUuid(contact.id)}, 'contact_unable_to_assist', ${config.fromEmail}, ${config.fromName}, ${emailDraft.to}, ${ccEmail}, ${emailDraft.subject}, ${emailDraft.bodyText}, ${emailDraft.bodyHtml}, 'Sending', ${sentBy})
+    RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+
+  try {
+    const token = await getMicrosoftGraphAccessToken(config);
+    const sendResult = await sendMicrosoftGraphEmail({
+      config,
+      token,
+      toEmail: emailDraft.to,
+      ccEmail,
+      subject: emailDraft.subject,
+      bodyText: emailDraft.bodyText,
+      bodyHtml: emailDraft.bodyHtml,
+    });
+    const [updated] = await database.sql`
+      UPDATE email_notifications
+         SET status = 'Sent', sent_at = NOW(), provider_request_id = ${sendResult.requestId || ''}, updated_at = NOW()
+       WHERE id = ${created.id}
+       RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+    return mapEmailLogFromDb(updated);
+  } catch (error) {
+    const message = String(error?.message || error).slice(0, 1000);
+    const [failed] = await database.sql`
+      UPDATE email_notifications
+         SET status = 'Failed', failed_at = NOW(), failure_message = ${message}, updated_at = NOW()
+       WHERE id = ${created.id}
+       RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+    return mapEmailLogFromDb(failed);
+  }
+}
+
+function buildContactUnableToAssistEmailContent(contact = {}) {
+  const firstName = String(contact.firstName || '').trim() || 'there';
+  const to = String(contact.email || '').trim();
+  const bodyText = [
+    `Hi ${firstName},`,
+    '',
+    'Thank you for contacting Turner Hopkins Immigration Specialists and for taking the time to provide information about your circumstances.',
+    '',
+    'We have reviewed your enquiry. Based on the information provided, we do not believe we are able to assist you with this matter at this stage.',
+    '',
+    'This response is based only on the limited information included in your initial enquiry and is not a full immigration assessment or immigration advice. You may wish to seek advice from another licensed immigration adviser or lawyer if you would like your circumstances considered further.',
+    '',
+    'We appreciate you getting in touch and wish you all the best.',
+    '',
+    'Kind regards,',
+  ].join('\n');
+
+  return {
+    to,
+    subject: 'Your enquiry to Turner Hopkins Immigration Specialists',
+    bodyText,
+    bodyHtml: buildContactUnableToAssistEmailHtml(firstName),
+  };
+}
+
+function buildContactUnableToAssistEmailHtml(firstName = 'there') {
+  const p = (text, marginBottom = 10) => `<p style="margin:0 0 ${marginBottom}px 0; padding:0; line-height:1.3; mso-margin-top-alt:0; mso-margin-bottom-alt:${marginBottom}px;">${escapeHtml(text)}</p>`;
+  return `<div style="font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.3; color: #1f2933;">
+${p(`Hi ${firstName},`, 10)}
+${p('Thank you for contacting Turner Hopkins Immigration Specialists and for taking the time to provide information about your circumstances.', 10)}
+${p('We have reviewed your enquiry. Based on the information provided, we do not believe we are able to assist you with this matter at this stage.', 10)}
+${p('This response is based only on the limited information included in your initial enquiry and is not a full immigration assessment or immigration advice. You may wish to seek advice from another licensed immigration adviser or lawyer if you would like your circumstances considered further.', 10)}
+${p('We appreciate you getting in touch and wish you all the best.', 10)}
+${p('Kind regards,', 0)}
+${buildEmailSignatureSpacer(18)}
+</div>`;
 }
 
 function buildContactIntakeInviteEmailContent(contact = {}) {

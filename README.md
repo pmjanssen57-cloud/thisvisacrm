@@ -1,30 +1,39 @@
-# THiS CRM v0.13.51 — PWA Install Option Restored
+# THiS CRM v0.13.52 — Contact Unable to Assist Email
 
-This release is based on v0.13.49 and refines the icon used when the CRM Progressive Web App is installed on a desktop computer.
+This release is based on v0.13.51 and adds a polite outcome email for short website contact-form enquiries that Turner Hopkins cannot assist with.
 
-## Desktop icon changes
+## Contact form workflow
 
-- High-contrast dark-green THiS monogram designed for small Windows taskbar sizes
-- Dedicated 64px, 128px, 192px and 512px manifest icons
-- Multi-resolution Windows favicon from 16px through 256px
-- Matching SVG browser favicon
-- New icon filenames to avoid browsers continuing to use the previously cached artwork
+In **Enquiries & Intake > Contact Forms**, each contact with a valid email address now has two clear email actions:
 
-The existing Android maskable icons and mobile launcher appearance are unchanged.
+- **Send intake** — sends the existing full assessment-form invitation.
+- **Unable to assist** — sends a polite response explaining that Turner Hopkins is not able to assist with the enquiry at this stage.
 
-## Applying the updated icon
+Before sending, the CRM shows a confirmation. After a successful unable-to-assist email:
 
-After deploying this release, desktop operating systems may continue to show a cached icon for an app that is already installed. For the quickest refresh:
+- The contact form is moved to **Dealt with**.
+- The assigned adviser is copied where their adviser profile contains a valid email address.
+- The send is recorded in the existing CRM email log.
+- Failed sends remain visible and do not change the contact status.
 
-1. Close the installed THiS CRM app.
-2. Uninstall the desktop PWA from Chrome or Edge.
-3. Clear the site icon cache if the old artwork remains.
-4. Reopen the CRM website and install the app again.
-5. Remove and repin the taskbar shortcut if Windows retains the old pinned icon.
+## Editable email wording
+
+The new template appears under **Tools > Email templates** as:
+
+**Contact form - unable to assist**
+
+The subject and message can be edited without changing code. Supported placeholders are:
+
+- `{{firstName}}`
+- `{{applicantName}}`
+
+The default wording is deliberately courteous and states that the response is based only on the limited initial enquiry, rather than presenting it as a full immigration assessment or immigration advice.
 
 ## Retained functionality
 
 - Installable Android and desktop PWA
+- Persistent install controls with browser fallback instructions
+- Refined desktop taskbar icon and existing Android maskable icons
 - Streamlined six-section individual client record
 - Dashboard lead-adviser workload with optional backup matters
 - Practice-wide contacted and searched intake visibility
@@ -38,5 +47,4 @@ After deploying this release, desktop operating systems may continue to show a c
 - Existing `yarn build` and `dist` deployment retained
 - No database migration
 - No new npm dependency
-- Service worker served from `/sw.js`
-- Manifest served from `/manifest.webmanifest`
+- Service-worker cache advanced to v0.13.52
