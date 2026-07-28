@@ -1,27 +1,19 @@
-THiS CRM v0.13.52 validation
+THiS CRM v0.13.53 validation
 
-Release scope:
-- Contact Form Unable to assist email action
-- Editable contact_unable_to_assist email template
-- Existing Microsoft 365 send and email-log workflow
-- PWA cache and backup version advancement
+Release focus:
+- Email template body is initialised when the modal opens.
+- Design, HTML and Preview surfaces have explicit visible minimum heights.
+- Subject and test-recipient fields use consistent CRM field styling.
+- Existing template save, reset, preview and test-send workflows are retained.
 
-Validation results:
-- App.jsx JSX/JavaScript transpilation: PASS
-- Generated App JavaScript syntax: PASS
-- All Netlify Function syntax checks: PASS
-- Service-worker syntax: PASS
-- PWA manifest and asset validation: PASS
-- Frontend and backend API wiring: PASS
-- New default email template and fallback content: PASS
-- Successful-send workflow moves the contact to Dealt with: PASS (source assertion)
-- Adviser-copy handling and email-log insertion: PASS (source assertion)
-- CSS brace structure: PASS
-- package.json and Netlify configuration parsing: PASS
-- Service-worker cache version updated to v0.13.52: PASS
-- Package version updated to 0.13.52: PASS
-- Backup source version updated to 0.13.52: PASS
+Validation performed:
+- App.jsx TypeScript JSX transpilation: PASS
+- Generated JavaScript syntax check: PASS
+- Netlify Function syntax checks: PASS
+- Service-worker syntax check: PASS
+- PWA manifest validation: PASS
+- CSS brace balance: PASS
+- Template-editor release assertions: PASS
+- ZIP archive integrity: PASS
 
-A full dependency-backed Vite build was not run because this isolated environment does not contain the project node_modules and Yarn is unavailable. No dependency or build-configuration change is included in this release.
-
-No database migration or new dependency.
+A dependency-backed Vite production build was not run because project dependencies are not installed in the isolated environment and package-registry access is unavailable. No dependency or build configuration changed.

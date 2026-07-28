@@ -15285,3 +15285,103 @@ html, body, #root { min-height: 100%; }
 .pwa-install-help-body li { padding-left: 4px; line-height: 1.45; }
 .pwa-install-help-note { display: flex; align-items: flex-start; gap: 9px; border: 1px solid var(--line); background: var(--pale); border-radius: 14px; padding: 12px 13px; }
 .pwa-install-help-note svg { flex: 0 0 auto; color: var(--ink); margin-top: 2px; }
+
+/* v0.13.53 - Email template editor visibility and form consistency */
+.email-template-modal-editor .template-form-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.email-template-modal-editor .template-form-field > span,
+.template-field-heading strong {
+  color: var(--ink, #003736);
+  font-size: 0.78rem;
+  font-weight: 850;
+  letter-spacing: 0.015em;
+}
+
+.email-template-modal-editor .template-form-field input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid var(--line, #d9e6e1);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #fff;
+  color: var(--text, #1f2933);
+  outline: none;
+  box-sizing: border-box;
+}
+
+.email-template-modal-editor .template-form-field input:focus {
+  border-color: var(--mint, #55d9a0);
+  box-shadow: 0 0 0 3px rgba(85, 217, 160, 0.16);
+}
+
+.template-body-field {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.template-field-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.template-field-heading strong,
+.template-field-heading span {
+  display: block;
+}
+
+.template-field-heading span {
+  margin-top: 3px;
+  color: var(--muted, #66736f);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.email-template-modal-editor .html-editor-shell {
+  display: block;
+  min-width: 0;
+}
+
+.email-template-modal-editor .html-template-editor,
+.email-template-modal-editor .html-template-source,
+.email-template-modal-editor .html-template-preview {
+  display: block;
+  width: 100%;
+  min-height: 340px;
+  box-sizing: border-box;
+}
+
+.email-template-modal-editor .html-template-editor {
+  max-height: 520px;
+  overflow: auto;
+  cursor: text;
+  background: #fff;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.email-template-modal-editor .html-template-editor:empty::before {
+  content: attr(data-placeholder);
+  color: #8a9994;
+  pointer-events: none;
+}
+
+.email-template-modal-editor .html-template-source:focus,
+.email-template-modal-editor .html-template-editor:focus {
+  box-shadow: inset 0 0 0 2px rgba(85, 217, 160, 0.38);
+}
+
+@media (max-width: 720px) {
+  .email-template-modal-editor .html-template-editor,
+  .email-template-modal-editor .html-template-source,
+  .email-template-modal-editor .html-template-preview {
+    min-height: 280px;
+  }
+}

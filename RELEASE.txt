@@ -1,15 +1,14 @@
-v0.13.52 - Contact Unable to Assist Email
+v0.13.53 - Email Template Editor Fix
 
-Based on v0.13.51.
+Based on v0.13.52.
 
 Changes:
-- Adds an Unable to assist action to short Contact Form records in Enquiries & Intake.
-- Sends a polite branded email through the existing Microsoft 365 shared mailbox integration.
-- Copies the assigned adviser where a valid adviser email is recorded.
-- Automatically moves the contact form to Dealt with after a successful send.
-- Records successful and failed sends in the existing CRM email log.
-- Adds an editable Contact form - unable to assist template under Tools > Email templates.
-- Keeps the PWA install controls, Android icons and refined desktop app icon from v0.13.51.
-- Advances the service-worker shell cache and backup source version to v0.13.52.
+- Fixes the blank email message-body editor when the template lightbox is opened.
+- Reinitialises the selected template body when the lightbox becomes visible.
+- Adds a clearly labelled and consistently sized Message body editing area.
+- Standardises Subject and Test recipient fields with the rest of the CRM.
+- Retains Design, HTML, Preview, formatting, placeholder, test-send and reset controls.
+- Keeps all existing email templates and custom wording compatible.
+- Advances the service-worker shell cache and backup source version to v0.13.53.
 
 No database migration or new dependency.

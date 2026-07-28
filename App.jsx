@@ -7867,32 +7867,34 @@ function EmailTemplateLightbox({ open, onClose, emailTemplates = [], saveEmailTe
   }, [selectedKey, sortedTemplates]);
 
   useEffect(() => {
-    if (selected) {
-      const bodyHtml = resolveTemplateEditorHtml(selected);
-      editorHtmlRef.current = bodyHtml;
-      setDraft({ subject: selected.subject || '', bodyText: selected.bodyText || htmlToTemplateText(bodyHtml), bodyHtml });
-      setEditorMode('design');
-      setMessage('');
-      setError('');
-      setTestMessage('');
-      setTestError('');
-      setTestResult(null);
-      window.requestAnimationFrame?.(() => {
-        if (editorRef.current && editorRef.current.innerHTML !== bodyHtml) {
-          editorRef.current.innerHTML = bodyHtml || '<p><br></p>';
-        }
-      });
-    }
-  }, [selected?.key, selected?.subject, selected?.bodyText, selected?.bodyHtml]);
+    if (!open || !selected) return undefined;
+    const bodyHtml = resolveTemplateEditorHtml(selected);
+    editorHtmlRef.current = bodyHtml;
+    setDraft({ subject: selected.subject || '', bodyText: selected.bodyText || htmlToTemplateText(bodyHtml), bodyHtml });
+    setEditorMode('design');
+    setMessage('');
+    setError('');
+    setTestMessage('');
+    setTestError('');
+    setTestResult(null);
+    const frame = window.requestAnimationFrame?.(() => {
+      if (editorRef.current && editorRef.current.innerHTML !== bodyHtml) {
+        editorRef.current.innerHTML = bodyHtml || '<p><br></p>';
+      }
+    });
+    return () => {
+      if (frame && window.cancelAnimationFrame) window.cancelAnimationFrame(frame);
+    };
+  }, [open, selected?.key, selected?.subject, selected?.bodyText, selected?.bodyHtml]);
 
   useEffect(() => {
-    if (editorMode === 'design' && editorRef.current) {
+    if (open && editorMode === 'design' && editorRef.current) {
       const nextHtml = editorHtmlRef.current || draft.bodyHtml || '<p><br></p>';
       if (editorRef.current.innerHTML !== nextHtml) {
         editorRef.current.innerHTML = nextHtml;
       }
     }
-  }, [selected?.key, editorMode]);
+  }, [open, selected?.key, editorMode]);
 
   const configured = Boolean(emailConfig?.configured);
   const sampleData = useMemo(
@@ -8061,8 +8063,13 @@ function EmailTemplateLightbox({ open, onClose, emailTemplates = [], saveEmailTe
                   <button className="btn mini" type="button" onClick={resetTemplate} disabled={saving}><RefreshCw size={14} />Reset to default</button>
                 </div>
 
-                <label>Subject
-                  <input value={draft.subject} onChange={(event) => setDraft((current) => ({ ...current, subject: event.target.value }))} />
+                <label className="template-form-field">
+                  <span>Subject</span>
+                  <input
+                    value={draft.subject}
+                    onChange={(event) => setDraft((current) => ({ ...current, subject: event.target.value }))}
+                    placeholder="Email subject"
+                  />
                 </label>
 
                 <div className="template-placeholder-panel compact">
@@ -8089,7 +8096,14 @@ function EmailTemplateLightbox({ open, onClose, emailTemplates = [], saveEmailTe
                   </div>
                 </div>
 
-                <div className="html-editor-shell">
+                <section className="template-body-field" aria-labelledby="template-message-body-label">
+                  <div className="template-field-heading">
+                    <div>
+                      <strong id="template-message-body-label">Message body</strong>
+                      <span>Edit the wording below. Formatting and placeholders are retained when the template is saved.</span>
+                    </div>
+                  </div>
+                  <div className="html-editor-shell">
                   <div className="html-editor-topbar">
                     <div className="html-editor-mode-tabs" role="tablist" aria-label="Template editor mode">
                       <button type="button" className={editorMode === 'design' ? 'active' : ''} onClick={() => switchEditorMode('design')}>Design</button>
@@ -8115,6 +8129,11 @@ function EmailTemplateLightbox({ open, onClose, emailTemplates = [], saveEmailTe
                       ref={editorRef}
                       className="html-template-editor"
                       contentEditable
+                      role="textbox"
+                      aria-multiline="true"
+                      aria-label="Email message body"
+                      data-placeholder="Enter the email wording here..."
+                      spellCheck="true"
                       suppressContentEditableWarning
                       onInput={() => updateBodyHtml(editorRef.current?.innerHTML || '')}
                       onBlur={() => updateBodyHtml(editorRef.current?.innerHTML || '')}
@@ -8139,7 +8158,8 @@ function EmailTemplateLightbox({ open, onClose, emailTemplates = [], saveEmailTe
                       <div className="html-template-preview" dangerouslySetInnerHTML={{ __html: templatePreviewHtml(previewHtml) }} />
                     </div>
                   )}
-                </div>
+                  </div>
+                </section>
 
                 <p className="tool-muted">Use placeholders where CRM values need to be inserted. The rendered preview uses sample values so advisers can check the real structure before sending.</p>
 
@@ -8153,7 +8173,8 @@ function EmailTemplateLightbox({ open, onClose, emailTemplates = [], saveEmailTe
                   </div>
                   {!configured && <p className="error-text">Microsoft email environment variables are not fully configured in Netlify.</p>}
                   <div className="template-test-row">
-                    <label>Test recipient email
+                    <label className="template-form-field">
+                      <span>Test recipient email</span>
                       <input value={testEmail} onChange={(event) => setTestEmail(event.target.value)} placeholder="name@example.com" type="email" />
                     </label>
                     <button className="btn" type="button" onClick={sendTemplateTest} disabled={saving || !configured}><Send size={16} />{saving ? 'Sending...' : 'Send preview test'}</button>
