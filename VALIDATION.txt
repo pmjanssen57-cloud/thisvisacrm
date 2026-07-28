@@ -1,19 +1,17 @@
-THiS CRM v0.13.53 validation
+THiS CRM v0.13.54 validation
 
-Release focus:
-- Email template body is initialised when the modal opens.
-- Design, HTML and Preview surfaces have explicit visible minimum heights.
-- Subject and test-recipient fields use consistent CRM field styling.
-- Existing template save, reset, preview and test-send workflows are retained.
+Release focus
+- Approved seminar registrations can be exported from the Seminar Registrations workspace.
+- Export respects the selected seminar and includes only Approved records.
+- Excel-compatible CSV uses UTF-8 BOM and spreadsheet-formula injection protection through the existing CSV exporter.
 
-Validation performed:
-- App.jsx TypeScript JSX transpilation: PASS
-- Generated JavaScript syntax check: PASS
-- Netlify Function syntax checks: PASS
-- Service-worker syntax check: PASS
-- PWA manifest validation: PASS
-- CSS brace balance: PASS
-- Template-editor release assertions: PASS
-- ZIP archive integrity: PASS
+Validation performed
+- App.jsx transpiled with the TypeScript JSX parser without errors.
+- Generated JavaScript passed node syntax validation.
+- All Netlify .mjs functions passed node --check.
+- Service worker passed node --check.
+- package.json and netlify.toml parsed successfully.
+- Export source assertions passed.
+- ZIP integrity checked after packaging.
 
-A dependency-backed Vite production build was not run because project dependencies are not installed in the isolated environment and package-registry access is unavailable. No dependency or build configuration changed.
+No database migration or dependency change is included.

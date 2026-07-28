@@ -6066,6 +6066,75 @@ function SeminarManagementPanel({ seminars = [], registrations = [], relatedSour
   const visibleRegistrations = registrationFilter === 'All'
     ? selectedRegistrations
     : selectedRegistrations.filter((item) => item.status === registrationFilter);
+  const approvedRegistrations = selectedRegistrations.filter((item) => item.status === 'Approved');
+
+  function downloadApprovedRegistrations() {
+    if (!approvedRegistrations.length) {
+      setNotice('There are no approved registrations to export for the selected seminar view.');
+      return;
+    }
+    const seminarById = new Map(sortedSeminars.map((seminar) => [String(seminar.id || ''), seminar]));
+    const headers = [
+      'Seminar',
+      'Seminar date',
+      'Seminar time (NZ)',
+      'Presenter',
+      'Registration status',
+      'Full name',
+      'Email',
+      'Date of birth',
+      'Citizenship',
+      'Current country',
+      'Timezone',
+      'Partnership status',
+      'Highest qualification',
+      'Current occupation',
+      'Relevant work history',
+      'Health / character issues',
+      'English ability',
+      'Submitted',
+      'Approved',
+      'Reviewed by',
+    ];
+    const rows = approvedRegistrations.map((registration) => {
+      const seminar = seminarById.get(String(registration.seminarId || '')) || {};
+      return [
+        seminar.title || 'Turner Hopkins immigration seminar',
+        seminar.seminarDate || '',
+        formatSeminarTimeDisplay(seminar.seminarTime || ''),
+        seminar.presenterName || '',
+        registration.status,
+        registration.fullName || '',
+        registration.email || '',
+        registration.dateOfBirth || '',
+        registration.citizenshipCountry || '',
+        registration.residenceCountry || '',
+        registration.timezone || '',
+        registration.partnershipStatus || '',
+        registration.highestQualification || '',
+        registration.currentOccupation || '',
+        registration.workHistory || '',
+        registration.healthCharacterIssues || '',
+        registration.englishAbility || '',
+        exportDateTime(registration.createdAt),
+        exportDateTime(registration.approvedAt || registration.updatedAt),
+        registration.reviewedBy || '',
+      ];
+    });
+    const selectedSeminar = registrationSeminarFilter === 'all'
+      ? null
+      : sortedSeminars.find((seminar) => seminar.id === registrationSeminarFilter);
+    const fileStem = selectedSeminar
+      ? `${selectedSeminar.seminarDate || 'seminar'}-${selectedSeminar.title || 'approved-registrations'}`
+      : 'all-seminars-approved-registrations';
+    const safeFileStem = fileStem
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 90) || 'seminar-approved-registrations';
+    downloadCsvFile(`${safeFileStem}-${todayIso()}.csv`, headers, rows);
+    setNotice(`${approvedRegistrations.length} approved seminar registration${approvedRegistrations.length === 1 ? '' : 's'} exported for Excel.`);
+  }
 
   const newCount = registrations.filter((item) => normaliseSeminarRegistration(item).status === 'New').length;
   const activeLabel = activeSeminar ? `${activeSeminar.seminarDate || 'No date'} ${activeSeminar.seminarTime || ''}`.trim() : 'No active seminar';
@@ -6085,6 +6154,7 @@ function SeminarManagementPanel({ seminars = [], registrations = [], relatedSour
           <span className="enquiries-shown-count">{newCount} new</span>
           <button className="btn dark" type="button" onClick={openSeminarSetup}><Wrench size={16} />Setup</button>
           <button className="btn" type="button" onClick={startNewSeminar}><Plus size={16} />New seminar</button>
+          <button className="btn" type="button" onClick={downloadApprovedRegistrations} disabled={!approvedRegistrations.length} title={approvedRegistrations.length ? `Download ${approvedRegistrations.length} approved registration${approvedRegistrations.length === 1 ? '' : 's'} for the selected seminar view` : 'No approved registrations in the selected seminar view'}><FileSpreadsheet size={16} />Export approved ({approvedRegistrations.length})</button>
           <a className="btn" href="/seminar" target="_blank" rel="noreferrer"><ExternalLink size={16} />Public form</a>
         </div>
       </section>

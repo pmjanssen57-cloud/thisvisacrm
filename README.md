@@ -1,6 +1,11 @@
-# THiS CRM v0.13.53 — Email Template Editor Fix
+# THiS CRM v0.13.54 — Approved Seminar Registration Export
 
 This release is based on v0.13.52 and repairs the CRM email-template editing interface.
+
+
+## v0.13.54 seminar export
+
+The Seminar Registrations workspace now includes **Export approved**. The export respects the selected seminar filter and downloads an Excel-compatible CSV containing approved attendee details, seminar details, submission and approval timestamps, and reviewer information. No database migration or additional package is required.
 
 ## Email template editor
 
@@ -35,4 +40,4 @@ No email wording, sending workflow or template-storage format has changed. Exist
 - Existing `yarn build` and `dist` deployment retained.
 - No database migration.
 - No new npm dependency.
-- Service-worker cache and backup source version advanced to v0.13.53.
+- Service-worker cache and backup source version advanced to v0.13.54.

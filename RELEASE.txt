@@ -1,14 +1,14 @@
-v0.13.53 - Email Template Editor Fix
+v0.13.54 - Approved Seminar Registration Export
 
-Based on v0.13.52.
+Changes
+- Adds an Export approved control to the Seminar Registrations workspace.
+- Exports only registrations with Approved status from the currently selected seminar view.
+- When All seminars is selected, approved registrations from all seminars are included.
+- Downloads an Excel-compatible UTF-8 CSV with seminar details, registrant information, approval dates and reviewer information.
+- The export count is shown on the button and the control is disabled when there are no approved registrations.
+- Existing registration approval, decline, status and email workflows are unchanged.
 
-Changes:
-- Fixes the blank email message-body editor when the template lightbox is opened.
-- Reinitialises the selected template body when the lightbox becomes visible.
-- Adds a clearly labelled and consistently sized Message body editing area.
-- Standardises Subject and Test recipient fields with the rest of the CRM.
-- Retains Design, HTML, Preview, formatting, placeholder, test-send and reset controls.
-- Keeps all existing email templates and custom wording compatible.
-- Advances the service-worker shell cache and backup source version to v0.13.53.
-
-No database migration or new dependency.
+Technical
+- No database migration.
+- No new dependency.
+- Advances package, service-worker cache and backup source version to v0.13.54.
