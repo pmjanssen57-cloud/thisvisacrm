@@ -1,17 +1,22 @@
-THiS CRM v0.13.54 validation
+THiS CRM v0.13.55 validation
 
-Release focus
-- Approved seminar registrations can be exported from the Seminar Registrations workspace.
-- Export respects the selected seminar and includes only Approved records.
-- Excel-compatible CSV uses UTF-8 BOM and spreadsheet-formula injection protection through the existing CSV exporter.
+Passed
+- App.jsx transpiled successfully with the TypeScript JSX parser.
+- Generated JavaScript passed node --check.
+- Every Netlify .mjs function passed node --check.
+- public/sw.js passed node --check.
+- PWA validation script passed.
+- Top-level function declarations are unique in App.jsx and crm.mjs.
+- CSS brace structure passed.
+- Static release assertions passed for:
+  * authenticated 60-second intake/contact polling;
+  * foreground/focus refresh;
+  * manual refresh control and last-checked display;
+  * lightweight intake-only server endpoint before schema bootstrapping;
+  * new-submission detection and CRM toast;
+  * missing-CV action and editable email template;
+  * assigned-adviser validation, CC and reply-to routing;
+  * printable intake view and blocked-popup fallback.
 
-Validation performed
-- App.jsx transpiled with the TypeScript JSX parser without errors.
-- Generated JavaScript passed node syntax validation.
-- All Netlify .mjs functions passed node --check.
-- Service worker passed node --check.
-- package.json and netlify.toml parsed successfully.
-- Export source assertions passed.
-- ZIP integrity checked after packaging.
-
-No database migration or dependency change is included.
+Not run in this isolated environment
+- Full dependency-backed Vite production build. Project dependencies are not installed locally and package-registry access was not available. No dependency or build-configuration change is included in this release.

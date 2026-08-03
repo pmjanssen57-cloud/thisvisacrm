@@ -15385,3 +15385,35 @@ html, body, #root { min-height: 100%; }
     min-height: 280px;
   }
 }
+
+
+/* v0.13.55 intake live refresh */
+.intake-live-refresh-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+.intake-live-refresh-controls > span {
+  color: var(--muted, #64748b);
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.enquiries-refresh-button,
+.enquiries-reset-button {
+  min-height: 38px;
+  white-space: nowrap;
+}
+.spin { animation: this-spin 0.9s linear infinite; }
+@keyframes this-spin { to { transform: rotate(360deg); } }
+@media (max-width: 760px) {
+  .intake-live-refresh-controls {
+    width: 100%;
+    justify-content: space-between;
+    margin-left: 0;
+  }
+  .intake-live-refresh-controls > span { width: 100%; }
+}

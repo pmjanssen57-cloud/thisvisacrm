@@ -168,6 +168,24 @@ This is a preliminary response based on the questionnaire only, not a full immig
     placeholders: ['firstName', 'applicantName'],
   },
   {
+    key: 'intake_cv_request',
+    name: 'Assessment form - request missing CV',
+    description: 'Sent from a full intake record when the applicant or partner CV has not been supplied.',
+    subject: 'Please send us {{requestedDocuments}} for your assessment',
+    bodyText: `Dear {{firstName}},
+
+Thank you for completing the Turner Hopkins assessment questionnaire.
+
+To help {{adviserName}} review your circumstances, please reply to this email with {{requestedDocuments}} attached. A current CV should include your recent employment history, key duties, qualifications and relevant experience.
+
+Your reply will be directed to {{adviserName}} at {{adviserEmail}}. PDF or Word format is preferred.
+
+Once the document is received, we can continue reviewing the information you have provided.
+
+Kind regards,`,
+    placeholders: ['firstName', 'applicantName', 'requestedDocuments', 'adviserName', 'adviserEmail'],
+  },
+  {
     key: 'seminar_approve',
     name: 'Seminar registration - approved',
     description: 'Sent when a seminar registration is approved from the CRM.',
@@ -398,6 +416,12 @@ async function handleCrmEvent(event) {
     const auth = await checkAuth(event);
     if (!auth.ok) return json({ error: 'Unauthorised. Enter the internal CRM access code.' }, 401);
 
+    const requestBody = method === 'POST' && event.body ? JSON.parse(event.body) : {};
+    const requestAction = requestBody.action || '';
+    if (requestAction === 'getIntakeUpdates') {
+      return json({ intakeEnquiries: await readIntakeEnquiries(), refreshedAt: new Date().toISOString() });
+    }
+
     await ensureSchema();
     const accessContext = await resolveCrmAccess(auth);
 
@@ -408,8 +432,8 @@ async function handleCrmEvent(event) {
 
     if (method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
-    const body = event.body ? JSON.parse(event.body) : {};
-    const action = body.action;
+    const body = requestBody;
+    const action = requestAction;
 
     if (action === 'seed') {
       requireAdminAccess(accessContext, 'Seed sample data');
@@ -516,6 +540,11 @@ async function handleCrmEvent(event) {
 
     if (action === 'sendIntakeOutcomeEmail') {
       const emailLog = await sendIntakeOutcomeEmail(body.intake || {}, body.outcome || 'approve', auth.user);
+      return json({ emailLog, emailConfig: getEmailConfigStatus() });
+    }
+
+    if (action === 'sendIntakeCvRequestEmail') {
+      const emailLog = await sendIntakeCvRequestEmail(body.intake || {}, auth.user);
       return json({ emailLog, emailConfig: getEmailConfigStatus() });
     }
 
@@ -2108,6 +2137,11 @@ async function ensureConsultationBookingSchema(database = db()) {
         VALUES (${type.name}, ${type.durationMinutes}, ${type.priceNzd}, ${type.paid}, ${type.description}, ${type.active}, ${type.sortOrder}, ${type.bufferMinutes})`;
     }
   }
+}
+
+async function readIntakeEnquiries(database = db()) {
+  const rows = await database.sql`SELECT id, status, assigned_adviser_id, applicant_first_name, applicant_last_name, email, phone, current_location, citizenship, date_of_birth, current_visa_type, current_visa_expiry, target_pathway, urgency, flags, raw_payload, adviser_assessment_notes, recommended_pathway, consultation_outcome, converted_client_id, created_at, updated_at FROM intake_enquiries ORDER BY created_at DESC`;
+  return rows.map(mapIntakeEnquiryFromDb);
 }
 
 async function readCrmData() {
@@ -4379,6 +4413,100 @@ ${buildEmailSignatureSpacer(18)}
 </div>`;
 }
 
+async function sendIntakeCvRequestEmail(input = {}, authUser = null) {
+  const intake = normaliseIntakeInput(input);
+  if (!isValidEmailAddress(intake.email)) throw new Error('This intake record does not have a valid applicant email address.');
+
+  const payload = parseJsonObject(intake.rawPayload || intake.raw_payload || {});
+  const applicantUpload = payload?.intakeUploads?.applicantCv || payload.applicantCv || null;
+  const partnerUpload = payload?.intakeUploads?.partnerCv || payload.partnerCv || null;
+  const applicantMissing = !String(applicantUpload?.fileName || '').trim();
+  const partnerMissing = String(payload.hasPartner || '').toLowerCase() === 'yes' && !String(partnerUpload?.fileName || '').trim();
+  if (!applicantMissing && !partnerMissing) throw new Error('The intake record already contains the expected CV documents.');
+
+  const advisers = await db().sql`SELECT id, name, email FROM advisers ORDER BY name ASC`;
+  const adviser = advisers.find((item) => String(item.id || '') === String(intake.assignedAdviserId || '')) || null;
+  const adviserEmail = String(adviser?.email || '').trim();
+  if (!adviser || !isValidEmailAddress(adviserEmail)) throw new Error('Assign an adviser with a valid email address before requesting a CV.');
+
+  const requestedDocuments = applicantMissing && partnerMissing
+    ? 'your current CV and your partner’s current CV'
+    : applicantMissing
+      ? 'your current CV'
+      : 'your partner’s current CV';
+  const fallbackDraft = buildIntakeCvRequestEmailContent(intake, adviser, requestedDocuments);
+  const config = requireMicrosoftEmailConfig();
+  const database = db();
+  const sentBy = authUser?.email || authUser?.name || 'CRM adviser';
+  const applicantName = [intake.firstName, intake.lastName].filter(Boolean).join(' ').trim() || intake.email || 'applicant';
+  const emailContent = await buildEmailFromTemplate('intake_cv_request', {
+    firstName: String(intake.firstName || '').trim() || 'there',
+    applicantName,
+    requestedDocuments,
+    adviserName: adviser.name || 'your assigned adviser',
+    adviserEmail,
+  }, fallbackDraft);
+  const emailDraft = { to: fallbackDraft.to, ...emailContent };
+
+  const [created] = await database.sql`
+    INSERT INTO email_notifications (related_record_type, related_record_id, intake_id, template_key, from_email, from_name, to_email, cc, subject, body_text, body_html, status, sent_by)
+    VALUES ('intake', ${nullableUuid(intake.id)}, ${nullableUuid(intake.id)}, 'intake_cv_request', ${config.fromEmail}, ${config.fromName}, ${emailDraft.to}, ${adviserEmail}, ${emailDraft.subject}, ${emailDraft.bodyText}, ${emailDraft.bodyHtml}, 'Sending', ${sentBy})
+    RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+
+  try {
+    const token = await getMicrosoftGraphAccessToken(config);
+    const sendResult = await sendMicrosoftGraphEmail({
+      config,
+      token,
+      toEmail: emailDraft.to,
+      ccEmail: adviserEmail,
+      replyToEmail: adviserEmail,
+      subject: emailDraft.subject,
+      bodyText: emailDraft.bodyText,
+      bodyHtml: emailDraft.bodyHtml,
+    });
+    const [updated] = await database.sql`
+      UPDATE email_notifications
+         SET status = 'Sent', sent_at = NOW(), provider_request_id = ${sendResult.requestId || ''}, updated_at = NOW()
+       WHERE id = ${created.id}
+       RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+    return mapEmailLogFromDb(updated);
+  } catch (error) {
+    const message = String(error?.message || error).slice(0, 1000);
+    const [failed] = await database.sql`
+      UPDATE email_notifications
+         SET status = 'Failed', failed_at = NOW(), failure_message = ${message}, updated_at = NOW()
+       WHERE id = ${created.id}
+       RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+    return mapEmailLogFromDb(failed);
+  }
+}
+
+function buildIntakeCvRequestEmailContent(intake = {}, adviser = {}, requestedDocuments = 'your current CV') {
+  const firstName = String(intake.firstName || '').trim() || 'there';
+  const adviserName = String(adviser.name || '').trim() || 'your assigned adviser';
+  const adviserEmail = String(adviser.email || '').trim();
+  const bodyText = [
+    `Dear ${firstName},`,
+    '',
+    'Thank you for completing the Turner Hopkins assessment questionnaire.',
+    '',
+    `To help ${adviserName} review your circumstances, please reply to this email with ${requestedDocuments} attached. A current CV should include your recent employment history, key duties, qualifications and relevant experience.`,
+    '',
+    `Your reply will be directed to ${adviserName} at ${adviserEmail}. PDF or Word format is preferred.`,
+    '',
+    'Once the document is received, we can continue reviewing the information you have provided.',
+    '',
+    'Kind regards,',
+  ].join('\n');
+  return {
+    to: String(intake.email || '').trim(),
+    subject: `Please send us ${requestedDocuments} for your assessment`,
+    bodyText,
+    bodyHtml: editableTemplateEmailHtml(bodyText),
+  };
+}
+
 async function sendIntakeOutcomeEmail(input = {}, outcome = 'approve', authUser = null) {
   const intake = normaliseIntakeInput(input);
   if (!isValidEmailAddress(intake.email)) throw new Error('This intake record does not have a valid applicant email address.');
@@ -4710,11 +4838,12 @@ async function getMicrosoftGraphAccessToken(config) {
   return payload.access_token;
 }
 
-async function sendMicrosoftGraphEmail({ config, token, toEmail, ccEmail = '', bccEmail = '', subject, bodyText, bodyHtml }) {
+async function sendMicrosoftGraphEmail({ config, token, toEmail, ccEmail = '', bccEmail = '', replyToEmail = '', subject, bodyText, bodyHtml }) {
   const endpoint = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(config.fromEmail)}/sendMail`;
   const toRecipients = normaliseEmailRecipientList(toEmail);
   const ccRecipients = normaliseEmailRecipientList(ccEmail);
   const bccRecipients = normaliseEmailRecipientList(bccEmail);
+  const replyToRecipients = normaliseEmailRecipientList(replyToEmail);
   if (!toRecipients.length) throw new Error('At least one valid email recipient is required.');
   const message = {
     subject,
@@ -4726,6 +4855,7 @@ async function sendMicrosoftGraphEmail({ config, token, toEmail, ccEmail = '', b
   };
   if (ccRecipients.length) message.ccRecipients = ccRecipients;
   if (bccRecipients.length) message.bccRecipients = bccRecipients;
+  if (replyToRecipients.length) message.replyTo = replyToRecipients;
 
   const response = await fetch(endpoint, {
     method: 'POST',

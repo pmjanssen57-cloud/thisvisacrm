@@ -834,8 +834,12 @@ export default function App() {
   const [calendarEditorDirty, setCalendarEditorDirty] = useState(false);
   const [crmConfirm, setCrmConfirm] = useState(null);
   const [crmToast, setCrmToast] = useState(null);
+  const [intakeRefreshing, setIntakeRefreshing] = useState(false);
+  const [lastIntakeRefreshAt, setLastIntakeRefreshAt] = useState('');
   const [recentClientIds, setRecentClientIds] = useState(() => safeJsonParse(localStorage.getItem('this_crm_recent_clients'), []));
   const crmConfirmResolverRef = useRef(null);
+  const intakeRefreshInFlightRef = useRef(false);
+  const dataRef = useRef(emptyData);
 
   function showCrmToast(message, tone = 'success') {
     if (!message) return;
@@ -988,7 +992,10 @@ export default function App() {
       }
       const body = await readJsonResponse(response);
       if (!response.ok) throw new Error(formatApiError(body, 'Unable to load CRM data'));
-      setData(normaliseData(body));
+      const nextData = normaliseData(body);
+      dataRef.current = nextData;
+      setData(nextData);
+      setLastIntakeRefreshAt(new Date().toISOString());
       setAuthRequired(false);
       if (!selectedClientId && body.clients?.[0]?.id) setSelectedClientId(body.clients[0].id);
       if (!selectedCommercialClientId && body.commercialClients?.[0]?.id) setSelectedCommercialClientId(body.commercialClients[0].id);
@@ -1014,6 +1021,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
+
+  useEffect(() => {
     localStorage.setItem('this_crm_dashboard_adviser_filter', dashboardAdviserFilter);
   }, [dashboardAdviserFilter]);
 
@@ -1026,6 +1037,73 @@ export default function App() {
     const timer = window.setTimeout(() => setCrmToast(null), 3200);
     return () => window.clearTimeout(timer);
   }, [crmToast]);
+
+  async function refreshIntakeData(options = {}) {
+    const silent = options.silent !== false;
+    if (intakeRefreshInFlightRef.current || authRequired || (!identityUser && !accessCode)) return null;
+    intakeRefreshInFlightRef.current = true;
+    if (!silent) setIntakeRefreshing(true);
+    try {
+      const response = await fetch('/.netlify/functions/crm', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...authHeaders(accessCode, identityUser) },
+        credentials: 'same-origin',
+        body: JSON.stringify({ action: 'getIntakeUpdates' }),
+      });
+      if (response.status === 401) {
+        setAuthRequired(true);
+        return null;
+      }
+      const body = await readJsonResponse(response);
+      if (!response.ok) throw new Error(formatApiError(body, 'Unable to refresh intake forms'));
+      const incoming = (body.intakeEnquiries || []).map(normaliseIntakeEnquiry);
+      const current = dataRef.current || emptyData;
+      const existingIds = new Set((current.intakeEnquiries || []).map((item) => String(item.id || '')));
+      const newlyReceived = incoming.filter((item) => item.id && !existingIds.has(String(item.id)));
+      const nextData = { ...current, intakeEnquiries: incoming };
+      dataRef.current = nextData;
+      setData((latest) => ({ ...latest, intakeEnquiries: incoming }));
+      setLastIntakeRefreshAt(body.refreshedAt || new Date().toISOString());
+      if (newlyReceived.length) {
+        const fullIntakes = newlyReceived.filter((item) => !isContactIntake(item)).length;
+        const contacts = newlyReceived.length - fullIntakes;
+        const parts = [];
+        if (fullIntakes) parts.push(`${fullIntakes} new intake form${fullIntakes === 1 ? '' : 's'}`);
+        if (contacts) parts.push(`${contacts} new contact form${contacts === 1 ? '' : 's'}`);
+        showCrmToast(`${parts.join(' and ')} received.`, 'success');
+      } else if (!silent) {
+        showCrmToast('Intake forms are up to date.', 'success');
+      }
+      return body;
+    } catch (err) {
+      if (!silent) {
+        setError(err.message || String(err));
+        showCrmToast('Intake refresh failed.', 'error');
+      }
+      return null;
+    } finally {
+      intakeRefreshInFlightRef.current = false;
+      if (!silent) setIntakeRefreshing(false);
+    }
+  }
+
+  useEffect(() => {
+    if (loading || authRequired || (!identityUser && !accessCode)) return undefined;
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') refreshIntakeData({ silent: true });
+    };
+    const refreshOnFocus = () => refreshIntakeData({ silent: true });
+    const timer = window.setInterval(() => refreshIntakeData({ silent: true }), 60000);
+    window.addEventListener('focus', refreshOnFocus);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refreshOnFocus);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+    // Intake polling deliberately follows the active authenticated session only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, authRequired, identityUser?.id, identityUser?.email, accessCode]);
 
   async function callApi(action, payload = {}, options = {}) {
     setSaving(true);
@@ -1353,6 +1431,18 @@ export default function App() {
 
   async function sendIntakeOutcomeEmail(intake, outcome) {
     const body = await callApi('sendIntakeOutcomeEmail', { intake, outcome }, { skipDataUpdate: true });
+    if (body.emailLog) {
+      setData((current) => ({
+        ...current,
+        emailLogs: [normaliseEmailLog(body.emailLog), ...(current.emailLogs || [])].slice(0, 200),
+        emailConfig: body.emailConfig ? normaliseEmailConfig(body.emailConfig) : current.emailConfig,
+      }));
+    }
+    return body;
+  }
+
+  async function sendIntakeCvRequestEmail(intake) {
+    const body = await callApi('sendIntakeCvRequestEmail', { intake }, { skipDataUpdate: true });
     if (body.emailLog) {
       setData((current) => ({
         ...current,
@@ -1832,7 +1922,7 @@ export default function App() {
             )}
 
             {tab === 'intake' && (
-              <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} identityUser={identityUser} canExportContacts={canExportContacts} statuses={data.intakeStatuses || INTAKE_STATUSES} seminars={data.seminars || []} seminarRegistrations={data.seminarRegistrations || []} feedbackSubmissions={data.feedbackSubmissions || []} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} sendContactUnableToAssistEmail={sendContactUnableToAssistEmail} downloadIntakeUpload={downloadIntakeUpload} saveSeminar={saveSeminar} deleteSeminar={deleteSeminar} saveSeminarRegistration={saveSeminarRegistration} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail} saveFeedbackSubmission={saveFeedbackSubmission} deleteFeedbackSubmission={deleteFeedbackSubmission} saving={saving} openClientRecord={openClientRecord} confirmAction={askCrmConfirm} />
+              <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} identityUser={identityUser} canExportContacts={canExportContacts} statuses={data.intakeStatuses || INTAKE_STATUSES} seminars={data.seminars || []} seminarRegistrations={data.seminarRegistrations || []} feedbackSubmissions={data.feedbackSubmissions || []} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendIntakeCvRequestEmail={sendIntakeCvRequestEmail} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} sendContactUnableToAssistEmail={sendContactUnableToAssistEmail} downloadIntakeUpload={downloadIntakeUpload} saveSeminar={saveSeminar} deleteSeminar={deleteSeminar} saveSeminarRegistration={saveSeminarRegistration} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail} saveFeedbackSubmission={saveFeedbackSubmission} deleteFeedbackSubmission={deleteFeedbackSubmission} saving={saving} openClientRecord={openClientRecord} confirmAction={askCrmConfirm} refreshIntakeData={refreshIntakeData} intakeRefreshing={intakeRefreshing} lastIntakeRefreshAt={lastIntakeRefreshAt} />
             )}
 
             {tab === 'bookings' && (
@@ -5138,7 +5228,7 @@ function RelatedEnquiryPanel({ matches = [] }) {
 }
 
 
-function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', identityUser = null, canExportContacts = false, statuses, seminars = [], seminarRegistrations = [], feedbackSubmissions = [], saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, sendContactIntakeInviteEmail, sendContactUnableToAssistEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saveFeedbackSubmission, deleteFeedbackSubmission, saving, openClientRecord, confirmAction }) {
+function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', identityUser = null, canExportContacts = false, statuses, seminars = [], seminarRegistrations = [], feedbackSubmissions = [], saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, sendIntakeCvRequestEmail, sendContactIntakeInviteEmail, sendContactUnableToAssistEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saveFeedbackSubmission, deleteFeedbackSubmission, saving, openClientRecord, confirmAction, refreshIntakeData, intakeRefreshing = false, lastIntakeRefreshAt = '' }) {
   const askConfirm = confirmAction || (async ({ message }) => window.confirm(message || 'Continue?'));
   const simplifiedStatuses = (statuses || INTAKE_STATUSES).filter((status) => INTAKE_STATUSES.includes(status));
   const [workspaceTab, setWorkspaceTab] = useState('contact');
@@ -5678,7 +5768,13 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
               ))}
             </div>
           )}
-          <button className="btn enquiries-reset-button" type="button" onClick={clearSearch}><RefreshCw size={15} />Reset</button>
+          <div className="intake-live-refresh-controls">
+            <span title={lastIntakeRefreshAt ? formatPortalDateTime(lastIntakeRefreshAt) : 'Waiting for first refresh'}>Live refresh · {lastIntakeRefreshAt ? formatShortTime(lastIntakeRefreshAt) : 'checking'}</span>
+            <button className="btn enquiries-refresh-button" type="button" onClick={() => refreshIntakeData?.({ silent: false })} disabled={intakeRefreshing}>
+              <RefreshCw size={15} className={intakeRefreshing ? 'spin' : ''} />{intakeRefreshing ? 'Refreshing...' : 'Refresh'}
+            </button>
+            <button className="btn enquiries-reset-button" type="button" onClick={clearSearch}>Reset filters</button>
+          </div>
         </div>
 
         {contactInviteNotice && (
@@ -5927,6 +6023,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
             onDelete={deleteDraft}
             onConvert={convertDraft}
             sendIntakeOutcomeEmail={sendIntakeOutcomeEmail}
+            sendIntakeCvRequestEmail={sendIntakeCvRequestEmail}
             downloadIntakeUpload={downloadIntakeUpload}
             openClientRecord={openClientRecord}
             relatedMatches={draft ? relatedMatchesFor(isContactIntake(draft) ? 'contact' : 'intake', draft) : []}
@@ -6297,12 +6394,17 @@ function intakeCompareSnapshot(item = {}) {
   };
 }
 
-function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, setDraftPayloadField, onSave, onSaveAndClose, onClose, onDelete, onConvert, sendIntakeOutcomeEmail, downloadIntakeUpload, openClientRecord, relatedMatches = [], confirmAction }) {
+function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, setDraftPayloadField, onSave, onSaveAndClose, onClose, onDelete, onConvert, sendIntakeOutcomeEmail, sendIntakeCvRequestEmail, downloadIntakeUpload, openClientRecord, relatedMatches = [], confirmAction }) {
   const askConfirm = confirmAction || (async ({ message }) => window.confirm(message || 'Continue?'));
   const applicantName = [draft.firstName, draft.lastName].filter(Boolean).join(' ') || 'Unnamed enquiry';
   const uploadPayload = intakeAnswerPayload(draft);
   const applicantCvUpload = uploadPayload.intakeUploads?.applicantCv || uploadPayload.applicantCv;
   const partnerCvUpload = uploadPayload.intakeUploads?.partnerCv || uploadPayload.partnerCv;
+  const assignedAdviser = advisers.find((adviser) => String(adviser.id || '') === String(draft.assignedAdviserId || '')) || null;
+  const applicantCvMissing = !applicantCvUpload?.fileName;
+  const partnerCvMissing = uploadPayload.hasPartner === 'Yes' && !partnerCvUpload?.fileName;
+  const missingCvCount = Number(applicantCvMissing) + Number(partnerCvMissing);
+  const canRequestCv = Boolean(draft.email && assignedAdviser?.email && missingCvCount);
   const [outcomeSending, setOutcomeSending] = useState('');
   const [outcomeMessage, setOutcomeMessage] = useState('');
 
@@ -6342,6 +6444,33 @@ function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, 
     }
   }
 
+  async function requestMissingCv() {
+    if (!canRequestCv || outcomeSending) return;
+    const missingDescription = applicantCvMissing && partnerCvMissing ? 'the applicant and partner CVs' : applicantCvMissing ? 'the applicant CV' : 'the partner CV';
+    const confirmed = await askConfirm({
+      title: 'Request missing CV?',
+      message: `Email ${draft.email} to request ${missingDescription}?`,
+      details: [`Replies will be directed to ${assignedAdviser.name} at ${assignedAdviser.email}.`],
+      confirmLabel: 'Send request',
+      tone: 'send',
+    });
+    if (!confirmed) return;
+    setOutcomeSending('cv-request');
+    setOutcomeMessage('');
+    try {
+      const body = await sendIntakeCvRequestEmail?.(draft);
+      if (body?.emailLog?.status === 'Failed') {
+        setOutcomeMessage(`CV request failed: ${body.emailLog.failureMessage || 'Microsoft did not accept the send request.'}`);
+      } else {
+        setOutcomeMessage(`CV request sent to ${draft.email}. Replies will go to ${assignedAdviser.email}.`);
+      }
+    } catch (err) {
+      setOutcomeMessage(err.message || 'CV request could not be sent.');
+    } finally {
+      setOutcomeSending('');
+    }
+  }
+
   return (
     <div className="intake-popout-editor">
       <div className="intake-popout-actionbar">
@@ -6362,9 +6491,10 @@ function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, 
         <IntakeFlagList flags={draft.flags} />
         <RelatedEnquiryPanel matches={relatedMatches} />
         <div className="button-row">
-          <button className="btn" type="button" onClick={() => { if (!printIntakeRecord(draft, advisers)) window.alert('The browser blocked the print window. Allow pop-ups for this CRM, then try again.'); }}><FileText size={16} />Print / save PDF</button>
+          <button className="btn" type="button" onClick={() => printIntakeRecord(draft, advisers)}><FileText size={16} />Open print view</button>
           {!isContactIntake(draft) && applicantCvUpload?.fileName && <button className="btn" type="button" onClick={() => downloadCv('applicantCv', 'Applicant CV')}><Download size={16} />Download applicant CV</button>}
           {!isContactIntake(draft) && partnerCvUpload?.fileName && <button className="btn" type="button" onClick={() => downloadCv('partnerCv', 'Partner CV')}><Download size={16} />Download partner CV</button>}
+          {!isContactIntake(draft) && missingCvCount > 0 && <button className="btn" type="button" disabled={!canRequestCv || Boolean(outcomeSending) || saving} onClick={requestMissingCv} title={!draft.email ? 'No applicant email recorded' : !draft.assignedAdviserId ? 'Assign an adviser before requesting a CV' : !assignedAdviser?.email ? 'The assigned adviser does not have an email address recorded' : 'Send a CV request with replies directed to the assigned adviser'}><Mail size={16} />{outcomeSending === 'cv-request' ? 'Sending...' : partnerCvMissing && applicantCvMissing ? 'Request missing CVs' : partnerCvMissing ? 'Request partner CV' : 'Request applicant CV'}</button>}
           {!isContactIntake(draft) && <button className="btn" type="button" disabled={!draft.email || Boolean(outcomeSending) || saving} onClick={() => sendOutcomeEmail('approve')} title={!draft.email ? 'No submitter email recorded' : 'Send the approval email from the CRM'}><Mail size={16} />{outcomeSending === 'approve' ? 'Sending...' : 'Send approval + booking link'}</button>}
           {!isContactIntake(draft) && <button className="btn danger" type="button" disabled={!draft.email || Boolean(outcomeSending) || saving} onClick={() => sendOutcomeEmail('decline')} title={!draft.email ? 'No submitter email recorded' : 'Send the decline email from the CRM'}><Mail size={16} />{outcomeSending === 'decline' ? 'Sending...' : 'Send decline email'}</button>}
           <button className="btn dark" type="button" onClick={onConvert} disabled={saving || Boolean(draft.convertedClientId)}><UsersRound size={16} />Convert to client</button>
@@ -8581,6 +8711,7 @@ function emailTemplateLabel(key = '') {
     new_intake_adviser_notification: 'Legacy contact/intake notification',
     intake_approve: 'Assessment next steps',
     intake_decline: 'Assessment not suitable',
+    intake_cv_request: 'Assessment CV request',
     portal_access: 'Portal access',
     seminar_approve: 'Seminar approval',
     seminar_decline: 'Seminar decline',
@@ -12426,27 +12557,24 @@ function safeDownloadFileName(value = '') {
 }
 
 function printIntakeRecord(record = {}, advisers = []) {
-  const printWindow = window.open('about:blank', `this-intake-record-${Date.now()}`, 'width=980,height=900,scrollbars=yes,resizable=yes');
-  if (!printWindow) return false;
   try {
     const html = buildIntakePrintHtml(record, advisers);
-    printWindow.document.open('text/html', 'replace');
-    printWindow.document.write(html);
-    printWindow.document.close();
-
-    let printStarted = false;
-    const startPrint = () => {
-      if (printStarted || printWindow.closed) return;
-      printStarted = true;
-      printWindow.focus();
-      printWindow.print();
-    };
-    printWindow.addEventListener?.('load', () => window.setTimeout(startPrint, 450), { once: true });
-    window.setTimeout(startPrint, 900);
+    const applicantName = [record.firstName, record.lastName].filter(Boolean).join(' ') || 'intake-record';
+    const fileName = `${safeDownloadFileName(applicantName)}-intake-record.html`;
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const objectUrl = URL.createObjectURL(blob);
+    const printWindow = window.open(objectUrl, `this-intake-record-${Date.now()}`, 'width=1040,height=900,scrollbars=yes,resizable=yes');
+    if (!printWindow) {
+      URL.revokeObjectURL(objectUrl);
+      downloadBrowserFile(fileName, html, 'text/html;charset=utf-8');
+      window.alert('The browser blocked the print view, so a printable HTML copy has been downloaded instead. Open that file and choose Print / Save as PDF.');
+      return false;
+    }
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
     return true;
   } catch (err) {
-    console.error('Intake record print window could not be prepared.', err);
-    try { printWindow.close(); } catch {}
+    console.error('Intake record print view could not be prepared.', err);
+    window.alert('The printable intake record could not be prepared. Please refresh the CRM and try again.');
     return false;
   }
 }
@@ -12494,10 +12622,20 @@ function buildIntakePrintHtml(record = {}, advisers = []) {
     .row strong { display:block; color:var(--text); margin-top:4px; white-space:pre-wrap; word-break:break-word; line-height:1.38; }
     .nested { border:1px solid #d8efe6; background:#f7fcfa; border-radius:15px; padding:12px; margin-top:12px; }
     .footer { margin-top:26px; color:var(--muted); font-size:11px; border-top:1px solid var(--line); padding-top:12px; }
-    @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background:#fff; } .page { padding:0; max-width:none; } .cover, .section, .nested { break-inside: avoid; } }
+    .print-toolbar { position:sticky; top:0; z-index:10; display:flex; justify-content:space-between; align-items:center; gap:16px; padding:12px 18px; background:#003736; color:#fff; box-shadow:0 8px 24px rgba(0,55,54,.18); }
+    .print-toolbar div { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .print-toolbar strong { font-size:14px; }
+    .print-toolbar span { font-size:12px; opacity:.82; }
+    .print-toolbar button { border:1px solid rgba(255,255,255,.38); border-radius:10px; padding:9px 13px; font:inherit; font-weight:800; cursor:pointer; background:#fff; color:#003736; }
+    .print-toolbar button.secondary { background:transparent; color:#fff; }
+    @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background:#fff; } .print-toolbar { display:none !important; } .page { padding:0; max-width:none; } .cover, .section, .nested { break-inside: avoid; } }
   </style>
 </head>
 <body>
+  <div class="print-toolbar">
+    <div><strong>Printable intake record</strong><span>Review the page, then use Print / save PDF.</span></div>
+    <div><button type="button" onclick="window.print()">Print / save PDF</button><button type="button" class="secondary" onclick="window.close()">Close</button></div>
+  </div>
   <main class="page">
     <section class="cover">
       <div class="head">
@@ -13402,6 +13540,12 @@ function formatPortalDateTime(value) {
 
 function formatDateTime(value) {
   return formatPortalDateTime(value);
+}
+
+function formatShortTime(value) {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('en-NZ', { hour: 'numeric', minute: '2-digit' }).format(date).toLowerCase();
 }
 
 function stableStringify(value) {

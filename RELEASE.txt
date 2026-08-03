@@ -1,14 +1,20 @@
-v0.13.54 - Approved Seminar Registration Export
+v0.13.55 - Live Intake Refresh, CV Requests and Reliable Print View
 
 Changes
-- Adds an Export approved control to the Seminar Registrations workspace.
-- Exports only registrations with Approved status from the currently selected seminar view.
-- When All seminars is selected, approved registrations from all seminars are included.
-- Downloads an Excel-compatible UTF-8 CSV with seminar details, registrant information, approval dates and reviewer information.
-- The export count is shown on the button and the control is disabled when there are no approved registrations.
-- Existing registration approval, decline, status and email workflows are unchanged.
+- Adds a lightweight automatic intake refresh every 60 seconds while an authenticated CRM session is open.
+- Refreshes immediately when the browser or installed app returns to the foreground.
+- Updates intake and contact counts without logging out, restarting the app or overwriting an open intake draft.
+- Shows an in-app notice when a new intake or contact form is received.
+- Adds a manual Refresh control and last-checked time in Enquiries & Intake.
+- Adds an editable Assessment form - request missing CV email template.
+- Shows a Request applicant CV, Request partner CV or Request missing CVs action when expected uploads are absent.
+- Requires an assigned adviser with an email address and directs applicant replies to that adviser while copying them on the request.
+- Replaces the automatically opened browser print dialogue with a stable printable intake view.
+- The printable view includes an explicit Print / save PDF button and falls back to a downloaded printable HTML file if pop-ups are blocked.
 
 Technical
 - No database migration.
 - No new dependency.
-- Advances package, service-worker cache and backup source version to v0.13.54.
+- Adds the authenticated getIntakeUpdates and sendIntakeCvRequestEmail CRM actions.
+- Adds Microsoft Graph reply-to support for the CV request workflow.
+- Advances package, service-worker cache and backup source version to v0.13.55.
