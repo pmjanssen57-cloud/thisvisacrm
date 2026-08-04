@@ -1300,7 +1300,9 @@ async function ensureSchema() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )`;
+  await database.sql`ALTER TABLE agreement_sets ADD COLUMN IF NOT EXISTS intake_id UUID REFERENCES intake_enquiries(id) ON DELETE SET NULL`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_agreement_sets_client_id ON agreement_sets(client_id)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_agreement_sets_intake_id ON agreement_sets(intake_id)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_agreement_sets_updated_at ON agreement_sets(updated_at DESC)`;
   await database.sql`
     CREATE TABLE IF NOT EXISTS agreement_template_library (
@@ -2373,6 +2375,7 @@ async function saveAgreementSet(input = {}, user = null) {
   const database = db();
   const id = isUuid(input.id) ? input.id : null;
   const clientId = isUuid(input.clientId || input.client_id) ? (input.clientId || input.client_id) : null;
+  const intakeId = isUuid(input.intakeId || input.intake_id) ? (input.intakeId || input.intake_id) : null;
   const adviserId = isUuid(input.adviserId || input.adviser_id) ? (input.adviserId || input.adviser_id) : null;
   const title = String(input.title || 'Untitled engagement agreement').trim() || 'Untitled engagement agreement';
   const appType = String(input.appType || input.app_type || 'other').trim() || 'other';
@@ -2387,19 +2390,19 @@ async function saveAgreementSet(input = {}, user = null) {
   if (id) {
     rows = await database.sql`
       UPDATE agreement_sets
-         SET client_id = ${clientId}, adviser_id = ${adviserId}, title = ${title}, app_type = ${appType}, status = ${status},
+         SET client_id = ${clientId}, intake_id = ${intakeId}, adviser_id = ${adviserId}, title = ${title}, app_type = ${appType}, status = ${status},
              standalone_label = ${standaloneLabel || null}, recipient_email = ${recipientEmail || null},
              studio_state = ${JSON.stringify(studioState)}::jsonb, template_version = ${JSON.stringify(templateVersion)}::jsonb,
              updated_by = ${actor}, updated_at = NOW()
        WHERE id = ${id}
-       RETURNING id, client_id, adviser_id, title, app_type, status, standalone_label, recipient_email, studio_state, template_version,
+       RETURNING id, client_id, intake_id, adviser_id, title, app_type, status, standalone_label, recipient_email, studio_state, template_version,
                  created_by, updated_by, created_at, updated_at, issued_at, accepted_at, accepted_by`;
   } else {
     rows = await database.sql`
-      INSERT INTO agreement_sets (client_id, adviser_id, title, app_type, status, standalone_label, recipient_email, studio_state, template_version, created_by, updated_by)
-      VALUES (${clientId}, ${adviserId}, ${title}, ${appType}, ${status}, ${standaloneLabel || null}, ${recipientEmail || null},
+      INSERT INTO agreement_sets (client_id, intake_id, adviser_id, title, app_type, status, standalone_label, recipient_email, studio_state, template_version, created_by, updated_by)
+      VALUES (${clientId}, ${intakeId}, ${adviserId}, ${title}, ${appType}, ${status}, ${standaloneLabel || null}, ${recipientEmail || null},
               ${JSON.stringify(studioState)}::jsonb, ${JSON.stringify(templateVersion)}::jsonb, ${actor}, ${actor})
-      RETURNING id, client_id, adviser_id, title, app_type, status, standalone_label, recipient_email, studio_state, template_version,
+      RETURNING id, client_id, intake_id, adviser_id, title, app_type, status, standalone_label, recipient_email, studio_state, template_version,
                 created_by, updated_by, created_at, updated_at, issued_at, accepted_at, accepted_by`;
   }
   if (!rows[0]) throw new Error('Agreement could not be saved.');
@@ -2487,7 +2490,7 @@ async function issueAgreementSet(input = {}, issue = {}, user = null) {
     UPDATE agreement_sets
        SET status = 'Sent', issued_at = NOW(), updated_at = NOW(), updated_by = ${actor}
      WHERE id = ${agreement.id}
-     RETURNING id, client_id, adviser_id, title, app_type, status, standalone_label, recipient_email, studio_state, template_version,
+     RETURNING id, client_id, intake_id, adviser_id, title, app_type, status, standalone_label, recipient_email, studio_state, template_version,
                created_by, updated_by, created_at, updated_at, issued_at, accepted_at, accepted_by`;
   agreement = mapAgreementSetFromDb(rows[0]);
   return { agreementSet: agreement, signingLinks, emailConfigured: configStatus.configured };
@@ -2495,7 +2498,7 @@ async function issueAgreementSet(input = {}, issue = {}, user = null) {
 
 function mapAgreementSetFromDb(row = {}) {
   return {
-    id: row.id || '', clientId: row.client_id || '', adviserId: row.adviser_id || '', title: row.title || '', appType: row.app_type || 'other',
+    id: row.id || '', clientId: row.client_id || '', intakeId: row.intake_id || '', adviserId: row.adviser_id || '', title: row.title || '', appType: row.app_type || 'other',
     status: row.status || 'Draft', standaloneLabel: row.standalone_label || '', recipientEmail: row.recipient_email || '',
     studioState: row.studio_state || {}, templateVersion: row.template_version || {}, createdBy: row.created_by || '', updatedBy: row.updated_by || '',
     createdAt: row.created_at || '', updatedAt: row.updated_at || '', issuedAt: row.issued_at || '', acceptedAt: row.accepted_at || '', acceptedBy: row.accepted_by || '',
@@ -2539,7 +2542,7 @@ async function readCrmData() {
     database.sql`SELECT id, client_id, title, pack_id, status, standalone_label, studio_state, template_version, created_by, updated_by, created_at, updated_at, issued_at FROM instruction_sets ORDER BY updated_at DESC`,
     database.sql`SELECT id, library_json, updated_by, updated_at FROM instruction_template_library WHERE id = 'master' LIMIT 1`,
     database.sql`SELECT id, pack_id, version_label, change_note, snapshot, created_by, created_at FROM instruction_template_versions ORDER BY created_at DESC LIMIT 200`,
-    database.sql`SELECT id, client_id, adviser_id, title, app_type, status, standalone_label, recipient_email, studio_state, template_version, created_by, updated_by, created_at, updated_at, issued_at, accepted_at, accepted_by FROM agreement_sets ORDER BY updated_at DESC`,
+    database.sql`SELECT id, client_id, intake_id, adviser_id, title, app_type, status, standalone_label, recipient_email, studio_state, template_version, created_by, updated_by, created_at, updated_at, issued_at, accepted_at, accepted_by FROM agreement_sets ORDER BY updated_at DESC`,
     database.sql`SELECT id, library_json, updated_by, updated_at FROM agreement_template_library WHERE id = 'master' LIMIT 1`,
     database.sql`SELECT id, version_label, change_note, snapshot, created_by, created_at FROM agreement_template_versions ORDER BY created_at DESC LIMIT 200`,
   ]);
@@ -3438,6 +3441,12 @@ async function convertIntakeToClient(intakeId) {
   const clientDraft = buildClientFromIntake(intake);
   const saved = await saveClient(clientDraft);
   await db().sql`UPDATE intake_enquiries SET status = 'Converted', converted_client_id = ${saved.id}, updated_at = NOW() WHERE id = ${intakeId}`;
+  await db().sql`
+    UPDATE agreement_sets
+       SET client_id = ${saved.id}, updated_at = NOW()
+     WHERE intake_id = ${intakeId}
+       AND client_id IS NULL
+  `;
   return { client: await readSingleClient(saved.id), intakeEnquiry: { ...intake, status: 'Converted', convertedClientId: saved.id } };
 }
 

@@ -1,16 +1,18 @@
-THiS CRM v0.13.57.3 validation
+THiS CRM v0.13.57.4 validation
 
 Validated:
-- Agreement Studio loads and renders when browser localStorage is unavailable.
-- Instructions Studio loads and renders when browser localStorage is unavailable.
-- Direct CRM initialisation populates a linked principal applicant, partner, adviser, case type and reference data.
-- Agreement Studio replaces prototype client/signatory data and renders seven A4 pages after initialisation.
-- Instructions Studio replaces prototype client/family data and renders the linked SMC preview after initialisation.
-- Direct same-origin initialisation and postMessage fallback are present for both Studios.
-- Embedded Studio JavaScript syntax passed with node --check.
-- Netlify function and service-worker JavaScript syntax passed with node --check.
-- App.jsx was parsed by TypeScript; only unresolved package/type diagnostics were expected in the dependency-free validation environment.
-- Package version and service-worker cache are set to v0.13.57.3.
-- No database migration or dependency change from v0.13.57.2.
+- App.jsx parses as JSX with zero TypeScript parser diagnostics.
+- Agreement Studio external JavaScript passes node --check.
+- Instructions Studio external JavaScript passes node --check.
+- CRM Netlify function passes node --check.
+- Service worker passes node --check.
+- Both Studio HTML files contain external same-origin script references and no inline script blocks.
+- Netlify CSP remains script-src 'self', matching the external Studio script approach.
+- Service-worker cache is v0.13.57.4 and includes both Studio HTML and JavaScript files.
+- Agreement records support nullable intake_id through a new migration and runtime schema safeguard.
+- Agreement create, update, load and issue queries preserve intake_id.
+- Intake conversion links any intake-originated agreements to the resulting client record.
+- Agreement Workspace includes client, intake and standalone source modes and an intake search selector.
+- Package contains the v0.13.55 intake refresh/CV-request baseline, Instructions Studio and Agreement Studio migrations.
 
-A full Vite production build was not run because the isolated environment does not contain the existing project dependencies and cannot fetch the exact Netlify packages from the registry.
+Automated Chromium rendering could not be completed because the container browser process stalled/blocked local navigation. A full Vite production build was not run because the isolated environment does not contain the project dependencies and cannot fetch the exact Netlify packages. No dependency versions were changed.

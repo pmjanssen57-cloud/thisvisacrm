@@ -1,15 +1,22 @@
-v0.13.57.3 - Embedded Studio Initialisation Hotfix
+v0.13.57.4 - Studio CSP Boot and Intake Agreement Source
 
-Built from v0.13.57.2.
+Built from v0.13.57.3.
 
-Fixes:
-- Removes the embedded Studios' dependency on browser localStorage/sessionStorage being available inside the CRM iframe.
-- Falls back safely to CRM/database persistence when browser storage is blocked.
-- Exposes a same-origin direct initialisation hook for both Instructions Studio and Agreement Studio.
-- Uses direct iframe initialisation from the CRM with postMessage retained as a fallback.
-- Ensures linked client, family, adviser, matter and signatory details replace prototype sample data.
-- Restores the A4 preview after linked CRM data is loaded.
-- Adds cache-busting version parameters to both Studio iframe URLs.
-- Advances the package and service-worker cache to v0.13.57.3.
+Fixes the deployed Instructions and Agreement Studios remaining in their static prototype shells. The Netlify Content Security Policy permits scripts loaded from the CRM origin but blocks inline JavaScript; both Studio applications are now loaded from external same-origin JavaScript files.
 
-No database, migration or dependency changes from v0.13.57.2.
+Changes:
+- Moves Agreement Studio JavaScript to /agreement-studio.js.
+- Moves Instructions Studio JavaScript to /instructions-studio.js.
+- Keeps the existing script-src 'self' Content Security Policy intact.
+- Adds both Studio scripts to the service-worker pre-cache and advances the shell cache to v0.13.57.4.
+- Restores Agreement Type options, template data, live A4 previews and CRM payload initialisation in deployed builds.
+- Corrects source-specific loading messages for linked-client, intake-linked and standalone documents.
+- Adds agreement creation from unconverted intake forms, with search by name, email, pathway or status.
+- Stores the source intake ID on the agreement and inserts applicant, partner, children, pathway, email and assigned-adviser data into the Studio.
+- Automatically links intake-originated agreements to the new client record when that intake is converted, while retaining intake provenance.
+- Adds an Intake-linked agreements filter.
+
+Database migration:
+- 202608040003_link_agreements_to_intake.sql
+
+No dependency changes.

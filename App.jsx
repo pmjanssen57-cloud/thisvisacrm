@@ -124,6 +124,64 @@ function agreementTypeFromCaseType(caseType = '') {
   return 'other';
 }
 
+function agreementIntakeName(intake = {}) {
+  const payload = intakeAnswerPayload(intake);
+  return [payload.firstName || intake.firstName, payload.lastName || intake.lastName].filter(Boolean).join(' ').trim() || payload.fullName || 'Unnamed intake';
+}
+
+function agreementClientFromIntake(intake = {}) {
+  const payload = intakeAnswerPayload(intake);
+  const firstName = payload.firstName || intake.firstName || '';
+  const lastName = payload.lastName || intake.lastName || '';
+  const partnerName = payload.partnerFullName
+    || [payload.partnerFirstName, payload.partnerLastName].filter(Boolean).join(' ').trim()
+    || '';
+  const familyMembers = [];
+  if (partnerName) {
+    const names = partnerName.split(/\s+/).filter(Boolean);
+    familyMembers.push({
+      id: `intake-partner-${intake.id || 'new'}`,
+      relationship: 'Partner',
+      firstName: names[0] || partnerName,
+      lastName: names.slice(1).join(' '),
+      email: payload.partnerEmail || '',
+      dateOfBirth: payload.partnerDateOfBirth || '',
+      nationality: payload.partnerCitizenship || '',
+    });
+  }
+  const children = Array.isArray(payload.children) ? payload.children : [];
+  children.forEach((child, index) => {
+    const fullName = child?.fullName || [child?.firstName, child?.lastName].filter(Boolean).join(' ').trim();
+    const names = String(fullName || '').split(/\s+/).filter(Boolean);
+    familyMembers.push({
+      id: `intake-child-${intake.id || 'new'}-${index}`,
+      relationship: 'Child',
+      firstName: child?.firstName || names[0] || `Child ${index + 1}`,
+      lastName: child?.lastName || names.slice(1).join(' '),
+      dateOfBirth: child?.dateOfBirth || '',
+      nationality: child?.citizenship || '',
+    });
+  });
+  const pathway = intake.recommendedPathway || payload.recommendedPathway || payload.targetPathway || intake.targetPathway || '';
+  return {
+    id: intake.id ? `intake-${intake.id}` : '',
+    sourceType: 'intake',
+    intakeId: intake.id || '',
+    firstName,
+    lastName,
+    email: payload.email || intake.email || '',
+    phone: payload.phone || intake.phone || '',
+    nationality: payload.citizenship || intake.citizenship || '',
+    dateOfBirth: payload.dateOfBirth || intake.dateOfBirth || '',
+    location: payload.currentLocation || intake.currentLocation || '',
+    matterName: `Intake - ${[firstName, lastName].filter(Boolean).join(' ').trim() || 'Prospective client'}`,
+    caseType: pathway,
+    caseStrategy: intake.adviserAssessmentNotes || intake.consultationOutcome || pathway,
+    primaryAdviserId: intake.assignedAdviserId || '',
+    familyMembers,
+  };
+}
+
 const DEFAULT_DEADLINE_TYPES = [
   'Visa Expiry Date',
   'Medical Expiry Date',
@@ -2078,6 +2136,7 @@ export default function App() {
               <AgreementsWorkspace
                 agreementSets={data.agreementSets || []}
                 clients={data.clients || []}
+                intakeEnquiries={data.intakeEnquiries || []}
                 advisers={data.advisers || []}
                 templateLibrary={data.agreementTemplateLibrary || {}}
                 templateVersions={data.agreementTemplateVersions || []}
@@ -10767,7 +10826,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.13.57.3" title="THiS Instructions Studio" onLoad={() => { setIframeReady(true); setStudioMessage("Loading linked client data..."); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.13.57.4" title="THiS Instructions Studio" onLoad={() => { setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
         </div>
       )}
     </div>
@@ -10778,6 +10837,7 @@ function InstructionsWorkspace({
 function AgreementsWorkspace({
   agreementSets = [],
   clients = [],
+  intakeEnquiries = [],
   advisers = [],
   templateLibrary = {},
   templateVersions = [],
@@ -10797,7 +10857,8 @@ function AgreementsWorkspace({
   const [scope, setScope] = useState('all');
   const [createOpen, setCreateOpen] = useState(false);
   const [createMode, setCreateMode] = useState('client');
-  const [createDraft, setCreateDraft] = useState({ clientId: '', standaloneLabel: '', recipientEmail: '', appType: 'smc', title: '' });
+  const [createDraft, setCreateDraft] = useState({ clientId: '', intakeId: '', standaloneLabel: '', recipientEmail: '', appType: 'smc', title: '' });
+  const [intakeQuery, setIntakeQuery] = useState('');
   const [editorAgreement, setEditorAgreement] = useState(null);
   const [iframeReady, setIframeReady] = useState(false);
   const [studioMessage, setStudioMessage] = useState('');
@@ -10820,7 +10881,7 @@ function AgreementsWorkspace({
       const appType = agreementTypeFromCaseType(client.caseType);
       const name = [client.firstName, client.lastName].filter(Boolean).join(' ') || 'Client';
       setCreateMode('client');
-      setCreateDraft({ clientId: client.id, standaloneLabel: '', recipientEmail: client.email || '', appType, title: `${name} - ${agreementTypeLabel(appType)} agreement` });
+      setCreateDraft({ clientId: client.id, intakeId: '', standaloneLabel: '', recipientEmail: client.email || '', appType, title: `${name} - ${agreementTypeLabel(appType)} agreement` });
       setCreateOpen(true);
     }
     onInitialClientHandled?.();
@@ -10897,8 +10958,13 @@ function AgreementsWorkspace({
 
   useEffect(() => {
     if (!editorAgreement || !iframeReady || !iframeRef.current?.contentWindow) return;
-    const client = editorAgreement.clientId ? clients.find((item) => item.id === editorAgreement.clientId) || null : null;
-    const payload = { agreementSet: editorAgreement, client, advisers, templateLibrary, canManageTemplates };
+    const intake = editorAgreement.intakeId ? intakeEnquiries.find((item) => item.id === editorAgreement.intakeId) || null : null;
+    const client = editorAgreement.clientId
+      ? clients.find((item) => item.id === editorAgreement.clientId) || null
+      : intake
+        ? agreementClientFromIntake(intake)
+        : null;
+    const payload = { agreementSet: editorAgreement, client, intake, advisers, templateLibrary, canManageTemplates };
     const studioWindow = iframeRef.current.contentWindow;
     try {
       if (typeof studioWindow.__THIS_AGREEMENT_INIT__ === 'function') {
@@ -10909,26 +10975,74 @@ function AgreementsWorkspace({
       console.warn('Direct Agreement Studio initialisation failed; using postMessage fallback.', error);
     }
     studioWindow.postMessage({ type: 'THIS_AGREEMENT_INIT', payload }, window.location.origin);
-  }, [editorAgreement, iframeReady, clients, advisers, templateLibrary, canManageTemplates]);
+  }, [editorAgreement, iframeReady, clients, intakeEnquiries, advisers, templateLibrary, canManageTemplates]);
+
+  const eligibleIntakes = useMemo(() => intakeEnquiries.filter((item) => {
+    if (isContactIntake(item)) return false;
+    if (item.convertedClientId) return false;
+    return item.status !== 'Spam / Duplicate';
+  }), [intakeEnquiries]);
+
+  const intakeOptions = useMemo(() => {
+    const needle = intakeQuery.trim().toLowerCase();
+    return eligibleIntakes.filter((item) => {
+      if (!needle) return true;
+      const payload = intakeAnswerPayload(item);
+      return [agreementIntakeName(item), payload.email || item.email, item.recommendedPathway, payload.targetPathway, item.status]
+        .some((value) => String(value || '').toLowerCase().includes(needle));
+    }).slice(0, 100).map((item) => {
+      const payload = intakeAnswerPayload(item);
+      const pathway = item.recommendedPathway || payload.targetPathway || 'No pathway recorded';
+      return { value: item.id, label: `${agreementIntakeName(item)} - ${pathway} - ${item.status || 'New'}` };
+    });
+  }, [eligibleIntakes, intakeQuery]);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return agreementSets.filter((item) => {
       const client = clients.find((entry) => entry.id === item.clientId);
-      const clientName = client ? [client.firstName, client.lastName].filter(Boolean).join(' ') : item.standaloneLabel;
-      const matchesScope = scope === 'all' || (scope === 'client' ? Boolean(item.clientId) : !item.clientId);
+      const intake = intakeEnquiries.find((entry) => entry.id === item.intakeId);
+      const clientName = client
+        ? [client.firstName, client.lastName].filter(Boolean).join(' ')
+        : intake
+          ? agreementIntakeName(intake)
+          : item.standaloneLabel;
+      const matchesScope = scope === 'all'
+        || (scope === 'client' ? Boolean(item.clientId) : false)
+        || (scope === 'intake' ? Boolean(item.intakeId) && !item.clientId : false)
+        || (scope === 'standalone' ? !item.clientId && !item.intakeId : false);
       const matchesText = !needle || [item.title, clientName, agreementTypeLabel(item.appType), item.status, item.recipientEmail].some((value) => String(value || '').toLowerCase().includes(needle));
       return matchesScope && matchesText;
     });
-  }, [agreementSets, clients, query, scope]);
+  }, [agreementSets, clients, intakeEnquiries, query, scope]);
+
+  function createDraftFromIntake(intake) {
+    if (!intake) return { clientId: '', intakeId: '', standaloneLabel: '', recipientEmail: '', appType: 'other', title: '' };
+    const payload = intakeAnswerPayload(intake);
+    const pathway = intake.recommendedPathway || payload.targetPathway || '';
+    const appType = agreementTypeFromCaseType(pathway);
+    const name = agreementIntakeName(intake);
+    return {
+      clientId: '',
+      intakeId: intake.id || '',
+      standaloneLabel: name,
+      recipientEmail: payload.email || intake.email || '',
+      appType,
+      title: `${name} - ${agreementTypeLabel(appType)} agreement`,
+    };
+  }
 
   function openCreate(mode) {
     setCreateMode(mode);
-    if (mode === 'standalone') setCreateDraft({ clientId: '', standaloneLabel: '', recipientEmail: '', appType: 'other', title: '' });
-    else {
+    setIntakeQuery('');
+    if (mode === 'standalone') {
+      setCreateDraft({ clientId: '', intakeId: '', standaloneLabel: '', recipientEmail: '', appType: 'other', title: '' });
+    } else if (mode === 'intake') {
+      setCreateDraft(createDraftFromIntake(eligibleIntakes[0]));
+    } else {
       const client = clients.find((item) => !String(item.id || '').startsWith('temp-'));
       const appType = agreementTypeFromCaseType(client?.caseType || '');
-      setCreateDraft({ clientId: client?.id || '', standaloneLabel: '', recipientEmail: client?.email || '', appType, title: '' });
+      setCreateDraft({ clientId: client?.id || '', intakeId: '', standaloneLabel: '', recipientEmail: client?.email || '', appType, title: '' });
     }
     setCreateOpen(true);
   }
@@ -10937,13 +11051,23 @@ function AgreementsWorkspace({
     const client = clients.find((item) => item.id === clientId);
     const appType = agreementTypeFromCaseType(client?.caseType || '');
     const name = [client?.firstName, client?.lastName].filter(Boolean).join(' ') || 'Client';
-    setCreateDraft((current) => ({ ...current, clientId, recipientEmail: client?.email || '', appType, title: `${name} - ${agreementTypeLabel(appType)} agreement` }));
+    setCreateDraft((current) => ({ ...current, clientId, intakeId: '', standaloneLabel: '', recipientEmail: client?.email || '', appType, title: `${name} - ${agreementTypeLabel(appType)} agreement` }));
+  }
+
+  function updateCreateIntake(intakeId) {
+    const intake = eligibleIntakes.find((item) => item.id === intakeId);
+    setCreateDraft(createDraftFromIntake(intake));
   }
 
   function updateCreateType(appType) {
     setCreateDraft((current) => {
       const client = clients.find((item) => item.id === current.clientId);
-      const name = createMode === 'client' ? ([client?.firstName, client?.lastName].filter(Boolean).join(' ') || 'Client') : (current.standaloneLabel || 'Standalone');
+      const intake = eligibleIntakes.find((item) => item.id === current.intakeId);
+      const name = createMode === 'client'
+        ? ([client?.firstName, client?.lastName].filter(Boolean).join(' ') || 'Client')
+        : createMode === 'intake'
+          ? agreementIntakeName(intake || {})
+          : (current.standaloneLabel || 'Standalone');
       return { ...current, appType, title: `${name} - ${agreementTypeLabel(appType)} agreement` };
     });
   }
@@ -10951,15 +11075,27 @@ function AgreementsWorkspace({
   async function createAgreement() {
     const standaloneLabel = createMode === 'standalone' ? createDraft.standaloneLabel.trim() : '';
     if (createMode === 'client' && !createDraft.clientId) return;
+    if (createMode === 'intake' && !createDraft.intakeId) return;
     if (createMode === 'standalone' && !standaloneLabel) return;
     const client = clients.find((item) => item.id === createDraft.clientId);
-    const defaultName = createMode === 'client' ? ([client?.firstName, client?.lastName].filter(Boolean).join(' ') || 'Client') : standaloneLabel;
+    const intake = eligibleIntakes.find((item) => item.id === createDraft.intakeId);
+    const intakePayload = intake ? intakeAnswerPayload(intake) : {};
+    const defaultName = createMode === 'client'
+      ? ([client?.firstName, client?.lastName].filter(Boolean).join(' ') || 'Client')
+      : createMode === 'intake'
+        ? agreementIntakeName(intake || {})
+        : standaloneLabel;
     const agreementSet = {
       title: createDraft.title.trim() || `${defaultName} - ${agreementTypeLabel(createDraft.appType)} agreement`,
       clientId: createMode === 'client' ? createDraft.clientId : '',
-      adviserId: createMode === 'client' ? client?.primaryAdviserId || '' : '',
-      standaloneLabel,
-      recipientEmail: createMode === 'client' ? client?.email || createDraft.recipientEmail : createDraft.recipientEmail,
+      intakeId: createMode === 'intake' ? createDraft.intakeId : '',
+      adviserId: createMode === 'client' ? client?.primaryAdviserId || '' : createMode === 'intake' ? intake?.assignedAdviserId || '' : '',
+      standaloneLabel: createMode === 'intake' ? defaultName : standaloneLabel,
+      recipientEmail: createMode === 'client'
+        ? client?.email || createDraft.recipientEmail
+        : createMode === 'intake'
+          ? intakePayload.email || intake?.email || createDraft.recipientEmail
+          : createDraft.recipientEmail,
       appType: createDraft.appType,
       status: 'Draft',
       studioState: {},
@@ -11001,6 +11137,7 @@ function AgreementsWorkspace({
         </div>
         <div className="button-row">
           <button className="btn ghost" type="button" onClick={() => openCreate('standalone')}><FileText size={16} />New standalone</button>
+          <button className="btn ghost" type="button" onClick={() => openCreate('intake')} disabled={!eligibleIntakes.length}><ClipboardList size={16} />New from intake</button>
           <button className="btn dark" type="button" onClick={() => openCreate('client')} disabled={!clients.length}><Plus size={16} />New from client</button>
         </div>
       </div>
@@ -11015,14 +11152,19 @@ function AgreementsWorkspace({
       <div className="instructions-list-toolbar">
         <div className="search-box"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search agreements" /></div>
         <div className="segmented-filter">
-          {[['all','All'],['client','Client-linked'],['standalone','Standalone']].map(([value,label]) => <button key={value} type="button" className={scope === value ? 'active' : ''} onClick={() => setScope(value)}>{label}</button>)}
+          {[['all','All'],['client','Client-linked'],['intake','Intake-linked'],['standalone','Standalone']].map(([value,label]) => <button key={value} type="button" className={scope === value ? 'active' : ''} onClick={() => setScope(value)}>{label}</button>)}
         </div>
       </div>
 
       <div className="instruction-set-grid">
         {filtered.map((item) => {
           const client = clients.find((entry) => entry.id === item.clientId);
-          const subject = client ? [client.firstName, client.lastName].filter(Boolean).join(' ') : item.standaloneLabel || item.recipientEmail || 'Standalone';
+          const intake = intakeEnquiries.find((entry) => entry.id === item.intakeId);
+          const subject = client
+            ? [client.firstName, client.lastName].filter(Boolean).join(' ')
+            : intake
+              ? agreementIntakeName(intake)
+              : item.standaloneLabel || item.recipientEmail || 'Standalone';
           return (
             <article className="instruction-set-card agreement-set-card" key={item.id}>
               <button className="instruction-set-open" type="button" onClick={() => openAgreement(item)}>
@@ -11038,16 +11180,23 @@ function AgreementsWorkspace({
             </article>
           );
         })}
-        {!filtered.length && <div className="empty-state compact-empty"><FileCheck2 size={32} /><h2>No agreements found</h2><p>Create a client-linked or standalone agreement to begin.</p></div>}
+        {!filtered.length && <div className="empty-state compact-empty"><FileCheck2 size={32} /><h2>No agreements found</h2><p>Create an agreement from a client, an intake form, or as a standalone matter.</p></div>}
       </div>
 
       {createOpen && (
         <div className="record-popout-overlay instruction-create-overlay" role="dialog" aria-modal="true" aria-label="Create agreement">
           <div className="instruction-create-card">
-            <div className="record-popout-topbar"><div><span>Agreement Studio</span><strong>{createMode === 'client' ? 'Create from client record' : 'Create standalone agreement'}</strong></div><button className="icon-btn" type="button" onClick={() => setCreateOpen(false)}><X size={18} /></button></div>
+            <div className="record-popout-topbar"><div><span>Agreement Studio</span><strong>{createMode === 'client' ? 'Create from client record' : createMode === 'intake' ? 'Create from intake form' : 'Create standalone agreement'}</strong></div><button className="icon-btn" type="button" onClick={() => setCreateOpen(false)}><X size={18} /></button></div>
             <div className="instruction-create-body">
               {createMode === 'client' ? (
                 <SelectField label="Client" value={createDraft.clientId} onChange={updateCreateClient} options={clients.filter((client) => !String(client.id || '').startsWith('temp-')).map((client) => ({ value: client.id, label: `${[client.firstName, client.lastName].filter(Boolean).join(' ')} - ${client.caseType || 'No case type'}` }))} />
+              ) : createMode === 'intake' ? (
+                <>
+                  <Field label="Search intake forms" value={intakeQuery} onChange={setIntakeQuery} placeholder="Search by name, email, pathway or status" />
+                  <SelectField label="Intake form" value={createDraft.intakeId} onChange={updateCreateIntake} options={intakeOptions} />
+                  {!intakeOptions.length && <p className="muted">No unconverted full intake forms match this search.</p>}
+                  <Field label="Recipient email" value={createDraft.recipientEmail} onChange={(value) => setCreateDraft((current) => ({ ...current, recipientEmail: value }))} type="email" />
+                </>
               ) : (
                 <>
                   <Field label="Prepared for / reference" value={createDraft.standaloneLabel} onChange={(value) => setCreateDraft((current) => ({ ...current, standaloneLabel: value, title: current.title || `${value} - ${agreementTypeLabel(current.appType)} agreement` }))} placeholder="e.g. Prospective client or employer" />
@@ -11056,9 +11205,9 @@ function AgreementsWorkspace({
               )}
               <SelectField label="Agreement type" value={createDraft.appType} onChange={updateCreateType} options={AGREEMENT_TYPE_OPTIONS} />
               <Field label="Agreement title" value={createDraft.title} onChange={(value) => setCreateDraft((current) => ({ ...current, title: value }))} />
-              <div className="notice-card"><strong>{createMode === 'client' ? 'Client and adviser details will be inserted automatically.' : 'This agreement is independent of a CRM client record.'}</strong><p>{createMode === 'client' ? 'The Agreement Studio will pull the client, partner, case type, email and assigned adviser from the record. Scope, fees and signatories remain editable.' : 'Enter the recipient, scope, fees and signatories directly in the Agreement Studio.'}</p></div>
+              <div className="notice-card"><strong>{createMode === 'client' ? 'Client and adviser details will be inserted automatically.' : createMode === 'intake' ? 'The prospective client details will be inserted from the intake form.' : 'This agreement is independent of a CRM client or intake record.'}</strong><p>{createMode === 'client' ? 'The Agreement Studio will pull the client, partner, case type, email and assigned adviser from the record. Scope, fees and signatories remain editable.' : createMode === 'intake' ? 'The agreement remains linked to the intake form until the person is converted to a client. Applicant, partner, pathway, email and assigned adviser details remain editable.' : 'Enter the recipient, scope, fees and signatories directly in the Agreement Studio.'}</p></div>
             </div>
-            <div className="modal-actions"><button className="btn ghost" type="button" onClick={() => setCreateOpen(false)}>Cancel</button><button className="btn dark" type="button" onClick={createAgreement} disabled={saving || (createMode === 'client' ? !createDraft.clientId : !createDraft.standaloneLabel.trim())}><Plus size={16} />Create and open</button></div>
+            <div className="modal-actions"><button className="btn ghost" type="button" onClick={() => setCreateOpen(false)}>Cancel</button><button className="btn dark" type="button" onClick={createAgreement} disabled={saving || (createMode === 'client' ? !createDraft.clientId : createMode === 'intake' ? !createDraft.intakeId : !createDraft.standaloneLabel.trim())}><Plus size={16} />Create and open</button></div>
           </div>
         </div>
       )}
@@ -11066,7 +11215,7 @@ function AgreementsWorkspace({
       {editorAgreement && (
         <div className="instruction-studio-overlay" role="dialog" aria-modal="true" aria-label="Agreement Studio editor">
           <div className="instruction-studio-topbar">
-            <div><span>{editorAgreement.clientId ? 'Client-linked agreement' : 'Standalone agreement'}</span><strong>{editorAgreement.title}</strong></div>
+            <div><span>{editorAgreement.clientId ? 'Client-linked agreement' : editorAgreement.intakeId ? 'Intake-linked agreement' : 'Standalone agreement'}</span><strong>{editorAgreement.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
           {lastSigningLinks.length > 0 && (
@@ -11075,7 +11224,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.13.57.3" title="THiS Agreement Studio" onLoad={() => { setIframeReady(true); setStudioMessage("Loading linked client data..."); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.13.57.4" title="THiS Agreement Studio" onLoad={() => { setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
         </div>
       )}
     </div>
@@ -14954,6 +15103,7 @@ function normaliseAgreementSet(input = {}) {
   return {
     id: input.id || '',
     clientId: input.clientId || input.client_id || '',
+    intakeId: input.intakeId || input.intake_id || '',
     adviserId: input.adviserId || input.adviser_id || '',
     title: input.title || 'Untitled engagement agreement',
     appType: input.appType || input.app_type || 'other',
