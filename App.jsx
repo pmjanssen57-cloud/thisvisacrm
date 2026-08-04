@@ -10587,6 +10587,7 @@ function InstructionsWorkspace({
 }) {
   const iframeRef = useRef(null);
   const editorInstructionRef = useRef(null);
+  const studioInitRef = useRef({ id: '', win: null });
   const studioLaunchGuardRef = useRef(0);
   const [query, setQuery] = useState('');
   const [scope, setScope] = useState('all');
@@ -10665,9 +10666,12 @@ function InstructionsWorkspace({
 
   useEffect(() => {
     if (!editorInstruction || !iframeReady || !iframeRef.current?.contentWindow) return;
+    const studioWindow = iframeRef.current.contentWindow;
+    const initId = String(editorInstruction.id || 'new');
+    if (studioInitRef.current.id === initId && studioInitRef.current.win === studioWindow) return;
+    studioInitRef.current = { id: initId, win: studioWindow };
     const client = editorInstruction.clientId ? clients.find((item) => item.id === editorInstruction.clientId) || null : null;
     const payload = { instructionSet: editorInstruction, client, advisers, templateLibrary, canManageTemplates };
-    const studioWindow = iframeRef.current.contentWindow;
     try {
       if (typeof studioWindow.__THIS_STUDIO_INIT__ === 'function') {
         studioWindow.__THIS_STUDIO_INIT__(payload);
@@ -10750,6 +10754,7 @@ function InstructionsWorkspace({
     event?.preventDefault?.();
     event?.stopPropagation?.();
     studioLaunchGuardRef.current = Date.now() + 900;
+    studioInitRef.current = { id: '', win: null };
     iframeRef.current?.contentWindow?.postMessage({ type: 'THIS_STUDIO_REQUEST_SNAPSHOT', reason: 'close' }, window.location.origin);
     window.setTimeout(() => {
       setEditorInstruction(null);
@@ -10833,7 +10838,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.13.57.6" title="THiS Instructions Studio" onLoad={() => { setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.13.57.7" title="THiS Instructions Studio" onLoad={() => { studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
         </div>
       )}
     </div>
@@ -10860,6 +10865,7 @@ function AgreementsWorkspace({
 }) {
   const iframeRef = useRef(null);
   const editorAgreementRef = useRef(null);
+  const studioInitRef = useRef({ id: '', win: null });
   const studioLaunchGuardRef = useRef(0);
   const [query, setQuery] = useState('');
   const [scope, setScope] = useState('all');
@@ -10966,6 +10972,10 @@ function AgreementsWorkspace({
 
   useEffect(() => {
     if (!editorAgreement || !iframeReady || !iframeRef.current?.contentWindow) return;
+    const studioWindow = iframeRef.current.contentWindow;
+    const initId = String(editorAgreement.id || 'new');
+    if (studioInitRef.current.id === initId && studioInitRef.current.win === studioWindow) return;
+    studioInitRef.current = { id: initId, win: studioWindow };
     const intake = editorAgreement.intakeId ? intakeEnquiries.find((item) => item.id === editorAgreement.intakeId) || null : null;
     const client = editorAgreement.clientId
       ? clients.find((item) => item.id === editorAgreement.clientId) || null
@@ -10973,7 +10983,6 @@ function AgreementsWorkspace({
         ? agreementClientFromIntake(intake)
         : null;
     const payload = { agreementSet: editorAgreement, client, intake, advisers, templateLibrary, canManageTemplates };
-    const studioWindow = iframeRef.current.contentWindow;
     try {
       if (typeof studioWindow.__THIS_AGREEMENT_INIT__ === 'function') {
         studioWindow.__THIS_AGREEMENT_INIT__(payload);
@@ -11132,6 +11141,7 @@ function AgreementsWorkspace({
     event?.preventDefault?.();
     event?.stopPropagation?.();
     studioLaunchGuardRef.current = Date.now() + 900;
+    studioInitRef.current = { id: '', win: null };
     iframeRef.current?.contentWindow?.postMessage({ type: 'THIS_AGREEMENT_REQUEST_SNAPSHOT', reason: 'close' }, window.location.origin);
     window.setTimeout(() => {
       setEditorAgreement(null);
@@ -11238,7 +11248,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.13.57.6" title="THiS Agreement Studio" onLoad={() => { setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.13.57.7" title="THiS Agreement Studio" onLoad={() => { studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
         </div>
       )}
     </div>

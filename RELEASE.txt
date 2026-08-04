@@ -1,13 +1,8 @@
-v0.13.57.6 - Agreement Pagination and Section Flow Polish
+v0.13.57.7 - Stable Fee Schedule Editor
 
-This maintenance release keeps the working v0.13.57.5 CRM and Studio integration and tightens the Agreement document layout.
-
-- Agreement sections now use the remaining space on the current A4 page before a new page is created.
-- Long agreement sections can continue naturally onto the next page instead of forcing the complete section onto a fresh page.
-- Continuation pages use a restrained continued heading where needed.
-- A light divider separates completed sections when they share a page.
-- Direct preview editing continues to write fragmented body content back to the complete underlying section.
-- The same pagination is used in the CRM authoring preview, print/PDF output and secure client agreement view.
-- The service-worker and embedded Studio cache versions advance to v0.13.57.6.
-
-No database, migration, dependency or API changes are included.
+- Replaces cramped inline professional-fee fields with a dedicated full-size payment editor.
+- Supports detailed service descriptions, payment triggers and amounts without re-rendering the row while the adviser types.
+- Applies fee changes only when Save payment is selected; Cancel discards the pending modal changes.
+- Prevents live CRM refreshes and saved-record responses from re-initialising an open Agreement or Instructions Studio and overwriting unsaved edits.
+- Keeps existing agreement pagination, intake/client sources, signing workflow and all v0.13.57.6 functionality.
+- No database, migration, API or dependency changes.

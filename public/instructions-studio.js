@@ -2696,7 +2696,12 @@ bindEvents();
     document.querySelectorAll('.field-help').forEach(node=>{ node.innerHTML=node.innerHTML.replace(/prototype/gi,'draft').replace(/CRM data remains separate and is inserted automatically\.?/gi,'Client data is inserted from the linked CRM record and remains editable in this draft.'); });
   }
   function initFromCrm(payload){
-    crmContext={instructionSetId:payload.instructionSet?.id||'',canManageTemplates:Boolean(payload.canManageTemplates)};
+    const incomingId=String(payload.instructionSet?.id||'');
+    if(crmInitialised&&incomingId&&crmContext.instructionSetId===incomingId&&!payload.force){
+      post('THIS_STUDIO_INITIALISED',{instructionSetId:crmContext.instructionSetId,activePackId});
+      return;
+    }
+    crmContext={instructionSetId:incomingId,canManageTemplates:Boolean(payload.canManageTemplates)};
     if(payload.templateLibrary?.packs) applyTemplateLibrary(payload.templateLibrary);
     if(crmContext.canManageTemplates){ try{ THIS_SESSION_STORAGE.setItem(TEMPLATE_EDITOR_SESSION_KEY_V13,'1'); }catch{} }
     else { document.querySelector('#open-template-library-v13')?.remove(); }

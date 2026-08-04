@@ -1,11 +1,10 @@
-THiS CRM v0.13.57.6 validation
+THiS CRM v0.13.57.7 validation
 
-- Agreement Studio external JavaScript passes node --check.
-- Instructions Studio external JavaScript passes node --check.
-- Service-worker JavaScript passes node --check.
-- PWA validation passes.
-- Agreement pagination uses measured A4 page content rather than whole-section page grouping.
-- Long agreement sections can flow across pages and completed sections retain light dividers.
-- Fragmented direct-text edits are recombined into the complete underlying agreement section.
-- Service-worker cache and iframe/script query versions are v0.13.57.6.
-- No database, migration, dependency or API changes.
+- Agreement Studio JavaScript syntax checked.
+- Instructions Studio JavaScript syntax checked.
+- App JSX parsed.
+- Agreement Studio HTML parsed.
+- Professional fee add/edit/cancel/remove controls inspected.
+- Duplicate Studio initialisation guards present in CRM wrapper and both Studio scripts.
+- Service-worker and iframe/script asset versions are v0.13.57.7.
+- ZIP integrity checked.
