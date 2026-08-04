@@ -1,9 +1,11 @@
-THiS CRM v0.13.57.8 validation
+THiS CRM v0.13.57.11 validation
 
-- Agreement Studio JavaScript syntax checked with Node.
-- Government fee editor provides Agency, Application type and Dollar value only.
-- Add, edit, cancel, save and remove government-fee controls are present.
-- Government fee preview table contains three columns.
-- Professional fee editor remains unchanged.
-- Service-worker and iframe/script asset versions are v0.13.57.8.
+- Agreement Studio JavaScript syntax passed.
+- Instructions Studio JavaScript syntax passed.
+- Service worker JavaScript syntax passed.
+- CRM and agreement Netlify function syntax passed.
+- Agreement Studio, Instructions Studio and application HTML parsed successfully.
+- Agreement cover image extracted as a valid JPEG and added to the PWA precache.
+- Service-worker and iframe/script asset versions are v0.13.57.11.
 - No database, migration, API or dependency changes.
+- Local Chromium did not complete a screenshot render in the container; final deployed browser testing remains required.

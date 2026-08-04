@@ -10589,6 +10589,7 @@ function InstructionsWorkspace({
   const editorInstructionRef = useRef(null);
   const studioInitRef = useRef({ id: '', win: null });
   const studioLaunchGuardRef = useRef(0);
+  const deletedInstructionIdsRef = useRef(new Set());
   const [query, setQuery] = useState('');
   const [scope, setScope] = useState('all');
   const [createOpen, setCreateOpen] = useState(false);
@@ -10637,6 +10638,7 @@ function InstructionsWorkspace({
       if (message.type === 'THIS_STUDIO_SNAPSHOT') {
         const current = editorInstructionRef.current;
         if (!current || !message.snapshot) return;
+        if (current.id && deletedInstructionIdsRef.current.has(current.id)) return;
         const next = {
           ...current,
           title: message.snapshot.title || current.title,
@@ -10741,10 +10743,42 @@ function InstructionsWorkspace({
     setEditorInstruction(saved);
   }
 
+  async function handleDeleteInstruction(item, event) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    const instructionSetId = String(item?.id || '');
+    if (!instructionSetId) return;
+
+    // Keep the open-card action disabled for the full confirmation and delete cycle.
+    // A short guard set on the initial trash click expires while the confirmation dialog
+    // is open and can otherwise allow a pointer/click-through to reopen the Studio.
+    studioLaunchGuardRef.current = Number.MAX_SAFE_INTEGER;
+    deletedInstructionIdsRef.current.add(instructionSetId);
+    try {
+      const result = await deleteInstructionSet?.(instructionSetId);
+      if (!result) {
+        deletedInstructionIdsRef.current.delete(instructionSetId);
+        return;
+      }
+      if (editorInstructionRef.current?.id === instructionSetId) {
+        editorInstructionRef.current = null;
+        studioInitRef.current = { id: '', win: null };
+        setEditorInstruction(null);
+        setIframeReady(false);
+        setStudioMessage('');
+      }
+    } catch {
+      deletedInstructionIdsRef.current.delete(instructionSetId);
+    } finally {
+      studioLaunchGuardRef.current = Date.now() + 2200;
+    }
+  }
+
   function openInstruction(item, event) {
     event?.preventDefault?.();
     event?.stopPropagation?.();
     if (Date.now() < studioLaunchGuardRef.current) return;
+    if (item?.id && deletedInstructionIdsRef.current.has(item.id)) return;
     setIframeReady(false);
     setStudioMessage('Opening studio...');
     setEditorInstruction(normaliseInstructionSet(item));
@@ -10755,7 +10789,10 @@ function InstructionsWorkspace({
     event?.stopPropagation?.();
     studioLaunchGuardRef.current = Date.now() + 900;
     studioInitRef.current = { id: '', win: null };
-    iframeRef.current?.contentWindow?.postMessage({ type: 'THIS_STUDIO_REQUEST_SNAPSHOT', reason: 'close' }, window.location.origin);
+    const currentId = editorInstructionRef.current?.id || '';
+    if (!currentId || !deletedInstructionIdsRef.current.has(currentId)) {
+      iframeRef.current?.contentWindow?.postMessage({ type: 'THIS_STUDIO_REQUEST_SNAPSHOT', reason: 'close' }, window.location.origin);
+    }
     window.setTimeout(() => {
       setEditorInstruction(null);
       setIframeReady(false);
@@ -10805,7 +10842,7 @@ function InstructionsWorkspace({
               <div className="instruction-set-card-footer">
                 <span className={`instruction-status ${String(item.status || 'Draft').toLowerCase()}`}>{item.status || 'Draft'}</span>
                 <small>Updated {formatInstructionDate(item.updatedAt)}</small>
-                <button className="icon-btn danger" type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); studioLaunchGuardRef.current = Date.now() + 900; deleteInstructionSet?.(item.id); }} aria-label="Delete instruction set"><Trash2 size={15} /></button>
+                <button className="icon-btn danger" type="button" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); }} onPointerUp={(event) => event.stopPropagation()} onClick={(event) => handleDeleteInstruction(item, event)} aria-label="Delete instruction set"><Trash2 size={15} /></button>
               </div>
             </article>
           );
@@ -10838,7 +10875,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.13.57.8" title="THiS Instructions Studio" onLoad={() => { studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.13.57.11" title="THiS Instructions Studio" onLoad={() => { studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
         </div>
       )}
     </div>
@@ -10867,6 +10904,7 @@ function AgreementsWorkspace({
   const editorAgreementRef = useRef(null);
   const studioInitRef = useRef({ id: '', win: null });
   const studioLaunchGuardRef = useRef(0);
+  const deletedAgreementIdsRef = useRef(new Set());
   const [query, setQuery] = useState('');
   const [scope, setScope] = useState('all');
   const [createOpen, setCreateOpen] = useState(false);
@@ -10917,6 +10955,7 @@ function AgreementsWorkspace({
       if (message.type === 'THIS_AGREEMENT_SNAPSHOT') {
         const current = editorAgreementRef.current;
         if (!current || !message.snapshot) return;
+        if (current.id && deletedAgreementIdsRef.current.has(current.id)) return;
         const next = {
           ...current,
           title: message.snapshot.title || current.title,
@@ -10944,6 +10983,7 @@ function AgreementsWorkspace({
       if (message.type === 'THIS_AGREEMENT_ISSUE_REQUEST') {
         const current = editorAgreementRef.current;
         if (!current || !message.snapshot) return;
+        if (current.id && deletedAgreementIdsRef.current.has(current.id)) return;
         const next = {
           ...current,
           title: message.snapshot.title || current.title,
@@ -11127,10 +11167,42 @@ function AgreementsWorkspace({
     setEditorAgreement(saved);
   }
 
+  async function handleDeleteAgreement(item, event) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    const agreementSetId = String(item?.id || '');
+    if (!agreementSetId) return;
+
+    // Hold the navigation guard until the confirmation dialog and database delete have
+    // both completed. This prevents the released pointer from opening the card beneath it.
+    studioLaunchGuardRef.current = Number.MAX_SAFE_INTEGER;
+    deletedAgreementIdsRef.current.add(agreementSetId);
+    try {
+      const result = await deleteAgreementSet?.(agreementSetId);
+      if (!result) {
+        deletedAgreementIdsRef.current.delete(agreementSetId);
+        return;
+      }
+      if (editorAgreementRef.current?.id === agreementSetId) {
+        editorAgreementRef.current = null;
+        studioInitRef.current = { id: '', win: null };
+        setEditorAgreement(null);
+        setIframeReady(false);
+        setStudioMessage('');
+        setLastSigningLinks([]);
+      }
+    } catch {
+      deletedAgreementIdsRef.current.delete(agreementSetId);
+    } finally {
+      studioLaunchGuardRef.current = Date.now() + 2200;
+    }
+  }
+
   function openAgreement(item, event) {
     event?.preventDefault?.();
     event?.stopPropagation?.();
     if (Date.now() < studioLaunchGuardRef.current) return;
+    if (item?.id && deletedAgreementIdsRef.current.has(item.id)) return;
     setIframeReady(false);
     setLastSigningLinks([]);
     setStudioMessage('Opening Agreement Studio...');
@@ -11142,7 +11214,10 @@ function AgreementsWorkspace({
     event?.stopPropagation?.();
     studioLaunchGuardRef.current = Date.now() + 900;
     studioInitRef.current = { id: '', win: null };
-    iframeRef.current?.contentWindow?.postMessage({ type: 'THIS_AGREEMENT_REQUEST_SNAPSHOT', reason: 'close' }, window.location.origin);
+    const currentId = editorAgreementRef.current?.id || '';
+    if (!currentId || !deletedAgreementIdsRef.current.has(currentId)) {
+      iframeRef.current?.contentWindow?.postMessage({ type: 'THIS_AGREEMENT_REQUEST_SNAPSHOT', reason: 'close' }, window.location.origin);
+    }
     window.setTimeout(() => {
       setEditorAgreement(null);
       setIframeReady(false);
@@ -11199,7 +11274,7 @@ function AgreementsWorkspace({
               <div className="instruction-set-card-footer">
                 <span className={`instruction-status ${String(item.status || 'Draft').toLowerCase().replaceAll(' ', '-')}`}>{item.status || 'Draft'}</span>
                 <small>Updated {formatInstructionDate(item.updatedAt)}</small>
-                <button className="icon-btn danger" type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); studioLaunchGuardRef.current = Date.now() + 900; deleteAgreementSet?.(item.id); }} aria-label="Delete agreement" disabled={item.status === 'Accepted'} title={item.status === 'Accepted' ? 'Accepted agreements are locked' : 'Delete agreement'}><Trash2 size={15} /></button>
+                <button className="icon-btn danger" type="button" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); }} onPointerUp={(event) => event.stopPropagation()} onClick={(event) => handleDeleteAgreement(item, event)} aria-label="Delete agreement" disabled={item.status === 'Accepted'} title={item.status === 'Accepted' ? 'Accepted agreements are locked' : 'Delete agreement'}><Trash2 size={15} /></button>
               </div>
             </article>
           );
@@ -11248,7 +11323,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.13.57.8" title="THiS Agreement Studio" onLoad={() => { studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.13.57.11" title="THiS Agreement Studio" onLoad={() => { studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
         </div>
       )}
     </div>

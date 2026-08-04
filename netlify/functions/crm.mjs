@@ -2437,6 +2437,25 @@ async function saveAgreementTemplateLibrary(library = {}, versionEvent = null, u
   return { library: libraryRows[0]?.library_json || {}, versions: versions.map(mapAgreementTemplateVersionFromDb) };
 }
 
+
+function stripAgreementEmailEnvelope(value = '') {
+  let body = String(value || '').replace(/\r\n/g, '\n').trim();
+  body = body.replace(/^Dear[^\n]*\n+/i, '').trim();
+  body = body.replace(/\n{2,}(?:Kind regards|Best regards|Regards|Yours sincerely),?\s*(?:\n[^\n]+){0,4}\s*$/i, '').trim();
+  return body;
+}
+
+function isLegacyAgreementIssueEmailBody(value = '') {
+  const body = String(value || '');
+  return /Please use the secure link below to review and accept (?:your )?(?:Turner Hopkins )?engagement agreement/i.test(body)
+    && body.length < 700;
+}
+
+function buildDefaultAgreementIssueEmailBody(agreement = {}, studioState = {}) {
+  const matter = String(studioState?.template?.coverSubtitle || agreement?.title || 'your immigration matter').trim();
+  return `We have prepared your engagement agreement for ${matter}. It sets out the services we will provide, the professional and government fees, the payment stages, and the terms on which we will act for you.\n\nPlease review the agreement carefully using the secure button below. When you are comfortable with the content, you can confirm your acceptance and sign online. The process should only take a few minutes.\n\nIf anything needs correcting, or you would like to discuss any part of the agreement, please reply to this email before accepting it.`;
+}
+
 async function issueAgreementSet(input = {}, issue = {}, user = null) {
   const database = db();
   let agreement = await saveAgreementSet({ ...input, status: input.status === 'Accepted' ? 'Accepted' : 'Ready' }, user);
@@ -2455,7 +2474,11 @@ async function issueAgreementSet(input = {}, issue = {}, user = null) {
   const adviserEmail = String(issue.adviserEmail || studioState?.client?.adviserEmail || '').trim();
   const baseUrl = String(process.env.URL || process.env.DEPLOY_URL || '').replace(/\/$/, '') || 'https://this-crm.netlify.app';
   const subject = String(issue.emailSubject || studioState.emailSubject || 'Your Turner Hopkins engagement agreement').trim();
-  const baseBody = String(issue.emailBody || studioState.emailBody || 'Please review and accept your Turner Hopkins engagement agreement using the secure link below.').trim();
+  const rawBody = String(issue.emailBody || studioState.emailBody || '').trim();
+  const cleanedBody = stripAgreementEmailEnvelope(rawBody);
+  const baseBody = !cleanedBody || isLegacyAgreementIssueEmailBody(cleanedBody)
+    ? buildDefaultAgreementIssueEmailBody(agreement, studioState)
+    : cleanedBody;
   await database.sql`UPDATE agreement_signatories SET status = 'Superseded', updated_at = NOW() WHERE agreement_id = ${agreement.id} AND status <> 'Accepted'`;
   const signingLinks = [];
   for (const signatory of usable) {
@@ -2470,8 +2493,19 @@ async function issueAgreementSet(input = {}, issue = {}, user = null) {
       INSERT INTO agreement_signatories (agreement_id, name, email, role, required, token_hash, token_last_four, status, expires_at)
       VALUES (${agreement.id}, ${name || null}, ${email}, ${role}, ${signatory.required !== false}, ${tokenHash}, ${rawToken.slice(-4)}, 'Sent', ${expiresAt})`;
     const greeting = name ? `Dear ${name.split(/\s+/)[0]},` : 'Dear client,';
-    const bodyText = [greeting, '', baseBody.replace(/^Dear[^\n]*\n+/i, '').trim(), '', `Secure agreement link: ${link}`, '', 'Please contact your adviser before accepting if any detail is incorrect or unclear.', '', 'Kind regards,', 'Turner Hopkins Immigration Specialists'].join('\n');
-    const bodyHtml = `<div style="font-family:Arial,sans-serif;font-size:10pt;line-height:1.45;color:#1d2f2e"><p>${escapeHtml(greeting)}</p>${textToHtml(baseBody.replace(/^Dear[^\n]*\n+/i, '').trim())}<p><a href="${escapeHtml(link)}" style="display:inline-block;background:#003736;color:#fff;text-decoration:none;font-weight:700;padding:11px 18px;border-radius:10px">Review and accept agreement</a></p><p style="font-size:9pt;color:#52627a">If the button does not open, copy this secure link into your browser:<br><a href="${escapeHtml(link)}" style="color:#003736;word-break:break-all">${escapeHtml(link)}</a></p><p>Please contact your adviser before accepting if any detail is incorrect or unclear.</p><p>Kind regards,<br>Turner Hopkins Immigration Specialists</p></div>`;
+    const expiryLabel = new Date(expiresAt).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Pacific/Auckland' });
+    const bodyText = [
+      greeting,
+      '',
+      baseBody,
+      '',
+      `Review and accept your agreement: ${link}`,
+      '',
+      `For security, this link will remain active until ${expiryLabel}.`,
+      '',
+      'If anything is incorrect or unclear, reply to this email before accepting the agreement.'
+    ].join('\n');
+    const bodyHtml = `<div style="font-family:Arial,sans-serif;font-size:10pt;line-height:1.5;color:#1d2f2e;max-width:680px"><p>${escapeHtml(greeting)}</p>${textToHtml(baseBody)}<p style="margin:22px 0"><a href="${escapeHtml(link)}" style="display:inline-block;background:#003736;color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:10px">Review and accept agreement</a></p><div style="background:#f1faf7;border-left:4px solid #4ed7a0;padding:12px 14px;margin:18px 0"><strong style="color:#003736">What happens next</strong><br><span style="color:#405653">Open the agreement, check the services, fees and terms, then confirm your acceptance and sign online. The process should only take a few minutes.</span></div><p style="font-size:9pt;color:#52627a;margin-bottom:6px">For security, this link will remain active until ${escapeHtml(expiryLabel)}.</p><p style="font-size:9pt;color:#52627a;margin-top:0">If the button does not open, copy this secure link into your browser:<br><a href="${escapeHtml(link)}" style="color:#003736;word-break:break-all">${escapeHtml(link)}</a></p><p>If anything is incorrect or unclear, reply to this email before accepting the agreement.</p></div>`;
     const [emailLog] = await database.sql`
       INSERT INTO email_notifications (related_record_type, related_record_id, client_id, template_key, from_email, from_name, to_email, cc, subject, body_text, body_html, status, sent_by)
       VALUES ('agreement', ${agreement.id}, ${nullableUuid(agreement.clientId)}, 'agreement_issue', ${configStatus.fromEmail}, ${configStatus.fromName}, ${email}, ${adviserEmail || null}, ${subject}, ${bodyText}, ${bodyHtml}, ${configStatus.configured ? 'Sending' : 'Draft'}, ${actor})
