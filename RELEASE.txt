@@ -1,4 +1,4 @@
-v0.13.57 - Integrated Agreement Studio
+v0.13.57.1 - Agreement Studio Load Hotfix
 
 Built from the authoritative v0.13.56 Integrated Instructions Studio package.
 
@@ -18,3 +18,9 @@ Database migration:
 - 202608040002_add_agreement_studio.sql
 
 Existing v0.13.56 Instructions Studio and all v0.13.55 intake refresh, CV request and print-view functionality are retained.
+Hotfix changes:
+- Restored the three missing agreement queries in the main CRM load operation.
+- Prevented agreement collections from being undefined when the dashboard first loads.
+- Removed an accidental agreement-status lookup from instruction-set saving.
+- Removed unrelated agreement queries from instruction-template saving.
+- No database schema or dependency changes from v0.13.57.

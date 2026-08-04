@@ -2296,8 +2296,6 @@ async function saveInstructionSet(input = {}, user = null) {
   const issuedAt = status === 'Issued' ? (input.issuedAt || input.issued_at || new Date().toISOString()) : null;
   let rows;
   if (id) {
-    const existingRows = await database.sql`SELECT status FROM agreement_sets WHERE id = ${id} LIMIT 1`;
-    if (existingRows[0]?.status === 'Accepted') throw new Error('Accepted agreements are locked. Create a new agreement or variation instead.');
     rows = await database.sql`
       UPDATE instruction_sets
       SET client_id = ${clientId}, title = ${title}, pack_id = ${packId}, status = ${status}, standalone_label = ${standaloneLabel || null},
@@ -2341,9 +2339,6 @@ async function saveInstructionTemplateLibrary(library = {}, versionEvent = null,
   const [libraryRows, versions] = await Promise.all([
     database.sql`SELECT library_json FROM instruction_template_library WHERE id = 'master' LIMIT 1`,
     database.sql`SELECT id, pack_id, version_label, change_note, snapshot, created_by, created_at FROM instruction_template_versions ORDER BY created_at DESC LIMIT 200`,
-    database.sql`SELECT id, client_id, adviser_id, title, app_type, status, standalone_label, recipient_email, studio_state, template_version, created_by, updated_by, created_at, updated_at, issued_at, accepted_at, accepted_by FROM agreement_sets ORDER BY updated_at DESC`,
-    database.sql`SELECT id, library_json, updated_by, updated_at FROM agreement_template_library WHERE id = 'master' LIMIT 1`,
-    database.sql`SELECT id, version_label, change_note, snapshot, created_by, created_at FROM agreement_template_versions ORDER BY created_at DESC LIMIT 200`,
   ]);
   return { library: libraryRows[0]?.library_json || {}, versions: versions.map(mapInstructionTemplateVersionFromDb) };
 }
@@ -2544,6 +2539,9 @@ async function readCrmData() {
     database.sql`SELECT id, client_id, title, pack_id, status, standalone_label, studio_state, template_version, created_by, updated_by, created_at, updated_at, issued_at FROM instruction_sets ORDER BY updated_at DESC`,
     database.sql`SELECT id, library_json, updated_by, updated_at FROM instruction_template_library WHERE id = 'master' LIMIT 1`,
     database.sql`SELECT id, pack_id, version_label, change_note, snapshot, created_by, created_at FROM instruction_template_versions ORDER BY created_at DESC LIMIT 200`,
+    database.sql`SELECT id, client_id, adviser_id, title, app_type, status, standalone_label, recipient_email, studio_state, template_version, created_by, updated_by, created_at, updated_at, issued_at, accepted_at, accepted_by FROM agreement_sets ORDER BY updated_at DESC`,
+    database.sql`SELECT id, library_json, updated_by, updated_at FROM agreement_template_library WHERE id = 'master' LIMIT 1`,
+    database.sql`SELECT id, version_label, change_note, snapshot, created_by, created_at FROM agreement_template_versions ORDER BY created_at DESC LIMIT 200`,
   ]);
 
   const commercialClients = await readCommercialClients(database);
@@ -2558,9 +2556,9 @@ async function readCrmData() {
     instructionSets: instructionSets.map(mapInstructionSetFromDb),
     instructionTemplateLibrary: instructionTemplateLibraryRows[0]?.library_json || {},
     instructionTemplateVersions: instructionTemplateVersions.map(mapInstructionTemplateVersionFromDb),
-    agreementSets: agreementSets.map(mapAgreementSetFromDb),
-    agreementTemplateLibrary: agreementTemplateLibraryRows[0]?.library_json || {},
-    agreementTemplateVersions: agreementTemplateVersions.map(mapAgreementTemplateVersionFromDb),
+    agreementSets: Array.isArray(agreementSets) ? agreementSets.map(mapAgreementSetFromDb) : [],
+    agreementTemplateLibrary: Array.isArray(agreementTemplateLibraryRows) ? (agreementTemplateLibraryRows[0]?.library_json || {}) : {},
+    agreementTemplateVersions: Array.isArray(agreementTemplateVersions) ? agreementTemplateVersions.map(mapAgreementTemplateVersionFromDb) : [],
     intakeEnquiries: intakeEnquiries.map(mapIntakeEnquiryFromDb),
     intakeStatuses: INTAKE_STATUSES,
     seminars: seminars.map(mapSeminarFromDb),

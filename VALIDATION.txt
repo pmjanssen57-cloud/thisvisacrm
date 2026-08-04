@@ -1,4 +1,4 @@
-THiS CRM v0.13.57 validation
+THiS CRM v0.13.57.1 validation
 
 Completed checks
 - App.jsx and main.jsx JSX syntax passed through TypeScript transpilation.
@@ -17,8 +17,13 @@ Completed checks
 - Microsoft 365 issue-email and acceptance-confirmation flows are present, including assigned-adviser CC and reply-to.
 - Accepted agreements are locked against editing and deletion.
 - Agreement workspace, client-record Agreement section, mobile navigation and embedded Studio bridge are present.
-- Package version, service-worker cache and backup source version are set to v0.13.57.
+- Package version, service-worker cache and backup source version are set to v0.13.57.1.
 
 Environment limitations
 - A full Vite production build could not be run in this isolated environment because the available package registry does not provide the CRM's existing Netlify dependencies. No dependency versions were added or changed for this release.
 - Chromium visual rendering was not completed because the local headless browser process stalls in this environment. The embedded Studio scripts and document structure passed static validation.
+
+Agreement load hotfix:
+- readCrmData Promise result count matches its database queries.
+- Agreement data arrays are populated before mapping.
+- Instruction save and instruction-template save paths no longer contain unrelated agreement queries.
