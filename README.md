@@ -1,27 +1,26 @@
-# THiS CRM v0.13.57.12 — Contextual Help Refresh
+# THiS CRM v0.13.58 — Unified Studio Workspace and Workflow Stability
 
-This build is based on v0.13.57.9 and preserves the integrated Instructions and Agreement Studios.
+This build is based on v0.13.57.12 and preserves the full CRM, intake, booking, portal, commercial compliance, Instructions Studio, Agreement Studio, email and signing functionality.
 
-## Agreement PDF and sign-off polish
+## Unified Studio workspace
 
-- Adds a restrained THiS sign-off logo at the bottom-left of the final agreement page.
-- Opens a clean agreement-only print document for Print / save PDF.
-- Preserves the cover photograph in PDF output by rendering it as an image rather than a CSS background.
-- Removes Studio controls and edit outlines from the printable document.
+- Replaces the separate Instructions and Agreements ribbon items with one Studio entry.
+- Adds a controlled Studio landing page for Agreement and Instructions work.
+- Makes New from intake the primary Agreement action.
+- Retains direct client-record and intake-linked creation routes.
+- Moves Bookings and Calendar into the main navigation More menu to reduce visual clutter.
 
-## Fixes
+## Stability fixes
 
-- Deleting an instruction or agreement draft no longer reopens the embedded Studio.
-- The open-card navigation guard now remains active while the confirmation dialog is displayed and while deletion completes.
-- Late iframe snapshot messages for deleted records are discarded instead of being sent back to the save API.
-- Closing a Studio cannot attempt to save a record that has just been deleted.
-- Delete controls isolate pointer-down, pointer-up, and click events from the underlying draft card.
+- My Day now auto-opens once per authenticated browser session and cannot appear a second time after dismissal.
+- Studio editors use explicit session identifiers and stale-message guards.
+- Closing a Studio ends the active iframe session and prevents late save, issue or initialisation responses from reopening it.
+- Contextual launches are processed once and cleared safely.
 
-No database migration or dependency change is included. Perform one hard refresh after deployment.
+## Agreement fixes
 
-## v0.13.57.12 additions
+- The selected agreement type now controls the initial matter description instead of the client record case type or strategy.
+- Changing the agreement type refreshes the matter description, scope and government-fee defaults together.
+- Print / save PDF invokes the browser print dialogue directly from the clean agreement-only view rather than opening a separate browser page.
 
-- Contextual CRM help for Instructions, Agreements, Commercial, Bookings and intake-linked agreements.
-- In-Studio Help drawers for document authoring and agreement issue workflows.
-- Existing CRM, instruction, agreement, signing and template functionality retained.
-
+No database migration, API or dependency change is included. Perform one hard refresh after deployment so the updated service-worker cache is activated.

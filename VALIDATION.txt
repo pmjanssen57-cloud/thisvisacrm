@@ -1,10 +1,25 @@
-THiS CRM v0.13.57.12 validation
+THiS CRM v0.13.58 validation
 
-- App.jsx help content and Studio iframe asset versions updated.
-- Instructions Studio contextual Help drawer added.
-- Agreement Studio contextual Help drawer added and hidden from public review mode.
-- Instructions Studio JavaScript syntax checked.
-- Agreement Studio JavaScript syntax checked.
-- HTML structure checked for both Studio files.
-- Service-worker cache advanced to v0.13.57.12.
-- No database, migration, API or dependency changes.
+Implemented and reviewed
+- Unified desktop and mobile navigation now routes Instructions and Agreements through one Studio workspace.
+- Studio landing page provides explicit Agreement and Instructions entry points.
+- Agreement "New from intake" is the primary action in both the Studio landing page and Agreement workspace.
+- Bookings and Calendar moved into the desktop More menu.
+- My Day auto-launch is guarded at application level and can only open once per authenticated browser session.
+- Instructions and Agreement editors use explicit session IDs, current-iframe message validation and stale-response guards.
+- Closing an editor prevents delayed save, issue, ready or initialisation events from restoring the closed Studio.
+- Agreement type selection controls the initial matter description, scope and government-fee defaults.
+- Agreement Print / save PDF invokes the browser print dialogue from the agreement-only iframe view.
+- Existing client, intake, template, email, signing, portal and CRM APIs remain unchanged.
+- Backup metadata source version advanced to 0.13.58.
+- Service-worker cache advanced to v0.13.58.
+
+Static validation completed
+- App.jsx and main.jsx parsed successfully with the TypeScript JSX parser.
+- public/agreement-studio.js passed node --check.
+- public/instructions-studio.js passed node --check.
+- Studio asset version references and service-worker cache references were checked.
+- No database migration or dependency change was introduced.
+
+Environment limitation
+- A full local Vite production build could not be completed in this execution environment because its configured package registry did not provide @netlify/blobs@10.7.9. A direct public-registry check also timed out. The dependency declaration was not changed. Netlify should install using the repository's Node 20.19.0 configuration and normal package registry during deployment.

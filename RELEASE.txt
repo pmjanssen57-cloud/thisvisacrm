@@ -1,7 +1,14 @@
-v0.13.57.12 - Contextual Help Refresh
+v0.13.58 - Unified Studio Workspace and Workflow Stability
 
-- Expanded the CRM Help drawer for Instructions, Agreements, Commercial, Bookings and intake-linked agreement workflows.
-- Added contextual Help drawers inside Instructions Studio and Agreement Studio.
-- Added practical guidance for client data, sections, numbering, fee schedules, signing, template governance and final output.
-- Removed the dated prototype subtitle from the Instructions Studio header.
-- No database, migration, API or dependency changes.
+- Replaced the separate Instructions and Agreements ribbon items with one Studio workspace.
+- Added a Studio landing page with direct Agreement and Instructions actions.
+- Made New from intake the primary Agreement action and retained client and standalone routes.
+- Moved Bookings and Calendar into a compact More menu to reduce ribbon clutter.
+- Added a single-session My Day launch guard so the briefing cannot appear twice after login.
+- Added explicit Studio session lifecycle controls, stale-message guards and full iframe teardown on close.
+- Prevented delayed save or issue responses from reopening a closed Studio.
+- Preserved contextual client and intake launch actions through the unified Studio route.
+- Corrected agreement matter-detail precedence so the selected agreement type controls the initial matter description.
+- Changed agreement Print / save PDF to invoke the browser print dialogue directly from the clean agreement view.
+- Updated desktop and mobile Studio navigation and contextual Help.
+- No database migration, API or dependency changes.

@@ -39,6 +39,7 @@ let state=(()=>{try{return JSON.parse(THIS_LOCAL_STORAGE.getItem('this-agreement
 function esc(v=''){return String(v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function save(){THIS_LOCAL_STORAGE.setItem('this-agreement-studio-v1',JSON.stringify(state));$('#saveStatus').textContent='Saved '+new Date().toLocaleTimeString('en-NZ',{hour:'2-digit',minute:'2-digit'});toast('Draft saved in this browser')}
 function currentType(){return APP_TYPES[state.appType]||APP_TYPES.other}function fullClient(){return state.client.clientName||'Client'}
+function defaultMatterDescription(type=state.appType){const cfg=APP_TYPES[type]||APP_TYPES.other;return `${cfg.title} application and related agreed services`}
 function activeSections(){return state.sections.filter(s=>s.enabled)}
 function sectionNumber(id){let n=0;for(const s of state.sections){if(!s.enabled)continue;if(s.numberMode==='auto')n++;if(s.id===id){if(s.numberMode==='none')return '';if(s.numberMode==='manual')return s.manualNumber||'';return String(n).padStart(2,'0')}}return ''}
 function heading(section){const num=sectionNumber(section.id);return `<div class="heading">${num?`<span class="n editable" data-edit="number" data-id="${section.id}">${esc(num)}</span>`:''}<h2 class="editable" data-edit="title" data-id="${section.id}">${esc(section.title)}</h2></div>`}
@@ -71,15 +72,10 @@ function printablePagesMarkup(){
  return clone.outerHTML;
 }
 function printAgreementDocument(){
- const popup=window.open('','_blank');
- if(!popup){toast('Allow pop-ups to open the clean PDF print view');return}
- try{popup.opener=null}catch{}
- const styles=[...document.querySelectorAll('style')].map(style=>style.textContent).join('\n');
- const title=`Agreement - ${fullClient()||currentType().title}`;
- const markup=printablePagesMarkup();
- popup.document.open();
- popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="${location.origin}/"><title>${esc(title)}</title><style>${styles}</style><style>@page{size:A4;margin:0}html,body{margin:0!important;padding:0!important;background:#fff!important}body{overflow:visible!important}.pages{display:block!important;transform:none!important;margin:0!important;gap:0!important}.a4{width:210mm!important;height:297mm!important;min-height:297mm!important;box-shadow:none!important;margin:0!important;page-break-after:always!important;break-after:page!important;overflow:hidden!important}.a4:last-child{page-break-after:auto!important;break-after:auto!important}.editmode .editable,.editable{outline:none!important}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}</style></head><body>${markup}<script>window.addEventListener('load',async()=>{await Promise.all([...document.images].map(img=>img.complete?Promise.resolve():new Promise(resolve=>{img.onload=resolve;img.onerror=resolve})));setTimeout(()=>{window.focus();window.print()},180)});<\/script></body></html>`);
- popup.document.close();
+ renderPages();
+ Promise.all([...document.images].map(img=>img.complete?Promise.resolve():new Promise(resolve=>{img.onload=resolve;img.onerror=resolve}))).then(()=>{
+  requestAnimationFrame(()=>setTimeout(()=>{window.focus();window.print()},80));
+ });
 }
 function scopeList(){return state.scope.filter(x=>x.enabled).map(x=>`<div class="scopeitem"><span class="dot"></span><div>${esc(x.text)}</div></div>`).join('')}
 function professionalTable(){return `<table class="feetable"><thead><tr><th>Payment</th><th>Professional service</th><th>When payable</th><th style="text-align:right">Amount</th></tr></thead><tbody>${state.professionalFees.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.description)}</td><td>${esc(r.trigger)}</td><td class="amount">${esc(r.amount)}</td></tr>`).join('')}</tbody></table>`}
@@ -221,7 +217,7 @@ function bindRepeats(){
  $$('[data-sign-row]').forEach(row=>{let i=+row.dataset.signRow;row.querySelectorAll('[data-sf]').forEach(el=>el.oninput=e=>{state.signatories[i][el.dataset.sf]=e.target.value;dirty();renderPages()});row.querySelector('[data-sf-required]').onchange=e=>{state.signatories[i].required=e.target.checked;dirty();renderPages()};row.querySelector('[data-sign-remove]').onclick=()=>{state.signatories.splice(i,1);renderAll()}})
 }
 function bindInlineEdits(){if(!editMode)return;$$('#pages .editable').forEach(el=>{el.contentEditable='true';el.addEventListener('blur',()=>{const k=el.dataset.edit,id=el.dataset.id;if(k==='coverHeading')state.template.coverHeading=el.textContent.trim();else if(k==='coverSubtitle')state.template.coverSubtitle=el.textContent.trim();else if(k==='title')state.sections.find(s=>s.id===id).title=el.textContent.trim();else if(k==='number'){const sec=state.sections.find(s=>s.id===id);sec.numberMode='manual';sec.manualNumber=el.textContent.trim();}else if(k==='body'){const fragments=$$('#pages [data-edit="body"]').filter(fragment=>fragment.dataset.id===id);state.sections.find(s=>s.id===id).body=fragments.map(fragment=>fragment.innerHTML).join('')}dirty();renderSectionList();renderContentEditor()});el.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();renderPages()}if(e.key==='Enter'&&e.ctrlKey){e.preventDefault();el.blur()}})})}
-function switchType(type){state.appType=type;const cfg=currentType();state.template.coverSubtitle=cfg.title;state.scope=cfg.scope.map((text,i)=>({id:'s'+Date.now()+i,text,enabled:true}));state.governmentFees=cfg.gov.map((r,i)=>({id:'g'+Date.now()+i,agency:r[0],application:r[1],amount:r[3]}));dirty();renderAll()}
+function switchType(type){state.appType=type;const cfg=currentType();state.template.coverSubtitle=cfg.title;state.client.matterNote=defaultMatterDescription(type);state.scope=cfg.scope.map((text,i)=>({id:'s'+Date.now()+i,text,enabled:true}));state.governmentFees=cfg.gov.map((r,i)=>({id:'g'+Date.now()+i,agency:r[0],application:r[1],amount:r[3]}));dirty();renderAll()}
 function openIssue(){if(!state.client.clientEmail){toast('Add a client email before issuing');return}if(!state.feeConfirmed||!state.clientChecked){toast('Confirm the fees and client details before issuing');return}state.token=state.token||crypto.randomUUID().replaceAll('-','').slice(0,24);$('#issueTo').textContent=state.client.clientEmail;$('#issueCc').textContent=state.client.adviserEmail;$('#issueSubject').textContent=state.emailSubject;$('#issueBody').textContent=state.emailBody;$('#secureLink').textContent='https://portal.turnerhopkinsimmigration.co.nz/agreement/'+state.token;$('#issueModal').classList.remove('hidden')}
 function openSigning(){ $('#signHeading').textContent='Review and accept your agreement';$('#signAgreement').textContent=currentType().title;$('#signClient').textContent=fullClient();$('#signVersion').textContent=state.template.version;$('#typedName').value='';['checkRead','checkFees','checkDocs'].forEach(id=>$('#'+id).checked=false);clearSignature();$('#signModal').classList.remove('hidden');setTimeout(initCanvas,50)}
 function initCanvas(){const c=$('#sigCanvas'),ctx=c.getContext('2d');let drawing=false,last=null;function pos(e){const r=c.getBoundingClientRect(),p=e.touches?e.touches[0]:e;return{x:(p.clientX-r.left)*(c.width/r.width),y:(p.clientY-r.top)*(c.height/r.height)}}function start(e){drawing=true;last=pos(e);e.preventDefault()}function move(e){if(!drawing)return;const p=pos(e);ctx.strokeStyle='#063b39';ctx.lineWidth=2.2;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(p.x,p.y);ctx.stroke();last=p;sigDrawn=true;e.preventDefault()}function end(){drawing=false;last=null}c.onmousedown=start;c.onmousemove=move;c.onmouseup=end;c.onmouseleave=end;c.ontouchstart=start;c.ontouchmove=move;c.ontouchend=end}
@@ -281,7 +277,7 @@ bind();renderAll();
     return 'other';
   }
   function fullName(person={}){ return [person.firstName,person.lastName].filter(Boolean).join(' ').trim() || person.name || ''; }
-  function mapClient(client={},advisers=[]){
+  function mapClient(client={},advisers=[],appType='other'){
     const family=Array.isArray(client.familyMembers)?client.familyMembers:[];
     const partner=family.find(member=>/partner|spouse|husband|wife/i.test(member.relationship||member.type||member.role||''));
     const primary=advisers.find(item=>item.id===client.primaryAdviserId)||{};
@@ -296,7 +292,7 @@ bind();renderAll();
       adviserEmail:primary.email||'',
       preparedDate:new Date().toISOString().slice(0,10),
       expectedMonths:'To be confirmed',
-      matterNote:client.caseStrategy||client.caseType||''
+      matterNote:defaultMatterDescription(appType)
     };
   }
   function applyMasterTemplate(next,library){
@@ -313,13 +309,13 @@ bind();renderAll();
     else next.sourceMode='standalone';
     if(!payload.client) return next;
     const existing=next.client||{};
-    const mapped=mapClient(payload.client,payload.advisers||[]);
+    const mapped=mapClient(payload.client,payload.advisers||[],next.appType);
     next.client={
       ...existing,
       ...mapped,
       preparedDate:existing.preparedDate||mapped.preparedDate,
       expectedMonths:existing.expectedMonths||mapped.expectedMonths,
-      matterNote:mapped.matterNote||existing.matterNote||''
+      matterNote:existing.matterNote||mapped.matterNote||defaultMatterDescription(next.appType)
     };
     const signatories=Array.isArray(next.signatories)?next.signatories:[];
     let principal=signatories.find(item=>/principal|client/i.test(item.role||''));
@@ -357,7 +353,7 @@ bind();renderAll();
     next.template.coverSubtitle=APP_TYPES[next.appType].title;
     next.scope=APP_TYPES[next.appType].scope.map((text,i)=>({id:'s'+Date.now()+i,text,enabled:true}));
     next.governmentFees=APP_TYPES[next.appType].gov.map((r,i)=>({id:'g'+Date.now()+i,agency:r[0],application:r[1],amount:r[3]}));
-    next.client=mapClient(payload.client||{},payload.advisers||[]);
+    next.client=mapClient(payload.client||{},payload.advisers||[],next.appType);
     next.sourceMode=payload.intake?'intake':payload.client?'linked':'standalone';
     if(!payload.client&&payload.agreementSet?.standaloneLabel){
       next.client.clientName=payload.agreementSet.standaloneLabel;
