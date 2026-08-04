@@ -1,22 +1,13 @@
-v0.13.57.4 - Studio CSP Boot and Intake Agreement Source
+v0.13.57.6 - Agreement Pagination and Section Flow Polish
 
-Built from v0.13.57.3.
+This maintenance release keeps the working v0.13.57.5 CRM and Studio integration and tightens the Agreement document layout.
 
-Fixes the deployed Instructions and Agreement Studios remaining in their static prototype shells. The Netlify Content Security Policy permits scripts loaded from the CRM origin but blocks inline JavaScript; both Studio applications are now loaded from external same-origin JavaScript files.
+- Agreement sections now use the remaining space on the current A4 page before a new page is created.
+- Long agreement sections can continue naturally onto the next page instead of forcing the complete section onto a fresh page.
+- Continuation pages use a restrained continued heading where needed.
+- A light divider separates completed sections when they share a page.
+- Direct preview editing continues to write fragmented body content back to the complete underlying section.
+- The same pagination is used in the CRM authoring preview, print/PDF output and secure client agreement view.
+- The service-worker and embedded Studio cache versions advance to v0.13.57.6.
 
-Changes:
-- Moves Agreement Studio JavaScript to /agreement-studio.js.
-- Moves Instructions Studio JavaScript to /instructions-studio.js.
-- Keeps the existing script-src 'self' Content Security Policy intact.
-- Adds both Studio scripts to the service-worker pre-cache and advances the shell cache to v0.13.57.4.
-- Restores Agreement Type options, template data, live A4 previews and CRM payload initialisation in deployed builds.
-- Corrects source-specific loading messages for linked-client, intake-linked and standalone documents.
-- Adds agreement creation from unconverted intake forms, with search by name, email, pathway or status.
-- Stores the source intake ID on the agreement and inserts applicant, partner, children, pathway, email and assigned-adviser data into the Studio.
-- Automatically links intake-originated agreements to the new client record when that intake is converted, while retaining intake provenance.
-- Adds an Intake-linked agreements filter.
-
-Database migration:
-- 202608040003_link_agreements_to_intake.sql
-
-No dependency changes.
+No database, migration, dependency or API changes are included.

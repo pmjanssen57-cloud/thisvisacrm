@@ -1,18 +1,11 @@
-THiS CRM v0.13.57.4 validation
+THiS CRM v0.13.57.6 validation
 
-Validated:
-- App.jsx parses as JSX with zero TypeScript parser diagnostics.
 - Agreement Studio external JavaScript passes node --check.
 - Instructions Studio external JavaScript passes node --check.
-- CRM Netlify function passes node --check.
-- Service worker passes node --check.
-- Both Studio HTML files contain external same-origin script references and no inline script blocks.
-- Netlify CSP remains script-src 'self', matching the external Studio script approach.
-- Service-worker cache is v0.13.57.4 and includes both Studio HTML and JavaScript files.
-- Agreement records support nullable intake_id through a new migration and runtime schema safeguard.
-- Agreement create, update, load and issue queries preserve intake_id.
-- Intake conversion links any intake-originated agreements to the resulting client record.
-- Agreement Workspace includes client, intake and standalone source modes and an intake search selector.
-- Package contains the v0.13.55 intake refresh/CV-request baseline, Instructions Studio and Agreement Studio migrations.
-
-Automated Chromium rendering could not be completed because the container browser process stalled/blocked local navigation. A full Vite production build was not run because the isolated environment does not contain the project dependencies and cannot fetch the exact Netlify packages. No dependency versions were changed.
+- Service-worker JavaScript passes node --check.
+- PWA validation passes.
+- Agreement pagination uses measured A4 page content rather than whole-section page grouping.
+- Long agreement sections can flow across pages and completed sections retain light dividers.
+- Fragmented direct-text edits are recombined into the complete underlying agreement section.
+- Service-worker cache and iframe/script query versions are v0.13.57.6.
+- No database, migration, dependency or API changes.

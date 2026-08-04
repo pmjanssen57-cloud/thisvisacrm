@@ -32,7 +32,7 @@ const defaultState=()=>({status:'Draft',selectedSection:'introduction',appType:'
 {id:'p1',description:'Initial engagement, strategy and detailed written instructions',amount:'NZD$X,XXX.00',trigger:'Payable to commence the process'},
 {id:'p2',description:'Qualification assessment and pathway preparation',amount:'NZD$X,XXX.00',trigger:'Payable when the IQA or agreed preliminary stage is ready to begin'},
 {id:'p3',description:'Temporary visa application stage',amount:'NZD$X,XXX.00',trigger:'Payable when the agreed temporary visa application is ready to prepare'},
-{id:'p4',description:'Residence application preparation and submission',amount:'NZD$X,XXX.00',trigger:'Payable when the Residence application is ready to prepare'}],governmentFees:APP_TYPES.smc.gov.map((r,i)=>({id:'g'+i,agency:r[0],application:r[1],quantity:r[2],amount:r[3],note:r[4]})),signatories:[{id:'sg1',name:'Amelia Chen',email:'amelia.chen@example.com',role:'Principal client',required:true},{id:'sg2',name:'David Chen',email:'david.chen@example.com',role:'Partner / second client',required:true}],acceptanceText:'I confirm that I have read and understood this agreement, accept the scope of services, professional fees, government costs and payment terms, and authorise Turner Hopkins Services Limited to act for me in the agreed matters.',emailSubject:'Your Turner Hopkins engagement agreement',emailBody:'Dear Amelia,\n\nPlease use the secure link below to review and accept your engagement agreement. If any detail is incorrect or you have a question, please contact us before accepting it.\n\nKind regards\nPaul Janssen',templateHistory:[{version:'1.0',date:'4 August 2026',note:'Initial reusable master engagement agreement prototype'}],sentAt:'',acceptedAt:'',acceptedBy:'',token:''});
+{id:'p4',description:'Residence application preparation and submission',amount:'NZD$X,XXX.00',trigger:'Payable when the Residence application is ready to prepare'}],governmentFees:APP_TYPES.smc.gov.map((r,i)=>({id:'g'+i,agency:r[0],application:r[1],quantity:r[2],amount:r[3],note:r[4]})),signatories:[{id:'sg1',name:'Amelia Chen',email:'amelia.chen@example.com',role:'Principal client',required:true},{id:'sg2',name:'David Chen',email:'david.chen@example.com',role:'Partner / second client',required:true}],acceptanceText:'I confirm that I have read and understood this agreement, accept the scope of services, professional fees, government costs and payment terms, and authorise Turner Hopkins Services Limited to act for me in the agreed matters.',emailSubject:'Your Turner Hopkins engagement agreement',emailBody:'Dear Amelia,\n\nPlease use the secure link below to review and accept your engagement agreement. If any detail is incorrect or you have a question, please contact us before accepting it.\n\nKind regards\nPaul Janssen',templateHistory:[{version:'1.0',date:'4 August 2026',note:'Initial reusable master engagement agreement'}],sentAt:'',acceptedAt:'',acceptedBy:'',token:''});
 const THIS_LOCAL_STORAGE=(()=>{try{const storage=window['local'+'Storage'];const probe='__this_agreement_storage_probe__';storage.getItem(probe);return storage;}catch(error){console.warn('Browser storage is unavailable; CRM persistence will be used instead.',error);return{getItem(){return null},setItem(){},removeItem(){},clear(){}}}})();
 const THIS_SESSION_STORAGE=(()=>{try{return window['session'+'Storage'];}catch(error){return{getItem(){return null},setItem(){},removeItem(){},clear(){}}}})();
 let state=(()=>{try{return JSON.parse(THIS_LOCAL_STORAGE.getItem('this-agreement-studio-v1')||'null')||defaultState();}catch(error){console.warn('Unable to load the browser agreement draft; starting from the CRM payload.',error);return defaultState();}})();let editMode=false,zoom='fit',sigDrawn=false;
@@ -60,33 +60,60 @@ function sectionExtra(id){
  if(id==='payment')return `<div class="note"><strong>Overdue interest:</strong> ${esc(state.template.interestRate)}.</div>`;
  return '';
 }
-function measureSectionBlock(html){
- const probe=document.createElement('article');
- probe.className='a4 page-probe';
- probe.innerHTML=`<div class="pagebody">${html}<section class="section" aria-hidden="true" style="height:1px;padding:0;margin:0;border:0"></section></div>`;
+function nodeHtml(node){
+ if(node.nodeType===Node.TEXT_NODE){const text=node.textContent.trim();return text?`<p>${esc(text)}</p>`:''}
+ return node.outerHTML||'';
+}
+function sectionFlowUnits(section){
+ const shell=document.createElement('div');
+ shell.innerHTML=`<section>${heading(section)}${bodyHtml(section)}${sectionExtra(section.id)}</section>`;
+ const root=shell.firstElementChild;
+ const body=root.querySelector(':scope > [data-edit="body"]');
+ const parts=[];
+ if(body){
+  [...body.childNodes].map(nodeHtml).filter(Boolean).forEach(html=>parts.push({html:`<div class="editable body-fragment" data-edit="body" data-id="${section.id}">${html}</div>`,body:true}));
+  let sibling=body.nextSibling;
+  while(sibling){const html=nodeHtml(sibling);if(html)parts.push({html,body:false});sibling=sibling.nextSibling}
+ }
+ if(!parts.length)parts.push({html:`<div class="editable body-fragment" data-edit="body" data-id="${section.id}"></div>`,body:true});
+ return parts.map((part,index)=>{
+  const first=index===0,last=index===parts.length-1;
+  const classes=['section','fragment',first?'fragment-first':'fragment-continuation',last?'fragment-last':''].filter(Boolean).join(' ');
+  const content=`<section class="${classes}" data-section="${section.id}">${first?heading(section):''}${part.html}</section>`;
+  const continued=`<section class="${classes}" data-section="${section.id}"><div class="continuation-heading">${esc(section.title)} <span>continued</span></div>${part.html}</section>`;
+  return {sectionId:section.id,title:section.title,first,last,html:content,continuedHtml:continued};
+ });
+}
+function measurePageContent(html){
+ const probe=document.createElement('div');
+ probe.className='page-measure';
+ probe.innerHTML=`<div class="pagebody">${html}</div>`;
  document.body.appendChild(probe);
- const section=probe.querySelector('.section');
- const height=Math.ceil(section.getBoundingClientRect().height);
+ const height=Math.ceil(probe.querySelector('.pagebody').getBoundingClientRect().height);
  probe.remove();
  return height;
 }
-function paginateSectionBlocks(blocks){
- const contentHeight=1007;
+function paginateSectionFlow(sections){
  const pages=[];
- let current=[];
- let used=0;
- blocks.forEach(block=>{
-  const height=measureSectionBlock(block);
-  if(current.length&&used+height>contentHeight){pages.push(current.join(''));current=[];used=0}
-  current.push(block);
-  used+=height;
+ let current='';
+ sections.forEach(section=>{
+  const units=sectionFlowUnits(section);
+  units.forEach((unit,index)=>{
+   const candidate=current+unit.html;
+   if(current&&measurePageContent(candidate)>1123){
+    pages.push(current);
+    current=index>0?unit.continuedHtml:unit.html;
+   }else{
+    current=candidate;
+   }
+  });
  });
- if(current.length)pages.push(current.join(''));
+ if(current)pages.push(current);
  return pages;
 }
 function renderPages(){
- const blocks=state.sections.filter(section=>section.enabled).map(section=>sectionBlock(section.id,sectionExtra(section.id)));
- const paginated=paginateSectionBlocks(blocks);
+ const sections=state.sections.filter(section=>section.enabled);
+ const paginated=paginateSectionFlow(sections);
  let n=1,out=cover();
  paginated.forEach(inner=>{out+=page(inner,n++)});
  $('#pages').innerHTML=out;
@@ -110,13 +137,13 @@ function bindRepeats(){
  $$('[data-gov-row]').forEach(row=>{let i=+row.dataset.govRow;row.querySelectorAll('[data-gf]').forEach(el=>el.oninput=e=>{state.governmentFees[i][el.dataset.gf]=e.target.value;dirty();renderPages()});row.querySelector('[data-gov-remove]').onclick=()=>{state.governmentFees.splice(i,1);renderAll()}});
  $$('[data-sign-row]').forEach(row=>{let i=+row.dataset.signRow;row.querySelectorAll('[data-sf]').forEach(el=>el.oninput=e=>{state.signatories[i][el.dataset.sf]=e.target.value;dirty();renderPages()});row.querySelector('[data-sf-required]').onchange=e=>{state.signatories[i].required=e.target.checked;dirty();renderPages()};row.querySelector('[data-sign-remove]').onclick=()=>{state.signatories.splice(i,1);renderAll()}})
 }
-function bindInlineEdits(){if(!editMode)return;$$('#pages .editable').forEach(el=>{el.contentEditable='true';el.addEventListener('blur',()=>{const k=el.dataset.edit,id=el.dataset.id;if(k==='coverHeading')state.template.coverHeading=el.textContent.trim();else if(k==='coverSubtitle')state.template.coverSubtitle=el.textContent.trim();else if(k==='title')state.sections.find(s=>s.id===id).title=el.textContent.trim();else if(k==='number'){const sec=state.sections.find(s=>s.id===id);sec.numberMode='manual';sec.manualNumber=el.textContent.trim();}else if(k==='body')state.sections.find(s=>s.id===id).body=el.innerHTML;dirty();renderSectionList();renderContentEditor()});el.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();renderPages()}if(e.key==='Enter'&&e.ctrlKey){e.preventDefault();el.blur()}})})}
+function bindInlineEdits(){if(!editMode)return;$$('#pages .editable').forEach(el=>{el.contentEditable='true';el.addEventListener('blur',()=>{const k=el.dataset.edit,id=el.dataset.id;if(k==='coverHeading')state.template.coverHeading=el.textContent.trim();else if(k==='coverSubtitle')state.template.coverSubtitle=el.textContent.trim();else if(k==='title')state.sections.find(s=>s.id===id).title=el.textContent.trim();else if(k==='number'){const sec=state.sections.find(s=>s.id===id);sec.numberMode='manual';sec.manualNumber=el.textContent.trim();}else if(k==='body'){const fragments=$$('#pages [data-edit="body"]').filter(fragment=>fragment.dataset.id===id);state.sections.find(s=>s.id===id).body=fragments.map(fragment=>fragment.innerHTML).join('')}dirty();renderSectionList();renderContentEditor()});el.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();renderPages()}if(e.key==='Enter'&&e.ctrlKey){e.preventDefault();el.blur()}})})}
 function switchType(type){state.appType=type;const cfg=currentType();state.template.coverSubtitle=cfg.title;state.scope=cfg.scope.map((text,i)=>({id:'s'+Date.now()+i,text,enabled:true}));state.governmentFees=cfg.gov.map((r,i)=>({id:'g'+Date.now()+i,agency:r[0],application:r[1],quantity:r[2],amount:r[3],note:r[4]}));dirty();renderAll()}
 function openIssue(){if(!state.client.clientEmail){toast('Add a client email before issuing');return}if(!state.feeConfirmed||!state.clientChecked){toast('Confirm the fees and client details before issuing');return}state.token=state.token||crypto.randomUUID().replaceAll('-','').slice(0,24);$('#issueTo').textContent=state.client.clientEmail;$('#issueCc').textContent=state.client.adviserEmail;$('#issueSubject').textContent=state.emailSubject;$('#issueBody').textContent=state.emailBody;$('#secureLink').textContent='https://portal.turnerhopkinsimmigration.co.nz/agreement/'+state.token;$('#issueModal').classList.remove('hidden')}
 function openSigning(){ $('#signHeading').textContent='Review and accept your agreement';$('#signAgreement').textContent=currentType().title;$('#signClient').textContent=fullClient();$('#signVersion').textContent=state.template.version;$('#typedName').value='';['checkRead','checkFees','checkDocs'].forEach(id=>$('#'+id).checked=false);clearSignature();$('#signModal').classList.remove('hidden');setTimeout(initCanvas,50)}
 function initCanvas(){const c=$('#sigCanvas'),ctx=c.getContext('2d');let drawing=false,last=null;function pos(e){const r=c.getBoundingClientRect(),p=e.touches?e.touches[0]:e;return{x:(p.clientX-r.left)*(c.width/r.width),y:(p.clientY-r.top)*(c.height/r.height)}}function start(e){drawing=true;last=pos(e);e.preventDefault()}function move(e){if(!drawing)return;const p=pos(e);ctx.strokeStyle='#063b39';ctx.lineWidth=2.2;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(p.x,p.y);ctx.stroke();last=p;sigDrawn=true;e.preventDefault()}function end(){drawing=false;last=null}c.onmousedown=start;c.onmousemove=move;c.onmouseup=end;c.onmouseleave=end;c.ontouchstart=start;c.ontouchmove=move;c.ontouchend=end}
 function clearSignature(){const c=$('#sigCanvas');if(c){c.getContext('2d').clearRect(0,0,c.width,c.height)}sigDrawn=false}
-function acceptAgreement(){if(!$('#checkRead').checked||!$('#checkFees').checked||!$('#checkDocs').checked||!$('#typedName').value.trim()||!sigDrawn){toast('Complete all acceptance confirmations and the signature');return}state.status='Accepted';state.acceptedAt=new Date().toISOString();state.acceptedBy=$('#typedName').value.trim();save();$('#signModal').classList.add('hidden');renderAll();toast('Prototype agreement accepted')}
+function acceptAgreement(){if(!$('#checkRead').checked||!$('#checkFees').checked||!$('#checkDocs').checked||!$('#typedName').value.trim()||!sigDrawn){toast('Complete all acceptance confirmations and the signature');return}state.status='Accepted';state.acceptedAt=new Date().toISOString();state.acceptedBy=$('#typedName').value.trim();save();$('#signModal').classList.add('hidden');renderAll();toast('Agreement accepted')}
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
 function exportData(){const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='this-agreement-'+(state.client.clientName||'standalone').replace(/\s+/g,'-').toLowerCase()+'.json';a.click();URL.revokeObjectURL(url)}
 function publishTemplate(){const note=$('#changeNote').value.trim();if(!note){toast('Add a change note before publishing');return}let parts=state.template.version.split('.').map(Number);parts[1]=(parts[1]||0)+1;state.template.version=parts.join('.');state.templateHistory.push({version:state.template.version,date:new Date().toLocaleDateString('en-NZ',{day:'numeric',month:'long',year:'numeric'}),note});$('#changeNote').value='';save();renderTemplate();renderPages();toast('New template version published')}
@@ -285,10 +312,21 @@ ${next.client.adviserName||'Turner Hopkins Immigration Specialists'}`;
   }
   function setCrmPresentation(){
     document.body.classList.add('crm-embedded-agreement');
+    const product=document.querySelector('.product'); if(product) product.textContent='Agreement Studio';
     const subtitle=document.querySelector('.subtitle'); if(subtitle) subtitle.textContent='CRM agreement authoring';
+    document.title='THiS Agreement Studio';
     const saveBtn=document.querySelector('#saveBtn'); if(saveBtn) saveBtn.textContent='Save to CRM';
     const issueBtn=document.querySelector('#issueBtn'); if(issueBtn) issueBtn.textContent='Issue agreement';
     const notice=document.querySelector('.preview>.notice'); if(notice) notice.textContent='Review client details, fees and terms before issue';
+  }
+  function setPublicPresentation(){
+    document.body.classList.add('public-review-mode');
+    document.body.classList.remove('crm-embedded-agreement');
+    const product=document.querySelector('.product'); if(product) product.textContent='Agreement';
+    const subtitle=document.querySelector('.subtitle'); if(subtitle) subtitle.textContent='Turner Hopkins Immigration Specialists';
+    const notice=document.querySelector('.preview>.notice'); if(notice) notice.textContent='Please review this agreement carefully before accepting it.';
+    const audit=document.querySelector('.audit'); if(audit) audit.textContent='Your acceptance records the agreement version, the document accepted, your name and signature, the date and time, your email address and technical audit details.';
+    document.title='Agreement | Turner Hopkins Immigration Specialists';
   }
   function initFromCrm(payload={}){
     crmContext={agreementSetId:payload.agreementSet?.id||'',canManageTemplates:Boolean(payload.canManageTemplates)};
@@ -313,6 +351,7 @@ ${next.client.adviserName||'Turner Hopkins Immigration Specialists'}`;
     state.status=payload.agreement.status||state.status;
     publicSignatory=payload.signatory||null;
     renderAll();
+    setPublicPresentation();
     const actions=document.querySelector('.actions');
     if(actions){
       actions.innerHTML='';
