@@ -1,6 +1,14 @@
-# THiS CRM v0.13.55 — Live Intake Refresh, CV Requests and Reliable Print View
+# THiS CRM v0.13.57 — Integrated Agreement Studio
 
-This release is based on v0.13.54 and improves the day-to-day intake workflow without changing the CRM data model.
+This release is based on the authoritative v0.13.56 Integrated Instructions Studio build and adds Agreement Studio while retaining all existing intake, print, commercial and portal functionality.
+
+## Instructions Studio integration
+
+- Open **Instructions** from the main CRM navigation to create client-linked or standalone instruction sets.
+- Open a client record, expand **More sections**, then select **Instructions** to start from that client record.
+- Client-linked drafts receive the applicant, recorded family, adviser, case type and strategy data already held in the CRM.
+- CRM administrators can open the Template Library from inside the Studio. Template drafts and version history are stored in the database.
+- Instruction sets are fixed saved snapshots; publishing a new master template does not silently alter earlier client drafts.
 
 ## Live intake refresh
 
@@ -38,6 +46,20 @@ The intake print control now opens a stable printable page rather than triggerin
 ## Deployment
 
 - Existing `yarn build` and `dist` deployment retained.
-- No database migration.
+- New migration: `202608040002_add_agreement_studio.sql`.
 - No new npm dependency.
-- Service-worker cache and backup source version advanced to v0.13.55.
+- Service-worker cache and backup source version advanced to v0.13.57.
+
+
+## Agreement Studio
+
+- Create agreements directly from a client record or as standalone documents.
+- Tailor application scope, professional fees, payment milestones, Government fees, signatories and matter-specific wording.
+- Save and publish versioned master agreement templates without changing agreements already issued.
+- Issue secure 30-day signing links through the existing Microsoft 365 mailbox, copying and routing replies to the assigned adviser.
+- Capture required declarations, typed legal name, drawn signature, acceptance timestamp, IP address and user-agent audit information.
+- Track Draft, Ready, Sent, Viewed, Partially signed, Accepted, Declined, Superseded, Cancelled and Archived statuses.
+- Lock accepted agreements against editing or deletion.
+- Retain the exact accepted Studio state and signatory audit record in the database.
+
+The public acceptance page is served from `/agreement-studio.html?token=...`; only a SHA-256 hash of each secure token is stored in the database.

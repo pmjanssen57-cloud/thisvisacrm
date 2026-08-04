@@ -48,6 +48,82 @@ const DEFAULT_CASE_TYPES = [
   'Student Visa (Intl)',
 ];
 
+
+const INSTRUCTION_PACK_OPTIONS = [
+  { value: 'smc', label: 'Skilled Migrant Category' },
+  { value: 'investor', label: 'Active Investor Plus Category' },
+  { value: 'parent', label: 'Parent Residence Category' },
+  { value: 'family', label: 'Family Category - Partnership' },
+  { value: 'pwv', label: 'Partnership Work Visa Only' },
+  { value: 'accreditation', label: 'Employer Accreditation' },
+  { value: 'aewv-family', label: 'Family of AEWV Holder' },
+  { value: 'aewv', label: 'Accredited Employer Work Visa' },
+  { value: 'citizenship', label: 'New Zealand Citizenship' },
+  { value: 'permanent', label: 'Permanent Residence' },
+  { value: 'student', label: 'International Student Visa' },
+  { value: 'visitor', label: 'General Visitor Visa' },
+];
+
+function instructionPackLabel(packId = '') {
+  return INSTRUCTION_PACK_OPTIONS.find((option) => option.value === packId)?.label || packId || 'Instruction pack';
+}
+
+function instructionPackFromCaseType(caseType = '') {
+  const value = String(caseType || '').toLowerCase();
+  if (value.includes('smc') || value.includes('skilled migrant')) return 'smc';
+  if (value.includes('active investor') || value.includes('investor')) return 'investor';
+  if (value.includes('parent')) return 'parent';
+  if (value.includes('partner residence') || value.includes('partnership residence')) return 'family';
+  if (value.includes('partner wv') || value.includes('partnership work')) return 'pwv';
+  if (value.includes('aewv')) return 'aewv';
+  if (value.includes('citizenship')) return 'citizenship';
+  if (value.includes('permanent residence')) return 'permanent';
+  if (value.includes('student')) return 'student';
+  if (value.includes('visitor')) return 'visitor';
+  return 'smc';
+}
+
+function formatInstructionDate(value = '') {
+  if (!value) return 'not yet saved';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('en-NZ', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }).format(date);
+}
+
+const AGREEMENT_TYPE_OPTIONS = [
+  { value: 'smc', label: 'Skilled Migrant Category' },
+  { value: 'partnership', label: 'Partnership Visa Pathway' },
+  { value: 'parent', label: 'Parent Residence Category' },
+  { value: 'investor', label: 'Active Investor Plus' },
+  { value: 'aewv', label: 'Accredited Employer Work Visa' },
+  { value: 'aewvfamily', label: 'Family Temporary Visas linked to an AEWV' },
+  { value: 'accreditation', label: 'Employer Accreditation' },
+  { value: 'student', label: 'International Student Visa' },
+  { value: 'visitor', label: 'General Visitor Visa' },
+  { value: 'permanent', label: 'Permanent Resident Visa' },
+  { value: 'citizenship', label: 'New Zealand Citizenship' },
+  { value: 'other', label: 'Other Immigration Matter' },
+];
+
+function agreementTypeLabel(appType = '') {
+  return AGREEMENT_TYPE_OPTIONS.find((option) => option.value === appType)?.label || appType || 'Engagement agreement';
+}
+
+function agreementTypeFromCaseType(caseType = '') {
+  const value = String(caseType || '').toLowerCase();
+  if (value.includes('smc') || value.includes('skilled migrant')) return 'smc';
+  if (value.includes('active investor') || value.includes('investor')) return 'investor';
+  if (value.includes('parent')) return 'parent';
+  if (value.includes('partner') || value.includes('partnership')) return 'partnership';
+  if (value.includes('accreditation')) return 'accreditation';
+  if (value.includes('aewv')) return 'aewv';
+  if (value.includes('citizenship')) return 'citizenship';
+  if (value.includes('permanent residence')) return 'permanent';
+  if (value.includes('student')) return 'student';
+  if (value.includes('visitor')) return 'visitor';
+  return 'other';
+}
+
 const DEFAULT_DEADLINE_TYPES = [
   'Visa Expiry Date',
   'Medical Expiry Date',
@@ -390,6 +466,12 @@ const emptyData = {
   personalTasks: [],
   calendarEntries: [],
   libraryEntries: [],
+  instructionSets: [],
+  instructionTemplateLibrary: {},
+  instructionTemplateVersions: [],
+  agreementSets: [],
+  agreementTemplateLibrary: {},
+  agreementTemplateVersions: [],
   intakeEnquiries: [],
   intakeStatuses: INTAKE_STATUSES,
   seminars: [],
@@ -808,6 +890,10 @@ export default function App() {
   const [myDayOpen, setMyDayOpen] = useState(true);
   const [selectedClientId, setSelectedClientId] = useState('');
   const [selectedCommercialClientId, setSelectedCommercialClientId] = useState('');
+  const [instructionLaunchClientId, setInstructionLaunchClientId] = useState('');
+  const [instructionLaunchSetId, setInstructionLaunchSetId] = useState('');
+  const [agreementLaunchClientId, setAgreementLaunchClientId] = useState('');
+  const [agreementLaunchSetId, setAgreementLaunchSetId] = useState('');
   const [clientQuery, setClientQuery] = useState('');
   const [adviserFilter, setAdviserFilter] = useState('all');
   const [clientAdviserFilter, setClientAdviserFilter] = useState('mine');
@@ -1264,6 +1350,78 @@ export default function App() {
       showCrmToast(body.emailLog.status === 'Sent' ? 'Related client email sent.' : 'Email logged as failed. Check email log.', body.emailLog.status === 'Sent' ? 'success' : 'warning');
     }
     return body;
+  }
+
+
+  async function saveInstructionSet(instructionSet) {
+    const body = await callApi('saveInstructionSet', { instructionSet });
+    showCrmToast(instructionSet?.id ? 'Instruction set saved.' : 'Instruction set created.');
+    return body;
+  }
+
+  async function deleteInstructionSet(instructionSetId) {
+    const confirmed = await askCrmConfirm({ title: 'Delete instruction set?', message: 'This removes the saved draft from the CRM. Published PDFs already stored elsewhere are not affected.', confirmLabel: 'Delete', tone: 'danger' });
+    if (!confirmed) return null;
+    const body = await callApi('deleteInstructionSet', { instructionSetId });
+    showCrmToast('Instruction set deleted.');
+    return body;
+  }
+
+  async function saveInstructionTemplateLibrary(library, versionEvent = null) {
+    const body = await callApi('saveInstructionTemplateLibrary', { library, versionEvent });
+    showCrmToast(versionEvent ? `Template ${versionEvent.versionLabel} published.` : 'Template library saved.');
+    return body;
+  }
+
+  function openInstructionsForClient(clientId, instructionSetId = '') {
+    if (!clientId || String(clientId).startsWith('temp-')) {
+      showCrmToast('Save the client record before creating linked instructions.', 'warning');
+      return;
+    }
+    if (!confirmDiscardPendingEdits()) return;
+    setInstructionLaunchClientId(clientId);
+    setInstructionLaunchSetId(instructionSetId || '');
+    setTab('instructions');
+    setMyDayOpen(false);
+  }
+
+  async function saveAgreementSet(agreementSet) {
+    const body = await callApi('saveAgreementSet', { agreementSet });
+    showCrmToast(agreementSet?.id ? 'Agreement saved.' : 'Agreement created.');
+    return body;
+  }
+
+  async function deleteAgreementSet(agreementSetId) {
+    const confirmed = await askCrmConfirm({ title: 'Delete agreement?', message: 'This removes the saved agreement draft and any unused signing links. Accepted agreements should normally be retained.', confirmLabel: 'Delete', tone: 'danger' });
+    if (!confirmed) return null;
+    const body = await callApi('deleteAgreementSet', { agreementSetId });
+    showCrmToast('Agreement deleted.');
+    return body;
+  }
+
+  async function saveAgreementTemplateLibrary(library, versionEvent = null) {
+    const body = await callApi('saveAgreementTemplateLibrary', { library, versionEvent });
+    showCrmToast(versionEvent ? `Agreement template ${versionEvent.versionLabel} published.` : 'Agreement template saved.');
+    return body;
+  }
+
+  async function issueAgreementSet(agreementSet, issue = {}) {
+    const body = await callApi('issueAgreementSet', { agreementSet, issue });
+    const sentCount = body.signingLinks?.length || 0;
+    showCrmToast(body.emailConfigured === false ? `Agreement prepared with ${sentCount} secure signing link${sentCount === 1 ? '' : 's'}, but Microsoft email is not configured.` : `Agreement issued to ${sentCount} signatory${sentCount === 1 ? '' : 'ies'}.`, body.emailConfigured === false ? 'warning' : 'success');
+    return body;
+  }
+
+  function openAgreementsForClient(clientId, agreementSetId = '') {
+    if (!clientId || String(clientId).startsWith('temp-')) {
+      showCrmToast('Save the client record before creating a linked agreement.', 'warning');
+      return;
+    }
+    if (!confirmDiscardPendingEdits()) return;
+    setAgreementLaunchClientId(clientId);
+    setAgreementLaunchSetId(agreementSetId || '');
+    setTab('agreements');
+    setMyDayOpen(false);
   }
 
   async function saveCommercialClient(commercialClient) {
@@ -1841,6 +1999,7 @@ export default function App() {
                 <button type="button" onClick={() => { setNewMenuOpen(false); addClient(); }}><UsersRound size={16} /><span><strong>New client</strong><small>Create an active client record</small></span></button>
                 <button type="button" onClick={() => { setNewMenuOpen(false); addCommercialClient(); }}><Building2 size={16} /><span><strong>New commercial client</strong><small>Create an employer compliance record</small></span></button>
                 <button type="button" onClick={() => { setNewMenuOpen(false); setTab('intake'); }}><ClipboardList size={16} /><span><strong>New enquiry / intake</strong><small>Open the enquiry workspace</small></span></button>
+                <button type="button" onClick={() => { setNewMenuOpen(false); setTab('agreements'); }}><FileCheck2 size={16} /><span><strong>New agreement</strong><small>Open the Agreement Studio</small></span></button>
                 <button type="button" onClick={() => { setNewMenuOpen(false); setTab('intake'); }}><CalendarDays size={16} /><span><strong>New seminar</strong><small>Use seminar setup in Enquiries & Intake</small></span></button>
                 {canManageAdvisers && <button type="button" onClick={() => { setNewMenuOpen(false); addAdviser(); }}><UserRound size={16} /><span><strong>New adviser</strong><small>Add a team profile</small></span></button>}
               </div>
@@ -1860,7 +2019,7 @@ export default function App() {
         {error && <div className="error-banner"><AlertTriangle size={18} />{error}</div>}
         {loading && <div className="loading-card"><Database size={18} />Loading database-backed CRM data...</div>}
 
-        {!loading && !data.clients.length && !(data.commercialClients || []).length && !data.advisers.length && !data.intakeEnquiries.length && !data.seminars.length && !data.seminarRegistrations.length && !data.feedbackSubmissions.length && !data.consultationBookings.length && (
+        {!loading && !data.clients.length && !(data.commercialClients || []).length && !data.advisers.length && !data.intakeEnquiries.length && !data.seminars.length && !data.seminarRegistrations.length && !data.feedbackSubmissions.length && !data.consultationBookings.length && !data.instructionSets.length && !data.agreementSets.length && (
           <section className="empty-state">
             <Database size={40} />
             <h1>Database is connected, but no CRM records exist yet.</h1>
@@ -1869,7 +2028,7 @@ export default function App() {
           </section>
         )}
 
-        {(data.clients.length > 0 || (data.commercialClients || []).length > 0 || data.advisers.length > 0 || data.libraryEntries.length > 0 || data.intakeEnquiries.length > 0 || data.seminars.length > 0 || data.seminarRegistrations.length > 0 || data.feedbackSubmissions.length > 0 || data.consultationBookings.length > 0 || data.bookingLinks.length > 0) && (
+        {(data.clients.length > 0 || (data.commercialClients || []).length > 0 || data.advisers.length > 0 || data.libraryEntries.length > 0 || data.intakeEnquiries.length > 0 || data.seminars.length > 0 || data.seminarRegistrations.length > 0 || data.feedbackSubmissions.length > 0 || data.consultationBookings.length > 0 || data.bookingLinks.length > 0 || data.instructionSets.length > 0 || data.agreementSets.length > 0) && (
           <>
             <ViewToolbar
               advisers={scopeAdvisers}
@@ -1887,12 +2046,52 @@ export default function App() {
               <TabButton active={tab === 'dashboard'} onClick={() => switchTab('dashboard')} icon={LayoutDashboard} label="Dashboard" />
               <TabButton active={tab === 'tasks'} onClick={() => switchTab('tasks')} icon={ListChecks} label="Tasks" />
               <TabButton active={tab === 'clients'} onClick={() => switchTab('clients')} icon={UsersRound} label="Clients" />
+              <TabButton active={tab === 'instructions'} onClick={() => switchTab('instructions')} icon={BookOpen} label="Instructions" />
+              <TabButton active={tab === 'agreements'} onClick={() => switchTab('agreements')} icon={FileCheck2} label="Agreements" />
               <TabButton active={tab === 'commercial'} onClick={() => switchTab('commercial')} icon={Building2} label="Commercial" />
               <TabButton active={tab === 'intake'} onClick={() => switchTab('intake')} icon={ClipboardList} label="Enquiries & Intake" />
               <TabButton active={tab === 'bookings'} onClick={() => switchTab('bookings')} icon={CalendarDays} label="Bookings" />
               <TabButton active={tab === 'calendar'} onClick={() => switchTab('calendar')} icon={CalendarDays} label="Calendar" />
               <TabButton active={tab === 'billing'} onClick={() => switchTab('billing')} icon={CreditCard} label="Billing" />
             </nav>
+
+
+            {tab === 'instructions' && (
+              <InstructionsWorkspace
+                instructionSets={data.instructionSets || []}
+                clients={data.clients || []}
+                advisers={data.advisers || []}
+                templateLibrary={data.instructionTemplateLibrary || {}}
+                templateVersions={data.instructionTemplateVersions || []}
+                initialClientId={instructionLaunchClientId}
+                initialInstructionSetId={instructionLaunchSetId}
+                onInitialClientHandled={() => { setInstructionLaunchClientId(''); setInstructionLaunchSetId(''); }}
+                canManageTemplates={isAdmin}
+                saveInstructionSet={saveInstructionSet}
+                deleteInstructionSet={deleteInstructionSet}
+                saveInstructionTemplateLibrary={saveInstructionTemplateLibrary}
+                saving={saving}
+              />
+            )}
+
+            {tab === 'agreements' && (
+              <AgreementsWorkspace
+                agreementSets={data.agreementSets || []}
+                clients={data.clients || []}
+                advisers={data.advisers || []}
+                templateLibrary={data.agreementTemplateLibrary || {}}
+                templateVersions={data.agreementTemplateVersions || []}
+                initialClientId={agreementLaunchClientId}
+                initialAgreementSetId={agreementLaunchSetId}
+                onInitialClientHandled={() => { setAgreementLaunchClientId(''); setAgreementLaunchSetId(''); }}
+                canManageTemplates={isAdmin}
+                saveAgreementSet={saveAgreementSet}
+                deleteAgreementSet={deleteAgreementSet}
+                saveAgreementTemplateLibrary={saveAgreementTemplateLibrary}
+                issueAgreementSet={issueAgreementSet}
+                saving={saving}
+              />
+            )}
 
             {tab === 'commercial' && (
               <CommercialClientsWorkspace
@@ -1991,6 +2190,10 @@ export default function App() {
                 updatePortalDocument={updatePortalDocument}
                 deletePortalDocument={deletePortalDocument}
                 deleteClient={deleteClient}
+                instructionSets={data.instructionSets || []}
+                openInstructionsForClient={openInstructionsForClient}
+                agreementSets={data.agreementSets || []}
+                openAgreementsForClient={openAgreementsForClient}
                 saving={saving}
                 calendarEntries={data.calendarEntries}
               />
@@ -7888,7 +8091,7 @@ function MobileBottomNav({ activeTab, onNavigate, onOpenMore }) {
     { tab: 'clients', label: 'Clients', icon: UsersRound },
     { tab: 'intake', label: 'Enquiries', icon: ClipboardList },
   ];
-  const moreActive = ['dashboard', 'commercial', 'calendar', 'billing', 'advisers', 'library', 'bookings', 'backups'].includes(activeTab);
+  const moreActive = ['dashboard', 'commercial', 'instructions', 'agreements', 'calendar', 'billing', 'advisers', 'library', 'bookings', 'backups'].includes(activeTab);
   return (
     <nav className="mobile-bottom-nav" aria-label="Mobile CRM navigation">
       {navItems.map(({ tab, label, icon: Icon }) => (
@@ -7925,6 +8128,8 @@ function MobileMoreSheet({ open, onClose, onNavigate, activeTab, onOpenHelp, onO
         <div className="mobile-more-grid">
           <button type="button" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => go('dashboard')}><LayoutDashboard size={18} /><span>Dashboard</span></button>
           <button type="button" className={activeTab === 'commercial' ? 'active' : ''} onClick={() => go('commercial')}><Building2 size={18} /><span>Commercial</span></button>
+          <button type="button" className={activeTab === 'instructions' ? 'active' : ''} onClick={() => go('instructions')}><BookOpen size={18} /><span>Instructions</span></button>
+          <button type="button" className={activeTab === 'agreements' ? 'active' : ''} onClick={() => go('agreements')}><FileCheck2 size={18} /><span>Agreements</span></button>
           <button type="button" className={activeTab === 'calendar' ? 'active' : ''} onClick={() => go('calendar')}><CalendarDays size={18} /><span>Calendar</span></button>
           <button type="button" className={activeTab === 'intake' ? 'active' : ''} onClick={() => go('intake')}><ClipboardList size={18} /><span>Enquiries</span></button>
           <button type="button" className={activeTab === 'bookings' ? 'active' : ''} onClick={() => go('bookings')}><CalendarDays size={18} /><span>Bookings</span></button>
@@ -10306,8 +10511,565 @@ function PortalDocumentAdminRow({ doc, updatePortalDocument, deletePortalDocumen
 }
 
 
+function InstructionsWorkspace({
+  instructionSets = [],
+  clients = [],
+  advisers = [],
+  templateLibrary = {},
+  templateVersions = [],
+  initialClientId = '',
+  initialInstructionSetId = '',
+  onInitialClientHandled,
+  canManageTemplates = false,
+  saveInstructionSet,
+  deleteInstructionSet,
+  saveInstructionTemplateLibrary,
+  saving = false,
+}) {
+  const iframeRef = useRef(null);
+  const editorInstructionRef = useRef(null);
+  const [query, setQuery] = useState('');
+  const [scope, setScope] = useState('all');
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createMode, setCreateMode] = useState('client');
+  const [createDraft, setCreateDraft] = useState({ clientId: '', standaloneLabel: '', packId: 'smc', title: '' });
+  const [editorInstruction, setEditorInstruction] = useState(null);
+  const [iframeReady, setIframeReady] = useState(false);
+  const [studioMessage, setStudioMessage] = useState('');
+
+  useEffect(() => { editorInstructionRef.current = editorInstruction; }, [editorInstruction]);
+
+  useEffect(() => {
+    if (!initialClientId && !initialInstructionSetId) return;
+    const existing = initialInstructionSetId ? instructionSets.find((item) => item.id === initialInstructionSetId) : null;
+    if (existing) {
+      setIframeReady(false);
+      setStudioMessage('Opening studio...');
+      setEditorInstruction(normaliseInstructionSet(existing));
+      onInitialClientHandled?.();
+      return;
+    }
+    const client = clients.find((item) => item.id === initialClientId);
+    if (client) {
+      const packId = instructionPackFromCaseType(client.caseType);
+      const name = [client.firstName, client.lastName].filter(Boolean).join(' ') || 'Client';
+      setCreateMode('client');
+      setCreateDraft({ clientId: client.id, standaloneLabel: '', packId, title: `${name} - ${instructionPackLabel(packId)}` });
+      setCreateOpen(true);
+    }
+    onInitialClientHandled?.();
+  }, [initialClientId, initialInstructionSetId, instructionSets, clients, onInitialClientHandled]);
+
+  useEffect(() => {
+    function handleStudioMessage(event) {
+      if (event.origin !== window.location.origin || event.source !== iframeRef.current?.contentWindow) return;
+      const message = event.data || {};
+      if (message.source !== 'this-instructions-studio') return;
+      if (message.type === 'THIS_STUDIO_READY') {
+        setIframeReady(true);
+        return;
+      }
+      if (message.type === 'THIS_STUDIO_INITIALISED') {
+        setStudioMessage('Studio ready');
+        return;
+      }
+      if (message.type === 'THIS_STUDIO_SNAPSHOT') {
+        const current = editorInstructionRef.current;
+        if (!current || !message.snapshot) return;
+        const next = {
+          ...current,
+          title: message.snapshot.title || current.title,
+          packId: message.snapshot.activePackId || current.packId,
+          status: message.reason === 'ready' ? 'Ready' : current.status,
+          studioState: message.snapshot,
+          templateVersion: message.snapshot.templateVersion || current.templateVersion || {},
+        };
+        setStudioMessage(message.reason === 'ready' ? 'Marking instructions ready...' : 'Saving instructions...');
+        Promise.resolve(saveInstructionSet?.(next)).then((body) => {
+          if (body?.instructionSet) setEditorInstruction(normaliseInstructionSet(body.instructionSet));
+          setStudioMessage(message.reason === 'ready' ? 'Instructions marked ready' : 'Saved to CRM');
+        }).catch((error) => setStudioMessage(error?.message || 'Save failed'));
+        return;
+      }
+      if (message.type === 'THIS_STUDIO_TEMPLATE_LIBRARY') {
+        if (!canManageTemplates || !message.library) return;
+        setStudioMessage(message.versionEvent ? 'Publishing template version...' : 'Saving template library...');
+        Promise.resolve(saveInstructionTemplateLibrary?.(message.library, message.versionEvent || null)).then(() => {
+          setStudioMessage(message.versionEvent ? 'Template version published' : 'Template library saved');
+        }).catch((error) => setStudioMessage(error?.message || 'Template save failed'));
+      }
+    }
+    window.addEventListener('message', handleStudioMessage);
+    return () => window.removeEventListener('message', handleStudioMessage);
+  }, [canManageTemplates, saveInstructionSet, saveInstructionTemplateLibrary]);
+
+  useEffect(() => {
+    if (!editorInstruction || !iframeReady || !iframeRef.current?.contentWindow) return;
+    const client = editorInstruction.clientId ? clients.find((item) => item.id === editorInstruction.clientId) || null : null;
+    iframeRef.current.contentWindow.postMessage({
+      type: 'THIS_STUDIO_INIT',
+      payload: { instructionSet: editorInstruction, client, advisers, templateLibrary, canManageTemplates },
+    }, window.location.origin);
+  }, [editorInstruction, iframeReady, clients, advisers, templateLibrary, canManageTemplates]);
+
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return instructionSets.filter((item) => {
+      const client = clients.find((entry) => entry.id === item.clientId);
+      const clientName = client ? [client.firstName, client.lastName].filter(Boolean).join(' ') : item.standaloneLabel;
+      const matchesScope = scope === 'all' || (scope === 'client' ? Boolean(item.clientId) : !item.clientId);
+      const matchesText = !needle || [item.title, clientName, instructionPackLabel(item.packId), item.status].some((value) => String(value || '').toLowerCase().includes(needle));
+      return matchesScope && matchesText;
+    });
+  }, [instructionSets, clients, query, scope]);
+
+  function openCreate(mode) {
+    setCreateMode(mode);
+    if (mode === 'standalone') setCreateDraft({ clientId: '', standaloneLabel: '', packId: 'smc', title: '' });
+    else setCreateDraft({ clientId: clients[0]?.id || '', standaloneLabel: '', packId: instructionPackFromCaseType(clients[0]?.caseType || ''), title: '' });
+    setCreateOpen(true);
+  }
+
+  function updateCreateClient(clientId) {
+    const client = clients.find((item) => item.id === clientId);
+    const packId = instructionPackFromCaseType(client?.caseType || '');
+    const name = [client?.firstName, client?.lastName].filter(Boolean).join(' ') || 'Client';
+    setCreateDraft((current) => ({ ...current, clientId, packId, title: `${name} - ${instructionPackLabel(packId)}` }));
+  }
+
+  function updateCreatePack(packId) {
+    setCreateDraft((current) => {
+      const client = clients.find((item) => item.id === current.clientId);
+      const name = createMode === 'client' ? ([client?.firstName, client?.lastName].filter(Boolean).join(' ') || 'Client') : (current.standaloneLabel || 'Standalone instructions');
+      return { ...current, packId, title: `${name} - ${instructionPackLabel(packId)}` };
+    });
+  }
+
+  async function createInstruction() {
+    const standaloneLabel = createMode === 'standalone' ? createDraft.standaloneLabel.trim() : '';
+    if (createMode === 'client' && !createDraft.clientId) return;
+    if (createMode === 'standalone' && !standaloneLabel) return;
+    const client = clients.find((item) => item.id === createDraft.clientId);
+    const defaultName = createMode === 'client'
+      ? [client?.firstName, client?.lastName].filter(Boolean).join(' ') || 'Client'
+      : standaloneLabel;
+    const instructionSet = {
+      title: createDraft.title.trim() || `${defaultName} - ${instructionPackLabel(createDraft.packId)}`,
+      clientId: createMode === 'client' ? createDraft.clientId : '',
+      standaloneLabel,
+      packId: createDraft.packId,
+      status: 'Draft',
+      studioState: {},
+      templateVersion: {},
+    };
+    const body = await saveInstructionSet?.(instructionSet);
+    const saved = normaliseInstructionSet(body?.instructionSet || instructionSet);
+    setCreateOpen(false);
+    setIframeReady(false);
+    setStudioMessage('Opening studio...');
+    setEditorInstruction(saved);
+  }
+
+  function openInstruction(item) {
+    setIframeReady(false);
+    setStudioMessage('Opening studio...');
+    setEditorInstruction(normaliseInstructionSet(item));
+  }
+
+  function closeEditor() {
+    iframeRef.current?.contentWindow?.postMessage({ type: 'THIS_STUDIO_REQUEST_SNAPSHOT', reason: 'close' }, window.location.origin);
+    window.setTimeout(() => {
+      setEditorInstruction(null);
+      setIframeReady(false);
+      setStudioMessage('');
+    }, 180);
+  }
+
+  return (
+    <div className="instructions-workspace-page">
+      <div className="detail-header instructions-page-header">
+        <div>
+          <span className="eyebrow">THiS document authoring</span>
+          <h1>Instructions Studio</h1>
+          <p>Create client-linked instruction packs or prepare standalone instructions without a client record.</p>
+        </div>
+        <div className="button-row">
+          <button className="btn ghost" type="button" onClick={() => openCreate('standalone')}><FileText size={16} />New standalone</button>
+          <button className="btn dark" type="button" onClick={() => openCreate('client')} disabled={!clients.length}><Plus size={16} />New from client</button>
+        </div>
+      </div>
+
+      <section className="instructions-overview-strip">
+        <div><span>Total sets</span><strong>{instructionSets.length}</strong></div>
+        <div><span>Client-linked</span><strong>{instructionSets.filter((item) => item.clientId).length}</strong></div>
+        <div><span>Standalone</span><strong>{instructionSets.filter((item) => !item.clientId).length}</strong></div>
+        <div><span>Published template versions</span><strong>{templateVersions.length}</strong></div>
+      </section>
+
+      <div className="instructions-list-toolbar">
+        <div className="search-box"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search instruction sets" /></div>
+        <div className="segmented-filter">
+          {[['all','All'],['client','Client-linked'],['standalone','Standalone']].map(([value,label]) => <button key={value} type="button" className={scope === value ? 'active' : ''} onClick={() => setScope(value)}>{label}</button>)}
+        </div>
+      </div>
+
+      <div className="instruction-set-grid">
+        {filtered.map((item) => {
+          const client = clients.find((entry) => entry.id === item.clientId);
+          const subject = client ? [client.firstName, client.lastName].filter(Boolean).join(' ') : item.standaloneLabel || 'Standalone';
+          return (
+            <article className="instruction-set-card" key={item.id}>
+              <button className="instruction-set-open" type="button" onClick={() => openInstruction(item)}>
+                <div className="instruction-set-icon"><BookOpen size={20} /></div>
+                <div><span>{subject}</span><h3>{item.title}</h3><p>{instructionPackLabel(item.packId)}</p></div>
+                <ChevronRight size={18} />
+              </button>
+              <div className="instruction-set-card-footer">
+                <span className={`instruction-status ${String(item.status || 'Draft').toLowerCase()}`}>{item.status || 'Draft'}</span>
+                <small>Updated {formatInstructionDate(item.updatedAt)}</small>
+                <button className="icon-btn danger" type="button" onClick={() => deleteInstructionSet?.(item.id)} aria-label="Delete instruction set"><Trash2 size={15} /></button>
+              </div>
+            </article>
+          );
+        })}
+        {!filtered.length && <div className="empty-state compact-empty"><BookOpen size={32} /><h2>No instruction sets found</h2><p>Create a client-linked or standalone set to begin.</p></div>}
+      </div>
+
+      {createOpen && (
+        <div className="record-popout-overlay instruction-create-overlay" role="dialog" aria-modal="true" aria-label="Create instruction set">
+          <div className="instruction-create-card">
+            <div className="record-popout-topbar"><div><span>Instructions Studio</span><strong>{createMode === 'client' ? 'Create from client record' : 'Create standalone instructions'}</strong></div><button className="icon-btn" type="button" onClick={() => setCreateOpen(false)}><X size={18} /></button></div>
+            <div className="instruction-create-body">
+              {createMode === 'client' ? (
+                <SelectField label="Client" value={createDraft.clientId} onChange={updateCreateClient} options={clients.filter((client) => !String(client.id || '').startsWith('temp-')).map((client) => ({ value: client.id, label: `${[client.firstName, client.lastName].filter(Boolean).join(' ')} - ${client.caseType || 'No case type'}` }))} />
+              ) : (
+                <Field label="Prepared for / reference" value={createDraft.standaloneLabel} onChange={(value) => setCreateDraft((current) => ({ ...current, standaloneLabel: value, title: current.title || `${value} - ${instructionPackLabel(current.packId)}` }))} placeholder="e.g. Seminar attendees or prospective client" />
+              )}
+              <SelectField label="Instruction pack" value={createDraft.packId} onChange={updateCreatePack} options={INSTRUCTION_PACK_OPTIONS} />
+              <Field label="Instruction set title" value={createDraft.title} onChange={(value) => setCreateDraft((current) => ({ ...current, title: value }))} />
+              <div className="notice-card"><strong>{createMode === 'client' ? 'Client data will be inserted automatically.' : 'Standalone instructions are not linked to a client.'}</strong><p>{createMode === 'client' ? 'The principal applicant, family members, adviser and case type will be pulled from the CRM record and can then be refined in the Studio.' : 'You can enter the recipient and application details directly in the Studio and save the set independently of any client record.'}</p></div>
+            </div>
+            <div className="modal-actions"><button className="btn ghost" type="button" onClick={() => setCreateOpen(false)}>Cancel</button><button className="btn dark" type="button" onClick={createInstruction} disabled={saving || (createMode === 'client' ? !createDraft.clientId : !createDraft.standaloneLabel.trim())}><Plus size={16} />Create and open</button></div>
+          </div>
+        </div>
+      )}
+
+      {editorInstruction && (
+        <div className="instruction-studio-overlay" role="dialog" aria-modal="true" aria-label="Instructions Studio editor">
+          <div className="instruction-studio-topbar">
+            <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
+            <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
+          </div>
+          <iframe ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html" title="THiS Instructions Studio" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+function AgreementsWorkspace({
+  agreementSets = [],
+  clients = [],
+  advisers = [],
+  templateLibrary = {},
+  templateVersions = [],
+  initialClientId = '',
+  initialAgreementSetId = '',
+  onInitialClientHandled,
+  canManageTemplates = false,
+  saveAgreementSet,
+  deleteAgreementSet,
+  saveAgreementTemplateLibrary,
+  issueAgreementSet,
+  saving = false,
+}) {
+  const iframeRef = useRef(null);
+  const editorAgreementRef = useRef(null);
+  const [query, setQuery] = useState('');
+  const [scope, setScope] = useState('all');
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createMode, setCreateMode] = useState('client');
+  const [createDraft, setCreateDraft] = useState({ clientId: '', standaloneLabel: '', recipientEmail: '', appType: 'smc', title: '' });
+  const [editorAgreement, setEditorAgreement] = useState(null);
+  const [iframeReady, setIframeReady] = useState(false);
+  const [studioMessage, setStudioMessage] = useState('');
+  const [lastSigningLinks, setLastSigningLinks] = useState([]);
+
+  useEffect(() => { editorAgreementRef.current = editorAgreement; }, [editorAgreement]);
+
+  useEffect(() => {
+    if (!initialClientId && !initialAgreementSetId) return;
+    const existing = initialAgreementSetId ? agreementSets.find((item) => item.id === initialAgreementSetId) : null;
+    if (existing) {
+      setIframeReady(false);
+      setStudioMessage('Opening Agreement Studio...');
+      setEditorAgreement(normaliseAgreementSet(existing));
+      onInitialClientHandled?.();
+      return;
+    }
+    const client = clients.find((item) => item.id === initialClientId);
+    if (client) {
+      const appType = agreementTypeFromCaseType(client.caseType);
+      const name = [client.firstName, client.lastName].filter(Boolean).join(' ') || 'Client';
+      setCreateMode('client');
+      setCreateDraft({ clientId: client.id, standaloneLabel: '', recipientEmail: client.email || '', appType, title: `${name} - ${agreementTypeLabel(appType)} agreement` });
+      setCreateOpen(true);
+    }
+    onInitialClientHandled?.();
+  }, [initialClientId, initialAgreementSetId, agreementSets, clients, onInitialClientHandled]);
+
+  useEffect(() => {
+    function handleAgreementMessage(event) {
+      if (event.origin !== window.location.origin || event.source !== iframeRef.current?.contentWindow) return;
+      const message = event.data || {};
+      if (message.source !== 'this-agreement-studio') return;
+      if (message.type === 'THIS_AGREEMENT_READY') {
+        setIframeReady(true);
+        return;
+      }
+      if (message.type === 'THIS_AGREEMENT_INITIALISED') {
+        setStudioMessage('Agreement Studio ready');
+        return;
+      }
+      if (message.type === 'THIS_AGREEMENT_SNAPSHOT') {
+        const current = editorAgreementRef.current;
+        if (!current || !message.snapshot) return;
+        const next = {
+          ...current,
+          title: message.snapshot.title || current.title,
+          appType: message.snapshot.appType || current.appType,
+          status: message.snapshot.status || current.status,
+          recipientEmail: message.snapshot.recipientEmail || current.recipientEmail,
+          studioState: message.snapshot.studioState || current.studioState || {},
+          templateVersion: message.snapshot.templateVersion || current.templateVersion || {},
+        };
+        setStudioMessage('Saving agreement...');
+        Promise.resolve(saveAgreementSet?.(next)).then((body) => {
+          if (body?.agreementSet) setEditorAgreement(normaliseAgreementSet(body.agreementSet));
+          setStudioMessage('Agreement saved to CRM');
+        }).catch((error) => setStudioMessage(error?.message || 'Save failed'));
+        return;
+      }
+      if (message.type === 'THIS_AGREEMENT_TEMPLATE_LIBRARY') {
+        if (!canManageTemplates || !message.library) return;
+        setStudioMessage(message.versionEvent ? 'Publishing agreement template...' : 'Saving agreement template...');
+        Promise.resolve(saveAgreementTemplateLibrary?.(message.library, message.versionEvent || null)).then(() => {
+          setStudioMessage(message.versionEvent ? 'Agreement template published' : 'Agreement template saved');
+        }).catch((error) => setStudioMessage(error?.message || 'Template save failed'));
+        return;
+      }
+      if (message.type === 'THIS_AGREEMENT_ISSUE_REQUEST') {
+        const current = editorAgreementRef.current;
+        if (!current || !message.snapshot) return;
+        const next = {
+          ...current,
+          title: message.snapshot.title || current.title,
+          appType: message.snapshot.appType || current.appType,
+          recipientEmail: message.snapshot.recipientEmail || current.recipientEmail,
+          studioState: message.snapshot.studioState || current.studioState || {},
+          templateVersion: message.snapshot.templateVersion || current.templateVersion || {},
+          status: 'Ready',
+        };
+        setStudioMessage('Issuing secure agreement links...');
+        Promise.resolve(saveAgreementSet?.(next)).then((savedBody) => {
+          const saved = normaliseAgreementSet(savedBody?.agreementSet || next);
+          return issueAgreementSet?.(saved, { emailSubject: message.emailSubject || '', emailBody: message.emailBody || '', adviserEmail: saved.studioState?.client?.adviserEmail || '' });
+        }).then((body) => {
+          const issued = normaliseAgreementSet(body?.agreementSet || next);
+          setEditorAgreement(issued);
+          setLastSigningLinks(body?.signingLinks || []);
+          setStudioMessage(body?.emailConfigured === false ? 'Secure links created; email configuration requires attention' : 'Agreement issued');
+          iframeRef.current?.contentWindow?.postMessage({ type: 'THIS_AGREEMENT_ISSUED', agreementSet: issued, signingLinks: body?.signingLinks || [], message: body?.emailConfigured === false ? 'Signing links created. Microsoft email is not configured.' : 'Agreement issued successfully.' }, window.location.origin);
+        }).catch((error) => setStudioMessage(error?.message || 'Agreement issue failed'));
+      }
+    }
+    window.addEventListener('message', handleAgreementMessage);
+    return () => window.removeEventListener('message', handleAgreementMessage);
+  }, [canManageTemplates, saveAgreementSet, saveAgreementTemplateLibrary, issueAgreementSet]);
+
+  useEffect(() => {
+    if (!editorAgreement || !iframeReady || !iframeRef.current?.contentWindow) return;
+    const client = editorAgreement.clientId ? clients.find((item) => item.id === editorAgreement.clientId) || null : null;
+    iframeRef.current.contentWindow.postMessage({
+      type: 'THIS_AGREEMENT_INIT',
+      payload: { agreementSet: editorAgreement, client, advisers, templateLibrary, canManageTemplates },
+    }, window.location.origin);
+  }, [editorAgreement, iframeReady, clients, advisers, templateLibrary, canManageTemplates]);
+
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return agreementSets.filter((item) => {
+      const client = clients.find((entry) => entry.id === item.clientId);
+      const clientName = client ? [client.firstName, client.lastName].filter(Boolean).join(' ') : item.standaloneLabel;
+      const matchesScope = scope === 'all' || (scope === 'client' ? Boolean(item.clientId) : !item.clientId);
+      const matchesText = !needle || [item.title, clientName, agreementTypeLabel(item.appType), item.status, item.recipientEmail].some((value) => String(value || '').toLowerCase().includes(needle));
+      return matchesScope && matchesText;
+    });
+  }, [agreementSets, clients, query, scope]);
+
+  function openCreate(mode) {
+    setCreateMode(mode);
+    if (mode === 'standalone') setCreateDraft({ clientId: '', standaloneLabel: '', recipientEmail: '', appType: 'other', title: '' });
+    else {
+      const client = clients.find((item) => !String(item.id || '').startsWith('temp-'));
+      const appType = agreementTypeFromCaseType(client?.caseType || '');
+      setCreateDraft({ clientId: client?.id || '', standaloneLabel: '', recipientEmail: client?.email || '', appType, title: '' });
+    }
+    setCreateOpen(true);
+  }
+
+  function updateCreateClient(clientId) {
+    const client = clients.find((item) => item.id === clientId);
+    const appType = agreementTypeFromCaseType(client?.caseType || '');
+    const name = [client?.firstName, client?.lastName].filter(Boolean).join(' ') || 'Client';
+    setCreateDraft((current) => ({ ...current, clientId, recipientEmail: client?.email || '', appType, title: `${name} - ${agreementTypeLabel(appType)} agreement` }));
+  }
+
+  function updateCreateType(appType) {
+    setCreateDraft((current) => {
+      const client = clients.find((item) => item.id === current.clientId);
+      const name = createMode === 'client' ? ([client?.firstName, client?.lastName].filter(Boolean).join(' ') || 'Client') : (current.standaloneLabel || 'Standalone');
+      return { ...current, appType, title: `${name} - ${agreementTypeLabel(appType)} agreement` };
+    });
+  }
+
+  async function createAgreement() {
+    const standaloneLabel = createMode === 'standalone' ? createDraft.standaloneLabel.trim() : '';
+    if (createMode === 'client' && !createDraft.clientId) return;
+    if (createMode === 'standalone' && !standaloneLabel) return;
+    const client = clients.find((item) => item.id === createDraft.clientId);
+    const defaultName = createMode === 'client' ? ([client?.firstName, client?.lastName].filter(Boolean).join(' ') || 'Client') : standaloneLabel;
+    const agreementSet = {
+      title: createDraft.title.trim() || `${defaultName} - ${agreementTypeLabel(createDraft.appType)} agreement`,
+      clientId: createMode === 'client' ? createDraft.clientId : '',
+      adviserId: createMode === 'client' ? client?.primaryAdviserId || '' : '',
+      standaloneLabel,
+      recipientEmail: createMode === 'client' ? client?.email || createDraft.recipientEmail : createDraft.recipientEmail,
+      appType: createDraft.appType,
+      status: 'Draft',
+      studioState: {},
+      templateVersion: {},
+    };
+    const body = await saveAgreementSet?.(agreementSet);
+    const saved = normaliseAgreementSet(body?.agreementSet || agreementSet);
+    setCreateOpen(false);
+    setIframeReady(false);
+    setLastSigningLinks([]);
+    setStudioMessage('Opening Agreement Studio...');
+    setEditorAgreement(saved);
+  }
+
+  function openAgreement(item) {
+    setIframeReady(false);
+    setLastSigningLinks([]);
+    setStudioMessage('Opening Agreement Studio...');
+    setEditorAgreement(normaliseAgreementSet(item));
+  }
+
+  function closeEditor() {
+    iframeRef.current?.contentWindow?.postMessage({ type: 'THIS_AGREEMENT_REQUEST_SNAPSHOT', reason: 'close' }, window.location.origin);
+    window.setTimeout(() => {
+      setEditorAgreement(null);
+      setIframeReady(false);
+      setStudioMessage('');
+      setLastSigningLinks([]);
+    }, 180);
+  }
+
+  return (
+    <div className="instructions-workspace-page agreements-workspace-page">
+      <div className="detail-header instructions-page-header">
+        <div>
+          <span className="eyebrow">THiS document authoring</span>
+          <h1>Agreement Studio</h1>
+          <p>Create, issue and monitor client engagement agreements with tailored scope, fees and secure electronic acceptance.</p>
+        </div>
+        <div className="button-row">
+          <button className="btn ghost" type="button" onClick={() => openCreate('standalone')}><FileText size={16} />New standalone</button>
+          <button className="btn dark" type="button" onClick={() => openCreate('client')} disabled={!clients.length}><Plus size={16} />New from client</button>
+        </div>
+      </div>
+
+      <section className="instructions-overview-strip">
+        <div><span>Total agreements</span><strong>{agreementSets.length}</strong></div>
+        <div><span>Awaiting acceptance</span><strong>{agreementSets.filter((item) => ['Sent', 'Viewed', 'Partially signed'].includes(item.status)).length}</strong></div>
+        <div><span>Accepted</span><strong>{agreementSets.filter((item) => item.status === 'Accepted').length}</strong></div>
+        <div><span>Template versions</span><strong>{templateVersions.length}</strong></div>
+      </section>
+
+      <div className="instructions-list-toolbar">
+        <div className="search-box"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search agreements" /></div>
+        <div className="segmented-filter">
+          {[['all','All'],['client','Client-linked'],['standalone','Standalone']].map(([value,label]) => <button key={value} type="button" className={scope === value ? 'active' : ''} onClick={() => setScope(value)}>{label}</button>)}
+        </div>
+      </div>
+
+      <div className="instruction-set-grid">
+        {filtered.map((item) => {
+          const client = clients.find((entry) => entry.id === item.clientId);
+          const subject = client ? [client.firstName, client.lastName].filter(Boolean).join(' ') : item.standaloneLabel || item.recipientEmail || 'Standalone';
+          return (
+            <article className="instruction-set-card agreement-set-card" key={item.id}>
+              <button className="instruction-set-open" type="button" onClick={() => openAgreement(item)}>
+                <div className="instruction-set-icon"><FileCheck2 size={20} /></div>
+                <div><span>{subject}</span><h3>{item.title}</h3><p>{agreementTypeLabel(item.appType)}</p></div>
+                <ChevronRight size={18} />
+              </button>
+              <div className="instruction-set-card-footer">
+                <span className={`instruction-status ${String(item.status || 'Draft').toLowerCase().replaceAll(' ', '-')}`}>{item.status || 'Draft'}</span>
+                <small>Updated {formatInstructionDate(item.updatedAt)}</small>
+                <button className="icon-btn danger" type="button" onClick={() => deleteAgreementSet?.(item.id)} aria-label="Delete agreement" disabled={item.status === 'Accepted'} title={item.status === 'Accepted' ? 'Accepted agreements are locked' : 'Delete agreement'}><Trash2 size={15} /></button>
+              </div>
+            </article>
+          );
+        })}
+        {!filtered.length && <div className="empty-state compact-empty"><FileCheck2 size={32} /><h2>No agreements found</h2><p>Create a client-linked or standalone agreement to begin.</p></div>}
+      </div>
+
+      {createOpen && (
+        <div className="record-popout-overlay instruction-create-overlay" role="dialog" aria-modal="true" aria-label="Create agreement">
+          <div className="instruction-create-card">
+            <div className="record-popout-topbar"><div><span>Agreement Studio</span><strong>{createMode === 'client' ? 'Create from client record' : 'Create standalone agreement'}</strong></div><button className="icon-btn" type="button" onClick={() => setCreateOpen(false)}><X size={18} /></button></div>
+            <div className="instruction-create-body">
+              {createMode === 'client' ? (
+                <SelectField label="Client" value={createDraft.clientId} onChange={updateCreateClient} options={clients.filter((client) => !String(client.id || '').startsWith('temp-')).map((client) => ({ value: client.id, label: `${[client.firstName, client.lastName].filter(Boolean).join(' ')} - ${client.caseType || 'No case type'}` }))} />
+              ) : (
+                <>
+                  <Field label="Prepared for / reference" value={createDraft.standaloneLabel} onChange={(value) => setCreateDraft((current) => ({ ...current, standaloneLabel: value, title: current.title || `${value} - ${agreementTypeLabel(current.appType)} agreement` }))} placeholder="e.g. Prospective client or employer" />
+                  <Field label="Recipient email" value={createDraft.recipientEmail} onChange={(value) => setCreateDraft((current) => ({ ...current, recipientEmail: value }))} type="email" />
+                </>
+              )}
+              <SelectField label="Agreement type" value={createDraft.appType} onChange={updateCreateType} options={AGREEMENT_TYPE_OPTIONS} />
+              <Field label="Agreement title" value={createDraft.title} onChange={(value) => setCreateDraft((current) => ({ ...current, title: value }))} />
+              <div className="notice-card"><strong>{createMode === 'client' ? 'Client and adviser details will be inserted automatically.' : 'This agreement is independent of a CRM client record.'}</strong><p>{createMode === 'client' ? 'The Agreement Studio will pull the client, partner, case type, email and assigned adviser from the record. Scope, fees and signatories remain editable.' : 'Enter the recipient, scope, fees and signatories directly in the Agreement Studio.'}</p></div>
+            </div>
+            <div className="modal-actions"><button className="btn ghost" type="button" onClick={() => setCreateOpen(false)}>Cancel</button><button className="btn dark" type="button" onClick={createAgreement} disabled={saving || (createMode === 'client' ? !createDraft.clientId : !createDraft.standaloneLabel.trim())}><Plus size={16} />Create and open</button></div>
+          </div>
+        </div>
+      )}
+
+      {editorAgreement && (
+        <div className="instruction-studio-overlay" role="dialog" aria-modal="true" aria-label="Agreement Studio editor">
+          <div className="instruction-studio-topbar">
+            <div><span>{editorAgreement.clientId ? 'Client-linked agreement' : 'Standalone agreement'}</span><strong>{editorAgreement.title}</strong></div>
+            <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
+          </div>
+          {lastSigningLinks.length > 0 && (
+            <div className="agreement-signing-links-bar">
+              <strong>Secure signing links:</strong>
+              {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
+            </div>
+          )}
+          <iframe ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html" title="THiS Agreement Studio" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ClientsWorkspace(props) {
-  const { clients, selectedClient, advisers, caseTypes, deadlineTypes, clientQuery, setClientQuery, adviserFilter, setAdviserFilter, includeBackupClients = false, setIncludeBackupClients, effectiveAdviserId = '', caseTypeFilter, setCaseTypeFilter, setSelectedClientId, onDirtyChange, saveClient, updatePortalMessageStatus, uploadPortalDocument, updatePortalDocument, deletePortalDocument, deleteClient, saving, calendarEntries = [] } = props;
+  const { clients, selectedClient, advisers, caseTypes, deadlineTypes, clientQuery, setClientQuery, adviserFilter, setAdviserFilter, includeBackupClients = false, setIncludeBackupClients, effectiveAdviserId = '', caseTypeFilter, setCaseTypeFilter, setSelectedClientId, onDirtyChange, saveClient, updatePortalMessageStatus, uploadPortalDocument, updatePortalDocument, deletePortalDocument, deleteClient, instructionSets = [], openInstructionsForClient, agreementSets = [], openAgreementsForClient, saving, calendarEntries = [] } = props;
   const [popoutOpen, setPopoutOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [popoutDirty, setPopoutDirty] = useState(false);
@@ -10389,12 +11151,12 @@ function ClientsWorkspace(props) {
             <button className="btn dark" type="button" onClick={() => setPopoutOpen(true)}><ExternalLink size={16} />Resume pop-out editor</button>
           </div>
         ) : (
-          <ClientEditor client={selectedClient} advisers={advisers} caseTypes={caseTypes} deadlineTypes={deadlineTypes} calendarEntries={calendarEntries} saveClient={saveClient} updatePortalMessageStatus={updatePortalMessageStatus} uploadPortalDocument={uploadPortalDocument} updatePortalDocument={updatePortalDocument} deletePortalDocument={deletePortalDocument} deleteClient={deleteClient} saving={saving} onDirtyChange={onDirtyChange} onOpenPopout={openPopoutEditor} />
+          <ClientEditor client={selectedClient} advisers={advisers} caseTypes={caseTypes} deadlineTypes={deadlineTypes} calendarEntries={calendarEntries} saveClient={saveClient} updatePortalMessageStatus={updatePortalMessageStatus} uploadPortalDocument={uploadPortalDocument} updatePortalDocument={updatePortalDocument} deletePortalDocument={deletePortalDocument} deleteClient={deleteClient} instructionSets={instructionSets} openInstructionsForClient={openInstructionsForClient} agreementSets={agreementSets} openAgreementsForClient={openAgreementsForClient} saving={saving} onDirtyChange={onDirtyChange} onOpenPopout={openPopoutEditor} />
         )}
       </section>
       {popoutOpen && (
         <ClientRecordPopoutModal title={clientName} onClose={requestPopoutClose}>
-          <ClientEditor client={selectedClient} advisers={advisers} caseTypes={caseTypes} deadlineTypes={deadlineTypes} calendarEntries={calendarEntries} saveClient={saveClient} updatePortalMessageStatus={updatePortalMessageStatus} uploadPortalDocument={uploadPortalDocument} updatePortalDocument={updatePortalDocument} deletePortalDocument={deletePortalDocument} deleteClient={deleteClient} saving={saving} onDirtyChange={handlePopoutDirtyChange} popoutMode initialSection={popoutInitialSection} onRequestClose={requestPopoutClose} />
+          <ClientEditor client={selectedClient} advisers={advisers} caseTypes={caseTypes} deadlineTypes={deadlineTypes} calendarEntries={calendarEntries} saveClient={saveClient} updatePortalMessageStatus={updatePortalMessageStatus} uploadPortalDocument={uploadPortalDocument} updatePortalDocument={updatePortalDocument} deletePortalDocument={deletePortalDocument} deleteClient={deleteClient} instructionSets={instructionSets} openInstructionsForClient={openInstructionsForClient} agreementSets={agreementSets} openAgreementsForClient={openAgreementsForClient} saving={saving} onDirtyChange={handlePopoutDirtyChange} popoutMode initialSection={popoutInitialSection} onRequestClose={requestPopoutClose} />
         </ClientRecordPopoutModal>
       )}
     </div>
@@ -10418,7 +11180,7 @@ function ClientRecordPopoutModal({ title, onClose, children, label = 'Pop-out cl
   );
 }
 
-function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntries = [], saveClient, updatePortalMessageStatus, uploadPortalDocument, updatePortalDocument, deletePortalDocument, deleteClient, saving, onDirtyChange, onOpenPopout, popoutMode = false, initialSection = 'overview', onRequestClose }) {
+function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntries = [], saveClient, updatePortalMessageStatus, uploadPortalDocument, updatePortalDocument, deletePortalDocument, deleteClient, instructionSets = [], openInstructionsForClient, agreementSets = [], openAgreementsForClient, saving, onDirtyChange, onOpenPopout, popoutMode = false, initialSection = 'overview', onRequestClose }) {
   const [draft, setDraft] = useState(client);
   const [activeClientSection, setActiveClientSection] = useState('overview');
   const [showActionLog, setShowActionLog] = useState(false);
@@ -10811,6 +11573,8 @@ The portal is a secure, read-only space where you can check application updates,
     { id: 'stages', label: 'Stages', icon: ArrowUpDown, summary: `${completedStageCount}/${appliedStageCount || 0} complete`, badge: `${progressPercent(draft)}%` },
     { id: 'dates', label: 'Key dates', icon: CalendarDays, summary: deadlineCount ? `${deadlineCount} recorded` : 'No dates recorded', badge: upcomingDeadlines[0]?.date ? formatRecordDate(upcomingDeadlines[0].date) : '' },
     { id: 'billing', label: 'Billing', icon: CreditCard, summary: billingItems.length ? `${billingItems.length} milestone${billingItems.length === 1 ? '' : 's'}` : 'No milestones', badge: activeBillingItems.length ? `${activeBillingItems.length} active` : '' },
+    { id: 'instructions', label: 'Instructions', icon: BookOpen, summary: instructionSets.filter((item) => item.clientId === draft.id).length ? `${instructionSets.filter((item) => item.clientId === draft.id).length} saved` : 'No instruction sets', badge: instructionSets.filter((item) => item.clientId === draft.id).length ? `${instructionSets.filter((item) => item.clientId === draft.id).length}` : '', secondary: true },
+    { id: 'agreements', label: 'Agreements', icon: FileCheck2, summary: agreementSets.filter((item) => item.clientId === draft.id).length ? `${agreementSets.filter((item) => item.clientId === draft.id).length} saved` : 'No agreements', badge: agreementSets.filter((item) => item.clientId === draft.id).length ? `${agreementSets.filter((item) => item.clientId === draft.id).length}` : '', secondary: true },
     { id: 'portal', label: 'Portal', icon: LockKeyhole, summary: draft.portalEnabled ? 'Client access active' : 'Client access inactive', badge: portalNewMessageCount ? `${portalNewMessageCount} new` : '', secondary: true },
     { id: 'family', label: 'Family', icon: UsersRound, summary: (draft.familyMembers || []).length ? `${(draft.familyMembers || []).length} recorded` : 'No family records', badge: '', secondary: true },
     { id: 'notes', label: 'Notes & strategy', icon: FileText, summary: draft.caseStrategy ? 'Strategy recorded' : 'No strategy recorded', badge: '', secondary: true },
@@ -11013,6 +11777,51 @@ The portal is a secure, read-only space where you can check application updates,
             ) : (
               <BillingSummaryPanel client={draft} billing={billingItems} onEdit={() => handleOpenPopout('billing')} />
             )}
+          </div>
+        )}
+
+
+        {activeClientSection === 'instructions' && (
+          <div className="client-workspace-section-stack">
+            <ClientWorkspaceIntro title="Client instructions" description="Create and manage tailored instruction packs using the information already recorded for this client." />
+            <section className="sub-panel workspace-panel client-instructions-summary">
+              <div className="sub-panel-head compact">
+                <div><h2>Instruction sets</h2><p className="muted">Each saved set remains linked to this client and records the pack and draft content used.</p></div>
+                <button className="btn dark" type="button" onClick={() => openInstructionsForClient?.(draft.id)} disabled={String(draft.id || '').startsWith('temp-')}><Plus size={16} />Create instructions</button>
+              </div>
+              <div className="client-instruction-list">
+                {instructionSets.filter((item) => item.clientId === draft.id).map((item) => (
+                  <button key={item.id} type="button" className="client-instruction-row" onClick={() => openInstructionsForClient?.(draft.id, item.id)}>
+                    <span><strong>{item.title}</strong><small>{instructionPackLabel(item.packId)} · Updated {formatInstructionDate(item.updatedAt)}</small></span>
+                    <b className={`instruction-status ${String(item.status || 'Draft').toLowerCase()}`}>{item.status || 'Draft'}</b>
+                    <ChevronRight size={16} />
+                  </button>
+                ))}
+                {!instructionSets.some((item) => item.clientId === draft.id) && <p className="muted center">No instruction sets have been created for this client.</p>}
+              </div>
+            </section>
+          </div>
+        )}
+
+        {activeClientSection === 'agreements' && (
+          <div className="client-workspace-section-stack">
+            <ClientWorkspaceIntro title="Client agreements" description="Prepare, issue and monitor engagement agreements using the client and adviser information already recorded in the CRM." />
+            <section className="sub-panel workspace-panel client-instructions-summary">
+              <div className="sub-panel-head compact">
+                <div><h2>Agreement records</h2><p className="muted">Sent and accepted agreements remain linked to this client, together with the exact document version and signing status.</p></div>
+                <button className="btn dark" type="button" onClick={() => openAgreementsForClient?.(draft.id)} disabled={String(draft.id || '').startsWith('temp-')}><Plus size={16} />Create agreement</button>
+              </div>
+              <div className="client-instruction-list">
+                {agreementSets.filter((item) => item.clientId === draft.id).map((item) => (
+                  <button key={item.id} type="button" className="client-instruction-row" onClick={() => openAgreementsForClient?.(draft.id, item.id)}>
+                    <span><strong>{item.title}</strong><small>{agreementTypeLabel(item.appType)} · Updated {formatInstructionDate(item.updatedAt)}</small></span>
+                    <b className={`instruction-status ${String(item.status || 'Draft').toLowerCase().replace(/\s+/g, '-')}`}>{item.status || 'Draft'}</b>
+                    <ChevronRight size={16} />
+                  </button>
+                ))}
+                {!agreementSets.some((item) => item.clientId === draft.id) && <p className="muted center">No agreements have been created for this client.</p>}
+              </div>
+            </section>
           </div>
         )}
 
@@ -13320,8 +14129,8 @@ function FamilyDetails({ members, addFamilyMember, updateFamilyMember, removeFam
   );
 }
 
-function Field({ label, value, onChange }) {
-  return <label className="field"><span>{label}</span><input value={value || ''} onChange={(event) => onChange(event.target.value)} /></label>;
+function Field({ label, value, onChange, placeholder = '' }) {
+  return <label className="field"><span>{label}</span><input value={value || ''} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} /></label>;
 }
 
 function DateField({ label, value, onChange }) {
@@ -14074,6 +14883,12 @@ function normaliseData(body) {
     personalTasks: (body.personalTasks || []).map(normalisePersonalTask),
     calendarEntries: (body.calendarEntries || []).map(normaliseCalendarEntry),
     libraryEntries: (body.libraryEntries || []).map(normaliseLibraryEntry),
+    instructionSets: (body.instructionSets || []).map(normaliseInstructionSet),
+    instructionTemplateLibrary: body.instructionTemplateLibrary && typeof body.instructionTemplateLibrary === 'object' ? body.instructionTemplateLibrary : {},
+    instructionTemplateVersions: (body.instructionTemplateVersions || []).map(normaliseInstructionTemplateVersion),
+    agreementSets: (body.agreementSets || []).map(normaliseAgreementSet),
+    agreementTemplateLibrary: body.agreementTemplateLibrary && typeof body.agreementTemplateLibrary === 'object' ? body.agreementTemplateLibrary : {},
+    agreementTemplateVersions: (body.agreementTemplateVersions || []).map(normaliseAgreementTemplateVersion),
     intakeEnquiries: (body.intakeEnquiries || []).map(normaliseIntakeEnquiry),
     intakeStatuses: body.intakeStatuses || INTAKE_STATUSES,
     seminars: (body.seminars || []).map(normaliseSeminar),
@@ -14092,6 +14907,63 @@ function normaliseData(body) {
   };
 }
 
+
+
+function normaliseInstructionSet(input = {}) {
+  return {
+    id: input.id || '',
+    clientId: input.clientId || input.client_id || '',
+    title: input.title || 'Untitled instruction set',
+    packId: input.packId || input.pack_id || 'smc',
+    status: input.status || 'Draft',
+    standaloneLabel: input.standaloneLabel || input.standalone_label || '',
+    studioState: input.studioState || input.studio_state || {},
+    templateVersion: input.templateVersion || input.template_version || {},
+    createdBy: input.createdBy || input.created_by || '',
+    updatedBy: input.updatedBy || input.updated_by || '',
+    createdAt: input.createdAt || input.created_at || '',
+    updatedAt: input.updatedAt || input.updated_at || '',
+    issuedAt: input.issuedAt || input.issued_at || '',
+  };
+}
+
+function normaliseInstructionTemplateVersion(input = {}) {
+  return {
+    id: input.id || '', packId: input.packId || input.pack_id || '', versionLabel: input.versionLabel || input.version_label || '',
+    changeNote: input.changeNote || input.change_note || '', snapshot: input.snapshot || {}, createdBy: input.createdBy || input.created_by || '',
+    createdAt: input.createdAt || input.created_at || '',
+  };
+}
+
+
+function normaliseAgreementSet(input = {}) {
+  return {
+    id: input.id || '',
+    clientId: input.clientId || input.client_id || '',
+    adviserId: input.adviserId || input.adviser_id || '',
+    title: input.title || 'Untitled engagement agreement',
+    appType: input.appType || input.app_type || 'other',
+    status: input.status || 'Draft',
+    standaloneLabel: input.standaloneLabel || input.standalone_label || '',
+    recipientEmail: input.recipientEmail || input.recipient_email || '',
+    studioState: input.studioState || input.studio_state || {},
+    templateVersion: input.templateVersion || input.template_version || {},
+    createdBy: input.createdBy || input.created_by || '',
+    updatedBy: input.updatedBy || input.updated_by || '',
+    createdAt: input.createdAt || input.created_at || '',
+    updatedAt: input.updatedAt || input.updated_at || '',
+    issuedAt: input.issuedAt || input.issued_at || '',
+    acceptedAt: input.acceptedAt || input.accepted_at || '',
+    acceptedBy: input.acceptedBy || input.accepted_by || '',
+  };
+}
+
+function normaliseAgreementTemplateVersion(input = {}) {
+  return {
+    id: input.id || '', versionLabel: input.versionLabel || input.version_label || '', changeNote: input.changeNote || input.change_note || '',
+    snapshot: input.snapshot || {}, createdBy: input.createdBy || input.created_by || '', createdAt: input.createdAt || input.created_at || '',
+  };
+}
 
 function normaliseFeedbackSubmission(input = {}) {
   const status = String(input.status || 'New').trim();

@@ -1,8 +1,10 @@
-const CACHE_NAME = 'this-crm-shell-v0.13.55';
+const CACHE_NAME = 'this-crm-shell-v0.13.57';
 const OFFLINE_URL = '/offline.html';
 const PRECACHE_URLS = [
   OFFLINE_URL,
   '/manifest.webmanifest',
+  '/instructions-studio.html',
+  '/agreement-studio.html',
   '/turner-hopkins-logo.png',
   '/icon-desktop-64.png',
   '/icon-desktop-128.png',

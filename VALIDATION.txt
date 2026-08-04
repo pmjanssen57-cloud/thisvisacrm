@@ -1,22 +1,24 @@
-THiS CRM v0.13.55 validation
+THiS CRM v0.13.57 validation
 
-Passed
-- App.jsx transpiled successfully with the TypeScript JSX parser.
-- Generated JavaScript passed node --check.
-- Every Netlify .mjs function passed node --check.
-- public/sw.js passed node --check.
+Completed checks
+- App.jsx and main.jsx JSX syntax passed through TypeScript transpilation.
+- netlify/functions/crm.mjs passed Node syntax validation.
+- netlify/functions/agreement.mjs passed Node syntax validation.
+- netlify/functions/backup-create-background.mjs passed Node syntax validation.
+- Embedded Instructions Studio and Agreement Studio JavaScript passed Node syntax validation.
+- Instructions Studio, Agreement Studio and main HTML structure parsing passed.
+- styles.css brace validation passed.
 - PWA validation script passed.
-- Top-level function declarations are unique in App.jsx and crm.mjs.
-- CSS brace structure passed.
-- Static release assertions passed for:
-  * authenticated 60-second intake/contact polling;
-  * foreground/focus refresh;
-  * manual refresh control and last-checked display;
-  * lightweight intake-only server endpoint before schema bootstrapping;
-  * new-submission detection and CRM toast;
-  * missing-CV action and editable email template;
-  * assigned-adviser validation, CC and reply-to routing;
-  * printable intake view and blocked-popup fallback.
+- Existing migration 202608040001_add_instructions_studio.sql is retained.
+- New migration 202608040002_add_agreement_studio.sql is present.
+- Client-linked and standalone agreement actions are present in the CRM API.
+- Agreement template-library persistence and immutable publication-version actions are present.
+- Secure token creation, hashed-token storage, public review, declarations, typed-name acceptance and drawn-signature capture are present.
+- Microsoft 365 issue-email and acceptance-confirmation flows are present, including assigned-adviser CC and reply-to.
+- Accepted agreements are locked against editing and deletion.
+- Agreement workspace, client-record Agreement section, mobile navigation and embedded Studio bridge are present.
+- Package version, service-worker cache and backup source version are set to v0.13.57.
 
-Not run in this isolated environment
-- Full dependency-backed Vite production build. Project dependencies are not installed locally and package-registry access was not available. No dependency or build-configuration change is included in this release.
+Environment limitations
+- A full Vite production build could not be run in this isolated environment because the available package registry does not provide the CRM's existing Netlify dependencies. No dependency versions were added or changed for this release.
+- Chromium visual rendering was not completed because the local headless browser process stalls in this environment. The embedded Studio scripts and document structure passed static validation.

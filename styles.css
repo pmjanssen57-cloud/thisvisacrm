@@ -15417,3 +15417,73 @@ html, body, #root { min-height: 100%; }
   }
   .intake-live-refresh-controls > span { width: 100%; }
 }
+
+/* Instructions Studio integration */
+.instructions-workspace-page{display:flex;flex-direction:column;gap:18px;padding-bottom:28px}
+.instructions-page-header{align-items:flex-end}
+.instructions-overview-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.instructions-overview-strip>div{border:1px solid var(--line,#d9e6e1);background:#fff;border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:5px;box-shadow:0 8px 24px rgba(0,55,54,.05)}
+.instructions-overview-strip span{font-size:12px;color:#718783;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.instructions-overview-strip strong{font-size:25px;color:#003736}
+.instructions-list-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.instructions-list-toolbar .search-box{max-width:520px;flex:1}
+.segmented-filter{display:inline-flex;padding:4px;border:1px solid #d9e6e1;border-radius:12px;background:#fff;gap:3px}
+.segmented-filter button{border:0;background:transparent;border-radius:8px;padding:8px 12px;color:#57706c;font-weight:700;cursor:pointer}
+.segmented-filter button.active{background:#e8f8f2;color:#003736}
+.instruction-set-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.instruction-set-card{background:#fff;border:1px solid #d9e6e1;border-radius:18px;overflow:hidden;box-shadow:0 8px 28px rgba(0,55,54,.05)}
+.instruction-set-open{width:100%;border:0;background:#fff;text-align:left;padding:18px;display:grid;grid-template-columns:auto 1fr auto;gap:13px;align-items:start;cursor:pointer;color:#003736}
+.instruction-set-open:hover{background:#f6fcfa}
+.instruction-set-icon{width:42px;height:42px;border-radius:13px;background:#e4f7ef;display:grid;place-items:center;color:#007f68}
+.instruction-set-open span{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#5c7772;font-weight:800;margin-bottom:4px}
+.instruction-set-open h3{font-size:17px;line-height:1.25;margin:0 0 5px}
+.instruction-set-open p{margin:0;color:#6f8581;font-size:13px}
+.instruction-set-card-footer{border-top:1px solid #e3ece9;padding:11px 14px;display:flex;align-items:center;gap:9px}
+.instruction-set-card-footer small{color:#748985;flex:1;text-align:right}
+.instruction-status{display:inline-flex;align-items:center;border-radius:999px;padding:5px 9px;font-size:11px;font-weight:800;background:#edf2f1;color:#4f6662}
+.instruction-status.ready{background:#e3f7ef;color:#006d59}
+.instruction-status.issued{background:#e8f0ff;color:#335a9c}
+.instruction-status.archived{background:#f1f1f1;color:#777}
+.compact-empty{grid-column:1/-1;min-height:240px}
+.instruction-create-overlay{z-index:220}
+.instruction-create-card{width:min(620px,calc(100vw - 32px));max-height:calc(100vh - 40px);overflow:auto;background:#fff;border-radius:18px;box-shadow:0 30px 90px rgba(0,40,38,.3)}
+.instruction-create-body{padding:22px;display:grid;gap:16px}
+.instruction-create-card .modal-actions{padding:16px 22px;border-top:1px solid #dce7e3;background:#f8fbfa}
+.instruction-studio-overlay{position:fixed;inset:0;z-index:230;background:#e9f1ee;display:flex;flex-direction:column}
+.instruction-studio-topbar{height:58px;flex:0 0 58px;background:#fff;border-bottom:1px solid #d4e2dd;display:flex;align-items:center;justify-content:space-between;padding:0 18px;box-shadow:0 4px 16px rgba(0,55,54,.08)}
+.instruction-studio-topbar>div{display:flex;align-items:center;gap:12px}
+.instruction-studio-topbar>div:first-child{display:block}
+.instruction-studio-topbar span{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:#6f8682;font-weight:800}
+.instruction-studio-topbar strong{display:block;color:#003736;font-size:16px}
+.instruction-studio-topbar small{color:#657d79}
+.instruction-studio-frame{width:100%;height:calc(100vh - 58px);border:0;background:#eef5f2}
+.client-instruction-list{display:grid;gap:10px;margin-top:10px}
+.client-instruction-row{width:100%;border:1px solid #dbe8e3;border-radius:13px;background:#fff;padding:13px 14px;display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:12px;text-align:left;cursor:pointer;color:#003736}
+.client-instruction-row:hover{border-color:#55d9a0;background:#f7fcfa}
+.client-instruction-row strong,.client-instruction-row small{display:block}
+.client-instruction-row small{color:#718783;margin-top:3px}
+
+@media(max-width:1180px){
+  .instruction-set-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .instructions-overview-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:760px){
+  .instruction-set-grid,.instructions-overview-strip{grid-template-columns:1fr}
+  .instructions-list-toolbar{align-items:stretch;flex-direction:column}
+  .segmented-filter{width:100%}.segmented-filter button{flex:1}
+  .instruction-studio-topbar{height:auto;min-height:64px;padding:8px 10px;gap:8px}.instruction-studio-topbar>div:last-child small{display:none}
+  .instruction-studio-frame{height:calc(100vh - 64px)}
+}
+
+/* Agreement Studio integration */
+.agreement-set-card .instruction-set-icon{background:#eef4ff;color:#315c9d}
+.agreement-signing-links-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 14px;background:#fff8df;border-bottom:1px solid #eadcae;color:#725800;font-size:12px}
+.agreement-signing-links-bar strong{font-size:12px}
+.agreement-signing-links-bar a{display:inline-flex;align-items:center;border:1px solid #dccb88;border-radius:999px;background:#fff;padding:5px 10px;color:#5f4a00;font-weight:800;text-decoration:none}
+.agreement-signing-links-bar a:hover{background:#fff3bd}
+.instruction-status.sent{background:#e8f0ff;color:#335a9c}
+.instruction-status.viewed{background:#edf4ff;color:#47699d}
+.instruction-status.partially-signed{background:#fff3d9;color:#8a5b00}
+.instruction-status.accepted{background:#ddf7ec;color:#006a50}
+.instruction-status.declined,.instruction-status.cancelled{background:#fde8e8;color:#a02a2a}
+.instruction-status.superseded{background:#f0ecf8;color:#685080}

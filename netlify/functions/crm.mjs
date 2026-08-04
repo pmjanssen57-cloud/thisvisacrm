@@ -493,6 +493,44 @@ async function handleCrmEvent(event) {
       return json({ ...result, ...(await readCrmData()) });
     }
 
+
+    if (action === 'saveInstructionSet') {
+      const instructionSet = await saveInstructionSet(body.instructionSet || {}, auth.user);
+      return json({ instructionSet, ...(await readCrmData()) });
+    }
+
+    if (action === 'deleteInstructionSet') {
+      await deleteInstructionSet(body.instructionSetId);
+      return json(await readCrmData());
+    }
+
+    if (action === 'saveInstructionTemplateLibrary') {
+      requireAdminAccess(accessContext, 'Instruction template management');
+      const result = await saveInstructionTemplateLibrary(body.library || {}, body.versionEvent || null, auth.user);
+      return json({ instructionTemplateLibrary: result.library, instructionTemplateVersions: result.versions, ...(await readCrmData()) });
+    }
+
+    if (action === 'saveAgreementSet') {
+      const agreementSet = await saveAgreementSet(body.agreementSet || {}, auth.user);
+      return json({ agreementSet, ...(await readCrmData()) });
+    }
+
+    if (action === 'deleteAgreementSet') {
+      await deleteAgreementSet(body.agreementSetId);
+      return json(await readCrmData());
+    }
+
+    if (action === 'saveAgreementTemplateLibrary') {
+      requireAdminAccess(accessContext, 'Agreement template management');
+      const result = await saveAgreementTemplateLibrary(body.library || {}, body.versionEvent || null, auth.user);
+      return json({ agreementTemplateLibrary: result.library, agreementTemplateVersions: result.versions, ...(await readCrmData()) });
+    }
+
+    if (action === 'issueAgreementSet') {
+      const result = await issueAgreementSet(body.agreementSet || {}, body.issue || {}, auth.user);
+      return json({ ...result, ...(await readCrmData()) });
+    }
+
     if (action === 'saveClient') {
       const client = await saveClient(body.client, auth.user);
       return json({ client: await readSingleClient(client.id), emailLog: client.portalAccessEmailLog || null });
@@ -1205,6 +1243,105 @@ async function ensureSchema() {
     )`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_email_notifications_created_at ON email_notifications(created_at DESC)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_email_notifications_status ON email_notifications(status)`;
+
+  await database.sql`
+    CREATE TABLE IF NOT EXISTS instruction_sets (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
+      title TEXT NOT NULL,
+      pack_id TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'Draft',
+      standalone_label TEXT,
+      studio_state JSONB NOT NULL DEFAULT '{}'::jsonb,
+      template_version JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_by TEXT,
+      updated_by TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      issued_at TIMESTAMPTZ
+    )`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_instruction_sets_client_id ON instruction_sets(client_id)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_instruction_sets_updated_at ON instruction_sets(updated_at DESC)`;
+  await database.sql`
+    CREATE TABLE IF NOT EXISTS instruction_template_library (
+      id TEXT PRIMARY KEY DEFAULT 'master',
+      library_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+      updated_by TEXT,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`;
+  await database.sql`
+    CREATE TABLE IF NOT EXISTS instruction_template_versions (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      pack_id TEXT NOT NULL,
+      version_label TEXT NOT NULL,
+      change_note TEXT,
+      snapshot JSONB NOT NULL,
+      created_by TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_instruction_template_versions_pack ON instruction_template_versions(pack_id, created_at DESC)`;
+  await database.sql`
+    CREATE TABLE IF NOT EXISTS agreement_sets (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
+      adviser_id UUID REFERENCES advisers(id) ON DELETE SET NULL,
+      title TEXT NOT NULL,
+      app_type TEXT NOT NULL DEFAULT 'other',
+      status TEXT NOT NULL DEFAULT 'Draft',
+      standalone_label TEXT,
+      recipient_email TEXT,
+      studio_state JSONB NOT NULL DEFAULT '{}'::jsonb,
+      template_version JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_by TEXT,
+      updated_by TEXT,
+      issued_at TIMESTAMPTZ,
+      accepted_at TIMESTAMPTZ,
+      accepted_by TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_agreement_sets_client_id ON agreement_sets(client_id)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_agreement_sets_updated_at ON agreement_sets(updated_at DESC)`;
+  await database.sql`
+    CREATE TABLE IF NOT EXISTS agreement_template_library (
+      id TEXT PRIMARY KEY DEFAULT 'master',
+      library_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+      updated_by TEXT,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`;
+  await database.sql`
+    CREATE TABLE IF NOT EXISTS agreement_template_versions (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      version_label TEXT NOT NULL,
+      change_note TEXT,
+      snapshot JSONB NOT NULL,
+      created_by TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`;
+  await database.sql`
+    CREATE TABLE IF NOT EXISTS agreement_signatories (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      agreement_id UUID NOT NULL REFERENCES agreement_sets(id) ON DELETE CASCADE,
+      name TEXT,
+      email TEXT NOT NULL,
+      role TEXT,
+      required BOOLEAN NOT NULL DEFAULT TRUE,
+      token_hash TEXT NOT NULL UNIQUE,
+      token_last_four TEXT,
+      status TEXT NOT NULL DEFAULT 'Sent',
+      expires_at TIMESTAMPTZ,
+      viewed_at TIMESTAMPTZ,
+      accepted_at TIMESTAMPTZ,
+      typed_name TEXT,
+      signature_data TEXT,
+      declarations JSONB NOT NULL DEFAULT '{}'::jsonb,
+      ip_address TEXT,
+      user_agent TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_agreement_signatories_agreement ON agreement_signatories(agreement_id, created_at)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_agreement_signatories_token_hash ON agreement_signatories(token_hash)`;
   await ensureCommercialSchema(database);
   await ensureConsultationBookingSchema(database);
   await ensureEmailTemplateSchema(database);
@@ -2144,10 +2281,245 @@ async function readIntakeEnquiries(database = db()) {
   return rows.map(mapIntakeEnquiryFromDb);
 }
 
+
+async function saveInstructionSet(input = {}, user = null) {
+  const database = db();
+  const id = isUuid(input.id) ? input.id : null;
+  const clientId = isUuid(input.clientId || input.client_id) ? (input.clientId || input.client_id) : null;
+  const title = String(input.title || 'Untitled instruction set').trim() || 'Untitled instruction set';
+  const packId = String(input.packId || input.pack_id || 'smc').trim() || 'smc';
+  const status = ['Draft', 'Ready', 'Issued', 'Archived'].includes(String(input.status || 'Draft')) ? String(input.status || 'Draft') : 'Draft';
+  const standaloneLabel = String(input.standaloneLabel || input.standalone_label || '').trim();
+  const studioState = normaliseJsonObject(input.studioState || input.studio_state);
+  const templateVersion = normaliseJsonObject(input.templateVersion || input.template_version);
+  const actor = user?.email || user?.name || 'CRM user';
+  const issuedAt = status === 'Issued' ? (input.issuedAt || input.issued_at || new Date().toISOString()) : null;
+  let rows;
+  if (id) {
+    const existingRows = await database.sql`SELECT status FROM agreement_sets WHERE id = ${id} LIMIT 1`;
+    if (existingRows[0]?.status === 'Accepted') throw new Error('Accepted agreements are locked. Create a new agreement or variation instead.');
+    rows = await database.sql`
+      UPDATE instruction_sets
+      SET client_id = ${clientId}, title = ${title}, pack_id = ${packId}, status = ${status}, standalone_label = ${standaloneLabel || null},
+          studio_state = ${JSON.stringify(studioState)}::jsonb, template_version = ${JSON.stringify(templateVersion)}::jsonb,
+          updated_by = ${actor}, updated_at = NOW(), issued_at = ${issuedAt}
+      WHERE id = ${id}
+      RETURNING id, client_id, title, pack_id, status, standalone_label, studio_state, template_version, created_by, updated_by, created_at, updated_at, issued_at
+    `;
+  } else {
+    rows = await database.sql`
+      INSERT INTO instruction_sets (client_id, title, pack_id, status, standalone_label, studio_state, template_version, created_by, updated_by, issued_at)
+      VALUES (${clientId}, ${title}, ${packId}, ${status}, ${standaloneLabel || null}, ${JSON.stringify(studioState)}::jsonb, ${JSON.stringify(templateVersion)}::jsonb, ${actor}, ${actor}, ${issuedAt})
+      RETURNING id, client_id, title, pack_id, status, standalone_label, studio_state, template_version, created_by, updated_by, created_at, updated_at, issued_at
+    `;
+  }
+  if (!rows[0]) throw new Error('Instruction set could not be saved.');
+  return mapInstructionSetFromDb(rows[0]);
+}
+
+async function deleteInstructionSet(instructionSetId) {
+  if (!isUuid(instructionSetId)) throw new Error('A valid instruction set is required.');
+  const database = db();
+  await database.sql`DELETE FROM instruction_sets WHERE id = ${instructionSetId}`;
+}
+
+async function saveInstructionTemplateLibrary(library = {}, versionEvent = null, user = null) {
+  const database = db();
+  const actor = user?.email || user?.name || 'CRM administrator';
+  const safeLibrary = normaliseJsonObject(library);
+  await database.sql`
+    INSERT INTO instruction_template_library (id, library_json, updated_by, updated_at)
+    VALUES ('master', ${JSON.stringify(safeLibrary)}::jsonb, ${actor}, NOW())
+    ON CONFLICT (id) DO UPDATE SET library_json = EXCLUDED.library_json, updated_by = EXCLUDED.updated_by, updated_at = NOW()
+  `;
+  if (versionEvent && versionEvent.packId && versionEvent.versionLabel && versionEvent.snapshot) {
+    await database.sql`
+      INSERT INTO instruction_template_versions (pack_id, version_label, change_note, snapshot, created_by)
+      VALUES (${String(versionEvent.packId)}, ${String(versionEvent.versionLabel)}, ${String(versionEvent.changeNote || '')}, ${JSON.stringify(normaliseJsonObject(versionEvent.snapshot))}::jsonb, ${actor})
+    `;
+  }
+  const [libraryRows, versions] = await Promise.all([
+    database.sql`SELECT library_json FROM instruction_template_library WHERE id = 'master' LIMIT 1`,
+    database.sql`SELECT id, pack_id, version_label, change_note, snapshot, created_by, created_at FROM instruction_template_versions ORDER BY created_at DESC LIMIT 200`,
+    database.sql`SELECT id, client_id, adviser_id, title, app_type, status, standalone_label, recipient_email, studio_state, template_version, created_by, updated_by, created_at, updated_at, issued_at, accepted_at, accepted_by FROM agreement_sets ORDER BY updated_at DESC`,
+    database.sql`SELECT id, library_json, updated_by, updated_at FROM agreement_template_library WHERE id = 'master' LIMIT 1`,
+    database.sql`SELECT id, version_label, change_note, snapshot, created_by, created_at FROM agreement_template_versions ORDER BY created_at DESC LIMIT 200`,
+  ]);
+  return { library: libraryRows[0]?.library_json || {}, versions: versions.map(mapInstructionTemplateVersionFromDb) };
+}
+
+function mapInstructionSetFromDb(row = {}) {
+  return {
+    id: row.id || '',
+    clientId: row.client_id || '',
+    title: row.title || '',
+    packId: row.pack_id || 'smc',
+    status: row.status || 'Draft',
+    standaloneLabel: row.standalone_label || '',
+    studioState: row.studio_state || {},
+    templateVersion: row.template_version || {},
+    createdBy: row.created_by || '',
+    updatedBy: row.updated_by || '',
+    createdAt: row.created_at || '',
+    updatedAt: row.updated_at || '',
+    issuedAt: row.issued_at || '',
+  };
+}
+
+function mapInstructionTemplateVersionFromDb(row = {}) {
+  return {
+    id: row.id || '', packId: row.pack_id || '', versionLabel: row.version_label || '', changeNote: row.change_note || '',
+    snapshot: row.snapshot || {}, createdBy: row.created_by || '', createdAt: row.created_at || '',
+  };
+}
+
+
+async function saveAgreementSet(input = {}, user = null) {
+  const database = db();
+  const id = isUuid(input.id) ? input.id : null;
+  const clientId = isUuid(input.clientId || input.client_id) ? (input.clientId || input.client_id) : null;
+  const adviserId = isUuid(input.adviserId || input.adviser_id) ? (input.adviserId || input.adviser_id) : null;
+  const title = String(input.title || 'Untitled engagement agreement').trim() || 'Untitled engagement agreement';
+  const appType = String(input.appType || input.app_type || 'other').trim() || 'other';
+  const allowedStatuses = ['Draft', 'Ready', 'Sent', 'Viewed', 'Partially signed', 'Accepted', 'Declined', 'Superseded', 'Cancelled', 'Archived'];
+  const status = allowedStatuses.includes(String(input.status || 'Draft')) ? String(input.status || 'Draft') : 'Draft';
+  const standaloneLabel = String(input.standaloneLabel || input.standalone_label || '').trim();
+  const recipientEmail = String(input.recipientEmail || input.recipient_email || '').trim();
+  const studioState = normaliseJsonObject(input.studioState || input.studio_state);
+  const templateVersion = normaliseJsonObject(input.templateVersion || input.template_version);
+  const actor = user?.email || user?.name || 'CRM user';
+  let rows;
+  if (id) {
+    rows = await database.sql`
+      UPDATE agreement_sets
+         SET client_id = ${clientId}, adviser_id = ${adviserId}, title = ${title}, app_type = ${appType}, status = ${status},
+             standalone_label = ${standaloneLabel || null}, recipient_email = ${recipientEmail || null},
+             studio_state = ${JSON.stringify(studioState)}::jsonb, template_version = ${JSON.stringify(templateVersion)}::jsonb,
+             updated_by = ${actor}, updated_at = NOW()
+       WHERE id = ${id}
+       RETURNING id, client_id, adviser_id, title, app_type, status, standalone_label, recipient_email, studio_state, template_version,
+                 created_by, updated_by, created_at, updated_at, issued_at, accepted_at, accepted_by`;
+  } else {
+    rows = await database.sql`
+      INSERT INTO agreement_sets (client_id, adviser_id, title, app_type, status, standalone_label, recipient_email, studio_state, template_version, created_by, updated_by)
+      VALUES (${clientId}, ${adviserId}, ${title}, ${appType}, ${status}, ${standaloneLabel || null}, ${recipientEmail || null},
+              ${JSON.stringify(studioState)}::jsonb, ${JSON.stringify(templateVersion)}::jsonb, ${actor}, ${actor})
+      RETURNING id, client_id, adviser_id, title, app_type, status, standalone_label, recipient_email, studio_state, template_version,
+                created_by, updated_by, created_at, updated_at, issued_at, accepted_at, accepted_by`;
+  }
+  if (!rows[0]) throw new Error('Agreement could not be saved.');
+  return mapAgreementSetFromDb(rows[0]);
+}
+
+async function deleteAgreementSet(agreementSetId) {
+  if (!isUuid(agreementSetId)) throw new Error('A valid agreement is required.');
+  const database = db();
+  const rows = await database.sql`SELECT status FROM agreement_sets WHERE id = ${agreementSetId} LIMIT 1`;
+  if (rows[0]?.status === 'Accepted') throw new Error('Accepted agreements are locked and cannot be deleted.');
+  await database.sql`DELETE FROM agreement_sets WHERE id = ${agreementSetId}`;
+}
+
+async function saveAgreementTemplateLibrary(library = {}, versionEvent = null, user = null) {
+  const database = db();
+  const actor = user?.email || user?.name || 'CRM administrator';
+  const safeLibrary = normaliseJsonObject(library);
+  await database.sql`
+    INSERT INTO agreement_template_library (id, library_json, updated_by, updated_at)
+    VALUES ('master', ${JSON.stringify(safeLibrary)}::jsonb, ${actor}, NOW())
+    ON CONFLICT (id) DO UPDATE SET library_json = EXCLUDED.library_json, updated_by = EXCLUDED.updated_by, updated_at = NOW()`;
+  if (versionEvent && versionEvent.versionLabel && versionEvent.snapshot) {
+    await database.sql`
+      INSERT INTO agreement_template_versions (version_label, change_note, snapshot, created_by)
+      VALUES (${String(versionEvent.versionLabel)}, ${String(versionEvent.changeNote || '')}, ${JSON.stringify(normaliseJsonObject(versionEvent.snapshot))}::jsonb, ${actor})`;
+  }
+  const [libraryRows, versions] = await Promise.all([
+    database.sql`SELECT library_json FROM agreement_template_library WHERE id = 'master' LIMIT 1`,
+    database.sql`SELECT id, version_label, change_note, snapshot, created_by, created_at FROM agreement_template_versions ORDER BY created_at DESC LIMIT 200`,
+  ]);
+  return { library: libraryRows[0]?.library_json || {}, versions: versions.map(mapAgreementTemplateVersionFromDb) };
+}
+
+async function issueAgreementSet(input = {}, issue = {}, user = null) {
+  const database = db();
+  let agreement = await saveAgreementSet({ ...input, status: input.status === 'Accepted' ? 'Accepted' : 'Ready' }, user);
+  if (!isUuid(agreement.id)) throw new Error('Save the agreement before issuing it.');
+  if (agreement.status === 'Accepted') throw new Error('An accepted agreement cannot be reissued. Create a new agreement or variation.');
+  const studioState = normaliseJsonObject(agreement.studioState);
+  if (!studioState.feeConfirmed || !studioState.clientChecked) throw new Error('Confirm the fee schedule and client details before issuing the agreement.');
+  const signatories = Array.isArray(studioState.signatories) ? studioState.signatories.filter(item => item && item.required !== false) : [];
+  const usable = signatories.filter(item => isValidEmailAddress(String(item.email || '').trim()));
+  if (!usable.length && isValidEmailAddress(agreement.recipientEmail)) usable.push({ name: studioState?.client?.clientName || agreement.standaloneLabel || 'Client', email: agreement.recipientEmail, role: 'Client', required: true });
+  if (!usable.length) throw new Error('Add at least one required signatory with a valid email address.');
+  const configStatus = getEmailConfigStatus();
+  const config = configStatus.configured ? requireMicrosoftEmailConfig() : null;
+  const graphToken = config ? await getMicrosoftGraphAccessToken(config) : '';
+  const actor = user?.email || user?.name || 'CRM adviser';
+  const adviserEmail = String(issue.adviserEmail || studioState?.client?.adviserEmail || '').trim();
+  const baseUrl = String(process.env.URL || process.env.DEPLOY_URL || '').replace(/\/$/, '') || 'https://this-crm.netlify.app';
+  const subject = String(issue.emailSubject || studioState.emailSubject || 'Your Turner Hopkins engagement agreement').trim();
+  const baseBody = String(issue.emailBody || studioState.emailBody || 'Please review and accept your Turner Hopkins engagement agreement using the secure link below.').trim();
+  await database.sql`UPDATE agreement_signatories SET status = 'Superseded', updated_at = NOW() WHERE agreement_id = ${agreement.id} AND status <> 'Accepted'`;
+  const signingLinks = [];
+  for (const signatory of usable) {
+    const rawToken = crypto.randomBytes(24).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const link = `${baseUrl}/agreement-studio.html?token=${rawToken}`;
+    const name = String(signatory.name || '').trim();
+    const email = String(signatory.email || '').trim();
+    const role = String(signatory.role || 'Client').trim();
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    await database.sql`
+      INSERT INTO agreement_signatories (agreement_id, name, email, role, required, token_hash, token_last_four, status, expires_at)
+      VALUES (${agreement.id}, ${name || null}, ${email}, ${role}, ${signatory.required !== false}, ${tokenHash}, ${rawToken.slice(-4)}, 'Sent', ${expiresAt})`;
+    const greeting = name ? `Dear ${name.split(/\s+/)[0]},` : 'Dear client,';
+    const bodyText = [greeting, '', baseBody.replace(/^Dear[^\n]*\n+/i, '').trim(), '', `Secure agreement link: ${link}`, '', 'Please contact your adviser before accepting if any detail is incorrect or unclear.', '', 'Kind regards,', 'Turner Hopkins Immigration Specialists'].join('\n');
+    const bodyHtml = `<div style="font-family:Arial,sans-serif;font-size:10pt;line-height:1.45;color:#1d2f2e"><p>${escapeHtml(greeting)}</p>${textToHtml(baseBody.replace(/^Dear[^\n]*\n+/i, '').trim())}<p><a href="${escapeHtml(link)}" style="display:inline-block;background:#003736;color:#fff;text-decoration:none;font-weight:700;padding:11px 18px;border-radius:10px">Review and accept agreement</a></p><p style="font-size:9pt;color:#52627a">If the button does not open, copy this secure link into your browser:<br><a href="${escapeHtml(link)}" style="color:#003736;word-break:break-all">${escapeHtml(link)}</a></p><p>Please contact your adviser before accepting if any detail is incorrect or unclear.</p><p>Kind regards,<br>Turner Hopkins Immigration Specialists</p></div>`;
+    const [emailLog] = await database.sql`
+      INSERT INTO email_notifications (related_record_type, related_record_id, client_id, template_key, from_email, from_name, to_email, cc, subject, body_text, body_html, status, sent_by)
+      VALUES ('agreement', ${agreement.id}, ${nullableUuid(agreement.clientId)}, 'agreement_issue', ${configStatus.fromEmail}, ${configStatus.fromName}, ${email}, ${adviserEmail || null}, ${subject}, ${bodyText}, ${bodyHtml}, ${configStatus.configured ? 'Sending' : 'Draft'}, ${actor})
+      RETURNING id`;
+    if (config && graphToken) {
+      try {
+        const sendResult = await sendMicrosoftGraphEmail({ config, token: graphToken, toEmail: email, ccEmail: adviserEmail, replyToEmail: adviserEmail, subject, bodyText, bodyHtml });
+        await database.sql`UPDATE email_notifications SET status = 'Sent', sent_at = NOW(), provider_request_id = ${sendResult.requestId || ''}, updated_at = NOW() WHERE id = ${emailLog.id}`;
+      } catch (error) {
+        await database.sql`UPDATE email_notifications SET status = 'Failed', failed_at = NOW(), failure_message = ${String(error?.message || error).slice(0, 1000)}, updated_at = NOW() WHERE id = ${emailLog.id}`;
+      }
+    }
+    signingLinks.push({ name, email, role, link, expiresAt });
+  }
+  const rows = await database.sql`
+    UPDATE agreement_sets
+       SET status = 'Sent', issued_at = NOW(), updated_at = NOW(), updated_by = ${actor}
+     WHERE id = ${agreement.id}
+     RETURNING id, client_id, adviser_id, title, app_type, status, standalone_label, recipient_email, studio_state, template_version,
+               created_by, updated_by, created_at, updated_at, issued_at, accepted_at, accepted_by`;
+  agreement = mapAgreementSetFromDb(rows[0]);
+  return { agreementSet: agreement, signingLinks, emailConfigured: configStatus.configured };
+}
+
+function mapAgreementSetFromDb(row = {}) {
+  return {
+    id: row.id || '', clientId: row.client_id || '', adviserId: row.adviser_id || '', title: row.title || '', appType: row.app_type || 'other',
+    status: row.status || 'Draft', standaloneLabel: row.standalone_label || '', recipientEmail: row.recipient_email || '',
+    studioState: row.studio_state || {}, templateVersion: row.template_version || {}, createdBy: row.created_by || '', updatedBy: row.updated_by || '',
+    createdAt: row.created_at || '', updatedAt: row.updated_at || '', issuedAt: row.issued_at || '', acceptedAt: row.accepted_at || '', acceptedBy: row.accepted_by || '',
+  };
+}
+
+function mapAgreementTemplateVersionFromDb(row = {}) {
+  return { id: row.id || '', versionLabel: row.version_label || '', changeNote: row.change_note || '', snapshot: row.snapshot || {}, createdBy: row.created_by || '', createdAt: row.created_at || '' };
+}
+
+function normaliseJsonObject(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return value;
+}
+
 async function readCrmData() {
   const database = db();
   await pruneOldEmailNotifications(database);
-  const [advisers, clients, stages, deadlines, billing, personalTasks, calendarEntries, libraryEntries, portalMessages, portalDocuments, intakeEnquiries, seminars, seminarRegistrations, feedbackSubmissions, emailLogs, emailTemplates, consultationTypes, bookingAvailability, bookingBlocks, bookingLinks, consultationBookings] = await Promise.all([
+  const [advisers, clients, stages, deadlines, billing, personalTasks, calendarEntries, libraryEntries, portalMessages, portalDocuments, intakeEnquiries, seminars, seminarRegistrations, feedbackSubmissions, emailLogs, emailTemplates, consultationTypes, bookingAvailability, bookingBlocks, bookingLinks, consultationBookings, instructionSets, instructionTemplateLibraryRows, instructionTemplateVersions, agreementSets, agreementTemplateLibraryRows, agreementTemplateVersions] = await Promise.all([
     database.sql`SELECT id, name, role, email, login_email, access_role, profile_photo_url, availability_status, phone, licence, active FROM advisers ORDER BY name ASC`,
     database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, one_law_client_number, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, portal_enabled, portal_email, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_resource_settings, portal_access_code_hash, portal_last_published_at, portal_last_accessed_at, notes, family_members, document_checklist FROM clients ORDER BY updated_at DESC`,
     database.sql`SELECT id, client_id, stage_key, stage_label, mandatory, applied, completed, completed_date, sort_order FROM client_stages ORDER BY sort_order ASC`,
@@ -2169,6 +2541,9 @@ async function readCrmData() {
     database.sql`SELECT id, adviser_id, block_date, start_time, end_time, all_day, reason, created_at, updated_at FROM adviser_booking_blocks ORDER BY block_date DESC, start_time ASC`,
     database.sql`SELECT id, token, intake_id, adviser_id, applicant_name, applicant_email, applicant_phone, allowed_type_ids, expires_at, status, notes, created_at, updated_at FROM consultation_booking_links ORDER BY created_at DESC`,
     database.sql`SELECT id, booking_link_id, intake_id, adviser_id, consultation_type_id, booking_date, start_time, end_time, applicant_name, applicant_email, applicant_phone, notes, status, payment_status, created_at, updated_at FROM consultation_bookings ORDER BY booking_date DESC, start_time DESC`,
+    database.sql`SELECT id, client_id, title, pack_id, status, standalone_label, studio_state, template_version, created_by, updated_by, created_at, updated_at, issued_at FROM instruction_sets ORDER BY updated_at DESC`,
+    database.sql`SELECT id, library_json, updated_by, updated_at FROM instruction_template_library WHERE id = 'master' LIMIT 1`,
+    database.sql`SELECT id, pack_id, version_label, change_note, snapshot, created_by, created_at FROM instruction_template_versions ORDER BY created_at DESC LIMIT 200`,
   ]);
 
   const commercialClients = await readCommercialClients(database);
@@ -2180,6 +2555,12 @@ async function readCrmData() {
     personalTasks: personalTasks.map(mapPersonalTaskFromDb),
     calendarEntries: calendarEntries.map(mapCalendarEntryFromDb),
     libraryEntries: libraryEntries.map(mapLibraryEntryFromDb),
+    instructionSets: instructionSets.map(mapInstructionSetFromDb),
+    instructionTemplateLibrary: instructionTemplateLibraryRows[0]?.library_json || {},
+    instructionTemplateVersions: instructionTemplateVersions.map(mapInstructionTemplateVersionFromDb),
+    agreementSets: agreementSets.map(mapAgreementSetFromDb),
+    agreementTemplateLibrary: agreementTemplateLibraryRows[0]?.library_json || {},
+    agreementTemplateVersions: agreementTemplateVersions.map(mapAgreementTemplateVersionFromDb),
     intakeEnquiries: intakeEnquiries.map(mapIntakeEnquiryFromDb),
     intakeStatuses: INTAKE_STATUSES,
     seminars: seminars.map(mapSeminarFromDb),

@@ -1,20 +1,20 @@
-v0.13.55 - Live Intake Refresh, CV Requests and Reliable Print View
+v0.13.57 - Integrated Agreement Studio
 
-Changes
-- Adds a lightweight automatic intake refresh every 60 seconds while an authenticated CRM session is open.
-- Refreshes immediately when the browser or installed app returns to the foreground.
-- Updates intake and contact counts without logging out, restarting the app or overwriting an open intake draft.
-- Shows an in-app notice when a new intake or contact form is received.
-- Adds a manual Refresh control and last-checked time in Enquiries & Intake.
-- Adds an editable Assessment form - request missing CV email template.
-- Shows a Request applicant CV, Request partner CV or Request missing CVs action when expected uploads are absent.
-- Requires an assigned adviser with an email address and directs applicant replies to that adviser while copying them on the request.
-- Replaces the automatically opened browser print dialogue with a stable printable intake view.
-- The printable view includes an explicit Print / save PDF button and falls back to a downloaded printable HTML file if pop-ups are blocked.
+Built from the authoritative v0.13.56 Integrated Instructions Studio package.
 
-Technical
-- No database migration.
-- No new dependency.
-- Adds the authenticated getIntakeUpdates and sendIntakeCvRequestEmail CRM actions.
-- Adds Microsoft Graph reply-to support for the CV request workflow.
-- Advances package, service-worker cache and backup source version to v0.13.55.
+Adds:
+- Agreement Studio alongside Instructions in the main CRM navigation.
+- Client-linked and standalone engagement agreements.
+- Reusable application-specific scopes, professional fee schedules and Government fee schedules.
+- Database-backed agreement drafts, master templates and immutable template versions.
+- Secure tokenised client review and electronic acceptance with declarations, typed name, drawn signature and audit details.
+- Microsoft 365 issue email to each required signatory, with the assigned adviser copied and used as reply-to.
+- Agreement status workflow: Draft, Ready, Sent, Viewed, Partially signed, Accepted, Declined, Superseded, Cancelled and Archived.
+- Accepted agreements are locked against later editing.
+- Client record Agreements section and mobile navigation access.
+- Code of Conduct link included in the client-facing agreement and acceptance declaration.
+
+Database migration:
+- 202608040002_add_agreement_studio.sql
+
+Existing v0.13.56 Instructions Studio and all v0.13.55 intake refresh, CV request and print-view functionality are retained.
