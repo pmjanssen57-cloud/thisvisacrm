@@ -10606,10 +10606,17 @@ function InstructionsWorkspace({
   useEffect(() => {
     if (!editorInstruction || !iframeReady || !iframeRef.current?.contentWindow) return;
     const client = editorInstruction.clientId ? clients.find((item) => item.id === editorInstruction.clientId) || null : null;
-    iframeRef.current.contentWindow.postMessage({
-      type: 'THIS_STUDIO_INIT',
-      payload: { instructionSet: editorInstruction, client, advisers, templateLibrary, canManageTemplates },
-    }, window.location.origin);
+    const payload = { instructionSet: editorInstruction, client, advisers, templateLibrary, canManageTemplates };
+    const studioWindow = iframeRef.current.contentWindow;
+    try {
+      if (typeof studioWindow.__THIS_STUDIO_INIT__ === 'function') {
+        studioWindow.__THIS_STUDIO_INIT__(payload);
+        return;
+      }
+    } catch (error) {
+      console.warn('Direct Instructions Studio initialisation failed; using postMessage fallback.', error);
+    }
+    studioWindow.postMessage({ type: 'THIS_STUDIO_INIT', payload }, window.location.origin);
   }, [editorInstruction, iframeReady, clients, advisers, templateLibrary, canManageTemplates]);
 
   const filtered = useMemo(() => {
@@ -10760,7 +10767,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html" title="THiS Instructions Studio" onLoad={() => { setIframeReady(true); setStudioMessage("Loading linked client data..."); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.13.57.3" title="THiS Instructions Studio" onLoad={() => { setIframeReady(true); setStudioMessage("Loading linked client data..."); }} />
         </div>
       )}
     </div>
@@ -10891,10 +10898,17 @@ function AgreementsWorkspace({
   useEffect(() => {
     if (!editorAgreement || !iframeReady || !iframeRef.current?.contentWindow) return;
     const client = editorAgreement.clientId ? clients.find((item) => item.id === editorAgreement.clientId) || null : null;
-    iframeRef.current.contentWindow.postMessage({
-      type: 'THIS_AGREEMENT_INIT',
-      payload: { agreementSet: editorAgreement, client, advisers, templateLibrary, canManageTemplates },
-    }, window.location.origin);
+    const payload = { agreementSet: editorAgreement, client, advisers, templateLibrary, canManageTemplates };
+    const studioWindow = iframeRef.current.contentWindow;
+    try {
+      if (typeof studioWindow.__THIS_AGREEMENT_INIT__ === 'function') {
+        studioWindow.__THIS_AGREEMENT_INIT__(payload);
+        return;
+      }
+    } catch (error) {
+      console.warn('Direct Agreement Studio initialisation failed; using postMessage fallback.', error);
+    }
+    studioWindow.postMessage({ type: 'THIS_AGREEMENT_INIT', payload }, window.location.origin);
   }, [editorAgreement, iframeReady, clients, advisers, templateLibrary, canManageTemplates]);
 
   const filtered = useMemo(() => {
@@ -11061,7 +11075,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html" title="THiS Agreement Studio" onLoad={() => { setIframeReady(true); setStudioMessage("Loading linked client data..."); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.13.57.3" title="THiS Agreement Studio" onLoad={() => { setIframeReady(true); setStudioMessage("Loading linked client data..."); }} />
         </div>
       )}
     </div>

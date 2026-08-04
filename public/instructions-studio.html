@@ -1056,6 +1056,8 @@ button { cursor: pointer; }
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script>
+const THIS_LOCAL_STORAGE=(()=>{try{const storage=window['local'+'Storage'];const probe='__this_instructions_storage_probe__';storage.getItem(probe);return storage;}catch(error){console.warn('Browser storage is unavailable; CRM persistence will be used instead.',error);return{getItem(){return null},setItem(){},removeItem(){},clear(){}}}})();
+const THIS_SESSION_STORAGE=(()=>{try{return window['session'+'Storage'];}catch(error){return{getItem(){return null},setItem(){},removeItem(){},clear(){}}}})();
 const STORAGE_KEY = 'this-instructions-studio-smc-v06';
 const LEGACY_STORAGE_KEYS = ['this-instructions-studio-smc-v05'];
 
@@ -1291,16 +1293,16 @@ let zoomMode = 'fit';
 function cloneDefault() { return structuredClone(defaultState); }
 function loadState() {
   try {
-    let saved = localStorage.getItem(STORAGE_KEY);
+    let saved = THIS_LOCAL_STORAGE.getItem(STORAGE_KEY);
     let legacyUsed = false;
     if (!saved) {
       for (const key of LEGACY_STORAGE_KEYS) {
-        saved = localStorage.getItem(key);
+        saved = THIS_LOCAL_STORAGE.getItem(key);
         if (saved) { legacyUsed = true; break; }
       }
     }
     if (!saved) return cloneDefault();
-    if (legacyUsed) localStorage.setItem(STORAGE_KEY, saved);
+    if (legacyUsed) THIS_LOCAL_STORAGE.setItem(STORAGE_KEY, saved);
     return mergeDefaults(cloneDefault(), JSON.parse(saved));
   } catch (error) {
     console.warn('Unable to load saved prototype', error);
@@ -1876,7 +1878,7 @@ function saveDraft() {
   state.issueName = $('#issue-name').value;
   state.preparedDate = $('#prepared-date').value;
   state.contentStatus = $('#content-status').value;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  THIS_LOCAL_STORAGE.setItem(STORAGE_KEY, JSON.stringify(state));
   $('#save-status').textContent = `Saved ${new Date().toLocaleTimeString('en-NZ',{hour:'2-digit',minute:'2-digit'})}`;
   showToast('Draft saved in this browser');
   renderPreview();
@@ -1957,7 +1959,7 @@ function bindEvents() {
   $('#cancel-publish').addEventListener('click',closeModal);
   $('#confirm-publish').addEventListener('click',()=>{closeModal();showToast('Instructions marked ready');});
   $('#publish-modal').addEventListener('click',event=>{if(event.target.id==='publish-modal')closeModal();});
-  $('#reset-draft').addEventListener('click',()=>{if(confirm('Reset this instruction draft to its original content?')){localStorage.removeItem(STORAGE_KEY);LEGACY_STORAGE_KEYS.forEach(key => localStorage.removeItem(key));state=cloneDefault();renderAll();showToast('Instruction draft reset');}});
+  $('#reset-draft').addEventListener('click',()=>{if(confirm('Reset this instruction draft to its original content?')){THIS_LOCAL_STORAGE.removeItem(STORAGE_KEY);LEGACY_STORAGE_KEYS.forEach(key => THIS_LOCAL_STORAGE.removeItem(key));state=cloneDefault();renderAll();showToast('Instruction draft reset');}});
 }
 
 
@@ -1989,7 +1991,7 @@ function createPackState(packId) {
 }
 function loadPackWorkspace() {
   try {
-    const saved = JSON.parse(localStorage.getItem(WORKSPACE_STORAGE_KEY)||'null');
+    const saved = JSON.parse(THIS_LOCAL_STORAGE.getItem(WORKSPACE_STORAGE_KEY)||'null');
     activePackId = saved?.activePackId && PACK_ORDER.includes(saved.activePackId) ? saved.activePackId : 'smc';
     workspaceDrafts = saved?.drafts || {};
   } catch (error) { workspaceDrafts={}; activePackId='smc'; }
@@ -1997,7 +1999,7 @@ function loadPackWorkspace() {
   state = workspaceDrafts[activePackId];
 }
 function currentPack() { return activePackId==='smc' ? SMC_PACK_META : PACK_DEFINITIONS[activePackId]; }
-function saveWorkspace() { workspaceDrafts[activePackId]=state; localStorage.setItem(WORKSPACE_STORAGE_KEY,JSON.stringify({activePackId,drafts:workspaceDrafts})); }
+function saveWorkspace() { workspaceDrafts[activePackId]=state; THIS_LOCAL_STORAGE.setItem(WORKSPACE_STORAGE_KEY,JSON.stringify({activePackId,drafts:workspaceDrafts})); }
 function switchPack(packId) {
   workspaceDrafts[activePackId]=state; activePackId=packId; state=workspaceDrafts[packId]||createPackState(packId); state.packId=packId;
   inlineEditMode=false; renderAll(); $('#save-status').textContent='Draft not saved';
@@ -2719,14 +2721,14 @@ function initialTemplateEntryV13(packId) {
 }
 function loadTemplateLibraryV13() {
   let loaded = null;
-  try { loaded = JSON.parse(localStorage.getItem(TEMPLATE_LIBRARY_STORAGE_KEY_V13) || 'null'); } catch (error) { console.warn('Unable to load template library', error); }
+  try { loaded = JSON.parse(THIS_LOCAL_STORAGE.getItem(TEMPLATE_LIBRARY_STORAGE_KEY_V13) || 'null'); } catch (error) { console.warn('Unable to load template library', error); }
   const library = loaded || { packs:{} };
   library.packs = library.packs || {};
   PACK_ORDER.forEach(packId => { if (!library.packs[packId]) library.packs[packId] = initialTemplateEntryV13(packId); });
   PACK_ORDER.forEach(packId => { if (library.packs[packId].published) applyTemplateToMasterV13(packId, library.packs[packId].published); });
   return library;
 }
-function saveTemplateLibraryV13() { localStorage.setItem(TEMPLATE_LIBRARY_STORAGE_KEY_V13, JSON.stringify(templateLibraryV13)); }
+function saveTemplateLibraryV13() { THIS_LOCAL_STORAGE.setItem(TEMPLATE_LIBRARY_STORAGE_KEY_V13, JSON.stringify(templateLibraryV13)); }
 function templateEntryV13(packId = templateEditorStateV13.packId) { return templateLibraryV13.packs[packId]; }
 function templateDraftV13() { return templateEntryV13().draft; }
 function selectedTemplateDocV13() { return templateDraftV13().docs[templateEditorStateV13.docId]; }
@@ -2758,7 +2760,7 @@ function buildTemplateEditorUiV13() {
 function openTemplateEditorV13() {
   const overlay = $('#template-overlay-v13');
   overlay.hidden = false;
-  const unlocked = sessionStorage.getItem(TEMPLATE_EDITOR_SESSION_KEY_V13) === '1';
+  const unlocked = THIS_SESSION_STORAGE.getItem(TEMPLATE_EDITOR_SESSION_KEY_V13) === '1';
   $('#template-lock-v13').hidden = unlocked;
   $('#template-workspace-v13').hidden = !unlocked;
   if (unlocked) renderTemplateEditorV13();
@@ -2767,7 +2769,7 @@ function openTemplateEditorV13() {
 function closeTemplateEditorV13() { $('#template-overlay-v13').hidden = true; }
 function unlockTemplateEditorV13() {
   if ($('#template-password-v13').value !== TEMPLATE_EDITOR_PASSWORD_V13) { $('#template-lock-error-v13').textContent = 'Incorrect password.'; return; }
-  sessionStorage.setItem(TEMPLATE_EDITOR_SESSION_KEY_V13, '1');
+  THIS_SESSION_STORAGE.setItem(TEMPLATE_EDITOR_SESSION_KEY_V13, '1');
   $('#template-lock-v13').hidden = true;
   $('#template-workspace-v13').hidden = false;
   $('#template-password-v13').value = '';
@@ -3760,7 +3762,7 @@ bindEvents();
   function initFromCrm(payload){
     crmContext={instructionSetId:payload.instructionSet?.id||'',canManageTemplates:Boolean(payload.canManageTemplates)};
     if(payload.templateLibrary?.packs) applyTemplateLibrary(payload.templateLibrary);
-    if(crmContext.canManageTemplates){ try{ sessionStorage.setItem(TEMPLATE_EDITOR_SESSION_KEY_V13,'1'); }catch{} }
+    if(crmContext.canManageTemplates){ try{ THIS_SESSION_STORAGE.setItem(TEMPLATE_EDITOR_SESSION_KEY_V13,'1'); }catch{} }
     else { document.querySelector('#open-template-library-v13')?.remove(); }
     const saved=payload.instructionSet?.studioState||{};
     if(saved.packState && typeof saved.packState==='object'){
@@ -3793,6 +3795,7 @@ bindEvents();
     setCrmPresentation();
     post('THIS_STUDIO_INITIALISED',{instructionSetId:crmContext.instructionSetId,activePackId});
   }
+  window.__THIS_STUDIO_INIT__=initFromCrm;
   window.addEventListener('message',event=>{
     if(event.origin!==CRM_ORIGIN || event.source!==window.parent) return;
     const message=event.data||{};

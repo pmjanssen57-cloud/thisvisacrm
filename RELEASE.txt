@@ -1,13 +1,15 @@
-v0.13.57.2 - Studio Client Data Bridge Hotfix
+v0.13.57.3 - Embedded Studio Initialisation Hotfix
 
-Built from v0.13.57.1.
+Built from v0.13.57.2.
 
 Fixes:
-- Makes the CRM-to-Studio initialisation handshake reliable even when the embedded iframe loads before the React message listener is active.
-- Sends the linked CRM client payload on iframe load for both Instructions Studio and Agreement Studio.
-- Retries the Studio-ready handshake until CRM initialisation is acknowledged.
-- Refreshes linked client names, family details, adviser details and matter data when an existing draft is opened.
-- Replaces any prototype sample client or signatory data accidentally retained in a partial draft with the linked CRM record.
-- Advances the service-worker cache and backup source version to v0.13.57.2.
+- Removes the embedded Studios' dependency on browser localStorage/sessionStorage being available inside the CRM iframe.
+- Falls back safely to CRM/database persistence when browser storage is blocked.
+- Exposes a same-origin direct initialisation hook for both Instructions Studio and Agreement Studio.
+- Uses direct iframe initialisation from the CRM with postMessage retained as a fallback.
+- Ensures linked client, family, adviser, matter and signatory details replace prototype sample data.
+- Restores the A4 preview after linked CRM data is loaded.
+- Adds cache-busting version parameters to both Studio iframe URLs.
+- Advances the package and service-worker cache to v0.13.57.3.
 
-No database, migration or dependency changes from v0.13.57.1.
+No database, migration or dependency changes from v0.13.57.2.

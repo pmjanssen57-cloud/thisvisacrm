@@ -84,9 +84,11 @@ const defaultState=()=>({status:'Draft',selectedSection:'introduction',appType:'
 {id:'p2',description:'Qualification assessment and pathway preparation',amount:'NZD$X,XXX.00',trigger:'Payable when the IQA or agreed preliminary stage is ready to begin'},
 {id:'p3',description:'Temporary visa application stage',amount:'NZD$X,XXX.00',trigger:'Payable when the agreed temporary visa application is ready to prepare'},
 {id:'p4',description:'Residence application preparation and submission',amount:'NZD$X,XXX.00',trigger:'Payable when the Residence application is ready to prepare'}],governmentFees:APP_TYPES.smc.gov.map((r,i)=>({id:'g'+i,agency:r[0],application:r[1],quantity:r[2],amount:r[3],note:r[4]})),signatories:[{id:'sg1',name:'Amelia Chen',email:'amelia.chen@example.com',role:'Principal client',required:true},{id:'sg2',name:'David Chen',email:'david.chen@example.com',role:'Partner / second client',required:true}],acceptanceText:'I confirm that I have read and understood this agreement, accept the scope of services, professional fees, government costs and payment terms, and authorise Turner Hopkins Services Limited to act for me in the agreed matters.',emailSubject:'Your Turner Hopkins engagement agreement',emailBody:'Dear Amelia,\n\nPlease use the secure link below to review and accept your engagement agreement. If any detail is incorrect or you have a question, please contact us before accepting it.\n\nKind regards\nPaul Janssen',templateHistory:[{version:'1.0',date:'4 August 2026',note:'Initial reusable master engagement agreement prototype'}],sentAt:'',acceptedAt:'',acceptedBy:'',token:''});
-let state=JSON.parse(localStorage.getItem('this-agreement-studio-v1')||'null')||defaultState();let editMode=false,zoom='fit',sigDrawn=false;
+const THIS_LOCAL_STORAGE=(()=>{try{const storage=window['local'+'Storage'];const probe='__this_agreement_storage_probe__';storage.getItem(probe);return storage;}catch(error){console.warn('Browser storage is unavailable; CRM persistence will be used instead.',error);return{getItem(){return null},setItem(){},removeItem(){},clear(){}}}})();
+const THIS_SESSION_STORAGE=(()=>{try{return window['session'+'Storage'];}catch(error){return{getItem(){return null},setItem(){},removeItem(){},clear(){}}}})();
+let state=(()=>{try{return JSON.parse(THIS_LOCAL_STORAGE.getItem('this-agreement-studio-v1')||'null')||defaultState();}catch(error){console.warn('Unable to load the browser agreement draft; starting from the CRM payload.',error);return defaultState();}})();let editMode=false,zoom='fit',sigDrawn=false;
 function esc(v=''){return String(v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
-function save(){localStorage.setItem('this-agreement-studio-v1',JSON.stringify(state));$('#saveStatus').textContent='Saved '+new Date().toLocaleTimeString('en-NZ',{hour:'2-digit',minute:'2-digit'});toast('Draft saved in this browser')}
+function save(){THIS_LOCAL_STORAGE.setItem('this-agreement-studio-v1',JSON.stringify(state));$('#saveStatus').textContent='Saved '+new Date().toLocaleTimeString('en-NZ',{hour:'2-digit',minute:'2-digit'});toast('Draft saved in this browser')}
 function currentType(){return APP_TYPES[state.appType]||APP_TYPES.other}function fullClient(){return state.client.clientName||'Client'}
 function activeSections(){return state.sections.filter(s=>s.enabled)}
 function sectionNumber(id){let n=0;for(const s of state.sections){if(!s.enabled)continue;if(s.numberMode==='auto')n++;if(s.id===id){if(s.numberMode==='none')return '';if(s.numberMode==='manual')return s.manualNumber||'';return String(n).padStart(2,'0')}}return ''}
@@ -375,6 +377,7 @@ ${next.client.adviserName||'Turner Hopkins Immigration Specialists'}`;
     toast('Agreement accepted');
     setTimeout(()=>location.reload(),900);
   }
+  window.__THIS_AGREEMENT_INIT__=initFromCrm;
   window.addEventListener('message',event=>{
     if(event.origin!==CRM_ORIGIN||event.source!==window.parent) return;
     const message=event.data||{};
