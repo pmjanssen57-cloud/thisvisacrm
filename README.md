@@ -1,4 +1,4 @@
-# THiS CRM v0.13.57.1 — Integrated Agreement Studio
+# THiS CRM v0.13.57.2 — Integrated Agreement Studio
 
 This release is based on the authoritative v0.13.56 Integrated Instructions Studio build and adds Agreement Studio while retaining all existing intake, print, commercial and portal functionality.
 
@@ -48,7 +48,7 @@ The intake print control now opens a stable printable page rather than triggerin
 - Existing `yarn build` and `dist` deployment retained.
 - New migration: `202608040002_add_agreement_studio.sql`.
 - No new npm dependency.
-- Service-worker cache and backup source version advanced to v0.13.57.1.
+- Service-worker cache and backup source version advanced to v0.13.57.2.
 
 
 ## Agreement Studio

@@ -189,6 +189,8 @@ bind();renderAll();
 (function(){
   const CRM_ORIGIN = window.location.origin;
   let crmContext = { agreementSetId:'', canManageTemplates:false };
+  let crmInitialised = false;
+  let readyHandshakeTimer = 0;
   let publicToken = '';
   let publicSignatory = null;
   const clone = value => JSON.parse(JSON.stringify(value == null ? {} : value));
@@ -237,9 +239,41 @@ bind();renderAll();
     merged.client={...(master.client||{}),...preserved.client};
     return merged;
   }
+  function hydrateLinkedClient(next,payload={}){
+    if(!payload.client) return next;
+    const existing=next.client||{};
+    const mapped=mapClient(payload.client,payload.advisers||[]);
+    next.client={
+      ...existing,
+      ...mapped,
+      preparedDate:existing.preparedDate||mapped.preparedDate,
+      expectedMonths:existing.expectedMonths||mapped.expectedMonths,
+      matterNote:mapped.matterNote||existing.matterNote||''
+    };
+    const signatories=Array.isArray(next.signatories)?next.signatories:[];
+    let principal=signatories.find(item=>/principal|client/i.test(item.role||''));
+    if(!principal){
+      principal={id:'sg-'+Date.now(),role:'Principal client',required:true};
+      signatories.unshift(principal);
+    }
+    principal.name=next.client.clientName||principal.name||'';
+    principal.email=next.client.clientEmail||principal.email||'';
+    if(next.client.partnerName){
+      let partner=signatories.find(item=>/partner|second client/i.test(item.role||''));
+      if(!partner){
+        partner={id:'sg-'+(Date.now()+1),role:'Partner / second client',required:true};
+        signatories.push(partner);
+      }
+      partner.name=next.client.partnerName;
+    }
+    next.signatories=signatories;
+    return next;
+  }
   function createState(payload={}){
     const saved=payload.agreementSet?.studioState;
-    if(saved&&typeof saved==='object'&&Object.keys(saved).length) return clone(saved);
+    if(saved&&typeof saved==='object'&&Object.keys(saved).length){
+      return hydrateLinkedClient(clone(saved),payload);
+    }
     let next=defaultState();
     next.status=payload.agreementSet?.status||'Draft';
     next.appType=payload.agreementSet?.appType||appTypeFromCaseType(payload.client?.caseType||'');
@@ -257,8 +291,13 @@ bind();renderAll();
     if(next.client.clientName) signatories.push({id:'sg-'+Date.now(),name:next.client.clientName,email:next.client.clientEmail||'',role:'Principal client',required:true});
     if(next.client.partnerName) signatories.push({id:'sg-'+(Date.now()+1),name:next.client.partnerName,email:'',role:'Partner / second client',required:true});
     next.signatories=signatories.length?signatories:next.signatories;
-    next.emailBody=`Dear ${String(next.client.clientName||'client').split(' ')[0]},\n\nPlease use the secure link below to review and accept your Turner Hopkins engagement agreement. If any detail is incorrect or you have a question, please contact us before accepting it.\n\nKind regards\n${next.client.adviserName||'Turner Hopkins Immigration Specialists'}`;
-    return applyMasterTemplate(next,payload.templateLibrary||{});
+    next.emailBody=`Dear ${String(next.client.clientName||'client').split(' ')[0]},
+
+Please use the secure link below to review and accept your Turner Hopkins engagement agreement. If any detail is incorrect or you have a question, please contact us before accepting it.
+
+Kind regards
+${next.client.adviserName||'Turner Hopkins Immigration Specialists'}`;
+    return hydrateLinkedClient(applyMasterTemplate(next,payload.templateLibrary||{}),payload);
   }
   function currentSnapshot(){
     return {
@@ -288,6 +327,8 @@ bind();renderAll();
   function initFromCrm(payload={}){
     crmContext={agreementSetId:payload.agreementSet?.id||'',canManageTemplates:Boolean(payload.canManageTemplates)};
     state=createState(payload);
+    crmInitialised=true;
+    if(readyHandshakeTimer) window.clearInterval(readyHandshakeTimer);
     if(!crmContext.canManageTemplates) document.querySelector('#templateBtn')?.remove();
     renderAll();
     setCrmPresentation();
@@ -355,7 +396,10 @@ bind();renderAll();
       const simulate=document.querySelector('#simulateSend'); if(simulate) simulate.onclick=()=>{ post('THIS_AGREEMENT_ISSUE_REQUEST',{snapshot:currentSnapshot(),emailSubject:state.emailSubject,emailBody:state.emailBody}); };
       const saveTemplate=document.querySelector('#saveTemplate'); if(saveTemplate) saveTemplate.onclick=()=>{save();emitTemplate('save');toast('Template draft sent to CRM')};
       const publishTemplateButton=document.querySelector('#publishTemplate'); if(publishTemplateButton) publishTemplateButton.onclick=()=>{publishTemplate();setTimeout(()=>emitTemplate('publish'),30)};
-      post('THIS_AGREEMENT_READY');
+      const announceReady=()=>{ if(!crmInitialised) post('THIS_AGREEMENT_READY'); };
+      announceReady();
+      readyHandshakeTimer=window.setInterval(announceReady,750);
+      window.setTimeout(()=>{ if(readyHandshakeTimer) window.clearInterval(readyHandshakeTimer); },15000);
     }
     const acceptButton=document.querySelector('#acceptAgreement'); if(acceptButton&&publicToken) acceptButton.onclick=acceptPublicAgreement;
   });

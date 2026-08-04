@@ -1,26 +1,13 @@
-v0.13.57.1 - Agreement Studio Load Hotfix
+v0.13.57.2 - Studio Client Data Bridge Hotfix
 
-Built from the authoritative v0.13.56 Integrated Instructions Studio package.
+Built from v0.13.57.1.
 
-Adds:
-- Agreement Studio alongside Instructions in the main CRM navigation.
-- Client-linked and standalone engagement agreements.
-- Reusable application-specific scopes, professional fee schedules and Government fee schedules.
-- Database-backed agreement drafts, master templates and immutable template versions.
-- Secure tokenised client review and electronic acceptance with declarations, typed name, drawn signature and audit details.
-- Microsoft 365 issue email to each required signatory, with the assigned adviser copied and used as reply-to.
-- Agreement status workflow: Draft, Ready, Sent, Viewed, Partially signed, Accepted, Declined, Superseded, Cancelled and Archived.
-- Accepted agreements are locked against later editing.
-- Client record Agreements section and mobile navigation access.
-- Code of Conduct link included in the client-facing agreement and acceptance declaration.
+Fixes:
+- Makes the CRM-to-Studio initialisation handshake reliable even when the embedded iframe loads before the React message listener is active.
+- Sends the linked CRM client payload on iframe load for both Instructions Studio and Agreement Studio.
+- Retries the Studio-ready handshake until CRM initialisation is acknowledged.
+- Refreshes linked client names, family details, adviser details and matter data when an existing draft is opened.
+- Replaces any prototype sample client or signatory data accidentally retained in a partial draft with the linked CRM record.
+- Advances the service-worker cache and backup source version to v0.13.57.2.
 
-Database migration:
-- 202608040002_add_agreement_studio.sql
-
-Existing v0.13.56 Instructions Studio and all v0.13.55 intake refresh, CV request and print-view functionality are retained.
-Hotfix changes:
-- Restored the three missing agreement queries in the main CRM load operation.
-- Prevented agreement collections from being undefined when the dashboard first loads.
-- Removed an accidental agreement-status lookup from instruction-set saving.
-- Removed unrelated agreement queries from instruction-template saving.
-- No database schema or dependency changes from v0.13.57.
+No database, migration or dependency changes from v0.13.57.1.

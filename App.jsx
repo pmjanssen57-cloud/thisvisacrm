@@ -10760,7 +10760,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html" title="THiS Instructions Studio" />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html" title="THiS Instructions Studio" onLoad={() => { setIframeReady(true); setStudioMessage("Loading linked client data..."); }} />
         </div>
       )}
     </div>
@@ -11061,7 +11061,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html" title="THiS Agreement Studio" />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html" title="THiS Agreement Studio" onLoad={() => { setIframeReady(true); setStudioMessage("Loading linked client data..."); }} />
         </div>
       )}
     </div>

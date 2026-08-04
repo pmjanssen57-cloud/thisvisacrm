@@ -1,29 +1,14 @@
-THiS CRM v0.13.57.1 validation
+THiS CRM v0.13.57.2 validation
 
-Completed checks
-- App.jsx and main.jsx JSX syntax passed through TypeScript transpilation.
-- netlify/functions/crm.mjs passed Node syntax validation.
-- netlify/functions/agreement.mjs passed Node syntax validation.
-- netlify/functions/backup-create-background.mjs passed Node syntax validation.
-- Embedded Instructions Studio and Agreement Studio JavaScript passed Node syntax validation.
-- Instructions Studio, Agreement Studio and main HTML structure parsing passed.
-- styles.css brace validation passed.
-- PWA validation script passed.
-- Existing migration 202608040001_add_instructions_studio.sql is retained.
-- New migration 202608040002_add_agreement_studio.sql is present.
-- Client-linked and standalone agreement actions are present in the CRM API.
-- Agreement template-library persistence and immutable publication-version actions are present.
-- Secure token creation, hashed-token storage, public review, declarations, typed-name acceptance and drawn-signature capture are present.
-- Microsoft 365 issue-email and acceptance-confirmation flows are present, including assigned-adviser CC and reply-to.
-- Accepted agreements are locked against editing and deletion.
-- Agreement workspace, client-record Agreement section, mobile navigation and embedded Studio bridge are present.
-- Package version, service-worker cache and backup source version are set to v0.13.57.1.
+Validated:
+- Instructions Studio embedded JavaScript syntax passed with node --check.
+- Agreement Studio embedded JavaScript syntax passed with node --check.
+- CRM and agreement Netlify function syntax passed with node --check.
+- Both Studio iframe mounts now initialise on the parent iframe load event.
+- Both embedded Studios retry their ready handshake until CRM initialisation is acknowledged.
+- Linked CRM client data is reapplied when existing Instruction and Agreement drafts are opened.
+- Agreement principal and partner signatory details are refreshed from the linked CRM record.
+- Package version, service-worker cache and backup source version are set to v0.13.57.2.
+- No database migration or dependency change from v0.13.57.1.
 
-Environment limitations
-- A full Vite production build could not be run in this isolated environment because the available package registry does not provide the CRM's existing Netlify dependencies. No dependency versions were added or changed for this release.
-- Chromium visual rendering was not completed because the local headless browser process stalls in this environment. The embedded Studio scripts and document structure passed static validation.
-
-Agreement load hotfix:
-- readCrmData Promise result count matches its database queries.
-- Agreement data arrays are populated before mapping.
-- Instruction save and instruction-template save paths no longer contain unrelated agreement queries.
+A full Vite production build was not run because the isolated environment does not contain the existing project dependencies and cannot fetch them from the package registry.

@@ -3645,6 +3645,8 @@ bindEvents();
 (function(){
   const CRM_ORIGIN = window.location.origin;
   let crmContext = { instructionSetId:'', canManageTemplates:false };
+  let crmInitialised = false;
+  let readyHandshakeTimer = 0;
   let lastPublishedVersions = {};
 
   function clone(value){ return JSON.parse(JSON.stringify(value == null ? {} : value)); }
@@ -3777,7 +3779,16 @@ bindEvents();
       workspaceDrafts[activePackId]=createBlankPack(activePackId,payload.client||null,payload.advisers||[],payload.instructionSet?.standaloneLabel||'');
     }
     state=workspaceDrafts[activePackId];
+    if(payload.client){
+      const mappedClient=mapCrmClient(payload.client,payload.advisers||[]);
+      state.client={...(state.client||{})};
+      Object.entries(mappedClient).forEach(([key,value])=>{
+        if(value!=='' && value!=null) state.client[key]=value;
+      });
+    }
     if(payload.instructionSet?.title) state.issueName=payload.instructionSet.title;
+    crmInitialised=true;
+    if(readyHandshakeTimer) window.clearInterval(readyHandshakeTimer);
     renderAll();
     setCrmPresentation();
     post('THIS_STUDIO_INITIALISED',{instructionSetId:crmContext.instructionSetId,activePackId});
@@ -3798,7 +3809,10 @@ bindEvents();
       if(event.target.closest('#template-publish-version-v13')) setTimeout(()=>emitTemplateLibrary('publish'),120);
       if(event.target.closest('#template-reset-draft-v13')||event.target.closest('[data-restore-version-v13]')) setTimeout(()=>emitTemplateLibrary('save'),80);
     });
-    post('THIS_STUDIO_READY');
+    const announceReady=()=>{ if(!crmInitialised) post('THIS_STUDIO_READY'); };
+    announceReady();
+    readyHandshakeTimer=window.setInterval(announceReady,750);
+    window.setTimeout(()=>{ if(readyHandshakeTimer) window.clearInterval(readyHandshakeTimer); },15000);
   });
 })();
 </script>
