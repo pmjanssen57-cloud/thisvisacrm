@@ -1,4 +1,4 @@
-# THiS CRM v0.13.57.7 — Stable Fee Schedule Editor
+# THiS CRM v0.13.57.8 — Government Fee Schedule Editor
 
 This release is based on the authoritative v0.13.56 Integrated Instructions Studio build and adds Agreement Studio while retaining all existing intake, print, commercial and portal functionality.
 
@@ -48,10 +48,10 @@ The intake print control now opens a stable printable page rather than triggerin
 - Existing `yarn build` and `dist` deployment retained.
 - New migration: `202608040002_add_agreement_studio.sql`.
 - No new npm dependency.
-- Service-worker cache and embedded Studio asset versions advanced to v0.13.57.7.
+- Service-worker cache and embedded Studio asset versions advanced to v0.13.57.8.
 
 
-## v0.13.57.7 refinements
+## v0.13.57.8 refinements
 
 - Agreement sections now continue into available page space rather than moving an entire section to a new page.
 - Long sections can split naturally across A4 pages, with a restrained continuation heading where needed.

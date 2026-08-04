@@ -1,10 +1,9 @@
-THiS CRM v0.13.57.7 validation
+THiS CRM v0.13.57.8 validation
 
-- Agreement Studio JavaScript syntax checked.
-- Instructions Studio JavaScript syntax checked.
-- App JSX parsed.
-- Agreement Studio HTML parsed.
-- Professional fee add/edit/cancel/remove controls inspected.
-- Duplicate Studio initialisation guards present in CRM wrapper and both Studio scripts.
-- Service-worker and iframe/script asset versions are v0.13.57.7.
-- ZIP integrity checked.
+- Agreement Studio JavaScript syntax checked with Node.
+- Government fee editor provides Agency, Application type and Dollar value only.
+- Add, edit, cancel, save and remove government-fee controls are present.
+- Government fee preview table contains three columns.
+- Professional fee editor remains unchanged.
+- Service-worker and iframe/script asset versions are v0.13.57.8.
+- No database, migration, API or dependency changes.

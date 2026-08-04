@@ -1,8 +1,8 @@
-v0.13.57.7 - Stable Fee Schedule Editor
+v0.13.57.8 - Government Fee Schedule Editor
 
-- Replaces cramped inline professional-fee fields with a dedicated full-size payment editor.
-- Supports detailed service descriptions, payment triggers and amounts without re-rendering the row while the adviser types.
-- Applies fee changes only when Save payment is selected; Cancel discards the pending modal changes.
-- Prevents live CRM refreshes and saved-record responses from re-initialising an open Agreement or Instructions Studio and overwriting unsaved edits.
-- Keeps existing agreement pagination, intake/client sources, signing workflow and all v0.13.57.6 functionality.
+- Replaces the inline government-fee inputs with the same stable full-size editor used for professional fees.
+- Government fee rows now contain only Agency, Application type and Dollar value.
+- Add and Edit actions open a dedicated modal; changes apply only when Save government fee is selected.
+- Simplifies the client-facing government fee table to the same three fields.
+- Preserves existing agreement drafts, client/intake linking, signing, pagination and all v0.13.57.7 functionality.
 - No database, migration, API or dependency changes.
