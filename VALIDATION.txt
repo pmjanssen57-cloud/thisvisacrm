@@ -1,11 +1,10 @@
-THiS CRM v0.13.57.11 validation
+THiS CRM v0.13.57.12 validation
 
-- Agreement Studio JavaScript syntax passed.
-- Instructions Studio JavaScript syntax passed.
-- Service worker JavaScript syntax passed.
-- CRM and agreement Netlify function syntax passed.
-- Agreement Studio, Instructions Studio and application HTML parsed successfully.
-- Agreement cover image extracted as a valid JPEG and added to the PWA precache.
-- Service-worker and iframe/script asset versions are v0.13.57.11.
+- App.jsx help content and Studio iframe asset versions updated.
+- Instructions Studio contextual Help drawer added.
+- Agreement Studio contextual Help drawer added and hidden from public review mode.
+- Instructions Studio JavaScript syntax checked.
+- Agreement Studio JavaScript syntax checked.
+- HTML structure checked for both Studio files.
+- Service-worker cache advanced to v0.13.57.12.
 - No database, migration, API or dependency changes.
-- Local Chromium did not complete a screenshot render in the container; final deployed browser testing remains required.

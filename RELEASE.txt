@@ -1,7 +1,7 @@
-v0.13.57.11 - Agreement Issue Email Polish
+v0.13.57.12 - Contextual Help Refresh
 
-- Reworked the secure agreement email so it flows naturally into the mailbox signature.
-- Removed duplicate greetings and sign-offs from legacy agreement email wording.
-- Added a clearer explanation of the agreement, online acceptance process and secure-link expiry.
-- Added a friendly next-step panel and retained the fallback secure link.
+- Expanded the CRM Help drawer for Instructions, Agreements, Commercial, Bookings and intake-linked agreement workflows.
+- Added contextual Help drawers inside Instructions Studio and Agreement Studio.
+- Added practical guidance for client data, sections, numbering, fee schedules, signing, template governance and final output.
+- Removed the dated prototype subtitle from the Instructions Studio header.
 - No database, migration, API or dependency changes.

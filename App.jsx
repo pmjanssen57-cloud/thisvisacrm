@@ -268,6 +268,7 @@ const SUPPORT_CONTENT = {
       { heading: 'Contact forms', text: 'Short contact forms use New, Dealt with and Spam / Duplicate views. Mark dealt-with enquiries so they leave the live queue while staying retained in the CRM.' },
       { heading: 'Intake forms', text: 'Full assessment questionnaires use a simple status set: New, Contacted, Converted, or Spam / Duplicate.' },
       { heading: 'Conversion', text: 'Convert only when the enquiry should become an active client record. The original intake record remains linked for reference.' },
+      { heading: 'Agreements from intake', text: 'Use the Agreements workspace to create an engagement agreement directly from an intake form before the person becomes a client. The agreement keeps its intake link and is automatically associated with the new client record when the intake is converted.' },
     ],
     tips: ['Keep contact forms light-touch.', 'Use New as the weekend triage queue.', 'Mark contacted or spam promptly so the active queue stays clean.'],
   },
@@ -363,6 +364,52 @@ const SUPPORT_CONTENT = {
     ],
     tips: ['Create a backup before significant CRM or database changes.', 'Do not email the backup and password together.', 'Review any file warnings shown against the completed backup.'],
   },
+  instructions: {
+    title: 'Instructions Studio help',
+    summary: 'The Instructions workspace creates client-specific road maps, documentation guides and supporting packs. Drafts can be linked to a client record or created as standalone documents, while master templates remain separately governed and versioned.',
+    sections: [
+      { heading: 'Starting a document', text: 'Create from a client when the CRM already holds the applicant and family details. Use a standalone instruction set when no client record is required. Client-linked drafts can also be opened from More sections within the client record.' },
+      { heading: 'Client data and pack selection', text: 'Select the pack that matches the work being undertaken, then review the principal applicant, partner, children, adviser and matter details before editing. The Studio uses this data throughout the cover, application summary and document requirements.' },
+      { heading: 'Sections, numbering and police clearances', text: 'Include, remove or reorder sections as required. Heading numbers can be automatic, manually labelled or hidden. Use the police-clearance selector to add the correct countries and applicant-specific instructions rather than typing generic wording.' },
+      { heading: 'Template governance', text: 'Administrators can edit master templates, save unpublished drafts, publish numbered versions and restore earlier versions. Publishing a template does not silently alter an instruction set already prepared for a client.' },
+      { heading: 'Saving and output', text: 'Save work regularly. Use the live A4 preview to check the client-facing result, then print or save the clean document as a PDF. Only publish to the client portal after the wording and client data have been checked.' },
+    ],
+    tips: ['Check the client-data tab before editing the wording.', 'Use automatic numbering when steps may be removed or reordered.', 'Treat the live preview as the final client document: internal notes should not appear there.', 'Open Help inside the Studio for a guide to the controls on the current document.'],
+  },
+  agreements: {
+    title: 'Agreement Studio help',
+    summary: 'The Agreements workspace prepares, issues and tracks engagement agreements. Agreements can begin from an existing client, an intake form or as a standalone matter, and can be accepted through a secure signing link.',
+    sections: [
+      { heading: 'Choose the right source', text: 'Use a client-linked agreement for an existing client, an intake-linked agreement before conversion, or a standalone agreement where no CRM record is needed. Intake-linked agreements follow the person into the client record when the intake is converted.' },
+      { heading: 'Matter and scope', text: 'Confirm the agreement type, recipient details, included applicants and the services being undertaken. Remove any scope item that is not part of the engagement and add matter-specific wording where necessary.' },
+      { heading: 'Professional and government fees', text: 'Professional fee stages are edited through the full payment editor so detailed service descriptions and payment triggers can be recorded safely. Government fees use Agency, Application type and Dollar value. Confirm all time-sensitive government charges before issue.' },
+      { heading: 'Signing and issue', text: 'Check the signatory names and email addresses, confirm the client details and current government fees, then issue the agreement. The CRM sends a secure link through the Microsoft 365 mailbox, copies the assigned adviser and records the email.' },
+      { heading: 'Acceptance and audit trail', text: 'The signing page records the agreement version, declarations, typed name, signature, date and technical audit details. Accepted agreements are locked. If the terms change after issue, supersede the original and issue a new version rather than editing the accepted document.' },
+      { heading: 'Templates and PDF output', text: 'Administrators can maintain the master agreement and version history. Print / save PDF produces the clean agreement only, without Studio controls. The final page includes the THiS sign-off logo.' },
+    ],
+    tips: ['Use intake-linked agreements for prospective clients who have not yet been converted.', 'Review fee descriptions in the preview, not only in the editor.', 'Do not issue until both pre-issue confirmations are complete.', 'Use the Help button inside Agreement Studio for control-by-control guidance.'],
+  },
+  commercial: {
+    title: 'Commercial help',
+    summary: 'The Commercial workspace manages employer records, accreditation and compliance activity separately from individual immigration clients.',
+    sections: [
+      { heading: 'Employer records', text: 'Use one commercial record for each employer organisation. Keep key contacts, accreditation details, compliance dates and assigned advisers current.' },
+      { heading: 'Compliance work', text: 'Record accreditation, job-check and migrant-employment obligations as dated tasks so they appear in the wider CRM workload and deadline views.' },
+      { heading: 'Employer portal', text: 'Publish only the information and documents the employer should see. Review access details and contact information before activating the portal.' },
+    ],
+    tips: ['Keep the legal employer name and trading name distinct.', 'Use notes for operational context, not as a substitute for dated compliance tasks.', 'Review accreditation expiry and renewal timing regularly.'],
+  },
+  bookings: {
+    title: 'Bookings help',
+    summary: 'The Bookings workspace manages adviser availability, consultation links and reserved appointments for free and paid consultation types.',
+    sections: [
+      { heading: 'Availability', text: 'Set the normal weekly availability first, then add blocks for leave, meetings or other unavailable periods. Client booking options are generated from the remaining slots.' },
+      { heading: 'Reservations and confirmations', text: 'A client-selected time is reserved until the internal confirmation process is complete. Check the client, adviser, consultation type and New Zealand time before confirming.' },
+      { heading: 'Changes and cancellations', text: 'Use the CRM cancellation and change actions so the client and adviser receive the correct notification and the slot can be released where appropriate.' },
+    ],
+    tips: ['Check adviser blocks before publishing availability.', 'Keep the NZT label visible in client communications.', 'Use the booking email log when checking whether confirmations or cancellations were sent.'],
+  },
+
 };
 
 const PORTAL_RESOURCE_PAGES = [
@@ -9324,7 +9371,7 @@ function SupportDrawer({ open, onOpen, onClose, tab }) {
           </ul>
         </div>
         <div className="support-note">
-          This help content is maintained inside the app, so it can be updated as new CRM screens and workflows are added.
+          Help is matched to the page you are using. Instructions Studio and Agreement Studio also contain their own contextual Help button for document-specific guidance.
         </div>
       </aside>
     </>
@@ -10875,7 +10922,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.13.57.11" title="THiS Instructions Studio" onLoad={() => { studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.13.57.12" title="THiS Instructions Studio" onLoad={() => { studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
         </div>
       )}
     </div>
@@ -11323,7 +11370,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.13.57.11" title="THiS Agreement Studio" onLoad={() => { studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.13.57.12" title="THiS Agreement Studio" onLoad={() => { studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
         </div>
       )}
     </div>

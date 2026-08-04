@@ -1,4 +1,4 @@
-# THiS CRM v0.13.57.11 — Agreement Issue Email Polish
+# THiS CRM v0.13.57.12 — Contextual Help Refresh
 
 This build is based on v0.13.57.9 and preserves the integrated Instructions and Agreement Studios.
 
@@ -18,3 +18,10 @@ This build is based on v0.13.57.9 and preserves the integrated Instructions and 
 - Delete controls isolate pointer-down, pointer-up, and click events from the underlying draft card.
 
 No database migration or dependency change is included. Perform one hard refresh after deployment.
+
+## v0.13.57.12 additions
+
+- Contextual CRM help for Instructions, Agreements, Commercial, Bookings and intake-linked agreements.
+- In-Studio Help drawers for document authoring and agreement issue workflows.
+- Existing CRM, instruction, agreement, signing and template functionality retained.
+

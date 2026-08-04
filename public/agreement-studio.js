@@ -498,3 +498,27 @@ If anything needs correcting, or you would like to discuss any part of the agree
     const acceptButton=document.querySelector('#acceptAgreement'); if(acceptButton&&publicToken) acceptButton.onclick=acceptPublicAgreement;
   });
 })();
+
+
+// Contextual Studio help drawer.
+(() => {
+  const button = document.getElementById('studio-help-btn');
+  const overlay = document.getElementById('studio-help-overlay');
+  const drawer = document.getElementById('studio-help-drawer');
+  const close = document.getElementById('studio-help-close');
+  if (!button || !overlay || !drawer || !close) return;
+  const setOpen = (open) => {
+    overlay.classList.toggle('open', open);
+    drawer.classList.toggle('open', open);
+    overlay.setAttribute('aria-hidden', String(!open));
+    drawer.setAttribute('aria-hidden', String(!open));
+    document.body.classList.toggle('studio-help-open', open);
+    if (open) close.focus(); else button.focus();
+  };
+  button.addEventListener('click', () => setOpen(true));
+  close.addEventListener('click', () => setOpen(false));
+  overlay.addEventListener('click', () => setOpen(false));
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && drawer.classList.contains('open')) setOpen(false);
+  });
+})();
