@@ -1,29 +1,28 @@
-THiS CRM v0.13.59 validation
+THiS CRM v0.13.60 validation
 
 Source baseline
-- Built directly from the deployable v0.13.58 Unified Studio Workflow Stability package.
-- Existing CRM, intake, booking, portal, commercial, Instructions Studio, Agreement Studio, email and signing files retained.
+- Built directly from the deployable v0.13.59 Kiwi Christmas Mode package.
+- Existing CRM, intake, booking, portal, commercial, Instructions Studio, Agreement Studio, email, signing and seasonal functionality retained.
 - No database migration, API contract or dependency change introduced.
 
-Festive-mode checks
-- Default preference is Automatic and is stored locally per browser.
-- Automatic mode is active only from 1 to 25 December.
-- Manual On and Off controls are available under Tools.
-- The internal authenticated CRM shell receives the festive class and decorations.
-- Public route components return before the internal CRM shell is rendered.
-- Decorative elements are hidden for print output.
-- Petal and completion animations are hidden on smaller screens and under prefers-reduced-motion.
-- Personal-task and calendar completion effects run only after a successful save and only when the previous item was not already completed.
+Print-layout checks
+- Agreement Studio responsive media queries are screen-only.
+- Public agreement review mobile scaling cannot apply during print.
+- Agreement pages are hard-reset to 210 mm x 297 mm with transforms disabled.
+- Instructions Studio responsive media queries are screen-only.
+- Instruction print-root pages are hard-reset to 210 mm x 297 mm with transforms disabled.
+- Both print actions wait for fonts, images and final layout frames.
+- Print output retains exact background colours and page breaks.
 
-Static validation completed
-- App.jsx parsed successfully with the TypeScript compiler in JSX-preserve/no-emit mode.
-- styles.css comments, quoted strings and braces passed a balance check.
-- public/sw.js passed Node syntax validation.
-- backup-create-background.mjs passed Node syntax validation.
-- scripts/validate-pwa.mjs passed.
-- Service-worker cache advanced to v0.13.59.
-- Backup metadata source version advanced to 0.13.59.
-- Studio iframe and script cache-busting references advanced to v0.13.59.
+Static validation
+- App.jsx JSX parse check completed.
+- Agreement and Instructions Studio JavaScript syntax checks completed.
+- Studio HTML/CSS print-rule checks completed.
+- Service-worker cache, backup metadata and Studio cache-busting references advanced to v0.13.60.
+- PWA validation completed.
+- Deployable ZIP integrity checked.
 
-Environment limitation
-- A complete Vite production build was not run because the configured package registry does not expose the required packages and direct public-registry DNS access is unavailable in this environment. No dependency declarations were changed.
+Browser/PDF regression
+- Agreement public-review print rendered to A4 without the previous 72% mobile transform.
+- Agreement content pages use the intended full document width.
+- Instructions print pack rendered to A4 using the canonical desktop document geometry.

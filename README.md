@@ -1,31 +1,22 @@
-# THiS CRM v0.13.59 — Staff-only Kiwi Christmas Mode
+# THiS CRM v0.13.60 - A4 Studio Print Layout Fix
 
-This build is based on v0.13.58 and preserves the full CRM, intake, booking, portal, commercial compliance, Instructions Studio, Agreement Studio, email and signing functionality.
+This build is based on v0.13.59 and preserves the full CRM, intake, booking, portal, commercial compliance, Instructions Studio, Agreement Studio, email, signing and staff-only Kiwi Christmas functionality.
 
-## Kiwi Christmas mode
+## Studio PDF and print correction
 
-A restrained seasonal theme is available only inside the authenticated staff CRM. It includes:
+Agreement and instruction documents now use an isolated A4 print layout. Responsive preview rules are limited to screen display and cannot shrink or offset documents when the browser switches to print mode.
 
-- subtle pohutukawa-red and muted-gold accents;
-- a staff-only seasonal banner and Christmas countdown during December;
-- a small festive logo detail;
-- light desktop pohutukawa-petal animation;
-- seasonal My Day wording; and
-- a brief sparkle when a personal task or calendar appointment is completed.
+The correction includes:
 
-Open **Tools > Kiwi Christmas mode** and select:
+- fixed 210 mm x 297 mm page geometry;
+- full-width cover and content pages;
+- removal of preview scaling, transforms, shadows and workspace padding from print output;
+- consistent background colours and cover imagery;
+- page-by-page A4 breaks; and
+- font and image readiness checks before the print dialogue opens.
 
-- **Automatic** — active from 1 to 25 December and off at all other times;
-- **On** — manual preview or override for the current browser; or
-- **Off** — disabled for the current browser.
+This applies to Agreement Studio, secure agreement review/accepted-agreement printing and Instructions Studio print packs.
 
-The setting is saved in browser local storage. It does not change another staff member's preference.
+## Deployment
 
-## Safeguards
-
-- Public forms, client and employer portals, secure agreement signing pages, emails and printable/PDF documents are not restyled.
-- Decorative motion is disabled on smaller screens and when the operating system requests reduced motion.
-- Festive elements are excluded from print output.
-- No database migration, API change or dependency change is included.
-
-Perform one hard refresh after deployment so the v0.13.59 service-worker cache is activated.
+No database migration, API contract or dependency change is included. Perform one hard refresh after deployment so the v0.13.60 service-worker cache replaces the previous build.

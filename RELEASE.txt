@@ -1,12 +1,10 @@
-v0.13.59 - Staff-only Kiwi Christmas Mode
+v0.13.60 - A4 Studio Print Layout Fix
 
-- Added a staff-only Kiwi Christmas mode to the internal CRM shell.
-- Added Automatic, On and Off controls under Tools; Automatic runs from 1 to 25 December.
-- Kept all public intake/contact forms, portals, agreement signing pages and print/PDF output unchanged.
-- Added restrained pohutukawa-red and muted-gold accents, a seasonal CRM banner and a small logo hat.
-- Added optional drifting pohutukawa petals on desktop with reduced-motion and mobile safeguards.
-- Added festive My Day wording, including a seasonal loading message and clear-work empty state.
-- Added a short completion sparkle and seasonal toast when personal tasks or calendar appointments are completed.
-- Added an immediate Turn off control in the seasonal banner.
-- Stored the preference locally per browser; no database migration or staff-wide setting was introduced.
-- Advanced the service-worker cache and backup source metadata to v0.13.59.
+- Corrected Agreement Studio printing so public-review and narrow-window responsive scaling cannot carry into print output.
+- Added a strict 210 mm x 297 mm A4 print reset for agreement pages, including full-width page, cover and content rendering.
+- Applied the same print isolation to Instructions Studio so responsive preview widths do not affect printed instruction packs.
+- Changed Studio responsive media rules to screen-only, preventing browser print viewports from activating tablet/mobile layout rules.
+- Hardened both print actions to wait for fonts, images and final layout frames before opening the browser print dialogue.
+- Retained agreement-only and instruction-pack-only output with exact background colour printing.
+- No database migration, API change or dependency change.
+- Advanced the service-worker cache, Studio cache-busting references and backup metadata to v0.13.60.

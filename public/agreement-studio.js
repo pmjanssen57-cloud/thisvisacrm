@@ -73,9 +73,9 @@ function printablePagesMarkup(){
 }
 function printAgreementDocument(){
  renderPages();
- Promise.all([...document.images].map(img=>img.complete?Promise.resolve():new Promise(resolve=>{img.onload=resolve;img.onerror=resolve}))).then(()=>{
-  requestAnimationFrame(()=>setTimeout(()=>{window.focus();window.print()},80));
- });
+ const images=[...document.images].map(img=>img.complete?Promise.resolve():new Promise(resolve=>{img.onload=resolve;img.onerror=resolve}));
+ const fonts=document.fonts?.ready||Promise.resolve();
+ Promise.all([fonts,...images]).then(()=>requestAnimationFrame(()=>requestAnimationFrame(()=>{window.focus();window.print()})));
 }
 function scopeList(){return state.scope.filter(x=>x.enabled).map(x=>`<div class="scopeitem"><span class="dot"></span><div>${esc(x.text)}</div></div>`).join('')}
 function professionalTable(){return `<table class="feetable"><thead><tr><th>Payment</th><th>Professional service</th><th>When payable</th><th style="text-align:right">Amount</th></tr></thead><tbody>${state.professionalFees.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.description)}</td><td>${esc(r.trigger)}</td><td class="amount">${esc(r.amount)}</td></tr>`).join('')}</tbody></table>`}
