@@ -1,25 +1,29 @@
-THiS CRM v0.13.58 validation
+THiS CRM v0.13.59 validation
 
-Implemented and reviewed
-- Unified desktop and mobile navigation now routes Instructions and Agreements through one Studio workspace.
-- Studio landing page provides explicit Agreement and Instructions entry points.
-- Agreement "New from intake" is the primary action in both the Studio landing page and Agreement workspace.
-- Bookings and Calendar moved into the desktop More menu.
-- My Day auto-launch is guarded at application level and can only open once per authenticated browser session.
-- Instructions and Agreement editors use explicit session IDs, current-iframe message validation and stale-response guards.
-- Closing an editor prevents delayed save, issue, ready or initialisation events from restoring the closed Studio.
-- Agreement type selection controls the initial matter description, scope and government-fee defaults.
-- Agreement Print / save PDF invokes the browser print dialogue from the agreement-only iframe view.
-- Existing client, intake, template, email, signing, portal and CRM APIs remain unchanged.
-- Backup metadata source version advanced to 0.13.58.
-- Service-worker cache advanced to v0.13.58.
+Source baseline
+- Built directly from the deployable v0.13.58 Unified Studio Workflow Stability package.
+- Existing CRM, intake, booking, portal, commercial, Instructions Studio, Agreement Studio, email and signing files retained.
+- No database migration, API contract or dependency change introduced.
+
+Festive-mode checks
+- Default preference is Automatic and is stored locally per browser.
+- Automatic mode is active only from 1 to 25 December.
+- Manual On and Off controls are available under Tools.
+- The internal authenticated CRM shell receives the festive class and decorations.
+- Public route components return before the internal CRM shell is rendered.
+- Decorative elements are hidden for print output.
+- Petal and completion animations are hidden on smaller screens and under prefers-reduced-motion.
+- Personal-task and calendar completion effects run only after a successful save and only when the previous item was not already completed.
 
 Static validation completed
-- App.jsx and main.jsx parsed successfully with the TypeScript JSX parser.
-- public/agreement-studio.js passed node --check.
-- public/instructions-studio.js passed node --check.
-- Studio asset version references and service-worker cache references were checked.
-- No database migration or dependency change was introduced.
+- App.jsx parsed successfully with the TypeScript compiler in JSX-preserve/no-emit mode.
+- styles.css comments, quoted strings and braces passed a balance check.
+- public/sw.js passed Node syntax validation.
+- backup-create-background.mjs passed Node syntax validation.
+- scripts/validate-pwa.mjs passed.
+- Service-worker cache advanced to v0.13.59.
+- Backup metadata source version advanced to 0.13.59.
+- Studio iframe and script cache-busting references advanced to v0.13.59.
 
 Environment limitation
-- A full local Vite production build could not be completed in this execution environment because its configured package registry did not provide @netlify/blobs@10.7.9. A direct public-registry check also timed out. The dependency declaration was not changed. Netlify should install using the repository's Node 20.19.0 configuration and normal package registry during deployment.
+- A complete Vite production build was not run because the configured package registry does not expose the required packages and direct public-registry DNS access is unavailable in this environment. No dependency declarations were changed.

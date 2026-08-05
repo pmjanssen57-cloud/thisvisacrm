@@ -1,14 +1,12 @@
-v0.13.58 - Unified Studio Workspace and Workflow Stability
+v0.13.59 - Staff-only Kiwi Christmas Mode
 
-- Replaced the separate Instructions and Agreements ribbon items with one Studio workspace.
-- Added a Studio landing page with direct Agreement and Instructions actions.
-- Made New from intake the primary Agreement action and retained client and standalone routes.
-- Moved Bookings and Calendar into a compact More menu to reduce ribbon clutter.
-- Added a single-session My Day launch guard so the briefing cannot appear twice after login.
-- Added explicit Studio session lifecycle controls, stale-message guards and full iframe teardown on close.
-- Prevented delayed save or issue responses from reopening a closed Studio.
-- Preserved contextual client and intake launch actions through the unified Studio route.
-- Corrected agreement matter-detail precedence so the selected agreement type controls the initial matter description.
-- Changed agreement Print / save PDF to invoke the browser print dialogue directly from the clean agreement view.
-- Updated desktop and mobile Studio navigation and contextual Help.
-- No database migration, API or dependency changes.
+- Added a staff-only Kiwi Christmas mode to the internal CRM shell.
+- Added Automatic, On and Off controls under Tools; Automatic runs from 1 to 25 December.
+- Kept all public intake/contact forms, portals, agreement signing pages and print/PDF output unchanged.
+- Added restrained pohutukawa-red and muted-gold accents, a seasonal CRM banner and a small logo hat.
+- Added optional drifting pohutukawa petals on desktop with reduced-motion and mobile safeguards.
+- Added festive My Day wording, including a seasonal loading message and clear-work empty state.
+- Added a short completion sparkle and seasonal toast when personal tasks or calendar appointments are completed.
+- Added an immediate Turn off control in the seasonal banner.
+- Stored the preference locally per browser; no database migration or staff-wide setting was introduced.
+- Advanced the service-worker cache and backup source metadata to v0.13.59.

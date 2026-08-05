@@ -1,26 +1,31 @@
-# THiS CRM v0.13.58 — Unified Studio Workspace and Workflow Stability
+# THiS CRM v0.13.59 — Staff-only Kiwi Christmas Mode
 
-This build is based on v0.13.57.12 and preserves the full CRM, intake, booking, portal, commercial compliance, Instructions Studio, Agreement Studio, email and signing functionality.
+This build is based on v0.13.58 and preserves the full CRM, intake, booking, portal, commercial compliance, Instructions Studio, Agreement Studio, email and signing functionality.
 
-## Unified Studio workspace
+## Kiwi Christmas mode
 
-- Replaces the separate Instructions and Agreements ribbon items with one Studio entry.
-- Adds a controlled Studio landing page for Agreement and Instructions work.
-- Makes New from intake the primary Agreement action.
-- Retains direct client-record and intake-linked creation routes.
-- Moves Bookings and Calendar into the main navigation More menu to reduce visual clutter.
+A restrained seasonal theme is available only inside the authenticated staff CRM. It includes:
 
-## Stability fixes
+- subtle pohutukawa-red and muted-gold accents;
+- a staff-only seasonal banner and Christmas countdown during December;
+- a small festive logo detail;
+- light desktop pohutukawa-petal animation;
+- seasonal My Day wording; and
+- a brief sparkle when a personal task or calendar appointment is completed.
 
-- My Day now auto-opens once per authenticated browser session and cannot appear a second time after dismissal.
-- Studio editors use explicit session identifiers and stale-message guards.
-- Closing a Studio ends the active iframe session and prevents late save, issue or initialisation responses from reopening it.
-- Contextual launches are processed once and cleared safely.
+Open **Tools > Kiwi Christmas mode** and select:
 
-## Agreement fixes
+- **Automatic** — active from 1 to 25 December and off at all other times;
+- **On** — manual preview or override for the current browser; or
+- **Off** — disabled for the current browser.
 
-- The selected agreement type now controls the initial matter description instead of the client record case type or strategy.
-- Changing the agreement type refreshes the matter description, scope and government-fee defaults together.
-- Print / save PDF invokes the browser print dialogue directly from the clean agreement-only view rather than opening a separate browser page.
+The setting is saved in browser local storage. It does not change another staff member's preference.
 
-No database migration, API or dependency change is included. Perform one hard refresh after deployment so the updated service-worker cache is activated.
+## Safeguards
+
+- Public forms, client and employer portals, secure agreement signing pages, emails and printable/PDF documents are not restyled.
+- Decorative motion is disabled on smaller screens and when the operating system requests reduced motion.
+- Festive elements are excluded from print output.
+- No database migration, API change or dependency change is included.
+
+Perform one hard refresh after deployment so the v0.13.59 service-worker cache is activated.

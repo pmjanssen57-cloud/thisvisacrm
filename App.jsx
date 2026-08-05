@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { acceptInvite, getUser, handleAuthCallback, login, logout, onAuthChange, requestPasswordRecovery, updateUser } from '@netlify/identity';
-import { AlertTriangle, ArrowUpDown, BookOpen, Building2, Calculator, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Clock, CloudSun, Copy, CreditCard, ClipboardList, Database, DollarSign, Download, ExternalLink, FileCheck2, FileSpreadsheet, FileText, Globe2, HelpCircle, KeyRound, LayoutDashboard, Link2, ListChecks, LockKeyhole, Mail, MessageSquare, MoreHorizontal, Phone, Pencil, Plus, RefreshCw, Save, Search, Send, ShieldCheck, SlidersHorizontal, Trash2, Upload, UserRound, UsersRound, Wrench, X } from 'lucide-react';
+import { AlertTriangle, ArrowUpDown, BookOpen, Building2, Calculator, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Clock, CloudSun, Copy, CreditCard, ClipboardList, Database, DollarSign, Download, ExternalLink, FileCheck2, FileSpreadsheet, FileText, Gift, Globe2, HelpCircle, KeyRound, LayoutDashboard, Link2, ListChecks, LockKeyhole, Mail, MessageSquare, MoreHorizontal, Phone, Pencil, Plus, RefreshCw, Save, Search, Send, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, UserRound, UsersRound, Wrench, X } from 'lucide-react';
 
 const BRAND = {
   ink: '#003736',
@@ -10,8 +10,46 @@ const BRAND = {
 };
 
 const LOGO_SRC = '/turner-hopkins-logo.png';
+const FESTIVE_MODE_STORAGE_KEY = 'this_crm_festive_mode';
+const FESTIVE_MODE_OPTIONS = ['auto', 'on', 'off'];
 const MAX_INTAKE_CV_BYTES = 5 * 1024 * 1024;
 const INTAKE_CV_ACCEPT = '.pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+function isFestiveSeason(date = new Date()) {
+  return date.getMonth() === 11 && date.getDate() >= 1 && date.getDate() <= 25;
+}
+
+function isFestiveModeActive(preference = 'auto', date = new Date()) {
+  if (preference === 'on') return true;
+  if (preference === 'off') return false;
+  return isFestiveSeason(date);
+}
+
+function festiveModeStatus(preference = 'auto', date = new Date()) {
+  const activeSeason = isFestiveSeason(date);
+  if (preference === 'on' && !activeSeason) {
+    return {
+      label: 'Festive preview mode',
+      detail: 'Staff-only Kiwi Christmas styling is switched on for this browser.',
+      countdown: '',
+    };
+  }
+  const christmas = new Date(date.getFullYear(), 11, 25);
+  const today = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const days = Math.max(0, Math.round((christmas.getTime() - today.getTime()) / 86400000));
+  if (days === 0) {
+    return {
+      label: 'Merry Christmas',
+      detail: 'Staff-only festive mode is active for today.',
+      countdown: 'Christmas Day',
+    };
+  }
+  return {
+    label: 'Kiwi Christmas mode',
+    detail: 'Pohutukawa accents, lighter seasonal copy and a little task-completion sparkle.',
+    countdown: `${days} day${days === 1 ? '' : 's'} until Christmas`,
+  };
+}
 
 const DEFAULT_STAGE_TEMPLATES = [
   { id: 'instruction-sent', label: 'Instruction Sent', mandatory: true, sortOrder: 1 },
@@ -978,6 +1016,41 @@ function PwaInstallButton({ className = 'btn ghost', label = 'Install app' }) {
   );
 }
 
+function FestiveAtmosphere() {
+  return (
+    <div className="festive-atmosphere" aria-hidden="true">
+      <div className="festive-garland">
+        <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <div className="festive-petals">
+        {Array.from({ length: 14 }, (_, index) => <i key={index}></i>)}
+      </div>
+    </div>
+  );
+}
+
+function FestiveBanner({ status, onDisable }) {
+  return (
+    <div className="festive-banner" role="status">
+      <span className="festive-banner-icon"><Gift size={17} /></span>
+      <span className="festive-banner-copy">
+        <strong>{status?.label || 'Kiwi Christmas mode'}</strong>
+        <small>{status?.countdown ? `${status.countdown} · ` : ''}{status?.detail}</small>
+      </span>
+      <button type="button" onClick={onDisable}>Turn off</button>
+    </div>
+  );
+}
+
+function FestiveBurst({ burst }) {
+  if (!burst) return null;
+  return (
+    <div className="festive-completion-burst" key={burst.id} aria-hidden="true">
+      {Array.from({ length: 18 }, (_, index) => <i key={index}></i>)}
+    </div>
+  );
+}
+
 function downloadCommercialComplianceReport(client = {}) {
   const companyName = client.tradingName || client.legalName || 'Commercial client';
   const workers = (client.workers || []).filter((item) => item.status !== 'Archived');
@@ -1038,6 +1111,11 @@ export default function App() {
   const [calendarEditorDirty, setCalendarEditorDirty] = useState(false);
   const [crmConfirm, setCrmConfirm] = useState(null);
   const [crmToast, setCrmToast] = useState(null);
+  const [festivePreference, setFestivePreference] = useState(() => {
+    const stored = localStorage.getItem(FESTIVE_MODE_STORAGE_KEY) || 'auto';
+    return FESTIVE_MODE_OPTIONS.includes(stored) ? stored : 'auto';
+  });
+  const [festiveBurst, setFestiveBurst] = useState(null);
   const [intakeRefreshing, setIntakeRefreshing] = useState(false);
   const [lastIntakeRefreshAt, setLastIntakeRefreshAt] = useState('');
   const [recentClientIds, setRecentClientIds] = useState(() => safeJsonParse(localStorage.getItem('this_crm_recent_clients'), []));
@@ -1046,10 +1124,26 @@ export default function App() {
   const dataRef = useRef(emptyData);
   const myDayAutoLaunchRef = useRef(false);
   const myDayDismissedRef = useRef(false);
+  const festiveActive = isFestiveModeActive(festivePreference);
+  const festiveStatus = festiveModeStatus(festivePreference);
 
   function showCrmToast(message, tone = 'success') {
     if (!message) return;
     setCrmToast({ id: Date.now(), message, tone });
+  }
+
+  function updateFestivePreference(nextPreference) {
+    if (!FESTIVE_MODE_OPTIONS.includes(nextPreference)) return;
+    setFestivePreference(nextPreference);
+    if (nextPreference === 'on') showCrmToast('Kiwi Christmas mode switched on for this browser.', 'festive');
+    if (nextPreference === 'off') showCrmToast('Festive mode switched off for this browser.', 'success');
+    if (nextPreference === 'auto') showCrmToast('Festive mode will run automatically from 1 to 25 December.', 'success');
+  }
+
+  function celebrateCompletedTask() {
+    if (!festiveActive) return;
+    setFestiveBurst({ id: Date.now() });
+    showCrmToast('Nice work — one less thing on the list.', 'festive');
   }
 
   function askCrmConfirm(options = {}) {
@@ -1289,6 +1383,18 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('this_crm_recent_clients', JSON.stringify((recentClientIds || []).slice(0, 8)));
   }, [recentClientIds]);
+
+  useEffect(() => {
+    localStorage.setItem(FESTIVE_MODE_STORAGE_KEY, festivePreference);
+    document.body.classList.toggle('festive-mode-active', festiveActive);
+    return () => document.body.classList.remove('festive-mode-active');
+  }, [festivePreference, festiveActive]);
+
+  useEffect(() => {
+    if (!festiveBurst) return undefined;
+    const timer = window.setTimeout(() => setFestiveBurst(null), 1300);
+    return () => window.clearTimeout(timer);
+  }, [festiveBurst]);
 
   useEffect(() => {
     if (!crmToast) return undefined;
@@ -1826,7 +1932,9 @@ export default function App() {
   }
 
   async function savePersonalTask(task) {
+    const previous = (dataRef.current.personalTasks || []).find((item) => item.id === task.id);
     await callApi('savePersonalTask', { task });
+    if (task.status === 'Completed' && previous?.status !== 'Completed') celebrateCompletedTask();
   }
 
   async function deletePersonalTask(taskId) {
@@ -1836,7 +1944,9 @@ export default function App() {
   }
 
   async function saveCalendarEntry(entry) {
+    const previous = (dataRef.current.calendarEntries || []).find((item) => item.id === entry.id);
     await callApi('saveCalendarEntry', { entry });
+    if (entry.status === 'Completed' && previous?.status !== 'Completed') celebrateCompletedTask();
   }
 
   async function deleteCalendarEntry(entryId) {
@@ -2161,10 +2271,12 @@ export default function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${festiveActive ? 'festive-mode' : ''}`}>
+      {festiveActive && <FestiveAtmosphere />}
       <header className="topbar">
         <div className="brand-wrap">
           <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="brand-logo" />
+          {festiveActive && <span className="festive-logo-hat" aria-hidden="true"><i></i></span>}
           <div className="brand-copy">
             <strong>THiS CRM</strong>
             <span>Client progress, deadlines and billing</span>
@@ -2197,7 +2309,10 @@ export default function App() {
         </div>
       </header>
 
+      {festiveActive && <FestiveBanner status={festiveStatus} onDisable={() => updateFestivePreference('off')} />}
+
       {crmToast && <CrmToast toast={crmToast} onClose={() => setCrmToast(null)} />}
+      {festiveActive && <FestiveBurst burst={festiveBurst} />}
 
       <main className="layout">
         {error && <div className="error-banner"><AlertTriangle size={18} />{error}</div>}
@@ -2420,6 +2535,10 @@ export default function App() {
         emailTemplates={data.emailTemplates || []}
         emailConfig={data.emailConfig || emptyData.emailConfig}
         saving={saving}
+        festivePreference={festivePreference}
+        festiveActive={festiveActive}
+        festiveStatus={festiveStatus}
+        onFestivePreferenceChange={updateFestivePreference}
       />
       <MobileBottomNav activeTab={tab} onNavigate={switchTab} onOpenMore={() => setMobileMoreOpen(true)} />
       <MobileMoreSheet
@@ -2450,6 +2569,7 @@ export default function App() {
           accessCodeActive={Boolean(accessCode)}
           onLogout={logoutIdentityUser}
           onClose={dismissMyDay}
+          festiveActive={festiveActive}
           clients={scopedClients}
           commercialClients={scopedCommercialClients}
           activeClients={activeClients}
@@ -8350,7 +8470,7 @@ const TOOL_TIMEZONES = [
   { value: 'America/New_York', label: 'New York, USA' },
 ];
 
-function ToolsDrawer({ open, onOpen, onClose, onOpenHelp, onNavigate, activeTab, canManageAdvisers = false, canManageBackups = false, onRefresh, loading = false, sendTestEmail, saveEmailTemplate, resetEmailTemplate, emailLogs = [], emailTemplates = [], emailConfig = {}, saving = false }) {
+function ToolsDrawer({ open, onOpen, onClose, onOpenHelp, onNavigate, activeTab, canManageAdvisers = false, canManageBackups = false, onRefresh, loading = false, sendTestEmail, saveEmailTemplate, resetEmailTemplate, emailLogs = [], emailTemplates = [], emailConfig = {}, saving = false, festivePreference = 'auto', festiveActive = false, festiveStatus = {}, onFestivePreferenceChange }) {
   const [activeTool, setActiveTool] = useState('weather');
   const [emailLogOpen, setEmailLogOpen] = useState(false);
   const [templateEditorOpen, setTemplateEditorOpen] = useState(false);
@@ -8403,6 +8523,24 @@ function ToolsDrawer({ open, onOpen, onClose, onOpenHelp, onNavigate, activeTab,
                 <ChevronRight size={17} />
               </button>
             )}
+          </div>
+        </section>
+        <section className={`festive-mode-control ${festiveActive ? 'active' : ''}`} aria-label="Staff festive mode">
+          <div className="festive-mode-control-head">
+            <span className="festive-mode-control-icon"><Gift size={19} /></span>
+            <span>
+              <strong>Kiwi Christmas mode</strong>
+              <small>{festiveActive ? festiveStatus?.label || 'Active now' : 'Staff-only seasonal styling'}</small>
+            </span>
+            <span className={`festive-mode-state ${festiveActive ? 'active' : ''}`}>{festiveActive ? 'On' : 'Off'}</span>
+          </div>
+          <p>{festiveActive
+            ? festiveStatus?.detail || 'Festive styling is active in the internal CRM only.'
+            : 'Automatic mode runs from 1 to 25 December. Public forms, portals, signing pages and printed documents remain unchanged.'}</p>
+          <div className="festive-mode-options" role="group" aria-label="Festive mode preference">
+            <button type="button" className={festivePreference === 'auto' ? 'active' : ''} onClick={() => onFestivePreferenceChange?.('auto')}>Automatic</button>
+            <button type="button" className={festivePreference === 'on' ? 'active' : ''} onClick={() => onFestivePreferenceChange?.('on')}>On</button>
+            <button type="button" className={festivePreference === 'off' ? 'active' : ''} onClick={() => onFestivePreferenceChange?.('off')}>Off</button>
           </div>
         </section>
         <div className="tools-utility-heading">
@@ -9614,7 +9752,7 @@ function AccessScreen(props) {
   );
 }
 
-function MyDayOverlay({ loading = false, error = '', adviser = null, identityUser = null, accessRole = 'User', accessCodeActive = false, onLogout, onClose, clients = [], commercialClients = [], activeClients = [], advisers = [], dashboardAdviserFilter = 'all', setDashboardAdviserFilter, taskRows = [], intakeEnquiries = [], consultationBookings = [], recentClientIds = [], setTab, openClientRecord }) {
+function MyDayOverlay({ loading = false, error = '', adviser = null, identityUser = null, accessRole = 'User', accessCodeActive = false, onLogout, onClose, festiveActive = false, clients = [], commercialClients = [], activeClients = [], advisers = [], dashboardAdviserFilter = 'all', setDashboardAdviserFilter, taskRows = [], intakeEnquiries = [], consultationBookings = [], recentClientIds = [], setTab, openClientRecord }) {
   useEffect(() => {
     function handleKeyDown(event) {
       if (event.key === 'Escape') onClose?.();
@@ -9634,7 +9772,7 @@ function MyDayOverlay({ loading = false, error = '', adviser = null, identityUse
         <header className="my-day-overlay-header">
           <div className="my-day-overlay-brand">
             <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" />
-            <div><span>Daily adviser briefing</span><strong>My Day</strong></div>
+            <div><span>{festiveActive ? 'Festive adviser briefing' : 'Daily adviser briefing'}</span><strong>My Day</strong></div>
           </div>
           {advisers.length > 0 && <label className="my-day-scope-control">
             <span>Work summary</span>
@@ -9651,7 +9789,7 @@ function MyDayOverlay({ loading = false, error = '', adviser = null, identityUse
         <main className="my-day-overlay-body">
           {error && <div className="error-banner"><AlertTriangle size={18} />{error}</div>}
           {loading ? (
-            <div className="loading-card my-day-loading-card"><Database size={18} />Preparing your work summary...</div>
+            <div className="loading-card my-day-loading-card"><Database size={18} />{festiveActive ? 'Checking the list twice...' : 'Preparing your work summary...'}</div>
           ) : (
             <AdviserLandingPad
               adviser={adviser}
@@ -9668,6 +9806,7 @@ function MyDayOverlay({ loading = false, error = '', adviser = null, identityUse
               setTab={setTab}
               openClientRecord={openClientRecord}
               overlay
+              festiveActive={festiveActive}
             />
           )}
         </main>
@@ -9680,14 +9819,14 @@ function CrmToast({ toast, onClose }) {
   if (!toast) return null;
   return (
     <div className={`crm-toast ${toast.tone || 'success'}`} role="status" aria-live="polite">
-      <CheckCircle2 size={18} />
+      {toast.tone === 'festive' ? <Sparkles size={18} /> : <CheckCircle2 size={18} />}
       <span>{toast.message}</span>
       <button type="button" onClick={onClose} aria-label="Dismiss notification"><X size={15} /></button>
     </div>
   );
 }
 
-function AdviserLandingPad({ adviser = null, accessRole = 'User', clients = [], commercialClients = [], activeClients = [], advisers = [], dashboardAdviserFilter = 'all', taskRows = [], intakeEnquiries = [], consultationBookings = [], recentClientIds = [], setTab, openClientRecord, overlay = false }) {
+function AdviserLandingPad({ adviser = null, accessRole = 'User', clients = [], commercialClients = [], activeClients = [], advisers = [], dashboardAdviserFilter = 'all', taskRows = [], intakeEnquiries = [], consultationBookings = [], recentClientIds = [], setTab, openClientRecord, overlay = false, festiveActive = false }) {
   const actionableRows = taskRows
     .map(withDeadlineSignal)
     .filter(isDashboardActionableTaskRow)
@@ -9740,9 +9879,14 @@ function AdviserLandingPad({ adviser = null, accessRole = 'User', clients = [], 
     <div className={`adviser-landing-pad ${overlay ? 'overlay-briefing' : ''}`}>
       <section className="landing-briefing-head">
         <div className="landing-briefing-copy">
-          <span className="eyebrow">{dateLabel}</span>
+          <div className="landing-briefing-eyebrow-row">
+            <span className="eyebrow">{dateLabel}</span>
+            {festiveActive && <span className="festive-briefing-badge"><Sparkles size={13} />Kiwi Christmas</span>}
+          </div>
           <h1>{greeting}, {firstName}</h1>
-          <p>{focusRows.length ? `${focusRows.length} item${focusRows.length === 1 ? '' : 's'} need attention now.` : 'Nothing is overdue or due today in this view.'} Review the briefing, then enter the CRM when you are ready.</p>
+          <p>{focusRows.length
+            ? `${focusRows.length} item${focusRows.length === 1 ? '' : 's'} need attention now.${festiveActive ? ' Santa has declined to assist.' : ''}`
+            : `Nothing is overdue or due today in this view.${festiveActive ? ' A genuine festive miracle.' : ''}`} Review the briefing, then enter the CRM when you are ready.</p>
         </div>
         <div className="landing-briefing-actions">
           <div><small>Current view</small><strong>{viewLabel}</strong></div>
@@ -9780,7 +9924,7 @@ function AdviserLandingPad({ adviser = null, accessRole = 'User', clients = [], 
                 <ChevronRight size={16} />
               </button>
             ))}
-            {!focusRows.length && <div className="landing-clear-state"><CheckCircle2 size={26} /><strong>Nothing urgent in this view</strong><span>Open Dashboard for the next 30 days.</span></div>}
+            {!focusRows.length && <div className="landing-clear-state"><CheckCircle2 size={26} /><strong>{festiveActive ? 'A genuine festive miracle' : 'Nothing urgent in this view'}</strong><span>{festiveActive ? 'No overdue tasks. Enjoy it while it lasts.' : 'Open Dashboard for the next 30 days.'}</span></div>}
           </div>
         </section>
 
@@ -11191,7 +11335,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.13.58" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.13.59" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
         </div>
       )}
     </div>
@@ -11687,7 +11831,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.13.58" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.13.59" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
         </div>
       )}
     </div>
