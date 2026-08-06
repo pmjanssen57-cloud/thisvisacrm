@@ -1,22 +1,29 @@
-# THiS CRM v0.15.2 - Reliable Live Chat Schedule Loading
+# THiS CRM v0.15.3 - Intake Print and Adviser Email Results
 
-This build corrects the live-chat settings window so saved opening days and hours are loaded from the database whenever an administrator opens the settings screen.
+This build repairs the printable intake record and adds a direct way to send the current intake results to the assigned adviser.
 
-## Issue corrected
+## Intake printing
 
-The schedule itself could be saved, but after a new CRM session the closed live-chat drawer used the lightweight attention endpoint. That endpoint deliberately did not load the full settings record. Opening **Tools > Live chat settings** before opening the chat drawer therefore supplied an empty settings snapshot to the form, and the form displayed its seven-day default schedule.
+The intake action is now labelled **Print / save PDF**. It opens a same-origin print window, waits for the logo and fonts, and calls the browser print dialogue automatically. The print-window buttons are wired with JavaScript event listeners so they continue to work under the CRM Content Security Policy.
 
-## Changes
+If the browser blocks the print window, the CRM downloads a printable HTML copy and explains how to print it using the browser command.
 
-- Added an authenticated administrator-only settings read endpoint.
-- The CRM now retrieves the current live-chat settings directly before opening the settings window.
-- Stored disabled days are preserved as explicit `false` values.
-- Legacy string boolean values such as `"false"`, `"off"` and `"0"` are normalised correctly.
-- The server reads the record back after saving and verifies that the weekly schedule persisted before returning success.
-- Existing away dates, welcome wording, notification settings and adviser quick replies remain unchanged.
+## Email results to adviser
+
+A new **Email results to adviser** button appears in the intake record support actions. It is available once an adviser with a valid email address has been assigned.
+
+The email includes:
+
+- Current CRM status and review fields
+- Recommended pathway and consultation outcome
+- Adviser assessment notes
+- Review flags
+- The questionnaire answers in the same section order as the intake form
+
+The server resolves the recipient from the assigned adviser record, sends the message through the existing Microsoft 365 shared mailbox, and records it in the CRM email log.
+
+The wording and presentation can be maintained under **Tools > Email templates > Assessment form - email results to adviser**.
 
 ## Deployment
 
-Deploy the complete package and perform one hard refresh.
-
-No database migration, dependency or environment-variable change is required. All v0.15.1 quick replies, v0.15.0 adviser personalisation and earlier CRM functionality are retained.
+Deploy the complete package and perform one hard refresh. No database migration, dependency or environment-variable change is required. All v0.15.2 live-chat schedule fixes, v0.15.1 quick replies, v0.15.0 adviser personalisation and earlier CRM functionality are retained.

@@ -186,6 +186,25 @@ Kind regards,`,
     placeholders: ['firstName', 'applicantName', 'requestedDocuments', 'adviserName', 'adviserEmail'],
   },
   {
+    key: 'intake_results_to_adviser',
+    name: 'Assessment form - email results to adviser',
+    description: 'Internal email sent manually from an intake record to its assigned adviser with the current questionnaire results.',
+    subject: 'Intake results - {{applicantName}}',
+    bodyText: `Hi {{adviserFirstName}},
+
+A copy of the current intake results for {{applicantName}} is included below for ease of reference.
+
+Applicant email: {{applicantEmail}}
+Applicant phone: {{applicantPhone}}
+CRM status: {{intakeStatus}}
+
+{{summary}}
+
+The live record remains the authoritative version and can be reviewed here: {{crmUrl}}`,
+    bodyHtml: `<p>Hi {{adviserFirstName}},</p><p>A copy of the current intake results for <strong>{{applicantName}}</strong> is included below for ease of reference.</p><p><strong>Applicant email:</strong> {{applicantEmail}}<br><strong>Applicant phone:</strong> {{applicantPhone}}<br><strong>CRM status:</strong> {{intakeStatus}}</p>{{summaryHtml}}<p>The live record remains the authoritative version and can be reviewed here: <a href="{{crmUrl}}">Open THiS CRM</a></p>`,
+    placeholders: ['adviserFirstName', 'adviserName', 'applicantName', 'applicantEmail', 'applicantPhone', 'intakeStatus', 'summary', 'summaryHtml', 'crmUrl'],
+  },
+  {
     key: 'seminar_approve',
     name: 'Seminar registration - approved',
     description: 'Sent when a seminar registration is approved from the CRM.',
@@ -622,6 +641,11 @@ async function handleCrmEvent(event) {
 
     if (action === 'sendIntakeCvRequestEmail') {
       const emailLog = await sendIntakeCvRequestEmail(body.intake || {}, auth.user);
+      return json({ emailLog, emailConfig: getEmailConfigStatus() });
+    }
+
+    if (action === 'sendIntakeResultsToAdviser') {
+      const emailLog = await sendIntakeResultsToAdviser(body.intake || {}, body.summary || {}, auth.user);
       return json({ emailLog, emailConfig: getEmailConfigStatus() });
     }
 
@@ -2990,7 +3014,7 @@ async function buildEmailFromTemplate(templateKey, context = {}, fallback = {}) 
   const template = await getEmailTemplate(templateKey);
   const subject = renderTemplateText(template.subject || fallback.subject || '', context).trim() || fallback.subject || '';
   const rawHtml = template.bodyHtml || fallback.bodyHtml || '';
-  const renderedHtml = cleanHtmlForTemplate(renderTemplateText(rawHtml, context), 60000);
+  const renderedHtml = cleanHtmlForTemplate(renderTemplateText(rawHtml, context), 180000);
   const bodyText = renderTemplateText(template.bodyText || fallback.bodyText || stripHtmlToText(renderedHtml), context).trim() || stripHtmlToText(renderedHtml);
   return {
     subject,
@@ -3000,7 +3024,7 @@ async function buildEmailFromTemplate(templateKey, context = {}, fallback = {}) 
 }
 
 function editableTemplateBodyHtml(bodyHtml = '') {
-  return `<div style="font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.3; color: #1f2933;">${cleanHtmlForTemplate(bodyHtml, 60000)}${buildEmailSignatureSpacer(18)}</div>`;
+  return `<div style="font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.3; color: #1f2933;">${cleanHtmlForTemplate(bodyHtml, 180000)}${buildEmailSignatureSpacer(18)}</div>`;
 }
 
 function editableTemplateEmailHtml(bodyText = '') {
@@ -5028,6 +5052,75 @@ function buildIntakeCvRequestEmailContent(intake = {}, adviser = {}, requestedDo
     bodyText,
     bodyHtml: editableTemplateEmailHtml(bodyText),
   };
+}
+
+
+async function sendIntakeResultsToAdviser(input = {}, summaryInput = {}, authUser = null) {
+  const intake = normaliseIntakeInput(input);
+  if (!isUuid(intake.id)) throw new Error('Save the intake record before emailing its results.');
+  if (!isUuid(intake.assignedAdviserId)) throw new Error('Assign an adviser before emailing the intake results.');
+
+  const advisers = await db().sql`SELECT id, name, email FROM advisers WHERE id = ${intake.assignedAdviserId} LIMIT 1`;
+  const adviser = advisers[0] || null;
+  const adviserEmail = String(adviser?.email || '').trim();
+  if (!isValidEmailAddress(adviserEmail)) throw new Error('The assigned adviser does not have a valid email address recorded.');
+
+  const applicantName = [intake.firstName, intake.lastName].filter(Boolean).join(' ').trim() || intake.email || 'Unnamed intake';
+  const summaryText = cleanTextForTemplate(summaryInput.bodyText || summaryInput.summary || '', 150000).trim();
+  const summaryHtml = cleanHtmlForTemplate(summaryInput.bodyHtml || '', 180000);
+  if (!summaryText && !summaryHtml) throw new Error('The intake results could not be prepared for email.');
+
+  const config = requireMicrosoftEmailConfig();
+  const sentBy = authUser?.email || authUser?.name || 'CRM adviser';
+  const crmUrl = `${String(process.env.URL || process.env.DEPLOY_URL || '').replace(/\/$/, '') || 'https://thisvisacrm.netlify.app'}/`;
+  const fallback = {
+    subject: `Intake results - ${applicantName}`,
+    bodyText: `Hi ${String(adviser.name || '').split(/\s+/)[0] || 'there'},\n\nA copy of the current intake results for ${applicantName} is included below for ease of reference.\n\n${summaryText}\n\nThe live CRM record remains the authoritative version: ${crmUrl}`,
+    bodyHtml: `<p>Hi ${escapeHtml(String(adviser.name || '').split(/\s+/)[0] || 'there')},</p><p>A copy of the current intake results for <strong>${escapeHtml(applicantName)}</strong> is included below for ease of reference.</p>${summaryHtml || textToHtml(summaryText)}<p>The live CRM record remains the authoritative version: <a href="${escapeHtml(crmUrl)}">Open THiS CRM</a></p>`,
+  };
+  const emailContent = await buildEmailFromTemplate('intake_results_to_adviser', {
+    adviserFirstName: String(adviser.name || '').trim().split(/\s+/)[0] || 'there',
+    adviserName: adviser.name || 'Assigned adviser',
+    applicantName,
+    applicantEmail: intake.email || 'Not recorded',
+    applicantPhone: intake.phone || 'Not recorded',
+    intakeStatus: intake.status || 'Not recorded',
+    summary: summaryText || stripHtmlToText(summaryHtml),
+    summaryHtml: summaryHtml || textToHtml(summaryText),
+    crmUrl,
+  }, fallback);
+  const emailDraft = { to: adviserEmail, ...emailContent };
+  const database = db();
+  const [created] = await database.sql`
+    INSERT INTO email_notifications (related_record_type, related_record_id, intake_id, template_key, from_email, from_name, to_email, subject, body_text, body_html, status, sent_by)
+    VALUES ('intake', ${nullableUuid(intake.id)}, ${nullableUuid(intake.id)}, 'intake_results_to_adviser', ${config.fromEmail}, ${config.fromName}, ${emailDraft.to}, ${emailDraft.subject}, ${emailDraft.bodyText}, ${emailDraft.bodyHtml}, 'Sending', ${sentBy})
+    RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+
+  try {
+    const token = await getMicrosoftGraphAccessToken(config);
+    const sendResult = await sendMicrosoftGraphEmail({
+      config,
+      token,
+      toEmail: emailDraft.to,
+      subject: emailDraft.subject,
+      bodyText: emailDraft.bodyText,
+      bodyHtml: emailDraft.bodyHtml,
+    });
+    const [updated] = await database.sql`
+      UPDATE email_notifications
+         SET status = 'Sent', sent_at = NOW(), provider_request_id = ${sendResult.requestId || ''}, updated_at = NOW()
+       WHERE id = ${created.id}
+       RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+    return mapEmailLogFromDb(updated);
+  } catch (error) {
+    const message = String(error?.message || error).slice(0, 1000);
+    const [failed] = await database.sql`
+      UPDATE email_notifications
+         SET status = 'Failed', failed_at = NOW(), failure_message = ${message}, updated_at = NOW()
+       WHERE id = ${created.id}
+       RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+    return mapEmailLogFromDb(failed);
+  }
 }
 
 async function sendIntakeOutcomeEmail(input = {}, outcome = 'approve', authUser = null) {

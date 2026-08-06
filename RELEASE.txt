@@ -1,12 +1,15 @@
-THiS CRM v0.15.2 — Reliable Live Chat Schedule Loading
+THiS CRM v0.15.3 — Intake Print and Adviser Email Results
 
-This release fixes the live chat settings window showing the default seven-day schedule after the CRM is reloaded.
+This release repairs the intake record print/save workflow and adds a direct internal email action for the assigned adviser.
 
 Changes:
-- Live chat settings are now fetched directly from the server before the settings window opens.
-- Stored weekly hours are no longer inferred from an empty in-memory chat snapshot.
-- Boolean schedule values are normalised safely, including legacy string values such as "false".
-- The server verifies that weekly hours were persisted before reporting a successful save.
-- Existing quick replies, opening-hours behaviour, adviser presence and chat polling are retained.
+- The intake Print / save PDF action now opens a same-origin print view and automatically calls the browser print dialogue.
+- The print toolbar uses attached JavaScript event listeners rather than relying only on inline handlers that can be blocked by the CRM Content Security Policy.
+- A printable HTML download remains available if the browser blocks the pop-up window.
+- Intake records now include an Email results to adviser button.
+- The button sends the current questionnaire answers, CRM review fields, review flags and adviser assessment notes to the assigned adviser's recorded email address.
+- The recipient is resolved server-side from the adviser record and cannot be substituted from the browser request.
+- The email is logged in Tools > Email log.
+- A new editable email template, Assessment form - email results to adviser, is available under Tools > Email templates.
 
 No database migration, dependency or environment-variable changes are required.

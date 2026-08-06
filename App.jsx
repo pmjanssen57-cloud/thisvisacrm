@@ -2273,6 +2273,18 @@ export default function App() {
     return body;
   }
 
+  async function sendIntakeResultsToAdviser(intake, summary) {
+    const body = await callApi('sendIntakeResultsToAdviser', { intake, summary }, { skipDataUpdate: true });
+    if (body.emailLog) {
+      setData((current) => ({
+        ...current,
+        emailLogs: [normaliseEmailLog(body.emailLog), ...(current.emailLogs || [])].slice(0, 200),
+        emailConfig: body.emailConfig ? normaliseEmailConfig(body.emailConfig) : current.emailConfig,
+      }));
+    }
+    return body;
+  }
+
   async function sendContactIntakeInviteEmail(contact) {
     const body = await callApi('sendContactIntakeInviteEmail', { contact }, { skipDataUpdate: true });
     if (body.emailLog) {
@@ -2957,7 +2969,7 @@ export default function App() {
             )}
 
             {tab === 'intake' && (
-              <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} identityUser={identityUser} canExportContacts={canExportContacts} statuses={data.intakeStatuses || INTAKE_STATUSES} seminars={data.seminars || []} seminarRegistrations={data.seminarRegistrations || []} feedbackSubmissions={data.feedbackSubmissions || []} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendIntakeCvRequestEmail={sendIntakeCvRequestEmail} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} sendContactUnableToAssistEmail={sendContactUnableToAssistEmail} downloadIntakeUpload={downloadIntakeUpload} saveSeminar={saveSeminar} deleteSeminar={deleteSeminar} saveSeminarRegistration={saveSeminarRegistration} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail} saveFeedbackSubmission={saveFeedbackSubmission} deleteFeedbackSubmission={deleteFeedbackSubmission} saving={saving} openClientRecord={openClientRecord} confirmAction={askCrmConfirm} refreshIntakeData={refreshIntakeData} intakeRefreshing={intakeRefreshing} lastIntakeRefreshAt={lastIntakeRefreshAt} />
+              <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} identityUser={identityUser} canExportContacts={canExportContacts} statuses={data.intakeStatuses || INTAKE_STATUSES} seminars={data.seminars || []} seminarRegistrations={data.seminarRegistrations || []} feedbackSubmissions={data.feedbackSubmissions || []} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendIntakeCvRequestEmail={sendIntakeCvRequestEmail} sendIntakeResultsToAdviser={sendIntakeResultsToAdviser} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} sendContactUnableToAssistEmail={sendContactUnableToAssistEmail} downloadIntakeUpload={downloadIntakeUpload} saveSeminar={saveSeminar} deleteSeminar={deleteSeminar} saveSeminarRegistration={saveSeminarRegistration} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail} saveFeedbackSubmission={saveFeedbackSubmission} deleteFeedbackSubmission={deleteFeedbackSubmission} saving={saving} openClientRecord={openClientRecord} confirmAction={askCrmConfirm} refreshIntakeData={refreshIntakeData} intakeRefreshing={intakeRefreshing} lastIntakeRefreshAt={lastIntakeRefreshAt} />
             )}
 
             {tab === 'bookings' && (
@@ -6308,7 +6320,7 @@ function RelatedEnquiryPanel({ matches = [] }) {
 }
 
 
-function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', identityUser = null, canExportContacts = false, statuses, seminars = [], seminarRegistrations = [], feedbackSubmissions = [], saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, sendIntakeCvRequestEmail, sendContactIntakeInviteEmail, sendContactUnableToAssistEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saveFeedbackSubmission, deleteFeedbackSubmission, saving, openClientRecord, confirmAction, refreshIntakeData, intakeRefreshing = false, lastIntakeRefreshAt = '' }) {
+function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', identityUser = null, canExportContacts = false, statuses, seminars = [], seminarRegistrations = [], feedbackSubmissions = [], saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, sendIntakeCvRequestEmail, sendIntakeResultsToAdviser, sendContactIntakeInviteEmail, sendContactUnableToAssistEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saveFeedbackSubmission, deleteFeedbackSubmission, saving, openClientRecord, confirmAction, refreshIntakeData, intakeRefreshing = false, lastIntakeRefreshAt = '' }) {
   const askConfirm = confirmAction || (async ({ message }) => window.confirm(message || 'Continue?'));
   const simplifiedStatuses = (statuses || INTAKE_STATUSES).filter((status) => INTAKE_STATUSES.includes(status));
   const [workspaceTab, setWorkspaceTab] = useState('contact');
@@ -7104,6 +7116,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
             onConvert={convertDraft}
             sendIntakeOutcomeEmail={sendIntakeOutcomeEmail}
             sendIntakeCvRequestEmail={sendIntakeCvRequestEmail}
+            sendIntakeResultsToAdviser={sendIntakeResultsToAdviser}
             downloadIntakeUpload={downloadIntakeUpload}
             openClientRecord={openClientRecord}
             relatedMatches={draft ? relatedMatchesFor(isContactIntake(draft) ? 'contact' : 'intake', draft) : []}
@@ -7474,7 +7487,7 @@ function intakeCompareSnapshot(item = {}) {
   };
 }
 
-function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, setDraftPayloadField, onSave, onSaveAndClose, onClose, onDelete, onConvert, sendIntakeOutcomeEmail, sendIntakeCvRequestEmail, downloadIntakeUpload, openClientRecord, relatedMatches = [], confirmAction }) {
+function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, setDraftPayloadField, onSave, onSaveAndClose, onClose, onDelete, onConvert, sendIntakeOutcomeEmail, sendIntakeCvRequestEmail, sendIntakeResultsToAdviser, downloadIntakeUpload, openClientRecord, relatedMatches = [], confirmAction }) {
   const askConfirm = confirmAction || (async ({ message }) => window.confirm(message || 'Continue?'));
   const applicantName = [draft.firstName, draft.lastName].filter(Boolean).join(' ') || 'Unnamed enquiry';
   const uploadPayload = intakeAnswerPayload(draft);
@@ -7519,6 +7532,33 @@ function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, 
       }
     } catch (err) {
       setOutcomeMessage(err.message || 'Email could not be sent.');
+    } finally {
+      setOutcomeSending('');
+    }
+  }
+
+  async function emailResultsToAssignedAdviser() {
+    if (!assignedAdviser?.email || outcomeSending) return;
+    const confirmed = await askConfirm({
+      title: 'Email intake results?',
+      message: `Email the current intake results for ${applicantName} to ${assignedAdviser.name} at ${assignedAdviser.email}?`,
+      details: ['The email will contain the questionnaire answers, review flags and adviser assessment notes currently shown in this intake record.'],
+      confirmLabel: 'Email results',
+      tone: 'send',
+    });
+    if (!confirmed) return;
+    setOutcomeSending('adviser-results');
+    setOutcomeMessage('');
+    try {
+      const summary = buildIntakeAdviserEmailSummary(draft, advisers);
+      const body = await sendIntakeResultsToAdviser?.(draft, summary);
+      if (body?.emailLog?.status === 'Failed') {
+        setOutcomeMessage(`Intake results email failed: ${body.emailLog.failureMessage || 'Microsoft did not accept the send request.'}`);
+      } else {
+        setOutcomeMessage(`Intake results emailed to ${assignedAdviser.email}.`);
+      }
+    } catch (err) {
+      setOutcomeMessage(err.message || 'The intake results could not be emailed.');
     } finally {
       setOutcomeSending('');
     }
@@ -7571,7 +7611,8 @@ function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, 
         <IntakeFlagList flags={draft.flags} />
         <RelatedEnquiryPanel matches={relatedMatches} />
         <div className="button-row">
-          <button className="btn" type="button" onClick={() => printIntakeRecord(draft, advisers)}><FileText size={16} />Open print view</button>
+          <button className="btn" type="button" onClick={() => printIntakeRecord(draft, advisers)}><FileText size={16} />Print / save PDF</button>
+          <button className="btn" type="button" disabled={!assignedAdviser?.email || Boolean(outcomeSending) || saving} onClick={emailResultsToAssignedAdviser} title={!draft.assignedAdviserId ? 'Assign an adviser before emailing the results' : !assignedAdviser?.email ? 'The assigned adviser does not have an email address recorded' : `Email the intake results to ${assignedAdviser.email}`}><Mail size={16} />{outcomeSending === 'adviser-results' ? 'Sending...' : 'Email results to adviser'}</button>
           {!isContactIntake(draft) && applicantCvUpload?.fileName && <button className="btn" type="button" onClick={() => downloadCv('applicantCv', 'Applicant CV')}><Download size={16} />Download applicant CV</button>}
           {!isContactIntake(draft) && partnerCvUpload?.fileName && <button className="btn" type="button" onClick={() => downloadCv('partnerCv', 'Partner CV')}><Download size={16} />Download partner CV</button>}
           {!isContactIntake(draft) && missingCvCount > 0 && <button className="btn" type="button" disabled={!canRequestCv || Boolean(outcomeSending) || saving} onClick={requestMissingCv} title={!draft.email ? 'No applicant email recorded' : !draft.assignedAdviserId ? 'Assign an adviser before requesting a CV' : !assignedAdviser?.email ? 'The assigned adviser does not have an email address recorded' : 'Send a CV request with replies directed to the assigned adviser'}><Mail size={16} />{outcomeSending === 'cv-request' ? 'Sending...' : partnerCvMissing && applicantCvMissing ? 'Request missing CVs' : partnerCvMissing ? 'Request partner CV' : 'Request applicant CV'}</button>}
@@ -9209,7 +9250,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const dayRows = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']];
-  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.15.2" data-title="Chat with us" defer><\/script>`;
+  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.15.3" data-title="Chat with us" defer><\/script>`;
 
   useEffect(() => {
     if (!open) return;
@@ -9886,6 +9927,9 @@ function buildEmailTemplateSampleData(templateKey = '', placeholders = []) {
     registrationId: 'sample-registration-id',
     feedbackId: 'sample-feedback-id',
     adviserName: 'Paul Janssen',
+    adviserFirstName: 'Paul',
+    crmUrl: 'https://thisvisacrm.netlify.app/',
+    summaryHtml: '<h3>CRM review</h3><p>Status: Under review</p><h3>Questionnaire</h3><p>Main goal: Skilled residence pathway</p>',
     applicationType: 'Skilled Migrant Category Residence',
     overallRating: 'Excellent',
     recommendationRating: '10',
@@ -10165,6 +10209,7 @@ function emailTemplateLabel(key = '') {
     intake_approve: 'Assessment next steps',
     intake_decline: 'Assessment not suitable',
     intake_cv_request: 'Assessment CV request',
+    intake_results_to_adviser: 'Assessment results to adviser',
     portal_access: 'Portal access',
     seminar_approve: 'Seminar approval',
     seminar_decline: 'Seminar decline',
@@ -12429,7 +12474,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.15.2" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.15.3" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
         </div>
       )}
     </div>
@@ -12957,7 +13002,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.15.2" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.15.3" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
         </div>
       )}
     </div>
@@ -15282,7 +15327,7 @@ function downloadIntakeQuestionnaire(record = {}, advisers = []) {
   try {
     const applicantName = [record.firstName, record.lastName].filter(Boolean).join(' ') || 'intake-questionnaire';
     const fileName = `${safeDownloadFileName(applicantName)}-questionnaire.html`;
-    const html = buildIntakePrintHtml(record, advisers);
+    const html = buildIntakePrintHtml(record, advisers, { inlineHandlers: true });
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -15311,29 +15356,71 @@ function safeDownloadFileName(value = '') {
 }
 
 function printIntakeRecord(record = {}, advisers = []) {
+  const printWindow = window.open('about:blank', `this-intake-record-${Date.now()}`, 'width=1040,height=900,scrollbars=yes,resizable=yes');
+  if (!printWindow) {
+    try {
+      const applicantName = [record.firstName, record.lastName].filter(Boolean).join(' ') || 'intake-record';
+      const fileName = `${safeDownloadFileName(applicantName)}-intake-record.html`;
+      downloadBrowserFile(fileName, buildIntakePrintHtml(record, advisers, { inlineHandlers: true }), 'text/html;charset=utf-8');
+      window.alert('The browser blocked the print window, so a printable HTML copy has been downloaded instead. Open that file and use your browser’s Print command.');
+    } catch (err) {
+      console.error('Intake record fallback download could not be prepared.', err);
+      window.alert('The printable intake record could not be prepared. Please refresh the CRM and try again.');
+    }
+    return false;
+  }
+
   try {
     const html = buildIntakePrintHtml(record, advisers);
-    const applicantName = [record.firstName, record.lastName].filter(Boolean).join(' ') || 'intake-record';
-    const fileName = `${safeDownloadFileName(applicantName)}-intake-record.html`;
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    const objectUrl = URL.createObjectURL(blob);
-    const printWindow = window.open(objectUrl, `this-intake-record-${Date.now()}`, 'width=1040,height=900,scrollbars=yes,resizable=yes');
-    if (!printWindow) {
-      URL.revokeObjectURL(objectUrl);
-      downloadBrowserFile(fileName, html, 'text/html;charset=utf-8');
-      window.alert('The browser blocked the print view, so a printable HTML copy has been downloaded instead. Open that file and choose Print / Save as PDF.');
-      return false;
-    }
-    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+    printWindow.document.open('text/html', 'replace');
+    printWindow.document.write(html);
+    printWindow.document.close();
+
+    const runPrint = () => {
+      if (printWindow.closed) return;
+      printWindow.focus();
+      printWindow.print();
+    };
+    let controlsAttached = false;
+    let autoPrintStarted = false;
+    const attachControls = () => {
+      if (controlsAttached || printWindow.closed) return;
+      controlsAttached = true;
+      const printButton = printWindow.document.getElementById('intake-print-button');
+      const closeButton = printWindow.document.getElementById('intake-close-button');
+      printButton?.addEventListener('click', (event) => { event.preventDefault(); runPrint(); });
+      closeButton?.addEventListener('click', (event) => { event.preventDefault(); printWindow.close(); });
+    };
+    const prepareAndPrint = async () => {
+      if (autoPrintStarted || printWindow.closed) return;
+      autoPrintStarted = true;
+      attachControls();
+      const images = [...printWindow.document.images];
+      await Promise.all(images.map((image) => image.complete ? Promise.resolve() : new Promise((resolve) => {
+        image.addEventListener('load', resolve, { once: true });
+        image.addEventListener('error', resolve, { once: true });
+      })));
+      try { await printWindow.document.fonts?.ready; } catch {}
+      window.setTimeout(runPrint, 120);
+    };
+
+    attachControls();
+    printWindow.addEventListener?.('load', () => { prepareAndPrint(); }, { once: true });
+    window.setTimeout(() => {
+      if (!printWindow.closed) prepareAndPrint();
+    }, 700);
     return true;
   } catch (err) {
     console.error('Intake record print view could not be prepared.', err);
+    try { printWindow.close(); } catch {}
     window.alert('The printable intake record could not be prepared. Please refresh the CRM and try again.');
     return false;
   }
 }
 
-function buildIntakePrintHtml(record = {}, advisers = []) {
+function buildIntakePrintHtml(record = {}, advisers = [], options = {}) {
+  const inlinePrintHandler = options.inlineHandlers ? ' onclick="window.print()"' : '';
+  const inlineCloseHandler = options.inlineHandlers ? ' onclick="window.close()"' : '';
   const applicantName = [record.firstName, record.lastName].filter(Boolean).join(' ') || 'Unnamed intake record';
   const generatedAt = formatPortalDateTime(new Date().toISOString());
   const logoUrl = `${window.location.origin}${LOGO_SRC}`;
@@ -15388,7 +15475,7 @@ function buildIntakePrintHtml(record = {}, advisers = []) {
 <body>
   <div class="print-toolbar">
     <div><strong>Printable intake record</strong><span>Review the page, then use Print / save PDF.</span></div>
-    <div><button type="button" onclick="window.print()">Print / save PDF</button><button type="button" class="secondary" onclick="window.close()">Close</button></div>
+    <div><button id="intake-print-button" type="button"${inlinePrintHandler}>Print / save PDF</button><button id="intake-close-button" type="button" class="secondary"${inlineCloseHandler}>Close</button></div>
   </div>
   <main class="page">
     <section class="cover">
@@ -15411,6 +15498,52 @@ function buildIntakePrintHtml(record = {}, advisers = []) {
   </main>
 </body>
 </html>`;
+}
+
+
+function buildIntakeAdviserEmailSummary(record = {}, advisers = []) {
+  const applicantName = [record.firstName, record.lastName].filter(Boolean).join(' ') || 'Unnamed intake record';
+  const sections = getIntakeQuestionnaireSections(record);
+  const reviewRows = [
+    ['Status', record.status],
+    ['Assigned adviser', adviserName(record.assignedAdviserId, advisers)],
+    ['Recommended pathway', record.recommendedPathway],
+    ['Consultation / outcome', record.consultationOutcome],
+    ['Submitted', record.createdAt ? formatPortalDateTime(record.createdAt) : ''],
+    ['Updated', record.updatedAt ? formatPortalDateTime(record.updatedAt) : ''],
+  ];
+  const flagRows = Object.entries(record.flags || {}).filter(([, value]) => Boolean(value)).map(([key]) => [intakeLabelForKey(key), 'Yes']);
+  const emailSections = [
+    { title: 'CRM review', rows: reviewRows },
+    ...(record.adviserAssessmentNotes ? [{ title: 'Adviser assessment notes', rows: [['Notes', record.adviserAssessmentNotes]] }] : []),
+    ...(flagRows.length ? [{ title: 'Review flags', rows: flagRows }] : []),
+    ...sections,
+  ];
+
+  const textBlocks = emailSections.map((section) => {
+    const lines = [section.title.toUpperCase()];
+    (section.rows || []).filter(([, value]) => hasIntakeValue(value)).forEach(([label, value]) => lines.push(`${label}: ${formatIntakeValue(value)}`));
+    (section.panels || []).forEach((panel) => {
+      const panelRows = (panel.rows || []).filter(([, value]) => hasIntakeValue(value));
+      if (!panelRows.length) return;
+      lines.push('', panel.title);
+      panelRows.forEach(([label, value]) => lines.push(`${label}: ${formatIntakeValue(value)}`));
+    });
+    return lines.join('\n');
+  }).filter(Boolean);
+
+  const renderRows = (rows = []) => {
+    const filtered = rows.filter(([, value]) => hasIntakeValue(value));
+    if (!filtered.length) return '<p style="margin:8px 0;color:#64748b;">No answers recorded.</p>';
+    return `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin:0 0 10px;">${filtered.map(([label, value]) => `<tr><td style="width:34%;padding:7px 9px;border:1px solid #d9e6e1;background:#f4fbf8;color:#475569;font-weight:700;vertical-align:top;">${escapeHtml(label)}</td><td style="padding:7px 9px;border:1px solid #d9e6e1;vertical-align:top;white-space:pre-line;">${escapeHtml(formatIntakeValue(value) || 'Not answered')}</td></tr>`).join('')}</table>`;
+  };
+  const bodyHtml = emailSections.map((section) => `<section style="margin:0 0 14px;"><h3 style="margin:0;padding:9px 11px;background:#003736;color:#ffffff;font-size:14px;">${escapeHtml(section.title)}</h3>${renderRows(section.rows)}${(section.panels || []).map((panel) => `<div style="margin:8px 0 4px;font-weight:700;color:#003736;">${escapeHtml(panel.title)}</div>${renderRows(panel.rows)}`).join('')}</section>`).join('');
+
+  return {
+    applicantName,
+    bodyText: textBlocks.join('\n\n'),
+    bodyHtml,
+  };
 }
 
 function renderIntakePrintSection(section = {}) {
