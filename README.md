@@ -1,6 +1,8 @@
-# THiS CRM v0.14.0 - Native Website Live Chat
+# THiS CRM v0.14.1 - Native Website Live Chat
 
 This build extends the v0.13.60 A4 Studio Print Layout Fix baseline with a native website live-chat and after-hours message channel. It uses the existing Netlify deployment, Netlify Database, Netlify Identity and Microsoft Graph email configuration. No additional SaaS product or subscription is required.
+
+This v0.14.1 maintenance release fixes the Tools > Live chat settings control so it opens the full settings modal correctly and closes the Tools drawer behind it.
 
 ## Main workflow
 
@@ -54,4 +56,4 @@ Tools > Live chat settings provides:
 
 The public widget uses signed sessions, domain-isolated iframe rendering, server-side validation, rate limits and plain-text messages. Attachments are not supported. Visitors are warned not to send passport, medical, police or other sensitive documents through live chat.
 
-No existing CRM API contract or package dependency was changed. A database migration is included. Perform one hard refresh after deployment so the v0.14.0 service-worker cache replaces the previous build.
+No existing CRM API contract or package dependency was changed. A database migration is included. Perform one hard refresh after deployment so the v0.14.1 service-worker cache replaces the previous build.

@@ -1,30 +1,12 @@
-THiS CRM v0.14.0 validation
+THiS CRM v0.14.1 validation
 
-Completed checks:
-- Native chat Netlify Function, public widget, iframe application and service worker pass Node syntax checking.
-- App.jsx passes JSX parsing and TypeScript transpilation checks.
-- package.json, netlify.toml and the relevant HTML files parse successfully.
-- Main CRM and public chat CSS pass structural brace checks.
-- PWA validation passes with the v0.14.0 service-worker cache and live-chat assets present.
-- Live-chat schedule checks confirm 9:00 am to 4:00 pm Pacific/Auckland operation and away-day closure behaviour.
-- Signed visitor-token checks confirm successful round-tripping and rejection of a modified token.
-- The public widget uses an isolated floating iframe overlay with responsive full-screen mobile behaviour.
-- Visitor polling uses message cursors after the initial load to avoid repeatedly downloading the full transcript.
-- Chat schema initialisation is cached within warm Function instances to avoid repeating DDL work on every poll.
-- First-engagement notification uses the existing Microsoft Graph configuration and CRM email log; email failure does not prevent the conversation from being created.
-- Staff actions require CRM authentication and a matched adviser profile.
-- Claiming uses a conditional database update to prevent two advisers claiming the same chat.
-- Internal notes are excluded from visitor polling.
-- Create enquiry stores the chat transcript in Enquiries & Intake.
-- Live chat controls are excluded from print output.
-- The database migration is present and includes settings, conversations, messages, events and indexes.
-- The change set was compared with v0.13.60 and is limited to the live-chat feature, version metadata and supporting documentation.
+Validated:
+- Tools > Live chat settings button closes the Tools drawer and opens the settings modal.
+- Live chat settings uses the existing modal layer, backdrop, card, header and action layout classes.
+- Settings content remains scrollable within the viewport.
+- Save and Close actions remain wired to the existing live-chat settings API.
+- v0.14.1 service-worker and Studio asset version references are present.
+- JavaScript module syntax checks pass for Netlify and public JavaScript files.
+- Package ZIP integrity passes.
 
-Deployment testing still required:
-- Live Netlify Database migration and Function execution.
-- Netlify Identity adviser matching and permissions.
-- Microsoft Graph notification delivery and recipient configuration.
-- Squarespace homepage overlay placement on desktop and mobile.
-- End-to-end visitor/adviser messaging, enquiry conversion and closure workflow.
-
-A full Vite production build was not run in this workspace because the package dependencies are not installed here. Netlify deploy-preview validation remains required before publishing the Squarespace widget.
+No database migration, API contract or dependency change is included.

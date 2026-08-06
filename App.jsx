@@ -8827,10 +8827,10 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
 
   if (!open) return null;
   return (
-    <div className="lightbox-shell live-chat-settings-shell" role="dialog" aria-modal="true" aria-label="Live chat settings">
-      <div className="lightbox-backdrop" onClick={onClose} />
-      <section className="lightbox-card live-chat-settings-card">
-        <header className="lightbox-head">
+    <div className="modal-layer live-chat-settings-shell" role="dialog" aria-modal="true" aria-label="Live chat settings">
+      <div className="modal-backdrop" onClick={onClose} />
+      <section className="modal-card live-chat-settings-card">
+        <header className="modal-head">
           <div><span>Website live chat</span><h2>Opening hours and notifications</h2></div>
           <button className="icon-btn" type="button" onClick={onClose}><X size={18} /></button>
         </header>
@@ -8868,7 +8868,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
           <div className="live-chat-settings-security"><ShieldCheck size={17} /><span>The website widget uses short-lived signed visitor sessions. Set <code>LIVE_CHAT_SESSION_SECRET</code> in Netlify before publishing the widget.</span></div>
           {message && <div className="success-banner"><CheckCircle2 size={16} />{message}</div>}
           {error && <div className="error-banner"><AlertTriangle size={16} />{error}</div>}
-          <footer className="lightbox-actions"><button className="btn ghost" type="button" onClick={onClose}>Close</button><button className="btn dark" type="submit" disabled={submitting}>{submitting ? 'Saving…' : 'Save live chat settings'}</button></footer>
+          <footer className="modal-actions live-chat-settings-actions"><button className="btn ghost" type="button" onClick={onClose}>Close</button><button className="btn dark" type="submit" disabled={submitting}>{submitting ? 'Saving…' : 'Save live chat settings'}</button></footer>
         </form>
       </section>
     </div>
@@ -8940,7 +8940,7 @@ function ToolsDrawer({ open, onOpen, onClose, onOpenHelp, onNavigate, activeTab,
               </button>
             )}
             {canManageAdvisers && (
-              <button type="button" onClick={() => setChatSettingsOpen(true)}>
+              <button type="button" onClick={() => { onClose(); setChatSettingsOpen(true); }}>
                 <span className="tools-workspace-icon"><MessageSquare size={19} /></span>
                 <span><strong>Live chat settings</strong><small>Opening hours, away days and notifications</small></span>
                 <ChevronRight size={17} />
@@ -11766,7 +11766,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.14.0" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.14.1" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
         </div>
       )}
     </div>
@@ -12262,7 +12262,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.14.0" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.14.1" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
         </div>
       )}
     </div>

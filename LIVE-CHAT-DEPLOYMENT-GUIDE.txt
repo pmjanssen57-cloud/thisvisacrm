@@ -1,6 +1,6 @@
-THiS CRM v0.14.0 - LIVE CHAT DEPLOYMENT GUIDE
+THiS CRM v0.14.1 - LIVE CHAT DEPLOYMENT GUIDE
 
-1. Deploy the complete v0.14.0 package to the existing Netlify site.
+1. Deploy the complete v0.14.1 package to the existing Netlify site.
 
 2. In Netlify environment variables, add:
    LIVE_CHAT_SESSION_SECRET
