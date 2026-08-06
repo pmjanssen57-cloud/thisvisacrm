@@ -1,10 +1,14 @@
-v0.13.60 - A4 Studio Print Layout Fix
+v0.14.0 - Native Website Live Chat
 
-- Corrected Agreement Studio printing so public-review and narrow-window responsive scaling cannot carry into print output.
-- Added a strict 210 mm x 297 mm A4 print reset for agreement pages, including full-width page, cover and content rendering.
-- Applied the same print isolation to Instructions Studio so responsive preview widths do not affect printed instruction packs.
-- Changed Studio responsive media rules to screen-only, preventing browser print viewports from activating tablet/mobile layout rules.
-- Hardened both print actions to wait for fonts, images and final layout frames before opening the browser print dialogue.
-- Retained agreement-only and instruction-pack-only output with exact background colour printing.
-- No database migration, API change or dependency change.
-- Advanced the service-worker cache, Studio cache-busting references and backup metadata to v0.13.60.
+- Added a Turner Hopkins website chat widget that can float above the Squarespace home page and open as a responsive overlay.
+- Added live and after-hours message modes controlled by editable Pacific/Auckland opening hours and away dates.
+- Added signed visitor sessions, message limits, a honeypot, plain-text sanitisation and no file attachments.
+- Added a compact CRM Chat control with waiting-chat badge, shared queue, adviser claim/release, replies, internal notes, closing and reopening.
+- Added one-click creation of an Enquiries & Intake record containing the visitor details and chat transcript.
+- Added one-time Microsoft Graph email notification when each new conversation is created.
+- Added admin-only live chat settings under Tools, including notification recipients and the Squarespace embed code.
+- Added live chat database tables, migration, backup coverage and v0.14.0 service-worker cache references.
+- Retained the complete v0.13.60 CRM, intake, booking, portal, commercial, Studio, signing, print and staff-only festive functionality.
+
+Deployment requirement:
+Set LIVE_CHAT_SESSION_SECRET in Netlify to a random value of at least 32 characters before placing the widget on the public website.

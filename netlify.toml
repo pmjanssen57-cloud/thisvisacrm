@@ -67,3 +67,14 @@
   [headers.values]
     Cache-Control = "public, max-age=3600"
     Content-Type = "application/manifest+json; charset=utf-8"
+
+[[headers]]
+  for = "/live-chat-widget.js"
+  [headers.values]
+    Cache-Control = "public, max-age=300"
+    Access-Control-Allow-Origin = "*"
+
+[[headers]]
+  for = "/live-chat.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"

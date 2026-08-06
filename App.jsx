@@ -1104,6 +1104,11 @@ export default function App() {
   const [error, setError] = useState('');
   const [supportOpen, setSupportOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [chatDrawerOpen, setChatDrawerOpen] = useState(false);
+  const [chatSelectedId, setChatSelectedId] = useState('');
+  const [chatSnapshot, setChatSnapshot] = useState({ conversations: [], selectedConversation: null, messages: [], events: [], counts: { waiting: 0, mine: 0, active: 0, unread: 0 }, settings: null, availability: null, actor: null, emailConfigured: false, refreshedAt: '' });
+  const [chatBusy, setChatBusy] = useState(false);
+  const [chatError, setChatError] = useState('');
   const [newMenuOpen, setNewMenuOpen] = useState(false);
   const [mainNavMoreOpen, setMainNavMoreOpen] = useState(false);
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
@@ -1124,6 +1129,8 @@ export default function App() {
   const dataRef = useRef(emptyData);
   const myDayAutoLaunchRef = useRef(false);
   const myDayDismissedRef = useRef(false);
+  const chatWaitingCountRef = useRef(-1);
+  const chatDeepLinkHandledRef = useRef(false);
   const festiveActive = isFestiveModeActive(festivePreference);
   const festiveStatus = festiveModeStatus(festivePreference);
 
@@ -1501,6 +1508,110 @@ export default function App() {
     }
   }
 
+
+  function currentChatAdviserId() {
+    const current = dataRef.current || emptyData;
+    const identityMatch = findAdviserForIdentity(current.advisers || [], identityUser);
+    return identityMatch?.id || current.accessContext?.adviserId || current.advisers?.find((adviser) => adviser.active !== false)?.id || '';
+  }
+
+  function chatAuthHeaders() {
+    const adviserId = currentChatAdviserId();
+    return { ...authHeaders(accessCode, identityUser), ...(adviserId ? { 'x-crm-adviser-id': adviserId } : {}) };
+  }
+
+  async function loadChatSnapshot(options = {}) {
+    const silent = options.silent !== false;
+    const conversationId = options.conversationId !== undefined ? options.conversationId : chatSelectedId;
+    if (authRequired || (!identityUser && !accessCode)) return null;
+    if (!silent) setChatBusy(true);
+    try {
+      const query = new URLSearchParams({ action: 'staffSnapshot' });
+      if (conversationId) query.set('conversationId', conversationId);
+      const response = await fetch(`/.netlify/functions/chat?${query.toString()}`, {
+        headers: chatAuthHeaders(),
+        credentials: 'same-origin',
+        cache: 'no-store',
+      });
+      const body = await readJsonResponse(response);
+      if (response.status === 401) {
+        setAuthRequired(true);
+        return null;
+      }
+      if (!response.ok) throw new Error(formatApiError(body, 'Unable to refresh live chat'));
+      const waitingCount = Number(body.counts?.waiting || 0);
+      if (chatWaitingCountRef.current >= 0 && waitingCount > chatWaitingCountRef.current) {
+        showCrmToast(`${waitingCount - chatWaitingCountRef.current} new website chat${waitingCount - chatWaitingCountRef.current === 1 ? '' : 's'} waiting.`, 'success');
+      }
+      chatWaitingCountRef.current = waitingCount;
+      setChatSnapshot(body);
+      setChatError('');
+      if (conversationId && !body.selectedConversation && chatSelectedId === conversationId) setChatSelectedId('');
+      return body;
+    } catch (err) {
+      if (!silent) setChatError(err.message || String(err));
+      return null;
+    } finally {
+      if (!silent) setChatBusy(false);
+    }
+  }
+
+  async function callChatApi(action, payload = {}, options = {}) {
+    setChatBusy(true);
+    setChatError('');
+    try {
+      const response = await fetch('/.netlify/functions/chat', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...chatAuthHeaders() },
+        credentials: 'same-origin',
+        body: JSON.stringify({ action, ...payload }),
+      });
+      const body = await readJsonResponse(response);
+      if (response.status === 401) {
+        setAuthRequired(true);
+        throw new Error('Your CRM session was not accepted by live chat.');
+      }
+      if (!response.ok) throw new Error(formatApiError(body, 'Live chat action failed'));
+      if (options.refresh !== false) await loadChatSnapshot({ silent: true, conversationId: options.conversationId !== undefined ? options.conversationId : (payload.conversationId || chatSelectedId) });
+      return body;
+    } catch (err) {
+      setChatError(err.message || String(err));
+      throw err;
+    } finally {
+      setChatBusy(false);
+    }
+  }
+
+  function openChatDrawer(conversationId = '') {
+    setSupportOpen(false);
+    setToolsOpen(false);
+    setNewMenuOpen(false);
+    setChatDrawerOpen(true);
+    if (conversationId) setChatSelectedId(conversationId);
+    loadChatSnapshot({ silent: true, conversationId: conversationId || chatSelectedId });
+  }
+
+  async function createEnquiryFromChat(conversationId) {
+    const body = await callChatApi('createEnquiry', { conversationId }, { refresh: false });
+    if (body.intake) {
+      const incoming = normaliseIntakeEnquiry(body.intake);
+      setData((current) => ({ ...current, intakeEnquiries: [incoming, ...(current.intakeEnquiries || []).filter((item) => item.id !== incoming.id)] }));
+      dataRef.current = { ...dataRef.current, intakeEnquiries: [incoming, ...(dataRef.current.intakeEnquiries || []).filter((item) => item.id !== incoming.id)] };
+      showCrmToast('Enquiry created from the live chat transcript.', 'success');
+      setChatDrawerOpen(false);
+      setTab('intake');
+    }
+    await loadChatSnapshot({ silent: true, conversationId });
+    return body;
+  }
+
+  async function saveLiveChatSettings(settings) {
+    const body = await callChatApi('saveSettings', { settings }, { refresh: false });
+    await loadChatSnapshot({ silent: true, conversationId: chatSelectedId });
+    showCrmToast('Live chat settings saved.', 'success');
+    return body.settings;
+  }
+
   function submitAccessCode(event) {
     event.preventDefault();
     setAccessCode(pendingCode);
@@ -1594,6 +1705,11 @@ export default function App() {
     setMyDayOpen(false);
     setStudioSection('home');
     setStudioCreateRequest(null);
+    setChatDrawerOpen(false);
+    setChatSelectedId('');
+    setChatSnapshot({ conversations: [], selectedConversation: null, messages: [], events: [], counts: { waiting: 0, mine: 0, active: 0, unread: 0 }, settings: null, availability: null, actor: null, emailConfigured: false, refreshedAt: '' });
+    chatWaitingCountRef.current = -1;
+    chatDeepLinkHandledRef.current = false;
     setAuthRequired(true);
     setData(emptyData);
   }
@@ -2165,6 +2281,7 @@ export default function App() {
     if (identityAdviser) return identityAdviser;
     return data.advisers.find((adviser) => adviser.active !== false) || data.advisers[0] || null;
   }, [dashboardAdviserFilter, data.advisers, identityAdviser]);
+  const liveChatAttentionCount = Number(chatSnapshot.counts?.waiting || 0) + Number(chatSnapshot.counts?.unread || 0);
 
   useEffect(() => {
     if (!identityUser || !data.advisers.length || identityScopeAppliedRef.current) return;
@@ -2192,6 +2309,40 @@ export default function App() {
       setSelectedCommercialClientId(scopedCommercialClients[0].id);
     }
   }, [selectedCommercialClientId, scopedCommercialClients]);
+
+  useEffect(() => {
+    if (loading || authRequired || (!identityUser && !accessCode) || !(data.advisers || []).length) return undefined;
+    loadChatSnapshot({ silent: true, conversationId: chatSelectedId });
+    const intervalMs = chatDrawerOpen ? 4000 : 30000;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') loadChatSnapshot({ silent: true, conversationId: chatDrawerOpen ? chatSelectedId : '' });
+    }, intervalMs);
+    const onFocus = () => loadChatSnapshot({ silent: true, conversationId: chatDrawerOpen ? chatSelectedId : '' });
+    window.addEventListener('focus', onFocus);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', onFocus);
+    };
+    // Live chat polling follows the active authenticated CRM session.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, authRequired, identityUser?.id, identityUser?.email, accessCode, chatDrawerOpen, chatSelectedId, data.advisers.length]);
+
+  useEffect(() => {
+    if (loading || authRequired || chatDeepLinkHandledRef.current) return;
+    const url = new URL(window.location.href);
+    const conversationId = url.searchParams.get('chat') || '';
+    if (!conversationId) {
+      chatDeepLinkHandledRef.current = true;
+      return;
+    }
+    chatDeepLinkHandledRef.current = true;
+    setChatSelectedId(conversationId);
+    setChatDrawerOpen(true);
+    loadChatSnapshot({ silent: true, conversationId });
+    url.searchParams.delete('chat');
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, authRequired]);
 
   const defaultClientListAdviserId = identityAdviser?.id || (dashboardAdviserFilter !== 'all' ? dashboardAdviserFilter : '');
   const effectiveClientListAdviserId = clientAdviserFilter === 'mine' ? defaultClientListAdviserId : clientAdviserFilter === 'all' ? '' : clientAdviserFilter;
@@ -2287,6 +2438,7 @@ export default function App() {
         <div className="top-actions desktop-only">
           <PwaInstallButton className="btn ghost compact-action pwa-install-button" label="Install app" />
           <button className="btn ghost compact-action crm-my-day-link" type="button" onClick={() => switchTab('home')}><CloudSun size={16} />My Day</button>
+          <button className={`btn ghost compact-action live-chat-header-button ${liveChatAttentionCount > 0 ? 'has-waiting' : ''}`} type="button" onClick={() => openChatDrawer()}><MessageSquare size={16} />Chat{liveChatAttentionCount > 0 && <span className="live-chat-header-badge">{liveChatAttentionCount}</span>}</button>
           <button className="btn ghost compact-action" onClick={() => { setSupportOpen(false); setToolsOpen(true); setNewMenuOpen(false); }}><Wrench size={16} />Tools</button>
           <div className="dropdown-shell new-action-shell">
             <button className="btn dark" type="button" onClick={() => setNewMenuOpen((open) => !open)}><Plus size={16} />New <ChevronDown size={15} /></button>
@@ -2305,6 +2457,7 @@ export default function App() {
         <div className="mobile-header-actions mobile-only">
           <PwaInstallButton className="btn ghost pwa-install-button mobile-pwa-install" label="Install" />
           <button className="btn ghost" type="button" onClick={() => switchTab('home')}><CloudSun size={16} />My Day</button>
+          <button className={`btn ghost live-chat-mobile-button ${liveChatAttentionCount > 0 ? 'has-waiting' : ''}`} type="button" onClick={() => openChatDrawer()}><MessageSquare size={16} />Chat{liveChatAttentionCount > 0 && <span className="live-chat-header-badge">{liveChatAttentionCount}</span>}</button>
           <button className="btn ghost" onClick={() => { setSupportOpen(false); setToolsOpen(true); }}><Wrench size={16} />Tools</button>
         </div>
       </header>
@@ -2517,6 +2670,23 @@ export default function App() {
         )}
       </main>
       <SupportDrawer open={supportOpen} onOpen={() => { setToolsOpen(false); setSupportOpen(true); }} onClose={() => setSupportOpen(false)} tab={tab} />
+      <LiveChatWorkspace
+        open={chatDrawerOpen}
+        onClose={() => setChatDrawerOpen(false)}
+        snapshot={chatSnapshot}
+        selectedId={chatSelectedId}
+        onSelect={(conversationId) => { setChatSelectedId(conversationId); loadChatSnapshot({ silent: true, conversationId }); }}
+        onRefresh={() => loadChatSnapshot({ silent: false, conversationId: chatSelectedId })}
+        onClaim={(conversationId) => callChatApi('claim', { conversationId })}
+        onRelease={(conversationId) => callChatApi('release', { conversationId })}
+        onSend={(conversationId, message) => callChatApi('sendStaff', { conversationId, message })}
+        onAddNote={(conversationId, message) => callChatApi('addNote', { conversationId, message })}
+        onCloseConversation={(conversationId) => callChatApi('close', { conversationId })}
+        onReopen={(conversationId) => callChatApi('reopen', { conversationId })}
+        onCreateEnquiry={createEnquiryFromChat}
+        busy={chatBusy}
+        error={chatError}
+      />
       <ToolsDrawer
         open={toolsOpen}
         onOpen={() => { setSupportOpen(false); setToolsOpen(true); }}
@@ -2539,6 +2709,10 @@ export default function App() {
         festiveActive={festiveActive}
         festiveStatus={festiveStatus}
         onFestivePreferenceChange={updateFestivePreference}
+        liveChatSettings={chatSnapshot.settings}
+        liveChatAvailability={chatSnapshot.availability}
+        liveChatEmailConfigured={chatSnapshot.emailConfigured}
+        saveLiveChatSettings={saveLiveChatSettings}
       />
       <MobileBottomNav activeTab={tab} onNavigate={switchTab} onOpenMore={() => setMobileMoreOpen(true)} />
       <MobileMoreSheet
@@ -8470,10 +8644,259 @@ const TOOL_TIMEZONES = [
   { value: 'America/New_York', label: 'New York, USA' },
 ];
 
-function ToolsDrawer({ open, onOpen, onClose, onOpenHelp, onNavigate, activeTab, canManageAdvisers = false, canManageBackups = false, onRefresh, loading = false, sendTestEmail, saveEmailTemplate, resetEmailTemplate, emailLogs = [], emailTemplates = [], emailConfig = {}, saving = false, festivePreference = 'auto', festiveActive = false, festiveStatus = {}, onFestivePreferenceChange }) {
+
+function LiveChatWorkspace({ open, onClose, snapshot = {}, selectedId = '', onSelect, onRefresh, onClaim, onRelease, onSend, onAddNote, onCloseConversation, onReopen, onCreateEnquiry, busy = false, error = '' }) {
+  const [view, setView] = useState('waiting');
+  const [composerMode, setComposerMode] = useState('reply');
+  const [draft, setDraft] = useState('');
+  const conversations = snapshot.conversations || [];
+  const actor = snapshot.actor || {};
+  const selectedSnapshotMatches = snapshot.selectedConversation?.id === selectedId;
+  const selected = selectedSnapshotMatches ? snapshot.selectedConversation : conversations.find((item) => item.id === selectedId) || null;
+  const messages = selectedSnapshotMatches ? (snapshot.messages || []) : [];
+
+  useEffect(() => {
+    setDraft('');
+    setComposerMode('reply');
+  }, [selectedId]);
+
+  const filtered = conversations.filter((item) => {
+    if (view === 'waiting') return ['Waiting', 'Offline'].includes(item.status) && !item.assignedAdviserId;
+    if (view === 'mine') return item.status === 'Active' && item.assignedAdviserId === actor.id;
+    if (view === 'active') return item.status === 'Active';
+    return item.status === 'Closed';
+  });
+  const assignedToMe = selected?.assignedAdviserId && selected.assignedAdviserId === actor.id;
+  const canClaim = selected && selected.status !== 'Closed' && !selected.assignedAdviserId;
+  const canReply = selected && selected.status !== 'Closed' && assignedToMe;
+  const canClose = selected && selected.status !== 'Closed' && (!selected.assignedAdviserId || assignedToMe || actor.isAdmin);
+
+  async function submitComposer(event) {
+    event.preventDefault();
+    const message = draft.trim();
+    if (!message || !selected) return;
+    if (composerMode === 'note') await onAddNote?.(selected.id, message);
+    else await onSend?.(selected.id, message);
+    setDraft('');
+  }
+
+  if (!open) return null;
+  return (
+    <>
+      <div className="live-chat-crm-overlay open" onClick={onClose} />
+      <aside className="live-chat-crm-drawer open" aria-label="Website live chat workspace">
+        <header className="live-chat-crm-head">
+          <div>
+            <span>Website enquiries</span>
+            <h2>Live chat</h2>
+            <small>{snapshot.availability?.isOpen ? 'Widget open now' : snapshot.availability?.nextOpenLabel ? `Message mode · next opens ${snapshot.availability.nextOpenLabel}` : 'Message mode'}</small>
+          </div>
+          <div className="live-chat-crm-head-actions">
+            <button className="icon-btn" type="button" onClick={onRefresh} aria-label="Refresh live chat"><RefreshCw size={17} /></button>
+            <button className="icon-btn" type="button" onClick={onClose} aria-label="Close live chat"><X size={18} /></button>
+          </div>
+        </header>
+        {error && <div className="live-chat-crm-error"><AlertTriangle size={16} />{error}</div>}
+        <div className="live-chat-crm-tabs" role="tablist">
+          <button type="button" className={view === 'waiting' ? 'active' : ''} onClick={() => setView('waiting')}>Waiting <span>{Number(snapshot.counts?.waiting || 0)}</span></button>
+          <button type="button" className={view === 'mine' ? 'active' : ''} onClick={() => setView('mine')}>Mine <span>{Number(snapshot.counts?.mine || 0)}</span></button>
+          <button type="button" className={view === 'active' ? 'active' : ''} onClick={() => setView('active')}>Active <span>{Number(snapshot.counts?.active || 0)}</span></button>
+          <button type="button" className={view === 'closed' ? 'active' : ''} onClick={() => setView('closed')}>Closed</button>
+        </div>
+        <div className="live-chat-crm-body">
+          <aside className="live-chat-conversation-list">
+            {filtered.length ? filtered.map((item) => (
+              <button key={item.id} type="button" className={selectedId === item.id ? 'active' : ''} onClick={() => onSelect?.(item.id)}>
+                <span className={`live-chat-list-status ${String(item.status || '').toLowerCase()}`}></span>
+                <span className="live-chat-list-copy">
+                  <strong>{item.visitorName || 'Website visitor'}</strong>
+                  <small>{item.category || 'General enquiry'}</small>
+                  <em>{item.assignedAdviserName ? `Assigned to ${item.assignedAdviserName}` : item.status === 'Offline' ? 'After-hours message' : 'Unclaimed'}</em>
+                </span>
+                <time>{formatChatRelative(item.lastMessageAt || item.createdAt)}</time>
+              </button>
+            )) : <div className="live-chat-empty-list"><MessageSquare size={24} /><strong>No chats here</strong><span>The queue will update automatically.</span></div>}
+          </aside>
+          <section className="live-chat-conversation-panel">
+            {!selected ? (
+              <div className="live-chat-no-selection"><MessageSquare size={34} /><h3>Select a conversation</h3><p>New website chats appear in the waiting queue and can be claimed by any adviser.</p></div>
+            ) : (
+              <>
+                <div className="live-chat-conversation-summary">
+                  <div>
+                    <span className={`live-chat-status-pill ${String(selected.status || '').toLowerCase()}`}>{selected.status}</span>
+                    <h3>{selected.visitorName}</h3>
+                    <p>{selected.visitorEmail}{selected.visitorPhone ? ` · ${selected.visitorPhone}` : ''}</p>
+                    <small>{selected.category || 'Other'} · {selected.existingClient ? 'Existing client' : 'New enquiry'}{selected.pageUrl ? ` · ${safeChatPageLabel(selected.pageUrl)}` : ''}</small>
+                  </div>
+                  <div className="live-chat-conversation-actions">
+                    {canClaim && <button className="btn dark" type="button" disabled={busy} onClick={() => onClaim?.(selected.id)}><CheckCircle2 size={15} />Claim chat</button>}
+                    {assignedToMe && selected.status !== 'Closed' && <button className="btn ghost" type="button" disabled={busy} onClick={() => onRelease?.(selected.id)}>Release</button>}
+                    {canClose && <button className="btn ghost" type="button" disabled={busy} onClick={() => onCloseConversation?.(selected.id)}>Close</button>}
+                    {selected.status === 'Closed' && <button className="btn ghost" type="button" disabled={busy} onClick={() => onReopen?.(selected.id)}>Reopen</button>}
+                  </div>
+                </div>
+                <div className="live-chat-crm-messages">
+                  {messages.length ? messages.map((message) => (
+                    <article key={message.id} className={`live-chat-crm-message ${message.isInternal ? 'internal' : message.senderType === 'visitor' ? 'visitor' : 'adviser'}`}>
+                      <div><strong>{message.isInternal ? `Internal note · ${message.senderName}` : message.senderType === 'visitor' ? selected.visitorName : message.senderName || 'THiS adviser'}</strong><time>{formatChatDateTime(message.createdAt)}</time></div>
+                      <p>{message.messageText}</p>
+                    </article>
+                  )) : <div className="live-chat-messages-loading">{busy ? 'Loading conversation…' : 'No messages loaded.'}</div>}
+                </div>
+                {selected.status !== 'Closed' && (
+                  <form className={`live-chat-crm-composer ${composerMode}`} onSubmit={submitComposer}>
+                    <div className="live-chat-composer-mode">
+                      <button type="button" className={composerMode === 'reply' ? 'active' : ''} onClick={() => setComposerMode('reply')} disabled={!canReply}>Reply</button>
+                      <button type="button" className={composerMode === 'note' ? 'active' : ''} onClick={() => setComposerMode('note')}>Internal note</button>
+                    </div>
+                    {!canReply && composerMode === 'reply' && <div className="live-chat-claim-hint">{selected.assignedAdviserName ? `Assigned to ${selected.assignedAdviserName}.` : 'Claim this chat before replying.'}</div>}
+                    <div className="live-chat-composer-row">
+                      <textarea value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={composerMode === 'note' ? 'Add a private note for staff…' : 'Type your reply…'} disabled={busy || (composerMode === 'reply' && !canReply)} rows={3} />
+                      <button className="btn dark" type="submit" disabled={busy || !draft.trim() || (composerMode === 'reply' && !canReply)}><Send size={15} />{composerMode === 'note' ? 'Add note' : 'Send'}</button>
+                    </div>
+                  </form>
+                )}
+                <footer className="live-chat-conversation-footer">
+                  <div>
+                    <strong>CRM follow-up</strong>
+                    <span>{selected.linkedIntakeId ? 'An enquiry has been created from this transcript.' : 'Create an Enquiries & Intake record with the transcript attached.'}</span>
+                  </div>
+                  <button className="btn ghost" type="button" disabled={busy || Boolean(selected.linkedIntakeId)} onClick={() => onCreateEnquiry?.(selected.id)}><ClipboardList size={15} />{selected.linkedIntakeId ? 'Enquiry created' : 'Create enquiry'}</button>
+                </footer>
+              </>
+            )}
+          </section>
+        </div>
+      </aside>
+    </>
+  );
+}
+
+function LiveChatSettingsLightbox({ open, onClose, settings = null, availability = null, emailConfigured = false, onSave }) {
+  const defaultHours = {
+    mon: { enabled: true, start: '09:00', end: '16:00' }, tue: { enabled: true, start: '09:00', end: '16:00' }, wed: { enabled: true, start: '09:00', end: '16:00' }, thu: { enabled: true, start: '09:00', end: '16:00' }, fri: { enabled: true, start: '09:00', end: '16:00' }, sat: { enabled: true, start: '09:00', end: '16:00' }, sun: { enabled: true, start: '09:00', end: '16:00' },
+  };
+  const [draft, setDraft] = useState({ enabled: true, timezone: 'Pacific/Auckland', weeklyHours: defaultHours, awayDatesText: '', welcomeMessage: '', offlineMessage: '', privacyUrl: '', notificationEnabled: true, notificationEmails: '' });
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const dayRows = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']];
+  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js" data-title="Chat with us" defer><\/script>`;
+
+  useEffect(() => {
+    if (!open) return;
+    const source = settings || {};
+    setDraft({
+      enabled: source.enabled !== false,
+      timezone: source.timezone || 'Pacific/Auckland',
+      weeklyHours: { ...defaultHours, ...(source.weeklyHours || {}) },
+      awayDatesText: (source.awayDates || []).map((item) => `${item.date}${item.label ? ` | ${item.label}` : ''}`).join('\n'),
+      welcomeMessage: source.welcomeMessage || 'Kia ora. Send us your question and one of our team will respond as soon as possible.',
+      offlineMessage: source.offlineMessage || 'Our live chat is currently closed. Leave your message and we will respond when the team is next available.',
+      privacyUrl: source.privacyUrl || '',
+      notificationEnabled: source.notificationEnabled !== false,
+      notificationEmails: source.notificationEmails || '',
+    });
+    setMessage('');
+    setError('');
+  }, [open, settings?.updatedAt]);
+
+  function updateHour(day, field, value) {
+    setDraft((current) => ({ ...current, weeklyHours: { ...current.weeklyHours, [day]: { ...current.weeklyHours[day], [field]: value } } }));
+  }
+
+  async function save(event) {
+    event.preventDefault();
+    setSubmitting(true);
+    setMessage('');
+    setError('');
+    try {
+      const awayDates = draft.awayDatesText.split(/\n+/).map((line) => {
+        const [date, ...label] = line.split('|');
+        return { date: date.trim(), label: label.join('|').trim() || 'Office closed' };
+      }).filter((item) => item.date);
+      await onSave?.({ ...draft, awayDates });
+      setMessage('Live chat settings saved.');
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (!open) return null;
+  return (
+    <div className="lightbox-shell live-chat-settings-shell" role="dialog" aria-modal="true" aria-label="Live chat settings">
+      <div className="lightbox-backdrop" onClick={onClose} />
+      <section className="lightbox-card live-chat-settings-card">
+        <header className="lightbox-head">
+          <div><span>Website live chat</span><h2>Opening hours and notifications</h2></div>
+          <button className="icon-btn" type="button" onClick={onClose}><X size={18} /></button>
+        </header>
+        <form className="live-chat-settings-form" onSubmit={save}>
+          <div className={`live-chat-settings-status ${availability?.isOpen ? 'open' : ''}`}>
+            <span className="availability-dot"></span>
+            <div><strong>{availability?.isOpen ? 'Live chat is open now' : 'Website widget is in message mode'}</strong><small>{availability?.nextOpenLabel ? `Next opening: ${availability.nextOpenLabel}` : 'Controlled by the schedule and away dates below.'}</small></div>
+            <label><input type="checkbox" checked={draft.enabled} onChange={(event) => setDraft((current) => ({ ...current, enabled: event.target.checked }))} /> Chat enabled</label>
+          </div>
+          <section>
+            <div className="settings-section-head"><div><strong>Weekly hours</strong><small>Pacific/Auckland is recommended. Each enabled day initially runs 9:00 am to 4:00 pm.</small></div><select value={draft.timezone} onChange={(event) => setDraft((current) => ({ ...current, timezone: event.target.value }))}><option value="Pacific/Auckland">Pacific/Auckland</option></select></div>
+            <div className="live-chat-hours-grid">
+              {dayRows.map(([key, label]) => <div key={key} className={draft.weeklyHours[key]?.enabled ? 'enabled' : ''}><label><input type="checkbox" checked={draft.weeklyHours[key]?.enabled !== false} onChange={(event) => updateHour(key, 'enabled', event.target.checked)} />{label}</label><input type="time" value={draft.weeklyHours[key]?.start || '09:00'} onChange={(event) => updateHour(key, 'start', event.target.value)} disabled={draft.weeklyHours[key]?.enabled === false} /><span>to</span><input type="time" value={draft.weeklyHours[key]?.end || '16:00'} onChange={(event) => updateHour(key, 'end', event.target.value)} disabled={draft.weeklyHours[key]?.enabled === false} /></div>)}
+            </div>
+          </section>
+          <section className="live-chat-settings-two-column">
+            <label><span>Away days / office closures</span><textarea rows={6} value={draft.awayDatesText} onChange={(event) => setDraft((current) => ({ ...current, awayDatesText: event.target.value }))} placeholder={'2026-12-24 | Christmas closure\n2026-12-25 | Christmas Day'} /><small>One date per line. Use YYYY-MM-DD, optionally followed by “| reason”.</small></label>
+            <div className="live-chat-settings-copy">
+              <label><span>Open-hours message</span><textarea rows={3} value={draft.welcomeMessage} onChange={(event) => setDraft((current) => ({ ...current, welcomeMessage: event.target.value }))} /></label>
+              <label><span>After-hours message</span><textarea rows={3} value={draft.offlineMessage} onChange={(event) => setDraft((current) => ({ ...current, offlineMessage: event.target.value }))} /></label>
+            </div>
+          </section>
+          <section className="live-chat-settings-two-column">
+            <div>
+              <label className="live-chat-settings-check"><input type="checkbox" checked={draft.notificationEnabled} onChange={(event) => setDraft((current) => ({ ...current, notificationEnabled: event.target.checked }))} /><span><strong>Email on first engagement</strong><small>One email is sent when each new conversation is created.</small></span></label>
+              <label><span>Notification recipients</span><input value={draft.notificationEmails} onChange={(event) => setDraft((current) => ({ ...current, notificationEmails: event.target.value }))} placeholder="paul@example.co.nz, team@example.co.nz" /><small>Leave blank to notify all active advisers with an email address.</small></label>
+              <div className={`live-chat-email-state ${emailConfigured ? 'configured' : ''}`}><Mail size={15} />{emailConfigured ? 'Microsoft email delivery is configured.' : 'Microsoft email delivery is not configured in Netlify.'}</div>
+            </div>
+            <div>
+              <label><span>Privacy notice URL</span><input type="url" value={draft.privacyUrl} onChange={(event) => setDraft((current) => ({ ...current, privacyUrl: event.target.value }))} placeholder="https://…" /></label>
+              <label><span>Squarespace embed code</span><textarea rows={4} readOnly value={embedCode} onFocus={(event) => event.target.select()} /></label>
+              <button className="btn ghost" type="button" onClick={() => navigator.clipboard?.writeText(embedCode)}><Copy size={15} />Copy embed code</button>
+            </div>
+          </section>
+          <div className="live-chat-settings-security"><ShieldCheck size={17} /><span>The website widget uses short-lived signed visitor sessions. Set <code>LIVE_CHAT_SESSION_SECRET</code> in Netlify before publishing the widget.</span></div>
+          {message && <div className="success-banner"><CheckCircle2 size={16} />{message}</div>}
+          {error && <div className="error-banner"><AlertTriangle size={16} />{error}</div>}
+          <footer className="lightbox-actions"><button className="btn ghost" type="button" onClick={onClose}>Close</button><button className="btn dark" type="submit" disabled={submitting}>{submitting ? 'Saving…' : 'Save live chat settings'}</button></footer>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+function formatChatRelative(value) {
+  const date = new Date(value || '');
+  if (Number.isNaN(date.getTime())) return '';
+  const minutes = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000));
+  if (minutes < 1) return 'Now';
+  if (minutes < 60) return `${minutes}m`;
+  if (minutes < 1440) return `${Math.floor(minutes / 60)}h`;
+  return new Intl.DateTimeFormat('en-NZ', { day: 'numeric', month: 'short' }).format(date);
+}
+function formatChatDateTime(value) {
+  const date = new Date(value || '');
+  return Number.isNaN(date.getTime()) ? '' : new Intl.DateTimeFormat('en-NZ', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }).format(date);
+}
+function safeChatPageLabel(value) {
+  try { const url = new URL(value); return url.pathname === '/' ? 'Home page' : url.pathname.replace(/\/$/, '').split('/').filter(Boolean).pop()?.replace(/[-_]/g, ' ') || url.hostname; } catch { return 'Website'; }
+}
+
+function ToolsDrawer({ open, onOpen, onClose, onOpenHelp, onNavigate, activeTab, canManageAdvisers = false, canManageBackups = false, onRefresh, loading = false, sendTestEmail, saveEmailTemplate, resetEmailTemplate, emailLogs = [], emailTemplates = [], emailConfig = {}, saving = false, festivePreference = 'auto', festiveActive = false, festiveStatus = {}, onFestivePreferenceChange, liveChatSettings = null, liveChatAvailability = null, liveChatEmailConfigured = false, saveLiveChatSettings }) {
   const [activeTool, setActiveTool] = useState('weather');
   const [emailLogOpen, setEmailLogOpen] = useState(false);
   const [templateEditorOpen, setTemplateEditorOpen] = useState(false);
+  const [chatSettingsOpen, setChatSettingsOpen] = useState(false);
 
   function openWorkspace(nextTab) {
     onClose();
@@ -8513,6 +8936,13 @@ function ToolsDrawer({ open, onOpen, onClose, onOpenHelp, onNavigate, activeTab,
               <button type="button" className={activeTab === 'advisers' ? 'active' : ''} onClick={() => openWorkspace('advisers')}>
                 <span className="tools-workspace-icon"><UsersRound size={19} /></span>
                 <span><strong>Advisers</strong><small>Team profiles, login emails and CRM roles</small></span>
+                <ChevronRight size={17} />
+              </button>
+            )}
+            {canManageAdvisers && (
+              <button type="button" onClick={() => setChatSettingsOpen(true)}>
+                <span className="tools-workspace-icon"><MessageSquare size={19} /></span>
+                <span><strong>Live chat settings</strong><small>Opening hours, away days and notifications</small></span>
                 <ChevronRight size={17} />
               </button>
             )}
@@ -8566,6 +8996,7 @@ function ToolsDrawer({ open, onOpen, onClose, onOpenHelp, onNavigate, activeTab,
       </aside>
       <EmailTemplateLightbox open={templateEditorOpen} onClose={() => setTemplateEditorOpen(false)} emailTemplates={emailTemplates} saveEmailTemplate={saveEmailTemplate} resetEmailTemplate={resetEmailTemplate} sendTestEmail={sendTestEmail} emailConfig={emailConfig} saving={saving} />
       <EmailLogLightbox open={emailLogOpen} onClose={() => setEmailLogOpen(false)} sendTestEmail={sendTestEmail} saveEmailTemplate={saveEmailTemplate} resetEmailTemplate={resetEmailTemplate} emailLogs={emailLogs} emailConfig={emailConfig} saving={saving} />
+      <LiveChatSettingsLightbox open={chatSettingsOpen} onClose={() => setChatSettingsOpen(false)} settings={liveChatSettings} availability={liveChatAvailability} emailConfigured={liveChatEmailConfigured} onSave={saveLiveChatSettings} saving={saving} />
     </>
   );
 }
@@ -11335,7 +11766,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.13.60" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.14.0" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
         </div>
       )}
     </div>
@@ -11831,7 +12262,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.13.60" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.14.0" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
         </div>
       )}
     </div>

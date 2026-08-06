@@ -1,0 +1,42 @@
+THiS CRM v0.14.0 - LIVE CHAT DEPLOYMENT GUIDE
+
+1. Deploy the complete v0.14.0 package to the existing Netlify site.
+
+2. In Netlify environment variables, add:
+   LIVE_CHAT_SESSION_SECRET
+   Use a random value of at least 32 characters.
+
+3. Confirm the existing Microsoft Graph email variables remain configured:
+   MICROSOFT_TENANT_ID
+   MICROSOFT_CLIENT_ID
+   MICROSOFT_CLIENT_SECRET
+   MICROSOFT_NOTIFICATION_FROM_EMAIL
+   MICROSOFT_NOTIFICATION_FROM_NAME
+
+4. Optional: add LIVE_CHAT_NOTIFICATION_RECIPIENTS as a comma-separated fallback.
+   The CRM settings screen can also manage recipients. If both are blank, all active adviser emails are used.
+
+5. Open the deployed CRM and perform a hard refresh.
+
+6. Open Tools > Live chat settings.
+   - Confirm chat enabled.
+   - Confirm the daily 9:00 am to 4:00 pm schedule.
+   - Add away days.
+   - Add the privacy notice URL.
+   - Confirm email notification recipients.
+   - Save.
+
+7. Copy the Squarespace embed code from the settings screen and place it on the homepage.
+
+8. Test in this order:
+   - Open the website while within configured hours.
+   - Start a chat with a test name and email.
+   - Confirm one notification email is received.
+   - Open CRM > Chat and claim the conversation.
+   - Exchange visitor and adviser messages.
+   - Add an internal note and confirm it is not shown to the visitor.
+   - Create an enquiry and confirm the transcript appears in Enquiries & Intake.
+   - Close the conversation.
+   - Add today's date as an away day and confirm the widget changes to message mode.
+
+The widget does not support attachments and must not be used for confidential document exchange.
