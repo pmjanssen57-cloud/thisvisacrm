@@ -1,12 +1,14 @@
-v0.14.2 - Live Chat Attention and Website Launcher Refresh
+v0.14.3 - Closed Chat Cleanup and Client Lifecycle Controls
 
-- Added a lightweight staff-attention endpoint for reliable waiting and unread chat counts without repeatedly loading the full chat workspace.
-- CRM header attention checks now run every 10 seconds while visible, immediately on focus, visibility return and network reconnection, and at a reduced interval while hidden.
-- Full chat conversations continue to refresh more frequently while the Live Chat drawer is open.
-- Added stale-response protection so a delayed older request cannot overwrite newer chat counts or remove a newly displayed badge.
-- The CRM chat badge now animates when its count changes and retains the highlighted header treatment while attention is required.
-- Refreshed the public website launcher with a stronger THiS-aligned teal and mint treatment, an elevated icon medallion, a restrained outer halo and clearer depth.
-- The website launcher now checks opening status and displays either Online now or Leave a message without requiring the visitor to open the panel.
-- Preserved the floating desktop overlay and full-screen mobile chat behaviour.
-- Updated service-worker and embedded asset versions so the revised badge and launcher are fetched after deployment.
-- No database migration, dependency change or additional subscription is required.
+- Added a permanent Delete action for closed website-chat conversations.
+- Closed chat deletion removes the conversation, messages, internal notes and chat audit events through the existing cascading database relationships.
+- Deletion is restricted to closed chats and is available to the assigned adviser, an unassigned chat owner context, or an administrator.
+- A linked Enquiries & Intake record is retained when its originating chat is deleted.
+- Added an explicit Close client action under the client record More menu, with a matching Reopen client action.
+- Closing a client retains the complete client record, timeline, dates, documents, billing history, portal data, instructions and agreements.
+- Closed clients are excluded from dashboard/task generation, including next actions, client deadlines, document expiries, linked personal tasks, linked calendar appointments and dashboard billing signals.
+- Reopening a client reactivates the saved dates and linked work without recreating them.
+- Closed records remain searchable in the Clients workspace and are clearly marked with a Closed badge and status banner.
+- Added contextual Help guidance for the client-closing workflow.
+- Updated the service-worker and embedded Studio asset versions so the revised interface loads after deployment.
+- No database migration, dependency change, additional software or subscription is required.

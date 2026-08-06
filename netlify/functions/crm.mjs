@@ -556,6 +556,11 @@ async function handleCrmEvent(event) {
       return json({ client: await readSingleClient(body.clientId) });
     }
 
+    if (action === 'setClientStatus') {
+      await setClientStatus(body.clientId, body.status);
+      return json({ client: await readSingleClient(body.clientId) });
+    }
+
     if (action === 'deleteClient') {
       await deleteClient(body.clientId);
       return json(await readCrmData());
@@ -4396,6 +4401,15 @@ function nullableTimestamp(value = '') {
   if (!raw) return null;
   const date = new Date(raw);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+async function setClientStatus(clientId, status) {
+  if (!isUuid(clientId)) throw new Error('Client ID is required.');
+  const allowed = new Set(['Active', 'Waiting on client', 'Waiting on INZ', 'On hold', 'Closed']);
+  const nextStatus = allowed.has(String(status || '')) ? String(status) : '';
+  if (!nextStatus) throw new Error('A valid client status is required.');
+  const rows = await db().sql`UPDATE clients SET client_status = ${nextStatus}, updated_at = NOW() WHERE id = ${clientId} RETURNING id`;
+  if (!rows[0]) throw new Error('Client record not found.');
 }
 
 async function deleteClient(clientId) {

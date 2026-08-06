@@ -94,6 +94,7 @@ async function handleChatEvent(event) {
     if (action === 'addNote') return json(await addInternalNote(body, actor), 201, origin);
     if (action === 'close') return json(await closeStaffConversation(body.conversationId, actor), 200, origin);
     if (action === 'reopen') return json(await reopenConversation(body.conversationId, actor), 200, origin);
+    if (action === 'deleteClosed') return json(await deleteClosedConversation(body.conversationId, actor), 200, origin);
     if (action === 'createEnquiry') return json(await createEnquiryFromConversation(body.conversationId, actor), 201, origin);
     if (action === 'saveSettings') {
       if (!actor.isAdmin) return json({ error: 'Administrator access is required to change live chat settings.' }, 403, origin);
@@ -527,6 +528,19 @@ async function reopenConversation(conversationId, actor) {
   if (!rows[0]) throw httpError(404, 'Chat conversation not found.');
   await logEvent(id, 'reopened', actor.name, {});
   return { conversation: mapConversation(rows[0]) };
+}
+
+async function deleteClosedConversation(conversationId, actor) {
+  const id = requiredUuid(conversationId);
+  const rows = await db().sql`SELECT id, status, assigned_adviser_id, linked_intake_id FROM live_chat_conversations WHERE id = ${id} LIMIT 1`;
+  const conversation = rows[0];
+  if (!conversation) throw httpError(404, 'Chat conversation not found.');
+  if (conversation.status !== 'Closed') throw httpError(409, 'Only closed chats can be deleted.');
+  if (conversation.assigned_adviser_id && String(conversation.assigned_adviser_id) !== actor.id && !actor.isAdmin) {
+    throw httpError(403, 'Only the assigned adviser or an administrator can delete this closed chat.');
+  }
+  await db().sql`DELETE FROM live_chat_conversations WHERE id = ${id}`;
+  return { deleted: true, conversationId: id, linkedIntakeId: conversation.linked_intake_id ? String(conversation.linked_intake_id) : '' };
 }
 
 async function createEnquiryFromConversation(conversationId, actor) {

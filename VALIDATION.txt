@@ -1,16 +1,20 @@
-THiS CRM v0.14.2 validation
+THiS CRM v0.14.3 validation
 
 Validated:
-- A staffAttention action is available through the authenticated live-chat Function.
-- The attention response returns waiting, mine, active and unread counts without loading full conversation data.
-- The CRM polls attention every 10 seconds while visible and uses slower checks while hidden.
-- Focus, visibility return and browser reconnection trigger an immediate attention check.
-- Full conversation polling remains active while the Live Chat drawer is open.
-- Shared request sequencing prevents an older delayed response from overwriting newer chat counts.
-- CRM header and mobile chat badges animate when their count changes.
-- The Squarespace launcher remains isolated in Shadow DOM and retains desktop overlay and mobile full-screen behaviour.
-- The launcher reads the public status endpoint and displays Online now or Leave a message.
-- JavaScript and JSX syntax checks pass.
-- PWA validation and package ZIP integrity pass.
+- App.jsx parses successfully as React JSX using the TypeScript compiler parser.
+- Netlify chat and CRM Functions pass Node syntax checks.
+- The authenticated live-chat Function exposes a deleteClosed action.
+- Only conversations with Closed status can be permanently deleted.
+- Assigned-adviser and administrator permissions are enforced for chat deletion.
+- Existing ON DELETE CASCADE relationships remove chat messages and chat events with the conversation.
+- Linked Enquiries & Intake records are not deleted with the source chat.
+- Client records can be closed or reopened through a dedicated server-side status action.
+- Closing a client does not erase saved record data.
+- Closed clients are excluded from generated next-action, deadline, document-expiry and billing task rows.
+- Personal tasks and calendar appointments linked to closed clients are excluded from dashboard/task queues.
+- Dashboard pending-billing signals use active clients only.
+- Closed clients remain visible and are marked in the Clients workspace.
+- Version references, service-worker cache name and embedded asset query strings are set to v0.14.3.
+- PWA validation and ZIP integrity checks pass.
 
 No new database migration or dependency change is included.

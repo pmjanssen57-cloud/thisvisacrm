@@ -1,59 +1,43 @@
-# THiS CRM v0.14.2 - Native Website Live Chat
+# THiS CRM v0.14.3 - Closed Chat Cleanup and Client Lifecycle Controls
 
-This build extends the v0.13.60 A4 Studio Print Layout Fix baseline with a native website live-chat and after-hours message channel. It uses the existing Netlify deployment, Netlify Database, Netlify Identity and Microsoft Graph email configuration. No additional SaaS product or subscription is required.
+This release builds on v0.14.2 and retains the complete native live-chat, CRM, intake, booking, portal, commercial compliance, Instructions Studio, Agreement Studio, email, signing, unified Studio workflow, A4 print and staff-only Kiwi Christmas functionality.
 
-This v0.14.2 maintenance release makes the CRM chat badge more reliable and refreshes the public website launcher. The CRM now uses a lightweight attention check while the chat workspace is closed, refreshes immediately when the browser regains focus, and rejects stale responses that could otherwise remove a newly displayed badge. The website launcher now uses a stronger THiS-aligned teal and mint treatment and shows whether chat is online or in message mode.
+## Closed chat deletion
 
-## Main workflow
+Closed website-chat conversations now have a **Delete** action in the CRM chat workspace. The action is deliberately separate from Close and Reopen and requires confirmation.
 
-1. A visitor opens the floating chat button on the Turner Hopkins website.
-2. During configured hours the widget presents live chat. Outside those hours or on an away day it accepts an after-hours message.
-3. The first message creates a shared CRM queue item and sends one internal email notification.
-4. Any adviser can open Chat in the CRM header and claim the conversation.
-5. The adviser can reply, add internal notes, release, close or reopen the conversation.
-6. Create enquiry copies the visitor details and transcript into Enquiries & Intake.
+Deleting a closed chat permanently removes:
 
-## Required Netlify setting
+- the chat conversation;
+- visitor and adviser messages;
+- internal notes; and
+- chat audit events.
 
-Add this environment variable before publishing the website widget:
+Only closed chats can be deleted. If an Enquiries & Intake record was created from the conversation, that record and its copied transcript remain in the CRM.
 
-```
-LIVE_CHAT_SESSION_SECRET=<at least 32 random characters>
-```
+## Closing client records
 
-Optional:
+Client records now have explicit **Close client** and **Reopen client** actions under the client record **More** menu.
 
-```
-LIVE_CHAT_NOTIFICATION_RECIPIENTS=paul@example.co.nz,team@example.co.nz
-```
+Closing a client:
 
-If notification recipients are left blank, the CRM uses the email addresses of all active advisers. Microsoft Graph email variables already used by the CRM must be configured for notification delivery.
+- retains the full client record and timeline;
+- retains dates, documents, billing history, portal data, instructions and agreements;
+- removes the client from active-client counts; and
+- suppresses its next action, deadlines, document expiries, linked personal tasks, linked calendar appointments and dashboard billing signals from operational task queues.
 
-## Squarespace embed
+Reopening the client restores monitoring of the saved dates and linked work immediately. Closed clients remain searchable and are marked with a Closed badge and an explanatory banner.
 
-After deploying the CRM, open Tools > Live chat settings and copy the generated script. The standard form is:
+## Native live chat
+
+The website widget continues to use the existing Netlify deployment, Netlify Database, Netlify Identity and Microsoft Graph email configuration. No additional SaaS product or subscription is required.
+
+The current Squarespace embed remains:
 
 ```html
-<script src="https://thisvisacrm.netlify.app/live-chat-widget.js?v=0.14.2" data-title="Chat with us" defer></script>
+<script src="https://thisvisacrm.netlify.app/live-chat-widget.js?v=0.14.3" data-title="Chat with us" defer></script>
 ```
 
-Place it in homepage code injection or a homepage code block. The launcher floats at the bottom-right and opens the chat as an overlay. Add `data-position="left"` to place it on the bottom-left.
+## Deployment
 
-## Administration
-
-Tools > Live chat settings provides:
-
-- chat enabled/paused;
-- opening hours by day;
-- Pacific/Auckland timezone;
-- away dates and closure reasons;
-- open-hours and after-hours wording;
-- privacy notice URL;
-- one-time email notification switch and recipients; and
-- Squarespace embed code.
-
-## Security and limits
-
-The public widget uses signed sessions, domain-isolated iframe rendering, server-side validation, rate limits and plain-text messages. Attachments are not supported. Visitors are warned not to send passport, medical, police or other sensitive documents through live chat.
-
-The original native live-chat database migration remains included. v0.14.2 adds no new migration or dependency and does not alter existing chat records. Perform one hard refresh after deployment so the v0.14.2 service-worker cache replaces the previous build. Refresh the public website once as well so the revised launcher script is fetched.
+Deploy the complete package over the existing CRM deployment and perform a hard refresh so the v0.14.3 service-worker cache replaces the previous build. No new database migration or environment variable is required for this release.

@@ -358,6 +358,7 @@ const SUPPORT_CONTENT = {
       { heading: 'Case strategy', text: 'Use the Case strategy field as the master case summary. Record the agreed approach, key immigration issues, evidence gaps, risks and next strategic steps.' },
       { heading: 'Progress map', text: 'The progress map shows mandatory, optional and custom stages. Select only the stages that apply, add custom stages where a client needs a different pathway, and reorder stages before saving the client record. Skipped stages are shown muted and do not affect progress percentage.' },
       { heading: 'Deadlines and next action', text: 'Add expiry and filing dates in the deadlines section. Use Next action and Task due date for internal adviser tasks that should appear on the dashboard and task lists. Use the Timeline button to review previous actions, linked appointments, completed stages, document expiries and billing events.' },
+      { heading: 'Closing a client record', text: 'Use More → Close client when the matter has finished. The record and its dates remain available, but its next action, deadlines, document expiries, linked personal tasks, calendar appointments and dashboard billing signals are suppressed until the client is reopened.' },
       { heading: 'Document checklist', text: 'Use the document checklist to include standard document items, mark items as not required, add custom document requests, record expiry dates and mark whether each item has been obtained. Not-required items are greyed out and show only the document name and the option to include them again.' },
     ],
     tips: ['Keep the case strategy client-specific and practical.', 'Use the citizenship and address fields consistently because they are searchable.', 'Add family members where their details are relevant to the matter.'],
@@ -1640,6 +1641,27 @@ export default function App() {
     return body;
   }
 
+  async function deleteClosedChat(conversationId) {
+    const conversation = (chatSnapshot.conversations || []).find((item) => item.id === conversationId)
+      || (chatSnapshot.selectedConversation?.id === conversationId ? chatSnapshot.selectedConversation : null);
+    const confirmed = await askCrmConfirm({
+      title: 'Delete closed chat?',
+      message: `Permanently delete the closed conversation with ${conversation?.visitorName || 'this website visitor'}?`,
+      confirmLabel: 'Delete chat',
+      tone: 'danger',
+      details: [
+        'The conversation, messages, internal notes and chat audit events will be permanently removed.',
+        conversation?.linkedIntakeId ? 'The linked Enquiries & Intake record and its copied transcript will remain.' : 'This action cannot be undone.',
+      ],
+    });
+    if (!confirmed) return null;
+    const body = await callChatApi('deleteClosed', { conversationId }, { refresh: false });
+    setChatSelectedId('');
+    await loadChatSnapshot({ silent: true, conversationId: '' });
+    showCrmToast('Closed chat deleted.');
+    return body;
+  }
+
   async function saveLiveChatSettings(settings) {
     const body = await callChatApi('saveSettings', { settings }, { refresh: false });
     await loadChatSnapshot({ silent: true, conversationId: chatSelectedId });
@@ -2238,6 +2260,34 @@ export default function App() {
     return body;
   }
 
+  async function changeClientStatus(clientId, status) {
+    const client = (dataRef.current.clients || []).find((item) => item.id === clientId);
+    if (!client || String(clientId || '').startsWith('temp-')) return null;
+    const closing = status === 'Closed';
+    const displayName = [client.firstName, client.lastName].filter(Boolean).join(' ') || 'this client';
+    const confirmed = await askCrmConfirm({
+      title: closing ? 'Close client record?' : 'Reopen client record?',
+      message: closing
+        ? `Close ${displayName} as an inactive client record?`
+        : `Reopen ${displayName} and return the record to active workflow monitoring?`,
+      confirmLabel: closing ? 'Close client' : 'Reopen client',
+      tone: closing ? 'warning' : 'default',
+      details: closing
+        ? ['The record, timeline and saved dates will be retained.', 'Dashboard and task queues will ignore its next action, deadlines, document expiries, linked personal tasks, calendar appointments and billing signals while closed.']
+        : ['Saved dates and linked work will become eligible for dashboard and task queues again.'],
+    });
+    if (!confirmed) return null;
+    const body = await callApi('setClientStatus', { clientId, status }, { skipDataUpdate: true });
+    if (body.client) {
+      setData((current) => {
+        const savedClient = normaliseClientFromApi(body.client, current.stageTemplates);
+        return { ...current, clients: current.clients.map((item) => item.id === savedClient.id ? savedClient : item) };
+      });
+      showCrmToast(closing ? 'Client record closed. Dashboard signals are now suppressed.' : 'Client record reopened. Workflow monitoring is active again.');
+    }
+    return body;
+  }
+
   async function deleteClient(clientId) {
     const confirmed = await askCrmConfirm({ title: 'Delete client record?', message: 'This will delete the client and all linked stages, deadlines and billing records.', confirmLabel: 'Delete client', tone: 'danger' });
     if (!confirmed) return;
@@ -2444,7 +2494,7 @@ export default function App() {
 
   const deadlineRows = useMemo(() => {
     return [
-      ...scopedClients.flatMap((client) => [
+      ...activeClients.flatMap((client) => [
         ...(client.deadlines || []).map((deadline) => ({
           id: `${client.id}-${deadline.id}`,
           client,
@@ -2465,10 +2515,10 @@ export default function App() {
       .filter((row) => row.date)
       .map(withDeadlineSignal)
       .sort((a, b) => deadlineSignalSortDate(a).localeCompare(deadlineSignalSortDate(b)) || String(a.date || '').localeCompare(String(b.date || '')));
-  }, [scopedClients, scopedCalendarEntries, data.clients]);
+  }, [activeClients, scopedCalendarEntries, data.clients]);
 
-  const taskRows = useMemo(() => buildTaskRows(scopedClients, scopedPersonalTasks, data.clients, scopedCalendarEntries)
-    .filter((row) => matchesTaskRowScope(row, dashboardAdviserFilter)), [scopedClients, scopedPersonalTasks, data.clients, scopedCalendarEntries, dashboardAdviserFilter]);
+  const taskRows = useMemo(() => buildTaskRows(activeClients, scopedPersonalTasks, data.clients, scopedCalendarEntries)
+    .filter((row) => matchesTaskRowScope(row, dashboardAdviserFilter)), [activeClients, scopedPersonalTasks, data.clients, scopedCalendarEntries, dashboardAdviserFilter]);
 
   const billingRows = useMemo(() => {
     return scopedClients
@@ -2722,6 +2772,7 @@ export default function App() {
                 updatePortalDocument={updatePortalDocument}
                 deletePortalDocument={deletePortalDocument}
                 deleteClient={deleteClient}
+                changeClientStatus={changeClientStatus}
                 instructionSets={data.instructionSets || []}
                 openInstructionsForClient={openInstructionsForClient}
                 agreementSets={data.agreementSets || []}
@@ -2759,6 +2810,7 @@ export default function App() {
         onAddNote={(conversationId, message) => callChatApi('addNote', { conversationId, message })}
         onCloseConversation={(conversationId) => callChatApi('close', { conversationId })}
         onReopen={(conversationId) => callChatApi('reopen', { conversationId })}
+        onDeleteClosed={deleteClosedChat}
         onCreateEnquiry={createEnquiryFromChat}
         busy={chatBusy}
         error={chatError}
@@ -8721,7 +8773,7 @@ const TOOL_TIMEZONES = [
 ];
 
 
-function LiveChatWorkspace({ open, onClose, snapshot = {}, selectedId = '', onSelect, onRefresh, onClaim, onRelease, onSend, onAddNote, onCloseConversation, onReopen, onCreateEnquiry, busy = false, error = '' }) {
+function LiveChatWorkspace({ open, onClose, snapshot = {}, selectedId = '', onSelect, onRefresh, onClaim, onRelease, onSend, onAddNote, onCloseConversation, onReopen, onDeleteClosed, onCreateEnquiry, busy = false, error = '' }) {
   const [view, setView] = useState('waiting');
   const [composerMode, setComposerMode] = useState('reply');
   const [draft, setDraft] = useState('');
@@ -8746,6 +8798,7 @@ function LiveChatWorkspace({ open, onClose, snapshot = {}, selectedId = '', onSe
   const canClaim = selected && selected.status !== 'Closed' && !selected.assignedAdviserId;
   const canReply = selected && selected.status !== 'Closed' && assignedToMe;
   const canClose = selected && selected.status !== 'Closed' && (!selected.assignedAdviserId || assignedToMe || actor.isAdmin);
+  const canDeleteClosed = selected && selected.status === 'Closed' && (!selected.assignedAdviserId || assignedToMe || actor.isAdmin);
 
   async function submitComposer(event) {
     event.preventDefault();
@@ -8810,6 +8863,7 @@ function LiveChatWorkspace({ open, onClose, snapshot = {}, selectedId = '', onSe
                     {assignedToMe && selected.status !== 'Closed' && <button className="btn ghost" type="button" disabled={busy} onClick={() => onRelease?.(selected.id)}>Release</button>}
                     {canClose && <button className="btn ghost" type="button" disabled={busy} onClick={() => onCloseConversation?.(selected.id)}>Close</button>}
                     {selected.status === 'Closed' && <button className="btn ghost" type="button" disabled={busy} onClick={() => onReopen?.(selected.id)}>Reopen</button>}
+                    {canDeleteClosed && <button className="btn ghost danger" type="button" disabled={busy} onClick={() => onDeleteClosed?.(selected.id)}><Trash2 size={15} />Delete</button>}
                   </div>
                 </div>
                 <div className="live-chat-crm-messages">
@@ -8858,7 +8912,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const dayRows = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']];
-  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.14.2" data-title="Chat with us" defer><\/script>`;
+  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.14.3" data-title="Chat with us" defer><\/script>`;
 
   useEffect(() => {
     if (!open) return;
@@ -10478,7 +10532,7 @@ function AdviserLandingPad({ adviser = null, accessRole = 'User', clients = [], 
 
 function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, deadlineRows, taskRows, stageTemplates, setTab, setSelectedClientId, openClientRecord, saveClient, saving, intakeEnquiries = [], recentClientIds = [] }) {
   const [queueView, setQueueView] = useState('today');
-  const pendingInvoices = clients.flatMap((client) => (client.billing || []).map((item) => ({ item, client }))).filter(({ item, client }) => effectiveBillingStatus(item, client) !== 'Invoiced');
+  const pendingInvoices = activeClients.flatMap((client) => (client.billing || []).map((item) => ({ item, client }))).filter(({ item, client }) => effectiveBillingStatus(item, client) !== 'Invoiced');
   const dashboardTaskRows = taskRows
     .map(withDeadlineSignal)
     .filter(isDashboardActionableTaskRow)
@@ -11842,7 +11896,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.14.2" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.14.3" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
         </div>
       )}
     </div>
@@ -12338,7 +12392,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.14.2" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.14.3" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
         </div>
       )}
     </div>
@@ -12346,7 +12400,7 @@ function AgreementsWorkspace({
 }
 
 function ClientsWorkspace(props) {
-  const { clients, selectedClient, advisers, caseTypes, deadlineTypes, clientQuery, setClientQuery, adviserFilter, setAdviserFilter, includeBackupClients = false, setIncludeBackupClients, effectiveAdviserId = '', caseTypeFilter, setCaseTypeFilter, setSelectedClientId, onDirtyChange, saveClient, updatePortalMessageStatus, uploadPortalDocument, updatePortalDocument, deletePortalDocument, deleteClient, instructionSets = [], openInstructionsForClient, agreementSets = [], openAgreementsForClient, saving, calendarEntries = [] } = props;
+  const { clients, selectedClient, advisers, caseTypes, deadlineTypes, clientQuery, setClientQuery, adviserFilter, setAdviserFilter, includeBackupClients = false, setIncludeBackupClients, effectiveAdviserId = '', caseTypeFilter, setCaseTypeFilter, setSelectedClientId, onDirtyChange, saveClient, updatePortalMessageStatus, uploadPortalDocument, updatePortalDocument, deletePortalDocument, deleteClient, changeClientStatus, instructionSets = [], openInstructionsForClient, agreementSets = [], openAgreementsForClient, saving, calendarEntries = [] } = props;
   const [popoutOpen, setPopoutOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [popoutDirty, setPopoutDirty] = useState(false);
@@ -12400,11 +12454,12 @@ function ClientsWorkspace(props) {
               && client.primaryAdviserId !== effectiveAdviserId
             );
             return (
-              <button className={`client-card ${selectedClient.id === client.id ? 'active' : ''} ${isBackupMatter ? 'backup-matter' : ''}`} key={client.id} onClick={() => setSelectedClientId(client.id)}>
+              <button className={`client-card ${selectedClient.id === client.id ? 'active' : ''} ${isBackupMatter ? 'backup-matter' : ''} ${client.clientStatus === 'Closed' ? 'closed-record' : ''}`} key={client.id} onClick={() => setSelectedClientId(client.id)}>
                 <span>
                   <span className="client-card-title-row">
                     <strong>{[client.firstName, client.lastName].filter(Boolean).join(' ') || 'New client'}</strong>
                     {isBackupMatter && <span className="client-backup-marker" title="Backup adviser matter" aria-label="Backup adviser matter"><UserRound size={13} /></span>}
+                    {client.clientStatus === 'Closed' && <span className="client-closed-marker">Closed</span>}
                   </span>
                   <small>{client.caseType}</small>
                   <small>{client.caseStrategy ? 'Strategy added' : 'No case strategy yet'}</small>
@@ -12428,12 +12483,12 @@ function ClientsWorkspace(props) {
             <button className="btn dark" type="button" onClick={() => setPopoutOpen(true)}><ExternalLink size={16} />Resume pop-out editor</button>
           </div>
         ) : (
-          <ClientEditor client={selectedClient} advisers={advisers} caseTypes={caseTypes} deadlineTypes={deadlineTypes} calendarEntries={calendarEntries} saveClient={saveClient} updatePortalMessageStatus={updatePortalMessageStatus} uploadPortalDocument={uploadPortalDocument} updatePortalDocument={updatePortalDocument} deletePortalDocument={deletePortalDocument} deleteClient={deleteClient} instructionSets={instructionSets} openInstructionsForClient={openInstructionsForClient} agreementSets={agreementSets} openAgreementsForClient={openAgreementsForClient} saving={saving} onDirtyChange={onDirtyChange} onOpenPopout={openPopoutEditor} />
+          <ClientEditor client={selectedClient} advisers={advisers} caseTypes={caseTypes} deadlineTypes={deadlineTypes} calendarEntries={calendarEntries} saveClient={saveClient} updatePortalMessageStatus={updatePortalMessageStatus} uploadPortalDocument={uploadPortalDocument} updatePortalDocument={updatePortalDocument} deletePortalDocument={deletePortalDocument} deleteClient={deleteClient} changeClientStatus={changeClientStatus} instructionSets={instructionSets} openInstructionsForClient={openInstructionsForClient} agreementSets={agreementSets} openAgreementsForClient={openAgreementsForClient} saving={saving} onDirtyChange={onDirtyChange} onOpenPopout={openPopoutEditor} />
         )}
       </section>
       {popoutOpen && (
         <ClientRecordPopoutModal title={clientName} onClose={requestPopoutClose}>
-          <ClientEditor client={selectedClient} advisers={advisers} caseTypes={caseTypes} deadlineTypes={deadlineTypes} calendarEntries={calendarEntries} saveClient={saveClient} updatePortalMessageStatus={updatePortalMessageStatus} uploadPortalDocument={uploadPortalDocument} updatePortalDocument={updatePortalDocument} deletePortalDocument={deletePortalDocument} deleteClient={deleteClient} instructionSets={instructionSets} openInstructionsForClient={openInstructionsForClient} agreementSets={agreementSets} openAgreementsForClient={openAgreementsForClient} saving={saving} onDirtyChange={handlePopoutDirtyChange} popoutMode initialSection={popoutInitialSection} onRequestClose={requestPopoutClose} />
+          <ClientEditor client={selectedClient} advisers={advisers} caseTypes={caseTypes} deadlineTypes={deadlineTypes} calendarEntries={calendarEntries} saveClient={saveClient} updatePortalMessageStatus={updatePortalMessageStatus} uploadPortalDocument={uploadPortalDocument} updatePortalDocument={updatePortalDocument} deletePortalDocument={deletePortalDocument} deleteClient={deleteClient} changeClientStatus={changeClientStatus} instructionSets={instructionSets} openInstructionsForClient={openInstructionsForClient} agreementSets={agreementSets} openAgreementsForClient={openAgreementsForClient} saving={saving} onDirtyChange={handlePopoutDirtyChange} popoutMode initialSection={popoutInitialSection} onRequestClose={requestPopoutClose} />
         </ClientRecordPopoutModal>
       )}
     </div>
@@ -12457,7 +12512,7 @@ function ClientRecordPopoutModal({ title, onClose, children, label = 'Pop-out cl
   );
 }
 
-function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntries = [], saveClient, updatePortalMessageStatus, uploadPortalDocument, updatePortalDocument, deletePortalDocument, deleteClient, instructionSets = [], openInstructionsForClient, agreementSets = [], openAgreementsForClient, saving, onDirtyChange, onOpenPopout, popoutMode = false, initialSection = 'overview', onRequestClose }) {
+function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntries = [], saveClient, updatePortalMessageStatus, uploadPortalDocument, updatePortalDocument, deletePortalDocument, deleteClient, changeClientStatus, instructionSets = [], openInstructionsForClient, agreementSets = [], openAgreementsForClient, saving, onDirtyChange, onOpenPopout, popoutMode = false, initialSection = 'overview', onRequestClose }) {
   const [draft, setDraft] = useState(client);
   const [activeClientSection, setActiveClientSection] = useState('overview');
   const [showActionLog, setShowActionLog] = useState(false);
@@ -12806,6 +12861,24 @@ The portal is a secure, read-only space where you can check application updates,
     }
   }
 
+  async function handleClientLifecycle(status) {
+    if (isDirty) {
+      setStatusMessage('');
+      setValidationMessage('Save or discard the current changes before closing or reopening this client record.');
+      return;
+    }
+    setValidationMessage('');
+    setStatusMessage(status === 'Closed' ? 'Closing client record...' : 'Reopening client record...');
+    try {
+      const body = await changeClientStatus?.(draft.id, status);
+      if (body?.client) setDraft(normaliseClientFromApi(body.client));
+      setStatusMessage(body?.client ? (status === 'Closed' ? 'Client record closed. Dashboard and task signals are suppressed.' : 'Client record reopened. Dashboard and task monitoring is active.') : '');
+    } catch (err) {
+      setStatusMessage('');
+      setValidationMessage(err.message || 'Client status could not be changed.');
+    }
+  }
+
   function handleOpenPopout(sectionId = activeClientSection) {
     if (isDirty) {
       setValidationMessage('Save the current changes before opening the pop-out editor, so no unsaved edits are lost.');
@@ -12872,12 +12945,17 @@ The portal is a secure, read-only space where you can check application updates,
             {clientActionsOpen && (
               <div className="dropdown-menu client-actions-menu">
                 {popoutMode ? <button type="button" onClick={() => { setClientActionsOpen(false); onRequestClose?.(); }}><X size={16} />Close editor</button> : <button type="button" onClick={() => { setClientActionsOpen(false); handleOpenPopout(activeClientSection); }}><ExternalLink size={16} />Open full editor</button>}
+                {draft.clientStatus === 'Closed'
+                  ? <button type="button" onClick={() => { setClientActionsOpen(false); handleClientLifecycle('Active'); }} disabled={saving || String(draft.id).startsWith('temp-')}><RefreshCw size={16} />Reopen client</button>
+                  : <button type="button" className="warning-option" onClick={() => { setClientActionsOpen(false); handleClientLifecycle('Closed'); }} disabled={saving || String(draft.id).startsWith('temp-')}><CheckCircle2 size={16} />Close client</button>}
                 <button type="button" className="danger-option" onClick={() => { setClientActionsOpen(false); deleteClient(draft.id); }} disabled={saving || String(draft.id).startsWith('temp-')}><Trash2 size={16} />Delete client</button>
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {draft.clientStatus === 'Closed' && <div className="client-closed-banner"><CheckCircle2 size={17} /><div><strong>Closed client record</strong><span>Saved dates and linked work remain on file but are excluded from dashboard and task queues until this client is reopened.</span></div></div>}
 
       {(isDirty || saving || validationMessage || statusMessage) && <div className={`client-save-bar status-only ${isDirty ? 'dirty' : 'clean'}`}>
         <div>
@@ -17112,7 +17190,7 @@ function calendarDeadlineRows(entries = [], clients = []) {
     .filter((entry) => entry.status !== 'Completed' && entry.appointmentDate && entry.clientId)
     .map((entry) => {
       const linkedClient = clients.find((client) => client.id === entry.clientId) || null;
-      if (!linkedClient) return null;
+      if (!linkedClient || linkedClient.clientStatus === 'Closed') return null;
       return {
         id: `calendar-deadline-${entry.id}`,
         client: linkedClient,
@@ -17132,6 +17210,7 @@ function calendarTaskRows(entries = [], clients = []) {
     .filter((entry) => entry.status !== 'Completed' && entry.appointmentDate)
     .map((entry) => {
       const linkedClient = clients.find((client) => client.id === entry.clientId) || null;
+      if (linkedClient?.clientStatus === 'Closed') return null;
       return {
         id: `calendar-${entry.id}`,
         client: linkedClient,
@@ -17143,7 +17222,8 @@ function calendarTaskRows(entries = [], clients = []) {
         source: 'calendar-entry',
         diff: dateDiff(entry.appointmentDate),
       };
-    });
+    })
+    .filter(Boolean);
 }
 
 function buildTaskRows(clients, personalTasks = [], allClients = [], calendarEntries = []) {
@@ -17179,6 +17259,7 @@ function buildTaskRows(clients, personalTasks = [], allClients = [], calendarEnt
     .filter((task) => task.status !== 'Completed')
     .map((task) => {
       const linkedClient = allClients.find((client) => client.id === task.clientId) || null;
+      if (linkedClient?.clientStatus === 'Closed') return null;
       return {
         id: `personal-${task.id}`,
         client: linkedClient,
@@ -17190,7 +17271,8 @@ function buildTaskRows(clients, personalTasks = [], allClients = [], calendarEnt
         source: 'personal-task',
         diff: dateDiff(task.dueDate),
       };
-    });
+    })
+    .filter(Boolean);
 
   const calendarRows = calendarTaskRows(calendarEntries, allClients);
 
