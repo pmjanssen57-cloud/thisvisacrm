@@ -1,6 +1,16 @@
-# THiS CRM v0.15.3 - Intake Print and Adviser Email Results
+# THiS CRM v0.15.4 - Instructions Date and At-a-Glance Editor
 
-This build repairs the printable intake record and adds a direct way to send the current intake results to the assigned adviser.
+This build corrects Instructions Studio document dates and makes the Application at a glance page practical for adviser use, while retaining the v0.15.3 intake print and adviser-email improvements.
+
+## Instructions date handling
+
+New instruction sets now use the Pacific/Auckland calendar date rather than the UTC date. Existing drafts created across the UTC/New Zealand date boundary are corrected when the instruction record is loaded. Manually selected prepared dates remain supported.
+
+## Application at a glance
+
+The client-data tab now includes a draft-specific editor for the application, guide, strategy, included applicants, important date and adviser values. These fields can also be changed directly in the preview while Edit text is active. A restore control returns the values to the linked CRM data.
+
+The client-facing page now uses a compact two-column structure, with long strategy and adviser content placed in full-width rows so lengthy case notes wrap cleanly without producing narrow, oversized cards.
 
 ## Intake printing
 

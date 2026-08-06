@@ -1,16 +1,11 @@
-THiS CRM v0.15.3 validation
+THiS CRM v0.15.4 validation
 
-- App.jsx JSX/JavaScript syntax: passed using the TypeScript JSX parser.
-- Netlify function JavaScript syntax: passed with node --check.
-- Public JavaScript syntax: passed with node --check.
-- PWA manifest/service-worker validation: passed.
-- HTML parser validation: passed for the main shell and public Studio/chat pages.
-- CSS brace validation: passed.
-- Intake printing uses a same-origin print window, CSP-safe event listeners and an automatic print-dialogue call.
-- The print action retains a printable HTML fallback when pop-ups are blocked.
-- Intake results emails resolve the assigned adviser and recipient address server-side.
-- Intake results emails include current review fields, flags, notes and questionnaire sections and are recorded in the email log.
-- The intake results email is available in the shared email template editor.
-- No database migration, dependency or environment-variable change is included.
+Validated:
+- Instructions Studio JavaScript syntax
+- JSX parse
+- Netlify function JavaScript syntax
+- HTML structure and v0.15.4 styles
+- PWA cache version
+- ZIP integrity
 
-A full Vite production build could not be completed because the isolated package registry does not contain the existing @netlify/blobs@10.7.9 dependency. No dependency versions were changed.
+No database migration, dependency, API or environment-variable changes.

@@ -157,13 +157,26 @@ const policeCountryLibrary = [
   }
 ];
 
+function thisNzIsoDate(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value);
+  const safe = Number.isNaN(date.getTime()) ? new Date() : date;
+  const parts = new Intl.DateTimeFormat('en-NZ', {
+    timeZone: 'Pacific/Auckland', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(safe).reduce((acc, part) => {
+    if (part.type !== 'literal') acc[part.type] = part.value;
+    return acc;
+  }, {});
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
 const defaultState = {
   selectedDoc: 'roadmap',
   outputMode: 'balanced',
-  preparedDate: new Date().toISOString().slice(0, 10),
+  preparedDate: thisNzIsoDate(),
   contentStatus: 'Draft - policy review required',
   issueName: 'Initial SMC instruction pack',
   inlineEdits: {},
+  glanceValueOverrides: {},
   policeSelectorOpen: false,
   client: {
     firstName: 'Alex',
@@ -252,7 +265,7 @@ function loadState() {
   }
 }
 function mergeDefaults(base, saved) {
-  const merged = { ...base, ...saved, inlineEdits: { ...(base.inlineEdits || {}), ...(saved.inlineEdits || {}) }, client: { ...base.client, ...(saved.client || {}) }, policeClearances: Array.isArray(saved.policeClearances) ? saved.policeClearances : base.policeClearances, docs: { ...base.docs } };
+  const merged = { ...base, ...saved, inlineEdits: { ...(base.inlineEdits || {}), ...(saved.inlineEdits || {}) }, glanceValueOverrides: { ...(base.glanceValueOverrides || {}), ...(saved.glanceValueOverrides || {}) }, client: { ...base.client, ...(saved.client || {}) }, policeClearances: Array.isArray(saved.policeClearances) ? saved.policeClearances : base.policeClearances, docs: { ...base.docs } };
   Object.keys(base.docs).forEach(id => {
     merged.docs[id] = { ...base.docs[id], ...(saved.docs?.[id] || {}) };
     merged.docs[id].blocks = (saved.docs?.[id]?.blocks || base.docs[id].blocks).map((block, index) => ({ ...base.docs[id].blocks[index], ...block }));
@@ -929,7 +942,7 @@ function createPackState(packId) {
   }
   const pack = PACK_DEFINITIONS[packId];
   const firstDoc = Object.keys(pack.docs)[0];
-  return {packId,selectedDoc:firstDoc,outputMode:Object.keys(pack.docs).length>1?'separate':'combined',preparedDate:new Date().toISOString().slice(0,10),contentStatus:'Draft - policy review required',issueName:pack.issueName,inlineEdits:{},policeSelectorOpen:false,client:structuredClone(pack.client),policeClearances:structuredClone(pack.policeClearances||[]),docs:structuredClone(pack.docs)};
+  return {packId,selectedDoc:firstDoc,outputMode:Object.keys(pack.docs).length>1?'separate':'combined',preparedDate:thisNzIsoDate(),contentStatus:'Draft - policy review required',issueName:pack.issueName,inlineEdits:{},glanceValueOverrides:{},policeSelectorOpen:false,client:structuredClone(pack.client),policeClearances:structuredClone(pack.policeClearances||[]),docs:structuredClone(pack.docs)};
 }
 function loadPackWorkspace() {
   try {
@@ -2579,6 +2592,159 @@ bindEvents();
 })();
 
 
+// ===== v0.15.4 NZ DATE AND EDITABLE APPLICATION-AT-A-GLANCE =====
+(function () {
+  const GLANCE_KEYS_V154 = ['application', 'guide', 'strategy', 'applicants', 'date', 'adviser'];
+  const GLANCE_FIELD_LABELS_V154 = {
+    application: 'Application', guide: 'Guide', strategy: 'Strategy or basis', applicants: 'Included applicants', date: 'Important date', adviser: 'Your adviser'
+  };
+
+  function glanceDocumentIdV154(packId = activePackId, docs = state?.docs || {}) {
+    const entries = Object.entries(docs || {}).filter(([, doc]) => Boolean(doc));
+    if (!entries.length) return '';
+    const explicit = entries.find(([id, doc]) => {
+      const value = `${id} ${doc.label || ''} ${doc.shortLabel || ''} ${doc.coverTitle || ''}`.toLowerCase();
+      return id === 'roadmap' || /introduction\s*(?:&|and)?\s*road\s*-?\s*map/.test(value) || /introduction.*roadmap/.test(value);
+    });
+    return (explicit || entries.find(([, doc]) => doc.enabled !== false) || entries[0])[0];
+  }
+
+  function ensureGlanceOverridesV154(docId) {
+    state.glanceValueOverrides = state.glanceValueOverrides || {};
+    state.glanceValueOverrides[docId] = state.glanceValueOverrides[docId] || {};
+    return state.glanceValueOverrides[docId];
+  }
+
+  function linkedGlanceValuesV154(doc, docId = state.selectedDoc) {
+    const included = state.client.requiredFor || state.client.preparedFor || fullName();
+    const strategy = state.client.pathway || state.client.eligibilityBasis || state.client.applicationType || currentPack().title;
+    return {
+      application: state.client.applicationType || currentPack().title,
+      guide: doc?.label || currentPack().title,
+      strategy,
+      applicants: included,
+      date: v12ImportantDate(),
+      adviser: state.client.adviser || 'Turner Hopkins Immigration Specialists'
+    };
+  }
+
+  function resolvedGlanceValuesV154(doc, docId = state.selectedDoc) {
+    const linked = linkedGlanceValuesV154(doc, docId);
+    const overrides = ensureGlanceOverridesV154(docId);
+    return Object.fromEntries(GLANCE_KEYS_V154.map(key => [key, Object.prototype.hasOwnProperty.call(overrides, key) ? overrides[key] : linked[key]]));
+  }
+
+  v12AtAGlancePage = function (doc, pageNo) {
+    const glance = ensureGlanceV15(doc);
+    const docId = glanceDocumentIdV154();
+    const values = resolvedGlanceValuesV154(doc, docId);
+    const items = [
+      ['application', 'A'], ['guide', 'G'], ['strategy', 'S'], ['applicants', 'P'], ['date', 'D'], ['adviser', 'TH']
+    ];
+    const content = `<div class="glance-kicker">Prepared specifically for ${escapeHtml(fullName())}</div>
+      <h1 class="glance-title">${escapeHtml(glance.title)}</h1>
+      <p class="glance-intro">${escapeHtml(glance.intro)}</p>
+      <div class="glance-grid">${items.map(([key, icon]) => `<div class="glance-item glance-item-${key}" data-glance-key="${key}"><div class="glance-item-head"><span class="glance-item-icon">${escapeHtml(icon)}</span><span class="glance-item-label">${escapeHtml(glance.labels[key])}</span></div><strong class="glance-item-value" data-glance-value-key="${key}">${escapeHtml(values[key] || '')}</strong></div>`).join('')}</div>
+      <div class="priority-panel"><div class="priority-panel-head"><div><small class="priority-eyebrow">${escapeHtml(glance.priorityEyebrow)}</small><h3 class="priority-title">${escapeHtml(glance.prioritiesTitle)}</h3></div><span class="priority-panel-mark">01</span></div><ol class="priority-list">${glance.priorities.map((item,index)=>`<li><span>${index+1}</span><div class="priority-text" data-priority-index="${index}">${escapeHtml(item)}</div></li>`).join('')}</ol></div>
+      <div class="glance-use-panel"><div class="glance-use-head"><span class="glance-use-eyebrow">${escapeHtml(glance.useEyebrow)}</span><strong class="glance-use-title">${escapeHtml(glance.useTitle)}</strong></div><div class="glance-use-grid">${glance.useItems.map((item,index)=>`<div class="glance-use-item" data-use-index="${index}"><span class="glance-use-number">${index+1}</span><div><strong class="glance-use-item-title">${escapeHtml(item.title)}</strong><p class="glance-use-item-text">${escapeHtml(item.text)}</p></div></div>`).join('')}</div></div>`;
+    return pageShell(content, pageNo, doc.label, 'application-glance-page');
+  };
+
+  function glanceDraftEditorV154() {
+    const docId = glanceDocumentIdV154();
+    const doc = state.docs?.[docId];
+    if (!doc) return '';
+    const values = resolvedGlanceValuesV154(doc, docId);
+    const field = (key, rows = 1) => {
+      const control = rows > 1
+        ? `<textarea class="text-area" rows="${rows}" data-glance-draft-field="${key}">${escapeHtml(values[key] || '')}</textarea>`
+        : `<input class="text-input" data-glance-draft-field="${key}" value="${escapeHtml(values[key] || '')}">`;
+      return `<div class="form-section ${key === 'strategy' || key === 'applicants' ? 'wide' : ''}"><label class="field-label">${escapeHtml(GLANCE_FIELD_LABELS_V154[key])}</label>${control}</div>`;
+    };
+    return `<details class="client-glance-editor-v154" id="client-glance-editor-v154" open><summary><span>Application at a glance</span><small class="status-chip status-chip-green">Draft-specific</small></summary><div class="client-glance-editor-body-v154"><p class="field-help">These values are brought across from the linked CRM record. Edit them here for this instruction set only, or use <strong>Edit text</strong> in the preview.</p><div class="client-glance-grid-v154">${field('application')}${field('guide')}${field('strategy', 3)}${field('applicants', 2)}${field('date')}${field('adviser')}</div><div class="client-glance-actions-v154"><button class="button button-secondary compact-button" id="restore-glance-values-v154" type="button">Restore linked values</button></div></div></details>`;
+  }
+
+  function bindGlanceDraftEditorV154() {
+    const panel = document.querySelector('#client-glance-editor-v154');
+    if (!panel) return;
+    const docId = glanceDocumentIdV154();
+    panel.querySelectorAll('[data-glance-draft-field]').forEach(input => {
+      input.addEventListener('input', event => {
+        ensureGlanceOverridesV154(docId)[event.target.dataset.glanceDraftField] = event.target.value;
+        document.querySelector('#save-status').textContent = 'Draft not saved';
+        renderPreview();
+      });
+    });
+    panel.querySelector('#restore-glance-values-v154')?.addEventListener('click', () => {
+      if (!confirm('Restore all Application at a glance values from the linked client and application data?')) return;
+      delete state.glanceValueOverrides?.[docId];
+      document.querySelector('#save-status').textContent = 'Draft not saved';
+      renderClientForm();
+      renderPreview();
+      showToast('Application at a glance values restored');
+    });
+  }
+
+  const renderClientFormBeforeV154 = renderClientForm;
+  renderClientForm = function () {
+    document.querySelector('#client-glance-editor-v154')?.remove();
+    renderClientFormBeforeV154();
+    const host = document.querySelector('#client-form');
+    if (!host) return;
+    host.insertAdjacentHTML('afterend', glanceDraftEditorV154());
+    bindGlanceDraftEditorV154();
+  };
+
+  const editCandidatesBeforeV154 = editCandidates;
+  editCandidates = function (root) {
+    const existing = editCandidatesBeforeV154(root);
+    const extra = [...root.querySelectorAll([
+      '.application-glance-page .glance-title',
+      '.application-glance-page .glance-intro',
+      '.application-glance-page .glance-item-label',
+      '.application-glance-page .priority-eyebrow',
+      '.application-glance-page .priority-title',
+      '.application-glance-page .priority-text',
+      '.application-glance-page .glance-use-eyebrow',
+      '.application-glance-page .glance-use-title',
+      '.application-glance-page .glance-use-item-title',
+      '.application-glance-page .glance-use-item-text'
+    ].join(','))];
+    return [...new Set([...existing, ...extra])];
+  };
+
+  function bindGlanceValuePreviewV154(node, docId, makeEditable) {
+    const key = node.dataset.glanceValueKey;
+    if (!key) return;
+    node.classList.add('inline-editable', 'glance-value-editable-v154');
+    const overrides = ensureGlanceOverridesV154(docId);
+    if (Object.prototype.hasOwnProperty.call(overrides, key)) node.classList.add('edited-for-client');
+    node.contentEditable = makeEditable ? 'true' : 'false';
+    node.spellcheck = makeEditable;
+    if (!makeEditable) return;
+    node.addEventListener('keydown', event => {
+      if (event.key === 'Enter') { event.preventDefault(); node.blur(); }
+      if (event.key === 'Escape') { event.preventDefault(); renderPreview(); }
+    });
+    node.addEventListener('input', () => { document.querySelector('#save-status').textContent = 'Unsaved text edits'; });
+    node.addEventListener('blur', () => {
+      ensureGlanceOverridesV154(docId)[key] = (node.innerText || node.textContent || '').replace(/\s+/g, ' ').trim();
+      document.querySelector('#save-status').textContent = 'Draft not saved';
+      renderClientForm();
+      renderPreview();
+    });
+  }
+
+  const applyInlineEditsBeforeV154 = applyInlineEdits;
+  applyInlineEdits = function (root, docId, makeEditable = false) {
+    applyInlineEditsBeforeV154(root, docId, makeEditable);
+    root.querySelectorAll('.application-glance-page [data-glance-value-key]').forEach(node => bindGlanceValuePreviewV154(node, docId, makeEditable));
+  };
+
+  renderAll();
+})();
+
+
 
 (function(){
   const CRM_ORIGIN = window.location.origin;
@@ -2634,7 +2800,7 @@ bindEvents();
       next.client.requiredFor=standaloneLabel;
     }
     next.policeClearances=[];
-    next.preparedDate=new Date().toISOString().slice(0,10);
+    next.preparedDate=thisNzIsoDate();
     next.contentStatus='Draft - adviser review required';
     return next;
   }
@@ -2722,6 +2888,15 @@ bindEvents();
       workspaceDrafts[activePackId]=createBlankPack(activePackId,payload.client||null,payload.advisers||[],payload.instructionSet?.standaloneLabel||'');
     }
     state=workspaceDrafts[activePackId];
+    const instructionCreatedAt = payload.instructionSet?.createdAt || payload.instructionSet?.created_at || '';
+    if (instructionCreatedAt) {
+      const created = new Date(instructionCreatedAt);
+      if (!Number.isNaN(created.getTime())) {
+        const utcDate = created.toISOString().slice(0, 10);
+        const nzDate = thisNzIsoDate(created);
+        if (!state.preparedDate || state.preparedDate === utcDate) state.preparedDate = nzDate;
+      }
+    }
     if(payload.client){
       const mappedClient=mapCrmClient(payload.client,payload.advisers||[]);
       state.client={...(state.client||{})};

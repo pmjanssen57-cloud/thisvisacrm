@@ -844,6 +844,59 @@ button { cursor: pointer; }
 }
 </style>
 
+
+<style id="instructions-glance-v154-style">
+/* v0.15.4 — clean, editable application summary */
+.client-glance-editor-v154 { margin: 18px 0 4px; border: 1px solid #d7e9e2; border-radius: 14px; background: #fbfefd; overflow: hidden; }
+.client-glance-editor-v154 > summary { list-style: none; cursor: pointer; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: linear-gradient(135deg,#eefaf5,#f9fdfb); color: var(--ink); font-weight: 850; }
+.client-glance-editor-v154 > summary::-webkit-details-marker { display: none; }
+.client-glance-editor-v154 > summary::after { content: '⌄'; color: var(--mint-dark); font-size: 18px; transition: transform .18s ease; }
+.client-glance-editor-v154[open] > summary::after { transform: rotate(180deg); }
+.client-glance-editor-v154 > summary .status-chip { margin-left: auto; }
+.client-glance-editor-body-v154 { padding: 16px; border-top: 1px solid #deece7; }
+.client-glance-editor-body-v154 > .field-help { margin: 0 0 14px; }
+.client-glance-grid-v154 { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.client-glance-grid-v154 .form-section { margin: 0; }
+.client-glance-grid-v154 .wide { grid-column: 1 / -1; }
+.client-glance-actions-v154 { display: flex; justify-content: flex-end; margin-top: 14px; padding-top: 13px; border-top: 1px solid #e0ece8; }
+
+.application-glance-page .pdf-page-inner { padding: 42px 44px 38px; }
+.application-glance-page .glance-kicker { margin-bottom: 10px; padding: 6px 10px; }
+.application-glance-page .glance-title { margin-bottom: 7px; font-size: 32px; }
+.application-glance-page .glance-intro { max-width: 90%; margin-bottom: 16px; font-size: 12.5px; line-height: 1.42; }
+.application-glance-page .glance-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; margin-bottom: 13px; }
+.application-glance-page .glance-item { min-height: 0; padding: 10px 12px 11px; border-radius: 11px; box-shadow: 0 3px 10px rgba(7,61,57,.035); overflow: visible; }
+.application-glance-page .glance-item-strategy,
+.application-glance-page .glance-item-adviser { grid-column: 1 / -1; }
+.application-glance-page .glance-item-head { margin-bottom: 6px; }
+.application-glance-page .glance-item-icon { width: 21px; height: 21px; border-radius: 6px; font-size: 8px; }
+.application-glance-page .glance-item-label { font-size: 7.5px; }
+.application-glance-page .glance-item-value { display: block; font-size: 11.25px; line-height: 1.32; overflow-wrap: anywhere; white-space: normal; }
+.application-glance-page .glance-item-strategy .glance-item-value { font-size: 10.75px; line-height: 1.35; }
+.application-glance-page .priority-panel { padding: 12px 15px; border-radius: 0 12px 12px 0; }
+.application-glance-page .priority-panel-head { margin-bottom: 7px; }
+.application-glance-page .priority-panel h3 { font-size: 14px; }
+.application-glance-page .priority-panel-mark { width: 30px; height: 30px; border-radius: 9px; }
+.application-glance-page .priority-list { gap: 5px; }
+.application-glance-page .priority-list li { grid-template-columns: 22px 1fr; gap: 8px; font-size: 10.25px; line-height: 1.32; }
+.application-glance-page .priority-list li span { width: 22px; height: 22px; font-size: 9px; }
+.application-glance-page .glance-use-panel { margin-top: 11px; padding-top: 10px; }
+.application-glance-page .glance-use-head { margin-bottom: 7px; }
+.application-glance-page .glance-use-head strong { font-size: 12.5px; }
+.application-glance-page .glance-use-grid { gap: 7px; }
+.application-glance-page .glance-use-item { grid-template-columns: 21px 1fr; gap: 7px; padding: 7px 8px; border-radius: 8px; }
+.application-glance-page .glance-use-number { width: 21px; height: 21px; border-radius: 7px; font-size: 8px; }
+.application-glance-page .glance-use-item strong { font-size: 9.5px; }
+.application-glance-page .glance-use-item p { font-size: 8.25px; line-height: 1.3; }
+.preview-root.edit-mode .glance-value-editable-v154 { outline-style: solid; }
+
+@media screen and (max-width: 680px) { .client-glance-grid-v154 { grid-template-columns: 1fr; } .client-glance-grid-v154 .wide { grid-column: auto; } }
+@media print {
+  .application-glance-page .pdf-page-inner { padding: 12mm 12mm 11mm !important; }
+  .application-glance-page .glance-grid { grid-template-columns: repeat(2,minmax(0,1fr)) !important; }
+}
+</style>
+
 </head>
 <body>
   <div class="app-shell">
