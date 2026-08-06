@@ -1108,6 +1108,7 @@ export default function App() {
   const [chatDrawerOpen, setChatDrawerOpen] = useState(false);
   const [chatSelectedId, setChatSelectedId] = useState('');
   const [chatSnapshot, setChatSnapshot] = useState({ conversations: [], selectedConversation: null, messages: [], events: [], counts: { waiting: 0, mine: 0, active: 0, unread: 0 }, settings: null, availability: null, actor: null, emailConfigured: false, refreshedAt: '' });
+  const [chatPollingWakeKey, setChatPollingWakeKey] = useState(0);
   const [chatBusy, setChatBusy] = useState(false);
   const [chatError, setChatError] = useState('');
   const [newMenuOpen, setNewMenuOpen] = useState(false);
@@ -1585,7 +1586,12 @@ export default function App() {
       if (requestId < chatRefreshAppliedRef.current) return body;
       chatRefreshAppliedRef.current = requestId;
       applyChatCounts(body.counts);
-      setChatSnapshot((current) => ({ ...current, counts: { ...current.counts, ...body.counts }, refreshedAt: body.refreshedAt || current.refreshedAt }));
+      setChatSnapshot((current) => ({
+        ...current,
+        counts: { ...current.counts, ...body.counts },
+        availability: body.availability ? { ...(current.availability || {}), ...body.availability } : current.availability,
+        refreshedAt: body.refreshedAt || current.refreshedAt,
+      }));
       return body;
     } catch {
       return null;
@@ -1665,6 +1671,7 @@ export default function App() {
   async function saveLiveChatSettings(settings) {
     const body = await callChatApi('saveSettings', { settings }, { refresh: false });
     await loadChatSnapshot({ silent: true, conversationId: chatSelectedId });
+    setChatPollingWakeKey((current) => current + 1);
     showCrmToast('Live chat settings saved.', 'success');
     return body.settings;
   }
@@ -2400,58 +2407,71 @@ export default function App() {
     if (loading || authRequired || (!identityUser && !accessCode) || !(data.advisers || []).length) return undefined;
     let stopped = false;
     let running = false;
-    let rerun = false;
     let timer = 0;
+    let attentionPolicy = { shouldPoll: true, nextCheckAt: '' };
 
     const schedule = (delayOverride = null) => {
       if (stopped) return;
-      const visible = document.visibilityState === 'visible';
-      const delay = delayOverride ?? (chatDrawerOpen ? (visible ? 3000 : 15000) : (visible ? 10000 : 60000));
       window.clearTimeout(timer);
+      const visible = document.visibilityState === 'visible';
+      let delay = delayOverride;
+      if (delay === null) {
+        if (chatDrawerOpen) {
+          delay = visible ? 3000 : 15000;
+        } else if (attentionPolicy.shouldPoll === false) {
+          const nextCheckAt = Date.parse(attentionPolicy.nextCheckAt || '');
+          if (!Number.isFinite(nextCheckAt)) return;
+          delay = Math.max(5000, Math.min(2140000000, nextCheckAt - Date.now() + 2000));
+        } else {
+          delay = visible ? 10000 : 60000;
+        }
+      }
       timer = window.setTimeout(refresh, delay);
     };
 
     const refresh = async () => {
       window.clearTimeout(timer);
-      if (stopped) return;
-      if (running) {
-        rerun = true;
-        return;
-      }
+      if (stopped || running) return;
       running = true;
       try {
-        if (chatDrawerOpen) await loadChatSnapshot({ silent: true, conversationId: chatSelectedId });
-        else await loadChatAttention();
+        if (chatDrawerOpen) {
+          await loadChatSnapshot({ silent: true, conversationId: chatSelectedId });
+        } else {
+          const result = await loadChatAttention();
+          if (result?.polling) attentionPolicy = result.polling;
+        }
       } finally {
         running = false;
-        if (rerun) {
-          rerun = false;
-          schedule(250);
-        } else {
-          schedule();
-        }
+        schedule();
       }
     };
 
     const wake = () => {
       window.clearTimeout(timer);
-      refresh();
+      if (!running) refresh();
+    };
+
+    const handleVisibilityChange = () => {
+      window.clearTimeout(timer);
+      if (document.visibilityState === 'visible') wake();
+      else schedule();
     };
 
     refresh();
     window.addEventListener('focus', wake);
     window.addEventListener('online', wake);
-    document.addEventListener('visibilitychange', wake);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       stopped = true;
       window.clearTimeout(timer);
       window.removeEventListener('focus', wake);
       window.removeEventListener('online', wake);
-      document.removeEventListener('visibilitychange', wake);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-    // The closed drawer uses a lightweight attention endpoint; the open drawer refreshes the full conversation workspace.
+    // During configured hours, or while waiting/active chats exist, the closed drawer uses the lightweight attention endpoint.
+    // Outside hours with no open work, polling sleeps until the next opening time and wakes on focus, visibility or reconnection.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, authRequired, identityUser?.id, identityUser?.email, accessCode, chatDrawerOpen, chatSelectedId, data.advisers.length]);
+  }, [loading, authRequired, identityUser?.id, identityUser?.email, accessCode, chatDrawerOpen, chatSelectedId, chatPollingWakeKey, data.advisers.length]);
 
   useEffect(() => {
     if (loading || authRequired || chatDeepLinkHandledRef.current) return;
@@ -8912,7 +8932,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const dayRows = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']];
-  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.14.3" data-title="Chat with us" defer><\/script>`;
+  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.14.5" data-title="Chat with us" defer><\/script>`;
 
   useEffect(() => {
     if (!open) return;
@@ -11896,7 +11916,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.14.3" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.14.5" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
         </div>
       )}
     </div>
@@ -12392,7 +12412,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.14.3" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.14.5" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
         </div>
       )}
     </div>

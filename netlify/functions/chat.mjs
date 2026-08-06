@@ -254,6 +254,7 @@ function publicStatusPayload(settings) {
     reason: availability.reason,
     message: availability.isOpen ? settings.welcomeMessage : settings.offlineMessage,
     nextOpenLabel: availability.nextOpenLabel,
+    nextOpenAt: availability.nextOpenAt,
     privacyUrl: settings.privacyUrl,
     categories: PUBLIC_CATEGORIES,
     timezone: settings.timezone,
@@ -261,17 +262,25 @@ function publicStatusPayload(settings) {
 }
 
 function getAvailability(settings, now) {
-  if (!settings.enabled) return { isOpen: false, reason: 'paused', nextOpenLabel: '' };
+  if (!settings.enabled) return { isOpen: false, reason: 'paused', nextOpenLabel: '', nextOpenAt: '' };
   const local = localParts(now, settings.timezone);
   const away = settings.awayDates.find((item) => item.date === local.date);
-  if (away) return { isOpen: false, reason: away.label || 'away day', nextOpenLabel: findNextOpen(settings, now) };
+  if (away) {
+    const nextOpen = findNextOpen(settings, now);
+    return { isOpen: false, reason: away.label || 'away day', nextOpenLabel: nextOpen.label, nextOpenAt: nextOpen.at };
+  }
   const hours = settings.weeklyHours[local.dayKey];
-  if (!hours?.enabled) return { isOpen: false, reason: 'outside hours', nextOpenLabel: findNextOpen(settings, now) };
+  if (!hours?.enabled) {
+    const nextOpen = findNextOpen(settings, now);
+    return { isOpen: false, reason: 'outside hours', nextOpenLabel: nextOpen.label, nextOpenAt: nextOpen.at };
+  }
   const currentMinutes = timeToMinutes(local.time);
   const startMinutes = timeToMinutes(hours.start);
   const endMinutes = timeToMinutes(hours.end);
   const isOpen = currentMinutes >= startMinutes && currentMinutes < endMinutes;
-  return { isOpen, reason: isOpen ? 'open' : 'outside hours', nextOpenLabel: isOpen ? '' : findNextOpen(settings, now) };
+  if (isOpen) return { isOpen: true, reason: 'open', nextOpenLabel: '', nextOpenAt: '' };
+  const nextOpen = findNextOpen(settings, now);
+  return { isOpen: false, reason: 'outside hours', nextOpenLabel: nextOpen.label, nextOpenAt: nextOpen.at };
 }
 
 function findNextOpen(settings, now) {
@@ -281,11 +290,12 @@ function findNextOpen(settings, now) {
     const hours = settings.weeklyHours[local.dayKey];
     const away = settings.awayDates.some((item) => item.date === local.date);
     if (!hours?.enabled || away) continue;
-    if (offset === 0 && timeToMinutes(local.time) >= timeToMinutes(hours.end)) continue;
+    const openingAt = localDateTimeToUtc(local.date, hours.start, settings.timezone);
+    if (!openingAt || openingAt.getTime() <= now.getTime()) continue;
     const dayLabel = offset === 0 ? 'today' : offset === 1 ? 'tomorrow' : new Intl.DateTimeFormat('en-NZ', { timeZone: settings.timezone, weekday: 'long', day: 'numeric', month: 'short' }).format(candidate);
-    return `${dayLabel} at ${formatClock(hours.start)}`;
+    return { label: `${dayLabel} at ${formatClock(hours.start)}`, at: openingAt.toISOString() };
   }
-  return '';
+  return { label: '', at: '' };
 }
 
 async function startConversation(input, settings, event) {
@@ -378,31 +388,64 @@ async function closeVisitorConversation(input, event) {
 
 async function staffAttention(actor) {
   const rows = await db().sql`
+    WITH chat_counts AS (
+      SELECT
+        (COUNT(*) FILTER (WHERE c.status IN ('Waiting', 'Offline') AND c.assigned_adviser_id IS NULL))::int AS waiting,
+        (COUNT(*) FILTER (WHERE c.status = 'Active' AND c.assigned_adviser_id = ${actor.id}))::int AS mine,
+        (COUNT(*) FILTER (WHERE c.status = 'Active'))::int AS active,
+        (COUNT(*) FILTER (
+          WHERE c.status = 'Active'
+            AND c.assigned_adviser_id = ${actor.id}
+            AND (c.adviser_last_seen_at IS NULL OR c.last_message_at > c.adviser_last_seen_at)
+            AND (
+              SELECT m.sender_type
+              FROM live_chat_messages m
+              WHERE m.conversation_id = c.id AND m.is_internal = FALSE
+              ORDER BY m.created_at DESC
+              LIMIT 1
+            ) = 'visitor'
+        ))::int AS unread
+      FROM live_chat_conversations c
+      WHERE c.status IN ('Waiting', 'Offline', 'Active')
+    )
     SELECT
-      (COUNT(*) FILTER (WHERE c.status IN ('Waiting', 'Offline') AND c.assigned_adviser_id IS NULL))::int AS waiting,
-      (COUNT(*) FILTER (WHERE c.status = 'Active' AND c.assigned_adviser_id = ${actor.id}))::int AS mine,
-      (COUNT(*) FILTER (WHERE c.status = 'Active'))::int AS active,
-      (COUNT(*) FILTER (
-        WHERE c.status = 'Active'
-          AND c.assigned_adviser_id = ${actor.id}
-          AND (c.adviser_last_seen_at IS NULL OR c.last_message_at > c.adviser_last_seen_at)
-          AND (
-            SELECT m.sender_type
-            FROM live_chat_messages m
-            WHERE m.conversation_id = c.id AND m.is_internal = FALSE
-            ORDER BY m.created_at DESC
-            LIMIT 1
-          ) = 'visitor'
-      ))::int AS unread
-    FROM live_chat_conversations c
-    WHERE c.status IN ('Waiting', 'Offline', 'Active')`;
-  const counts = rows[0] || {};
+      chat_counts.*,
+      settings.enabled AS settings_enabled,
+      settings.timezone AS settings_timezone,
+      settings.weekly_hours AS settings_weekly_hours,
+      settings.away_dates AS settings_away_dates
+    FROM chat_counts
+    CROSS JOIN live_chat_settings settings
+    WHERE settings.id = 'master'
+    LIMIT 1`;
+  const row = rows[0] || {};
+  const counts = {
+    waiting: Number(row.waiting || 0),
+    mine: Number(row.mine || 0),
+    active: Number(row.active || 0),
+    unread: Number(row.unread || 0),
+  };
+  const settings = {
+    enabled: row.settings_enabled !== false,
+    timezone: cleanTimezone(row.settings_timezone),
+    weeklyHours: normaliseWeeklyHours(row.settings_weekly_hours),
+    awayDates: normaliseAwayDates(row.settings_away_dates),
+  };
+  const availability = getAvailability(settings, new Date());
+  const hasOpenWork = counts.waiting > 0 || counts.active > 0;
+  const shouldPoll = availability.isOpen || hasOpenWork;
   return {
-    counts: {
-      waiting: Number(counts.waiting || 0),
-      mine: Number(counts.mine || 0),
-      active: Number(counts.active || 0),
-      unread: Number(counts.unread || 0),
+    counts,
+    availability: {
+      isOpen: availability.isOpen,
+      reason: availability.reason,
+      nextOpenLabel: availability.nextOpenLabel,
+      nextOpenAt: availability.nextOpenAt,
+    },
+    polling: {
+      shouldPoll,
+      reason: availability.isOpen ? 'open-hours' : hasOpenWork ? 'open-conversations' : availability.reason,
+      nextCheckAt: shouldPoll ? '' : availability.nextOpenAt,
     },
     refreshedAt: new Date().toISOString(),
   };
@@ -884,7 +927,33 @@ function localParts(date, timezone) {
     hourCycle: 'h23',
   }).formatToParts(date).reduce((acc, part) => ({ ...acc, [part.type]: part.value }), {});
   const dayKey = String(parts.weekday || '').slice(0, 3).toLowerCase();
-  return { dayKey: DAY_KEYS.includes(dayKey) ? dayKey : 'mon', date: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}` };
+  return {
+    dayKey: DAY_KEYS.includes(dayKey) ? dayKey : 'mon',
+    date: `${parts.year}-${parts.month}-${parts.day}`,
+    time: `${parts.hour}:${parts.minute}`,
+    year: Number(parts.year),
+    month: Number(parts.month),
+    day: Number(parts.day),
+    hour: Number(parts.hour),
+    minute: Number(parts.minute),
+  };
+}
+
+function localDateTimeToUtc(dateValue, timeValue, timezone) {
+  const [year, month, day] = String(dateValue || '').split('-').map(Number);
+  const [hour, minute] = String(timeValue || '').split(':').map(Number);
+  if (![year, month, day, hour, minute].every(Number.isFinite)) return null;
+  const targetAsUtc = Date.UTC(year, month - 1, day, hour, minute);
+  let timestamp = targetAsUtc;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const represented = localParts(new Date(timestamp), timezone);
+    const representedAsUtc = Date.UTC(represented.year, represented.month - 1, represented.day, represented.hour, represented.minute);
+    const adjustment = targetAsUtc - representedAsUtc;
+    timestamp += adjustment;
+    if (Math.abs(adjustment) < 60000) break;
+  }
+  const result = new Date(timestamp);
+  return Number.isNaN(result.getTime()) ? null : result;
 }
 
 function cleanTimezone(value) {

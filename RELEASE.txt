@@ -1,14 +1,8 @@
-v0.14.3 - Closed Chat Cleanup and Client Lifecycle Controls
+v0.14.5 - Live Chat Delete Confirmation Layer Fix
 
-- Added a permanent Delete action for closed website-chat conversations.
-- Closed chat deletion removes the conversation, messages, internal notes and chat audit events through the existing cascading database relationships.
-- Deletion is restricted to closed chats and is available to the assigned adviser, an unassigned chat owner context, or an administrator.
-- A linked Enquiries & Intake record is retained when its originating chat is deleted.
-- Added an explicit Close client action under the client record More menu, with a matching Reopen client action.
-- Closing a client retains the complete client record, timeline, dates, documents, billing history, portal data, instructions and agreements.
-- Closed clients are excluded from dashboard/task generation, including next actions, client deadlines, document expiries, linked personal tasks, linked calendar appointments and dashboard billing signals.
-- Reopening a client reactivates the saved dates and linked work without recreating them.
-- Closed records remain searchable in the Clients workspace and are clearly marked with a Closed badge and status banner.
-- Added contextual Help guidance for the client-closing workflow.
-- Updated the service-worker and embedded Studio asset versions so the revised interface loads after deployment.
-- No database migration, dependency change, additional software or subscription is required.
+- Fixed the delete confirmation for closed chats appearing behind the live-chat slideout.
+- Raised the shared CRM confirmation layer above the live-chat drawer, live-chat settings, notifications and other operational popouts.
+- The confirmation backdrop now covers the complete CRM interface while the destructive action is awaiting a decision.
+- The fix applies to all shared CRM confirmation dialogues, preventing the same layering issue in other slideout workspaces.
+- Updated service-worker and embedded asset versions so the corrected styles load after deployment.
+- No database migration, API change, dependency change, additional software or subscription is required.

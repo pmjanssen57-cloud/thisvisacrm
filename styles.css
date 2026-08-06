@@ -9516,9 +9516,11 @@ body.intake-embed-mode .contact-form select {
   text-overflow: ellipsis;
 }
 
-/* v0.13.8 CRM confirmation modal polish */
+/* v0.14.5 CRM confirmation modal layering */
 .crm-confirm-layer {
-  z-index: 140;
+  /* Confirmation must sit above the live-chat drawer (1601), settings (1800),
+     toasts (2200), and other CRM popouts so destructive actions stay visible. */
+  z-index: 11000;
 }
 .crm-confirm-card {
   width: min(520px, 94vw);

@@ -1,20 +1,15 @@
-THiS CRM v0.14.3 validation
+THiS CRM v0.14.5 validation
 
 Validated:
 - App.jsx parses successfully as React JSX using the TypeScript compiler parser.
 - Netlify chat and CRM Functions pass Node syntax checks.
-- The authenticated live-chat Function exposes a deleteClosed action.
-- Only conversations with Closed status can be permanently deleted.
-- Assigned-adviser and administrator permissions are enforced for chat deletion.
-- Existing ON DELETE CASCADE relationships remove chat messages and chat events with the conversation.
-- Linked Enquiries & Intake records are not deleted with the source chat.
-- Client records can be closed or reopened through a dedicated server-side status action.
-- Closing a client does not erase saved record data.
-- Closed clients are excluded from generated next-action, deadline, document-expiry and billing task rows.
-- Personal tasks and calendar appointments linked to closed clients are excluded from dashboard/task queues.
-- Dashboard pending-billing signals use active clients only.
-- Closed clients remain visible and are marked in the Clients workspace.
-- Version references, service-worker cache name and embedded asset query strings are set to v0.14.3.
+- The shared CRM confirmation layer has a z-index above the live-chat overlay and drawer.
+- The closed-chat deletion flow continues to require a danger confirmation before the delete API action runs.
+- The confirmation backdrop and card remain interactive while the live-chat drawer is open.
+- Existing live-chat schedule-aware polling, email notifications, website widget behaviour and client lifecycle controls are unchanged.
+- Version references, service-worker cache name and embedded asset query strings are set to v0.14.5.
 - PWA validation and ZIP integrity checks pass.
 
-No new database migration or dependency change is included.
+No database migration, API change or dependency change is included.
+
+A complete Vite production build could not be run in this environment because the available package registry does not expose the existing @netlify/blobs@10.7.9 dependency. The dependency declaration is unchanged from the deployed baseline.
