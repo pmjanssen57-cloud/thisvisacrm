@@ -1130,6 +1130,8 @@ export default function App() {
   const myDayAutoLaunchRef = useRef(false);
   const myDayDismissedRef = useRef(false);
   const chatWaitingCountRef = useRef(-1);
+  const chatRefreshRequestRef = useRef(0);
+  const chatRefreshAppliedRef = useRef(0);
   const chatDeepLinkHandledRef = useRef(false);
   const festiveActive = isFestiveModeActive(festivePreference);
   const festiveStatus = festiveModeStatus(festivePreference);
@@ -1520,10 +1522,20 @@ export default function App() {
     return { ...authHeaders(accessCode, identityUser), ...(adviserId ? { 'x-crm-adviser-id': adviserId } : {}) };
   }
 
+  function applyChatCounts(counts = {}) {
+    const waitingCount = Number(counts.waiting || 0);
+    if (chatWaitingCountRef.current >= 0 && waitingCount > chatWaitingCountRef.current) {
+      const incoming = waitingCount - chatWaitingCountRef.current;
+      showCrmToast(`${incoming} new website chat${incoming === 1 ? '' : 's'} waiting.`, 'success');
+    }
+    chatWaitingCountRef.current = waitingCount;
+  }
+
   async function loadChatSnapshot(options = {}) {
     const silent = options.silent !== false;
     const conversationId = options.conversationId !== undefined ? options.conversationId : chatSelectedId;
     if (authRequired || (!identityUser && !accessCode)) return null;
+    const requestId = ++chatRefreshRequestRef.current;
     if (!silent) setChatBusy(true);
     try {
       const query = new URLSearchParams({ action: 'staffSnapshot' });
@@ -1539,11 +1551,9 @@ export default function App() {
         return null;
       }
       if (!response.ok) throw new Error(formatApiError(body, 'Unable to refresh live chat'));
-      const waitingCount = Number(body.counts?.waiting || 0);
-      if (chatWaitingCountRef.current >= 0 && waitingCount > chatWaitingCountRef.current) {
-        showCrmToast(`${waitingCount - chatWaitingCountRef.current} new website chat${waitingCount - chatWaitingCountRef.current === 1 ? '' : 's'} waiting.`, 'success');
-      }
-      chatWaitingCountRef.current = waitingCount;
+      if (requestId < chatRefreshAppliedRef.current) return body;
+      chatRefreshAppliedRef.current = requestId;
+      applyChatCounts(body.counts);
       setChatSnapshot(body);
       setChatError('');
       if (conversationId && !body.selectedConversation && chatSelectedId === conversationId) setChatSelectedId('');
@@ -1553,6 +1563,31 @@ export default function App() {
       return null;
     } finally {
       if (!silent) setChatBusy(false);
+    }
+  }
+
+  async function loadChatAttention() {
+    if (authRequired || (!identityUser && !accessCode)) return null;
+    const requestId = ++chatRefreshRequestRef.current;
+    try {
+      const response = await fetch('/.netlify/functions/chat?action=staffAttention', {
+        headers: chatAuthHeaders(),
+        credentials: 'same-origin',
+        cache: 'no-store',
+      });
+      const body = await readJsonResponse(response);
+      if (response.status === 401) {
+        setAuthRequired(true);
+        return null;
+      }
+      if (!response.ok) throw new Error(formatApiError(body, 'Unable to check live chat'));
+      if (requestId < chatRefreshAppliedRef.current) return body;
+      chatRefreshAppliedRef.current = requestId;
+      applyChatCounts(body.counts);
+      setChatSnapshot((current) => ({ ...current, counts: { ...current.counts, ...body.counts }, refreshedAt: body.refreshedAt || current.refreshedAt }));
+      return body;
+    } catch {
+      return null;
     }
   }
 
@@ -1709,6 +1744,7 @@ export default function App() {
     setChatSelectedId('');
     setChatSnapshot({ conversations: [], selectedConversation: null, messages: [], events: [], counts: { waiting: 0, mine: 0, active: 0, unread: 0 }, settings: null, availability: null, actor: null, emailConfigured: false, refreshedAt: '' });
     chatWaitingCountRef.current = -1;
+    chatRefreshAppliedRef.current = ++chatRefreshRequestRef.current;
     chatDeepLinkHandledRef.current = false;
     setAuthRequired(true);
     setData(emptyData);
@@ -2312,18 +2348,58 @@ export default function App() {
 
   useEffect(() => {
     if (loading || authRequired || (!identityUser && !accessCode) || !(data.advisers || []).length) return undefined;
-    loadChatSnapshot({ silent: true, conversationId: chatSelectedId });
-    const intervalMs = chatDrawerOpen ? 4000 : 30000;
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') loadChatSnapshot({ silent: true, conversationId: chatDrawerOpen ? chatSelectedId : '' });
-    }, intervalMs);
-    const onFocus = () => loadChatSnapshot({ silent: true, conversationId: chatDrawerOpen ? chatSelectedId : '' });
-    window.addEventListener('focus', onFocus);
-    return () => {
-      window.clearInterval(timer);
-      window.removeEventListener('focus', onFocus);
+    let stopped = false;
+    let running = false;
+    let rerun = false;
+    let timer = 0;
+
+    const schedule = (delayOverride = null) => {
+      if (stopped) return;
+      const visible = document.visibilityState === 'visible';
+      const delay = delayOverride ?? (chatDrawerOpen ? (visible ? 3000 : 15000) : (visible ? 10000 : 60000));
+      window.clearTimeout(timer);
+      timer = window.setTimeout(refresh, delay);
     };
-    // Live chat polling follows the active authenticated CRM session.
+
+    const refresh = async () => {
+      window.clearTimeout(timer);
+      if (stopped) return;
+      if (running) {
+        rerun = true;
+        return;
+      }
+      running = true;
+      try {
+        if (chatDrawerOpen) await loadChatSnapshot({ silent: true, conversationId: chatSelectedId });
+        else await loadChatAttention();
+      } finally {
+        running = false;
+        if (rerun) {
+          rerun = false;
+          schedule(250);
+        } else {
+          schedule();
+        }
+      }
+    };
+
+    const wake = () => {
+      window.clearTimeout(timer);
+      refresh();
+    };
+
+    refresh();
+    window.addEventListener('focus', wake);
+    window.addEventListener('online', wake);
+    document.addEventListener('visibilitychange', wake);
+    return () => {
+      stopped = true;
+      window.clearTimeout(timer);
+      window.removeEventListener('focus', wake);
+      window.removeEventListener('online', wake);
+      document.removeEventListener('visibilitychange', wake);
+    };
+    // The closed drawer uses a lightweight attention endpoint; the open drawer refreshes the full conversation workspace.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, authRequired, identityUser?.id, identityUser?.email, accessCode, chatDrawerOpen, chatSelectedId, data.advisers.length]);
 
@@ -2438,7 +2514,7 @@ export default function App() {
         <div className="top-actions desktop-only">
           <PwaInstallButton className="btn ghost compact-action pwa-install-button" label="Install app" />
           <button className="btn ghost compact-action crm-my-day-link" type="button" onClick={() => switchTab('home')}><CloudSun size={16} />My Day</button>
-          <button className={`btn ghost compact-action live-chat-header-button ${liveChatAttentionCount > 0 ? 'has-waiting' : ''}`} type="button" onClick={() => openChatDrawer()}><MessageSquare size={16} />Chat{liveChatAttentionCount > 0 && <span className="live-chat-header-badge">{liveChatAttentionCount}</span>}</button>
+          <button className={`btn ghost compact-action live-chat-header-button ${liveChatAttentionCount > 0 ? 'has-waiting' : ''}`} type="button" onClick={() => openChatDrawer()}><MessageSquare size={16} />Chat{liveChatAttentionCount > 0 && <span key={liveChatAttentionCount} className="live-chat-header-badge" aria-live="polite">{liveChatAttentionCount}</span>}</button>
           <button className="btn ghost compact-action" onClick={() => { setSupportOpen(false); setToolsOpen(true); setNewMenuOpen(false); }}><Wrench size={16} />Tools</button>
           <div className="dropdown-shell new-action-shell">
             <button className="btn dark" type="button" onClick={() => setNewMenuOpen((open) => !open)}><Plus size={16} />New <ChevronDown size={15} /></button>
@@ -2457,7 +2533,7 @@ export default function App() {
         <div className="mobile-header-actions mobile-only">
           <PwaInstallButton className="btn ghost pwa-install-button mobile-pwa-install" label="Install" />
           <button className="btn ghost" type="button" onClick={() => switchTab('home')}><CloudSun size={16} />My Day</button>
-          <button className={`btn ghost live-chat-mobile-button ${liveChatAttentionCount > 0 ? 'has-waiting' : ''}`} type="button" onClick={() => openChatDrawer()}><MessageSquare size={16} />Chat{liveChatAttentionCount > 0 && <span className="live-chat-header-badge">{liveChatAttentionCount}</span>}</button>
+          <button className={`btn ghost live-chat-mobile-button ${liveChatAttentionCount > 0 ? 'has-waiting' : ''}`} type="button" onClick={() => openChatDrawer()}><MessageSquare size={16} />Chat{liveChatAttentionCount > 0 && <span key={liveChatAttentionCount} className="live-chat-header-badge" aria-live="polite">{liveChatAttentionCount}</span>}</button>
           <button className="btn ghost" onClick={() => { setSupportOpen(false); setToolsOpen(true); }}><Wrench size={16} />Tools</button>
         </div>
       </header>
@@ -8782,7 +8858,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const dayRows = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']];
-  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js" data-title="Chat with us" defer><\/script>`;
+  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.14.2" data-title="Chat with us" defer><\/script>`;
 
   useEffect(() => {
     if (!open) return;
@@ -11766,7 +11842,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.14.1" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.14.2" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
         </div>
       )}
     </div>
@@ -12262,7 +12338,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.14.1" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.14.2" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
         </div>
       )}
     </div>

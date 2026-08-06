@@ -1,6 +1,6 @@
-THiS CRM v0.14.1 - LIVE CHAT DEPLOYMENT GUIDE
+THiS CRM v0.14.2 - LIVE CHAT DEPLOYMENT GUIDE
 
-1. Deploy the complete v0.14.1 package to the existing Netlify site.
+1. Deploy the complete v0.14.2 package to the existing Netlify site.
 
 2. In Netlify environment variables, add:
    LIVE_CHAT_SESSION_SECRET
@@ -32,6 +32,9 @@ THiS CRM v0.14.1 - LIVE CHAT DEPLOYMENT GUIDE
    - Open the website while within configured hours.
    - Start a chat with a test name and email.
    - Confirm one notification email is received.
+   - Confirm the CRM header badge appears within about 10 seconds without opening the chat drawer.
+   - Confirm returning focus to the CRM triggers an immediate badge check.
+   - Confirm the public launcher shows Online now during open hours and Leave a message outside hours.
    - Open CRM > Chat and claim the conversation.
    - Exchange visitor and adviser messages.
    - Add an internal note and confirm it is not shown to the visitor.

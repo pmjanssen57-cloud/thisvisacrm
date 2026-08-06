@@ -83,6 +83,7 @@ async function handleChatEvent(event) {
     const actor = await resolveStaffActor(auth, event.headers || {});
     if (!actor?.id) return json({ error: 'A CRM adviser profile is required for live chat.' }, 403, origin);
 
+    if (action === 'staffAttention') return json(await staffAttention(actor), 200, origin);
     if (action === 'staffSnapshot') {
       const conversationId = cleanUuid(url.searchParams.get('conversationId') || body.conversationId);
       return json(await staffSnapshot(actor, conversationId), 200, origin);
@@ -372,6 +373,38 @@ async function closeVisitorConversation(input, event) {
   if (!rows[0]) throw httpError(404, 'Chat conversation not found.');
   await logEvent(conversationId, 'closed_by_visitor', rows[0].visitor_name, {});
   return { conversation: mapConversation(rows[0]) };
+}
+
+async function staffAttention(actor) {
+  const rows = await db().sql`
+    SELECT
+      (COUNT(*) FILTER (WHERE c.status IN ('Waiting', 'Offline') AND c.assigned_adviser_id IS NULL))::int AS waiting,
+      (COUNT(*) FILTER (WHERE c.status = 'Active' AND c.assigned_adviser_id = ${actor.id}))::int AS mine,
+      (COUNT(*) FILTER (WHERE c.status = 'Active'))::int AS active,
+      (COUNT(*) FILTER (
+        WHERE c.status = 'Active'
+          AND c.assigned_adviser_id = ${actor.id}
+          AND (c.adviser_last_seen_at IS NULL OR c.last_message_at > c.adviser_last_seen_at)
+          AND (
+            SELECT m.sender_type
+            FROM live_chat_messages m
+            WHERE m.conversation_id = c.id AND m.is_internal = FALSE
+            ORDER BY m.created_at DESC
+            LIMIT 1
+          ) = 'visitor'
+      ))::int AS unread
+    FROM live_chat_conversations c
+    WHERE c.status IN ('Waiting', 'Offline', 'Active')`;
+  const counts = rows[0] || {};
+  return {
+    counts: {
+      waiting: Number(counts.waiting || 0),
+      mine: Number(counts.mine || 0),
+      active: Number(counts.active || 0),
+      unread: Number(counts.unread || 0),
+    },
+    refreshedAt: new Date().toISOString(),
+  };
 }
 
 async function staffSnapshot(actor, selectedConversationId = '') {

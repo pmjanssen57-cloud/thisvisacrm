@@ -1,8 +1,12 @@
-v0.14.1 - Live Chat Settings Panel Fix
+v0.14.2 - Live Chat Attention and Website Launcher Refresh
 
-- Fixed Tools > Live chat settings appearing to do nothing.
-- Replaced the unstyled settings lightbox wrapper with the CRM shared modal layer, backdrop, card and header components.
-- The Tools drawer now closes as the settings panel opens, preventing overlapping drawer and modal layers.
-- Preserved all v0.14.0 native live-chat, CRM, Studio, intake, email, signing, print and festive functionality.
-- Updated service-worker and embedded Studio asset versions so the corrected interface is fetched after deployment.
-- No database migration, API change or dependency change.
+- Added a lightweight staff-attention endpoint for reliable waiting and unread chat counts without repeatedly loading the full chat workspace.
+- CRM header attention checks now run every 10 seconds while visible, immediately on focus, visibility return and network reconnection, and at a reduced interval while hidden.
+- Full chat conversations continue to refresh more frequently while the Live Chat drawer is open.
+- Added stale-response protection so a delayed older request cannot overwrite newer chat counts or remove a newly displayed badge.
+- The CRM chat badge now animates when its count changes and retains the highlighted header treatment while attention is required.
+- Refreshed the public website launcher with a stronger THiS-aligned teal and mint treatment, an elevated icon medallion, a restrained outer halo and clearer depth.
+- The website launcher now checks opening status and displays either Online now or Leave a message without requiring the visitor to open the panel.
+- Preserved the floating desktop overlay and full-screen mobile chat behaviour.
+- Updated service-worker and embedded asset versions so the revised badge and launcher are fetched after deployment.
+- No database migration, dependency change or additional subscription is required.

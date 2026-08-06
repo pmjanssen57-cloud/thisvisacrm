@@ -1,8 +1,8 @@
-# THiS CRM v0.14.1 - Native Website Live Chat
+# THiS CRM v0.14.2 - Native Website Live Chat
 
 This build extends the v0.13.60 A4 Studio Print Layout Fix baseline with a native website live-chat and after-hours message channel. It uses the existing Netlify deployment, Netlify Database, Netlify Identity and Microsoft Graph email configuration. No additional SaaS product or subscription is required.
 
-This v0.14.1 maintenance release fixes the Tools > Live chat settings control so it opens the full settings modal correctly and closes the Tools drawer behind it.
+This v0.14.2 maintenance release makes the CRM chat badge more reliable and refreshes the public website launcher. The CRM now uses a lightweight attention check while the chat workspace is closed, refreshes immediately when the browser regains focus, and rejects stale responses that could otherwise remove a newly displayed badge. The website launcher now uses a stronger THiS-aligned teal and mint treatment and shows whether chat is online or in message mode.
 
 ## Main workflow
 
@@ -34,7 +34,7 @@ If notification recipients are left blank, the CRM uses the email addresses of a
 After deploying the CRM, open Tools > Live chat settings and copy the generated script. The standard form is:
 
 ```html
-<script src="https://thisvisacrm.netlify.app/live-chat-widget.js" data-title="Chat with us" defer></script>
+<script src="https://thisvisacrm.netlify.app/live-chat-widget.js?v=0.14.2" data-title="Chat with us" defer></script>
 ```
 
 Place it in homepage code injection or a homepage code block. The launcher floats at the bottom-right and opens the chat as an overlay. Add `data-position="left"` to place it on the bottom-left.
@@ -56,4 +56,4 @@ Tools > Live chat settings provides:
 
 The public widget uses signed sessions, domain-isolated iframe rendering, server-side validation, rate limits and plain-text messages. Attachments are not supported. Visitors are warned not to send passport, medical, police or other sensitive documents through live chat.
 
-No existing CRM API contract or package dependency was changed. A database migration is included. Perform one hard refresh after deployment so the v0.14.1 service-worker cache replaces the previous build.
+The original native live-chat database migration remains included. v0.14.2 adds no new migration or dependency and does not alter existing chat records. Perform one hard refresh after deployment so the v0.14.2 service-worker cache replaces the previous build. Refresh the public website once as well so the revised launcher script is fetched.

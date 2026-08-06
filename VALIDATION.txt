@@ -1,12 +1,16 @@
-THiS CRM v0.14.1 validation
+THiS CRM v0.14.2 validation
 
 Validated:
-- Tools > Live chat settings button closes the Tools drawer and opens the settings modal.
-- Live chat settings uses the existing modal layer, backdrop, card, header and action layout classes.
-- Settings content remains scrollable within the viewport.
-- Save and Close actions remain wired to the existing live-chat settings API.
-- v0.14.1 service-worker and Studio asset version references are present.
-- JavaScript module syntax checks pass for Netlify and public JavaScript files.
-- Package ZIP integrity passes.
+- A staffAttention action is available through the authenticated live-chat Function.
+- The attention response returns waiting, mine, active and unread counts without loading full conversation data.
+- The CRM polls attention every 10 seconds while visible and uses slower checks while hidden.
+- Focus, visibility return and browser reconnection trigger an immediate attention check.
+- Full conversation polling remains active while the Live Chat drawer is open.
+- Shared request sequencing prevents an older delayed response from overwriting newer chat counts.
+- CRM header and mobile chat badges animate when their count changes.
+- The Squarespace launcher remains isolated in Shadow DOM and retains desktop overlay and mobile full-screen behaviour.
+- The launcher reads the public status endpoint and displays Online now or Leave a message.
+- JavaScript and JSX syntax checks pass.
+- PWA validation and package ZIP integrity pass.
 
-No database migration, API contract or dependency change is included.
+No new database migration or dependency change is included.
