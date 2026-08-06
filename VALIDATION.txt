@@ -1,16 +1,15 @@
-THiS CRM v0.14.8 validation
+THiS CRM v0.14.9 validation
 
 Validated changes:
-- Live-chat weekly hours accept persisted JSONB whether returned as a database object or JSON text.
-- Successful live-chat settings saves update the CRM state immediately and are verified by a fresh server read.
-- Agreement issue email is registered in the central Email Template Editor with signatory, agreement, secure-link, expiry and adviser placeholders.
-- Agreement issue uses the central template by default while retaining deliberately customised per-agreement wording.
-- Existing v0.14.7 Studio row libraries, CRM save messaging and live-chat presentation remain present.
+- My Day is not called during CRM data load or authentication completion.
+- My Day remains available through the existing desktop and mobile buttons.
+- Login and contextual Help wording describe My Day as optional.
+- Existing v0.14.8 persistent chat schedule, agreement email template, Studio libraries and chat presentation remain present.
 
 Validation completed:
 - App.jsx TypeScript JSX parse passed.
 - Public JavaScript files passed node --check.
-- Netlify chat and CRM function modules passed node --check.
+- Netlify function modules passed node --check.
 - PWA validation passed.
 - Main, Studio and live-chat HTML files passed parser validation.
 - CSS brace validation passed.

@@ -1,7 +1,7 @@
-v0.14.8 - Persistent Chat Schedule and Agreement Email Template
+v0.14.9 - On-demand My Day
 
-- Fixes live-chat weekly hours and enabled days persisting across CRM reloads, including deployments where JSONB values are returned as text.
-- Updates the live-chat settings state immediately after a successful server save and verifies it through a fresh server read.
-- Adds the secure agreement issue email to Tools > Email templates.
-- Supports editable subject, wording, button/link content and placeholders while retaining per-agreement custom wording where deliberately changed.
+- Removes the automatic My Day briefing pop-out after login and CRM reload.
+- Retains My Day as an adviser-invoked button in the desktop header and mobile navigation.
+- Updates the login and Help wording to reflect the optional workflow.
+- Retains all v0.14.8 functionality.
 - No database migration, dependency change, additional software or subscription.

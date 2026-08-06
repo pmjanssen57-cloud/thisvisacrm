@@ -30,7 +30,7 @@ At least one active adviser must remain an Admin.
 
 My Day briefing overlay
 -----------------------
-My Day opens automatically after login as a focused layer above the normal CRM.
+My Day no longer opens automatically after login. Use the My Day button in the CRM header or mobile navigation whenever you want the focused briefing layer.
 The Dashboard is loaded underneath and remains visibly present, but dimmed, until
 My Day is closed.
 

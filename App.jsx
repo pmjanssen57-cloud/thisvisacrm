@@ -312,13 +312,13 @@ const SUPPORT_CONTENT = {
   },
   home: {
     title: 'My day help',
-    summary: 'My Day is the focused briefing overlay shown after login. It sits above the CRM and gives a concise view of overdue work, today’s actions, new enquiries, consultations and recently used client records.',
+    summary: 'My Day is an optional focused briefing that opens only when selected. It gives a concise view of overdue work, today’s actions, new enquiries, consultations and recently used client records without interrupting normal CRM use.',
     sections: [
       { heading: 'Today first', text: 'The action list prioritises overdue items and work due today. Open an item to move directly to the client, calendar entry or full task list.' },
       { heading: 'Quick access', text: 'Use the workspace cards to move into Dashboard, Tasks, Clients, Enquiries & Intake, Calendar or Bookings. Administrators also see a small administration area.' },
       { heading: 'Adviser scope', text: 'The page normally opens in the logged-in adviser’s own scope. Use the Viewing selector to switch to another adviser or the whole practice when required.' },
     ],
-    tips: ['Use My Day as the starting briefing for each work session.', 'Select Enter CRM to dismiss the overlay and open the detailed Dashboard.', 'Reopen My Day from the dedicated header button or mobile navigation without leaving your current CRM workspace.'],
+    tips: ['Open My Day from the dedicated header button or mobile navigation whenever a focused briefing is useful.', 'Select Enter CRM to dismiss the overlay and return to the detailed Dashboard.', 'My Day no longer opens automatically after login.'],
   },
   dashboard: {
     title: 'Dashboard help',
@@ -1129,8 +1129,6 @@ export default function App() {
   const crmConfirmResolverRef = useRef(null);
   const intakeRefreshInFlightRef = useRef(false);
   const dataRef = useRef(emptyData);
-  const myDayAutoLaunchRef = useRef(false);
-  const myDayDismissedRef = useRef(false);
   const chatWaitingCountRef = useRef(-1);
   const chatRefreshRequestRef = useRef(0);
   const chatRefreshAppliedRef = useRef(0);
@@ -1191,27 +1189,6 @@ export default function App() {
     return confirmDiscardClientEdits() && confirmDiscardCalendarEdits();
   }
 
-  function myDaySessionKey(user = identityUser) {
-    const identity = user?.id || user?.email || (accessCode ? 'access-code' : 'session');
-    return `this_crm_my_day_shown:${identity}`;
-  }
-
-  function maybeOpenMyDay(user = identityUser) {
-    if (myDayAutoLaunchRef.current || myDayDismissedRef.current) return;
-    const key = myDaySessionKey(user);
-    try {
-      if (sessionStorage.getItem(key) === '1') {
-        myDayAutoLaunchRef.current = true;
-        return;
-      }
-      sessionStorage.setItem(key, '1');
-    } catch {
-      // The in-memory guard still prevents duplicate launches where session storage is unavailable.
-    }
-    myDayAutoLaunchRef.current = true;
-    setMyDayOpen(true);
-  }
-
   function openMyDay() {
     setMobileMoreOpen(false);
     setMainNavMoreOpen(false);
@@ -1219,7 +1196,6 @@ export default function App() {
   }
 
   function dismissMyDay() {
-    myDayDismissedRef.current = true;
     setMyDayOpen(false);
   }
 
@@ -1361,7 +1337,6 @@ export default function App() {
       setAuthRequired(false);
       if (!selectedClientId && body.clients?.[0]?.id) setSelectedClientId(body.clients[0].id);
       if (!selectedCommercialClientId && body.commercialClients?.[0]?.id) setSelectedCommercialClientId(body.commercialClients[0].id);
-      maybeOpenMyDay(userForRequest);
     } catch (err) {
       setError(err.message || String(err));
     } finally {
@@ -1766,8 +1741,6 @@ export default function App() {
     setPendingCode('');
     setIdentityUser(null);
     identityScopeAppliedRef.current = false;
-    myDayAutoLaunchRef.current = false;
-    myDayDismissedRef.current = false;
     setTab('dashboard');
     setMyDayOpen(false);
     setStudioSection('home');
@@ -8935,7 +8908,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const dayRows = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']];
-  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.14.8" data-title="Chat with us" defer><\/script>`;
+  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.14.9" data-title="Chat with us" defer><\/script>`;
 
   useEffect(() => {
     if (!open) return;
@@ -10305,7 +10278,7 @@ function AccessScreen(props) {
         <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="access-logo" />
         <LockKeyhole size={34} />
         <h1>{isInvite ? 'Set your THiS CRM password' : isRecovery ? 'Choose a new password' : 'THiS CRM login'}</h1>
-        <p>{isInvite ? 'Your Netlify Identity invitation has been recognised. Set a password to finish activating your CRM access.' : isRecovery ? 'Enter a new password to complete the reset process.' : 'Access is restricted to invited THiS users only. After login, My Day opens as a focused briefing overlay above the CRM, with today’s priorities and direct workspace links.'}</p>
+        <p>{isInvite ? 'Your Netlify Identity invitation has been recognised. Set a password to finish activating your CRM access.' : isRecovery ? 'Enter a new password to complete the reset process.' : 'Access is restricted to invited THiS users only. After login, use the My Day button whenever you want a focused briefing of today’s priorities and direct workspace links.'}</p>
 
         {isInvite && (
           <form className="access-form" onSubmit={handleInviteSubmit}>
@@ -11941,7 +11914,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.14.8" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.14.9" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
         </div>
       )}
     </div>
@@ -12455,7 +12428,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.14.8" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.14.9" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
         </div>
       )}
     </div>

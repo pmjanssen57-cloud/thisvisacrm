@@ -86,7 +86,7 @@
   function ensureIframe() {
     if (iframeLoaded) return;
     const url = new URL(`${baseUrl}/live-chat.html`);
-    url.searchParams.set('v', '0.14.8');
+    url.searchParams.set('v', '0.14.9');
     url.searchParams.set('parentOrigin', parentOrigin);
     url.searchParams.set('page', window.location.href);
     iframe.src = url.toString();
