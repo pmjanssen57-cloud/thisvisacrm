@@ -472,6 +472,16 @@ async function handleCrmEvent(event) {
       return json({ adviser, ...(await readCrmData()), accessContext: refreshedAccessContext });
     }
 
+    if (action === 'saveMyPreferences') {
+      if (!accessContext.adviserId) {
+        const error = new Error('Your login is not mapped to an adviser profile, so personal view settings cannot be saved yet.');
+        error.statusCode = 400;
+        throw error;
+      }
+      const adviser = await saveAdviserPreferences(accessContext.adviserId, body.preferences);
+      return json({ adviser, ...(await readCrmData()), accessContext });
+    }
+
     if (action === 'savePersonalTask') {
       const personalTask = await savePersonalTask(body.task);
       return json({ personalTask, ...(await readCrmData()) });
@@ -1031,6 +1041,7 @@ async function ensureSchema() {
   await database.sql`ALTER TABLE advisers ADD COLUMN IF NOT EXISTS login_email TEXT`;
   await database.sql`ALTER TABLE advisers ADD COLUMN IF NOT EXISTS profile_photo_url TEXT`;
   await database.sql`ALTER TABLE advisers ADD COLUMN IF NOT EXISTS availability_status TEXT NOT NULL DEFAULT 'Available'`;
+  await database.sql`ALTER TABLE advisers ADD COLUMN IF NOT EXISTS preferences JSONB NOT NULL DEFAULT '{}'::jsonb`;
   await database.sql`UPDATE advisers SET availability_status = 'Available' WHERE availability_status IS NULL OR availability_status = ''`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS case_strategy TEXT`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS date_of_birth DATE`;
@@ -2618,7 +2629,7 @@ async function readCrmData() {
   const database = db();
   await pruneOldEmailNotifications(database);
   const [advisers, clients, stages, deadlines, billing, personalTasks, calendarEntries, libraryEntries, portalMessages, portalDocuments, intakeEnquiries, seminars, seminarRegistrations, feedbackSubmissions, emailLogs, emailTemplates, consultationTypes, bookingAvailability, bookingBlocks, bookingLinks, consultationBookings, instructionSets, instructionTemplateLibraryRows, instructionTemplateVersions, agreementSets, agreementTemplateLibraryRows, agreementTemplateVersions] = await Promise.all([
-    database.sql`SELECT id, name, role, email, login_email, access_role, profile_photo_url, availability_status, phone, licence, active FROM advisers ORDER BY name ASC`,
+    database.sql`SELECT id, name, role, email, login_email, access_role, profile_photo_url, availability_status, phone, licence, active, preferences FROM advisers ORDER BY name ASC`,
     database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, one_law_client_number, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, portal_enabled, portal_email, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_resource_settings, portal_access_code_hash, portal_last_published_at, portal_last_accessed_at, notes, family_members, document_checklist FROM clients ORDER BY updated_at DESC`,
     database.sql`SELECT id, client_id, stage_key, stage_label, mandatory, applied, completed, completed_date, sort_order FROM client_stages ORDER BY sort_order ASC`,
     database.sql`SELECT id, client_id, deadline_type, deadline_date, note, action_status, review_date FROM client_deadlines ORDER BY deadline_date ASC NULLS LAST`,
@@ -2708,6 +2719,7 @@ function mapAdviserFromDb(row) {
     availability: row.availability_status || row.availability || 'Available',
     licence: row.licence || '',
     active: Boolean(row.active),
+    preferences: normaliseJsonObject(row.preferences),
   };
 }
 
@@ -3311,6 +3323,19 @@ function mapPortalDocumentFromDb(row = {}) {
   };
 }
 
+async function saveAdviserPreferences(adviserId, preferences = {}) {
+  const database = db();
+  const rows = await database.sql`
+    UPDATE advisers
+       SET preferences = ${JSON.stringify(normaliseJsonObject(preferences))}::jsonb,
+           updated_at = NOW()
+     WHERE id = ${adviserId}
+     RETURNING id, name, role, email, login_email, access_role, profile_photo_url, availability_status, phone, licence, active, preferences
+  `;
+  if (!rows[0]) throw new Error('Adviser profile could not be updated.');
+  return mapAdviserFromDb(rows[0]);
+}
+
 async function saveAdviser(adviser = {}) {
   const database = db();
   const id = isUuid(adviser.id) ? adviser.id : null;
@@ -3338,17 +3363,18 @@ async function saveAdviser(adviser = {}) {
           phone = ${adviser.phone || ''},
           licence = ${adviser.licence || ''},
           active = ${adviser.active !== false},
+          preferences = ${JSON.stringify(normaliseJsonObject(adviser.preferences))}::jsonb,
           updated_at = NOW()
       WHERE id = ${id}
-      RETURNING id, name, role, email, login_email, access_role, profile_photo_url, availability_status, phone, licence, active
+      RETURNING id, name, role, email, login_email, access_role, profile_photo_url, availability_status, phone, licence, active, preferences
     `;
     return mapAdviserFromDb(rows[0]);
   }
 
   const rows = await database.sql`
-    INSERT INTO advisers (name, role, email, login_email, access_role, profile_photo_url, availability_status, phone, licence, active)
-    VALUES (${adviser.name || 'New adviser'}, ${adviser.role || 'Licensed Immigration Adviser'}, ${adviser.email || ''}, ${adviser.loginEmail || adviser.login_email || ''}, ${accessRole}, ${normaliseProfilePhotoUrl(adviser.profilePhotoUrl || adviser.profile_photo_url || '')}, ${normaliseAdviserAvailability(adviser.availability || adviser.availabilityStatus || adviser.availability_status)}, ${adviser.phone || ''}, ${adviser.licence || ''}, ${adviser.active !== false})
-    RETURNING id, name, role, email, login_email, access_role, profile_photo_url, availability_status, phone, licence, active
+    INSERT INTO advisers (name, role, email, login_email, access_role, profile_photo_url, availability_status, phone, licence, active, preferences)
+    VALUES (${adviser.name || 'New adviser'}, ${adviser.role || 'Licensed Immigration Adviser'}, ${adviser.email || ''}, ${adviser.loginEmail || adviser.login_email || ''}, ${accessRole}, ${normaliseProfilePhotoUrl(adviser.profilePhotoUrl || adviser.profile_photo_url || '')}, ${normaliseAdviserAvailability(adviser.availability || adviser.availabilityStatus || adviser.availability_status)}, ${adviser.phone || ''}, ${adviser.licence || ''}, ${adviser.active !== false}, ${JSON.stringify(normaliseJsonObject(adviser.preferences))}::jsonb)
+    RETURNING id, name, role, email, login_email, access_role, profile_photo_url, availability_status, phone, licence, active, preferences
   `;
   return mapAdviserFromDb(rows[0]);
 }

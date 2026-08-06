@@ -1,16 +1,12 @@
-THiS CRM v0.14.9 validation
+THiS CRM v0.15.0 validation
 
-Validated changes:
-- My Day is not called during CRM data load or authentication completion.
-- My Day remains available through the existing desktop and mobile buttons.
-- Login and contextual Help wording describe My Day as optional.
-- Existing v0.14.8 persistent chat schedule, agreement email template, Studio libraries and chat presentation remain present.
+- App.jsx JSX/JavaScript syntax: passed using the TypeScript JSX parser.
+- Netlify function JavaScript syntax: passed with node --check.
+- Public JavaScript syntax: passed with node --check.
+- PWA manifest/service-worker validation: passed.
+- CSS brace validation: passed.
+- Adviser preferences migration included.
+- Personal preference API action included and restricted to the authenticated adviser's mapped profile.
+- Dashboard widget, quick action, saved view, list column and density feature markers confirmed.
 
-Validation completed:
-- App.jsx TypeScript JSX parse passed.
-- Public JavaScript files passed node --check.
-- Netlify function modules passed node --check.
-- PWA validation passed.
-- Main, Studio and live-chat HTML files passed parser validation.
-- CSS brace validation passed.
-- No database migration or dependency change was introduced.
+A full Vite production build could not be completed because the isolated package registry does not contain the existing @netlify/blobs@10.7.9 dependency. No dependency versions were changed.

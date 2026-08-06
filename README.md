@@ -1,18 +1,25 @@
-# THiS CRM v0.14.9 - On-demand My Day
+# THiS CRM v0.15.0 - Adviser Workspace Personalisation
 
-## v0.14.9 changes
+This build adds the first controlled personalisation layer to the CRM while retaining the shared Turner Hopkins design system and workflows.
 
-- My Day no longer opens automatically after login or CRM reload.
-- The focused My Day briefing remains available from the desktop header and mobile navigation.
-- Help and login wording now explain that My Day is optional and adviser-initiated.
-- Dashboard, tasks, clients, live chat, Instructions Studio, Agreement Studio and all other v0.14.8 functionality are unchanged.
+## Personal settings
 
-This release builds on v0.14.8 and retains persistent live-chat schedules, the editable agreement issue email template, searchable Studio row libraries, CRM-accurate Studio save messaging, polished CRM live chat, adviser presence, secure signing, intake and client workflows, booking, portal and commercial compliance.
+Each mapped adviser can now save:
 
-## Squarespace embed
+- Default landing page
+- Standard or compact density
+- Dashboard widget visibility, width and order
+- Up to six personal quick actions
+- Supporting information shown in Clients, Instructions and Agreements
+- Saved filter/search views for Clients, Instructions and Agreements
+- Client-list sort order within saved views
 
-```html
-<script src="https://thisvisacrm.netlify.app/live-chat-widget.js?v=0.14.9" data-title="Chat with us" defer></script>
-```
+Preferences are stored against the adviser profile and therefore follow the adviser between devices.
 
-Deploy the complete package over the existing CRM deployment and perform a hard refresh. No database migration or environment-variable change is required.
+## Deployment
+
+Deploy the complete package and run the included migration:
+
+`202608060002_add_adviser_workspace_preferences.sql`
+
+Perform one hard refresh after deployment. All v0.14.9 functionality is retained.

@@ -16301,3 +16301,94 @@ body.festive-mode-active {
   .live-chat-crm-body{display:block;padding:8px;overflow:auto}
   .live-chat-conversation-list{margin-bottom:8px}
 }
+
+/* v0.15.0: adviser workspace personalisation */
+.personal-quick-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:-2px 0 12px;padding:8px 10px;border:1px solid #dbe8e4;border-radius:14px;background:#f8fcfa}
+.personal-quick-actions>span{margin-right:3px;color:#6b817c;font-size:10px;font-weight:850;letter-spacing:.06em;text-transform:uppercase}
+.personal-quick-actions button{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid #d4e3de;border-radius:10px;background:#fff;color:#28534c;font-size:11px;font-weight:750;cursor:pointer}
+.personal-quick-actions button:hover{border-color:#9acdbb;background:#effaf5;color:#003f3a}
+
+.personalisation-overlay{z-index:1800;background:rgba(3,40,36,.28);backdrop-filter:blur(3px)}
+.personalisation-drawer{width:min(680px,calc(100vw - 24px));background:#f4faf7;border-left:1px solid #d8e6e1;box-shadow:-18px 0 50px rgba(0,50,46,.18)}
+.personalisation-drawer .drawer-head{padding:22px 24px;border-bottom:1px solid #d9e7e2;background:#fff}
+.personalisation-drawer .drawer-head h2{margin:3px 0 4px;color:#003f3a}
+.personalisation-drawer .drawer-head p{margin:0;color:#6b807b;font-size:12px}
+.personalisation-scroll{overflow:auto;padding:18px 22px 110px}
+.personalisation-section{margin-bottom:16px;padding:18px;border:1px solid #dce9e5;border-radius:17px;background:#fff;box-shadow:0 8px 22px rgba(0,56,52,.04)}
+.personalisation-section h3{margin:0 0 6px;color:#003f3a;font-size:15px}
+.personalisation-section>p,.personalisation-section-head p{margin:0 0 12px;color:#6d827d;font-size:11px;line-height:1.45}
+.personalisation-section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.personalisation-section-head>span{padding:4px 8px;border-radius:999px;background:#edf8f3;color:#177557;font-size:10px;font-weight:850}
+.dashboard-widget-editor{display:grid;gap:8px}
+.dashboard-widget-editor-row{display:grid;grid-template-columns:minmax(0,1fr) 120px auto;align-items:center;gap:10px;padding:10px;border:1px solid #e1ece8;border-radius:12px;background:#fbfdfc}
+.dashboard-widget-editor-row.disabled{opacity:.58}
+.dashboard-widget-editor-row>label{display:flex;align-items:center;gap:10px;min-width:0}
+.dashboard-widget-editor-row>label>span{display:grid;gap:2px}
+.dashboard-widget-editor-row strong{color:#244f48;font-size:12px}
+.dashboard-widget-editor-row small{color:#7b8e89;font-size:10px}
+.dashboard-widget-editor-row select{width:100%;min-height:34px;border:1px solid #d7e5e0;border-radius:9px;background:#fff;padding:6px 8px;color:#355d56;font-size:11px}
+.dashboard-widget-editor-row>div{display:flex;gap:5px}
+.dashboard-widget-editor-row .icon-btn{width:31px;height:31px;border-radius:9px}
+.personalisation-check-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.personalisation-check-grid label,.personalisation-column-groups label{display:flex;align-items:center;gap:8px;color:#45645e;font-size:11px}
+.personalisation-column-groups{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.personalisation-column-groups>div{display:grid;align-content:start;gap:8px;padding:11px;border:1px solid #e2ece9;border-radius:12px;background:#fafdfc}
+.personalisation-column-groups strong{color:#003f3a;font-size:12px}
+.personalisation-actions{position:absolute;right:0;bottom:0;left:0;display:flex;justify-content:space-between;gap:12px;padding:14px 20px;border-top:1px solid #d7e5e0;background:rgba(255,255,255,.96);backdrop-filter:blur(8px)}
+.personalisation-actions>div{display:flex;gap:8px}
+
+.dashboard-personal-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+.dashboard-personal-widget.full{grid-column:1/-1}
+.dashboard-personal-widget.standard{grid-column:auto}
+.dashboard-personal-widget>.panel,.dashboard-personal-widget>section{margin:0;height:100%}
+.dashboard-personal-widget.widget-actions .quick-task-panel,.dashboard-personal-widget.widget-workload .workload-panel{height:auto}
+
+.saved-view-controls{display:flex;align-items:center;gap:6px;min-width:230px}
+.saved-view-controls select{min-width:130px;min-height:34px;border:1px solid #d5e4df;border-radius:10px;background:#fff;padding:6px 9px;color:#345c55;font-size:11px}
+.saved-view-controls .btn{white-space:nowrap}
+.instructions-list-toolbar{flex-wrap:wrap}
+
+.studio-record-head,.studio-record-row{grid-template-columns:var(--studio-row-columns,minmax(250px,2.15fr) minmax(160px,1.2fr) minmax(115px,.82fr) minmax(105px,.72fr) minmax(130px,.9fr) 145px 92px)}
+.studio-record-open{grid-column:1/-2;grid-template-columns:var(--studio-open-columns,minmax(250px,2.15fr) minmax(160px,1.2fr) minmax(115px,.82fr) minmax(105px,.72fr) minmax(130px,.9fr) 145px)}
+.studio-record-actions{grid-column:-2/-1}
+
+.crm-density-compact .client-card{padding:10px 12px;min-height:78px}
+.crm-density-compact .client-card small{line-height:1.25}
+.crm-density-compact .studio-record-row,.crm-density-compact .studio-record-open{min-height:58px}
+.crm-density-compact .studio-record-open>span{padding-top:8px;padding-bottom:8px}
+.crm-density-compact .quick-task{padding-top:9px;padding-bottom:9px}
+.crm-density-compact .panel{--density-panel-padding:14px}
+
+@media(max-width:1120px){
+  .studio-record-head,.studio-record-row{grid-template-columns:var(--studio-row-columns)}
+  .studio-record-open{grid-column:1/-2;grid-template-columns:var(--studio-open-columns)}
+  .studio-record-head>span:nth-child(5),.studio-record-adviser{display:initial}
+  .studio-record-head>span:nth-child(6){grid-column:auto}
+  .studio-record-actions{grid-column:-2/-1}
+}
+@media(max-width:800px){
+  .personalisation-column-groups{grid-template-columns:1fr}
+  .dashboard-widget-editor-row{grid-template-columns:1fr 110px}
+  .dashboard-widget-editor-row>div{grid-column:1/-1;justify-content:flex-end}
+  .dashboard-personal-grid{grid-template-columns:1fr}
+  .dashboard-personal-widget.standard,.dashboard-personal-widget.full{grid-column:1}
+  .saved-view-controls{width:100%;min-width:0}
+  .saved-view-controls select{flex:1}
+}
+@media(max-width:760px){
+  .studio-record-row{grid-template-columns:minmax(0,1fr) 48px}
+  .studio-record-open{grid-column:1;grid-template-columns:1fr 1fr}
+  .studio-record-actions{grid-column:2}
+  .personal-quick-actions{overflow-x:auto;flex-wrap:nowrap}
+  .personal-quick-actions>span{position:sticky;left:0;background:#f8fcfa}
+  .personal-quick-actions button{flex:0 0 auto}
+  .personalisation-check-grid{grid-template-columns:1fr}
+  .personalisation-actions{align-items:stretch;flex-direction:column}
+  .personalisation-actions>div{display:grid;grid-template-columns:1fr 1fr}
+}
+.crm-side-drawer-overlay{position:fixed;inset:0;z-index:1700;display:flex;justify-content:flex-end;background:rgba(3,40,36,.24)}
+.crm-side-drawer{position:relative;height:100vh;overflow:hidden}
+.personalisation-drawer{display:flex;flex-direction:column}
+.personalisation-drawer .drawer-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex:0 0 auto}
+.personalisation-scroll{flex:1;min-height:0}
+.personalisation-actions{position:static;flex:0 0 auto}

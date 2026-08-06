@@ -1,7 +1,13 @@
-v0.14.9 - On-demand My Day
+v0.15.0 - Adviser Workspace Personalisation
 
-- Removes the automatic My Day briefing pop-out after login and CRM reload.
-- Retains My Day as an adviser-invoked button in the desktop header and mobile navigation.
-- Updates the login and Help wording to reflect the optional workflow.
-- Retains all v0.14.8 functionality.
-- No database migration, dependency change, additional software or subscription.
+- Adds database-backed personal view preferences to adviser profiles.
+- Adds a Customise view drawer for default landing page, density, dashboard widgets, quick actions and visible list information.
+- Allows dashboard widgets to be shown, hidden, resized and reordered per adviser.
+- Adds personal quick-action shortcuts.
+- Adds saved views for Clients, Instructions and Agreements.
+- Adds client-list sorting and configurable supporting details.
+- Adds configurable columns for Instructions and Agreements row lists.
+- Includes a reset-to-THiS-default action.
+- Preferences follow the adviser between devices.
+- Adds migration 202608060002_add_adviser_workspace_preferences.sql.
+- Retains all v0.14.9 functionality.

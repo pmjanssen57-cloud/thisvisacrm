@@ -1,0 +1,20 @@
+THiS CRM v0.15.0 - ADVISER PERSONALISATION GUIDE
+
+Open Customise from the CRM header (or View on mobile).
+
+Each adviser can save:
+- Default landing page
+- Standard or compact row density
+- Dashboard widget visibility, order and width
+- Up to six quick actions
+- Supporting information shown in Clients, Instructions and Agreements
+- Default client sort order
+
+Saved views
+- Clients: search, adviser scope, backup inclusion, case type and sort order
+- Instructions: search and linked/standalone scope
+- Agreements: search and client/intake/standalone scope
+
+Use Reset to THiS default to restore the standard Turner Hopkins layout.
+
+Personalisation affects only the logged-in adviser. It does not alter shared client records, workflows, document templates or branding.

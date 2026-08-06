@@ -15,6 +15,84 @@ const FESTIVE_MODE_OPTIONS = ['auto', 'on', 'off'];
 const MAX_INTAKE_CV_BYTES = 5 * 1024 * 1024;
 const INTAKE_CV_ACCEPT = '.pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
+
+const DASHBOARD_WIDGET_CATALOG = [
+  { id: 'summary', label: 'Dashboard summary', defaultWidth: 'full' },
+  { id: 'actions', label: 'Daily action queue', defaultWidth: 'full' },
+  { id: 'workload', label: 'Client workload', defaultWidth: 'full' },
+  { id: 'recent', label: 'Recently viewed', defaultWidth: 'standard' },
+  { id: 'adviser', label: 'Adviser load', defaultWidth: 'standard' },
+];
+
+const QUICK_ACTION_CATALOG = [
+  { id: 'new-client', label: 'New client' },
+  { id: 'new-intake', label: 'Enquiries & intake' },
+  { id: 'new-instructions', label: 'New instructions' },
+  { id: 'new-agreement', label: 'New agreement' },
+  { id: 'new-task', label: 'New task' },
+  { id: 'new-appointment', label: 'New appointment' },
+];
+
+const DEFAULT_ADVISER_PREFERENCES = {
+  defaultLandingPage: 'dashboard',
+  density: 'standard',
+  dashboardWidgets: DASHBOARD_WIDGET_CATALOG.map((item) => ({ id: item.id, visible: true, width: item.defaultWidth })),
+  quickActions: ['new-client', 'new-intake', 'new-instructions', 'new-agreement'],
+  listColumns: {
+    clients: { strategy: true, oneLaw: true, sharePoint: true },
+    instructions: { source: true, status: true, adviser: true, updated: true },
+    agreements: { source: true, status: true, adviser: true, updated: true },
+  },
+  clientList: { sort: 'name-asc' },
+  savedViews: { clients: [], instructions: [], agreements: [] },
+};
+
+function normaliseAdviserPreferences(input = {}) {
+  const source = input && typeof input === 'object' && !Array.isArray(input) ? input : {};
+  const incomingWidgets = Array.isArray(source.dashboardWidgets) ? source.dashboardWidgets : [];
+  const widgetMap = new Map(incomingWidgets.map((item) => [String(item?.id || ''), item]));
+  const dashboardWidgets = DASHBOARD_WIDGET_CATALOG.map((catalogItem) => {
+    const item = widgetMap.get(catalogItem.id) || {};
+    return {
+      id: catalogItem.id,
+      visible: item.visible !== false,
+      width: item.width === 'standard' ? 'standard' : item.width === 'full' ? 'full' : catalogItem.defaultWidth,
+    };
+  }).sort((a, b) => {
+    const ai = incomingWidgets.findIndex((item) => item?.id === a.id);
+    const bi = incomingWidgets.findIndex((item) => item?.id === b.id);
+    if (ai < 0 && bi < 0) return 0;
+    if (ai < 0) return 1;
+    if (bi < 0) return -1;
+    return ai - bi;
+  });
+  const quickActions = Array.isArray(source.quickActions)
+    ? source.quickActions.filter((id) => QUICK_ACTION_CATALOG.some((item) => item.id === id)).slice(0, 6)
+    : [...DEFAULT_ADVISER_PREFERENCES.quickActions];
+  const normaliseViews = (value) => (Array.isArray(value) ? value : []).map((view) => ({
+    ...view,
+    id: String(view?.id || ''),
+    name: String(view?.name || 'Saved view'),
+  })).filter((view) => view.id && view.name).slice(0, 20);
+  return {
+    defaultLandingPage: ['dashboard', 'tasks', 'clients', 'intake', 'calendar', 'commercial', 'billing', 'instructions', 'agreements'].includes(source.defaultLandingPage) ? source.defaultLandingPage : 'dashboard',
+    density: source.density === 'compact' ? 'compact' : 'standard',
+    dashboardWidgets,
+    quickActions,
+    listColumns: {
+      clients: { ...DEFAULT_ADVISER_PREFERENCES.listColumns.clients, ...(source.listColumns?.clients || {}) },
+      instructions: { ...DEFAULT_ADVISER_PREFERENCES.listColumns.instructions, ...(source.listColumns?.instructions || {}) },
+      agreements: { ...DEFAULT_ADVISER_PREFERENCES.listColumns.agreements, ...(source.listColumns?.agreements || {}) },
+    },
+    clientList: { ...DEFAULT_ADVISER_PREFERENCES.clientList, ...(source.clientList || {}) },
+    savedViews: {
+      clients: normaliseViews(source.savedViews?.clients),
+      instructions: normaliseViews(source.savedViews?.instructions),
+      agreements: normaliseViews(source.savedViews?.agreements),
+    },
+  };
+}
+
 function isFestiveSeason(date = new Date()) {
   return date.getMonth() === 11 && date.getDate() >= 1 && date.getDate() <= 25;
 }
@@ -328,7 +406,7 @@ const SUPPORT_CONTENT = {
       { heading: "Today's bring-up list", text: 'This panel highlights next-action, billing and personal tasks due today. Treat it as the morning file bring-up list: review the task, open the client where relevant, complete or update the task, then save.' },
       { heading: 'Client workload list', text: 'The workload list shows clients for the selected adviser view, their current stage, advisers and next action. Use Adjust action to change the action wording or bring-up date without opening the full client record.' },
     ],
-    tips: ['Set the adviser view first before reviewing workload.', 'Use the Overdue, Today and Next 30 days tabs as the daily work queue.', 'Longer-dated tasks remain in the full Tasks page and do not crowd the dashboard.'],
+    tips: ['Use Customise in the header to choose your landing page, row density, quick actions and dashboard widgets.', 'Set the adviser view first before reviewing workload.', 'Use the Overdue, Today and Next 30 days tabs as the daily work queue.', 'Longer-dated tasks remain in the full Tasks page and do not crowd the dashboard.'],
   },
   tasks: {
     title: 'Tasks help',
@@ -1100,11 +1178,13 @@ export default function App() {
   const [legacyAccessVisible, setLegacyAccessVisible] = useState(false);
   const [authRequired, setAuthRequired] = useState(false);
   const identityScopeAppliedRef = useRef(false);
+  const landingPreferenceAppliedRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [supportOpen, setSupportOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [personalisationOpen, setPersonalisationOpen] = useState(false);
   const [chatDrawerOpen, setChatDrawerOpen] = useState(false);
   const [chatSelectedId, setChatSelectedId] = useState('');
   const [chatSnapshot, setChatSnapshot] = useState({ conversations: [], selectedConversation: null, messages: [], events: [], counts: { waiting: 0, mine: 0, active: 0, unread: 0 }, settings: null, availability: null, actor: null, emailConfigured: false, refreshedAt: '' });
@@ -1350,6 +1430,7 @@ export default function App() {
       setIdentityUser(user || null);
       if (event === 'logout') {
         identityScopeAppliedRef.current = false;
+        landingPreferenceAppliedRef.current = false;
         setData(emptyData);
         setAuthRequired(true);
       }
@@ -2014,6 +2095,39 @@ export default function App() {
     await callApi('saveAdviser', { adviser });
   }
 
+
+  async function saveMyPreferences(preferences, options = {}) {
+    const nextPreferences = normaliseAdviserPreferences(preferences);
+    const body = await callApi('saveMyPreferences', { preferences: nextPreferences });
+    if (!options.silent) showCrmToast('Your CRM view preferences have been saved.');
+    return body;
+  }
+
+  async function upsertSavedView(workspace, view) {
+    if (!identityAdviser) {
+      showCrmToast('Map your login to an adviser profile before saving personal views.', 'warning');
+      return null;
+    }
+    const current = normaliseAdviserPreferences(identityAdviser.preferences);
+    const list = [...(current.savedViews?.[workspace] || [])];
+    const nextView = { ...view, id: view.id || makeStableLocalId(`view-${workspace}`) };
+    const index = list.findIndex((item) => item.id === nextView.id);
+    if (index >= 0) list[index] = nextView;
+    else list.push(nextView);
+    const body = await saveMyPreferences({ ...current, savedViews: { ...current.savedViews, [workspace]: list } }, { silent: true });
+    showCrmToast(`Saved view “${nextView.name}”.`);
+    return body;
+  }
+
+  async function deleteSavedView(workspace, viewId) {
+    if (!identityAdviser) return null;
+    const current = normaliseAdviserPreferences(identityAdviser.preferences);
+    const list = (current.savedViews?.[workspace] || []).filter((item) => item.id !== viewId);
+    const body = await saveMyPreferences({ ...current, savedViews: { ...current.savedViews, [workspace]: list } }, { silent: true });
+    showCrmToast('Saved view removed.');
+    return body;
+  }
+
   async function saveEmailTemplate(template) {
     return await callApi('saveEmailTemplate', { template });
   }
@@ -2325,6 +2439,7 @@ export default function App() {
       phone: '',
       licence: '',
       active: true,
+      preferences: normaliseAdviserPreferences(),
     };
     setData((current) => ({ ...current, advisers: [...current.advisers, adviser] }));
     setTab('advisers');
@@ -2338,6 +2453,7 @@ export default function App() {
   const activeClients = scopedClients.filter((client) => client.clientStatus !== 'Closed');
   const selectedClient = data.clients.find((client) => client.id === selectedClientId) || data.clients[0] || null;
   const identityAdviser = useMemo(() => findAdviserForIdentity(data.advisers, identityUser), [data.advisers, identityUser]);
+  const adviserPreferences = useMemo(() => normaliseAdviserPreferences(identityAdviser?.preferences), [identityAdviser?.preferences]);
   const currentAccessRole = resolveCurrentAccessRole(data.accessContext, identityAdviser, identityUser, Boolean(accessCode));
   const isAdmin = currentAccessRole === 'Admin';
   const canViewAllAdvisers = true;
@@ -2360,6 +2476,25 @@ export default function App() {
       identityScopeAppliedRef.current = true;
     }
   }, [identityUser, data.advisers]);
+
+
+  useEffect(() => {
+    document.body.classList.toggle('crm-density-compact', adviserPreferences.density === 'compact');
+    return () => document.body.classList.remove('crm-density-compact');
+  }, [adviserPreferences.density]);
+
+  useEffect(() => {
+    if (loading || authRequired || !identityAdviser || landingPreferenceAppliedRef.current) return;
+    landingPreferenceAppliedRef.current = true;
+    const destination = adviserPreferences.defaultLandingPage || 'dashboard';
+    if (destination === 'instructions' || destination === 'agreements') {
+      setStudioSection(destination);
+      setStudioCreateRequest(null);
+      setTab('studio');
+      return;
+    }
+    setTab(destination);
+  }, [loading, authRequired, identityAdviser, adviserPreferences.defaultLandingPage]);
 
   useEffect(() => {
     if (!isAdmin && ['advisers', 'backups'].includes(tab)) setTab('dashboard');
@@ -2522,6 +2657,22 @@ export default function App() {
       .sort((a, b) => (billingReportingDate(a, a.client) || '9999-12-31').localeCompare(billingReportingDate(b, b.client) || '9999-12-31'));
   }, [scopedClients]);
 
+  function runPersonalQuickAction(actionId) {
+    setNewMenuOpen(false);
+    setPersonalisationOpen(false);
+    if (actionId === 'new-client') return addClient();
+    if (actionId === 'new-intake') return switchTab('intake');
+    if (actionId === 'new-instructions') return openStudio('instructions', data.clients.some((client) => !String(client.id || '').startsWith('temp-')) ? 'client' : 'standalone');
+    if (actionId === 'new-agreement') {
+      const hasEligibleIntake = (data.intakeEnquiries || []).some((item) => !isContactIntake(item) && !item.convertedClientId && item.status !== 'Spam / Duplicate');
+      const hasClient = data.clients.some((client) => !String(client.id || '').startsWith('temp-'));
+      return openStudio('agreements', hasEligibleIntake ? 'intake' : hasClient ? 'client' : 'standalone');
+    }
+    if (actionId === 'new-task') return switchTab('tasks');
+    if (actionId === 'new-appointment') return switchTab('calendar');
+    return null;
+  }
+
   if (authRequired) {
     return (
       <AccessScreen
@@ -2544,7 +2695,7 @@ export default function App() {
   }
 
   return (
-    <div className={`app-shell ${festiveActive ? 'festive-mode' : ''}`}>
+    <div className={`app-shell ${festiveActive ? 'festive-mode' : ''} ${adviserPreferences.density === 'compact' ? 'density-compact' : 'density-standard'}`}>
       {festiveActive && <FestiveAtmosphere />}
       <header className="topbar">
         <div className="brand-wrap">
@@ -2560,6 +2711,7 @@ export default function App() {
         <div className="top-actions desktop-only">
           <PwaInstallButton className="btn ghost compact-action pwa-install-button" label="Install app" />
           <button className="btn ghost compact-action crm-my-day-link" type="button" onClick={() => switchTab('home')}><CloudSun size={16} />My Day</button>
+          <button className="btn ghost compact-action" type="button" onClick={() => setPersonalisationOpen(true)}><SlidersHorizontal size={16} />Customise</button>
           <button className={`btn ghost compact-action live-chat-header-button ${liveChatAttentionCount > 0 ? 'has-waiting' : ''}`} type="button" onClick={() => openChatDrawer()}><MessageSquare size={16} />Chat{liveChatAttentionCount > 0 && <span key={liveChatAttentionCount} className="live-chat-header-badge" aria-live="polite">{liveChatAttentionCount}</span>}</button>
           <button className="btn ghost compact-action" onClick={() => { setSupportOpen(false); setToolsOpen(true); setNewMenuOpen(false); }}><Wrench size={16} />Tools</button>
           <div className="dropdown-shell new-action-shell">
@@ -2579,6 +2731,7 @@ export default function App() {
         <div className="mobile-header-actions mobile-only">
           <PwaInstallButton className="btn ghost pwa-install-button mobile-pwa-install" label="Install" />
           <button className="btn ghost" type="button" onClick={() => switchTab('home')}><CloudSun size={16} />My Day</button>
+          <button className="btn ghost" type="button" onClick={() => setPersonalisationOpen(true)}><SlidersHorizontal size={16} />View</button>
           <button className={`btn ghost live-chat-mobile-button ${liveChatAttentionCount > 0 ? 'has-waiting' : ''}`} type="button" onClick={() => openChatDrawer()}><MessageSquare size={16} />Chat{liveChatAttentionCount > 0 && <span key={liveChatAttentionCount} className="live-chat-header-badge" aria-live="polite">{liveChatAttentionCount}</span>}</button>
           <button className="btn ghost" onClick={() => { setSupportOpen(false); setToolsOpen(true); }}><Wrench size={16} />Tools</button>
         </div>
@@ -2616,6 +2769,7 @@ export default function App() {
               setCaseTypeFilter={setCaseTypeFilter}
               canViewAllAdvisers={canViewAllAdvisers}
             />
+            <PersonalQuickActions actions={adviserPreferences.quickActions} onAction={runPersonalQuickAction} />
             <nav className="tabs desktop-tabs main-nav crm-main-nav-polished nav-expanded-row" aria-label="Main CRM navigation">
               <TabButton active={tab === 'dashboard'} onClick={() => switchTab('dashboard')} icon={LayoutDashboard} label="Dashboard" />
               <TabButton active={tab === 'tasks'} onClick={() => switchTab('tasks')} icon={ListChecks} label="Tasks" />
@@ -2668,6 +2822,9 @@ export default function App() {
                 saveAgreementTemplateLibrary={saveAgreementTemplateLibrary}
                 issueAgreementSet={issueAgreementSet}
                 saving={saving}
+                preferences={adviserPreferences}
+                upsertSavedView={upsertSavedView}
+                deleteSavedView={deleteSavedView}
               />
             )}
 
@@ -2729,7 +2886,7 @@ export default function App() {
             )}
 
             {tab === 'dashboard' && (
-              <Dashboard clients={scopedClients} activeClients={activeClients} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} deadlineRows={deadlineRows} taskRows={taskRows} stageTemplates={data.stageTemplates} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} saveClient={saveClient} saving={saving} intakeEnquiries={data.intakeEnquiries || []} recentClientIds={recentClientIds} />
+              <Dashboard clients={scopedClients} activeClients={activeClients} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} deadlineRows={deadlineRows} taskRows={taskRows} stageTemplates={data.stageTemplates} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} saveClient={saveClient} saving={saving} intakeEnquiries={data.intakeEnquiries || []} recentClientIds={recentClientIds} preferences={adviserPreferences} />
             )}
 
             {tab === 'tasks' && (
@@ -2775,6 +2932,10 @@ export default function App() {
                 openAgreementsForClient={openAgreementsForClient}
                 saving={saving}
                 calendarEntries={data.calendarEntries}
+                preferences={adviserPreferences}
+                upsertSavedView={upsertSavedView}
+                deleteSavedView={deleteSavedView}
+                saveMyPreferences={saveMyPreferences}
               />
             )}
 
@@ -2792,6 +2953,14 @@ export default function App() {
           </>
         )}
       </main>
+      <PersonalisationDrawer
+        open={personalisationOpen}
+        onClose={() => setPersonalisationOpen(false)}
+        preferences={adviserPreferences}
+        adviser={identityAdviser}
+        saving={saving}
+        onSave={async (preferences) => { await saveMyPreferences(preferences); setPersonalisationOpen(false); }}
+      />
       <SupportDrawer open={supportOpen} onOpen={() => { setToolsOpen(false); setSupportOpen(true); }} onClose={() => setSupportOpen(false)} tab={tab} />
       <LiveChatWorkspace
         open={chatDrawerOpen}
@@ -8908,7 +9077,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const dayRows = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']];
-  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.14.9" data-title="Chat with us" defer><\/script>`;
+  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.15.0" data-title="Chat with us" defer><\/script>`;
 
   useEffect(() => {
     if (!open) return;
@@ -10531,8 +10700,138 @@ function AdviserLandingPad({ adviser = null, accessRole = 'User', clients = [], 
   );
 }
 
-function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, deadlineRows, taskRows, stageTemplates, setTab, setSelectedClientId, openClientRecord, saveClient, saving, intakeEnquiries = [], recentClientIds = [] }) {
+
+function PersonalQuickActions({ actions = [], onAction }) {
+  const items = actions.map((id) => QUICK_ACTION_CATALOG.find((item) => item.id === id)).filter(Boolean);
+  if (!items.length) return null;
+  const iconFor = (id) => {
+    if (id === 'new-client') return UsersRound;
+    if (id === 'new-intake') return ClipboardList;
+    if (id === 'new-instructions') return BookOpen;
+    if (id === 'new-agreement') return FileCheck2;
+    if (id === 'new-task') return ListChecks;
+    if (id === 'new-appointment') return CalendarDays;
+    return Plus;
+  };
+  return (
+    <div className="personal-quick-actions" aria-label="Personal quick actions">
+      <span>Quick actions</span>
+      {items.map((item) => {
+        const Icon = iconFor(item.id);
+        return <button key={item.id} type="button" onClick={() => onAction?.(item.id)}><Icon size={15} />{item.label}</button>;
+      })}
+    </div>
+  );
+}
+
+function PersonalisationDrawer({ open = false, onClose, preferences, adviser, saving = false, onSave }) {
+  const [draft, setDraft] = useState(() => normaliseAdviserPreferences(preferences));
+  useEffect(() => { if (open) setDraft(normaliseAdviserPreferences(preferences)); }, [open, preferences]);
+  if (!open) return null;
+
+  function moveWidget(index, direction) {
+    setDraft((current) => {
+      const widgets = [...current.dashboardWidgets];
+      const target = index + direction;
+      if (target < 0 || target >= widgets.length) return current;
+      [widgets[index], widgets[target]] = [widgets[target], widgets[index]];
+      return { ...current, dashboardWidgets: widgets };
+    });
+  }
+
+  function toggleQuickAction(id) {
+    setDraft((current) => {
+      const selected = current.quickActions.includes(id);
+      if (!selected && current.quickActions.length >= 6) return current;
+      return { ...current, quickActions: selected ? current.quickActions.filter((item) => item !== id) : [...current.quickActions, id] };
+    });
+  }
+
+  function setListColumn(group, key, value) {
+    setDraft((current) => ({ ...current, listColumns: { ...current.listColumns, [group]: { ...current.listColumns[group], [key]: value } } }));
+  }
+
+  return (
+    <div className="crm-side-drawer-overlay personalisation-overlay" role="dialog" aria-modal="true" aria-label="Customise CRM view">
+      <aside className="crm-side-drawer personalisation-drawer">
+        <div className="drawer-head">
+          <div><span className="eyebrow">Personal workspace</span><h2>Customise your CRM</h2><p>These settings apply only to {adviser?.name || 'your adviser profile'} and follow you between devices.</p></div>
+          <button className="icon-btn" type="button" onClick={onClose}><X size={18} /></button>
+        </div>
+        <div className="personalisation-scroll">
+          {!adviser && <div className="notice-card warning"><strong>Adviser profile required</strong><p>Your login must be mapped to an adviser record before personal settings can be saved.</p></div>}
+          <section className="personalisation-section">
+            <h3>General view</h3>
+            <div className="form-grid two">
+              <SelectField label="Default landing page" value={draft.defaultLandingPage} onChange={(value) => setDraft((current) => ({ ...current, defaultLandingPage: value }))} options={[
+                { value: 'dashboard', label: 'Dashboard' }, { value: 'tasks', label: 'Tasks' }, { value: 'clients', label: 'Clients' },
+                { value: 'intake', label: 'Enquiries & Intake' }, { value: 'calendar', label: 'Calendar' }, { value: 'commercial', label: 'Commercial' },
+                { value: 'billing', label: 'Billing' }, { value: 'instructions', label: 'Instructions Studio' }, { value: 'agreements', label: 'Agreement Studio' },
+              ]} />
+              <SelectField label="Row density" value={draft.density} onChange={(value) => setDraft((current) => ({ ...current, density: value }))} options={[{ value: 'standard', label: 'Standard' }, { value: 'compact', label: 'Compact' }]} />
+              <SelectField label="Default client sort" value={draft.clientList.sort || 'name-asc'} onChange={(value) => setDraft((current) => ({ ...current, clientList: { ...current.clientList, sort: value } }))} options={[{ value: 'name-asc', label: 'Name A-Z' }, { value: 'name-desc', label: 'Name Z-A' }, { value: 'stage', label: 'Current stage' }, { value: 'action', label: 'Next action date' }]} />
+            </div>
+          </section>
+
+          <section className="personalisation-section">
+            <div className="personalisation-section-head"><div><h3>Dashboard widgets</h3><p>Show, hide and order the panels on your dashboard.</p></div></div>
+            <div className="dashboard-widget-editor">
+              {draft.dashboardWidgets.map((widget, index) => {
+                const catalog = DASHBOARD_WIDGET_CATALOG.find((item) => item.id === widget.id);
+                return <div key={widget.id} className={`dashboard-widget-editor-row ${widget.visible ? '' : 'disabled'}`}>
+                  <label><input type="checkbox" checked={widget.visible} onChange={(event) => setDraft((current) => ({ ...current, dashboardWidgets: current.dashboardWidgets.map((item) => item.id === widget.id ? { ...item, visible: event.target.checked } : item) }))} /><span><strong>{catalog?.label || widget.id}</strong><small>{widget.width === 'full' ? 'Full width' : 'Standard width'}</small></span></label>
+                  <select value={widget.width} onChange={(event) => setDraft((current) => ({ ...current, dashboardWidgets: current.dashboardWidgets.map((item) => item.id === widget.id ? { ...item, width: event.target.value } : item) }))}><option value="full">Full width</option><option value="standard">Standard width</option></select>
+                  <div><button type="button" className="icon-btn" disabled={index === 0} onClick={() => moveWidget(index, -1)} aria-label="Move widget up">↑</button><button type="button" className="icon-btn" disabled={index === draft.dashboardWidgets.length - 1} onClick={() => moveWidget(index, 1)} aria-label="Move widget down">↓</button></div>
+                </div>;
+              })}
+            </div>
+          </section>
+
+          <section className="personalisation-section">
+            <div className="personalisation-section-head"><div><h3>Quick actions</h3><p>Choose up to six shortcuts to display below the CRM toolbar.</p></div><span>{draft.quickActions.length}/6</span></div>
+            <div className="personalisation-check-grid">
+              {QUICK_ACTION_CATALOG.map((item) => <label key={item.id}><input type="checkbox" checked={draft.quickActions.includes(item.id)} onChange={() => toggleQuickAction(item.id)} /><span>{item.label}</span></label>)}
+            </div>
+          </section>
+
+          <section className="personalisation-section">
+            <h3>List information</h3>
+            <p>Keep names and actions fixed while choosing the supporting details you want to see.</p>
+            <div className="personalisation-column-groups">
+              <div><strong>Clients</strong><label><input type="checkbox" checked={draft.listColumns.clients.strategy !== false} onChange={(event) => setListColumn('clients', 'strategy', event.target.checked)} />Strategy status</label><label><input type="checkbox" checked={draft.listColumns.clients.oneLaw !== false} onChange={(event) => setListColumn('clients', 'oneLaw', event.target.checked)} />OneLaw number</label><label><input type="checkbox" checked={draft.listColumns.clients.sharePoint !== false} onChange={(event) => setListColumn('clients', 'sharePoint', event.target.checked)} />SharePoint status</label></div>
+              <div><strong>Instructions</strong>{['source','status','adviser','updated'].map((key) => <label key={key}><input type="checkbox" checked={draft.listColumns.instructions[key] !== false} onChange={(event) => setListColumn('instructions', key, event.target.checked)} />{key[0].toUpperCase()+key.slice(1)}</label>)}</div>
+              <div><strong>Agreements</strong>{['source','status','adviser','updated'].map((key) => <label key={key}><input type="checkbox" checked={draft.listColumns.agreements[key] !== false} onChange={(event) => setListColumn('agreements', key, event.target.checked)} />{key[0].toUpperCase()+key.slice(1)}</label>)}</div>
+            </div>
+          </section>
+        </div>
+        <div className="drawer-actions personalisation-actions">
+          <button className="btn ghost" type="button" onClick={() => setDraft(normaliseAdviserPreferences(DEFAULT_ADVISER_PREFERENCES))}>Reset to THiS default</button>
+          <div><button className="btn ghost" type="button" onClick={onClose}>Cancel</button><button className="btn dark" type="button" disabled={saving || !adviser} onClick={() => onSave?.(draft)}><Save size={16} />Save my view</button></div>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function SavedViewControls({ workspace, views = [], onApply, onSave, onDelete }) {
+  const [selectedId, setSelectedId] = useState('');
+  function saveCurrent() {
+    const name = window.prompt('Name this view');
+    if (!name?.trim()) return;
+    onSave?.({ id: makeStableLocalId(`view-${workspace}`), name: name.trim() });
+  }
+  return (
+    <div className="saved-view-controls">
+      <select value={selectedId} onChange={(event) => { const value = event.target.value; setSelectedId(value); const view = views.find((item) => item.id === value); if (view) onApply?.(view); }}><option value="">Saved views</option>{views.map((view) => <option key={view.id} value={view.id}>{view.name}</option>)}</select>
+      <button className="btn mini ghost" type="button" onClick={saveCurrent}><Save size={13} />Save view</button>
+      {selectedId && <button className="icon-btn danger" type="button" onClick={() => { onDelete?.(selectedId); setSelectedId(''); }} aria-label="Delete saved view"><Trash2 size={14} /></button>}
+    </div>
+  );
+}
+
+function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, deadlineRows, taskRows, stageTemplates, setTab, setSelectedClientId, openClientRecord, saveClient, saving, intakeEnquiries = [], recentClientIds = [], preferences = DEFAULT_ADVISER_PREFERENCES }) {
   const [queueView, setQueueView] = useState('today');
+  const prefs = normaliseAdviserPreferences(preferences);
   const pendingInvoices = activeClients.flatMap((client) => (client.billing || []).map((item) => ({ item, client }))).filter(({ item, client }) => effectiveBillingStatus(item, client) !== 'Invoiced');
   const dashboardTaskRows = taskRows
     .map(withDeadlineSignal)
@@ -10549,6 +10848,23 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
   const pendingBillingTotal = pendingInvoices.reduce((sum, row) => sum + Number(row.item.amount || 0), 0);
   const viewTitle = dashboardAdviserFilter === 'all' ? 'Whole-practice dashboard' : `${advisers.find((adviser) => adviser.id === dashboardAdviserFilter)?.name || 'Adviser'} dashboard`;
 
+  const widgetContent = {
+    summary: (
+      <section className="dashboard-stat-strip" aria-label="Dashboard summary">
+        <button type="button" onClick={() => setTab('clients')}><UsersRound size={17} /><span><b>{activeClients.length}</b><small>Active clients</small></span></button>
+        <button type="button" onClick={() => { setQueueView('today'); document.getElementById('dashboard-action-queue')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}><CalendarDays size={17} /><span><b>{todayRows.length}</b><small>Due today</small></span></button>
+        <button type="button" className={overdueRows.length ? 'warning' : ''} onClick={() => { setQueueView('overdue'); document.getElementById('dashboard-action-queue')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}><AlertTriangle size={17} /><span><b>{overdueRows.length}</b><small>Overdue</small></span></button>
+        <button type="button" onClick={() => setTab('intake')}><ClipboardList size={17} /><span><b>{newEnquiryCount}</b><small>New enquiries</small></span></button>
+        <button type="button" className={newPortalMessages.length ? 'warning' : ''} onClick={() => newPortalMessages[0]?.client && openClientRecord?.(newPortalMessages[0].client.id)}><MessageSquare size={17} /><span><b>{newPortalMessages.length}</b><small>Portal notes</small></span></button>
+        <button type="button" onClick={() => setTab('billing')}><CreditCard size={17} /><span><b>{formatCurrency(pendingBillingTotal)}</b><small>WIP / overdue</small></span></button>
+      </section>
+    ),
+    actions: <DailyBringUpPanel taskRows={dashboardTaskRows} advisers={advisers} queueView={queueView} setQueueView={setQueueView} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} />,
+    workload: <AdviserClientWorkloadList clients={activeClients} advisers={advisers} workloadAdviserId={dashboardAdviserFilter !== 'all' ? dashboardAdviserFilter : ''} taskRows={taskRows} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} saveClient={saveClient} saving={saving} />,
+    recent: recentClients.length > 0 ? <RecentClientsSidebar clients={recentClients} openClientRecord={openClientRecord} /> : <section className="panel dashboard-side-panel"><div className="dashboard-side-head"><div><h3>Recently viewed</h3><p className="muted">Recently opened clients will appear here.</p></div><Clock size={17} /></div></section>,
+    adviser: <AdviserSnapshot advisers={advisers} activeClients={activeClients} dashboardAdviserFilter={dashboardAdviserFilter} />,
+  };
+
   return (
     <div className="stack dashboard-lean">
       <section className="panel dashboard-compact-heading">
@@ -10558,26 +10874,10 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
         </div>
         <span className="dashboard-view-count">{clients.length} client{clients.length === 1 ? '' : 's'} in view</span>
       </section>
-
-      <section className="dashboard-stat-strip" aria-label="Dashboard summary">
-        <button type="button" onClick={() => setTab('clients')}><UsersRound size={17} /><span><b>{activeClients.length}</b><small>Active clients</small></span></button>
-        <button type="button" onClick={() => { setQueueView('today'); document.getElementById('dashboard-action-queue')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}><CalendarDays size={17} /><span><b>{todayRows.length}</b><small>Due today</small></span></button>
-        <button type="button" className={overdueRows.length ? 'warning' : ''} onClick={() => { setQueueView('overdue'); document.getElementById('dashboard-action-queue')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}><AlertTriangle size={17} /><span><b>{overdueRows.length}</b><small>Overdue</small></span></button>
-        <button type="button" onClick={() => setTab('intake')}><ClipboardList size={17} /><span><b>{newEnquiryCount}</b><small>New enquiries</small></span></button>
-        <button type="button" className={newPortalMessages.length ? 'warning' : ''} onClick={() => newPortalMessages[0]?.client && openClientRecord?.(newPortalMessages[0].client.id)}><MessageSquare size={17} /><span><b>{newPortalMessages.length}</b><small>Portal notes</small></span></button>
-        <button type="button" onClick={() => setTab('billing')}><CreditCard size={17} /><span><b>{formatCurrency(pendingBillingTotal)}</b><small>WIP / overdue</small></span></button>
-      </section>
-
-      <div className="dashboard-focus-grid">
-        <div className="dashboard-main-column">
-          <DailyBringUpPanel taskRows={dashboardTaskRows} advisers={advisers} queueView={queueView} setQueueView={setQueueView} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} />
-          <AdviserClientWorkloadList clients={activeClients} advisers={advisers} workloadAdviserId={dashboardAdviserFilter !== 'all' ? dashboardAdviserFilter : ''} taskRows={taskRows} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} saveClient={saveClient} saving={saving} />
-        </div>
-
-        <aside className="dashboard-side-column" aria-label="Dashboard side information">
-          {recentClients.length > 0 && <RecentClientsSidebar clients={recentClients} openClientRecord={openClientRecord} />}
-          <AdviserSnapshot advisers={advisers} activeClients={activeClients} dashboardAdviserFilter={dashboardAdviserFilter} />
-        </aside>
+      <div className="dashboard-personal-grid">
+        {prefs.dashboardWidgets.filter((widget) => widget.visible !== false).map((widget) => (
+          <div key={widget.id} className={`dashboard-personal-widget ${widget.width === 'full' ? 'full' : 'standard'} widget-${widget.id}`}>{widgetContent[widget.id]}</div>
+        ))}
       </div>
     </div>
   );
@@ -11433,6 +11733,9 @@ function StudioWorkspace({
   saveAgreementTemplateLibrary,
   issueAgreementSet,
   saving = false,
+  preferences = DEFAULT_ADVISER_PREFERENCES,
+  upsertSavedView,
+  deleteSavedView,
 }) {
   const savedClients = clients.filter((client) => !String(client.id || '').startsWith('temp-'));
   const eligibleIntakes = intakeEnquiries.filter((item) => !isContactIntake(item) && !item.convertedClientId && item.status !== 'Spam / Duplicate');
@@ -11520,6 +11823,9 @@ function StudioWorkspace({
           deleteInstructionSet={deleteInstructionSet}
           saveInstructionTemplateLibrary={saveInstructionTemplateLibrary}
           saving={saving}
+          preferences={preferences}
+          upsertSavedView={upsertSavedView}
+          deleteSavedView={deleteSavedView}
         />
       )}
 
@@ -11542,6 +11848,9 @@ function StudioWorkspace({
           saveAgreementTemplateLibrary={saveAgreementTemplateLibrary}
           issueAgreementSet={issueAgreementSet}
           saving={saving}
+          preferences={preferences}
+          upsertSavedView={upsertSavedView}
+          deleteSavedView={deleteSavedView}
         />
       )}
     </div>
@@ -11564,6 +11873,9 @@ function InstructionsWorkspace({
   deleteInstructionSet,
   saveInstructionTemplateLibrary,
   saving = false,
+  preferences = DEFAULT_ADVISER_PREFERENCES,
+  upsertSavedView,
+  deleteSavedView,
 }) {
   const iframeRef = useRef(null);
   const editorInstructionRef = useRef(null);
@@ -11582,6 +11894,16 @@ function InstructionsWorkspace({
   const [iframeReady, setIframeReady] = useState(false);
   const [studioMessage, setStudioMessage] = useState('');
   const savedClients = useMemo(() => clients.filter((client) => !String(client.id || '').startsWith('temp-')), [clients]);
+  const instructionPreferences = normaliseAdviserPreferences(preferences);
+  const instructionColumns = instructionPreferences.listColumns.instructions;
+  const instructionSavedViews = instructionPreferences.savedViews.instructions || [];
+  const instructionOpenColumnParts = ['minmax(250px,2.15fr)', 'minmax(160px,1.2fr)'];
+  if (instructionColumns.source !== false) instructionOpenColumnParts.push('minmax(115px,.82fr)');
+  if (instructionColumns.status !== false) instructionOpenColumnParts.push('minmax(105px,.72fr)');
+  if (instructionColumns.adviser !== false) instructionOpenColumnParts.push('minmax(130px,.9fr)');
+  if (instructionColumns.updated !== false) instructionOpenColumnParts.push('145px');
+  const instructionOpenColumns = instructionOpenColumnParts.join(' ');
+  const instructionRowColumns = `${instructionOpenColumns} 92px`;
 
   useEffect(() => { editorInstructionRef.current = editorInstruction; }, [editorInstruction]);
 
@@ -11852,16 +12174,17 @@ function InstructionsWorkspace({
         <div className="segmented-filter">
           {[['all','All'],['client','Client-linked'],['standalone','Standalone']].map(([value,label]) => <button key={value} type="button" className={scope === value ? 'active' : ''} onClick={() => setScope(value)}>{label}</button>)}
         </div>
+        <SavedViewControls workspace="instructions" views={instructionSavedViews} onApply={(view) => { setQuery(view.query || ''); setScope(view.scope || 'all'); }} onSave={(view) => upsertSavedView?.('instructions', { ...view, query, scope })} onDelete={(viewId) => deleteSavedView?.('instructions', viewId)} />
       </div>
 
-      <div className="studio-record-list instruction-record-list">
+      <div className="studio-record-list instruction-record-list" style={{ '--studio-row-columns': instructionRowColumns, '--studio-open-columns': instructionOpenColumns }}>
         <div className="studio-record-head" aria-hidden="true">
           <span>Recipient / reference</span>
           <span>Instruction pack</span>
-          <span>Source</span>
-          <span>Status</span>
-          <span>Adviser</span>
-          <span>Updated</span>
+          {instructionColumns.source !== false && <span>Source</span>}
+          {instructionColumns.status !== false && <span>Status</span>}
+          {instructionColumns.adviser !== false && <span>Adviser</span>}
+          {instructionColumns.updated !== false && <span>Updated</span>}
           <span>Actions</span>
         </div>
         {filtered.map((item) => {
@@ -11874,10 +12197,10 @@ function InstructionsWorkspace({
               <button className="studio-record-open instruction-set-open" type="button" onClick={(event) => openInstruction(item, event)}>
                 <span className="studio-record-primary" data-label="Recipient / reference"><span className="studio-record-icon"><BookOpen size={18} /></span><span><strong>{subject}</strong><small>{item.title}</small></span></span>
                 <span className="studio-record-cell" data-label="Instruction pack">{instructionPackLabel(item.packId)}</span>
-                <span className="studio-record-cell" data-label="Source">{item.clientId ? 'Client-linked' : 'Standalone'}</span>
-                <span className="studio-record-cell" data-label="Status"><span className={`instruction-status ${String(item.status || 'Draft').toLowerCase()}`}>{item.status || 'Draft'}</span></span>
-                <span className="studio-record-cell studio-record-adviser" data-label="Adviser">{adviserName}</span>
-                <span className="studio-record-cell studio-record-updated" data-label="Updated">{formatInstructionDate(item.updatedAt)}</span>
+                {instructionColumns.source !== false && <span className="studio-record-cell" data-label="Source">{item.clientId ? 'Client-linked' : 'Standalone'}</span>}
+                {instructionColumns.status !== false && <span className="studio-record-cell" data-label="Status"><span className={`instruction-status ${String(item.status || 'Draft').toLowerCase()}`}>{item.status || 'Draft'}</span></span>}
+                {instructionColumns.adviser !== false && <span className="studio-record-cell studio-record-adviser" data-label="Adviser">{adviserName}</span>}
+                {instructionColumns.updated !== false && <span className="studio-record-cell studio-record-updated" data-label="Updated">{formatInstructionDate(item.updatedAt)}</span>}
               </button>
               <div className="studio-record-actions">
                 <button className="icon-btn instruction-set-open" type="button" onClick={(event) => openInstruction(item, event)} aria-label={`Open ${item.title}`} title="Open"><ChevronRight size={16} /></button>
@@ -11914,7 +12237,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.14.9" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.15.0" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
         </div>
       )}
     </div>
@@ -11940,6 +12263,9 @@ function AgreementsWorkspace({
   saveAgreementTemplateLibrary,
   issueAgreementSet,
   saving = false,
+  preferences = DEFAULT_ADVISER_PREFERENCES,
+  upsertSavedView,
+  deleteSavedView,
 }) {
   const iframeRef = useRef(null);
   const editorAgreementRef = useRef(null);
@@ -11960,6 +12286,16 @@ function AgreementsWorkspace({
   const [studioMessage, setStudioMessage] = useState('');
   const [lastSigningLinks, setLastSigningLinks] = useState([]);
   const savedClients = useMemo(() => clients.filter((client) => !String(client.id || '').startsWith('temp-')), [clients]);
+  const agreementPreferences = normaliseAdviserPreferences(preferences);
+  const agreementColumns = agreementPreferences.listColumns.agreements;
+  const agreementSavedViews = agreementPreferences.savedViews.agreements || [];
+  const agreementOpenColumnParts = ['minmax(250px,2.15fr)', 'minmax(160px,1.2fr)'];
+  if (agreementColumns.source !== false) agreementOpenColumnParts.push('minmax(115px,.82fr)');
+  if (agreementColumns.status !== false) agreementOpenColumnParts.push('minmax(105px,.72fr)');
+  if (agreementColumns.adviser !== false) agreementOpenColumnParts.push('minmax(130px,.9fr)');
+  if (agreementColumns.updated !== false) agreementOpenColumnParts.push('145px');
+  const agreementOpenColumns = agreementOpenColumnParts.join(' ');
+  const agreementRowColumns = `${agreementOpenColumns} 92px`;
 
   useEffect(() => { editorAgreementRef.current = editorAgreement; }, [editorAgreement]);
 
@@ -12344,16 +12680,17 @@ function AgreementsWorkspace({
         <div className="segmented-filter">
           {[['all','All'],['client','Client-linked'],['intake','Intake-linked'],['standalone','Standalone']].map(([value,label]) => <button key={value} type="button" className={scope === value ? 'active' : ''} onClick={() => setScope(value)}>{label}</button>)}
         </div>
+        <SavedViewControls workspace="agreements" views={agreementSavedViews} onApply={(view) => { setQuery(view.query || ''); setScope(view.scope || 'all'); }} onSave={(view) => upsertSavedView?.('agreements', { ...view, query, scope })} onDelete={(viewId) => deleteSavedView?.('agreements', viewId)} />
       </div>
 
-      <div className="studio-record-list agreement-record-list">
+      <div className="studio-record-list agreement-record-list" style={{ '--studio-row-columns': agreementRowColumns, '--studio-open-columns': agreementOpenColumns }}>
         <div className="studio-record-head" aria-hidden="true">
           <span>Recipient / organisation</span>
           <span>Agreement type</span>
-          <span>Source</span>
-          <span>Status</span>
-          <span>Adviser</span>
-          <span>Updated</span>
+          {agreementColumns.source !== false && <span>Source</span>}
+          {agreementColumns.status !== false && <span>Status</span>}
+          {agreementColumns.adviser !== false && <span>Adviser</span>}
+          {agreementColumns.updated !== false && <span>Updated</span>}
           <span>Actions</span>
         </div>
         {filtered.map((item) => {
@@ -12372,10 +12709,10 @@ function AgreementsWorkspace({
               <button className="studio-record-open instruction-set-open" type="button" onClick={(event) => openAgreement(item, event)}>
                 <span className="studio-record-primary" data-label="Recipient / organisation"><span className="studio-record-icon agreement"><FileCheck2 size={18} /></span><span><strong>{subject}</strong><small>{item.title}</small></span></span>
                 <span className="studio-record-cell" data-label="Agreement type">{agreementTypeLabel(item.appType)}</span>
-                <span className="studio-record-cell" data-label="Source">{sourceLabel}</span>
-                <span className="studio-record-cell" data-label="Status"><span className={`instruction-status ${String(item.status || 'Draft').toLowerCase().replaceAll(' ', '-')}`}>{item.status || 'Draft'}</span></span>
-                <span className="studio-record-cell studio-record-adviser" data-label="Adviser">{adviserName}</span>
-                <span className="studio-record-cell studio-record-updated" data-label="Updated">{formatInstructionDate(item.updatedAt)}</span>
+                {agreementColumns.source !== false && <span className="studio-record-cell" data-label="Source">{sourceLabel}</span>}
+                {agreementColumns.status !== false && <span className="studio-record-cell" data-label="Status"><span className={`instruction-status ${String(item.status || 'Draft').toLowerCase().replaceAll(' ', '-')}`}>{item.status || 'Draft'}</span></span>}
+                {agreementColumns.adviser !== false && <span className="studio-record-cell studio-record-adviser" data-label="Adviser">{adviserName}</span>}
+                {agreementColumns.updated !== false && <span className="studio-record-cell studio-record-updated" data-label="Updated">{formatInstructionDate(item.updatedAt)}</span>}
               </button>
               <div className="studio-record-actions">
                 <button className="icon-btn instruction-set-open" type="button" onClick={(event) => openAgreement(item, event)} aria-label={`Open ${item.title}`} title="Open"><ChevronRight size={16} /></button>
@@ -12428,7 +12765,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.14.9" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.15.0" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
         </div>
       )}
     </div>
@@ -12436,11 +12773,34 @@ function AgreementsWorkspace({
 }
 
 function ClientsWorkspace(props) {
-  const { clients, selectedClient, advisers, caseTypes, deadlineTypes, clientQuery, setClientQuery, adviserFilter, setAdviserFilter, includeBackupClients = false, setIncludeBackupClients, effectiveAdviserId = '', caseTypeFilter, setCaseTypeFilter, setSelectedClientId, onDirtyChange, saveClient, updatePortalMessageStatus, uploadPortalDocument, updatePortalDocument, deletePortalDocument, deleteClient, changeClientStatus, instructionSets = [], openInstructionsForClient, agreementSets = [], openAgreementsForClient, saving, calendarEntries = [] } = props;
+  const { clients, selectedClient, advisers, caseTypes, deadlineTypes, clientQuery, setClientQuery, adviserFilter, setAdviserFilter, includeBackupClients = false, setIncludeBackupClients, effectiveAdviserId = '', caseTypeFilter, setCaseTypeFilter, setSelectedClientId, onDirtyChange, saveClient, updatePortalMessageStatus, uploadPortalDocument, updatePortalDocument, deletePortalDocument, deleteClient, changeClientStatus, instructionSets = [], openInstructionsForClient, agreementSets = [], openAgreementsForClient, saving, calendarEntries = [], preferences = DEFAULT_ADVISER_PREFERENCES, upsertSavedView, deleteSavedView, saveMyPreferences } = props;
   const [popoutOpen, setPopoutOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [popoutDirty, setPopoutDirty] = useState(false);
   const [popoutInitialSection, setPopoutInitialSection] = useState('overview');
+  const clientPreferences = normaliseAdviserPreferences(preferences);
+  const clientColumns = clientPreferences.listColumns.clients;
+  const clientSavedViews = clientPreferences.savedViews.clients || [];
+  const [sortOrder, setSortOrder] = useState(clientPreferences.clientList.sort || 'name-asc');
+  useEffect(() => setSortOrder(clientPreferences.clientList.sort || 'name-asc'), [clientPreferences.clientList.sort]);
+  const renderedClients = useMemo(() => [...clients].sort((a, b) => {
+    if (sortOrder === 'stage') return currentStageLabel(a).localeCompare(currentStageLabel(b)) || ([a.firstName, a.lastName].filter(Boolean).join(' ')).localeCompare([b.firstName, b.lastName].filter(Boolean).join(' '));
+    if (sortOrder === 'action') return String(a.nextActionDue || '9999-12-31').localeCompare(String(b.nextActionDue || '9999-12-31')) || ([a.firstName, a.lastName].filter(Boolean).join(' ')).localeCompare([b.firstName, b.lastName].filter(Boolean).join(' '));
+    if (sortOrder === 'name-desc') return ([b.firstName, b.lastName].filter(Boolean).join(' ')).localeCompare([a.firstName, a.lastName].filter(Boolean).join(' '));
+    return ([a.firstName, a.lastName].filter(Boolean).join(' ')).localeCompare([b.firstName, b.lastName].filter(Boolean).join(' '));
+  }), [clients, sortOrder]);
+
+  function applyClientSavedView(view) {
+    setClientQuery(view.query || '');
+    setAdviserFilter(view.adviserFilter || 'mine');
+    setCaseTypeFilter(view.caseTypeFilter || 'all');
+    setIncludeBackupClients?.(Boolean(view.includeBackupClients));
+    setSortOrder(view.sortOrder || 'name-asc');
+  }
+
+  function saveClientView(view) {
+    return upsertSavedView?.('clients', { ...view, query: clientQuery, adviserFilter, caseTypeFilter, includeBackupClients, sortOrder });
+  }
 
   function requestPopoutClose(options = {}) {
     if (!options.force && popoutDirty && !window.confirm('Close the pop-out editor and discard unsaved changes?')) return;
@@ -12469,10 +12829,12 @@ function ClientsWorkspace(props) {
           <button className={`btn mini filter-toggle ${filtersOpen ? 'active' : ''}`} type="button" onClick={() => setFiltersOpen((open) => !open)}><SlidersHorizontal size={14} />Filters</button>
         </div>
         <div className="search-box"><Search size={16} /><input value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} placeholder="Search clients" /></div>
+        <SavedViewControls workspace="clients" views={clientSavedViews} onApply={applyClientSavedView} onSave={saveClientView} onDelete={(viewId) => deleteSavedView?.('clients', viewId)} />
         {filtersOpen && (
           <div className="client-filter-panel">
             <label><span>Adviser</span><select value={adviserFilter} onChange={(event) => setAdviserFilter(event.target.value)}><option value="mine">My clients</option><option value="all">All clients in current view</option>{advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}</select></label>
             <label><span>Case type</span><select value={caseTypeFilter} onChange={(event) => setCaseTypeFilter(event.target.value)}><option value="all">All case types</option>{caseTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
+            <label><span>Sort</span><select value={sortOrder} onChange={(event) => setSortOrder(event.target.value)}><option value="name-asc">Name A-Z</option><option value="name-desc">Name Z-A</option><option value="stage">Current stage</option><option value="action">Next action date</option></select></label>
           </div>
         )}
         {adviserFilter !== 'all' && effectiveAdviserId && (
@@ -12482,7 +12844,7 @@ function ClientsWorkspace(props) {
           </label>
         )}
         <div className="client-list">
-          {clients.map((client) => {
+          {renderedClients.map((client) => {
             const isBackupMatter = Boolean(
               includeBackupClients
               && effectiveAdviserId
@@ -12498,9 +12860,9 @@ function ClientsWorkspace(props) {
                     {client.clientStatus === 'Closed' && <span className="client-closed-marker">Closed</span>}
                   </span>
                   <small>{client.caseType}</small>
-                  <small>{client.caseStrategy ? 'Strategy added' : 'No case strategy yet'}</small>
-                  <small>{client.oneLawClientNumber ? `OneLaw ${client.oneLawClientNumber}` : 'No OneLaw number'}</small>
-                  <small>{client.sharepointFolderUrl ? 'SharePoint linked' : 'No SharePoint link'}</small>
+                  {clientColumns.strategy !== false && <small>{client.caseStrategy ? 'Strategy added' : 'No case strategy yet'}</small>}
+                  {clientColumns.oneLaw !== false && <small>{client.oneLawClientNumber ? `OneLaw ${client.oneLawClientNumber}` : 'No OneLaw number'}</small>}
+                  {clientColumns.sharePoint !== false && <small>{client.sharepointFolderUrl ? 'SharePoint linked' : 'No SharePoint link'}</small>}
                 </span>
                 <ChevronRight size={16} />
                 <ProgressBar value={progressPercent(client)} />
@@ -16265,7 +16627,7 @@ function normalisePortalDocument(doc = {}) {
 
 function normaliseData(body) {
   return {
-    advisers: (body.advisers || []).map((adviser) => ({ ...adviser, loginEmail: adviser.loginEmail || adviser.login_email || '', accessRole: normaliseCrmAccessRole(adviser.accessRole || adviser.access_role), availability: adviser.availability === 'Away' ? 'Away' : 'Available' })),
+    advisers: (body.advisers || []).map((adviser) => ({ ...adviser, loginEmail: adviser.loginEmail || adviser.login_email || '', accessRole: normaliseCrmAccessRole(adviser.accessRole || adviser.access_role), availability: adviser.availability === 'Away' ? 'Away' : 'Available', preferences: normaliseAdviserPreferences(adviser.preferences) })),
     clients: (body.clients || []).map((client) => normaliseClientFromApi(client, body.stageTemplates || DEFAULT_STAGE_TEMPLATES)),
     commercialClients: (body.commercialClients || []).map(normaliseCommercialClient),
     caseTypes: body.caseTypes || DEFAULT_CASE_TYPES,

@@ -1,0 +1,2 @@
+ALTER TABLE advisers
+  ADD COLUMN IF NOT EXISTS preferences JSONB NOT NULL DEFAULT '{}'::jsonb;
