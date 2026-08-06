@@ -1,6 +1,6 @@
-THiS CRM v0.15.0 - LIVE CHAT DEPLOYMENT GUIDE
+THiS CRM v0.15.1 - LIVE CHAT DEPLOYMENT GUIDE
 
-1. Deploy the complete v0.15.0 package to the existing Netlify site.
+1. Deploy the complete v0.15.1 package to the existing Netlify site.
 
 2. Confirm the existing LIVE_CHAT_SESSION_SECRET remains configured for Functions and marked as containing secret values.
 
@@ -23,7 +23,7 @@ THiS CRM v0.15.0 - LIVE CHAT DEPLOYMENT GUIDE
    - email notification recipients.
 
 7. The existing Squarespace embed remains valid. The current generated version is:
-   <script src="https://thisvisacrm.netlify.app/live-chat-widget.js?v=0.15.0" data-title="Chat with us" defer></script>
+   <script src="https://thisvisacrm.netlify.app/live-chat-widget.js?v=0.15.1" data-title="Chat with us" defer></script>
 
 8. Test during open hours:
    - Start a website chat.
@@ -39,3 +39,11 @@ THiS CRM v0.15.0 - LIVE CHAT DEPLOYMENT GUIDE
    - Return focus to the CRM and confirm the message appears and regular polling resumes while it remains waiting.
 
 The widget does not support attachments and must not be used for confidential document exchange.
+
+10. Test adviser quick replies:
+   - Claim a website chat.
+   - Open Quick replies above the Reply composer.
+   - Select the welcome, assessment, email and telephone replies and confirm the visitor/adviser fields are populated.
+   - Confirm the selected reply is inserted for review and is not sent until the adviser presses Send.
+
+11. Administrators can maintain the shared reply library under Tools > Live chat settings > Adviser quick replies. Keep replies concise and do not use them to give case-specific immigration advice without reviewing the visitor's circumstances.

@@ -16302,7 +16302,7 @@ body.festive-mode-active {
   .live-chat-conversation-list{margin-bottom:8px}
 }
 
-/* v0.15.0: adviser workspace personalisation */
+/* v0.15.1: adviser workspace personalisation */
 .personal-quick-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:-2px 0 12px;padding:8px 10px;border:1px solid #dbe8e4;border-radius:14px;background:#f8fcfa}
 .personal-quick-actions>span{margin-right:3px;color:#6b817c;font-size:10px;font-weight:850;letter-spacing:.06em;text-transform:uppercase}
 .personal-quick-actions button{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid #d4e3de;border-radius:10px;background:#fff;color:#28534c;font-size:11px;font-weight:750;cursor:pointer}
@@ -16392,3 +16392,33 @@ body.festive-mode-active {
 .personalisation-drawer .drawer-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex:0 0 auto}
 .personalisation-scroll{flex:1;min-height:0}
 .personalisation-actions{position:static;flex:0 0 auto}
+
+
+/* v0.15.1 adviser live-chat quick replies */
+.live-chat-quick-replies{position:relative;margin:0 0 9px}
+.live-chat-quick-replies-toolbar{display:flex;align-items:center;gap:9px;min-height:31px}
+.live-chat-quick-replies-toolbar>span{font-size:10.5px;color:#718681}
+.live-chat-quick-replies-trigger{border:1px solid #c9ddd7;background:#f4faf7;color:#245a52;border-radius:9px;padding:7px 10px;display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:11px;font-weight:800;cursor:pointer;transition:border-color .16s ease,background .16s ease,box-shadow .16s ease}
+.live-chat-quick-replies-trigger:hover,.live-chat-quick-replies-trigger.active{border-color:#55d9a0;background:#eaf8f2;box-shadow:0 0 0 3px rgba(85,217,160,.12)}
+.live-chat-quick-replies-trigger svg:last-child{transition:transform .16s ease}
+.live-chat-quick-replies-trigger.active svg:last-child{transform:rotate(180deg)}
+.live-chat-quick-replies-trigger:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+.live-chat-quick-replies-menu{position:absolute;left:0;bottom:calc(100% + 7px);z-index:12;width:min(540px,calc(100vw - 410px));min-width:330px;max-height:340px;overflow:auto;padding:7px;background:#fff;border:1px solid #cfe1dc;border-radius:14px;box-shadow:0 18px 42px rgba(0,55,54,.18);display:grid;gap:5px}
+.live-chat-quick-replies-menu button{width:100%;border:1px solid transparent;background:#f8fbfa;border-radius:10px;padding:9px 10px;text-align:left;color:#315954;display:grid;gap:3px;cursor:pointer;font:inherit}
+.live-chat-quick-replies-menu button:hover,.live-chat-quick-replies-menu button:focus-visible{background:#edf8f3;border-color:#bfe7d6;outline:none}
+.live-chat-quick-replies-menu strong{font-size:11.5px;color:#164d46}
+.live-chat-quick-replies-menu span{font-size:10.5px;line-height:1.35;color:#6b807b;white-space:pre-line;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.live-chat-quick-reply-settings{border:1px solid #dce9e5;border-radius:14px;background:#f8fbfa;padding:14px}
+.live-chat-quick-reply-settings-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.live-chat-quick-reply-settings-actions .btn{min-height:34px;padding:7px 10px}
+.live-chat-quick-reply-token-help{font-size:10.5px;line-height:1.5;color:#657d77;background:#eef6f3;border-radius:9px;padding:8px 10px}
+.live-chat-quick-reply-token-help code{font-size:10px;color:#0c6254;background:#fff;border:1px solid #d9e9e4;border-radius:5px;padding:1px 4px;white-space:nowrap}
+.live-chat-quick-reply-editor-list{display:grid;gap:8px}
+.live-chat-quick-reply-editor{display:grid;grid-template-columns:28px minmax(150px,190px) minmax(280px,1fr) 36px;gap:9px;align-items:start;border:1px solid #dce9e5;border-radius:11px;background:#fff;padding:10px}
+.live-chat-quick-reply-number{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#e8f7f0;color:#087755;font-size:11px;font-weight:850;margin-top:22px}
+.live-chat-quick-reply-message textarea{min-height:72px}
+.live-chat-quick-reply-editor>.icon-btn{margin-top:22px}
+.live-chat-quick-reply-editor>.icon-btn.danger{color:#a5332a;border-color:#efd5d1;background:#fff8f7}
+@media(max-width:900px){.live-chat-quick-replies-menu{width:min(520px,calc(100vw - 330px))}.live-chat-quick-reply-editor{grid-template-columns:28px 160px minmax(220px,1fr) 36px}}
+@media(max-width:700px){.live-chat-quick-replies-toolbar{align-items:flex-start;flex-direction:column;gap:5px}.live-chat-quick-replies-menu{position:fixed;left:12px;right:12px;bottom:110px;width:auto;min-width:0;max-height:42vh}.live-chat-quick-reply-settings .settings-section-head{align-items:flex-start;flex-direction:column}.live-chat-quick-reply-settings-actions{justify-content:flex-start}.live-chat-quick-reply-editor{grid-template-columns:28px 1fr 36px}.live-chat-quick-reply-editor .live-chat-quick-reply-message{grid-column:2 / 4}.live-chat-quick-reply-editor>.icon-btn{grid-column:3;grid-row:1;margin-top:22px}.live-chat-quick-reply-number{grid-row:1}}
+@media(max-width:480px){.live-chat-quick-replies-menu{bottom:128px}.live-chat-quick-reply-editor{grid-template-columns:28px 1fr 34px;padding:8px}.live-chat-quick-reply-token-help{overflow-wrap:anywhere}}

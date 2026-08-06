@@ -1,12 +1,15 @@
-THiS CRM v0.15.0 validation
+THiS CRM v0.15.1 validation
 
 - App.jsx JSX/JavaScript syntax: passed using the TypeScript JSX parser.
 - Netlify function JavaScript syntax: passed with node --check.
 - Public JavaScript syntax: passed with node --check.
 - PWA manifest/service-worker validation: passed.
+- HTML parser validation: passed for the main shell and public Studio/chat pages.
 - CSS brace validation: passed.
-- Adviser preferences migration included.
-- Personal preference API action included and restricted to the authenticated adviser's mapped profile.
-- Dashboard widget, quick action, saved view, list column and density feature markers confirmed.
+- Live-chat quick-reply migration included.
+- Quick replies are returned only in the authenticated staff snapshot, not the public widget status payload.
+- Adviser selection inserts a reply into the composer and does not send it automatically.
+- Administrator settings include add, edit, delete and restore-default controls.
+- Quick replies are normalised server-side and limited to 20 entries of 4,000 characters each.
 
 A full Vite production build could not be completed because the isolated package registry does not contain the existing @netlify/blobs@10.7.9 dependency. No dependency versions were changed.

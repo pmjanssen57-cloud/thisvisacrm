@@ -22,6 +22,16 @@ const PUBLIC_CATEGORIES = [
   'Existing client enquiry',
   'Other',
 ];
+const DEFAULT_QUICK_REPLIES = [
+  { id: 'welcome', label: 'Welcome', message: 'Kia ora {{first_name}}, thanks for getting in touch. I am {{adviser_name}} from Turner Hopkins. I am reviewing your message now.' },
+  { id: 'assessment', label: 'Complete an assessment', message: 'The best next step is to complete our full immigration assessment form. This gives us the information we need to consider your circumstances properly:\n\n{{assessment_url}}' },
+  { id: 'email', label: 'Email us', message: 'You are welcome to email us directly at {{email}}. Please include your full name and a brief summary of your immigration question.' },
+  { id: 'phone', label: 'Call us', message: 'You are welcome to call our team on {{phone}} during office hours.' },
+  { id: 'more-details', label: 'Ask for key details', message: 'Thanks, {{first_name}}. Could you please tell me your current visa type, when it expires, and what outcome you are hoping to achieve?' },
+  { id: 'full-review', label: 'Needs fuller review', message: 'This is something we would need to assess more fully rather than answer definitively through live chat. The assessment form is the best next step:\n\n{{assessment_url}}' },
+  { id: 'reviewing', label: 'Reviewing now', message: 'Thanks for that information. Please give me a moment while I review it.' },
+  { id: 'closing', label: 'Friendly close', message: 'Thank you for contacting Turner Hopkins, {{first_name}}. Please let us know if there is anything else we can help with.' },
+];
 
 let chatSchemaPromise = null;
 
@@ -139,9 +149,11 @@ async function initialiseChatSchema() {
       privacy_url TEXT,
       notification_enabled BOOLEAN NOT NULL DEFAULT TRUE,
       notification_emails TEXT,
+      quick_replies JSONB NOT NULL DEFAULT '[]'::jsonb,
       updated_by TEXT,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )`;
+  await database.sql`ALTER TABLE live_chat_settings ADD COLUMN IF NOT EXISTS quick_replies JSONB NOT NULL DEFAULT '[]'::jsonb`;
   await database.sql`
     CREATE TABLE IF NOT EXISTS live_chat_conversations (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -210,6 +222,7 @@ async function readSettings() {
     privacyUrl: cleanUrl(row.privacy_url),
     notificationEnabled: row.notification_enabled !== false,
     notificationEmails: cleanText(row.notification_emails, 2000),
+    quickReplies: normaliseQuickReplies(row.quick_replies),
     updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : '',
     updatedBy: row.updated_by || '',
   };
@@ -226,10 +239,11 @@ async function saveSettings(input = {}, actor) {
     privacyUrl: cleanUrl(input.privacyUrl),
     notificationEnabled: input.notificationEnabled !== false,
     notificationEmails: normaliseEmailString(input.notificationEmails),
+    quickReplies: normaliseQuickReplies(input.quickReplies),
   };
   await db().sql`
-    INSERT INTO live_chat_settings (id, enabled, timezone, weekly_hours, away_dates, welcome_message, offline_message, privacy_url, notification_enabled, notification_emails, updated_by, updated_at)
-    VALUES ('master', ${settings.enabled}, ${settings.timezone}, CAST(${JSON.stringify(settings.weeklyHours)} AS jsonb), CAST(${JSON.stringify(settings.awayDates)} AS jsonb), ${settings.welcomeMessage}, ${settings.offlineMessage}, ${settings.privacyUrl}, ${settings.notificationEnabled}, ${settings.notificationEmails}, ${actor.name}, NOW())
+    INSERT INTO live_chat_settings (id, enabled, timezone, weekly_hours, away_dates, welcome_message, offline_message, privacy_url, notification_enabled, notification_emails, quick_replies, updated_by, updated_at)
+    VALUES ('master', ${settings.enabled}, ${settings.timezone}, CAST(${JSON.stringify(settings.weeklyHours)} AS jsonb), CAST(${JSON.stringify(settings.awayDates)} AS jsonb), ${settings.welcomeMessage}, ${settings.offlineMessage}, ${settings.privacyUrl}, ${settings.notificationEnabled}, ${settings.notificationEmails}, CAST(${JSON.stringify(settings.quickReplies)} AS jsonb), ${actor.name}, NOW())
     ON CONFLICT (id) DO UPDATE SET
       enabled = EXCLUDED.enabled,
       timezone = EXCLUDED.timezone,
@@ -240,6 +254,7 @@ async function saveSettings(input = {}, actor) {
       privacy_url = EXCLUDED.privacy_url,
       notification_enabled = EXCLUDED.notification_enabled,
       notification_emails = EXCLUDED.notification_emails,
+      quick_replies = EXCLUDED.quick_replies,
       updated_by = EXCLUDED.updated_by,
       updated_at = NOW()`;
   return readSettings();
@@ -933,6 +948,17 @@ function normaliseAwayDates(value) {
     if (typeof item === 'string') return { date: cleanDate(item), label: 'Office closed' };
     return { date: cleanDate(item?.date), label: cleanText(item?.label, 160) || 'Office closed' };
   }).filter((item) => item.date).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function normaliseQuickReplies(value) {
+  const parsed = typeof value === 'string' ? safeJsonParse(value, []) : value;
+  const source = Array.isArray(parsed) ? parsed : DEFAULT_QUICK_REPLIES;
+  const replies = source.map((item, index) => ({
+    id: cleanText(item?.id, 80).replace(/[^a-z0-9_-]+/gi, '-') || `reply-${index + 1}`,
+    label: cleanText(item?.label, 80),
+    message: cleanText(item?.message, 4000),
+  })).filter((item) => item.label && item.message).slice(0, 20);
+  return replies.length ? replies : DEFAULT_QUICK_REPLIES.map((item) => ({ ...item }));
 }
 
 function localParts(date, timezone) {

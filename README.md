@@ -1,25 +1,47 @@
-# THiS CRM v0.15.0 - Adviser Workspace Personalisation
+# THiS CRM v0.15.1 - Adviser Live Chat Quick Replies
 
-This build adds the first controlled personalisation layer to the CRM while retaining the shared Turner Hopkins design system and workflows.
+This build adds a shared quick-reply library to the adviser side of native live chat while retaining the v0.15.0 adviser workspace personalisation release and all earlier CRM functionality.
 
-## Personal settings
+## Adviser quick replies
 
-Each mapped adviser can now save:
+After an adviser claims a website conversation, the Reply composer now includes a **Quick replies** control. Selecting a reply inserts it into the composer for review and editing. It is never sent automatically.
 
-- Default landing page
-- Standard or compact density
-- Dashboard widget visibility, width and order
-- Up to six personal quick actions
-- Supporting information shown in Clients, Instructions and Agreements
-- Saved filter/search views for Clients, Instructions and Agreements
-- Client-list sort order within saved views
+The initial shared library includes:
 
-Preferences are stored against the adviser profile and therefore follow the adviser between devices.
+- A welcoming introduction
+- An invitation to complete the full immigration assessment form
+- Direct email details for immigration@turnerhopkins.co.nz
+- The Turner Hopkins office phone number
+- A request for the visitor's current visa, expiry date and intended outcome
+- A response explaining that a question needs fuller assessment
+- A short "reviewing now" holding response
+- A friendly closing response
+
+Quick replies can use the visitor's first name, full name and assigned adviser name automatically.
+
+## Administration
+
+Administrators can edit the shared library under:
+
+`Tools > Live chat settings > Adviser quick replies`
+
+Replies can be added, removed, renamed, reordered through the listed sequence, or restored to the THiS defaults. A maximum of 20 shared replies is supported.
+
+Available fields are:
+
+- `{{first_name}}`
+- `{{visitor_name}}`
+- `{{adviser_name}}`
+- `{{assessment_url}}`
+- `{{email}}`
+- `{{phone}}`
 
 ## Deployment
 
-Deploy the complete package and run the included migration:
+Deploy the complete package and run the new migration:
 
-`202608060002_add_adviser_workspace_preferences.sql`
+`202608070001_add_live_chat_quick_replies.sql`
 
-Perform one hard refresh after deployment. All v0.14.9 functionality is retained.
+The live-chat function also adds the column defensively when it first runs. Perform one hard refresh after deployment.
+
+All v0.15.0 adviser personalisation, CRM, intake, booking, portal, Instructions Studio, Agreement Studio, email, signing and native live-chat functionality is retained.

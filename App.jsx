@@ -15,6 +15,43 @@ const FESTIVE_MODE_OPTIONS = ['auto', 'on', 'off'];
 const MAX_INTAKE_CV_BYTES = 5 * 1024 * 1024;
 const INTAKE_CV_ACCEPT = '.pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
+const LIVE_CHAT_ASSESSMENT_URL = 'https://www.turnerhopkinsimmigration.co.nz/assessment';
+const LIVE_CHAT_CONTACT_EMAIL = 'immigration@turnerhopkins.co.nz';
+const LIVE_CHAT_CONTACT_PHONE = '+64 9 486 2169';
+const DEFAULT_LIVE_CHAT_QUICK_REPLIES = [
+  { id: 'welcome', label: 'Welcome', message: 'Kia ora {{first_name}}, thanks for getting in touch. I am {{adviser_name}} from Turner Hopkins. I am reviewing your message now.' },
+  { id: 'assessment', label: 'Complete an assessment', message: 'The best next step is to complete our full immigration assessment form. This gives us the information we need to consider your circumstances properly:\n\n{{assessment_url}}' },
+  { id: 'email', label: 'Email us', message: 'You are welcome to email us directly at {{email}}. Please include your full name and a brief summary of your immigration question.' },
+  { id: 'phone', label: 'Call us', message: 'You are welcome to call our team on {{phone}} during office hours.' },
+  { id: 'more-details', label: 'Ask for key details', message: 'Thanks, {{first_name}}. Could you please tell me your current visa type, when it expires, and what outcome you are hoping to achieve?' },
+  { id: 'full-review', label: 'Needs fuller review', message: 'This is something we would need to assess more fully rather than answer definitively through live chat. The assessment form is the best next step:\n\n{{assessment_url}}' },
+  { id: 'reviewing', label: 'Reviewing now', message: 'Thanks for that information. Please give me a moment while I review it.' },
+  { id: 'closing', label: 'Friendly close', message: 'Thank you for contacting Turner Hopkins, {{first_name}}. Please let us know if there is anything else we can help with.' },
+];
+
+function normaliseLiveChatQuickReplies(value) {
+  const source = Array.isArray(value) ? value : DEFAULT_LIVE_CHAT_QUICK_REPLIES;
+  const replies = source.map((item, index) => ({
+    id: String(item?.id || `reply-${index + 1}`).trim().replace(/[^a-z0-9_-]+/gi, '-').slice(0, 80) || `reply-${index + 1}`,
+    label: String(item?.label || '').trim().slice(0, 80),
+    message: String(item?.message || '').trim().slice(0, 4000),
+  })).filter((item) => item.label && item.message).slice(0, 20);
+  return replies.length ? replies : DEFAULT_LIVE_CHAT_QUICK_REPLIES.map((item) => ({ ...item }));
+}
+
+function renderLiveChatQuickReply(template, conversation = {}, actor = {}) {
+  const firstName = String(conversation.visitorName || '').trim().split(/\s+/)[0] || 'there';
+  const replacements = {
+    first_name: firstName,
+    visitor_name: conversation.visitorName || firstName,
+    adviser_name: actor.name || 'a Turner Hopkins adviser',
+    assessment_url: LIVE_CHAT_ASSESSMENT_URL,
+    email: LIVE_CHAT_CONTACT_EMAIL,
+    phone: LIVE_CHAT_CONTACT_PHONE,
+  };
+  return String(template || '').replace(/\{\{\s*([a-z_]+)\s*\}\}/gi, (match, key) => replacements[String(key || '').toLowerCase()] ?? match);
+}
+
 
 const DASHBOARD_WIDGET_CATALOG = [
   { id: 'summary', label: 'Dashboard summary', defaultWidth: 'full' },
@@ -8942,8 +8979,11 @@ function LiveChatWorkspace({ open, onClose, snapshot = {}, selectedId = '', onSe
   const [view, setView] = useState('waiting');
   const [composerMode, setComposerMode] = useState('reply');
   const [draft, setDraft] = useState('');
+  const [quickRepliesOpen, setQuickRepliesOpen] = useState(false);
+  const composerRef = useRef(null);
   const conversations = snapshot.conversations || [];
   const actor = snapshot.actor || {};
+  const quickReplies = normaliseLiveChatQuickReplies(snapshot.settings?.quickReplies);
   const selectedSnapshotMatches = snapshot.selectedConversation?.id === selectedId;
   const selected = selectedSnapshotMatches ? snapshot.selectedConversation : conversations.find((item) => item.id === selectedId) || null;
   const messages = selectedSnapshotMatches ? (snapshot.messages || []) : [];
@@ -8951,6 +8991,7 @@ function LiveChatWorkspace({ open, onClose, snapshot = {}, selectedId = '', onSe
   useEffect(() => {
     setDraft('');
     setComposerMode('reply');
+    setQuickRepliesOpen(false);
   }, [selectedId]);
 
   const filtered = conversations.filter((item) => {
@@ -8972,6 +9013,15 @@ function LiveChatWorkspace({ open, onClose, snapshot = {}, selectedId = '', onSe
     if (composerMode === 'note') await onAddNote?.(selected.id, message);
     else await onSend?.(selected.id, message);
     setDraft('');
+    setQuickRepliesOpen(false);
+  }
+
+  function insertQuickReply(reply) {
+    const message = renderLiveChatQuickReply(reply?.message, selected, actor).trim();
+    if (!message) return;
+    setDraft((current) => current.trim() ? `${current.trim()}\n\n${message}` : message);
+    setQuickRepliesOpen(false);
+    window.requestAnimationFrame(() => composerRef.current?.focus());
   }
 
   if (!open) return null;
@@ -9042,12 +9092,32 @@ function LiveChatWorkspace({ open, onClose, snapshot = {}, selectedId = '', onSe
                 {selected.status !== 'Closed' && (
                   <form className={`live-chat-crm-composer ${composerMode}`} onSubmit={submitComposer}>
                     <div className="live-chat-composer-mode">
-                      <button type="button" className={composerMode === 'reply' ? 'active' : ''} onClick={() => setComposerMode('reply')} disabled={!canReply}>Reply</button>
-                      <button type="button" className={composerMode === 'note' ? 'active' : ''} onClick={() => setComposerMode('note')}>Internal note</button>
+                      <button type="button" className={composerMode === 'reply' ? 'active' : ''} onClick={() => { setComposerMode('reply'); setQuickRepliesOpen(false); }} disabled={!canReply}>Reply</button>
+                      <button type="button" className={composerMode === 'note' ? 'active' : ''} onClick={() => { setComposerMode('note'); setQuickRepliesOpen(false); }}>Internal note</button>
                     </div>
                     {!canReply && composerMode === 'reply' && <div className="live-chat-claim-hint">{selected.assignedAdviserName ? `Assigned to ${selected.assignedAdviserName}.` : 'Claim this chat before replying.'}</div>}
+                    {composerMode === 'reply' && (
+                      <div className="live-chat-quick-replies">
+                        <div className="live-chat-quick-replies-toolbar">
+                          <button className={`live-chat-quick-replies-trigger ${quickRepliesOpen ? 'active' : ''}`} type="button" disabled={!canReply || busy} onClick={() => setQuickRepliesOpen((current) => !current)} aria-expanded={quickRepliesOpen}>
+                            <Sparkles size={14} />Quick replies<ChevronDown size={14} />
+                          </button>
+                          <span>Select a reply, adjust it if needed, then send.</span>
+                        </div>
+                        {quickRepliesOpen && (
+                          <div className="live-chat-quick-replies-menu">
+                            {quickReplies.map((reply) => (
+                              <button key={reply.id} type="button" onClick={() => insertQuickReply(reply)}>
+                                <strong>{reply.label}</strong>
+                                <span>{renderLiveChatQuickReply(reply.message, selected, actor)}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <div className="live-chat-composer-row">
-                      <textarea value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={composerMode === 'note' ? 'Add a private note for staff…' : 'Type your reply…'} disabled={busy || (composerMode === 'reply' && !canReply)} rows={3} />
+                      <textarea ref={composerRef} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={composerMode === 'note' ? 'Add a private note for staff…' : 'Type your reply…'} disabled={busy || (composerMode === 'reply' && !canReply)} rows={3} />
                       <button className="btn dark" type="submit" disabled={busy || !draft.trim() || (composerMode === 'reply' && !canReply)}><Send size={15} />{composerMode === 'note' ? 'Add note' : 'Send'}</button>
                     </div>
                   </form>
@@ -9072,12 +9142,12 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
   const defaultHours = {
     mon: { enabled: true, start: '09:00', end: '16:00' }, tue: { enabled: true, start: '09:00', end: '16:00' }, wed: { enabled: true, start: '09:00', end: '16:00' }, thu: { enabled: true, start: '09:00', end: '16:00' }, fri: { enabled: true, start: '09:00', end: '16:00' }, sat: { enabled: true, start: '09:00', end: '16:00' }, sun: { enabled: true, start: '09:00', end: '16:00' },
   };
-  const [draft, setDraft] = useState({ enabled: true, timezone: 'Pacific/Auckland', weeklyHours: defaultHours, awayDatesText: '', welcomeMessage: '', offlineMessage: '', privacyUrl: '', notificationEnabled: true, notificationEmails: '' });
+  const [draft, setDraft] = useState({ enabled: true, timezone: 'Pacific/Auckland', weeklyHours: defaultHours, awayDatesText: '', welcomeMessage: '', offlineMessage: '', privacyUrl: '', notificationEnabled: true, notificationEmails: '', quickReplies: normaliseLiveChatQuickReplies(DEFAULT_LIVE_CHAT_QUICK_REPLIES) });
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const dayRows = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']];
-  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.15.0" data-title="Chat with us" defer><\/script>`;
+  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.15.1" data-title="Chat with us" defer><\/script>`;
 
   useEffect(() => {
     if (!open) return;
@@ -9092,6 +9162,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
       privacyUrl: source.privacyUrl || '',
       notificationEnabled: source.notificationEnabled !== false,
       notificationEmails: source.notificationEmails || '',
+      quickReplies: normaliseLiveChatQuickReplies(source.quickReplies),
     });
     setMessage('');
     setError('');
@@ -9099,6 +9170,29 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
 
   function updateHour(day, field, value) {
     setDraft((current) => ({ ...current, weeklyHours: { ...current.weeklyHours, [day]: { ...current.weeklyHours[day], [field]: value } } }));
+  }
+
+  function updateQuickReply(id, field, value) {
+    setDraft((current) => ({
+      ...current,
+      quickReplies: current.quickReplies.map((item) => item.id === id ? { ...item, [field]: value } : item),
+    }));
+  }
+
+  function addQuickReply() {
+    setDraft((current) => {
+      if (current.quickReplies.length >= 20) return current;
+      const id = `reply-${Date.now()}`;
+      return { ...current, quickReplies: [...current.quickReplies, { id, label: 'New reply', message: '' }] };
+    });
+  }
+
+  function removeQuickReply(id) {
+    setDraft((current) => ({ ...current, quickReplies: current.quickReplies.filter((item) => item.id !== id) }));
+  }
+
+  function resetQuickReplies() {
+    setDraft((current) => ({ ...current, quickReplies: normaliseLiveChatQuickReplies(DEFAULT_LIVE_CHAT_QUICK_REPLIES) }));
   }
 
   async function save(event) {
@@ -9111,7 +9205,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
         const [date, ...label] = line.split('|');
         return { date: date.trim(), label: label.join('|').trim() || 'Office closed' };
       }).filter((item) => item.date);
-      await onSave?.({ ...draft, awayDates });
+      await onSave?.({ ...draft, awayDates, quickReplies: normaliseLiveChatQuickReplies(draft.quickReplies) });
       setMessage('Live chat settings saved.');
     } catch (err) {
       setError(err.message || String(err));
@@ -9126,7 +9220,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
       <div className="modal-backdrop" onClick={onClose} />
       <section className="modal-card live-chat-settings-card">
         <header className="modal-head">
-          <div><span>Website live chat</span><h2>Opening hours and notifications</h2></div>
+          <div><span>Website live chat</span><h2>Opening hours, notifications and quick replies</h2></div>
           <button className="icon-btn" type="button" onClick={onClose}><X size={18} /></button>
         </header>
         <form className="live-chat-settings-form" onSubmit={save}>
@@ -9158,6 +9252,28 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
               <label><span>Privacy notice URL</span><input type="url" value={draft.privacyUrl} onChange={(event) => setDraft((current) => ({ ...current, privacyUrl: event.target.value }))} placeholder="https://…" /></label>
               <label><span>Squarespace embed code</span><textarea rows={4} readOnly value={embedCode} onFocus={(event) => event.target.select()} /></label>
               <button className="btn ghost" type="button" onClick={() => navigator.clipboard?.writeText(embedCode)}><Copy size={15} />Copy embed code</button>
+            </div>
+          </section>
+          <section className="live-chat-quick-reply-settings">
+            <div className="settings-section-head">
+              <div><strong>Adviser quick replies</strong><small>Shared reply templates appear above the adviser chat composer. Selecting one inserts it for review; it is never sent automatically.</small></div>
+              <div className="live-chat-quick-reply-settings-actions">
+                <button className="btn ghost" type="button" onClick={resetQuickReplies}>Restore defaults</button>
+                <button className="btn ghost" type="button" onClick={addQuickReply} disabled={draft.quickReplies.length >= 20}><Plus size={15} />Add reply</button>
+              </div>
+            </div>
+            <div className="live-chat-quick-reply-token-help">
+              Available fields: <code>{'{{first_name}}'}</code>, <code>{'{{visitor_name}}'}</code>, <code>{'{{adviser_name}}'}</code>, <code>{'{{assessment_url}}'}</code>, <code>{'{{email}}'}</code> and <code>{'{{phone}}'}</code>.
+            </div>
+            <div className="live-chat-quick-reply-editor-list">
+              {draft.quickReplies.map((reply, index) => (
+                <div className="live-chat-quick-reply-editor" key={reply.id}>
+                  <span className="live-chat-quick-reply-number">{index + 1}</span>
+                  <label><span>Button label</span><input type="text" value={reply.label} onChange={(event) => updateQuickReply(reply.id, 'label', event.target.value)} maxLength={80} /></label>
+                  <label className="live-chat-quick-reply-message"><span>Reply text</span><textarea rows={3} value={reply.message} onChange={(event) => updateQuickReply(reply.id, 'message', event.target.value)} maxLength={4000} /></label>
+                  <button className="icon-btn danger" type="button" onClick={() => removeQuickReply(reply.id)} aria-label={`Delete ${reply.label || 'quick reply'}`} disabled={draft.quickReplies.length <= 1}><Trash2 size={16} /></button>
+                </div>
+              ))}
             </div>
           </section>
           <div className="live-chat-settings-security"><ShieldCheck size={17} /><span>The website widget uses short-lived signed visitor sessions. Set <code>LIVE_CHAT_SESSION_SECRET</code> in Netlify before publishing the widget.</span></div>
@@ -9237,7 +9353,7 @@ function ToolsDrawer({ open, onOpen, onClose, onOpenHelp, onNavigate, activeTab,
             {canManageAdvisers && (
               <button type="button" onClick={() => { onClose(); setChatSettingsOpen(true); }}>
                 <span className="tools-workspace-icon"><MessageSquare size={19} /></span>
-                <span><strong>Live chat settings</strong><small>Opening hours, away days and notifications</small></span>
+                <span><strong>Live chat settings</strong><small>Opening hours, quick replies and notifications</small></span>
                 <ChevronRight size={17} />
               </button>
             )}
@@ -12237,7 +12353,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.15.0" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.15.1" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
         </div>
       )}
     </div>
@@ -12765,7 +12881,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.15.0" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.15.1" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
         </div>
       )}
     </div>

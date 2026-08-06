@@ -1,13 +1,11 @@
-v0.15.0 - Adviser Workspace Personalisation
+v0.15.1 - Adviser Live Chat Quick Replies
 
-- Adds database-backed personal view preferences to adviser profiles.
-- Adds a Customise view drawer for default landing page, density, dashboard widgets, quick actions and visible list information.
-- Allows dashboard widgets to be shown, hidden, resized and reordered per adviser.
-- Adds personal quick-action shortcuts.
-- Adds saved views for Clients, Instructions and Agreements.
-- Adds client-list sorting and configurable supporting details.
-- Adds configurable columns for Instructions and Agreements row lists.
-- Includes a reset-to-THiS-default action.
-- Preferences follow the adviser between devices.
-- Adds migration 202608060002_add_adviser_workspace_preferences.sql.
-- Retains all v0.14.9 functionality.
+- Adds a Quick replies control to the adviser live-chat composer.
+- Inserts replies into the composer for adviser review rather than sending automatically.
+- Includes eight practical default replies covering welcome, assessment, email, telephone, key details, fuller review, holding and closing messages.
+- Supports automatic fields for visitor name, adviser name, assessment URL, contact email and office telephone.
+- Adds a shared quick-reply editor under Tools > Live chat settings.
+- Allows administrators to add, edit, delete and restore shared reply templates.
+- Stores quick replies in the CRM database so the library is consistent across advisers and devices.
+- Adds migration 202608070001_add_live_chat_quick_replies.sql.
+- Retains all v0.15.0 adviser workspace personalisation and earlier CRM functionality.
