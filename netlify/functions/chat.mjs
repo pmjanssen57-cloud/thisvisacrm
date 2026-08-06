@@ -917,7 +917,8 @@ function mapIntake(row = {}) {
 }
 
 function normaliseWeeklyHours(value) {
-  const source = value && typeof value === 'object' ? value : {};
+  const parsed = typeof value === 'string' ? safeJsonParse(value, {}) : value;
+  const source = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
   return Object.fromEntries(Object.entries(DEFAULT_WEEKLY_HOURS).map(([key, fallback]) => {
     const item = source[key] && typeof source[key] === 'object' ? source[key] : fallback;
     const start = normaliseTime(item.start, fallback.start);

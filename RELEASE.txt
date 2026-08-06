@@ -1,8 +1,7 @@
-v0.14.6 - Human Adviser Presence in Website Chat
+v0.14.8 - Persistent Chat Schedule and Agreement Email Template
 
-- Makes it explicit in the public chat introduction that messages are answered by real Turner Hopkins team members rather than a bot.
-- Once an adviser claims a conversation, the visitor sees the adviser name, role and CRM profile photo in a dedicated presence card and in the chat header.
-- Uses adviser initials as a safe fallback where no profile photo is stored.
-- Keeps the open-hours welcome message editable under Tools > Live chat settings and clarifies the field label.
-- Preserves all v0.14.5 live chat, CRM, Studio, print, client lifecycle and confirmation-layer functionality.
+- Fixes live-chat weekly hours and enabled days persisting across CRM reloads, including deployments where JSONB values are returned as text.
+- Updates the live-chat settings state immediately after a successful server save and verifies it through a fresh server read.
+- Adds the secure agreement issue email to Tools > Email templates.
+- Supports editable subject, wording, button/link content and placeholders while retaining per-agreement custom wording where deliberately changed.
 - No database migration, dependency change, additional software or subscription.

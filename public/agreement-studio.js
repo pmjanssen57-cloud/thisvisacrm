@@ -37,7 +37,7 @@ const THIS_LOCAL_STORAGE=(()=>{try{const storage=window['local'+'Storage'];const
 const THIS_SESSION_STORAGE=(()=>{try{return window['session'+'Storage'];}catch(error){return{getItem(){return null},setItem(){},removeItem(){},clear(){}}}})();
 let state=(()=>{try{return JSON.parse(THIS_LOCAL_STORAGE.getItem('this-agreement-studio-v1')||'null')||defaultState();}catch(error){console.warn('Unable to load the browser agreement draft; starting from the CRM payload.',error);return defaultState();}})();let editMode=false,zoom='fit',sigDrawn=false,editingProfessionalFeeId='',editingGovernmentFeeId='';
 function esc(v=''){return String(v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
-function save(){THIS_LOCAL_STORAGE.setItem('this-agreement-studio-v1',JSON.stringify(state));$('#saveStatus').textContent='Saved '+new Date().toLocaleTimeString('en-NZ',{hour:'2-digit',minute:'2-digit'});toast('Draft saved in this browser')}
+function save(){THIS_LOCAL_STORAGE.setItem('this-agreement-studio-v1',JSON.stringify(state));const crmMode=document.body.classList.contains('crm-embedded-agreement');$('#saveStatus').textContent=crmMode?'Saving to CRM…':'Saved '+new Date().toLocaleTimeString('en-NZ',{hour:'2-digit',minute:'2-digit'});toast(crmMode?'Saving draft to CRM…':'Draft saved in this browser')}
 function currentType(){return APP_TYPES[state.appType]||APP_TYPES.other}function fullClient(){return state.client.clientName||'Client'}
 function defaultMatterDescription(type=state.appType){const cfg=APP_TYPES[type]||APP_TYPES.other;return `${cfg.title} application and related agreed services`}
 function activeSections(){return state.sections.filter(s=>s.enabled)}
@@ -470,6 +470,11 @@ If anything needs correcting, or you would like to discuss any part of the agree
     const message=event.data||{};
     if(message.type==='THIS_AGREEMENT_INIT') initFromCrm(message.payload||{});
     if(message.type==='THIS_AGREEMENT_REQUEST_SNAPSHOT') emitSnapshot(message.reason||'request');
+    if(message.type==='THIS_AGREEMENT_SAVE_CONFIRMED'){
+      const confirmation=message.message||'Agreement saved to CRM';
+      const status=document.querySelector('#saveStatus'); if(status) status.textContent=confirmation;
+      toast(confirmation);
+    }
     if(message.type==='THIS_AGREEMENT_ISSUED'){
       if(message.agreementSet){ state.status=message.agreementSet.status||'Sent'; state.sentAt=message.agreementSet.issuedAt||new Date().toISOString(); }
       document.querySelector('#issueModal')?.classList.add('hidden');

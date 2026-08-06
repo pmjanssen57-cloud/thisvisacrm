@@ -372,6 +372,30 @@ No CRM enquiry record has been created for this calculator use. Follow up manual
     placeholders: ['recipientEmail', 'submitted', 'pathwayName', 'headline', 'statusLabel', 'applicationDate', 'summary', 'workPeriods', 'calculatorUrl'],
   },
   {
+    key: 'agreement_issue',
+    name: 'Agreement - secure review and acceptance',
+    description: 'Sent to each required signatory when an agreement is issued from Agreement Studio.',
+    subject: 'Your Turner Hopkins engagement agreement - {{agreementTitle}}',
+    bodyText: `Dear {{firstName}},
+
+We have prepared your engagement agreement for {{matter}}.
+
+The agreement sets out the services we will provide, the professional and government fees, the payment stages, and the terms on which we will act for you.
+
+Please review the agreement carefully using the secure link below. When you are comfortable with the content, you can confirm your acceptance and sign online. The process should only take a few minutes.
+
+Review and accept agreement: {{agreementLink}}
+
+What happens next
+Open the agreement, check the services, fees and terms, then confirm your acceptance and sign online.
+
+For security, this link will remain active until {{expiryDate}}.
+
+If anything needs correcting, or you would like to discuss any part of the agreement, please reply to this email before accepting it.`,
+    bodyHtml: `<p>Dear {{firstName}},</p><p>We have prepared your engagement agreement for <strong>{{matter}}</strong>.</p><p>The agreement sets out the services we will provide, the professional and government fees, the payment stages, and the terms on which we will act for you.</p><p>Please review the agreement carefully using the secure link below. When you are comfortable with the content, you can confirm your acceptance and sign online. The process should only take a few minutes.</p><p style="margin-top: 20px; margin-bottom: 20px;"><a href="{{agreementLink}}" style="background-color: #003736; color: #ffffff; font-weight: 700; padding: 12px 20px; text-decoration: none;">Review and accept agreement</a></p><p style="background-color: #f1faf7; padding: 12px 14px;"><strong>What happens next</strong><br>Open the agreement, check the services, fees and terms, then confirm your acceptance and sign online.</p><p style="font-size: 9pt; color: #52627a;">For security, this link will remain active until {{expiryDate}}.</p><p style="font-size: 9pt; color: #52627a;">If the button does not open, copy this secure link into your browser:<br><a href="{{agreementLink}}">{{agreementLink}}</a></p><p>If anything needs correcting, or you would like to discuss any part of the agreement, please reply to this email before accepting it.</p>`,
+    placeholders: ['firstName', 'signatoryName', 'agreementTitle', 'matter', 'agreementLink', 'expiryDate', 'adviserName', 'adviserEmail'],
+  },
+  {
     key: 'portal_access',
     name: 'Client portal access',
     description: 'Sent when a client portal access code is created or refreshed.',
@@ -2456,6 +2480,18 @@ function isLegacyAgreementIssueEmailBody(value = '') {
     && body.length < 700;
 }
 
+function isDefaultAgreementStudioEmailSubject(value = '') {
+  return /^Your Turner Hopkins engagement agreement(?:\s*[-–—].*)?$/i.test(String(value || '').trim());
+}
+
+function isDefaultAgreementStudioEmailBody(value = '') {
+  const body = String(value || '').trim();
+  return /We have prepared your Turner Hopkins engagement agreement/i.test(body)
+    || (/We have prepared your engagement agreement/i.test(body)
+      && /professional and government fees/i.test(body)
+      && /confirm your acceptance and sign online/i.test(body));
+}
+
 function buildDefaultAgreementIssueEmailBody(agreement = {}, studioState = {}) {
   const matter = String(studioState?.template?.coverSubtitle || agreement?.title || 'your immigration matter').trim();
   return `We have prepared your engagement agreement for ${matter}. It sets out the services we will provide, the professional and government fees, the payment stages, and the terms on which we will act for you.\n\nPlease review the agreement carefully using the secure button below. When you are comfortable with the content, you can confirm your acceptance and sign online. The process should only take a few minutes.\n\nIf anything needs correcting, or you would like to discuss any part of the agreement, please reply to this email before accepting it.`;
@@ -2478,12 +2514,13 @@ async function issueAgreementSet(input = {}, issue = {}, user = null) {
   const actor = user?.email || user?.name || 'CRM adviser';
   const adviserEmail = String(issue.adviserEmail || studioState?.client?.adviserEmail || '').trim();
   const baseUrl = String(process.env.URL || process.env.DEPLOY_URL || '').replace(/\/$/, '') || 'https://this-crm.netlify.app';
-  const subject = String(issue.emailSubject || studioState.emailSubject || 'Your Turner Hopkins engagement agreement').trim();
+  const requestedSubject = String(issue.emailSubject || studioState.emailSubject || '').trim();
   const rawBody = String(issue.emailBody || studioState.emailBody || '').trim();
   const cleanedBody = stripAgreementEmailEnvelope(rawBody);
-  const baseBody = !cleanedBody || isLegacyAgreementIssueEmailBody(cleanedBody)
-    ? buildDefaultAgreementIssueEmailBody(agreement, studioState)
-    : cleanedBody;
+  const hasCustomSubject = Boolean(requestedSubject && !isDefaultAgreementStudioEmailSubject(requestedSubject));
+  const hasCustomBody = Boolean(cleanedBody && !isLegacyAgreementIssueEmailBody(cleanedBody) && !isDefaultAgreementStudioEmailBody(cleanedBody));
+  const agreementEmailTemplate = await getEmailTemplate('agreement_issue', database);
+  const fallbackBody = buildDefaultAgreementIssueEmailBody(agreement, studioState);
   await database.sql`UPDATE agreement_signatories SET status = 'Superseded', updated_at = NOW() WHERE agreement_id = ${agreement.id} AND status <> 'Accepted'`;
   const signingLinks = [];
   for (const signatory of usable) {
@@ -2497,20 +2534,44 @@ async function issueAgreementSet(input = {}, issue = {}, user = null) {
     await database.sql`
       INSERT INTO agreement_signatories (agreement_id, name, email, role, required, token_hash, token_last_four, status, expires_at)
       VALUES (${agreement.id}, ${name || null}, ${email}, ${role}, ${signatory.required !== false}, ${tokenHash}, ${rawToken.slice(-4)}, 'Sent', ${expiresAt})`;
-    const greeting = name ? `Dear ${name.split(/\s+/)[0]},` : 'Dear client,';
+    const firstName = name ? name.split(/\s+/)[0] : 'client';
+    const greeting = `Dear ${firstName},`;
     const expiryLabel = new Date(expiresAt).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Pacific/Auckland' });
-    const bodyText = [
-      greeting,
-      '',
-      baseBody,
-      '',
-      `Review and accept your agreement: ${link}`,
-      '',
-      `For security, this link will remain active until ${expiryLabel}.`,
-      '',
-      'If anything is incorrect or unclear, reply to this email before accepting the agreement.'
-    ].join('\n');
-    const bodyHtml = `<div style="font-family:Arial,sans-serif;font-size:10pt;line-height:1.5;color:#1d2f2e;max-width:680px"><p>${escapeHtml(greeting)}</p>${textToHtml(baseBody)}<p style="margin:22px 0"><a href="${escapeHtml(link)}" style="display:inline-block;background:#003736;color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:10px">Review and accept agreement</a></p><div style="background:#f1faf7;border-left:4px solid #4ed7a0;padding:12px 14px;margin:18px 0"><strong style="color:#003736">What happens next</strong><br><span style="color:#405653">Open the agreement, check the services, fees and terms, then confirm your acceptance and sign online. The process should only take a few minutes.</span></div><p style="font-size:9pt;color:#52627a;margin-bottom:6px">For security, this link will remain active until ${escapeHtml(expiryLabel)}.</p><p style="font-size:9pt;color:#52627a;margin-top:0">If the button does not open, copy this secure link into your browser:<br><a href="${escapeHtml(link)}" style="color:#003736;word-break:break-all">${escapeHtml(link)}</a></p><p>If anything is incorrect or unclear, reply to this email before accepting the agreement.</p></div>`;
+    const matter = String(studioState?.template?.coverSubtitle || agreement?.title || 'your immigration matter').trim();
+    const context = {
+      firstName,
+      signatoryName: name || 'Client',
+      agreementTitle: agreement.title || matter,
+      matter,
+      agreementLink: link,
+      expiryDate: expiryLabel,
+      adviserName: String(studioState?.client?.adviserName || '').trim(),
+      adviserEmail,
+    };
+    let subject = hasCustomSubject
+      ? requestedSubject
+      : renderTemplateText(agreementEmailTemplate.subject || 'Your Turner Hopkins engagement agreement - {{agreementTitle}}', context).trim();
+    let bodyText = '';
+    let bodyHtml = '';
+    if (hasCustomBody) {
+      bodyText = [
+        greeting,
+        '',
+        cleanedBody || fallbackBody,
+        '',
+        `Review and accept your agreement: ${link}`,
+        '',
+        `For security, this link will remain active until ${expiryLabel}.`,
+        '',
+        'If anything is incorrect or unclear, reply to this email before accepting the agreement.'
+      ].join('\n');
+      bodyHtml = `<div style="font-family:Arial,sans-serif;font-size:10pt;line-height:1.5;color:#1d2f2e;max-width:680px"><p>${escapeHtml(greeting)}</p>${textToHtml(cleanedBody || fallbackBody)}<p style="margin:22px 0"><a href="${escapeHtml(link)}" style="display:inline-block;background:#003736;color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:10px">Review and accept agreement</a></p><div style="background:#f1faf7;border-left:4px solid #4ed7a0;padding:12px 14px;margin:18px 0"><strong style="color:#003736">What happens next</strong><br><span style="color:#405653">Open the agreement, check the services, fees and terms, then confirm your acceptance and sign online. The process should only take a few minutes.</span></div><p style="font-size:9pt;color:#52627a;margin-bottom:6px">For security, this link will remain active until ${escapeHtml(expiryLabel)}.</p><p style="font-size:9pt;color:#52627a;margin-top:0">If the button does not open, copy this secure link into your browser:<br><a href="${escapeHtml(link)}" style="color:#003736;word-break:break-all">${escapeHtml(link)}</a></p><p>If anything is incorrect or unclear, reply to this email before accepting the agreement.</p></div>`;
+    } else {
+      const renderedHtml = cleanHtmlForTemplate(renderTemplateText(agreementEmailTemplate.bodyHtml || '', context), 60000);
+      bodyText = renderTemplateText(agreementEmailTemplate.bodyText || fallbackBody, context).trim() || fallbackBody;
+      bodyHtml = renderedHtml ? editableTemplateBodyHtml(renderedHtml) : editableTemplateEmailHtml(bodyText);
+    }
+    subject = subject || 'Your Turner Hopkins engagement agreement';
     const [emailLog] = await database.sql`
       INSERT INTO email_notifications (related_record_type, related_record_id, client_id, template_key, from_email, from_name, to_email, cc, subject, body_text, body_html, status, sent_by)
       VALUES ('agreement', ${agreement.id}, ${nullableUuid(agreement.clientId)}, 'agreement_issue', ${configStatus.fromEmail}, ${configStatus.fromName}, ${email}, ${adviserEmail || null}, ${subject}, ${bodyText}, ${bodyHtml}, ${configStatus.configured ? 'Sending' : 'Draft'}, ${actor})

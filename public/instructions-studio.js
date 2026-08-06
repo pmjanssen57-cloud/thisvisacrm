@@ -822,7 +822,7 @@ function saveDraft() {
   state.contentStatus = $('#content-status').value;
   THIS_LOCAL_STORAGE.setItem(STORAGE_KEY, JSON.stringify(state));
   $('#save-status').textContent = `Saved ${new Date().toLocaleTimeString('en-NZ',{hour:'2-digit',minute:'2-digit'})}`;
-  showToast('Draft saved in this browser');
+  showToast(document.body.classList.contains('crm-embedded-studio')?'Saving draft to CRM…':'Draft saved in this browser');
   renderPreview();
 }
 
@@ -1088,7 +1088,7 @@ function renderDocHtml(id) {
 }
 function printOrder() { return Object.keys(state.docs).filter(id=>state.docs[id].enabled); }
 function preparePrint() { const ids=printOrder(); const printRoot=$('#print-root'); printRoot.innerHTML=ids.map(id=>`<div class="print-document" data-doc-id="${id}">${renderDocHtml(id)}</div>`).join(''); printRoot.querySelectorAll('.print-document').forEach(container=>applyInlineEdits(container,container.dataset.docId,false)); const images=[...printRoot.querySelectorAll('img')].map(img=>img.complete?Promise.resolve():new Promise(resolve=>{img.onload=resolve;img.onerror=resolve})); const fonts=document.fonts?.ready||Promise.resolve(); Promise.all([fonts,...images]).then(()=>requestAnimationFrame(()=>requestAnimationFrame(()=>window.print()))); }
-function saveDraft() { state.issueName=$('#issue-name').value; state.preparedDate=$('#prepared-date').value; state.contentStatus=$('#content-status').value; saveWorkspace(); $('#save-status').textContent=`Saved ${new Date().toLocaleTimeString('en-NZ',{hour:'2-digit',minute:'2-digit'})}`; showToast('Draft saved in this browser'); renderPreview(); }
+function saveDraft() { state.issueName=$('#issue-name').value; state.preparedDate=$('#prepared-date').value; state.contentStatus=$('#content-status').value; saveWorkspace(); $('#save-status').textContent=document.body.classList.contains('crm-embedded-studio')?'Saving to CRM…':`Saved ${new Date().toLocaleTimeString('en-NZ',{hour:'2-digit',minute:'2-digit'})}`; showToast(document.body.classList.contains('crm-embedded-studio')?'Saving draft to CRM…':'Draft saved in this browser'); renderPreview(); }
 function exportJson() { workspaceDrafts[activePackId]=state; const blob=new Blob([JSON.stringify({activePackId,pack:currentPack().title,state},null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download=`this-instructions-${activePackId}-${state.client.lastName||'client'}.json`;link.click();URL.revokeObjectURL(url); }
 function publishItems() { const docs=Object.values(state.docs).filter(doc=>doc.enabled); return state.outputMode==='combined'&&docs.length?['Combined '+currentPack().title+' instruction pack']:docs.map(doc=>doc.label); }
 function openPublishModal() { const items=publishItems(); $('#publish-summary').textContent=`${state.issueName} will be generated as ${items.length} PDF${items.length===1?'':'s'} and added to ${fullName()}'s portal.`; $('#publish-list').innerHTML=items.map((item,index)=>`<div><span>${String(index+1).padStart(2,'0')}</span><strong>${escapeHtml(item)}</strong></div>`).join(''); $('#publish-modal').hidden=false; }
@@ -1789,7 +1789,7 @@ function renderTemplatePreviewV13() {
     $('#template-preview-root-v13').innerHTML = `<div class="template-preview-error-v13"><strong>Preview error</strong><p>${escapeHtml(error.message)}</p></div>`;
   } finally { state = savedState; activePackId = savedPack; }
 }
-function saveTemplateDraftV13() { saveTemplateLibraryV13(); $('#template-draft-status-v13').textContent='Draft saved'; showToast('Template draft saved in this browser'); }
+function saveTemplateDraftV13() { saveTemplateLibraryV13(); $('#template-draft-status-v13').textContent='Draft saved'; showToast(document.body.classList.contains('crm-embedded-studio')?'Saving template draft to CRM…':'Template draft saved in this browser'); }
 function publishTemplateVersionV13() {
   const entry = templateEntryV13();
   const note = prompt('Change note for this template version:', 'Updated master wording and structure');
@@ -2742,6 +2742,11 @@ bindEvents();
     const message=event.data||{};
     if(message.type==='THIS_STUDIO_INIT') initFromCrm(message.payload||{});
     if(message.type==='THIS_STUDIO_REQUEST_SNAPSHOT') emitSnapshot(message.reason||'request');
+    if(message.type==='THIS_STUDIO_SAVE_CONFIRMED'){
+      const confirmation=message.message||'Saved to CRM';
+      const status=document.querySelector('#save-status'); if(status) status.textContent=confirmation;
+      showToast(confirmation);
+    }
     if(message.type==='THIS_STUDIO_SET_STATUS' && state){ state.contentStatus=message.status||state.contentStatus; renderPackSettings(); }
   });
   window.addEventListener('load',()=>{

@@ -1670,6 +1670,9 @@ export default function App() {
 
   async function saveLiveChatSettings(settings) {
     const body = await callChatApi('saveSettings', { settings }, { refresh: false });
+    if (body?.settings) {
+      setChatSnapshot((current) => ({ ...current, settings: body.settings }));
+    }
     await loadChatSnapshot({ silent: true, conversationId: chatSelectedId });
     setChatPollingWakeKey((current) => current + 1);
     showCrmToast('Live chat settings saved.', 'success');
@@ -8932,7 +8935,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const dayRows = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']];
-  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.14.6" data-title="Chat with us" defer><\/script>`;
+  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.14.8" data-title="Chat with us" defer><\/script>`;
 
   useEffect(() => {
     if (!open) return;
@@ -9564,6 +9567,11 @@ function buildEmailTemplateSampleData(templateKey = '', placeholders = []) {
     consultationLink: 'https://www.turnerhopkinsimmigration.co.nz/visa-consultation',
     calculatorUrl: 'https://thisvisacrm.netlify.app/smc-work-experience-calculator.html',
     workPeriods: 'NZ skilled pay period 1: 13 June 2023 to 12 June 2025; New Zealand; skill level 2; estimated hourly rate $33.00 per hour; 40 guaranteed hours.\nOverseas directly relevant period: 1 January 2020 to 1 January 2023; Overseas; skill level 2; estimated hourly rate $20.00 per hour; 40 guaranteed hours.',
+    signatoryName: 'Sarah Patel',
+    agreementTitle: 'Skilled Migrant Category engagement agreement',
+    matter: 'your Skilled Migrant Category residence pathway',
+    agreementLink: 'https://thisvisacrm.netlify.app/agreement-studio.html?token=sample-preview',
+    expiryDate: '31 August 2026',
   };
   const values = { ...common };
   for (const placeholder of placeholders || []) {
@@ -11678,7 +11686,11 @@ function InstructionsWorkspace({
         Promise.resolve(saveInstructionSet?.(next)).then((body) => {
           const sessionStillOpen = studioSessionRef.current.id === sessionId && studioSessionRef.current.active && !studioSessionRef.current.closing;
           if (sessionStillOpen && body?.instructionSet) setEditorInstruction(normaliseInstructionSet(body.instructionSet));
-          if (sessionStillOpen) setStudioMessage(message.reason === 'ready' ? 'Instructions marked ready' : 'Saved to CRM');
+          if (sessionStillOpen) {
+            const confirmation = message.reason === 'ready' ? 'Instructions marked ready' : 'Saved to CRM';
+            setStudioMessage(confirmation);
+            iframeRef.current?.contentWindow?.postMessage({ type: 'THIS_STUDIO_SAVE_CONFIRMED', message: confirmation }, window.location.origin);
+          }
         }).catch((error) => setStudioMessage(error?.message || 'Save failed'));
         return;
       }
@@ -11869,26 +11881,39 @@ function InstructionsWorkspace({
         </div>
       </div>
 
-      <div className="instruction-set-grid">
+      <div className="studio-record-list instruction-record-list">
+        <div className="studio-record-head" aria-hidden="true">
+          <span>Recipient / reference</span>
+          <span>Instruction pack</span>
+          <span>Source</span>
+          <span>Status</span>
+          <span>Adviser</span>
+          <span>Updated</span>
+          <span>Actions</span>
+        </div>
         {filtered.map((item) => {
           const client = clients.find((entry) => entry.id === item.clientId);
           const subject = client ? [client.firstName, client.lastName].filter(Boolean).join(' ') : item.standaloneLabel || 'Standalone';
+          const adviserId = item.adviserId || client?.primaryAdviserId || '';
+          const adviserName = advisers.find((entry) => entry.id === adviserId)?.name || '—';
           return (
-            <article className="instruction-set-card" key={item.id}>
-              <button className="instruction-set-open" type="button" onClick={(event) => openInstruction(item, event)}>
-                <div className="instruction-set-icon"><BookOpen size={20} /></div>
-                <div><span>{subject}</span><h3>{item.title}</h3><p>{instructionPackLabel(item.packId)}</p></div>
-                <ChevronRight size={18} />
+            <article className="studio-record-row" key={item.id}>
+              <button className="studio-record-open instruction-set-open" type="button" onClick={(event) => openInstruction(item, event)}>
+                <span className="studio-record-primary" data-label="Recipient / reference"><span className="studio-record-icon"><BookOpen size={18} /></span><span><strong>{subject}</strong><small>{item.title}</small></span></span>
+                <span className="studio-record-cell" data-label="Instruction pack">{instructionPackLabel(item.packId)}</span>
+                <span className="studio-record-cell" data-label="Source">{item.clientId ? 'Client-linked' : 'Standalone'}</span>
+                <span className="studio-record-cell" data-label="Status"><span className={`instruction-status ${String(item.status || 'Draft').toLowerCase()}`}>{item.status || 'Draft'}</span></span>
+                <span className="studio-record-cell studio-record-adviser" data-label="Adviser">{adviserName}</span>
+                <span className="studio-record-cell studio-record-updated" data-label="Updated">{formatInstructionDate(item.updatedAt)}</span>
               </button>
-              <div className="instruction-set-card-footer">
-                <span className={`instruction-status ${String(item.status || 'Draft').toLowerCase()}`}>{item.status || 'Draft'}</span>
-                <small>Updated {formatInstructionDate(item.updatedAt)}</small>
+              <div className="studio-record-actions">
+                <button className="icon-btn instruction-set-open" type="button" onClick={(event) => openInstruction(item, event)} aria-label={`Open ${item.title}`} title="Open"><ChevronRight size={16} /></button>
                 <button className="icon-btn danger" type="button" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); }} onPointerUp={(event) => event.stopPropagation()} onClick={(event) => handleDeleteInstruction(item, event)} aria-label="Delete instruction set"><Trash2 size={15} /></button>
               </div>
             </article>
           );
         })}
-        {!filtered.length && <div className="empty-state compact-empty"><BookOpen size={32} /><h2>No instruction sets found</h2><p>Create a client-linked or standalone set to begin.</p></div>}
+        {!filtered.length && <div className="empty-state compact-empty studio-record-empty"><BookOpen size={32} /><h2>No instruction sets found</h2><p>Create a client-linked or standalone set to begin.</p></div>}
       </div>
 
       {createOpen && (
@@ -11916,7 +11941,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.14.6" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.14.8" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
         </div>
       )}
     </div>
@@ -12041,7 +12066,11 @@ function AgreementsWorkspace({
         Promise.resolve(saveAgreementSet?.(next)).then((body) => {
           const sessionStillOpen = studioSessionRef.current.id === sessionId && studioSessionRef.current.active && !studioSessionRef.current.closing;
           if (sessionStillOpen && body?.agreementSet) setEditorAgreement(normaliseAgreementSet(body.agreementSet));
-          if (sessionStillOpen) setStudioMessage('Agreement saved to CRM');
+          if (sessionStillOpen) {
+            const confirmation = 'Agreement saved to CRM';
+            setStudioMessage(confirmation);
+            iframeRef.current?.contentWindow?.postMessage({ type: 'THIS_AGREEMENT_SAVE_CONFIRMED', message: confirmation }, window.location.origin);
+          }
         }).catch((error) => setStudioMessage(error?.message || 'Save failed'));
         return;
       }
@@ -12344,7 +12373,16 @@ function AgreementsWorkspace({
         </div>
       </div>
 
-      <div className="instruction-set-grid">
+      <div className="studio-record-list agreement-record-list">
+        <div className="studio-record-head" aria-hidden="true">
+          <span>Recipient / organisation</span>
+          <span>Agreement type</span>
+          <span>Source</span>
+          <span>Status</span>
+          <span>Adviser</span>
+          <span>Updated</span>
+          <span>Actions</span>
+        </div>
         {filtered.map((item) => {
           const client = clients.find((entry) => entry.id === item.clientId);
           const intake = intakeEnquiries.find((entry) => entry.id === item.intakeId);
@@ -12353,22 +12391,27 @@ function AgreementsWorkspace({
             : intake
               ? agreementIntakeName(intake)
               : item.standaloneLabel || item.recipientEmail || 'Standalone';
+          const adviserId = item.adviserId || client?.primaryAdviserId || intake?.assignedAdviserId || '';
+          const adviserName = advisers.find((entry) => entry.id === adviserId)?.name || '—';
+          const sourceLabel = item.clientId ? 'Client-linked' : item.intakeId ? 'Intake-linked' : 'Standalone';
           return (
-            <article className="instruction-set-card agreement-set-card" key={item.id}>
-              <button className="instruction-set-open" type="button" onClick={(event) => openAgreement(item, event)}>
-                <div className="instruction-set-icon"><FileCheck2 size={20} /></div>
-                <div><span>{subject}</span><h3>{item.title}</h3><p>{agreementTypeLabel(item.appType)}</p></div>
-                <ChevronRight size={18} />
+            <article className="studio-record-row" key={item.id}>
+              <button className="studio-record-open instruction-set-open" type="button" onClick={(event) => openAgreement(item, event)}>
+                <span className="studio-record-primary" data-label="Recipient / organisation"><span className="studio-record-icon agreement"><FileCheck2 size={18} /></span><span><strong>{subject}</strong><small>{item.title}</small></span></span>
+                <span className="studio-record-cell" data-label="Agreement type">{agreementTypeLabel(item.appType)}</span>
+                <span className="studio-record-cell" data-label="Source">{sourceLabel}</span>
+                <span className="studio-record-cell" data-label="Status"><span className={`instruction-status ${String(item.status || 'Draft').toLowerCase().replaceAll(' ', '-')}`}>{item.status || 'Draft'}</span></span>
+                <span className="studio-record-cell studio-record-adviser" data-label="Adviser">{adviserName}</span>
+                <span className="studio-record-cell studio-record-updated" data-label="Updated">{formatInstructionDate(item.updatedAt)}</span>
               </button>
-              <div className="instruction-set-card-footer">
-                <span className={`instruction-status ${String(item.status || 'Draft').toLowerCase().replaceAll(' ', '-')}`}>{item.status || 'Draft'}</span>
-                <small>Updated {formatInstructionDate(item.updatedAt)}</small>
+              <div className="studio-record-actions">
+                <button className="icon-btn instruction-set-open" type="button" onClick={(event) => openAgreement(item, event)} aria-label={`Open ${item.title}`} title="Open"><ChevronRight size={16} /></button>
                 <button className="icon-btn danger" type="button" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); }} onPointerUp={(event) => event.stopPropagation()} onClick={(event) => handleDeleteAgreement(item, event)} aria-label="Delete agreement" disabled={item.status === 'Accepted'} title={item.status === 'Accepted' ? 'Accepted agreements are locked' : 'Delete agreement'}><Trash2 size={15} /></button>
               </div>
             </article>
           );
         })}
-        {!filtered.length && <div className="empty-state compact-empty"><FileCheck2 size={32} /><h2>No agreements found</h2><p>Create an agreement from a client, an intake form, or as a standalone matter.</p></div>}
+        {!filtered.length && <div className="empty-state compact-empty studio-record-empty"><FileCheck2 size={32} /><h2>No agreements found</h2><p>Create an agreement from a client, an intake form, or as a standalone matter.</p></div>}
       </div>
 
       {createOpen && (
@@ -12412,7 +12455,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.14.6" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.14.8" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
         </div>
       )}
     </div>

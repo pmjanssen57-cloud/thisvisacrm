@@ -1,19 +1,19 @@
-# THiS CRM v0.14.6 - Human Adviser Presence in Website Chat
+# THiS CRM v0.14.8 - Persistent Chat Schedule and Agreement Email Template
 
-This release builds on v0.14.5 and retains the complete CRM, intake, booking, portal, commercial compliance, Instructions Studio, Agreement Studio, email, signing, unified Studio workflow, A4 print fixes, staff-only Kiwi Christmas functionality, native live chat, reliable chat attention badges, schedule-aware polling, closed-chat deletion, client lifecycle controls and corrected confirmation layering.
+## v0.14.8 changes
 
-## Visitor chat improvement
+- Live-chat opening days and hours now persist correctly after signing out, closing the CRM and reloading it.
+- The chat settings response is applied immediately and then verified from the server.
+- The agreement issue email is now available under Tools > Email templates.
+- The template supports placeholders for the signatory, agreement, secure link, expiry date and assigned adviser.
+- Deliberately customised wording saved within an individual agreement remains supported.
 
-- The website chat introduction now states that enquiries are answered by real Turner Hopkins team members, not a bot.
-- After a staff member claims a conversation, the visitor sees that adviser’s name, role and CRM profile photo.
-- The adviser photo also replaces the company logo in the chat header while that adviser is assigned.
-- Adviser initials are shown if no profile photo is available.
-- The existing welcome message remains editable under Tools > Live chat settings.
+This release builds on v0.14.7 and retains the searchable Instructions and Agreements row libraries, CRM-accurate Studio save messaging, polished CRM live chat, adviser presence, Instructions Studio, Agreement Studio, secure signing, intake and client workflows, booking, portal, commercial compliance and all prior CRM functionality.
 
 ## Squarespace embed
 
 ```html
-<script src="https://thisvisacrm.netlify.app/live-chat-widget.js?v=0.14.6" data-title="Chat with us" defer></script>
+<script src="https://thisvisacrm.netlify.app/live-chat-widget.js?v=0.14.8" data-title="Chat with us" defer></script>
 ```
 
-Deploy the complete package over the existing CRM deployment and perform a hard refresh. Refresh the Squarespace page after deployment so the versioned widget and chat assets are reloaded. No database migration or environment-variable change is required.
+Deploy the complete package over the existing CRM deployment and perform a hard refresh. No database migration or environment-variable change is required.
