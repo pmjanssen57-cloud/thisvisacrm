@@ -8932,7 +8932,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const dayRows = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']];
-  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.14.5" data-title="Chat with us" defer><\/script>`;
+  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.14.6" data-title="Chat with us" defer><\/script>`;
 
   useEffect(() => {
     if (!open) return;
@@ -8942,7 +8942,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
       timezone: source.timezone || 'Pacific/Auckland',
       weeklyHours: { ...defaultHours, ...(source.weeklyHours || {}) },
       awayDatesText: (source.awayDates || []).map((item) => `${item.date}${item.label ? ` | ${item.label}` : ''}`).join('\n'),
-      welcomeMessage: source.welcomeMessage || 'Kia ora. Send us your question and one of our team will respond as soon as possible.',
+      welcomeMessage: source.welcomeMessage || 'Kia ora. You will be chatting with a real member of our team. Send us your question and we will respond as soon as possible.',
       offlineMessage: source.offlineMessage || 'Our live chat is currently closed. Leave your message and we will respond when the team is next available.',
       privacyUrl: source.privacyUrl || '',
       notificationEnabled: source.notificationEnabled !== false,
@@ -8999,7 +8999,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
           <section className="live-chat-settings-two-column">
             <label><span>Away days / office closures</span><textarea rows={6} value={draft.awayDatesText} onChange={(event) => setDraft((current) => ({ ...current, awayDatesText: event.target.value }))} placeholder={'2026-12-24 | Christmas closure\n2026-12-25 | Christmas Day'} /><small>One date per line. Use YYYY-MM-DD, optionally followed by “| reason”.</small></label>
             <div className="live-chat-settings-copy">
-              <label><span>Open-hours message</span><textarea rows={3} value={draft.welcomeMessage} onChange={(event) => setDraft((current) => ({ ...current, welcomeMessage: event.target.value }))} /></label>
+              <label><span>Welcome message (before chat starts)</span><textarea rows={3} value={draft.welcomeMessage} onChange={(event) => setDraft((current) => ({ ...current, welcomeMessage: event.target.value }))} /></label>
               <label><span>After-hours message</span><textarea rows={3} value={draft.offlineMessage} onChange={(event) => setDraft((current) => ({ ...current, offlineMessage: event.target.value }))} /></label>
             </div>
           </section>
@@ -11916,7 +11916,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.14.5" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.14.6" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
         </div>
       )}
     </div>
@@ -12412,7 +12412,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.14.5" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.14.6" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
         </div>
       )}
     </div>

@@ -1,23 +1,19 @@
-# THiS CRM v0.14.5 - Live Chat Delete Confirmation Layer Fix
+# THiS CRM v0.14.6 - Human Adviser Presence in Website Chat
 
-This release builds on v0.14.4 and retains the complete CRM, intake, booking, portal, commercial compliance, Instructions Studio, Agreement Studio, email, signing, unified Studio workflow, A4 print fixes, staff-only Kiwi Christmas functionality, native live chat, reliable chat attention badges, schedule-aware polling, closed-chat deletion and client close/reopen lifecycle controls.
+This release builds on v0.14.5 and retains the complete CRM, intake, booking, portal, commercial compliance, Instructions Studio, Agreement Studio, email, signing, unified Studio workflow, A4 print fixes, staff-only Kiwi Christmas functionality, native live chat, reliable chat attention badges, schedule-aware polling, closed-chat deletion, client lifecycle controls and corrected confirmation layering.
 
-## Confirmation layering fix
+## Visitor chat improvement
 
-When a closed website chat is deleted, the shared CRM confirmation dialogue now renders above the live-chat slideout rather than behind it. The confirmation backdrop also covers the complete CRM interface, so the user must confirm or cancel before continuing.
+- The website chat introduction now states that enquiries are answered by real Turner Hopkins team members, not a bot.
+- After a staff member claims a conversation, the visitor sees that adviser’s name, role and CRM profile photo.
+- The adviser photo also replaces the company logo in the chat header while that adviser is assigned.
+- Adviser initials are shown if no profile photo is available.
+- The existing welcome message remains editable under Tools > Live chat settings.
 
-The correction is applied to the shared confirmation component, which also prevents destructive confirmations from being obscured by other CRM slideouts and popouts.
-
-## Native live chat
-
-The website widget continues to use the existing Netlify deployment, Netlify Database, Netlify Identity and Microsoft Graph email configuration. No additional SaaS product or subscription is required.
-
-The current Squarespace embed is:
+## Squarespace embed
 
 ```html
-<script src="https://thisvisacrm.netlify.app/live-chat-widget.js?v=0.14.5" data-title="Chat with us" defer></script>
+<script src="https://thisvisacrm.netlify.app/live-chat-widget.js?v=0.14.6" data-title="Chat with us" defer></script>
 ```
 
-## Deployment
-
-Deploy the complete package over the existing CRM deployment and perform a hard refresh so the v0.14.5 service-worker cache replaces the previous build. No database migration or environment-variable change is required.
+Deploy the complete package over the existing CRM deployment and perform a hard refresh. Refresh the Squarespace page after deployment so the versioned widget and chat assets are reloaded. No database migration or environment-variable change is required.

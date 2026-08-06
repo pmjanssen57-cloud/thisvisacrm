@@ -193,7 +193,7 @@ async function initialiseChatSchema() {
   await database.sql`CREATE INDEX IF NOT EXISTS idx_live_chat_events_conversation ON live_chat_events(conversation_id, created_at)`;
   await database.sql`
     INSERT INTO live_chat_settings (id, weekly_hours, welcome_message, offline_message)
-    VALUES ('master', CAST(${JSON.stringify(DEFAULT_WEEKLY_HOURS)} AS jsonb), 'Kia ora. Send us your question and one of our team will respond as soon as possible.', 'Our live chat is currently closed. Leave your message and we will respond when the team is next available.')
+    VALUES ('master', CAST(${JSON.stringify(DEFAULT_WEEKLY_HOURS)} AS jsonb), 'Kia ora. You will be chatting with a real member of our team. Send us your question and we will respond as soon as possible.', 'Our live chat is currently closed. Leave your message and we will respond when the team is next available.')
     ON CONFLICT (id) DO NOTHING`;
 }
 
@@ -205,7 +205,7 @@ async function readSettings() {
     timezone: cleanTimezone(row.timezone),
     weeklyHours: normaliseWeeklyHours(row.weekly_hours),
     awayDates: normaliseAwayDates(row.away_dates),
-    welcomeMessage: cleanText(row.welcome_message, 1000) || 'Kia ora. Send us your question and one of our team will respond as soon as possible.',
+    welcomeMessage: cleanText(row.welcome_message, 1000) || 'Kia ora. You will be chatting with a real member of our team. Send us your question and we will respond as soon as possible.',
     offlineMessage: cleanText(row.offline_message, 1000) || 'Our live chat is currently closed. Leave your message and we will respond when the team is next available.',
     privacyUrl: cleanUrl(row.privacy_url),
     notificationEnabled: row.notification_enabled !== false,
@@ -348,12 +348,27 @@ async function pollVisitorConversation(url, event) {
   const conversationId = cleanUuid(payload.cid);
   const rows = await db().sql`SELECT * FROM live_chat_conversations WHERE id = ${conversationId} LIMIT 1`;
   if (!rows[0]) throw httpError(404, 'Chat conversation not found.');
+  const conversation = rows[0];
+  const knownAdviserId = cleanUuid(url.searchParams.get('adviserId'));
+  let adviserPresence = null;
+  if (conversation.assigned_adviser_id && String(conversation.assigned_adviser_id) !== knownAdviserId) {
+    const adviserRows = await db().sql`SELECT role, profile_photo_url FROM advisers WHERE id = ${conversation.assigned_adviser_id} LIMIT 1`;
+    adviserPresence = adviserRows[0] || null;
+  }
   const after = cleanTimestamp(url.searchParams.get('after'));
   const messages = after
     ? await db().sql`SELECT * FROM live_chat_messages WHERE conversation_id = ${conversationId} AND is_internal = FALSE AND created_at > ${after}::timestamptz ORDER BY created_at ASC LIMIT 200`
     : await db().sql`SELECT * FROM live_chat_messages WHERE conversation_id = ${conversationId} AND is_internal = FALSE ORDER BY created_at ASC LIMIT 200`;
   await db().sql`UPDATE live_chat_conversations SET visitor_last_seen_at = NOW() WHERE id = ${conversationId}`;
-  return { conversation: mapConversation(rows[0]), messages: messages.map(mapMessage), serverTime: new Date().toISOString() };
+  const mappedConversation = mapConversation(conversation);
+  if (adviserPresence) {
+    mappedConversation.assignedAdviserRole = adviserPresence.role || 'Turner Hopkins team member';
+    mappedConversation.assignedAdviserPhotoUrl = adviserPresence.profile_photo_url || '';
+  } else if (conversation.assigned_adviser_id && String(conversation.assigned_adviser_id) === knownAdviserId) {
+    delete mappedConversation.assignedAdviserRole;
+    delete mappedConversation.assignedAdviserPhotoUrl;
+  }
+  return { conversation: mappedConversation, messages: messages.map(mapMessage), serverTime: new Date().toISOString() };
 }
 
 async function sendVisitorMessage(input, event) {
@@ -762,16 +777,16 @@ async function resolveStaffActor(auth, headers) {
   let rows = [];
   if (email) {
     rows = await database.sql`
-      SELECT id, name, COALESCE(NULLIF(email, ''), NULLIF(login_email, '')) AS email, access_role, active
+      SELECT id, name, COALESCE(NULLIF(email, ''), NULLIF(login_email, '')) AS email, role, profile_photo_url, access_role, active
       FROM advisers
       WHERE LOWER(COALESCE(login_email, '')) = ${email} OR LOWER(COALESCE(email, '')) = ${email}
       ORDER BY CASE WHEN LOWER(COALESCE(login_email, '')) = ${email} THEN 0 ELSE 1 END
       LIMIT 1`;
   } else if (requestedId) {
-    rows = await database.sql`SELECT id, name, COALESCE(NULLIF(email, ''), NULLIF(login_email, '')) AS email, access_role, active FROM advisers WHERE id = ${requestedId} LIMIT 1`;
+    rows = await database.sql`SELECT id, name, COALESCE(NULLIF(email, ''), NULLIF(login_email, '')) AS email, role, profile_photo_url, access_role, active FROM advisers WHERE id = ${requestedId} LIMIT 1`;
   }
   if (!rows[0] && auth.mode === 'token-fallback') {
-    rows = await database.sql`SELECT id, name, COALESCE(NULLIF(email, ''), NULLIF(login_email, '')) AS email, access_role, active FROM advisers WHERE active = TRUE ORDER BY name LIMIT 1`;
+    rows = await database.sql`SELECT id, name, COALESCE(NULLIF(email, ''), NULLIF(login_email, '')) AS email, role, profile_photo_url, access_role, active FROM advisers WHERE active = TRUE ORDER BY name LIMIT 1`;
   }
   const row = rows[0];
   if (!row || row.active === false) return null;
@@ -784,6 +799,8 @@ async function resolveStaffActor(auth, headers) {
     id: String(row.id),
     name: row.name || auth.user?.email || 'CRM adviser',
     email: row.email || auth.user?.email || '',
+    role: row.role || 'Licensed Immigration Adviser',
+    profilePhotoUrl: row.profile_photo_url || '',
     isAdmin: auth.mode === 'token-fallback' || String(row.access_role || '').toLowerCase() === 'admin' || identityRoles.has('admin') || identityRoles.has('manager'),
   };
 }
@@ -836,6 +853,8 @@ function mapConversation(row = {}) {
     assignedAdviserId: row.assigned_adviser_id ? String(row.assigned_adviser_id) : '',
     assignedAdviserName: row.assigned_adviser_name || '',
     assignedAdviserEmail: row.assigned_adviser_email || '',
+    assignedAdviserRole: row.assigned_adviser_role || '',
+    assignedAdviserPhotoUrl: row.assigned_adviser_photo_url || '',
     linkedIntakeId: row.linked_intake_id ? String(row.linked_intake_id) : '',
     firstNotificationStatus: row.first_notification_status || '',
     lastSenderType: row.last_sender_type || '',

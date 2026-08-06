@@ -1,15 +1,11 @@
-THiS CRM v0.14.5 validation
+THiS CRM v0.14.6 validation
 
-Validated:
-- App.jsx parses successfully as React JSX using the TypeScript compiler parser.
-- Netlify chat and CRM Functions pass Node syntax checks.
-- The shared CRM confirmation layer has a z-index above the live-chat overlay and drawer.
-- The closed-chat deletion flow continues to require a danger confirmation before the delete API action runs.
-- The confirmation backdrop and card remain interactive while the live-chat drawer is open.
-- Existing live-chat schedule-aware polling, email notifications, website widget behaviour and client lifecycle controls are unchanged.
-- Version references, service-worker cache name and embedded asset query strings are set to v0.14.5.
-- PWA validation and ZIP integrity checks pass.
-
-No database migration, API change or dependency change is included.
-
-A complete Vite production build could not be run in this environment because the available package registry does not expose the existing @netlify/blobs@10.7.9 dependency. The dependency declaration is unchanged from the deployed baseline.
+- JavaScript syntax checks passed for public live-chat assets and the Netlify live-chat function.
+- JSX transformation check passed for App.jsx.
+- Visitor polling returns the assigned adviser role and approved CRM profile photo only when the adviser assignment changes, avoiding repeated transfer of stored profile images.
+- Public chat displays a human-support notice before chat starts and a named adviser presence card after claim.
+- Missing adviser photos fall back to adviser initials.
+- Profile photo rendering accepts only HTTPS/HTTP image URLs or supported image data URLs.
+- Welcome message remains editable in Live chat settings.
+- Service-worker and embedded asset versions are v0.14.6.
+- No database migration, dependency change or additional subscription is included.

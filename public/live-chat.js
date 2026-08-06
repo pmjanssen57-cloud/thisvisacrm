@@ -2,6 +2,10 @@
   const main = document.getElementById('chat-main');
   const statusLabel = document.getElementById('chat-status-label');
   const closeButton = document.getElementById('chat-close');
+  const brandAvatar = document.getElementById('chat-brand-avatar');
+  const brandImage = document.getElementById('chat-brand-image');
+  const brandInitials = document.getElementById('chat-brand-initials');
+  const brandName = document.getElementById('chat-brand-name');
   const params = new URLSearchParams(window.location.search);
   const parentOrigin = params.get('parentOrigin') || '*';
   const sourcePage = params.get('page') || document.referrer || '';
@@ -16,6 +20,11 @@
   let widgetOpen = false;
 
   closeButton.addEventListener('click', () => parentMessage({ type: 'this-live-chat-close' }));
+  brandImage.addEventListener('error', () => {
+    if (!brandAvatar.classList.contains('person-avatar')) return;
+    brandImage.hidden = true;
+    brandInitials.hidden = false;
+  });
   window.addEventListener('message', (event) => {
     if (parentOrigin !== '*' && event.origin !== parentOrigin) return;
     if (event.data?.type === 'this-live-chat-visibility') {
@@ -60,6 +69,7 @@
   }
 
   function renderIntro() {
+    resetBrand();
     const live = Boolean(availability?.isOpen);
     statusLabel.textContent = live ? 'Live chat is open' : 'Message service';
     main.innerHTML = `
@@ -67,6 +77,7 @@
         <div class="availability-card ${live ? 'live' : ''}">
           <div class="availability-row"><span class="availability-dot"></span><strong>${live ? 'We are available for live chat' : 'Live chat is currently closed'}</strong></div>
           <p>${escapeHtml(availability?.message || '')}</p>
+          <div class="human-support-note"><span class="human-support-icon" aria-hidden="true">${personIcon()}</span><span><strong>A real person will respond</strong><small>Your message is answered by a member of the Turner Hopkins team, not an automated bot.</small></span></div>
           ${!live && availability?.nextOpenLabel ? `<span class="availability-next">Next live-chat opening: ${escapeHtml(availability.nextOpenLabel)}</span>` : ''}
         </div>
         <form id="start-chat-form" class="chat-form" novalidate>
@@ -118,7 +129,7 @@
       });
       session = { token: result.token, conversationId: result.conversation?.id || '', createdAt: Date.now() };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-      conversation = result.conversation;
+      conversation = mergeConversation(result.conversation);
       messages = result.messages || [];
       renderConversation(result.mode === 'offline');
       schedulePoll();
@@ -133,11 +144,12 @@
   function renderConversation(forceOffline = false) {
     const isClosed = conversation?.status === 'Closed';
     const isOffline = forceOffline || conversation?.status === 'Offline';
-    statusLabel.textContent = isClosed ? 'Conversation closed' : conversation?.assignedAdviserName ? `Connected with ${conversation.assignedAdviserName}` : isOffline ? 'Message received' : 'Waiting for our team';
+    updateHumanPresence();
+    statusLabel.textContent = isClosed ? 'Conversation closed' : conversation?.assignedAdviserName ? `Live adviser • ${conversation.assignedAdviserRole || 'online'}` : isOffline ? 'Message received' : 'Waiting for a team member';
     main.innerHTML = `
       <section class="conversation">
-        ${isOffline && !isClosed ? '<div class="offline-received">Your message has been received. We will respond when the team is next available.</div>' : ''}
-        <div class="conversation-banner">${conversation?.assignedAdviserName ? `You are chatting with ${escapeHtml(conversation.assignedAdviserName)}.` : 'Your message is in the team queue. You can leave this window open or return later on this device.'}</div>
+        ${isOffline && !isClosed ? '<div class="offline-received">Your message has been received. A member of our team will respond when live chat next opens.</div>' : ''}
+        ${conversation?.assignedAdviserName ? adviserPresenceCard() : '<div class="conversation-banner human-queue-banner"><span class="human-support-icon small" aria-hidden="true">' + personIcon() + '</span><span><strong>A real team member will reply</strong><small>Your message is in the queue. You can leave this window open or return later on this device.</small></span></div>'}
         <div id="messages" class="messages"></div>
         ${isClosed ? `<div class="closed-panel"><strong>This conversation is closed.</strong><p>Start a new chat if you need further assistance.</p><button id="new-chat" class="secondary-button" type="button">Start a new chat</button></div>` : `
           <form id="message-form" class="composer">
@@ -147,6 +159,7 @@
           <div class="conversation-actions"><button id="end-chat" type="button">End conversation</button></div>`}
       </section>`;
     renderMessages();
+    wireAdviserPhotoFallback();
     if (isClosed) {
       document.getElementById('new-chat').addEventListener('click', () => { clearSession(); conversation = null; messages = []; renderIntro(); });
     } else {
@@ -208,7 +221,7 @@
     if (!window.confirm('End this conversation?')) return;
     try {
       const result = await api('/.netlify/functions/chat', { method: 'POST', headers: { 'x-chat-token': session.token }, body: JSON.stringify({ action: 'closeVisitor', token: session.token }) });
-      conversation = result.conversation;
+      conversation = mergeConversation(result.conversation);
       renderConversation();
       stopPolling();
     } catch (error) {
@@ -219,13 +232,14 @@
   async function pollConversation(initial = false) {
     if (!session?.token) return;
     const after = !initial && messageCursor ? `&after=${encodeURIComponent(messageCursor)}` : '';
-    const result = await api(`/.netlify/functions/chat?action=poll&token=${encodeURIComponent(session.token)}${after}`);
+    const adviserId = conversation?.assignedAdviserId ? `&adviserId=${encodeURIComponent(conversation.assignedAdviserId)}` : '';
+    const result = await api(`/.netlify/functions/chat?action=poll&token=${encodeURIComponent(session.token)}${after}${adviserId}`);
     const previousIds = new Set(messages.map((item) => item.id));
     const incoming = result.messages || [];
     const previousStatus = conversation?.status || '';
     const previousAssignee = conversation?.assignedAdviserName || '';
     const newAdviserMessages = incoming.filter((item) => !previousIds.has(item.id) && item.senderType === 'adviser');
-    conversation = result.conversation;
+    conversation = mergeConversation(result.conversation);
     if (initial || !messageCursor) messages = incoming;
     else {
       const merged = [...messages];
@@ -241,7 +255,8 @@
       if (previousStatus !== conversation?.status || previousAssignee !== (conversation?.assignedAdviserName || '')) renderConversation();
       else {
         renderMessages();
-        statusLabel.textContent = conversation?.assignedAdviserName ? `Connected with ${conversation.assignedAdviserName}` : conversation?.status === 'Offline' ? 'Message received' : 'Waiting for our team';
+        updateHumanPresence();
+        statusLabel.textContent = conversation?.assignedAdviserName ? `Live adviser • ${conversation.assignedAdviserRole || 'online'}` : conversation?.status === 'Offline' ? 'Message received' : 'Waiting for a team member';
       }
     }
     if (conversation?.status === 'Closed') stopPolling();
@@ -256,8 +271,77 @@
   function stopPolling() { if (pollTimer) window.clearInterval(pollTimer); pollTimer = null; }
 
   function updateStatusLabel() {
-    statusLabel.textContent = availability?.isOpen ? 'Live chat is open' : 'Message service';
+    resetBrand();
+    statusLabel.textContent = availability?.isOpen ? 'Team online now' : 'Message our team';
   }
+
+  function mergeConversation(next) {
+    const merged = { ...(next || {}) };
+    if (conversation?.assignedAdviserId && merged.assignedAdviserId === conversation.assignedAdviserId) {
+      if (!Object.prototype.hasOwnProperty.call(merged, 'assignedAdviserRole')) merged.assignedAdviserRole = conversation.assignedAdviserRole || '';
+      if (!Object.prototype.hasOwnProperty.call(merged, 'assignedAdviserPhotoUrl')) merged.assignedAdviserPhotoUrl = conversation.assignedAdviserPhotoUrl || '';
+    }
+    return merged;
+  }
+
+  function adviserPresenceCard() {
+    const name = escapeHtml(conversation?.assignedAdviserName || 'Turner Hopkins adviser');
+    const role = escapeHtml(conversation?.assignedAdviserRole || 'Turner Hopkins team member');
+    const photo = safePhotoUrl(conversation?.assignedAdviserPhotoUrl);
+    const avatar = photo
+      ? `<span>${escapeHtml(initials(conversation?.assignedAdviserName || 'TH'))}</span><img data-adviser-photo src="${escapeAttribute(photo)}" alt="${name}" />`
+      : `<span>${escapeHtml(initials(conversation?.assignedAdviserName || 'TH'))}</span>`;
+    return `<div class="adviser-presence-card"><div class="adviser-presence-avatar">${avatar}<i aria-hidden="true"></i></div><div><small>You are chatting with</small><strong>${name}</strong><span>${role}</span><em>Live adviser</em></div></div>`;
+  }
+
+  function wireAdviserPhotoFallback() {
+    main.querySelectorAll('img[data-adviser-photo]').forEach((image) => {
+      image.addEventListener('error', () => image.remove(), { once: true });
+    });
+  }
+
+  function updateHumanPresence() {
+    if (!conversation?.assignedAdviserName) { resetBrand(); return; }
+    const photo = safePhotoUrl(conversation.assignedAdviserPhotoUrl);
+    brandName.textContent = conversation.assignedAdviserName;
+    brandAvatar.classList.remove('company-avatar');
+    brandAvatar.classList.add('person-avatar');
+    brandInitials.textContent = initials(conversation.assignedAdviserName);
+    if (photo) {
+      brandImage.src = photo;
+      brandImage.alt = conversation.assignedAdviserName;
+      brandImage.hidden = false;
+      brandInitials.hidden = true;
+    } else {
+      brandImage.hidden = true;
+      brandInitials.hidden = false;
+    }
+  }
+
+  function resetBrand() {
+    brandName.textContent = 'Turner Hopkins';
+    brandAvatar.classList.add('company-avatar');
+    brandAvatar.classList.remove('person-avatar');
+    brandImage.src = '/turner-hopkins-logo.png';
+    brandImage.alt = '';
+    brandImage.hidden = false;
+    brandInitials.textContent = 'TH';
+    brandInitials.hidden = true;
+  }
+
+  function initials(value) {
+    return String(value || 'TH').trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() || '').join('') || 'TH';
+  }
+
+  function safePhotoUrl(value) {
+    const source = String(value || '').trim();
+    return /^(https:\/\/|data:image\/(?:png|jpe?g|webp);base64,)/i.test(source) ? source : '';
+  }
+
+  function personIcon() {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>';
+  }
+
   function renderServiceError(message) {
     statusLabel.textContent = 'Temporarily unavailable';
     main.innerHTML = `<section class="intro"><div class="availability-card"><strong>Live chat is unavailable</strong><p>${escapeHtml(message)}</p></div></section>`;
