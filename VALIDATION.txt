@@ -1,4 +1,4 @@
-THiS CRM v0.15.1 validation
+THiS CRM v0.15.2 validation
 
 - App.jsx JSX/JavaScript syntax: passed using the TypeScript JSX parser.
 - Netlify function JavaScript syntax: passed with node --check.
@@ -6,10 +6,9 @@ THiS CRM v0.15.1 validation
 - PWA manifest/service-worker validation: passed.
 - HTML parser validation: passed for the main shell and public Studio/chat pages.
 - CSS brace validation: passed.
-- Live-chat quick-reply migration included.
-- Quick replies are returned only in the authenticated staff snapshot, not the public widget status payload.
-- Adviser selection inserts a reply into the composer and does not send it automatically.
-- Administrator settings include add, edit, delete and restore-default controls.
-- Quick replies are normalised server-side and limited to 20 entries of 4,000 characters each.
+- Live-chat settings are loaded through an authenticated administrator-only endpoint before the settings window opens.
+- Weekly schedule booleans preserve false values and safely normalise legacy string values.
+- The settings save path reads the stored record back and verifies weekly-hours persistence before reporting success.
+- No database migration, dependency or environment-variable change is included.
 
 A full Vite production build could not be completed because the isolated package registry does not contain the existing @netlify/blobs@10.7.9 dependency. No dependency versions were changed.

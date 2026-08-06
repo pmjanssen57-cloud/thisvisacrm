@@ -94,6 +94,11 @@ async function handleChatEvent(event) {
     if (!actor?.id) return json({ error: 'A CRM adviser profile is required for live chat.' }, 403, origin);
 
     if (action === 'staffAttention') return json(await staffAttention(actor), 200, origin);
+    if (action === 'staffSettings') {
+      if (!actor.isAdmin) return json({ error: 'Administrator access is required to view live chat settings.' }, 403, origin);
+      const settings = await readSettings();
+      return json({ settings, availability: publicStatusPayload(settings), emailConfigured: getEmailConfig().configured }, 200, origin);
+    }
     if (action === 'staffSnapshot') {
       const conversationId = cleanUuid(url.searchParams.get('conversationId') || body.conversationId);
       return json(await staffSnapshot(actor, conversationId), 200, origin);
@@ -257,7 +262,11 @@ async function saveSettings(input = {}, actor) {
       quick_replies = EXCLUDED.quick_replies,
       updated_by = EXCLUDED.updated_by,
       updated_at = NOW()`;
-  return readSettings();
+  const persisted = await readSettings();
+  if (JSON.stringify(persisted.weeklyHours) !== JSON.stringify(settings.weeklyHours)) {
+    throw httpError(500, 'Live chat opening hours were not persisted correctly. Please try again.');
+  }
+  return persisted;
 }
 
 function publicStatusPayload(settings) {
@@ -938,8 +947,19 @@ function normaliseWeeklyHours(value) {
     const item = source[key] && typeof source[key] === 'object' ? source[key] : fallback;
     const start = normaliseTime(item.start, fallback.start);
     const end = normaliseTime(item.end, fallback.end);
-    return [key, { enabled: item.enabled !== false, start, end: timeToMinutes(end) > timeToMinutes(start) ? end : fallback.end }];
+    return [key, { enabled: normaliseBoolean(item.enabled, fallback.enabled !== false), start, end: timeToMinutes(end) > timeToMinutes(start) ? end : fallback.end }];
   }));
+}
+
+function normaliseBoolean(value, fallback = false) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  if (typeof value === 'string') {
+    const normalised = value.trim().toLowerCase();
+    if (['false', '0', 'no', 'off', 'disabled'].includes(normalised)) return false;
+    if (['true', '1', 'yes', 'on', 'enabled'].includes(normalised)) return true;
+  }
+  return fallback;
 }
 
 function normaliseAwayDates(value) {

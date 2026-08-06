@@ -1,47 +1,22 @@
-# THiS CRM v0.15.1 - Adviser Live Chat Quick Replies
+# THiS CRM v0.15.2 - Reliable Live Chat Schedule Loading
 
-This build adds a shared quick-reply library to the adviser side of native live chat while retaining the v0.15.0 adviser workspace personalisation release and all earlier CRM functionality.
+This build corrects the live-chat settings window so saved opening days and hours are loaded from the database whenever an administrator opens the settings screen.
 
-## Adviser quick replies
+## Issue corrected
 
-After an adviser claims a website conversation, the Reply composer now includes a **Quick replies** control. Selecting a reply inserts it into the composer for review and editing. It is never sent automatically.
+The schedule itself could be saved, but after a new CRM session the closed live-chat drawer used the lightweight attention endpoint. That endpoint deliberately did not load the full settings record. Opening **Tools > Live chat settings** before opening the chat drawer therefore supplied an empty settings snapshot to the form, and the form displayed its seven-day default schedule.
 
-The initial shared library includes:
+## Changes
 
-- A welcoming introduction
-- An invitation to complete the full immigration assessment form
-- Direct email details for immigration@turnerhopkins.co.nz
-- The Turner Hopkins office phone number
-- A request for the visitor's current visa, expiry date and intended outcome
-- A response explaining that a question needs fuller assessment
-- A short "reviewing now" holding response
-- A friendly closing response
-
-Quick replies can use the visitor's first name, full name and assigned adviser name automatically.
-
-## Administration
-
-Administrators can edit the shared library under:
-
-`Tools > Live chat settings > Adviser quick replies`
-
-Replies can be added, removed, renamed, reordered through the listed sequence, or restored to the THiS defaults. A maximum of 20 shared replies is supported.
-
-Available fields are:
-
-- `{{first_name}}`
-- `{{visitor_name}}`
-- `{{adviser_name}}`
-- `{{assessment_url}}`
-- `{{email}}`
-- `{{phone}}`
+- Added an authenticated administrator-only settings read endpoint.
+- The CRM now retrieves the current live-chat settings directly before opening the settings window.
+- Stored disabled days are preserved as explicit `false` values.
+- Legacy string boolean values such as `"false"`, `"off"` and `"0"` are normalised correctly.
+- The server reads the record back after saving and verifies that the weekly schedule persisted before returning success.
+- Existing away dates, welcome wording, notification settings and adviser quick replies remain unchanged.
 
 ## Deployment
 
-Deploy the complete package and run the new migration:
+Deploy the complete package and perform one hard refresh.
 
-`202608070001_add_live_chat_quick_replies.sql`
-
-The live-chat function also adds the column defensively when it first runs. Perform one hard refresh after deployment.
-
-All v0.15.0 adviser personalisation, CRM, intake, booking, portal, Instructions Studio, Agreement Studio, email, signing and native live-chat functionality is retained.
+No database migration, dependency or environment-variable change is required. All v0.15.1 quick replies, v0.15.0 adviser personalisation and earlier CRM functionality are retained.

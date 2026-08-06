@@ -1,4 +1,4 @@
-THiS CRM v0.15.1 - ADVISER PERSONALISATION GUIDE
+THiS CRM v0.15.2 - ADVISER PERSONALISATION GUIDE
 
 Open Customise from the CRM header (or View on mobile).
 

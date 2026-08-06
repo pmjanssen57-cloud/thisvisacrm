@@ -29,6 +29,43 @@ const DEFAULT_LIVE_CHAT_QUICK_REPLIES = [
   { id: 'closing', label: 'Friendly close', message: 'Thank you for contacting Turner Hopkins, {{first_name}}. Please let us know if there is anything else we can help with.' },
 ];
 
+const DEFAULT_LIVE_CHAT_WEEKLY_HOURS = {
+  mon: { enabled: true, start: '09:00', end: '16:00' },
+  tue: { enabled: true, start: '09:00', end: '16:00' },
+  wed: { enabled: true, start: '09:00', end: '16:00' },
+  thu: { enabled: true, start: '09:00', end: '16:00' },
+  fri: { enabled: true, start: '09:00', end: '16:00' },
+  sat: { enabled: true, start: '09:00', end: '16:00' },
+  sun: { enabled: true, start: '09:00', end: '16:00' },
+};
+
+function normaliseLiveChatBoolean(value, fallback = false) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  if (typeof value === 'string') {
+    const normalised = value.trim().toLowerCase();
+    if (['false', '0', 'no', 'off', 'disabled'].includes(normalised)) return false;
+    if (['true', '1', 'yes', 'on', 'enabled'].includes(normalised)) return true;
+  }
+  return fallback;
+}
+
+function normaliseLiveChatWeeklyHours(value) {
+  let source = value;
+  if (typeof source === 'string') {
+    try { source = JSON.parse(source); } catch (_err) { source = {}; }
+  }
+  if (!source || typeof source !== 'object' || Array.isArray(source)) source = {};
+  return Object.fromEntries(Object.entries(DEFAULT_LIVE_CHAT_WEEKLY_HOURS).map(([day, fallback]) => {
+    const item = source[day] && typeof source[day] === 'object' ? source[day] : fallback;
+    return [day, {
+      enabled: normaliseLiveChatBoolean(item.enabled, fallback.enabled),
+      start: /^\d{2}:\d{2}$/.test(String(item.start || '')) ? String(item.start) : fallback.start,
+      end: /^\d{2}:\d{2}$/.test(String(item.end || '')) ? String(item.end) : fallback.end,
+    }];
+  }));
+}
+
 function normaliseLiveChatQuickReplies(value) {
   const source = Array.isArray(value) ? value : DEFAULT_LIVE_CHAT_QUICK_REPLIES;
   const replies = source.map((item, index) => ({
@@ -1761,6 +1798,33 @@ export default function App() {
     return body;
   }
 
+  async function loadLiveChatSettings() {
+    setChatError('');
+    try {
+      const response = await fetch('/.netlify/functions/chat?action=staffSettings', {
+        headers: chatAuthHeaders(),
+        credentials: 'same-origin',
+        cache: 'no-store',
+      });
+      const body = await readJsonResponse(response);
+      if (response.status === 401) {
+        setAuthRequired(true);
+        throw new Error('Your CRM session was not accepted by live chat.');
+      }
+      if (!response.ok) throw new Error(formatApiError(body, 'Unable to load live chat settings'));
+      setChatSnapshot((current) => ({
+        ...current,
+        settings: body.settings || current.settings,
+        availability: body.availability || current.availability,
+        emailConfigured: body.emailConfigured ?? current.emailConfigured,
+      }));
+      return body;
+    } catch (err) {
+      setChatError(err.message || String(err));
+      throw err;
+    }
+  }
+
   async function saveLiveChatSettings(settings) {
     const body = await callChatApi('saveSettings', { settings }, { refresh: false });
     if (body?.settings) {
@@ -3042,6 +3106,7 @@ export default function App() {
         liveChatSettings={chatSnapshot.settings}
         liveChatAvailability={chatSnapshot.availability}
         liveChatEmailConfigured={chatSnapshot.emailConfigured}
+        loadLiveChatSettings={loadLiveChatSettings}
         saveLiveChatSettings={saveLiveChatSettings}
       />
       <MobileBottomNav activeTab={tab} onNavigate={switchTab} onOpenMore={() => setMobileMoreOpen(true)} />
@@ -9139,15 +9204,12 @@ function LiveChatWorkspace({ open, onClose, snapshot = {}, selectedId = '', onSe
 }
 
 function LiveChatSettingsLightbox({ open, onClose, settings = null, availability = null, emailConfigured = false, onSave }) {
-  const defaultHours = {
-    mon: { enabled: true, start: '09:00', end: '16:00' }, tue: { enabled: true, start: '09:00', end: '16:00' }, wed: { enabled: true, start: '09:00', end: '16:00' }, thu: { enabled: true, start: '09:00', end: '16:00' }, fri: { enabled: true, start: '09:00', end: '16:00' }, sat: { enabled: true, start: '09:00', end: '16:00' }, sun: { enabled: true, start: '09:00', end: '16:00' },
-  };
-  const [draft, setDraft] = useState({ enabled: true, timezone: 'Pacific/Auckland', weeklyHours: defaultHours, awayDatesText: '', welcomeMessage: '', offlineMessage: '', privacyUrl: '', notificationEnabled: true, notificationEmails: '', quickReplies: normaliseLiveChatQuickReplies(DEFAULT_LIVE_CHAT_QUICK_REPLIES) });
+  const [draft, setDraft] = useState({ enabled: true, timezone: 'Pacific/Auckland', weeklyHours: normaliseLiveChatWeeklyHours(null), awayDatesText: '', welcomeMessage: '', offlineMessage: '', privacyUrl: '', notificationEnabled: true, notificationEmails: '', quickReplies: normaliseLiveChatQuickReplies(DEFAULT_LIVE_CHAT_QUICK_REPLIES) });
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const dayRows = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']];
-  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.15.1" data-title="Chat with us" defer><\/script>`;
+  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.15.2" data-title="Chat with us" defer><\/script>`;
 
   useEffect(() => {
     if (!open) return;
@@ -9155,7 +9217,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
     setDraft({
       enabled: source.enabled !== false,
       timezone: source.timezone || 'Pacific/Auckland',
-      weeklyHours: { ...defaultHours, ...(source.weeklyHours || {}) },
+      weeklyHours: normaliseLiveChatWeeklyHours(source.weeklyHours),
       awayDatesText: (source.awayDates || []).map((item) => `${item.date}${item.label ? ` | ${item.label}` : ''}`).join('\n'),
       welcomeMessage: source.welcomeMessage || 'Kia ora. You will be chatting with a real member of our team. Send us your question and we will respond as soon as possible.',
       offlineMessage: source.offlineMessage || 'Our live chat is currently closed. Leave your message and we will respond when the team is next available.',
@@ -9303,11 +9365,25 @@ function safeChatPageLabel(value) {
   try { const url = new URL(value); return url.pathname === '/' ? 'Home page' : url.pathname.replace(/\/$/, '').split('/').filter(Boolean).pop()?.replace(/[-_]/g, ' ') || url.hostname; } catch { return 'Website'; }
 }
 
-function ToolsDrawer({ open, onOpen, onClose, onOpenHelp, onNavigate, activeTab, canManageAdvisers = false, canManageBackups = false, onRefresh, loading = false, sendTestEmail, saveEmailTemplate, resetEmailTemplate, emailLogs = [], emailTemplates = [], emailConfig = {}, saving = false, festivePreference = 'auto', festiveActive = false, festiveStatus = {}, onFestivePreferenceChange, liveChatSettings = null, liveChatAvailability = null, liveChatEmailConfigured = false, saveLiveChatSettings }) {
+function ToolsDrawer({ open, onOpen, onClose, onOpenHelp, onNavigate, activeTab, canManageAdvisers = false, canManageBackups = false, onRefresh, loading = false, sendTestEmail, saveEmailTemplate, resetEmailTemplate, emailLogs = [], emailTemplates = [], emailConfig = {}, saving = false, festivePreference = 'auto', festiveActive = false, festiveStatus = {}, onFestivePreferenceChange, liveChatSettings = null, liveChatAvailability = null, liveChatEmailConfigured = false, loadLiveChatSettings, saveLiveChatSettings }) {
   const [activeTool, setActiveTool] = useState('weather');
   const [emailLogOpen, setEmailLogOpen] = useState(false);
   const [templateEditorOpen, setTemplateEditorOpen] = useState(false);
   const [chatSettingsOpen, setChatSettingsOpen] = useState(false);
+  const [chatSettingsLoading, setChatSettingsLoading] = useState(false);
+
+  async function openLiveChatSettings() {
+    onClose();
+    setChatSettingsLoading(true);
+    try {
+      await loadLiveChatSettings?.();
+    } catch (_err) {
+      // The existing snapshot remains available if the refresh fails.
+    } finally {
+      setChatSettingsLoading(false);
+      setChatSettingsOpen(true);
+    }
+  }
 
   function openWorkspace(nextTab) {
     onClose();
@@ -9351,9 +9427,9 @@ function ToolsDrawer({ open, onOpen, onClose, onOpenHelp, onNavigate, activeTab,
               </button>
             )}
             {canManageAdvisers && (
-              <button type="button" onClick={() => { onClose(); setChatSettingsOpen(true); }}>
+              <button type="button" onClick={openLiveChatSettings} disabled={chatSettingsLoading}>
                 <span className="tools-workspace-icon"><MessageSquare size={19} /></span>
-                <span><strong>Live chat settings</strong><small>Opening hours, quick replies and notifications</small></span>
+                <span><strong>{chatSettingsLoading ? 'Loading live chat settings…' : 'Live chat settings'}</strong><small>Opening hours, quick replies and notifications</small></span>
                 <ChevronRight size={17} />
               </button>
             )}
@@ -12353,7 +12429,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.15.1" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.15.2" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
         </div>
       )}
     </div>
@@ -12881,7 +12957,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.15.1" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.15.2" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
         </div>
       )}
     </div>

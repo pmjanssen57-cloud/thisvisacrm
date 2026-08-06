@@ -1,11 +1,12 @@
-v0.15.1 - Adviser Live Chat Quick Replies
+THiS CRM v0.15.2 — Reliable Live Chat Schedule Loading
 
-- Adds a Quick replies control to the adviser live-chat composer.
-- Inserts replies into the composer for adviser review rather than sending automatically.
-- Includes eight practical default replies covering welcome, assessment, email, telephone, key details, fuller review, holding and closing messages.
-- Supports automatic fields for visitor name, adviser name, assessment URL, contact email and office telephone.
-- Adds a shared quick-reply editor under Tools > Live chat settings.
-- Allows administrators to add, edit, delete and restore shared reply templates.
-- Stores quick replies in the CRM database so the library is consistent across advisers and devices.
-- Adds migration 202608070001_add_live_chat_quick_replies.sql.
-- Retains all v0.15.0 adviser workspace personalisation and earlier CRM functionality.
+This release fixes the live chat settings window showing the default seven-day schedule after the CRM is reloaded.
+
+Changes:
+- Live chat settings are now fetched directly from the server before the settings window opens.
+- Stored weekly hours are no longer inferred from an empty in-memory chat snapshot.
+- Boolean schedule values are normalised safely, including legacy string values such as "false".
+- The server verifies that weekly hours were persisted before reporting a successful save.
+- Existing quick replies, opening-hours behaviour, adviser presence and chat polling are retained.
+
+No database migration, dependency or environment-variable changes are required.

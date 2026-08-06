@@ -16302,7 +16302,7 @@ body.festive-mode-active {
   .live-chat-conversation-list{margin-bottom:8px}
 }
 
-/* v0.15.1: adviser workspace personalisation */
+/* v0.15.0: adviser workspace personalisation */
 .personal-quick-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:-2px 0 12px;padding:8px 10px;border:1px solid #dbe8e4;border-radius:14px;background:#f8fcfa}
 .personal-quick-actions>span{margin-right:3px;color:#6b817c;font-size:10px;font-weight:850;letter-spacing:.06em;text-transform:uppercase}
 .personal-quick-actions button{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid #d4e3de;border-radius:10px;background:#fff;color:#28534c;font-size:11px;font-weight:750;cursor:pointer}
