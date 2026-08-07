@@ -9250,7 +9250,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const dayRows = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']];
-  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.15.4" data-title="Chat with us" defer><\/script>`;
+  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.15.5" data-title="Chat with us" defer><\/script>`;
 
   useEffect(() => {
     if (!open) return;
@@ -12474,7 +12474,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.15.4" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.15.5" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
         </div>
       )}
     </div>
@@ -13002,7 +13002,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.15.4" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.15.5" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
         </div>
       )}
     </div>

@@ -1,8 +1,13 @@
-THiS CRM v0.15.4 — Instructions Date and At-a-Glance Editor
+THiS CRM v0.15.5 - Adviser-led Instructions Authoring
 
-- Uses the Pacific/Auckland calendar date for newly created instruction sets.
-- Corrects existing new drafts created across the UTC/New Zealand date boundary.
-- Adds draft-specific editing for all Application at a glance values.
-- Supports direct preview editing of the summary values and surrounding guidance.
-- Reflows the summary into a cleaner two-column layout with full-width strategy and adviser rows.
-- No database migration or dependency changes.
+- Rebuilds the SMC Road Map around five simple adviser-authored client sections.
+- Limits CRM population to administrative details rather than automatically generating substantive advice.
+- Adds guided drafting prompts and optional, deliberately inserted starter snippets.
+- Makes Documentation Guide sections adviser-selected and disabled by default.
+- Requires client-specific guidance for every selected evidence section.
+- Includes deliberately selected police-clearance country instructions.
+- Adds a pre-issue completeness check and explicit responsible-adviser review confirmation.
+- Blocks print and issue while critical content is incomplete or contains placeholders.
+- Simplifies client-facing evidence sections and removes repetitive technical card clutter.
+- Corrects SMC print flow to prevent blank pages, isolated headings and clipped sections.
+- No database migration, API, dependency or environment-variable changes.

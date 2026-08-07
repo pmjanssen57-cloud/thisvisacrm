@@ -1,39 +1,49 @@
-# THiS CRM v0.15.4 - Instructions Date and At-a-Glance Editor
+# THiS CRM v0.15.5 - Adviser-led Instructions Authoring
 
-This build corrects Instructions Studio document dates and makes the Application at a glance page practical for adviser use, while retaining the v0.15.3 intake print and adviser-email improvements.
+This build rebuilds the Skilled Migrant Category Instructions Studio around deliberate adviser drafting. It retains all v0.15.4 date, intake, live-chat, agreement, personalisation and CRM functionality.
 
-## Instructions date handling
+## Adviser-led Road Map
 
-New instruction sets now use the Pacific/Auckland calendar date rather than the UTC date. Existing drafts created across the UTC/New Zealand date boundary are corrected when the instruction record is loaded. Manually selected prepared dates remain supported.
+The SMC Introduction and Road Map now uses five clear client-facing sections:
 
-## Application at a glance
+1. Your situation
+2. The pathway we are considering
+3. What needs to happen next
+4. Documents to begin preparing
+5. How we will work with you
 
-The client-data tab now includes a draft-specific editor for the application, guide, strategy, included applicants, important date and adviser values. These fields can also be changed directly in the preview while Edit text is active. A restore control returns the values to the linked CRM data.
+The CRM supplies only administrative details such as the client name, broad matter type, adviser details and prepared date. The adviser must write the substantive case narrative. Assessment answers and CRM notes are not automatically converted into advice.
 
-The client-facing page now uses a compact two-column structure, with long strategy and adviser content placed in full-width rows so lengthy case notes wrap cleanly without producing narrow, oversized cards.
+Each section includes a drafting prompt, character guidance and optional starter snippets. Snippets are inserted only when the adviser selects them and remain fully editable.
 
-## Intake printing
+## Adviser-selected Documentation Guide
 
-The intake action is now labelled **Print / save PDF**. It opens a same-origin print window, waits for the logo and fonts, and calls the browser print dialogue automatically. The print-window buttons are wired with JavaScript event listeners so they continue to work under the CRM Content Security Policy.
+Evidence sections are disabled by default. The adviser selects the blocks that apply, writes client-specific guidance for each selected block, and deliberately chooses any police-clearance countries. Country instructions are then included beneath the adviser-authored police-clearance guidance.
 
-If the browser blocks the print window, the CRM downloads a printable HTML copy and explains how to print it using the browser command.
+The client-facing document uses a simpler structure without the repeated Confirmed requirement, Good evidence, Avoid, Format and Certification card framework. This keeps the advice readable while preserving useful evidence guidance where the adviser chooses to include it.
 
-## Email results to adviser
+## Pre-issue control
 
-A new **Email results to adviser** button appears in the intake record support actions. It is available once an adviser with a valid email address has been assigned.
+The Studio checks that:
 
-The email includes:
+- all five Road Map sections contain substantive wording;
+- no drafting prompts or unresolved placeholders remain;
+- the Documentation Guide introduction is complete;
+- at least one evidence section is deliberately selected;
+- each selected section contains client-specific guidance;
+- police-clearance countries are selected when that section is used; and
+- the responsible adviser has reviewed and confirmed the final pack.
 
-- Current CRM status and review fields
-- Recommended pathway and consultation outcome
-- Adviser assessment notes
-- Review flags
-- The questionnaire answers in the same section order as the intake form
+Printing and issue are blocked until the substantive content checks are complete. The final confirmation records that the pack reflects the adviser's advice rather than an automated CRM assessment.
 
-The server resolves the recipient from the assigned adviser record, sends the message through the existing Microsoft 365 shared mailbox, and records it in the CRM email log.
+## PDF flow
 
-The wording and presentation can be maintained under **Tools > Email templates > Assessment form - email results to adviser**.
+The SMC Road Map and Documentation Guide now render using controlled flowing pages. The revised page model avoids the blank pages, isolated headings and clipped content produced by the previous fixed-page layout. The cover design and THiS identity are retained.
+
+## Template governance
+
+The Template Library remains available for shared structure and standard drafting aids. A clear notice explains that the five SMC client narrative sections are draft-specific and must be completed by the adviser. Existing saved instruction records remain supported; the new guided content is stored inside the existing instruction Studio state.
 
 ## Deployment
 
-Deploy the complete package and perform one hard refresh. No database migration, dependency or environment-variable change is required. All v0.15.2 live-chat schedule fixes, v0.15.1 quick replies, v0.15.0 adviser personalisation and earlier CRM functionality are retained.
+Deploy the complete package and perform one hard refresh. No database migration, API, dependency or environment-variable change is required.

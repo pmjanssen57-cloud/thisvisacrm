@@ -1,11 +1,14 @@
-THiS CRM v0.15.4 validation
+THiS CRM v0.15.5 validation
 
 Validated:
 - Instructions Studio JavaScript syntax
+- Guided authoring runtime and readiness controls
+- SMC Road Map and Documentation Guide PDF pagination
+- No blank pages or clipped client content in the combined test output
 - JSX parse
 - Netlify function JavaScript syntax
-- HTML structure and v0.15.4 styles
+- HTML structure and v0.15.5 styles
 - PWA cache version
 - ZIP integrity
 
-No database migration, dependency, API or environment-variable changes.
+No database migration, API, dependency or environment-variable changes.

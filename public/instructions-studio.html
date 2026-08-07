@@ -1003,7 +1003,7 @@ button { cursor: pointer; }
           <div class="form-section cover-controls">
             <div>
               <label class="field-label">Cover image</label>
-              <div class="field-help">The prototype uses the existing SMC imagery. A replacement can be uploaded for the selected guide.</div>
+              <div class="field-help">The guide uses the current THiS cover imagery. A replacement can be uploaded for this draft.</div>
             </div>
             <label class="button button-secondary compact-button" for="cover-upload">Replace image</label>
             <input id="cover-upload" type="file" accept="image/*" hidden>
@@ -1058,12 +1058,12 @@ button { cursor: pointer; }
           </div>
           <div class="notice-card warning-card">
             <strong>Policy review flag</strong>
-            <p>The pack wording is based on the supplied source guides and has been tailored to the sample client. Review client facts, current policy and time-sensitive figures before issue.</p>
+            <p>Standard snippets are drafting aids only. The responsible adviser must confirm the client facts, current policy and all time-sensitive requirements before issue.</p>
           </div>
         </section>
 
         <div class="editor-footer">
-          <button class="button button-secondary" id="reset-draft">Reset prototype</button>
+          <button class="button button-secondary" id="reset-draft">Reset draft</button>
           <button class="button button-primary" id="save-draft">Save draft</button>
         </div>
       </main>
@@ -1082,7 +1082,7 @@ button { cursor: pointer; }
             <button class="segmented reset-inline" id="reset-inline-edits" type="button" hidden>Reset edits</button>
           </div>
         </div>
-        <div class="prototype-banner" id="prototype-banner">Prototype content - verify policy before client issue</div>
+        <div class="prototype-banner" id="prototype-banner">Review client facts and current policy before issue</div>
         <div class="preview-scroller" id="preview-scroller">
           <div id="preview-root" class="preview-root"></div>
         </div>
@@ -1114,14 +1114,14 @@ button { cursor: pointer; }
 <aside class="studio-help-drawer" id="studio-help-drawer" aria-hidden="true" aria-label="Instructions Studio help">
   <div class="studio-help-head"><div><span>Document support</span><h2>Instructions Studio help</h2></div><button class="studio-help-close" id="studio-help-close" type="button" aria-label="Close help">×</button></div>
   <div class="studio-help-body">
-    <p class="studio-help-summary">Use the Studio to turn client or standalone data into a tailored road map, documentation guide or supporting instruction pack. The live A4 preview is the client-facing document.</p>
-    <section class="studio-help-section"><h3>1. Confirm the pack and client data</h3><p>Select the correct instruction pack, then check the principal applicant, partner, children, adviser, important dates and pathway details in Client data. These values are inserted throughout the document.</p></section>
-    <section class="studio-help-section"><h3>2. Shape the guide</h3><p>Use Content to include or remove sections. Heading numbers can be automatic, custom or hidden. Reorder or remove steps before finalising the wording.</p></section>
-    <section class="studio-help-section"><h3>3. Add person-specific requirements</h3><p>Use the police-clearance controls and other applicant selectors rather than leaving conditional wording in the guide. Review every “Required for” reference in the preview.</p></section>
-    <section class="studio-help-section"><h3>4. Edit safely</h3><p>Use the structured editor for data, section logic and numbering. Use Edit text in the preview for wording changes. Dynamic client fields remain controlled through Client data.</p></section>
+    <p class="studio-help-summary">Use the Studio as a guided adviser drafting system. The CRM supplies basic administrative details, while the adviser writes the case narrative, selects the evidence sections and approves the final client document.</p>
+    <section class="studio-help-section"><h3>1. Confirm the administrative details</h3><p>Check the client name, broad matter type, prepared date and responsible adviser. Substantive strategy and evidence requirements are not drawn automatically from the CRM.</p></section>
+    <section class="studio-help-section"><h3>2. Write the client narrative</h3><p>Complete the five guided sections in plain English: the client situation, proposed pathway, immediate next steps, documents to begin and how Turner Hopkins will work with the client.</p></section>
+    <section class="studio-help-section"><h3>3. Select the evidence deliberately</h3><p>In the Documentation Guide, include only sections that apply. Insert standard guidance only when useful, then tailor it. Select and review every police-clearance country rather than relying on assessment data.</p></section>
+    <section class="studio-help-section"><h3>4. Keep the document simple</h3><p>Focus on what the client needs to understand and do now. Avoid copying the assessment, adding unnecessary process detail or leaving drafting prompts and unconfirmed conclusions in the document.</p></section>
     <section class="studio-help-section"><h3>5. Templates and versions</h3><p>Administrators can use Template library to edit the reusable master pack, save a draft, publish a new version or restore an earlier version. Existing client documents do not change automatically when a template is updated.</p></section>
-    <section class="studio-help-section"><h3>6. Save and issue</h3><p>Save the draft before leaving. Check the full A4 preview, then use Print / save PDF for a clean copy or Publish to portal only when the document is ready for the client.</p></section>
-    <div class="studio-help-tips"><strong>Before you finish</strong><ul><li>Check names, dates and included family members.</li><li>Remove any section that does not apply.</li><li>Confirm time-sensitive policy, fees and processing information.</li><li>Make sure no internal notes appear in the client preview.</li></ul></div>
+    <section class="studio-help-section"><h3>6. Complete the adviser review</h3><p>Resolve every pre-issue warning, read the complete A4 preview and confirm that the pack reflects your advice and the client’s current circumstances before printing or marking it ready.</p></section>
+    <div class="studio-help-tips"><strong>Before you finish</strong><ul><li>Make sure each narrative section is specific to this client.</li><li>Remove evidence sections that do not apply.</li><li>Check police-country instructions and time-sensitive requirements.</li><li>Remove all brackets, prompts, placeholders and internal notes.</li></ul></div>
     <div class="studio-help-foot">This guidance relates to the current Studio screen. The main CRM Help window explains how drafts are created, stored and accessed from client records.</div>
   </div>
 </aside>
@@ -1172,6 +1172,75 @@ button { cursor: pointer; }
   @media screen and (max-width:760px){.studio-help-drawer{width:100vw}.studio-help-head{padding:20px}.studio-help-body{padding:18px 20px 26px}.studio-help-button{padding-left:10px!important;padding-right:10px!important}}
 </style>
 
-<script src="/instructions-studio.js?v=0.14.3"></script>
+
+<style id="instructions-adviser-led-v155-styles">
+.guided-authoring-panel{display:grid;gap:14px;margin:15px 0 2px}
+.guided-authoring-intro{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:15px 16px;border:1px solid #cee5dc;border-radius:14px;background:linear-gradient(135deg,#eef9f4,#fbfefd)}
+.guided-authoring-intro h3{margin:3px 0 5px;color:var(--ink);font-size:17px}
+.guided-authoring-intro p{margin:0;color:var(--muted);font-size:12px;line-height:1.48}
+.guided-authoring-field{padding:15px;border:1px solid #dde9e5;border-radius:14px;background:#fff;box-shadow:0 5px 16px rgba(7,61,57,.035)}
+.guided-authoring-field-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px}
+.guided-authoring-field-head>div{display:flex;align-items:center;gap:9px}
+.guided-authoring-field-head>div>span{width:27px;height:27px;display:grid;place-items:center;border-radius:8px;background:var(--mint-soft);color:#08775a;font-size:9px;font-weight:900}
+.guided-authoring-field-head strong{color:var(--ink);font-size:13px}
+.guided-authoring-field-head>small{color:#7b8e89;font-size:9px;font-weight:800}
+.guided-authoring-field .field-help{margin:0 0 9px;line-height:1.45}
+.guided-authoring-text{min-height:122px;line-height:1.52;resize:vertical}
+.guided-snippet-row{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:9px}
+.guided-snippet-row .select-input{max-width:250px;min-height:34px;padding-top:6px;padding-bottom:6px;font-size:11px}
+.guided-document-editor .guided-authoring-text{min-height:105px}
+.guided-sync-card-v155{margin-top:14px}
+.guided-template-notice-v155{margin:0 0 16px}.guided-template-notice-v155 strong{display:block;margin-bottom:5px;color:var(--ink)}.guided-template-notice-v155 p{margin:0;color:var(--muted);line-height:1.5}
+.readiness-panel-v155{margin:17px 0;padding:16px;border:1px solid #cfe5dc;border-radius:14px;background:#f8fcfa}
+.readiness-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
+.readiness-panel-head h3{margin:4px 0 0;color:var(--ink);font-size:17px}
+.readiness-panel-v155>p{margin:0 0 12px;color:var(--muted);font-size:12px;line-height:1.48}
+.readiness-panel-v155>ul,.publish-readiness-v155 ul{margin:0 0 13px;padding-left:19px;color:#7b4d32;font-size:11px;line-height:1.5}
+.readiness-panel-v155 li+li,.publish-readiness-v155 li+li{margin-top:4px}
+.review-confirmation-v155{display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid #d8e7e1;border-radius:11px;background:#fff;cursor:pointer}
+.review-confirmation-v155 input{margin-top:3px}
+.review-confirmation-v155 span{display:grid;gap:3px}
+.review-confirmation-v155 strong{color:var(--ink);font-size:12px}
+.review-confirmation-v155 small{color:var(--muted);font-size:10px;line-height:1.4}
+.review-confirmation-v155:has(input:disabled){opacity:.58;cursor:not-allowed}
+.reviewed-at-v155{margin-top:8px;color:#5e7771;font-size:9px;text-align:right}
+.publish-readiness-v155{margin:14px 0;padding:14px;border:1px solid #d5e6df;border-radius:12px;background:#f8fcfa;text-align:left}
+.publish-readiness-v155>strong{display:block;color:var(--ink);margin-bottom:7px}
+.publish-readiness-v155>p{margin:0 0 10px;color:var(--muted);font-size:11px;line-height:1.45}
+.guided-opening{padding-bottom:8px}
+.guided-dear{color:var(--ink)!important;font-size:18px!important;font-weight:850!important;margin-bottom:13px!important}
+.guided-client-section,.guided-document-section{break-inside:avoid;page-break-inside:avoid}
+.guided-section-heading{display:grid;grid-template-columns:44px 1fr;gap:13px;align-items:start;margin-bottom:13px}
+.guided-section-heading>span{width:40px;height:40px;border-radius:12px;background:var(--mint-soft);color:#08775a;display:grid;place-items:center;font-size:12px;font-weight:900}
+.guided-section-heading small{display:block;margin:1px 0 3px;color:var(--mint-dark);font-size:8px;font-weight:900;letter-spacing:.11em;text-transform:uppercase}
+.guided-section-heading h2{margin:0;color:var(--ink);font-size:22px;line-height:1.12;letter-spacing:-.015em}
+.guided-section-body{padding-left:57px}
+.guided-section-body p{font-size:13px;line-height:1.56;margin-bottom:10px}
+.guided-action-list{margin:2px 0 4px;padding:0;list-style:none;display:grid;gap:9px;counter-reset:guided}
+.guided-action-list li{counter-increment:guided;display:grid;grid-template-columns:27px 1fr;gap:10px;align-items:start;color:#385d59;font-size:13px;line-height:1.48}
+.guided-action-list li::before{content:counter(guided);width:27px;height:27px;border-radius:9px;background:#dff6ed;color:#08775a;display:grid;place-items:center;font-size:10px;font-weight:900}
+.adviser-input-required{padding:12px 14px;border:1px dashed #d2a45f;border-radius:10px;background:#fff9ef;color:#7a5327}
+.adviser-input-required strong{display:block;color:#70471a;margin-bottom:3px;font-size:11px}
+.adviser-input-required span{font-size:10px;line-height:1.4}
+.guided-police-country{margin-top:13px;padding:14px;border:1px solid #d9e6e1;border-radius:12px;background:#fbfefd;break-inside:avoid;page-break-inside:avoid}
+.guided-police-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px}
+.guided-police-head small{display:block;color:var(--mint-dark);font-size:8px;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
+.guided-police-head h3{margin:3px 0 0;color:var(--ink);font-size:15px}
+.guided-police-head>span{padding:5px 8px;border-radius:999px;background:var(--mint-soft);color:#37625b;font-size:8px;font-weight:850;max-width:42%;text-align:right}
+.guided-police-country p{font-size:11px;line-height:1.48;margin:0 0 7px}
+.guided-official-link{overflow-wrap:anywhere;color:#617a74}
+.guided-content-page .pdf-page-inner{padding-top:50px;padding-bottom:62px}
+.smc-adviser-led-v155 #tab-client>.sync-card:not(.guided-sync-card-v155){display:none}
+@media screen and (max-width:720px){.guided-authoring-intro{display:block}.guided-authoring-intro .status-chip{display:inline-flex;margin-top:10px}.guided-snippet-row{align-items:stretch;flex-direction:column}.guided-snippet-row .select-input{max-width:none}.guided-section-body{padding-left:0}.guided-section-heading{grid-template-columns:38px 1fr}.guided-section-heading>span{width:35px;height:35px}.guided-section-heading h2{font-size:19px}}
+@media print{
+  .print-root .pdf-page{height:296mm!important;min-height:296mm!important;max-height:296mm!important;overflow:hidden!important;break-after:page!important;page-break-after:always!important}
+  .print-root .pdf-cover{height:296mm!important;min-height:296mm!important;max-height:296mm!important}
+  .print-root .print-document:not(:last-child) .pdf-page:last-child{break-after:page!important;page-break-after:always!important}
+  .print-root .print-document:last-child .pdf-page:last-child{break-after:auto!important;page-break-after:auto!important}
+  .guided-client-section,.guided-document-section,.guided-police-country{break-inside:avoid!important;page-break-inside:avoid!important}
+}
+</style>
+
+<script src="/instructions-studio.js?v=0.15.5"></script>
 </body>
 </html>
