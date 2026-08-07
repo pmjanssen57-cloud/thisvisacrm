@@ -1,14 +1,21 @@
-THiS CRM v0.15.5 validation
+THiS CRM v0.15.6 validation
 
 Validated:
-- Instructions Studio JavaScript syntax
-- Guided authoring runtime and readiness controls
-- SMC Road Map and Documentation Guide PDF pagination
-- No blank pages or clipped client content in the combined test output
-- JSX parse
+- public/instructions-studio.js JavaScript syntax
+- App.jsx JSX parsing
 - Netlify function JavaScript syntax
-- HTML structure and v0.15.5 styles
-- PWA cache version
-- ZIP integrity
+- HTML parsing for public Studio/chat pages
+- PWA validation script
+- v0.15.6 runtime/cache-busting references
+- package ZIP integrity
 
-No database migration, API, dependency or environment-variable changes.
+Architecture checks:
+- 12 instruction-pack Road Map masters defined
+- Road Maps use finished standard wording with no substantive CRM merge fields
+- SMC five-field guided authoring and blocking readiness checks are bypassed
+- Road Map Application at a glance output is not rendered
+- Combined guide packs are split at runtime into Road Map + Documentation Guide
+- Existing documentation evidence blocks are retained
+- v0.15.6 published Road Map masters are not overwritten by code defaults on reload
+
+Full Vite production compilation may depend on access to the existing package registry dependencies. No dependency versions were changed in this release.

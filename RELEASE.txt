@@ -1,13 +1,16 @@
-THiS CRM v0.15.5 - Adviser-led Instructions Authoring
+THiS CRM v0.15.6 - Finished Master Road Maps
 
-- Rebuilds the SMC Road Map around five simple adviser-authored client sections.
-- Limits CRM population to administrative details rather than automatically generating substantive advice.
-- Adds guided drafting prompts and optional, deliberately inserted starter snippets.
-- Makes Documentation Guide sections adviser-selected and disabled by default.
-- Requires client-specific guidance for every selected evidence section.
-- Includes deliberately selected police-clearance country instructions.
-- Adds a pre-issue completeness check and explicit responsible-adviser review confirmation.
-- Blocks print and issue while critical content is incomplete or contains placeholders.
-- Simplifies client-facing evidence sections and removes repetitive technical card clutter.
-- Corrects SMC print flow to prevent blank pages, isolated headings and clipped sections.
-- No database migration, API, dependency or environment-variable changes.
+Instructions Studio
+- Rebuilt the Introduction & Road Map model around the existing THiS/Panda approach: a finished standard document that the adviser tweaks rather than a blank drafting framework.
+- Applied the model across all instruction packs.
+- Restored a full SMC Road Map structure: Introduction, Your Strategy, Category Requirements, Steps & Timelines, Skilled Employment, and Questions & Next Steps.
+- Removed the Application at a glance page from Road Maps.
+- Removed mandatory five-part adviser-authored Road Map fields and their pre-issue blocking checks.
+- Road Map substantive content no longer depends on CRM assessment conclusions or detailed client fields.
+- Added simple section include/reorder controls and step include/exclude controls, kept behind a collapsed advanced section.
+- Direct preview editing remains the normal way to personalise wording, headings and timeframes.
+- Published Road Map master edits in the Template Library are preserved across CRM reloads and are used for future client drafts.
+- Packs that previously combined Road Map and evidence content now expose separate Road Map and Documentation Guide documents while preserving the existing evidence blocks.
+- Documentation Guide, police-clearance selection, specialist guides, template governance and PDF/portal workflows remain in place.
+
+No database migration, dependency or environment-variable changes.

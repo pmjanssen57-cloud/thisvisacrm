@@ -3532,3 +3532,827 @@ bindEvents();
   document.title = 'THiS Instructions Studio - Adviser-led authoring v0.15.5';
   renderAll();
 })();
+
+// ===== v0.15.6 FINISHED MASTER ROAD MAPS =====
+(() => {
+  const ROADMAP_MODEL_VERSION_V156 = '0.15.6';
+
+  const p = (...items) => items.map(item => `<p>${item}</p>`).join('');
+  const bullets = items => `<ul>${items.map(item => `<li>${item}</li>`).join('')}</ul>`;
+  const numbered = items => `<div class="strategy-grid">${items.map((item, index) => `<div class="strategy-card"><span class="card-number">${index + 1}</span><h3>${item[0]}</h3><p>${item[1]}</p></div>`).join('')}</div>`;
+  const timeline = items => `<div class="timeline">${items.map((item, index) => `<div class="timeline-item"><span class="timeline-step">Step ${index + 1}</span><div><h3>${item.title}</h3><p>${item.text}</p>${item.time ? `<span class="time-pill">${item.time}</span>` : ''}</div></div>`).join('')}</div>`;
+
+  const ROADMAP_MASTERS_V156 = {
+    smc: {
+      subtitle: 'Skilled Migrant Category (SMC)',
+      intro: `Your New Zealand journey starts here.\n\nThank you for entrusting us with your plans to migrate to New Zealand. Over the coming months we will be working closely with you to achieve your immigration goal. This Introduction and Road Map explains the overall strategy and the main steps we expect to follow.\n\nOur approach is simple: we provide the information you need in a clear and practical format. This guide should be read alongside your separate Documentation Guide, which explains the evidence we will need from you. Please contact us whenever anything is unclear or your circumstances change.\n\nThe steps and timeframes in this guide are a working plan. Immigration requirements, processing times and the order of events can change, so we will update the strategy as the matter develops.`,
+      sections: [
+        { id: 'strategy', title: 'Your strategy', html: p(
+          `As discussed during our initial consultation, we will be pursuing the skilled residence pathway that best matches your circumstances. The precise basis will depend on the requirements confirmed for your case, including your qualifications, occupation, employment position and any registration or other category requirements.`,
+          `In most cases the process begins with planning and documentation, followed by any employment or eligibility step that must be completed before the residence application can be prepared. If a temporary visa is required so that you can travel to or work in New Zealand sooner, we can include that as an interim step.`
+        ) + numbered([
+          ['Plan and prepare', 'We will work with you to secure and review the documents needed for the application and any preliminary assessment or registration process.'],
+          ['Employment or eligibility', 'Where employment or another qualifying event is required, we will help you understand the immigration requirements and review the relevant evidence.'],
+          ['Residence application', 'When the requirements are met, we will prepare the residence application, provide a complete draft for review and manage the application with Immigration New Zealand.']
+        ]) },
+        { id: 'category', title: 'Your category requirements', html: p(
+          `This section is where we record the specific Skilled Migrant or Green List basis being relied on for your case. It is intended to be adjusted by your adviser so that it reflects the occupation, qualification, registration, points or employment requirements that actually apply to you.`,
+          `Before any application is lodged we will confirm the operative immigration instructions and ensure that the evidence being relied on matches the selected pathway.`
+        ) },
+        { id: 'timeline', title: 'Steps & timelines', html: timeline([
+          { title: 'Documentation', text: 'Gather the core identity, qualification, employment and other records needed to prepare the case. We will identify which documents should be obtained now and which should wait until a later stage.', time: 'Usually 1 to 2 months' },
+          { title: 'Qualification, registration or preparation', text: 'Complete any qualification assessment, professional registration, CV review or other preparation required for the pathway being pursued.', time: 'Case dependent' },
+          { title: 'Employment or job search', text: 'Where skilled employment is required, work through the job-search stage and send us any proposed role, employment agreement and job description for immigration review.', time: 'Variable' },
+          { title: 'Temporary visa if required', text: 'If you need to travel to or commence work in New Zealand before residence is approved, we will consider and prepare the appropriate temporary visa application.', time: 'If required' },
+          { title: 'Resident visa application', text: 'Once the relevant requirements and documents are complete, we will prepare the residence application in draft, obtain your approval and submit it to Immigration New Zealand.', time: 'Preparation and processing times vary' },
+          { title: 'Residence approval', text: 'After approval we will explain the visa conditions, the pathway to Permanent Residence and the later citizenship position.', time: 'After INZ approval' }
+        ]) },
+        { id: 'employment', title: 'Skilled employment', html: p(
+          `Where skilled employment forms part of the pathway, the role and employer must satisfy the immigration requirements that apply at the time. We will review the employment before it is relied on for an application.`,
+          `The matters we normally consider include the employer's immigration status, the hours and duration of employment, the duties and skill level of the role, its relevance to your background, and any remuneration or occupational requirement that applies to the selected pathway.`
+        ) + bullets([
+          '<strong>Employer:</strong> the employer must meet any accreditation or other employer requirement that applies.',
+          '<strong>Role:</strong> the employment must be genuine, sufficiently skilled and consistent with the pathway being pursued.',
+          '<strong>Evidence:</strong> send us the employment agreement and job description before relying on a role for immigration purposes.',
+          '<strong>Changes:</strong> tell us promptly if the role, employer, hours, duties or remuneration change.'
+        ]) },
+        { id: 'next', title: 'Questions & next steps', html: p(
+          `It is important that you ask questions throughout the process, no matter how small they may seem. If you are unsure what to obtain, when to obtain it, or what a particular step means, please contact us.`,
+          `Your first priority is to familiarise yourself with this Road Map and then work through the separate Documentation Guide. Start with the documents we have identified as current priorities and let us know early if anything is unavailable or likely to take time.`,
+          `We look forward to working closely with you through each stage of the process.`
+        ) }
+      ]
+    },
+    investor: {
+      subtitle: 'Active Investor Plus Category',
+      intro: `Your New Zealand journey starts here.\n\nThank you for entrusting us with your plans to migrate to New Zealand under the Active Investor Plus Category. This Road Map explains the general strategy, the main application stages and the way we will work through the investment process with you.\n\nThe accompanying Documentation Guide deals with the detailed identity, family, source-of-funds and investment evidence. The Road Map is deliberately broader and should be adjusted by your adviser to reflect the investment category and structure agreed for your case.`,
+      sections: [
+        { id: 'strategy', title: 'Your strategy', html: p(
+          `The application will be prepared under the Active Investor Plus Category. We will work with you to identify the investment category that applies, document the nominated funds, establish their lawful source and prepare the residence application.`,
+          `The broad sequence is to plan and document the funds, submit the residence application, obtain approval in principle where required, and then complete the transfer and qualifying investments within the applicable period.`
+        ) },
+        { id: 'category', title: 'Your investment category', html: p(
+          `Before issue, your adviser will tailor this section to record the investment category being relied on, the amount to be invested, the intended investment period, any presence requirement and the assets or funds currently intended to support the application.`,
+          `Do not sell, transfer or materially restructure a nominated asset without first discussing the change with us, because the ownership, source and transfer trail may need to remain clear throughout the process.`
+        ) },
+        { id: 'timeline', title: 'Steps & timelines', html: timeline([
+          { title: 'Documentation', text: 'Gather the identity, family, nominated-fund and lawful-source evidence and resolve any valuation or ownership questions.', time: 'Usually 1 to 3 months' },
+          { title: 'Resident visa application', text: 'Prepare the application, provide a full draft for review and submit it to Immigration New Zealand once the evidence is complete.', time: 'Case dependent' },
+          { title: 'Assessment and approval in principle', text: 'Respond to any request from INZ and obtain approval for the nominated investment funds and application basis.', time: 'INZ processing time' },
+          { title: 'Transfer and invest', text: 'Transfer the approved funds through the banking system and complete the qualifying investments within the permitted period.', time: 'Within the applicable transfer period' },
+          { title: 'Final evidence and resident visas', text: 'Provide the final investment evidence and complete the remaining steps for issue of the resident visas.', time: 'After the investment evidence is accepted' }
+        ]) },
+        { id: 'next', title: 'Questions & next steps', html: p(
+          `Begin by reviewing the Documentation Guide and preparing a clear schedule of the assets and funds that may be nominated. Keep supporting bank, investment, sale, tax and income records organised so the source and movement of funds can be followed.`,
+          `Please contact us before changing a nominated asset or transfer route, and let us know early if any ownership, source-of-funds or document issue may require explanation.`
+        ) }
+      ]
+    },
+    parent: {
+      subtitle: 'Parent Residence Category',
+      intro: `Your New Zealand journey starts here.\n\nThank you for entrusting us with your Parent Category residence application. This Road Map explains the strategy, the main stages of the application and the practical steps we will follow with you.\n\nThe separate Documentation Guide contains the detailed applicant and sponsor evidence. This Road Map should be adjusted by your adviser to reflect the Invitation to Apply, sponsor position and any case-specific timing issue.`,
+      sections: [
+        { id: 'strategy', title: 'Your strategy', html: p(
+          `We will prepare the Parent Category residence application using the Invitation to Apply and the sponsor arrangements confirmed for your case. The work will focus on completing the applicant evidence, confirming the sponsor information and preparing the residence application in time for the relevant deadline.`,
+          `We will review the English-language, health and character position as part of that process and will tell you when time-sensitive evidence should be obtained.`
+        ) },
+        { id: 'ita', title: 'Invitation to Apply', html: p(
+          `The Invitation to Apply sets the deadline and application basis for the residence application. Your adviser will tailor this section to record the issue date, expiry date and any particular condition or concern that needs to be managed.`,
+          `Because the application must be received before the Invitation expires, please tell us immediately if a requested document may be delayed.`
+        ) },
+        { id: 'timeline', title: 'Steps & timelines', html: timeline([
+          { title: 'Documentation', text: 'Gather the applicant, sponsor, English-language, health and character evidence identified in the Documentation Guide.', time: 'Usually 1 to 2 months' },
+          { title: 'Resident visa application', text: 'Prepare the residence application and supporting evidence, provide the draft for review and complete the submission process.', time: 'Before the ITA deadline' },
+          { title: 'Application processing', text: 'Monitor the application and respond to any request for clarification or updated evidence.', time: 'INZ processing time' },
+          { title: 'Residence approval', text: 'Explain the resident visa and sponsorship conditions and the next immigration steps after approval.', time: 'After INZ approval' }
+        ]) },
+        { id: 'next', title: 'Questions & next steps', html: p(
+          `Please begin with the identity, sponsor and English-language evidence in the Documentation Guide. Complete police certificates and medical examinations only when we confirm the correct timing.`,
+          `Tell us immediately about any change affecting the applicants, sponsors, address, health or character information, or any document that may be difficult to obtain.`
+        ) }
+      ]
+    },
+    family: {
+      subtitle: 'Family Category - Partnership',
+      intro: `Your New Zealand journey starts here.\n\nThank you for entrusting us with your partnership-based immigration pathway. This Road Map explains the overall strategy, the likely sequence of applications and the way relationship evidence will be developed through the process.\n\nYour separate Documentation Guide sets out the detailed evidence. Your adviser will adjust this Road Map where the living-together period, current visa position or order of applications requires a different approach.`,
+      sections: [
+        { id: 'strategy', title: 'Your strategy', html: p(
+          `The pathway is based on a genuine and stable partnership. Depending on the current visa position and the length of time you have lived together, the process may involve one or more temporary partnership applications before the residence application is ready to proceed.`,
+          `Throughout the matter we will continue to review the living-together evidence and will update the application sequence if circumstances change.`
+        ) },
+        { id: 'category', title: 'Partnership category', html: p(
+          `Partnership applications depend heavily on evidence showing the history, stability and genuine nature of the relationship, particularly the period of living together. The residence stage normally requires a longer evidential history than a temporary partnership visa.`,
+          `Your adviser will tailor this section to record the current living-together position, the proposed temporary visa step if one is required, and the expected point at which residence can be considered.`
+        ) },
+        { id: 'timeline', title: 'Steps & timelines', html: timeline([
+          { title: 'Documentation', text: 'Gather identity and relationship evidence and begin organising records that show the full period of living together.', time: 'Usually 1 to 3 months' },
+          { title: 'Temporary partnership visa if required', text: 'Prepare and submit the temporary partnership application needed to maintain status or support the agreed pathway.', time: 'If required' },
+          { title: 'Continue relationship evidence', text: 'Keep collecting current objective records while the relationship and living-together period continue.', time: 'Ongoing' },
+          { title: 'Residence application', text: 'Prepare the residence application once the eligibility and evidence requirements are met.', time: 'When eligible' },
+          { title: 'Residence approval', text: 'Explain the resident visa conditions and the pathway to Permanent Residence and citizenship.', time: 'After INZ approval' }
+        ]) },
+        { id: 'next', title: 'Questions & next steps', html: p(
+          `Start with objective records showing when and where you began living together, then continue building that record each month. Use the Documentation Guide as the detailed checklist.`,
+          `Please tell us immediately about any period living apart, change of address, travel, previous relationship, custody issue or sponsor concern so that we can assess the effect on the strategy.`
+        ) }
+      ]
+    },
+    pwv: {
+      subtitle: 'Partnership Work Visa',
+      intro: `Thank you for instructing Turner Hopkins Immigration Specialists to prepare your partnership-based Work Visa application. This Road Map explains the application basis, the main preparation stages and what you should focus on first.\n\nThe separate Documentation Guide contains the detailed identity, relationship, health and character evidence. Your adviser will adjust the Road Map where the current visa position or relationship circumstances require it.`,
+      sections: [
+        { id: 'strategy', title: 'Your application', html: p(
+          `The application is based on a genuine and stable partnership with an eligible supporting partner. The central task is to present clear evidence of the relationship and living-together history, while also satisfying the ordinary identity, health and character requirements.`,
+          `We will confirm the likely visa duration and any partner-specific eligibility issue before the application is submitted.`
+        ) },
+        { id: 'timeline', title: 'Steps & timelines', html: timeline([
+          { title: 'Documentation', text: 'Gather the passport, relationship, character and health evidence identified in the Documentation Guide.', time: 'Usually 1 to 2 weeks' },
+          { title: 'Application preparation and review', text: 'Prepare the online application and provide the complete draft for you and your partner to check.', time: 'Usually 3 to 4 days once documents are ready' },
+          { title: 'Submission and processing', text: 'Submit the application and manage any further information request from Immigration New Zealand.', time: 'INZ processing time' }
+        ]) },
+        { id: 'focus', title: 'Relationship evidence', html: p(
+          `The strongest applications rely on objective evidence covering the full living-together period rather than a large quantity of photographs or statements. We will help you select a balanced record from tenancy or property documents, banking, utilities, insurance, official correspondence and other appropriate sources.`,
+          `Continue keeping current evidence while the application is being prepared and processed.`
+        ) },
+        { id: 'next', title: 'Questions & next steps', html: p(
+          `Begin with the relationship and identity evidence in the Documentation Guide. Contact us before arranging medical or police evidence unless we have confirmed the timing.`,
+          `Tell us promptly about any change in address, living arrangements, travel or relationship circumstances.`
+        ) }
+      ]
+    },
+    accreditation: {
+      subtitle: 'Employer Accreditation',
+      intro: `Thank you for instructing Turner Hopkins Immigration Specialists to assist with your employer accreditation. This Road Map explains the accreditation process, the information we will need from the business and the steps that follow once the application is ready.\n\nThe separate Documentation Guide contains the business and key-person information required for preparation. Your adviser will adjust this Road Map for the accreditation type and any compliance issue relevant to the employer.`,
+      sections: [
+        { id: 'strategy', title: 'The accreditation process', html: p(
+          `The purpose of the accreditation application is to establish that the employer meets the requirements to use the Accredited Employer Work Visa system. We will work through the business information, key people, compliance history and declarations before preparing the online application.`,
+          `Where a Job Check or worker visa is also required, we will explain those later stages separately so that the employer can see where accreditation fits into the wider process.`
+        ) },
+        { id: 'timeline', title: 'Steps & timelines', html: timeline([
+          { title: 'Business information', text: 'Complete the employer questionnaire and provide the company, trading, ownership and workforce information requested.', time: 'Usually 1 to 2 weeks' },
+          { title: 'Compliance and key-person review', text: 'Review the key people and any immigration, employment, financial or regulatory matter that needs explanation.', time: 'Case dependent' },
+          { title: 'Application preparation', text: 'Prepare the accreditation application and provide the draft for authorised review.', time: 'Usually a few days once information is complete' },
+          { title: 'Submission and decision', text: 'Submit the application and manage any request from Immigration New Zealand.', time: 'INZ processing time' }
+        ]) },
+        { id: 'next', title: 'What happens next', html: p(
+          `Start with the business and key-person information in the Documentation Guide. Please identify any area where the recorded company information may be out of date or where a compliance event needs explanation.`,
+          `Once accreditation is approved, we can then deal with any Job Check and worker visa stages that form part of the employer's recruitment plan.`
+        ) }
+      ]
+    },
+    'aewv-family': {
+      subtitle: 'Family Temporary Visas',
+      intro: `Thank you for instructing Turner Hopkins Immigration Specialists to prepare the temporary visa applications for the family of an Accredited Employer Work Visa holder. This Road Map explains the application strategy, the order of preparation and the key family issues to keep in mind.\n\nThe separate Documentation Guide contains the detailed passport, birth, relationship, health and character evidence. Your adviser will tailor the Road Map to the particular visas being sought for each family member.`,
+      sections: [
+        { id: 'strategy', title: 'Your applications', html: p(
+          `The family applications will be prepared around the immigration status and employment of the principal work-visa holder, together with the relationship and dependency evidence for the accompanying family members.`,
+          `Different family members may require different temporary visa types. We will confirm the correct application for each person and the order in which the applications should be submitted.`
+        ) },
+        { id: 'timeline', title: 'Steps & timelines', html: timeline([
+          { title: 'Documentation', text: 'Gather the family identity, relationship, birth, health and character evidence identified in the Documentation Guide.', time: 'Usually 1 to 2 weeks' },
+          { title: 'Application preparation and review', text: 'Prepare the relevant online applications and provide the drafts for family review.', time: 'Usually a few days once documents are ready' },
+          { title: 'Submission and processing', text: 'Submit the applications in the agreed order and manage any further information request.', time: 'INZ processing time' }
+        ]) },
+        { id: 'focus', title: 'Family evidence', html: p(
+          `The applications need to show the family relationships clearly and consistently. This may include partnership evidence for a spouse or partner and birth, custody or dependency evidence for children.`,
+          `Tell us immediately about any custody arrangement, period of separation, change of address or family circumstance that may affect the applications.`
+        ) },
+        { id: 'next', title: 'Questions & next steps', html: p(
+          `Begin with the identity and family evidence in the Documentation Guide and let us know if any birth, relationship or custody record is difficult to obtain.`,
+          `Do not arrange medical or police evidence until we have confirmed who needs it and the correct timing.`
+        ) }
+      ]
+    },
+    aewv: {
+      subtitle: 'Accredited Employer Work Visa',
+      intro: `Thank you for instructing Turner Hopkins Immigration Specialists to prepare your Accredited Employer Work Visa application. This Road Map explains the overall application basis, the main steps and the employment information we will review with you.\n\nThe separate Documentation Guide contains the detailed evidence. Your adviser will adjust this Road Map where the job, employer, skill requirements or current visa position requires a different approach.`,
+      sections: [
+        { id: 'strategy', title: 'Your application', html: p(
+          `The application will be based on an eligible job with an accredited New Zealand employer. We will review the employment agreement and job description, confirm the relevant skill or experience evidence and prepare the work visa application using the information supplied by you and the employer.`,
+          `If anything about the role changes before submission, including the employer, location, hours, duties or remuneration, tell us immediately so that we can confirm whether the application strategy needs to change.`
+        ) },
+        { id: 'timeline', title: 'Steps & timelines', html: timeline([
+          { title: 'Documentation', text: 'Gather the identity, employment, skill, health and character evidence identified in the Documentation Guide.', time: 'Usually 1 to 2 weeks' },
+          { title: 'Employment and eligibility review', text: 'Check the employer and job information and resolve any qualification, experience or occupational requirement.', time: 'Case dependent' },
+          { title: 'Application preparation and review', text: 'Prepare the online application and provide the complete draft for review.', time: 'Usually a few days once documents are ready' },
+          { title: 'Submission and processing', text: 'Submit the application and manage any further information request from Immigration New Zealand.', time: 'INZ processing time' }
+        ]) },
+        { id: 'employment', title: 'Your employment', html: p(
+          `The employment agreement and job description are central to the application. They should accurately record the employer, position, location, hours, remuneration and duties and should be consistent with the information used by the employer in the AEWV process.`,
+          `We will also confirm the qualification or work-experience evidence needed for the role before submission.`
+        ) },
+        { id: 'next', title: 'Questions & next steps', html: p(
+          `Start with the passport, employment agreement, job description and skill evidence in the Documentation Guide. Send us any revised employment document before signing or relying on it for the visa application.`,
+          `Contact us promptly if the proposed start date, current visa, employer or job details change.`
+        ) }
+      ]
+    },
+    citizenship: {
+      subtitle: 'New Zealand Citizenship',
+      intro: `Thank you for instructing Turner Hopkins Immigration Specialists to assist with your New Zealand citizenship application. This Road Map explains the preparation process, the application stages and the identity steps that will be completed with you.\n\nThe separate Documentation Guide contains the detailed identity, English-language and referee information. Your adviser will adjust this Road Map if a presence, character or identity issue requires additional work.`,
+      sections: [
+        { id: 'strategy', title: 'Your application', html: p(
+          `We will confirm the citizenship eligibility position, check the relevant residence and presence history and prepare the online application with you. The application will also include the required identity, referee and character information.`,
+          `Citizenship is not complete merely because the application is approved; the process concludes with the citizenship ceremony where one is required.`
+        ) },
+        { id: 'timeline', title: 'Steps & timelines', html: timeline([
+          { title: 'Documentation and eligibility check', text: 'Gather the identity, referee and other supporting information and confirm the eligibility position.', time: 'Usually 1 to 2 weeks' },
+          { title: 'Online application check and submission', text: 'Prepare the application and review every answer before submission.', time: 'Usually a few days once information is complete' },
+          { title: 'Application processing', text: 'Respond to any request from the Department of Internal Affairs and complete any identity step required.', time: 'Department processing time' },
+          { title: 'Citizenship ceremony', text: 'Attend the ceremony after approval and complete the final citizenship step.', time: 'After approval' }
+        ]) },
+        { id: 'focus', title: 'Identity and referee', html: p(
+          `The identity and referee information must be accurate and consistent with the documents provided. We will confirm the referee criteria and the identity-check process before the application is submitted.`,
+          `Keep control of your RealMe credentials and security codes. Do not send account passwords or verification codes by ordinary email.`
+        ) },
+        { id: 'next', title: 'Questions & next steps', html: p(
+          `Begin with the identity and referee information in the Documentation Guide. Tell us about any significant travel, name, character or residence-history issue that may affect the eligibility assessment.`,
+          `Keep us informed of material changes until the citizenship process is complete.`
+        ) }
+      ]
+    },
+    permanent: {
+      subtitle: 'Permanent Residence',
+      intro: `Thank you for instructing Turner Hopkins Immigration Specialists to prepare your Permanent Resident Visa application. This Road Map explains the application basis, the preparation steps and what we need to confirm before submission.\n\nThe separate Documentation Guide contains the detailed passport and application information. Your adviser will tailor the Road Map if the eligibility basis, travel history or visa conditions require specific explanation.`,
+      sections: [
+        { id: 'strategy', title: 'Your application basis', html: p(
+          `We will confirm that the Permanent Resident Visa requirements are met, including the relevant resident visa history, travel or commitment basis and compliance with the conditions of the existing resident visa.`,
+          `The principal applicant position and the family members who can be included will also be checked before the application is prepared.`
+        ) },
+        { id: 'timeline', title: 'Steps & timelines', html: timeline([
+          { title: 'Documentation', text: 'Provide current passports, photographs and the information identified in the Documentation Guide.', time: 'Usually 1 to 2 weeks' },
+          { title: 'Eligibility and travel check', text: 'Review the resident visa history and the evidence supporting the Permanent Residence basis.', time: 'Usually completed during preparation' },
+          { title: 'Application preparation and review', text: 'Prepare the application and provide the complete draft for checking.', time: 'Usually a few days once information is complete' },
+          { title: 'Submission and decision', text: 'Submit the application and provide the updated visa confirmation after approval.', time: 'INZ processing time' }
+        ]) },
+        { id: 'next', title: 'Questions & next steps', html: p(
+          `Start with the current passports and travel information in the Documentation Guide. Check the dates carefully and tell us about any travel, character or visa-condition issue that may need explanation.`,
+          `We will confirm the application fee and payment process immediately before submission.`
+        ) }
+      ]
+    },
+    student: {
+      subtitle: 'International Student Visa',
+      intro: `Thank you for instructing Turner Hopkins Immigration Specialists to prepare your New Zealand Student Visa application. This Road Map explains the study plan, the main application stages and the financial and genuine-intention matters that need to be addressed.\n\nThe separate Documentation Guide contains the detailed identity, study, funding, accommodation and health evidence. Your adviser will tailor this Road Map to the course, provider and funding arrangement for your case.`,
+      sections: [
+        { id: 'strategy', title: 'Your application', html: p(
+          `The application will be based on a genuine programme of study with an approved education provider. We will present the study plan together with the evidence showing how tuition, living costs and travel will be funded and why the proposed study fits your background and future plans.`,
+          `Avoid making non-refundable travel arrangements until the visa has been approved.`
+        ) },
+        { id: 'timeline', title: 'Steps & timelines', html: timeline([
+          { title: 'Documentation', text: 'Gather the offer, funding, accommodation, insurance, identity and other evidence identified in the Documentation Guide.', time: 'Usually 2 to 3 weeks' },
+          { title: 'Application preparation and review', text: 'Prepare the online application and provide the complete draft for checking.', time: 'Usually a few days once documents are ready' },
+          { title: 'Submission and processing', text: 'Submit the application and manage any further information request from Immigration New Zealand.', time: 'INZ processing time' }
+        ]) },
+        { id: 'focus', title: 'Study and funding', html: p(
+          `The application needs to show that the proposed course is genuine and appropriate and that sufficient funds are genuinely available for tuition, living costs and travel. We will also explain the reasons for the study and how it fits your education or career history.`,
+          `Tell us immediately if the course, provider, start date, funding source or accommodation arrangement changes.`
+        ) },
+        { id: 'next', title: 'Questions & next steps', html: p(
+          `Begin with the Offer of Place, passport and financial evidence in the Documentation Guide. Keep the source of funds clear and provide the supporting records requested for any person funding the study.`,
+          `Do not arrange medical evidence until we have confirmed the requirement and timing.`
+        ) }
+      ]
+    },
+    visitor: {
+      subtitle: 'General Visitor Visa',
+      intro: `Thank you for instructing Turner Hopkins Immigration Specialists to prepare your New Zealand Visitor Visa application. This Road Map explains the purpose of the application, the preparation stages and the evidence used to demonstrate funding and genuine temporary intentions.\n\nThe separate Documentation Guide contains the detailed identity, financial, accommodation and home-ties evidence. Your adviser will tailor this Road Map to the purpose and proposed timing of your visit.`,
+      sections: [
+        { id: 'strategy', title: 'Your application', html: p(
+          `The application must clearly explain the purpose of the proposed visit and show that the stay is temporary, adequately funded and consistent with your continuing commitments outside New Zealand.`,
+          `We will review the proposed travel arrangements, funding, accommodation, previous travel and the evidence supporting your intention to leave New Zealand at the end of the visit. Avoid non-refundable travel arrangements until the visa is approved.`
+        ) },
+        { id: 'timeline', title: 'Steps & timelines', html: timeline([
+          { title: 'Documentation', text: 'Gather the identity, funding, accommodation, travel-history and genuine-intention evidence identified in the Documentation Guide.', time: 'Usually 2 to 3 weeks' },
+          { title: 'Application preparation and review', text: 'Prepare the online application and provide the complete draft for checking.', time: 'Usually a few days once documents are ready' },
+          { title: 'Submission and processing', text: 'Submit the application and manage any further information request from Immigration New Zealand.', time: 'INZ processing time' }
+        ]) },
+        { id: 'focus', title: 'Genuine temporary intentions', html: p(
+          `A good Visitor Visa application should make the reason for travel easy to understand and should contain proportionate evidence of funds, accommodation and the reasons you will return home. The strongest evidence will depend on your particular circumstances.`,
+          `Your adviser will adjust this section where employment, family, property, previous travel or another home-country commitment is especially important to the application.`
+        ) },
+        { id: 'next', title: 'Questions & next steps', html: p(
+          `Begin with the passport, funding and accommodation evidence in the Documentation Guide, together with the records that best demonstrate the purpose of the visit and your continuing ties outside New Zealand.`,
+          `Tell us promptly if the travel dates, purpose, host, funding or personal circumstances change.`
+        ) }
+      ]
+    }
+  };
+
+  const COMBINED_DOCUMENT_BLOCKS_V156 = {
+    // Keep the existing evidence guidance intact when separating the former
+    // combined guides. Only the Road Map/application-process material moves
+    // into the new finished master intro document.
+    pwv: ['identity', 'relationship', 'character', 'health', 'forms', 'next'],
+    accreditation: ['form', 'people', 'remember'],
+    'aewv-family': ['identity', 'birth', 'relationship', 'character', 'health', 'forms', 'remember'],
+    aewv: ['identity', 'employment', 'skills', 'health', 'forms', 'character', 'remember'],
+    citizenship: ['identity', 'english', 'referee', 'check', 'application', 'remember'],
+    permanent: ['identity', 'form', 'character', 'fee', 'remember'],
+    student: ['identity', 'offer', 'funds', 'accommodation', 'insurance', 'ties', 'health', 'forms', 'remember'],
+    visitor: ['identity', 'funds', 'accommodation', 'ties', 'travel', 'forms', 'remember']
+  };
+
+  function clone156(value) { return structuredClone(value); }
+  function packHolderV156(packId) { return packId === 'smc' ? SMC_DEFAULT_STATE : PACK_DEFINITIONS[packId]; }
+  function packDocsV156(packId) { return packHolderV156(packId)?.docs || {}; }
+
+  function roadMapDocV156(packId, sourceDoc) {
+    const master = ROADMAP_MASTERS_V156[packId];
+    const doc = {
+      label: 'Introduction & Road Map', shortLabel: 'Road Map', icon: '01', enabled: true, stage: 'initial',
+      description: 'A finished THiS master introduction and road map. Advisers edit only the wording or steps that differ for the client.',
+      coverTitle: 'Introduction & Road Map', coverSubtitle: master.subtitle,
+      hero: sourceDoc?.hero || '', intro: master.intro, caseNote: '',
+      blocks: master.sections.map(section => ({ id: section.id, title: section.title, note: 'Standard THiS wording - tailor only where the case differs.', html: section.html, enabled: section.enabled !== false, shared: false, forcePage: false })),
+      renderType: 'roadmap-master-v156', templateModelVersion: ROADMAP_MODEL_VERSION_V156
+    };
+    ensureDocNumberingV13(doc);
+    return doc;
+  }
+
+  function documentationDocV156(packId, guide) {
+    const ids = new Set(COMBINED_DOCUMENT_BLOCKS_V156[packId] || []);
+    const blocks = (guide?.blocks || []).filter(block => ids.has(block.id)).map(block => ({ ...clone156(block), forcePage: false }));
+    const doc = {
+      ...(guide ? clone156(guide) : {}),
+      label: 'Documentation Guide', shortLabel: 'Documents', icon: '02', enabled: true, stage: 'initial',
+      description: 'The detailed evidence and document guide for this application.',
+      coverTitle: 'Documentation Guide', coverSubtitle: ROADMAP_MASTERS_V156[packId]?.subtitle || currentPack().title,
+      intro: 'This guide lists the documents and information required for the application. Work through the sections that apply and contact us if anything is unavailable, inconsistent or likely to take time to obtain.',
+      caseNote: guide?.caseNote || 'Tell us promptly if a requested document is unavailable or likely to take time to obtain.',
+      blocks, renderType: 'structured', templateModelVersion: ROADMAP_MODEL_VERSION_V156
+    };
+    ensureDocNumberingV13(doc);
+    return doc;
+  }
+
+  function installPackMastersV156(packId) {
+    const holder = packHolderV156(packId);
+    if (!holder || !ROADMAP_MASTERS_V156[packId]) return;
+    const docs = holder.docs || (holder.docs = {});
+    const sourceRoadmap = docs.roadmap || docs.guide || Object.values(docs)[0];
+    const legacyGuide = docs.guide;
+    docs.roadmap = roadMapDocV156(packId, sourceRoadmap);
+    if (legacyGuide && COMBINED_DOCUMENT_BLOCKS_V156[packId]) {
+      docs.documents = documentationDocV156(packId, legacyGuide);
+      delete docs.guide;
+    }
+  }
+
+  PACK_ORDER.forEach(installPackMastersV156);
+
+  function upgradeStateV156(packId, packState) {
+    if (!packState || !ROADMAP_MASTERS_V156[packId]) return packState;
+    const holder = packHolderV156(packId);
+    const existingDocs = packState.docs || (packState.docs = {});
+    const oldGuide = existingDocs.guide;
+    const oldRoadmap = existingDocs.roadmap;
+    const masterReady = holder.docs?.roadmap?.renderType === 'roadmap-master-v156';
+    const alreadyV156 = packState.roadmapModelVersion === ROADMAP_MODEL_VERSION_V156;
+    if (!alreadyV156 && masterReady) {
+      existingDocs.roadmap = clone156(holder.docs.roadmap);
+      packState.inlineEdits = packState.inlineEdits || {};
+      packState.inlineEdits.roadmap = {};
+      packState.roadmapModelVersion = ROADMAP_MODEL_VERSION_V156;
+    } else if (!oldRoadmap && masterReady) {
+      existingDocs.roadmap = clone156(holder.docs.roadmap);
+      packState.roadmapModelVersion = ROADMAP_MODEL_VERSION_V156;
+    }
+    if (oldGuide && COMBINED_DOCUMENT_BLOCKS_V156[packId]) {
+      const base = documentationDocV156(packId, oldGuide);
+      existingDocs.documents = base;
+      delete existingDocs.guide;
+      if (packState.selectedDoc === 'guide') packState.selectedDoc = 'roadmap';
+    } else if (!existingDocs.documents && holder.docs.documents) {
+      existingDocs.documents = clone156(holder.docs.documents);
+    }
+    if (!existingDocs[packState.selectedDoc]) packState.selectedDoc = 'roadmap';
+    if (!alreadyV156 && Object.keys(existingDocs).filter(id => existingDocs[id]?.enabled !== false).length > 1 && packState.outputMode === 'combined') {
+      packState.outputMode = 'separate';
+    }
+    packState.adviserDraft = undefined;
+    return packState;
+  }
+
+  const createPackStateBeforeV156 = createPackState;
+  createPackState = function(packId) {
+    return upgradeStateV156(packId, createPackStateBeforeV156(packId));
+  };
+
+  PACK_ORDER.forEach(packId => {
+    if (workspaceDrafts?.[packId]) workspaceDrafts[packId] = upgradeStateV156(packId, workspaceDrafts[packId]);
+  });
+  state = workspaceDrafts?.[activePackId] || upgradeStateV156(activePackId, state);
+
+  function syncTemplateLibraryV156() {
+    if (!templateLibraryV13?.packs) return;
+    PACK_ORDER.forEach(packId => {
+      const entry = templateLibraryV13.packs[packId];
+      const holder = packHolderV156(packId);
+      if (!entry || !holder) return;
+      ['draft', 'published'].forEach(key => {
+        const target = entry[key];
+        if (!target) return;
+        target.docs = target.docs || {};
+        // Migrate pre-v0.15.6 libraries once, but never overwrite a Road Map that
+        // has already been edited/published under the finished-master model.
+        if (target.docs.roadmap?.renderType !== 'roadmap-master-v156') {
+          target.docs.roadmap = compactDocV13(clone156(holder.docs.roadmap));
+        }
+        if (holder.docs.documents && !target.docs.documents) target.docs.documents = compactDocV13(clone156(holder.docs.documents));
+        if (target.docs.guide && COMBINED_DOCUMENT_BLOCKS_V156[packId]) delete target.docs.guide;
+      });
+    });
+  }
+  syncTemplateLibraryV156();
+  // Re-apply any already-published v0.15.6 template after installing the code
+  // defaults. This preserves administrator wording changes across reloads.
+  PACK_ORDER.forEach(packId => {
+    const published = templateLibraryV13?.packs?.[packId]?.published;
+    if (published?.docs?.roadmap?.renderType === 'roadmap-master-v156') applyTemplateToMasterV13(packId, published);
+  });
+
+  function roadmapRawHtmlV156(block) {
+    const source = block.templateHtml !== undefined && block.templateHtml !== null ? block.templateHtml : (block.html || '');
+    const filled = fillTemplate(source);
+    return applyDirectEditsToHtmlV14(filled, block.directEdits);
+  }
+
+  function roadmapBlockHtmlV156(doc, block, planEntry) {
+    let body = roadmapRawHtmlV156(block);
+    body = transformTimelineHtmlV13(body, doc, block);
+    const heading = headingMarkupV13(planEntry.setting, planEntry.number, block.title, planEntry.defaultMode);
+    return flowSection(`${heading}${v12SafeClientHtml(body)}`);
+  }
+
+  function roadmapBlockFragmentsV156(doc, block, planEntry) {
+    if (block.id !== 'timeline' || window.__THIS_TEMPLATE_PREVIEW_V156__) return [roadmapBlockHtmlV156(doc, block, planEntry)];
+    let body = roadmapRawHtmlV156(block);
+    body = transformTimelineHtmlV13(body, doc, block);
+    const template = document.createElement('template');
+    template.innerHTML = body || '';
+    const items = [...template.content.querySelectorAll('.timeline-item')];
+    if (items.length < 4) return [genericBlockHtmlV13(block, planEntry, doc)];
+    const groups = [];
+    let current = [];
+    let units = 0;
+    items.forEach(item => {
+      const html = item.outerHTML;
+      const next = textUnits(html);
+      if (current.length && units + next > 2350) { groups.push(current); current = []; units = 0; }
+      current.push(html); units += next;
+    });
+    if (current.length) groups.push(current);
+    return groups.map((group, index) => {
+      const heading = index === 0
+        ? headingMarkupV13(planEntry.setting, planEntry.number, block.title, planEntry.defaultMode)
+        : `<div class="number-heading number-heading-plain roadmap-continuation-heading-v156"><h2>${escapeHtml(block.title)} - continued</h2></div>`;
+      return flowSection(`${heading}<div class="timeline">${group.join('')}</div>`);
+    });
+  }
+
+  function renderRoadmapV156(doc) {
+    ensureDocNumberingV13(doc);
+    const enabled = doc.blocks.filter(block => block.enabled);
+    const plan = sectionPlanV13(doc);
+    const pages = [coverPage(doc)];
+    let pageNo = 1;
+    const introParagraphs = editedIntroParagraphsV14(doc);
+    const intro = flowSection(`${headingMarkupV13(plan.intro.setting, plan.intro.number, 'Introduction', 'auto')}<p>Dear ${escapeHtml(state.client.firstName || 'Client')}</p>${introParagraphs}`);
+    const fragments = [intro];
+    enabled.forEach(block => fragments.push(...roadmapBlockFragmentsV156(doc, block, plan.blocks[block.id])));
+    fragments.push(flowSection(signoff(), true));
+    let group = [];
+    let units = 0;
+    const capacity = 4200;
+    fragments.forEach(fragment => {
+      const next = textUnits(fragment);
+      if (group.length && units + next > capacity) {
+        pages.push(pageShell(group.join(''), pageNo++, doc.label));
+        group = [];
+        units = 0;
+      }
+      group.push(fragment);
+      units += next;
+    });
+    if (group.length) pages.push(pageShell(group.join(''), pageNo++, doc.label));
+    return pages.join('');
+  }
+
+  const renderDocHtmlBeforeV156 = renderDocHtml;
+  renderDocHtml = function(id) {
+    const doc = state.docs?.[id];
+    if (id === 'roadmap' && doc?.renderType === 'roadmap-master-v156') return renderRoadmapV156(doc);
+    if (activePackId === 'smc' && id === 'documents') {
+      const priorSelected = state.selectedDoc;
+      state.selectedDoc = 'documents';
+      try { return renderSmcStructuredDoc(id, doc); } finally { state.selectedDoc = priorSelected; }
+    }
+    return renderDocHtmlBeforeV156(id);
+  };
+
+  function editCandidatesV156(root) {
+    return [...root.querySelectorAll([
+      '.pdf-page:not(.pdf-cover) .pdf-page-inner p',
+      '.pdf-page:not(.pdf-cover) .pdf-page-inner h2',
+      '.pdf-page:not(.pdf-cover) .pdf-page-inner h3',
+      '.pdf-page:not(.pdf-cover) .pdf-page-inner li',
+      '.pdf-page:not(.pdf-cover) .pdf-page-inner .summary-label',
+      '.pdf-page:not(.pdf-cover) .pdf-page-inner .summary-value',
+      '.pdf-page:not(.pdf-cover) .pdf-page-inner .score-row',
+      '.pdf-page:not(.pdf-cover) .pdf-page-inner .time-pill'
+    ].join(','))].filter(element => !element.closest('.page-footer, .adviser-signoff, .deadline-card'));
+  }
+
+  applyInlineEdits = function(root, docId, makeEditable = false) {
+    state.inlineEdits = state.inlineEdits || {};
+    state.inlineEdits[docId] = state.inlineEdits[docId] || {};
+    const overrides = state.inlineEdits[docId];
+    const occurrences = {};
+    editCandidatesV156(root).forEach(element => {
+      const masterHtml = element.innerHTML.trim();
+      const base = `${element.tagName.toLowerCase()}-${hashText(masterHtml)}`;
+      occurrences[base] = (occurrences[base] || 0) + 1;
+      const key = `${base}-${occurrences[base]}`;
+      element.dataset.editKey = key;
+      element.dataset.masterHtml = masterHtml;
+      element.classList.add('inline-editable');
+      if (Object.prototype.hasOwnProperty.call(overrides, key)) {
+        element.innerHTML = overrides[key];
+        element.classList.add('edited-for-client');
+      }
+      element.contentEditable = makeEditable ? 'true' : 'false';
+      element.spellcheck = makeEditable;
+      if (!makeEditable) return;
+      element.addEventListener('input', () => { const status = document.querySelector('#save-status'); if (status) status.textContent = 'Unsaved text edits'; });
+      element.addEventListener('blur', () => {
+        const cleaned = sanitiseInlineHtml(element.innerHTML);
+        element.innerHTML = cleaned;
+        if (cleaned === masterHtml) { delete overrides[key]; element.classList.remove('edited-for-client'); }
+        else { overrides[key] = cleaned; element.classList.add('edited-for-client'); }
+        const status = document.querySelector('#save-status'); if (status) status.textContent = 'Draft not saved';
+      });
+      element.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+          element.innerHTML = Object.prototype.hasOwnProperty.call(overrides, key) ? overrides[key] : masterHtml;
+          element.blur();
+        }
+      });
+    });
+    root.classList.toggle('edit-mode', makeEditable);
+  };
+
+  function roadmapStructurePanelV156() {
+    const doc = state.docs?.roadmap;
+    if (!doc) return '';
+    const rows = doc.blocks.map((block, index) => `<div class="roadmap-structure-row-v156" data-roadmap-section-index="${index}"><label><input type="checkbox" data-roadmap-section-toggle="${index}" ${block.enabled ? 'checked' : ''}><span><strong>${escapeHtml(block.title)}</strong><small>${block.id === 'timeline' ? 'Edit the wording and timeframes directly in the preview.' : 'Standard THiS wording.'}</small></span></label><div><button class="text-button" data-roadmap-move="up" ${index === 0 ? 'disabled' : ''} type="button">Up</button><button class="text-button" data-roadmap-move="down" ${index === doc.blocks.length - 1 ? 'disabled' : ''} type="button">Down</button></div></div>`).join('');
+    const timelineBlock = doc.blocks.find(block => block.id === 'timeline');
+    let steps = '';
+    if (timelineBlock) {
+      ensureDocNumberingV13(doc);
+      const descriptors = timelineDescriptorsV13(roadmapRawHtmlV156(timelineBlock));
+      const settings = doc.timelineSettings[timelineBlock.id] || (doc.timelineSettings[timelineBlock.id] = {});
+      steps = `<div class="roadmap-step-list-v156">${descriptors.map(step => { const setting = { enabled: true, ...(settings[step.key] || {}) }; return `<label class="roadmap-step-row-v156"><input type="checkbox" data-roadmap-step-key="${escapeHtml(step.key)}" ${setting.enabled !== false ? 'checked' : ''}><span>${escapeHtml(step.title)}</span></label>`; }).join('')}</div>`;
+    }
+    return `<div class="master-roadmap-panel-v156" id="master-roadmap-panel-v156"><div class="master-roadmap-head-v156"><div><span class="eyebrow">Finished master wording</span><h3>Start with the THiS Road Map</h3><p>This guide is already written. Read it, click <strong>Edit text</strong> and change only the parts that differ for this client.</p></div><button class="button button-primary compact-button" id="roadmap-edit-now-v156" type="button">Edit text</button></div><div class="master-roadmap-actions-v156"><button class="button button-secondary compact-button" id="roadmap-restore-v156" type="button">Restore master Road Map</button></div><details class="roadmap-structure-v156"><summary>Change sections or steps only if needed</summary><div class="roadmap-structure-body-v156"><div class="roadmap-structure-list-v156">${rows}</div>${steps ? `<div class="roadmap-step-heading-v156"><strong>Steps shown in the Road Map</strong><small>Untick a step that does not apply. Change its title, explanation or timeframe directly in the preview.</small></div>${steps}` : ''}</div></details></div>`;
+  }
+
+  function bindRoadmapStructureV156() {
+    const doc = state.docs?.roadmap;
+    const panel = document.querySelector('#master-roadmap-panel-v156');
+    if (!doc || !panel) return;
+    panel.querySelector('#roadmap-edit-now-v156')?.addEventListener('click', () => {
+      inlineEditMode = true;
+      renderPreview();
+      document.querySelector('#preview-root')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    panel.querySelector('#roadmap-restore-v156')?.addEventListener('click', () => {
+      if (!confirm('Restore the Road Map to the current THiS master wording? Client-specific Road Map text edits will be removed.')) return;
+      state.docs.roadmap = clone156(packHolderV156(activePackId).docs.roadmap);
+      state.inlineEdits = state.inlineEdits || {};
+      state.inlineEdits.roadmap = {};
+      renderAll();
+      showToast('Master Road Map restored');
+    });
+    panel.querySelectorAll('[data-roadmap-section-toggle]').forEach(control => control.addEventListener('change', event => {
+      const index = Number(event.target.dataset.roadmapSectionToggle);
+      doc.blocks[index].enabled = event.target.checked;
+      document.querySelector('#save-status').textContent = 'Draft not saved';
+      renderEditor(); renderPreview(); renderDocumentLists();
+    }));
+    panel.querySelectorAll('[data-roadmap-move]').forEach(button => button.addEventListener('click', () => {
+      const row = button.closest('[data-roadmap-section-index]');
+      const index = Number(row.dataset.roadmapSectionIndex);
+      const next = button.dataset.roadmapMove === 'up' ? index - 1 : index + 1;
+      if (next < 0 || next >= doc.blocks.length) return;
+      [doc.blocks[index], doc.blocks[next]] = [doc.blocks[next], doc.blocks[index]];
+      document.querySelector('#save-status').textContent = 'Draft not saved';
+      renderEditor(); renderPreview();
+    }));
+    const timelineBlock = doc.blocks.find(block => block.id === 'timeline');
+    panel.querySelectorAll('[data-roadmap-step-key]').forEach(control => control.addEventListener('change', event => {
+      if (!timelineBlock) return;
+      ensureDocNumberingV13(doc);
+      const key = event.target.dataset.roadmapStepKey;
+      doc.timelineSettings[timelineBlock.id][key] = { enabled: true, mode: 'auto', label: '', ...(doc.timelineSettings[timelineBlock.id][key] || {}), enabled: event.target.checked };
+      document.querySelector('#save-status').textContent = 'Draft not saved';
+      renderPreview();
+    }));
+  }
+
+  const renderEditorBeforeV156 = renderEditor;
+  renderEditor = function() {
+    renderEditorBeforeV156();
+    document.querySelectorAll('#guided-authoring-panel-v155, #guided-document-editor-v155, .guided-template-notice-v155').forEach(node => node.remove());
+    const introSection = document.querySelector('#document-intro')?.closest('.form-section');
+    const noteSection = document.querySelector('#case-note')?.closest('.form-section');
+    const blockSection = document.querySelector('#block-editor')?.closest('.form-section');
+    if (introSection) introSection.style.display = '';
+    if (noteSection) noteSection.style.display = '';
+    if (blockSection) blockSection.style.display = '';
+    document.querySelector('#master-roadmap-panel-v156')?.remove();
+    if (state.selectedDoc !== 'roadmap') return;
+    if (introSection) introSection.style.display = 'none';
+    if (noteSection) noteSection.style.display = 'none';
+    if (blockSection) blockSection.style.display = 'none';
+    const numberingSection = document.querySelector('#numbering-editor-v13')?.closest('.form-section');
+    if (numberingSection) numberingSection.style.display = 'none';
+    const anchor = document.querySelector('#cover-subtitle-section-v152') || document.querySelector('#document-title')?.closest('.form-section');
+    anchor?.insertAdjacentHTML('afterend', roadmapStructurePanelV156());
+    bindRoadmapStructureV156();
+  };
+
+  const renderClientFormBeforeV156 = renderClientForm;
+  renderClientForm = function() {
+    renderClientFormBeforeV156();
+    document.querySelector('#client-glance-editor-v154')?.remove();
+    document.querySelectorAll('.guided-sync-card-v155').forEach(node => node.remove());
+    if (activePackId !== 'smc') return;
+    const host = document.querySelector('#client-form');
+    if (!host) return;
+    const fields = SMC_PACK_META.clientFields || [];
+    host.innerHTML = fields.map(field => `<div class="form-section ${field.wide ? 'wide' : ''}"><label class="field-label" for="client-${field.key}">${escapeHtml(field.label)}</label>${field.type === 'textarea' ? `<textarea class="text-area" rows="3" id="client-${field.key}" data-client-key="${field.key}">${escapeHtml(state.client[field.key] || '')}</textarea>` : `<input class="text-input" id="client-${field.key}" data-client-key="${field.key}" value="${escapeHtml(state.client[field.key] || '')}">`}</div>`).join('');
+    host.querySelectorAll('[data-client-key]').forEach(input => input.addEventListener('input', event => {
+      state.client[event.target.dataset.clientKey] = event.target.value;
+      updateHeaderSummary(); renderPreview();
+      document.querySelector('#save-status').textContent = 'Draft not saved';
+    }));
+    host.insertAdjacentHTML('afterend', '<div class="sync-card roadmap-data-note-v156"><div><strong>Road Map remains adviser-led</strong><p>These fields support the Documentation Guide and specialist guides. The Road Map itself uses only the client name, adviser details and prepared date unless you deliberately edit its wording.</p></div><span class="status-chip status-chip-green">Minimal merge</span></div>');
+  };
+
+  const renderPackSettingsBeforeV156 = renderPackSettings;
+  renderPackSettings = function() {
+    renderPackSettingsBeforeV156();
+    document.querySelector('#readiness-panel-v155')?.remove();
+    const header = document.querySelector('#tab-pack .selected-document-header');
+    if (header) header.innerHTML = '<span class="eyebrow">Issue and review</span><h2>Pack settings</h2><p>Check the prepared date and output arrangement, review the complete preview and then mark the pack ready.</p>';
+  };
+
+  preparePrint = function() {
+    const ids = Object.keys(state.docs).filter(id => state.docs[id]?.enabled);
+    const printRoot = document.querySelector('#print-root');
+    printRoot.innerHTML = ids.map(id => `<div class="print-document" data-doc-id="${id}">${renderDocHtml(id)}</div>`).join('');
+    printRoot.querySelectorAll('.print-document').forEach(container => applyInlineEdits(container, container.dataset.docId, false));
+    const images = [...printRoot.querySelectorAll('img')].map(img => img.complete ? Promise.resolve() : new Promise(resolve => { img.onload = resolve; img.onerror = resolve; }));
+    const fonts = document.fonts?.ready || Promise.resolve();
+    Promise.all([fonts, ...images]).then(() => requestAnimationFrame(() => requestAnimationFrame(() => window.print())));
+  };
+
+  openPublishModal = function() {
+    const items = publishItems();
+    document.querySelector('#publish-summary').textContent = `${state.issueName} will be generated as ${items.length} PDF${items.length === 1 ? '' : 's'} and added to ${fullName()}'s portal.`;
+    document.querySelector('#publish-list').innerHTML = items.map((item, index) => `<div><span>${String(index + 1).padStart(2, '0')}</span><strong>${escapeHtml(item)}</strong></div>`).join('');
+    document.querySelector('#publish-modal').hidden = false;
+    document.querySelector('#publish-readiness-v155')?.remove();
+    const confirmButton = document.querySelector('#confirm-publish');
+    if (confirmButton) confirmButton.disabled = false;
+  };
+
+  const renderDocumentListsBeforeV156 = renderDocumentLists;
+  renderDocumentLists = function() {
+    renderDocumentListsBeforeV156();
+    document.querySelectorAll('.document-card').forEach(card => {
+      const meta = card.querySelector('.document-card-meta');
+      if (!meta) return;
+      if (card.dataset.doc === 'roadmap') meta.textContent = 'Finished THiS master - tailor only what differs';
+      if (card.dataset.doc === 'documents') {
+        const doc = state.docs.documents;
+        const count = (doc?.blocks || []).filter(block => block.enabled).length;
+        meta.textContent = `${count} document section${count === 1 ? '' : 's'} selected`;
+      }
+    });
+  };
+
+  const renderPreviewBeforeV156 = renderPreview;
+  renderPreview = function() {
+    renderPreviewBeforeV156();
+    document.body.classList.remove('smc-adviser-led-v155');
+    const editButton = document.querySelector('#toggle-inline-edit');
+    if (editButton) editButton.hidden = false;
+    const resetButton = document.querySelector('#reset-inline-edits');
+    if (resetButton) resetButton.hidden = !inlineEditMode;
+    const banner = document.querySelector('#prototype-banner');
+    if (banner && state.selectedDoc === 'roadmap') banner.textContent = 'Finished THiS master Road Map - edit only the wording that differs for this client';
+  };
+
+  const decorateTemplatePreviewBeforeV156 = decorateTemplatePreviewV14;
+  decorateTemplatePreviewV14 = function(root, sample, doc) {
+    if (!doc || doc.renderType !== 'roadmap-master-v156') {
+      decorateTemplatePreviewBeforeV156(root, sample, doc);
+      return;
+    }
+    const coverTitle = root.querySelector('.pdf-cover .cover-title');
+    if (coverTitle) bindPlainTemplateFieldV14(coverTitle, () => doc.coverTitle || '', value => { doc.coverTitle = value; }, { singleLine: true });
+    const coverSubtitle = root.querySelector('.pdf-cover .cover-subtitle');
+    if (coverSubtitle) bindPlainTemplateFieldV14(coverSubtitle, () => doc.coverSubtitle || '', value => { doc.coverSubtitle = value; }, { singleLine: true });
+    root.querySelectorAll('.pdf-cover .cover-footer, .page-footer, .adviser-signoff').forEach(node => markLockedTemplateNodeV14(node));
+    const flowSections = [...root.querySelectorAll('.pdf-content-page .flow-section')];
+    const introSection = flowSections[0];
+    if (introSection) {
+      introSection.querySelectorAll('.number-heading, .document-heading').forEach(node => markLockedTemplateNodeV14(node));
+      const directStore = ensureDirectEditStoreV14(doc);
+      const salutation = [...introSection.querySelectorAll(':scope > p')][0];
+      if (salutation) markLockedTemplateNodeV14(salutation);
+      const introParagraphs = [...introSection.querySelectorAll(':scope > p')].slice(1);
+      const sourceChunks = v12SafeClientHtml(fillTemplate(doc.intro || '')).split(/\n\s*\n/).filter(Boolean);
+      introParagraphs.forEach((node, index) => {
+        directStore.intro = directStore.intro || {};
+        bindRichTemplateEditV14(node,
+          () => directStore.intro[`paragraph-${index}`],
+          value => { if (value === undefined) delete directStore.intro[`paragraph-${index}`]; else directStore.intro[`paragraph-${index}`] = value; },
+          sourceChunks[index] || node.innerHTML
+        );
+      });
+    }
+    const enabledBlocks = (doc.blocks || []).filter(block => block.enabled);
+    enabledBlocks.forEach((block, index) => {
+      const section = flowSections[index + 1];
+      if (!section) return;
+      const heading = section.querySelector('.number-heading h2, .document-heading h2');
+      if (heading) bindPlainTemplateFieldV14(heading, () => block.title || '', value => { block.title = value; templateEditorStateV13.blockId = block.id; }, { singleLine: true });
+      section.querySelectorAll('.number-heading .num, .heading-arrow, .timeline-step').forEach(node => markLockedTemplateNodeV14(node));
+      const store = ensureDirectEditStoreV14(block);
+      const source = block.templateHtml !== undefined && block.templateHtml !== null ? block.templateHtml : (block.html || '');
+      const baseTemplate = document.createElement('template');
+      baseTemplate.innerHTML = v12SafeClientHtml(fillTemplate(source));
+      const baseNodes = directCandidateNodesV14(baseTemplate.content);
+      const nodes = directCandidateNodesV14(section);
+      nodes.forEach((node, candidateIndex) => {
+        const key = `candidate-${candidateIndex}`;
+        bindRichTemplateEditV14(node,
+          () => store[key],
+          value => { if (value === undefined) delete store[key]; else store[key] = value; },
+          baseNodes[candidateIndex]?.innerHTML || node.innerHTML
+        );
+      });
+      section.querySelectorAll('.time-pill').forEach(node => markLockedTemplateNodeV14(node, 'Client copies can change timeline wording and timeframes directly.'));
+    });
+    flowSections.slice(enabledBlocks.length + 1).forEach(section => markLockedTemplateNodeV14(section));
+    updateTemplateInlineControlsV14();
+  };
+
+  const renderTemplatePreviewBeforeV156 = renderTemplatePreviewV13;
+  renderTemplatePreviewV13 = function() {
+    window.__THIS_TEMPLATE_PREVIEW_V156__ = true;
+    try { return renderTemplatePreviewBeforeV156(); }
+    finally { window.__THIS_TEMPLATE_PREVIEW_V156__ = false; }
+  };
+
+  const renderTemplateFormBeforeV156 = renderTemplateFormV13;
+  renderTemplateFormV13 = function() {
+    renderTemplateFormBeforeV156();
+    document.querySelectorAll('.guided-template-notice-v155').forEach(node => node.remove());
+    if (templateEditorStateV13.docId !== 'roadmap') return;
+    const form = document.querySelector('#template-form-v13');
+    const header = form?.querySelector('.selected-document-header');
+    header?.insertAdjacentHTML('afterend', '<div class="notice-card template-roadmap-notice-v156"><strong>Finished master Road Map</strong><p>This is the standard THiS starting document for the category. Maintain the reusable wording here; advisers tailor individual client copies directly in the preview.</p></div>');
+  };
+
+  const renderAllBeforeV156 = renderAll;
+  renderAll = function() {
+    upgradeStateV156(activePackId, state);
+    document.body.classList.remove('smc-adviser-led-v155');
+    document.body.classList.add('master-roadmaps-v156');
+    renderAllBeforeV156();
+    document.querySelector('#readiness-panel-v155')?.remove();
+  };
+
+  window.addEventListener('message', event => {
+    if (event.origin !== window.location.origin || event.source !== window.parent || event.data?.type !== 'THIS_STUDIO_INIT') return;
+    window.setTimeout(() => {
+      PACK_ORDER.forEach(installPackMastersV156);
+      syncTemplateLibraryV156();
+      PACK_ORDER.forEach(packId => {
+        const published = templateLibraryV13?.packs?.[packId]?.published;
+        if (published?.docs?.roadmap?.renderType === 'roadmap-master-v156') applyTemplateToMasterV13(packId, published);
+      });
+      PACK_ORDER.forEach(packId => { if (workspaceDrafts?.[packId]) workspaceDrafts[packId] = upgradeStateV156(packId, workspaceDrafts[packId]); });
+      state = workspaceDrafts?.[activePackId] || upgradeStateV156(activePackId, state);
+      renderAll();
+    }, 10);
+  });
+
+  document.title = 'THiS Instructions Studio - Finished Master Road Maps v0.15.6';
+  renderAll();
+})();

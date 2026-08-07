@@ -1,49 +1,15 @@
-# THiS CRM v0.15.5 - Adviser-led Instructions Authoring
+# THiS CRM v0.15.6 - Finished Master Road Maps
 
-This build rebuilds the Skilled Migrant Category Instructions Studio around deliberate adviser drafting. It retains all v0.15.4 date, intake, live-chat, agreement, personalisation and CRM functionality.
+This release simplifies Instructions Studio Road Maps across all instruction packs. Each pack now starts from a finished THiS category-specific Introduction & Road Map that advisers tailor directly in the preview, while Documentation Guides remain modular and evidence-focused.
 
-## Adviser-led Road Map
-
-The SMC Introduction and Road Map now uses five clear client-facing sections:
-
-1. Your situation
-2. The pathway we are considering
-3. What needs to happen next
-4. Documents to begin preparing
-5. How we will work with you
-
-The CRM supplies only administrative details such as the client name, broad matter type, adviser details and prepared date. The adviser must write the substantive case narrative. Assessment answers and CRM notes are not automatically converted into advice.
-
-Each section includes a drafting prompt, character guidance and optional starter snippets. Snippets are inserted only when the adviser selects them and remain fully editable.
-
-## Adviser-selected Documentation Guide
-
-Evidence sections are disabled by default. The adviser selects the blocks that apply, writes client-specific guidance for each selected block, and deliberately chooses any police-clearance countries. Country instructions are then included beneath the adviser-authored police-clearance guidance.
-
-The client-facing document uses a simpler structure without the repeated Confirmed requirement, Good evidence, Avoid, Format and Certification card framework. This keeps the advice readable while preserving useful evidence guidance where the adviser chooses to include it.
-
-## Pre-issue control
-
-The Studio checks that:
-
-- all five Road Map sections contain substantive wording;
-- no drafting prompts or unresolved placeholders remain;
-- the Documentation Guide introduction is complete;
-- at least one evidence section is deliberately selected;
-- each selected section contains client-specific guidance;
-- police-clearance countries are selected when that section is used; and
-- the responsible adviser has reviewed and confirmed the final pack.
-
-Printing and issue are blocked until the substantive content checks are complete. The final confirmation records that the pack reflects the adviser's advice rather than an automated CRM assessment.
-
-## PDF flow
-
-The SMC Road Map and Documentation Guide now render using controlled flowing pages. The revised page model avoids the blank pages, isolated headings and clipped content produced by the previous fixed-page layout. The cover design and THiS identity are retained.
-
-## Template governance
-
-The Template Library remains available for shared structure and standard drafting aids. A clear notice explains that the five SMC client narrative sections are draft-specific and must be completed by the adviser. Existing saved instruction records remain supported; the new guided content is stored inside the existing instruction Studio state.
-
-## Deployment
-
-Deploy the complete package and perform one hard refresh. No database migration, API, dependency or environment-variable change is required.
+Key changes:
+- Removes the five-field adviser-authored SMC Road Map workflow introduced in v0.15.5.
+- Removes the Application at a glance page from Road Maps.
+- Uses finished master Road Map wording across SMC, Active Investor Plus, Parent, Partnership, Partnership Work Visa, Employer Accreditation, AEWV Family, AEWV, Citizenship, Permanent Residence, Student and Visitor packs.
+- Road Maps merge only basic naming, adviser and prepared-date details; substantive case advice is changed deliberately by the adviser.
+- Direct preview editing is the primary client-tailoring method.
+- Template Library changes to a published Road Map remain the master wording for future drafts after reload.
+- Advisers can include/exclude and reorder Road Map sections, and hide individual timeline steps when they do not apply.
+- Former combined packs are presented as a separate Introduction & Road Map plus Documentation Guide, preserving their existing evidence blocks.
+- SMC Documentation Guide and specialist-guide architecture is retained.
+- No database migration, dependency or environment-variable change.
