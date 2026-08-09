@@ -110,7 +110,7 @@ async function handleChatEvent(event) {
     if (action === 'close') return json(await closeStaffConversation(body.conversationId, actor), 200, origin);
     if (action === 'reopen') return json(await reopenConversation(body.conversationId, actor), 200, origin);
     if (action === 'deleteClosed') return json(await deleteClosedConversation(body.conversationId, actor), 200, origin);
-    if (action === 'createEnquiry') return json(await createEnquiryFromConversation(body.conversationId, actor), 201, origin);
+    if (action === 'createContact' || action === 'createEnquiry') return json(await createContactFromConversation(body.conversationId, actor), 201, origin);
     if (action === 'saveSettings') {
       if (!actor.isAdmin) return json({ error: 'Administrator access is required to change live chat settings.' }, 403, origin);
       return json({ settings: await saveSettings(body.settings || {}, actor) }, 200, origin);
@@ -625,43 +625,58 @@ async function deleteClosedConversation(conversationId, actor) {
   return { deleted: true, conversationId: id, linkedIntakeId: conversation.linked_intake_id ? String(conversation.linked_intake_id) : '' };
 }
 
-async function createEnquiryFromConversation(conversationId, actor) {
+async function createContactFromConversation(conversationId, actor) {
   const id = requiredUuid(conversationId);
   const rows = await db().sql`SELECT * FROM live_chat_conversations WHERE id = ${id} LIMIT 1`;
   const conversation = rows[0];
   if (!conversation) throw httpError(404, 'Chat conversation not found.');
-  if (conversation.linked_intake_id) throw httpError(409, 'An enquiry has already been created from this chat.');
+  if (conversation.linked_intake_id) throw httpError(409, 'A contact record has already been created from this chat.');
   const messages = await db().sql`SELECT * FROM live_chat_messages WHERE conversation_id = ${id} ORDER BY created_at ASC LIMIT 500`;
-  const transcript = messages
-    .filter((message) => !message.is_internal)
+  const publicMessages = messages.filter((message) => !message.is_internal);
+  const transcript = publicMessages
     .map((message) => `[${new Date(message.created_at).toLocaleString('en-NZ', { timeZone: 'Pacific/Auckland' })}] ${message.sender_name || message.sender_type}: ${message.message_text}`)
     .join('\n\n')
     .slice(0, 12000);
+  const visitorSummary = publicMessages
+    .filter((message) => message.sender_type === 'visitor')
+    .map((message) => String(message.message_text || '').trim())
+    .filter(Boolean)
+    .join('\n\n')
+    .slice(0, 4000);
   const nameParts = splitName(conversation.visitor_name);
+  const assignedAdviserId = cleanUuid(conversation.assigned_adviser_id) || actor.id;
   const rawPayload = {
+    formType: 'contact',
+    submittedVia: 'THiS live chat contact form',
     sourceType: 'live_chat',
-    sourceLabel: 'Website — Live Chat',
+    sourceLabel: 'Website - Live Chat',
     chatConversationId: id,
     chatCategory: conversation.category || '',
     chatPageUrl: conversation.page_url || '',
     existingClient: conversation.existing_client ? 'Yes' : 'No',
+    contactSituation: conversation.category || '',
     targetPathway: conversation.category || '',
     firstName: nameParts.firstName,
     lastName: nameParts.lastName,
     email: conversation.visitor_email,
     phone: conversation.visitor_phone || '',
+    helpNeeded: visitorSummary || 'Initial enquiry received through website live chat.',
+    preferredContactMethod: 'Email',
+    urgency: 'Standard',
+    consentToContact: true,
+    privacyAcknowledged: true,
     chatTranscript: transcript,
   };
   const intakeRows = await db().sql`
     INSERT INTO intake_enquiries (
       status, assigned_adviser_id, applicant_first_name, applicant_last_name, email, phone, target_pathway, urgency, flags, raw_payload, adviser_assessment_notes, recommended_pathway, consultation_outcome, created_at, updated_at
     ) VALUES (
-      'New', ${actor.id}, ${nameParts.firstName}, ${nameParts.lastName}, ${conversation.visitor_email}, ${conversation.visitor_phone || ''}, ${conversation.category || ''}, '', '{}'::jsonb, CAST(${JSON.stringify(rawPayload)} AS jsonb), ${`Created from website live chat.\n\n${transcript}`.slice(0, 12000)}, '', '', NOW(), NOW()
+      'New', ${assignedAdviserId}, ${nameParts.firstName}, ${nameParts.lastName}, ${conversation.visitor_email}, ${conversation.visitor_phone || ''}, ${conversation.category || ''}, 'Standard', '{}'::jsonb, CAST(${JSON.stringify(rawPayload)} AS jsonb), ${`Contact created from website live chat.\n\n${transcript}`.slice(0, 12000)}, '', '', NOW(), NOW()
     ) RETURNING *`;
   const intake = intakeRows[0];
   await db().sql`UPDATE live_chat_conversations SET linked_intake_id = ${intake.id}, updated_at = NOW() WHERE id = ${id}`;
-  await logEvent(id, 'enquiry_created', actor.name, { intakeId: intake.id });
-  return { intake: mapIntake(intake), conversationId: id };
+  await logEvent(id, 'contact_created', actor.name, { contactId: intake.id, assignedAdviserId });
+  return { contact: mapIntake(intake), intake: mapIntake(intake), conversationId: id };
 }
 
 async function logEvent(conversationId, eventType, actorName, detail) {

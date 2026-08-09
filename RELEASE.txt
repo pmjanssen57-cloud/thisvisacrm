@@ -1,16 +1,14 @@
-THiS CRM v0.15.6 - Finished Master Road Maps
+THiS CRM v0.15.7 - Live Chat Contact & Intake Handoff
 
-Instructions Studio
-- Rebuilt the Introduction & Road Map model around the existing THiS/Panda approach: a finished standard document that the adviser tweaks rather than a blank drafting framework.
-- Applied the model across all instruction packs.
-- Restored a full SMC Road Map structure: Introduction, Your Strategy, Category Requirements, Steps & Timelines, Skilled Employment, and Questions & Next Steps.
-- Removed the Application at a glance page from Road Maps.
-- Removed mandatory five-part adviser-authored Road Map fields and their pre-issue blocking checks.
-- Road Map substantive content no longer depends on CRM assessment conclusions or detailed client fields.
-- Added simple section include/reorder controls and step include/exclude controls, kept behind a collapsed advanced section.
-- Direct preview editing remains the normal way to personalise wording, headings and timeframes.
-- Published Road Map master edits in the Template Library are preserved across CRM reloads and are used for future client drafts.
-- Packs that previously combined Road Map and evidence content now expose separate Road Map and Documentation Guide documents while preserving the existing evidence blocks.
-- Documentation Guide, police-clearance selection, specialist guides, template governance and PDF/portal workflows remain in place.
+Live chat
+- Replaced the old "Create enquiry" action that immediately created a full intake-style record.
+- Added a single "Send intake form" action in the adviser chat window.
+- The action creates a short Contact form record from the live chat, assigns it to the adviser responsible for the conversation, and retains the public chat transcript for reference.
+- The Contact form is classified as a contact enquiry rather than a completed assessment questionnaire.
+- The existing Contact assessment invitation email/template is then used to send the full assessment questionnaire link to the visitor.
+- When the email is sent successfully, the Contact form is automatically marked Dealt with (Contacted).
+- A private chat note records that the assessment questionnaire was emailed.
+- If email delivery fails, the Contact form remains available in Enquiries > Contact forms so the adviser can retry the existing Send intake action there.
+- Existing chats already linked to an enquiry/intake remain intact.
 
 No database migration, dependency or environment-variable changes.

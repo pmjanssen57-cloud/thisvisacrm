@@ -4353,6 +4353,6 @@ bindEvents();
     }, 10);
   });
 
-  document.title = 'THiS Instructions Studio - Finished Master Road Maps v0.15.6';
+  document.title = 'THiS Instructions Studio - Finished Master Road Maps';
   renderAll();
 })();

@@ -455,7 +455,7 @@ const SUPPORT_CONTENT = {
     title: 'Enquiries & Intake help',
     summary: 'The Enquiries & Intake page keeps pre-client submissions away from active client records. Contact forms are a simple reference list; full intake forms are a light triage queue.',
     sections: [
-      { heading: 'Contact forms', text: 'Short contact forms use New, Dealt with and Spam / Duplicate views. Mark dealt-with enquiries so they leave the live queue while staying retained in the CRM.' },
+      { heading: 'Contact forms', text: 'Short contact forms use New, Dealt with and Spam / Duplicate views. Live chat can also create an assigned Contact form and send the full assessment questionnaire in one step. Successful sends are marked Dealt with automatically.' },
       { heading: 'Intake forms', text: 'Full assessment questionnaires use a simple status set: New, Contacted, Converted, or Spam / Duplicate.' },
       { heading: 'Conversion', text: 'Convert only when the enquiry should become an active client record. The original intake record remains linked for reference.' },
       { heading: 'Agreements from intake', text: 'Use Studio > Agreement Studio to create an engagement agreement directly from an intake form before the person becomes a client. The agreement keeps its intake link and is automatically associated with the new client record when the intake is converted.' },
@@ -1763,18 +1763,58 @@ export default function App() {
     loadChatSnapshot({ silent: true, conversationId: conversationId || chatSelectedId });
   }
 
-  async function createEnquiryFromChat(conversationId) {
-    const body = await callChatApi('createEnquiry', { conversationId }, { refresh: false });
-    if (body.intake) {
-      const incoming = normaliseIntakeEnquiry(body.intake);
-      setData((current) => ({ ...current, intakeEnquiries: [incoming, ...(current.intakeEnquiries || []).filter((item) => item.id !== incoming.id)] }));
-      dataRef.current = { ...dataRef.current, intakeEnquiries: [incoming, ...(dataRef.current.intakeEnquiries || []).filter((item) => item.id !== incoming.id)] };
-      showCrmToast('Enquiry created from the live chat transcript.', 'success');
-      setChatDrawerOpen(false);
-      setTab('intake');
+  async function sendIntakeQuestionnaireFromChat(conversationId) {
+    const conversation = (chatSnapshot.conversations || []).find((item) => item.id === conversationId)
+      || (chatSnapshot.selectedConversation?.id === conversationId ? chatSnapshot.selectedConversation : null);
+    if (!conversation) return null;
+    if (!conversation.visitorEmail) {
+      showCrmToast('This chat does not have an email address for the visitor.', 'warning');
+      return null;
     }
-    await loadChatSnapshot({ silent: true, conversationId });
-    return body;
+    const visitorName = conversation.visitorName || conversation.visitorEmail || 'this visitor';
+    const assignedName = conversation.assignedAdviserName || identityAdviser?.name || 'the current adviser';
+    const confirmed = await askCrmConfirm({
+      title: 'Send intake questionnaire?',
+      message: `Email the full assessment questionnaire to ${visitorName} and create a Contact form record from this chat?`,
+      confirmLabel: 'Send questionnaire',
+      tone: 'send',
+      details: [
+        `The Contact form will be assigned to ${assignedName}.`,
+        'The chat transcript will be retained with the Contact form for reference.',
+        'After the email is sent successfully, the Contact form will be marked Dealt with.',
+      ],
+    });
+    if (!confirmed) return null;
+
+    const body = await callChatApi('createContact', { conversationId }, { refresh: false });
+    const created = body.contact || body.intake;
+    if (!created) throw new Error('The contact record could not be created from this chat.');
+    const contact = normaliseIntakeEnquiry(created);
+    setData((current) => ({ ...current, intakeEnquiries: [contact, ...(current.intakeEnquiries || []).filter((item) => item.id !== contact.id)] }));
+    dataRef.current = { ...dataRef.current, intakeEnquiries: [contact, ...(dataRef.current.intakeEnquiries || []).filter((item) => item.id !== contact.id)] };
+
+    try {
+      const emailBody = await sendContactIntakeInviteEmail(contact);
+      const emailLog = emailBody?.emailLog;
+      if (emailLog?.status !== 'Sent') {
+        showCrmToast(`Contact created, but the questionnaire email was not sent. Retry it from Enquiries > Contact forms. ${emailLog?.failureMessage || ''}`.trim(), 'warning');
+        await loadChatSnapshot({ silent: true, conversationId });
+        return { ...body, emailLog };
+      }
+      await saveIntakeEnquiry({ ...contact, status: 'Contacted' });
+      try {
+        await callChatApi('addNote', { conversationId, message: `Assessment questionnaire emailed to ${contact.email}. Contact form created and marked Dealt with.` }, { refresh: false });
+      } catch (_noteError) {
+        // The email and contact creation have already succeeded; a missing convenience note should not undo them.
+      }
+      showCrmToast(`Assessment questionnaire sent to ${contact.email}. Contact form created and assigned to ${assignedName}.`, 'success');
+      await loadChatSnapshot({ silent: true, conversationId });
+      return { ...body, emailLog };
+    } catch (error) {
+      showCrmToast(`Contact created, but the questionnaire email could not be sent. Retry it from Enquiries > Contact forms. ${error?.message || ''}`.trim(), 'warning');
+      await loadChatSnapshot({ silent: true, conversationId });
+      return body;
+    }
   }
 
   async function deleteClosedChat(conversationId) {
@@ -1787,7 +1827,7 @@ export default function App() {
       tone: 'danger',
       details: [
         'The conversation, messages, internal notes and chat audit events will be permanently removed.',
-        conversation?.linkedIntakeId ? 'The linked Enquiries & Intake record and its copied transcript will remain.' : 'This action cannot be undone.',
+        conversation?.linkedIntakeId ? 'The linked enquiry/contact record and its copied transcript will remain.' : 'This action cannot be undone.',
       ],
     });
     if (!confirmed) return null;
@@ -3089,7 +3129,7 @@ export default function App() {
         onCloseConversation={(conversationId) => callChatApi('close', { conversationId })}
         onReopen={(conversationId) => callChatApi('reopen', { conversationId })}
         onDeleteClosed={deleteClosedChat}
-        onCreateEnquiry={createEnquiryFromChat}
+        onSendIntake={sendIntakeQuestionnaireFromChat}
         busy={chatBusy}
         error={chatError}
       />
@@ -9081,7 +9121,7 @@ const TOOL_TIMEZONES = [
 ];
 
 
-function LiveChatWorkspace({ open, onClose, snapshot = {}, selectedId = '', onSelect, onRefresh, onClaim, onRelease, onSend, onAddNote, onCloseConversation, onReopen, onDeleteClosed, onCreateEnquiry, busy = false, error = '' }) {
+function LiveChatWorkspace({ open, onClose, snapshot = {}, selectedId = '', onSelect, onRefresh, onClaim, onRelease, onSend, onAddNote, onCloseConversation, onReopen, onDeleteClosed, onSendIntake, busy = false, error = '' }) {
   const [view, setView] = useState('waiting');
   const [composerMode, setComposerMode] = useState('reply');
   const [draft, setDraft] = useState('');
@@ -9230,10 +9270,10 @@ function LiveChatWorkspace({ open, onClose, snapshot = {}, selectedId = '', onSe
                 )}
                 <footer className="live-chat-conversation-footer">
                   <div>
-                    <strong>CRM follow-up</strong>
-                    <span>{selected.linkedIntakeId ? 'An enquiry has been created from this transcript.' : 'Create an Enquiries & Intake record with the transcript attached.'}</span>
+                    <strong>Send assessment questionnaire</strong>
+                    <span>{selected.linkedIntakeId ? 'A Contact form has been created from this chat. Review it under Enquiries > Contact forms.' : 'Email the full intake questionnaire and retain this conversation as an assigned Contact form.'}</span>
                   </div>
-                  <button className="btn ghost" type="button" disabled={busy || Boolean(selected.linkedIntakeId)} onClick={() => onCreateEnquiry?.(selected.id)}><ClipboardList size={15} />{selected.linkedIntakeId ? 'Enquiry created' : 'Create enquiry'}</button>
+                  <button className="btn dark" type="button" disabled={busy || Boolean(selected.linkedIntakeId) || !selected.visitorEmail} onClick={() => onSendIntake?.(selected.id)} title={!selected.visitorEmail ? 'An email address is required before the questionnaire can be sent.' : ''}><Mail size={15} />{selected.linkedIntakeId ? 'Contact created' : 'Send intake form'}</button>
                 </footer>
               </>
             )}
@@ -9250,7 +9290,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const dayRows = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']];
-  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.15.6" data-title="Chat with us" defer><\/script>`;
+  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.15.7" data-title="Chat with us" defer><\/script>`;
 
   useEffect(() => {
     if (!open) return;
@@ -12474,7 +12514,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.15.6" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.15.7" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
         </div>
       )}
     </div>
@@ -13002,7 +13042,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.15.6" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.15.7" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
         </div>
       )}
     </div>
