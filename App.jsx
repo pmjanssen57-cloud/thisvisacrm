@@ -504,16 +504,17 @@ const SUPPORT_CONTENT = {
   },
   clients: {
     title: 'Clients help',
-    summary: 'The Clients page is where adviser users create, update and review the master client record, including personal details, family details, case type, case strategy, document checklist, stages, deadlines and billing milestones.',
+    summary: 'The Clients page separates the client profile from the operational work on the file. The Overview shows concise summaries, while one Edit client record drawer maintains personal, contact, matter, family, strategy and file-reference information.',
     sections: [
-      { heading: 'Creating a client', text: 'Click Client in the top bar, complete the blank record, then save. New-client saves confirm and open a fresh blank form so it is clear the record has been created.' },
-      { heading: 'Case strategy', text: 'Use the Case strategy field as the master case summary. Record the agreed approach, key immigration issues, evidence gaps, risks and next strategic steps.' },
+      { heading: 'Creating a client', text: 'Click Client in the top bar to open the blank client record, then use Edit client record to enter the profile information. Save the client once the relevant sections are complete.' },
+      { heading: 'Editing the client record', text: 'Use Edit client record from the client header or any Edit button in the Overview. The same drawer opens at the relevant section. Expand Personal, Contact, Matter & adviser, Family, Strategy & notes or File references, make the changes you need, then save the client once.' },
+      { heading: 'Operational workspaces', text: 'Actions, Documents, Stages, Key dates, Billing, Instructions, Agreements and Portal remain separate workspaces because they contain work records rather than basic client profile information.' },
+      { heading: 'Case strategy', text: 'Maintain the Case strategy field inside the unified client editor as the master internal summary of the agreed approach, key immigration issues, evidence gaps, risks and next strategic steps.' },
       { heading: 'Progress map', text: 'The progress map shows mandatory, optional and custom stages. Select only the stages that apply, add custom stages where a client needs a different pathway, and reorder stages before saving the client record. Skipped stages are shown muted and do not affect progress percentage.' },
-      { heading: 'Deadlines and next action', text: 'Add expiry and filing dates in the deadlines section. Use Next action and Task due date for internal adviser tasks that should appear on the dashboard and task lists. Use the Timeline button to review previous actions, linked appointments, completed stages, document expiries and billing events.' },
-      { heading: 'Closing a client record', text: 'Use More → Close client when the matter has finished. The record and its dates remain available, but its next action, deadlines, document expiries, linked personal tasks, calendar appointments and dashboard billing signals are suppressed until the client is reopened.' },
-      { heading: 'Document checklist', text: 'Use the document checklist to include standard document items, mark items as not required, add custom document requests, record expiry dates and mark whether each item has been obtained. Not-required items are greyed out and show only the document name and the option to include them again.' },
+      { heading: 'Deadlines and next action', text: 'Add expiry and filing dates in Key dates. Use Next action and Task due date for internal adviser work that should appear on the dashboard and task lists. Use Timeline to review previous actions, linked appointments, completed stages, document expiries and billing events.' },
+      { heading: 'Closing a client record', text: 'Use More → Close client when the matter has finished. Closing and reopening remain dedicated lifecycle actions rather than ordinary profile fields, so dashboard and task suppression is handled consistently.' },
     ],
-    tips: ['Keep the case strategy client-specific and practical.', 'Use the citizenship and address fields consistently because they are searchable.', 'Add family members where their details are relevant to the matter.'],
+    tips: ['Use the unified editor for client profile changes rather than hunting through separate screens.', 'Keep the case strategy client-specific and practical.', 'Use the citizenship and address fields consistently because they are searchable.'],
   },
   billing: {
     title: 'Billing help',
@@ -9318,7 +9319,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const dayRows = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']];
-  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.15.10" data-title="Chat with us" defer><\/script>`;
+  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.15.11" data-title="Chat with us" defer><\/script>`;
 
   useEffect(() => {
     if (!open) return;
@@ -12546,7 +12547,8 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.15.10" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.15.11" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+
         </div>
       )}
     </div>
@@ -13122,7 +13124,8 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.15.10" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.15.11" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+
         </div>
       )}
     </div>
@@ -13277,6 +13280,9 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
   const [statusMessage, setStatusMessage] = useState('');
   const [validationMessage, setValidationMessage] = useState('');
   const [generatedPortalCode, setGeneratedPortalCode] = useState('');
+  const [clientDetailsEditorOpen, setClientDetailsEditorOpen] = useState(false);
+  const [clientDetailsInitialSection, setClientDetailsInitialSection] = useState('personal');
+  const clientDetailsSnapshotRef = useRef(null);
   const previousClientIdRef = useRef(client.id);
   const isDirty = useMemo(() => stableStringify(draft) !== stableStringify(client), [draft, client]);
   useEffect(() => {
@@ -13290,6 +13296,9 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
       setCustomStageLabel('');
       setStatusMessage('');
       setValidationMessage('');
+      setClientDetailsEditorOpen(false);
+      setClientDetailsInitialSection('personal');
+      clientDetailsSnapshotRef.current = null;
     }
     setDraft(client);
   }, [client]);
@@ -13317,6 +13326,34 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
     setValidationMessage('');
     setStatusMessage('');
     setDraft((current) => ({ ...current, [field]: value }));
+  }
+
+  function openClientDetailsEditor(sectionId = 'personal') {
+    if (isDirty) {
+      setValidationMessage('Save or discard the current workspace changes before opening the client details editor.');
+      return;
+    }
+    clientDetailsSnapshotRef.current = JSON.parse(JSON.stringify(draft));
+    setClientDetailsInitialSection(sectionId || 'personal');
+    setClientDetailsEditorOpen(true);
+    setValidationMessage('');
+    setStatusMessage('');
+  }
+
+  function closeClientDetailsEditor(options = {}) {
+    const snapshot = clientDetailsSnapshotRef.current;
+    const changed = Boolean(snapshot && stableStringify(draft) !== stableStringify(snapshot));
+    if (!options.force && changed && !window.confirm('Discard the unsaved client detail changes?')) return;
+    if (options.discard !== false && snapshot && changed) setDraft(snapshot);
+    clientDetailsSnapshotRef.current = null;
+    setClientDetailsEditorOpen(false);
+  }
+
+  async function saveClientDetailsEditor() {
+    const body = await handleSaveClient();
+    if (!body) return;
+    clientDetailsSnapshotRef.current = null;
+    setClientDetailsEditorOpen(false);
   }
 
   function updateStage(stageId, patch) {
@@ -13516,6 +13553,8 @@ The portal is a secure, read-only space where you can check application updates,
 
 
   function addFamilyMember(relationship) {
+    setValidationMessage('');
+    setStatusMessage('');
     setDraft((current) => ({
       ...current,
       familyMembers: [...(current.familyMembers || []), { id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, relationship, name: '', nationality: '', dateOfBirth: '' }],
@@ -13523,6 +13562,8 @@ The portal is a secure, read-only space where you can check application updates,
   }
 
   function updateFamilyMember(id, patch) {
+    setValidationMessage('');
+    setStatusMessage('');
     setDraft((current) => ({
       ...current,
       familyMembers: (current.familyMembers || []).map((member) => member.id === id ? { ...member, ...patch } : member),
@@ -13530,6 +13571,8 @@ The portal is a secure, read-only space where you can check application updates,
   }
 
   function removeFamilyMember(id) {
+    setValidationMessage('');
+    setStatusMessage('');
     setDraft((current) => ({
       ...current,
       familyMembers: (current.familyMembers || []).filter((member) => member.id !== id),
@@ -13681,8 +13724,6 @@ The portal is a secure, read-only space where you can check application updates,
     { id: 'instructions', label: 'Instructions', icon: BookOpen, summary: instructionSets.filter((item) => item.clientId === draft.id).length ? `${instructionSets.filter((item) => item.clientId === draft.id).length} saved` : 'No instruction sets', badge: instructionSets.filter((item) => item.clientId === draft.id).length ? `${instructionSets.filter((item) => item.clientId === draft.id).length}` : '', secondary: true },
     { id: 'agreements', label: 'Agreements', icon: FileCheck2, summary: agreementSets.filter((item) => item.clientId === draft.id).length ? `${agreementSets.filter((item) => item.clientId === draft.id).length} saved` : 'No agreements', badge: agreementSets.filter((item) => item.clientId === draft.id).length ? `${agreementSets.filter((item) => item.clientId === draft.id).length}` : '', secondary: true },
     { id: 'portal', label: 'Portal', icon: LockKeyhole, summary: draft.portalEnabled ? 'Client access active' : 'Client access inactive', badge: portalNewMessageCount ? `${portalNewMessageCount} new` : '', secondary: true },
-    { id: 'family', label: 'Family', icon: UsersRound, summary: (draft.familyMembers || []).length ? `${(draft.familyMembers || []).length} recorded` : 'No family records', badge: '', secondary: true },
-    { id: 'notes', label: 'Notes & strategy', icon: FileText, summary: draft.caseStrategy ? 'Strategy recorded' : 'No strategy recorded', badge: '', secondary: true },
   ];
 
   return (
@@ -13693,13 +13734,18 @@ The portal is a secure, read-only space where you can check application updates,
           <p>{draft.caseType || 'No case type selected'} · {currentStage} · {progressPercent(draft)}% progress</p>
         </div>
         <div className="button-row client-header-actions">
-          <button className="btn dark" onClick={handleSaveClient} disabled={saving}><Save size={16} />Save</button>
+          {!popoutMode && <button className="btn dark" type="button" onClick={() => openClientDetailsEditor('personal')} disabled={saving}><Pencil size={16} />Edit client record</button>}
+          {(popoutMode || isDirty) && <button className="btn dark" onClick={handleSaveClient} disabled={saving}><Save size={16} />Save</button>}
           {popoutMode && <button className="btn dark" type="button" onClick={handleSaveAndClose} disabled={saving}><Save size={16} />Save & close</button>}
           <div className="dropdown-shell client-actions-menu-shell">
             <button className="btn ghost" type="button" onClick={() => setClientActionsOpen((open) => !open)}><MoreHorizontal size={16} />More <ChevronDown size={14} /></button>
             {clientActionsOpen && (
               <div className="dropdown-menu client-actions-menu">
-                {popoutMode ? <button type="button" onClick={() => { setClientActionsOpen(false); onRequestClose?.(); }}><X size={16} />Close editor</button> : <button type="button" onClick={() => { setClientActionsOpen(false); handleOpenPopout(activeClientSection); }}><ExternalLink size={16} />Open full editor</button>}
+                {popoutMode
+                  ? <button type="button" onClick={() => { setClientActionsOpen(false); onRequestClose?.(); }}><X size={16} />Close editor</button>
+                  : activeClientSection === 'overview'
+                    ? <button type="button" onClick={() => { setClientActionsOpen(false); openClientDetailsEditor('personal'); }}><Pencil size={16} />Edit client record</button>
+                    : <button type="button" onClick={() => { setClientActionsOpen(false); handleOpenPopout(activeClientSection); }}><ExternalLink size={16} />Open full editor</button>}
                 {draft.clientStatus === 'Closed'
                   ? <button type="button" onClick={() => { setClientActionsOpen(false); handleClientLifecycle('Active'); }} disabled={saving || String(draft.id).startsWith('temp-')}><RefreshCw size={16} />Reopen client</button>
                   : <button type="button" className="warning-option" onClick={() => { setClientActionsOpen(false); handleClientLifecycle('Closed'); }} disabled={saving || String(draft.id).startsWith('temp-')}><CheckCircle2 size={16} />Close client</button>}
@@ -13722,6 +13768,23 @@ The portal is a secure, read-only space where you can check application updates,
 
       {showActionLog && <NextActionLogModal client={draft} onClose={() => setShowActionLog(false)} />}
       {showTimeline && <ClientTimelineModal client={draft} calendarEntries={calendarEntries} advisers={advisers} onClose={() => setShowTimeline(false)} />}
+      {clientDetailsEditorOpen && (
+        <UnifiedClientDetailsEditor
+          draft={draft}
+          snapshot={clientDetailsSnapshotRef.current}
+          setField={setField}
+          advisers={advisers}
+          caseTypes={caseTypes}
+          addFamilyMember={addFamilyMember}
+          updateFamilyMember={updateFamilyMember}
+          removeFamilyMember={removeFamilyMember}
+          initialSection={clientDetailsInitialSection}
+          saving={saving}
+          validationMessage={validationMessage}
+          onSave={saveClientDetailsEditor}
+          onClose={() => closeClientDetailsEditor()}
+        />
+      )}
 
       <ClientSnapshotCard
         client={draft}
@@ -13746,9 +13809,8 @@ The portal is a secure, read-only space where you can check application updates,
             </div>
             <ClientSummaryPanel
               draft={draft}
-              setField={setField}
               advisers={advisers}
-              caseTypes={caseTypes}
+              onEditClient={openClientDetailsEditor}
               onOpenActionLog={() => setShowActionLog(true)}
               onOpenTimeline={() => setShowTimeline(true)}
               onPrintProfile={handlePrintClientProfile}
@@ -13935,20 +13997,6 @@ The portal is a secure, read-only space where you can check application updates,
           </div>
         )}
 
-        {activeClientSection === 'family' && (
-          <div className="client-workspace-section-stack">
-            <ClientWorkspaceIntro title="Family and dependants" description="Record family members relevant to the application, including partners and dependants." />
-            <FamilyDetails members={draft.familyMembers || []} addFamilyMember={addFamilyMember} updateFamilyMember={updateFamilyMember} removeFamilyMember={removeFamilyMember} />
-          </div>
-        )}
-
-        {activeClientSection === 'notes' && (
-          <div className="client-workspace-section-stack">
-            <ClientWorkspaceIntro title="Notes and strategy" description="Internal-only strategy, adviser notes, risk points and file comments. These are not shown in the client portal." />
-            <section className="sub-panel strategy-panel workspace-panel"><h2>Case strategy</h2><p className="muted">Use this as the master case summary: key issues, strategy, risks, evidence gaps and agreed approach.</p><TextArea label="Case strategy / key issues" value={draft.caseStrategy} onChange={(v) => setField('caseStrategy', v)} rows={8} /></section>
-            <section className="sub-panel workspace-panel"><h2>Internal notes</h2><div className="form-grid two"><TextArea label="Notes" value={draft.notes} onChange={(v) => setField('notes', v)} rows={8} /></div></section>
-          </div>
-        )}
       </ClientWorkspaceShell>
     </div>
   );
@@ -15275,27 +15323,21 @@ function DateWithAgeField({ label, value, onChange }) {
 
 
 
-function ClientSummaryPanel({ draft, setField, advisers = [], caseTypes = [], onOpenActionLog, onOpenTimeline, onPrintProfile, calendarEntries = [] }) {
+function ClientSummaryPanel({ draft, advisers = [], onEditClient, onOpenActionLog, onOpenTimeline, onPrintProfile, calendarEntries = [] }) {
   const link = normaliseExternalUrl(draft.sharepointFolderUrl);
-  const hasValue = Boolean(String(draft.sharepointFolderUrl || '').trim());
-  const looksSharePoint = isSharePointLike(draft.sharepointFolderUrl);
-  const [copyMessage, setCopyMessage] = useState('');
-  const [editingDetails, setEditingDetails] = useState(false);
   const linkedCalendarCount = calendarEntries.filter((entry) => entry.clientId === draft.id).length;
   const primary = advisers.find((adviser) => adviser.id === draft.primaryAdviserId);
   const backup = advisers.find((adviser) => adviser.id === draft.backupAdviserId);
   const age = calculateAge(draft.dateOfBirth);
-
-  async function copyLink() {
-    if (!hasValue) return;
-    try {
-      await navigator.clipboard.writeText(draft.sharepointFolderUrl);
-      setCopyMessage(`Copied ${formatTimeNow()}.`);
-    } catch {
-      window.prompt('Copy SharePoint folder link:', draft.sharepointFolderUrl);
-      setCopyMessage('Copy prompt opened.');
-    }
-  }
+  const familyMembers = draft.familyMembers || [];
+  const spouseCount = familyMembers.filter((member) => member.relationship === 'Spouse/Partner').length;
+  const childCount = familyMembers.filter((member) => member.relationship === 'Child').length;
+  const familySummary = familyMembers.length
+    ? [spouseCount ? `${spouseCount} partner${spouseCount === 1 ? '' : 's'}` : '', childCount ? `${childCount} child${childCount === 1 ? '' : 'ren'}` : ''].filter(Boolean).join(' · ')
+    : 'No family members recorded';
+  const strategyPreview = draft.caseStrategy
+    ? `${String(draft.caseStrategy).slice(0, 145)}${String(draft.caseStrategy).length > 145 ? '…' : ''}`
+    : 'No case strategy has been recorded yet.';
 
   function openLink() {
     if (!link) return;
@@ -15303,20 +15345,49 @@ function ClientSummaryPanel({ draft, setField, advisers = [], caseTypes = [], on
   }
 
   return (
-    <section className="client-summary-panel streamlined-client-summary">
+    <section className="client-summary-panel streamlined-client-summary unified-client-summary">
       <div className="sub-panel-head compact">
-        <div><h2>Client details</h2><p className="muted">Identity, contact and adviser allocation.</p></div>
-        <button className="btn ghost mini" type="button" onClick={() => setEditingDetails((value) => !value)}>{editingDetails ? <X size={15} /> : <Pencil size={15} />}{editingDetails ? 'Close editor' : 'Edit client details'}</button>
+        <div><h2>Client record</h2><p className="muted">The profile information held for this client, grouped into simple sections.</p></div>
+        <button className="btn dark mini" type="button" onClick={() => onEditClient?.('personal')}><Pencil size={15} />Edit client record</button>
       </div>
 
-      <div className="client-detail-summary-grid">
-        <ClientDetailItem label="Client" value={clientName(draft)} note={draft.clientStatus || 'No status'} />
-        <ClientDetailItem label="Date of birth" value={draft.dateOfBirth ? formatRecordDate(draft.dateOfBirth) : 'Not recorded'} note={age === null ? '' : `${age} years`} />
-        <ClientDetailItem label="Citizenship" value={draft.nationality || 'Not recorded'} />
-        <ClientDetailItem label="Contact" value={draft.email || 'No email'} note={draft.phone || 'No phone'} />
-        <ClientDetailItem label="Address" value={draft.location || 'Not recorded'} wide />
-        <ClientDetailItem label="Main adviser" value={primary?.name || 'Unassigned'} note={backup?.name ? `Backup: ${backup.name}` : 'No backup adviser'} />
-        {draft.oneLawClientNumber && <ClientDetailItem label="OneLaw" value={draft.oneLawClientNumber} />}
+      <div className="client-record-summary-sections">
+        <ClientRecordSummarySection
+          title="Personal details"
+          summary={[clientName(draft), draft.dateOfBirth ? `${formatRecordDate(draft.dateOfBirth)}${age === null ? '' : ` · ${age} years`}` : 'Date of birth not recorded', draft.nationality || 'Citizenship not recorded'].join(' · ')}
+          detail={draft.clientStatus || 'No client status recorded'}
+          onEdit={() => onEditClient?.('personal')}
+        />
+        <ClientRecordSummarySection
+          title="Contact details"
+          summary={[draft.email || 'No email', draft.phone || 'No phone'].join(' · ')}
+          detail={draft.location || 'No current address recorded'}
+          onEdit={() => onEditClient?.('contact')}
+        />
+        <ClientRecordSummarySection
+          title="Matter & adviser"
+          summary={[draft.caseType || 'No case type', primary?.name || 'Unassigned'].join(' · ')}
+          detail={[draft.matterName || '', backup?.name ? `Backup: ${backup.name}` : '', `${draft.priority || 'Normal'} priority`, draft.clientStatus || 'Active'].filter(Boolean).join(' · ')}
+          onEdit={() => onEditClient?.('matter')}
+        />
+        <ClientRecordSummarySection
+          title="Family & dependants"
+          summary={familySummary}
+          detail={familyMembers.length ? familyMembers.slice(0, 3).map((member) => member.name || member.relationship).filter(Boolean).join(' · ') : 'Add partner or dependant details when they are relevant to the matter.'}
+          onEdit={() => onEditClient?.('family')}
+        />
+        <ClientRecordSummarySection
+          title="Strategy & internal notes"
+          summary={draft.caseStrategy ? 'Case strategy recorded' : 'No case strategy recorded'}
+          detail={strategyPreview}
+          onEdit={() => onEditClient?.('strategy')}
+        />
+        <ClientRecordSummarySection
+          title="File references"
+          summary={[draft.oneLawClientNumber ? `OneLaw ${draft.oneLawClientNumber}` : 'No OneLaw number', link ? 'SharePoint linked' : 'No SharePoint link'].join(' · ')}
+          detail={link ? 'The client file folder can be opened directly from the file tools below.' : 'Add the file references used by the practice.'}
+          onEdit={() => onEditClient?.('file')}
+        />
       </div>
 
       <div className="client-file-tools">
@@ -15328,33 +15399,161 @@ function ClientSummaryPanel({ draft, setField, advisers = [], caseTypes = [], on
           {link && <button className="btn ghost mini" type="button" onClick={openLink}><ExternalLink size={15} />SharePoint</button>}
         </div>
       </div>
+    </section>
+  );
+}
 
-      {editingDetails && <div className="client-detail-editor">
-        <div className="form-grid">
-          <Field label="First name" value={draft.firstName} onChange={(v) => setField('firstName', v)} />
-          <Field label="Last name" value={draft.lastName} onChange={(v) => setField('lastName', v)} />
-          <DateWithAgeField label="Date of birth" value={draft.dateOfBirth} onChange={(v) => setField('dateOfBirth', v)} />
-          <Field label="OneLaw Client Number" value={draft.oneLawClientNumber || ''} onChange={(v) => setField('oneLawClientNumber', v)} placeholder="Internal OneLaw reference" />
-          <SelectField label="Current status" value={draft.clientStatus} onChange={(v) => setField('clientStatus', v)} options={['Active', 'Waiting on client', 'Waiting on INZ', 'On hold', 'Closed']} />
-          <Field label="Email" value={draft.email} onChange={(v) => setField('email', v)} />
-          <Field label="Phone" value={draft.phone} onChange={(v) => setField('phone', v)} />
-          <LookupField label="Citizenship" value={draft.nationality} onChange={(v) => setField('nationality', v)} options={COUNTRY_OPTIONS} listId="citizenship-options" placeholder="Start typing a country of citizenship" />
-          <LookupField label="Current address" value={draft.location} onChange={(v) => setField('location', v)} options={ADDRESS_LOOKUP_EXAMPLES} listId="address-options" placeholder="Start typing the current address" />
-          <SelectField label="Case type / application type" value={draft.caseType} onChange={(v) => setField('caseType', v)} options={caseTypes} placeholder="Select case type" />
-          <SelectField label="Primary adviser" value={draft.primaryAdviserId} onChange={(v) => setField('primaryAdviserId', v)} options={advisers.map((a) => ({ label: a.name, value: a.id }))} placeholder="Select primary adviser" />
-          <SelectField label="Backup adviser" value={draft.backupAdviserId} onChange={(v) => setField('backupAdviserId', v)} options={advisers.map((a) => ({ label: a.name, value: a.id }))} placeholder="Select backup adviser" />
-          <SelectField label="Priority" value={draft.priority} onChange={(v) => setField('priority', v)} options={['Normal', 'High', 'Urgent']} />
+function ClientRecordSummarySection({ title, summary, detail = '', onEdit }) {
+  return (
+    <section className="client-record-summary-section">
+      <div className="client-record-summary-copy">
+        <span>{title}</span>
+        <strong>{summary}</strong>
+        {detail && <small>{detail}</small>}
+      </div>
+      <button className="btn ghost mini" type="button" onClick={onEdit}><Pencil size={14} />Edit</button>
+    </section>
+  );
+}
+
+function UnifiedClientDetailsEditor({ draft, snapshot, setField, advisers = [], caseTypes = [], addFamilyMember, updateFamilyMember, removeFamilyMember, initialSection = 'personal', saving, validationMessage = '', onSave, onClose }) {
+  const [openSection, setOpenSection] = useState(initialSection || 'personal');
+  const primary = advisers.find((adviser) => adviser.id === draft.primaryAdviserId);
+  const backup = advisers.find((adviser) => adviser.id === draft.backupAdviserId);
+  const hasChanges = Boolean(snapshot && stableStringify(draft) !== stableStringify(snapshot));
+
+  useEffect(() => {
+    setOpenSection(initialSection || 'personal');
+  }, [initialSection]);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') onClose?.();
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
+
+  function sectionChanged(fields) {
+    if (!snapshot) return false;
+    return fields.some((field) => stableStringify(draft?.[field]) !== stableStringify(snapshot?.[field]));
+  }
+
+  function openAndFocus(sectionId) {
+    setOpenSection(sectionId);
+    window.requestAnimationFrame(() => {
+      document.getElementById(`client-details-${sectionId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
+  const sections = [
+    { id: 'personal', label: 'Personal', summary: [clientName(draft), draft.dateOfBirth ? formatRecordDate(draft.dateOfBirth) : 'DOB not recorded', draft.nationality || 'Citizenship not recorded'].join(' · '), changed: sectionChanged(['firstName', 'lastName', 'dateOfBirth', 'nationality']) },
+    { id: 'contact', label: 'Contact', summary: [draft.email || 'No email', draft.phone || 'No phone', draft.location || 'No address'].join(' · '), changed: sectionChanged(['email', 'phone', 'location']) },
+    { id: 'matter', label: 'Matter & adviser', summary: [draft.caseType || 'No case type', primary?.name || 'Unassigned', draft.clientStatus || 'Active'].join(' · '), changed: sectionChanged(['matterName', 'caseType', 'primaryAdviserId', 'backupAdviserId', 'priority', 'clientStatus']) },
+    { id: 'family', label: 'Family', summary: (draft.familyMembers || []).length ? `${(draft.familyMembers || []).length} family record${(draft.familyMembers || []).length === 1 ? '' : 's'}` : 'No family records', changed: sectionChanged(['familyMembers']) },
+    { id: 'strategy', label: 'Strategy & notes', summary: draft.caseStrategy ? 'Case strategy recorded' : 'No case strategy recorded', changed: sectionChanged(['caseStrategy', 'notes']) },
+    { id: 'file', label: 'File references', summary: [draft.oneLawClientNumber ? `OneLaw ${draft.oneLawClientNumber}` : 'No OneLaw number', draft.sharepointFolderUrl ? 'SharePoint linked' : 'No SharePoint link'].join(' · '), changed: sectionChanged(['oneLawClientNumber', 'sharepointFolderUrl']) },
+  ];
+
+  return (
+    <div className="client-details-drawer-overlay" role="dialog" aria-modal="true" aria-label="Edit client record">
+      <div className="client-details-drawer">
+        <div className="client-details-drawer-topbar">
+          <div>
+            <span className="eyebrow">Client record editor</span>
+            <strong>{clientName(draft)}</strong>
+            <small>Edit the client profile here. Actions, documents, dates, billing and portal work remain in their own workspaces.</small>
+          </div>
+          <button className="icon-btn" type="button" onClick={onClose} aria-label="Close client details editor"><X size={19} /></button>
         </div>
-        <div className="summary-sharepoint-row">
-          <label className="field sharepoint-field"><span>SharePoint folder link</span><input value={draft.sharepointFolderUrl || ''} onChange={(event) => setField('sharepointFolderUrl', event.target.value)} placeholder="Paste the SharePoint folder link" /></label>
-          <div className="button-row sharepoint-actions">
-            <button className="btn" type="button" onClick={openLink} disabled={!link}><ExternalLink size={16} />Open folder</button>
-            <button className="btn" type="button" onClick={copyLink} disabled={!hasValue}><Copy size={16} />Copy link</button>
+
+        <div className="client-details-section-index" aria-label="Client detail sections">
+          {sections.map((section) => (
+            <button type="button" key={section.id} className={`${openSection === section.id ? 'active' : ''} ${section.changed ? 'changed' : ''}`} onClick={() => openAndFocus(section.id)}>
+              <span>{section.label}</span>{section.changed && <b>Changed</b>}
+            </button>
+          ))}
+        </div>
+
+        <div className="client-details-drawer-body">
+          <ClientDetailsAccordionSection id="personal" title="Personal details" summary={sections[0].summary} changed={sections[0].changed} open={openSection === 'personal'} onToggle={() => setOpenSection(openSection === 'personal' ? '' : 'personal')}>
+            <div className="form-grid two">
+              <Field label="First name" value={draft.firstName} onChange={(v) => setField('firstName', v)} />
+              <Field label="Last name" value={draft.lastName} onChange={(v) => setField('lastName', v)} />
+              <DateWithAgeField label="Date of birth" value={draft.dateOfBirth} onChange={(v) => setField('dateOfBirth', v)} />
+              <LookupField label="Citizenship" value={draft.nationality} onChange={(v) => setField('nationality', v)} options={COUNTRY_OPTIONS} listId="unified-client-citizenship-options" placeholder="Start typing a country of citizenship" />
+            </div>
+          </ClientDetailsAccordionSection>
+
+          <ClientDetailsAccordionSection id="contact" title="Contact details" summary={sections[1].summary} changed={sections[1].changed} open={openSection === 'contact'} onToggle={() => setOpenSection(openSection === 'contact' ? '' : 'contact')}>
+            <div className="form-grid two">
+              <Field label="Email" value={draft.email} onChange={(v) => setField('email', v)} />
+              <Field label="Phone" value={draft.phone} onChange={(v) => setField('phone', v)} />
+              <LookupField label="Current address" value={draft.location} onChange={(v) => setField('location', v)} options={ADDRESS_LOOKUP_EXAMPLES} listId="unified-client-address-options" placeholder="Start typing the current address" />
+            </div>
+          </ClientDetailsAccordionSection>
+
+          <ClientDetailsAccordionSection id="matter" title="Matter & adviser allocation" summary={sections[2].summary} changed={sections[2].changed} open={openSection === 'matter'} onToggle={() => setOpenSection(openSection === 'matter' ? '' : 'matter')}>
+            <div className="form-grid two">
+              <Field label="Matter name / reference" value={draft.matterName || ''} onChange={(v) => setField('matterName', v)} placeholder="Optional internal matter description" />
+              <SelectField label="Case type / application type" value={draft.caseType} onChange={(v) => setField('caseType', v)} options={caseTypes} placeholder="Select case type" />
+              <SelectField label="Primary adviser" value={draft.primaryAdviserId} onChange={(v) => setField('primaryAdviserId', v)} options={advisers.map((a) => ({ label: a.name, value: a.id }))} placeholder="Select primary adviser" />
+              <SelectField label="Backup adviser" value={draft.backupAdviserId} onChange={(v) => setField('backupAdviserId', v)} options={advisers.map((a) => ({ label: a.name, value: a.id }))} placeholder="Select backup adviser" />
+              <SelectField label="Current working status" value={draft.clientStatus} onChange={(v) => setField('clientStatus', v)} options={draft.clientStatus === 'Closed' ? ['Closed'] : ['Active', 'Waiting on client', 'Waiting on INZ', 'On hold']} />
+              <SelectField label="Priority" value={draft.priority} onChange={(v) => setField('priority', v)} options={['Normal', 'High', 'Urgent']} />
+            </div>
+          </ClientDetailsAccordionSection>
+
+          <ClientDetailsAccordionSection id="family" title="Family & dependants" summary={sections[3].summary} changed={sections[3].changed} open={openSection === 'family'} onToggle={() => setOpenSection(openSection === 'family' ? '' : 'family')}>
+            <FamilyDetails members={draft.familyMembers || []} addFamilyMember={addFamilyMember} updateFamilyMember={updateFamilyMember} removeFamilyMember={removeFamilyMember} />
+          </ClientDetailsAccordionSection>
+
+          <ClientDetailsAccordionSection id="strategy" title="Case strategy & internal notes" summary={sections[4].summary} changed={sections[4].changed} open={openSection === 'strategy'} onToggle={() => setOpenSection(openSection === 'strategy' ? '' : 'strategy')}>
+            <div className="unified-client-notes-grid">
+              <TextArea label="Case strategy / key issues" value={draft.caseStrategy} onChange={(v) => setField('caseStrategy', v)} rows={8} />
+              <TextArea label="Internal notes" value={draft.notes} onChange={(v) => setField('notes', v)} rows={8} />
+            </div>
+          </ClientDetailsAccordionSection>
+
+          <ClientDetailsAccordionSection id="file" title="File references" summary={sections[5].summary} changed={sections[5].changed} open={openSection === 'file'} onToggle={() => setOpenSection(openSection === 'file' ? '' : 'file')}>
+            <div className="form-grid two">
+              <Field label="OneLaw Client Number" value={draft.oneLawClientNumber || ''} onChange={(v) => setField('oneLawClientNumber', v)} placeholder="Internal OneLaw reference" />
+            </div>
+            <SharePointFolderPanel value={draft.sharepointFolderUrl || ''} onChange={(v) => setField('sharepointFolderUrl', v)} />
+          </ClientDetailsAccordionSection>
+        </div>
+
+        <div className="client-details-drawer-footer">
+          <div className={`client-details-save-state ${validationMessage ? 'error' : hasChanges ? 'dirty' : 'clean'}`}>
+            {validationMessage ? (
+              <><span className="client-details-validation-message">Action needed</span><small>{validationMessage}</small></>
+            ) : (
+              <><span>{hasChanges ? 'Unsaved changes' : 'No changes yet'}</span><small>{hasChanges ? 'Save once when you have finished editing the client record.' : 'Open a section above to make changes.'}</small></>
+            )}
+          </div>
+          <div className="button-row">
+            <button className="btn ghost" type="button" onClick={onClose} disabled={saving}>Discard changes</button>
+            <button className="btn dark" type="button" onClick={onSave} disabled={saving || !hasChanges}><Save size={16} />{saving ? 'Saving...' : 'Save client'}</button>
           </div>
         </div>
-        {copyMessage && <p className="inline-status">{copyMessage}</p>}
-        {hasValue && !looksSharePoint && <p className="field-warning">This does not look like a SharePoint or OneDrive link. It will still save, but the Open button only works for normal web URLs.</p>}
-      </div>}
+      </div>
+    </div>
+  );
+}
+
+function ClientDetailsAccordionSection({ id, title, summary, changed, open, onToggle, children }) {
+  return (
+    <section className={`client-details-accordion ${open ? 'open' : ''} ${changed ? 'changed' : ''}`} id={`client-details-${id}`}>
+      <button className="client-details-accordion-head" type="button" onClick={onToggle} aria-expanded={open}>
+        <div><strong>{title}</strong><small>{summary}</small></div>
+        <div>{changed && <span className="client-details-changed-pill">Changed</span>}<ChevronDown size={18} /></div>
+      </button>
+      {open && <div className="client-details-accordion-body">{children}</div>}
     </section>
   );
 }

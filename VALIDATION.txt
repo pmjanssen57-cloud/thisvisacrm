@@ -1,12 +1,16 @@
-THiS CRM v0.15.10 validation
+THiS CRM v0.15.11 validation
 
 Checked
-- App.jsx parses successfully.
+- App.jsx JSX syntax/transpilation check passes.
+- Unified Client Record Editor components and styles are present.
+- Client Overview Edit actions open the unified editor at the requested section.
+- Unsaved-change protection and single Save client workflow are present.
+- Left client navigation retains operational workspaces while Family and Notes & strategy remain in the unified editor.
 - netlify/functions/crm.mjs JavaScript syntax passes.
 - netlify/functions/agreement.mjs JavaScript syntax passes.
 - public/agreement-studio.js JavaScript syntax passes.
-- agreement-studio print CSS uses 296mm page height and removes section-level print fragmentation.
-- Agreement getAgreementSet uses skipDataUpdate and the server returns only the requested agreement.
-- getAgreementUpdates omits Studio snapshot JSON from list refreshes.
-- v0.15.10 cache-busting and service-worker references are present.
+- Agreement secure signatory refresh and signature display from v0.15.9 remain present.
+- Agreement targeted loading and lightweight list refresh from v0.15.10 remain present.
+- Agreement print CSS retains the v0.15.10 print-flow safeguards.
+- v0.15.11 cache-busting and service-worker references are present.
 - ZIP integrity checked.

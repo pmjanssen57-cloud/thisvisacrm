@@ -1,16 +1,28 @@
-THiS CRM v0.15.10 - Agreement Load and Print Flow Hotfix
+THiS CRM v0.15.11 - Unified Client Editor + Agreement Hotfixes
 
 Baseline
-- Built from v0.15.9 Agreement Acceptance Visibility Hotfix.
-- This remains the pre-unified-client-editor branch so the agreement fixes can be verified before merging v0.15.8.
+- Built from v0.15.10 Agreement Load and Print Flow Hotfix.
+- Merges the v0.15.8 Unified Client Record Editor into the latest agreement-safe baseline.
 
-Changes
-- Opening one agreement now fetches only that agreement and its secure signatory records instead of returning the entire CRM dataset.
-- Agreement workspace status refreshes now return list metadata only; large Studio snapshots are fetched on demand.
-- Signed-agreement signature and acceptance visibility from v0.15.9 is retained.
-- Agreement print pages now include a small physical-page safety reserve to prevent each generated A4 sheet spilling onto an extra browser print page.
-- Print mode no longer applies section-level break-inside avoidance on top of the Studio paginator.
-- Final-page print sizing is constrained to the physical page rather than inheriting the screen-only 1123px minimum.
-- Fee table rows remain protected from splitting mid-row.
+Unified client record editor
+- Added one Edit client record drawer from the client header and Client Overview.
+- Personal details, contact information, matter/adviser allocation, family records, case strategy/internal notes and file references are edited in one place.
+- Sections use accordion-style expansion with concise collapsed summaries.
+- Changed sections are marked before save.
+- Edits are held together and committed with one Save client action.
+- Closing with unsaved changes provides discard protection.
+- Overview summary panels open the same editor directly at the relevant section.
+- Family and Notes & strategy are removed from the left client navigation because those details now belong to the unified client profile editor.
+- Actions, Documents, Stages, Key dates, Billing, Instructions, Agreements and Portal remain separate operational workspaces.
+- Closing/reopening a client remains a dedicated lifecycle action.
+
+Agreement fixes retained
+- Signed agreements refresh their current secure signatory records when opened.
+- Accepted, partially signed and viewed status is visible in the Agreements workspace and Agreement Studio.
+- Captured electronic signatures, typed names, email addresses and acceptance timestamps remain visible and printable.
+- Accepted agreements remain locked against later edits.
+- Opening one agreement fetches only that agreement and its signatory records rather than the entire CRM dataset.
+- Agreement list refreshes use lightweight metadata and load large Studio snapshots only on demand.
+- Agreement print flow retains the physical-page safety reserve and avoids the blank-page / section-gap behaviour corrected in v0.15.10.
 
 No database migration, dependency or environment-variable changes.
