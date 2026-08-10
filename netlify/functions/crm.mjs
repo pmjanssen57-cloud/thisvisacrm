@@ -478,6 +478,12 @@ async function handleCrmEvent(event) {
     const body = requestBody;
     const action = requestAction;
 
+    if (action === 'getAgreementUpdates') {
+      const database = db();
+      const rows = await database.sql`SELECT id, client_id, intake_id, adviser_id, title, app_type, status, standalone_label, recipient_email, studio_state, template_version, created_by, updated_by, created_at, updated_at, issued_at, accepted_at, accepted_by FROM agreement_sets ORDER BY updated_at DESC`;
+      return json({ agreementSets: rows.map(mapAgreementSetFromDb), refreshedAt: new Date().toISOString() });
+    }
+
     if (action === 'seed') {
       requireAdminAccess(accessContext, 'Seed sample data');
       await seedSampleData();
@@ -561,6 +567,12 @@ async function handleCrmEvent(event) {
       requireAdminAccess(accessContext, 'Instruction template management');
       const result = await saveInstructionTemplateLibrary(body.library || {}, body.versionEvent || null, auth.user);
       return json({ instructionTemplateLibrary: result.library, instructionTemplateVersions: result.versions, ...(await readCrmData()) });
+    }
+
+    if (action === 'getAgreementSet') {
+      const agreementSet = await readAgreementSetWithSignatories(body.agreementSetId);
+      if (!agreementSet) throw new Error('Agreement not found.');
+      return json({ agreementSet, ...(await readCrmData()) });
     }
 
     if (action === 'saveAgreementSet') {
@@ -2438,6 +2450,14 @@ function mapInstructionTemplateVersionFromDb(row = {}) {
 async function saveAgreementSet(input = {}, user = null) {
   const database = db();
   const id = isUuid(input.id) ? input.id : null;
+  if (id) {
+    const existingRows = await database.sql`SELECT status FROM agreement_sets WHERE id = ${id} LIMIT 1`;
+    if (existingRows[0]?.status === 'Accepted') {
+      const acceptedAgreement = await readAgreementSetWithSignatories(id, database);
+      if (!acceptedAgreement) throw new Error('Agreement not found.');
+      return acceptedAgreement;
+    }
+  }
   const clientId = isUuid(input.clientId || input.client_id) ? (input.clientId || input.client_id) : null;
   const intakeId = isUuid(input.intakeId || input.intake_id) ? (input.intakeId || input.intake_id) : null;
   const adviserId = isUuid(input.adviserId || input.adviser_id) ? (input.adviserId || input.adviser_id) : null;
@@ -2638,6 +2658,46 @@ function mapAgreementSetFromDb(row = {}) {
     studioState: row.studio_state || {}, templateVersion: row.template_version || {}, createdBy: row.created_by || '', updatedBy: row.updated_by || '',
     createdAt: row.created_at || '', updatedAt: row.updated_at || '', issuedAt: row.issued_at || '', acceptedAt: row.accepted_at || '', acceptedBy: row.accepted_by || '',
   };
+}
+
+function mapAgreementSignatoryFromDb(row = {}) {
+  return {
+    id: row.id || '',
+    agreementId: row.agreement_id || '',
+    name: row.name || '',
+    email: row.email || '',
+    role: row.role || 'Client',
+    required: row.required !== false,
+    status: row.status || 'Sent',
+    expiresAt: row.expires_at || '',
+    viewedAt: row.viewed_at || '',
+    acceptedAt: row.accepted_at || '',
+    typedName: row.typed_name || '',
+    signatureData: row.signature_data || '',
+    declarations: row.declarations || {},
+    ipAddress: row.ip_address || '',
+    userAgent: row.user_agent || '',
+    createdAt: row.created_at || '',
+    updatedAt: row.updated_at || '',
+  };
+}
+
+async function readAgreementSetWithSignatories(agreementSetId, database = db()) {
+  if (!isUuid(agreementSetId)) throw new Error('A valid agreement is required.');
+  const rows = await database.sql`
+    SELECT id, client_id, intake_id, adviser_id, title, app_type, status, standalone_label, recipient_email, studio_state, template_version,
+           created_by, updated_by, created_at, updated_at, issued_at, accepted_at, accepted_by
+      FROM agreement_sets
+     WHERE id = ${agreementSetId}
+     LIMIT 1`;
+  if (!rows[0]) return null;
+  const signatories = await database.sql`
+    SELECT id, agreement_id, name, email, role, required, status, expires_at, viewed_at, accepted_at, typed_name, signature_data,
+           declarations, ip_address, user_agent, created_at, updated_at
+      FROM agreement_signatories
+     WHERE agreement_id = ${agreementSetId}
+     ORDER BY created_at ASC`;
+  return { ...mapAgreementSetFromDb(rows[0]), signatories: signatories.map(mapAgreementSignatoryFromDb) };
 }
 
 function mapAgreementTemplateVersionFromDb(row = {}) {

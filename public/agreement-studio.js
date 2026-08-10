@@ -80,14 +80,33 @@ function printAgreementDocument(){
 function scopeList(){return state.scope.filter(x=>x.enabled).map(x=>`<div class="scopeitem"><span class="dot"></span><div>${esc(x.text)}</div></div>`).join('')}
 function professionalTable(){return `<table class="feetable"><thead><tr><th>Payment</th><th>Professional service</th><th>When payable</th><th style="text-align:right">Amount</th></tr></thead><tbody>${state.professionalFees.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.description)}</td><td>${esc(r.trigger)}</td><td class="amount">${esc(r.amount)}</td></tr>`).join('')}</tbody></table>`}
 function govTable(){return `<table class="feetable"><thead><tr><th>Agency</th><th>Application type</th><th style="text-align:right">Amount</th></tr></thead><tbody>${state.governmentFees.length?state.governmentFees.map(r=>`<tr><td>${esc(r.agency)}</td><td>${esc(r.application)}</td><td class="amount">${esc(r.amount)}</td></tr>`).join(''):`<tr><td colspan="3">No government fees have been added.</td></tr>`}</tbody></table>`}
-function signatoryBoxes(){return state.signatories.map(s=>`<div class="acceptcell"><span>${esc(s.role)}</span><strong>${esc(s.name||'Name to be confirmed')}</strong><div class="signatureline"></div><div class="signlabel">Electronic acceptance / signature</div></div>`).join('')}
+function safeSignatureData(value=''){const text=String(value||'');return /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(text)?text:''}
+function formatAcceptedDate(value=''){if(!value)return'';const date=new Date(value);if(Number.isNaN(date.getTime()))return String(value);return new Intl.DateTimeFormat('en-NZ',{day:'numeric',month:'long',year:'numeric',hour:'numeric',minute:'2-digit',timeZone:'Pacific/Auckland'}).format(date)}
+function mergeAcceptanceDetails(base=[],records=[]){
+ const source=Array.isArray(base)?base.map(item=>({...item})):[];
+ const incoming=Array.isArray(records)?records:[];
+ incoming.forEach(record=>{
+  const email=String(record.email||'').trim().toLowerCase();
+  const name=String(record.name||record.typedName||'').trim().toLowerCase();
+  let target=source.find(item=>email&&String(item.email||'').trim().toLowerCase()===email);
+  if(!target&&name)target=source.find(item=>String(item.name||'').trim().toLowerCase()===name);
+  if(!target){target={id:record.id||`sg-${Date.now()}-${source.length}`,name:record.name||record.typedName||'',email:record.email||'',role:record.role||'Client',required:record.required!==false};source.push(target)}
+  Object.assign(target,{
+   status:record.status||target.status||'Sent',viewedAt:record.viewedAt||record.viewed_at||target.viewedAt||'',acceptedAt:record.acceptedAt||record.accepted_at||target.acceptedAt||'',
+   typedName:record.typedName||record.typed_name||target.typedName||'',signatureData:record.signatureData||record.signature_data||target.signatureData||'',
+   declarations:record.declarations||target.declarations||{},ipAddress:record.ipAddress||record.ip_address||target.ipAddress||'',userAgent:record.userAgent||record.user_agent||target.userAgent||''
+  });
+ });
+ return source;
+}
+function signatoryBoxes(){return state.signatories.map(s=>{const accepted=String(s.status||'').toLowerCase()==='accepted'||Boolean(s.acceptedAt);const signature=safeSignatureData(s.signatureData);return `<div class="acceptcell ${accepted?'signed':''}"><span>${esc(s.role)}</span><strong>${esc(s.name||s.typedName||'Name to be confirmed')}</strong>${signature?`<div class="captured-signature"><img src="${signature}" alt="Electronic signature"></div>`:`<div class="signatureline"></div>`}${accepted?`<div class="signlabel accepted"><b>Accepted electronically</b>${s.typedName?`<em>${esc(s.typedName)}</em>`:''}${s.email?`<em>${esc(s.email)}</em>`:''}${s.acceptedAt?`<em>${esc(formatAcceptedDate(s.acceptedAt))}</em>`:''}</div>`:`<div class="signlabel">Electronic acceptance / signature</div>`}</div>`}).join('')}
 function sectionBlock(id,extra=''){const s=state.sections.find(x=>x.id===id);if(!s||!s.enabled)return'';return `<section class="section" data-section="${id}">${heading(s)}${bodyHtml(s)}${extra}</section>`}
 function sectionExtra(id){
  if(id==='introduction')return `<div class="softbox" style="margin-top:16px"><h3>Agreed scope of services</h3>${scopeList()}</div><div class="note"><strong>Specific matter:</strong> ${esc(state.client.matterNote)}</div>`;
  if(id==='professional')return `${professionalTable()}<div class="note">Professional fees are exclusive of the ${esc(state.template.adminFee)}. GST will be added where applicable.</div>`;
  if(id==='government')return `${govTable()}<div class="note">The fee table is a working schedule and must be checked against current agency charges before issue.</div>`;
  if(id==='terms')return `<div class="note"><strong>Expected service period:</strong> ${esc(state.client.expectedMonths)}. <strong>Additional work rate:</strong> ${esc(state.template.hourlyRate)}.</div>`;
- if(id==='authorisation')return `<div class="acceptbox"><div class="acceptgrid">${signatoryBoxes()}</div><p style="margin-top:14px">${esc(state.acceptanceText)}</p></div>`;
+ if(id==='authorisation'){const acceptedSummary=state.status==='Accepted'?`<div class="agreement-accepted-note"><strong>Agreement accepted</strong><span>${esc(state.acceptedBy||'Required signatories')} accepted this agreement${state.acceptedAt?` on ${esc(formatAcceptedDate(state.acceptedAt))}`:''}.</span></div>`:'';return `${acceptedSummary}<div class="acceptbox"><div class="acceptgrid">${signatoryBoxes()}</div><p style="margin-top:14px">${esc(state.acceptanceText)}</p></div>`}
  if(id==='payment')return `<div class="note"><strong>Overdue interest:</strong> ${esc(state.template.interestRate)}.</div>`;
  return '';
 }
@@ -157,7 +176,7 @@ function renderSectionList(){let auto=0;$('#sectionList').innerHTML=state.sectio
 function renderContentEditor(){const s=state.sections.find(x=>x.id===state.selectedSection)||state.sections[0];$('#sectionTitleHeading').textContent=s.title;$('#sectionTitleInput').value=s.title;$('#sectionBodyInput').value=s.body;$('#numberMode').value=s.numberMode;$('#manualNumber').value=s.manualNumber||'';$('#manualNumberWrap').style.visibility=s.numberMode==='manual'?'visible':'hidden'}
 function renderMatter(){$$('.matter').forEach(el=>el.value=state.client[el.dataset.key]||'');$('#scopeRows').innerHTML=state.scope.map((r,i)=>`<div class="repeatrow" data-scope-row="${i}"><div class="checkrow"><input type="checkbox" data-scope-enable ${r.enabled?'checked':''}><input class="input" data-scope-text value="${esc(r.text)}"></div><div class="rowactions"><button class="btn danger small" data-scope-remove>Remove</button></div></div>`).join('');bindRepeats()}
 function renderFees(){$('#profRows').innerHTML=state.professionalFees.map((r,i)=>`<article class="fee-editor-card" data-prof-row="${i}"><div class="fee-editor-number">${i+1}</div><div class="fee-editor-copy"><strong>${esc(r.description||'Untitled payment stage')}</strong><span class="fee-editor-amount">${esc(r.amount||'Amount not set')}</span><p>${esc(r.trigger||'Payment trigger not set')}</p></div><div class="fee-editor-actions"><button class="btn secondary small" data-prof-edit>Edit</button><button class="btn danger small" data-prof-remove>Remove</button></div></article>`).join('');$('#govRows').innerHTML=state.governmentFees.map((r,i)=>`<article class="fee-editor-card" data-gov-row="${i}"><div class="fee-editor-number">${i+1}</div><div class="fee-editor-copy"><strong>${esc(r.agency||'Agency not set')}</strong><span class="fee-editor-amount">${esc(r.amount||'Amount not set')}</span><p>${esc(r.application||'Application type not set')}</p></div><div class="fee-editor-actions"><button class="btn secondary small" data-gov-edit>Edit</button><button class="btn danger small" data-gov-remove>Remove</button></div></article>`).join('');bindRepeats()}
-function renderSigning(){ $('#signatoryRows').innerHTML=state.signatories.map((r,i)=>`<div class="repeatrow" data-sign-row="${i}"><div class="inlinegrid"><input class="input" data-sf="name" value="${esc(r.name)}"><input class="input" data-sf="email" value="${esc(r.email)}"><input class="input" data-sf="role" value="${esc(r.role)}"></div><label class="checkrow"><input type="checkbox" data-sf-required ${r.required?'checked':''}>Required signature</label><div class="rowactions"><button class="btn danger small" data-sign-remove>Remove</button></div></div>`).join('');$('#acceptanceText').value=state.acceptanceText;$('#emailSubject').value=state.emailSubject;$('#emailBody').value=state.emailBody;bindRepeats()}
+function renderSigning(){ $('#signatoryRows').innerHTML=state.signatories.map((r,i)=>{const accepted=String(r.status||'').toLowerCase()==='accepted'||Boolean(r.acceptedAt);const viewed=!accepted&&Boolean(r.viewedAt);return `<div class="repeatrow" data-sign-row="${i}"><div class="inlinegrid"><input class="input" data-sf="name" value="${esc(r.name)}" ${accepted?'readonly':''}><input class="input" data-sf="email" value="${esc(r.email)}" ${accepted?'readonly':''}><input class="input" data-sf="role" value="${esc(r.role)}" ${accepted?'readonly':''}></div><label class="checkrow"><input type="checkbox" data-sf-required ${r.required?'checked':''} ${accepted?'disabled':''}>Required signature</label><div class="signatory-audit ${accepted?'accepted':viewed?'viewed':'sent'}"><strong>${accepted?'Accepted':viewed?'Viewed':'Awaiting signature'}</strong>${accepted&&r.typedName?`<span>Signed by ${esc(r.typedName)}</span>`:''}${accepted&&r.acceptedAt?`<span>${esc(formatAcceptedDate(r.acceptedAt))}</span>`:''}${accepted&&r.signatureData?'<span>Electronic signature recorded</span>':''}</div><div class="rowactions">${accepted?'':`<button class="btn danger small" data-sign-remove>Remove</button>`}</div></div>`}).join('');$('#acceptanceText').value=state.acceptanceText;$('#emailSubject').value=state.emailSubject;$('#emailBody').value=state.emailBody;bindRepeats()}
 function renderTemplate(){ $$('.template').forEach(el=>el.value=state.template[el.dataset.key]||'');$('#versionHistory').innerHTML=state.templateHistory.slice().reverse().map(h=>`<div class="historyitem"><div><strong>Version ${esc(h.version)}</strong><small>${esc(h.date)} - ${esc(h.note)}</small></div><button class="btn secondary small" disabled>Published</button></div>`).join('')}
 function renderHeader(){const t=currentType();$('#leftTitle').textContent=t.title;$('#summaryName').textContent=fullClient();$('#summaryMatter').textContent=t.short+' engagement agreement';$('#statusPill').textContent=state.status;$('#feeConfirmed').checked=!!state.feeConfirmed;$('#clientChecked').checked=!!state.clientChecked;$('#sourceMode').value=state.sourceMode;$('#appType').value=state.appType}
 function renderAll(){renderHeader();renderSectionList();renderContentEditor();renderMatter();renderFees();renderSigning();renderTemplate();renderPages()}
@@ -214,7 +233,7 @@ function bindRepeats(){
  $$('[data-scope-row]').forEach(row=>{let i=+row.dataset.scopeRow;row.querySelector('[data-scope-enable]').onchange=e=>{state.scope[i].enabled=e.target.checked;dirty();renderPages()};row.querySelector('[data-scope-text]').oninput=e=>{state.scope[i].text=e.target.value;dirty();renderPages()};row.querySelector('[data-scope-remove]').onclick=()=>{state.scope.splice(i,1);renderAll()}});
  $$('[data-prof-row]').forEach(row=>{let i=+row.dataset.profRow;row.querySelector('[data-prof-edit]').onclick=()=>openProfessionalFeeEditor(state.professionalFees[i]?.id||'');row.querySelector('[data-prof-remove]').onclick=()=>{state.professionalFees.splice(i,1);dirty();renderFees();renderPages()}});
  $$('[data-gov-row]').forEach(row=>{let i=+row.dataset.govRow;row.querySelector('[data-gov-edit]').onclick=()=>openGovernmentFeeEditor(state.governmentFees[i]?.id||'');row.querySelector('[data-gov-remove]').onclick=()=>{state.governmentFees.splice(i,1);dirty();renderFees();renderPages()}});
- $$('[data-sign-row]').forEach(row=>{let i=+row.dataset.signRow;row.querySelectorAll('[data-sf]').forEach(el=>el.oninput=e=>{state.signatories[i][el.dataset.sf]=e.target.value;dirty();renderPages()});row.querySelector('[data-sf-required]').onchange=e=>{state.signatories[i].required=e.target.checked;dirty();renderPages()};row.querySelector('[data-sign-remove]').onclick=()=>{state.signatories.splice(i,1);renderAll()}})
+ $$('[data-sign-row]').forEach(row=>{let i=+row.dataset.signRow;row.querySelectorAll('[data-sf]').forEach(el=>el.oninput=e=>{state.signatories[i][el.dataset.sf]=e.target.value;dirty();renderPages()});const required=row.querySelector('[data-sf-required]');if(required)required.onchange=e=>{state.signatories[i].required=e.target.checked;dirty();renderPages()};const remove=row.querySelector('[data-sign-remove]');if(remove)remove.onclick=()=>{state.signatories.splice(i,1);renderAll()}})
 }
 function bindInlineEdits(){if(!editMode)return;$$('#pages .editable').forEach(el=>{el.contentEditable='true';el.addEventListener('blur',()=>{const k=el.dataset.edit,id=el.dataset.id;if(k==='coverHeading')state.template.coverHeading=el.textContent.trim();else if(k==='coverSubtitle')state.template.coverSubtitle=el.textContent.trim();else if(k==='title')state.sections.find(s=>s.id===id).title=el.textContent.trim();else if(k==='number'){const sec=state.sections.find(s=>s.id===id);sec.numberMode='manual';sec.manualNumber=el.textContent.trim();}else if(k==='body'){const fragments=$$('#pages [data-edit="body"]').filter(fragment=>fragment.dataset.id===id);state.sections.find(s=>s.id===id).body=fragments.map(fragment=>fragment.innerHTML).join('')}dirty();renderSectionList();renderContentEditor()});el.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();renderPages()}if(e.key==='Enter'&&e.ctrlKey){e.preventDefault();el.blur()}})})}
 function switchType(type){state.appType=type;const cfg=currentType();state.template.coverSubtitle=cfg.title;state.client.matterNote=defaultMatterDescription(type);state.scope=cfg.scope.map((text,i)=>({id:'s'+Date.now()+i,text,enabled:true}));state.governmentFees=cfg.gov.map((r,i)=>({id:'g'+Date.now()+i,agency:r[0],application:r[1],amount:r[3]}));dirty();renderAll()}
@@ -344,6 +363,10 @@ bind();renderAll();
         restored.sourceMode='standalone';
         restored.client={...(restored.client||{}),clientName:payload.agreementSet.standaloneLabel,matterRef:payload.agreementSet.standaloneLabel,clientEmail:payload.agreementSet.recipientEmail||restored.client?.clientEmail||''};
       }
+      restored.status=payload.agreementSet?.status||restored.status||'Draft';
+      restored.acceptedAt=payload.agreementSet?.acceptedAt||payload.agreementSet?.accepted_at||restored.acceptedAt||'';
+      restored.acceptedBy=payload.agreementSet?.acceptedBy||payload.agreementSet?.accepted_by||restored.acceptedBy||'';
+      restored.signatories=mergeAcceptanceDetails(restored.signatories||[],payload.agreementSet?.signatories||[]);
       return restored;
     }
     let next=defaultState();
@@ -395,8 +418,11 @@ If anything needs correcting, or you would like to discuss any part of the agree
     const subtitle=document.querySelector('.subtitle'); if(subtitle) subtitle.textContent='CRM agreement authoring';
     document.title='THiS Agreement Studio';
     const saveBtn=document.querySelector('#saveBtn'); if(saveBtn) saveBtn.textContent='Save to CRM';
-    const issueBtn=document.querySelector('#issueBtn'); if(issueBtn) issueBtn.textContent='Issue agreement';
-    const notice=document.querySelector('.preview>.notice'); if(notice) notice.textContent='Review client details, fees and terms before issue';
+    const issueBtn=document.querySelector('#issueBtn'); if(issueBtn){issueBtn.textContent=state.status==='Accepted'?'Agreement accepted':'Issue agreement';issueBtn.disabled=state.status==='Accepted'}
+    if(saveBtn) saveBtn.disabled=state.status==='Accepted';
+    const editTextBtn=document.querySelector('#editTextBtn'); if(editTextBtn) editTextBtn.disabled=state.status==='Accepted';
+    document.body.classList.toggle('accepted-lock',state.status==='Accepted');
+    const notice=document.querySelector('.preview>.notice'); if(notice) notice.textContent=state.status==='Accepted'?'Signed agreement - acceptance details are shown in the authorisation section':'Review client details, fees and terms before issue';
   }
   function setPublicPresentation(){
     document.body.classList.add('public-review-mode');
@@ -433,7 +459,10 @@ If anything needs correcting, or you would like to discuss any part of the agree
     }
     state=clone(payload.agreement.studioState||defaultState());
     state.status=payload.agreement.status||state.status;
+    state.acceptedAt=payload.agreement.acceptedAt||state.acceptedAt||'';
+    state.acceptedBy=payload.agreement.acceptedBy||state.acceptedBy||'';
     publicSignatory=payload.signatory||null;
+    state.signatories=mergeAcceptanceDetails(state.signatories||[],publicSignatory?[publicSignatory]:[]);
     renderAll();
     setPublicPresentation();
     const actions=document.querySelector('.actions');

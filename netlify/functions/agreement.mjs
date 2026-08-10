@@ -80,6 +80,7 @@ async function getAgreementForReview(tokenHash, request) {
   const rows = await database.sql`
     SELECT s.id AS signatory_id, s.name AS signatory_name, s.email AS signatory_email, s.role AS signatory_role,
            s.required, s.status AS signatory_status, s.expires_at, s.viewed_at, s.accepted_at AS signatory_accepted_at,
+           s.typed_name, s.signature_data, s.declarations,
            a.id AS agreement_id, a.title, a.app_type, a.status AS agreement_status, a.studio_state,
            a.template_version, a.issued_at, a.accepted_at, a.accepted_by
       FROM agreement_signatories s
@@ -115,7 +116,11 @@ async function getAgreementForReview(tokenHash, request) {
       role: row.signatory_role || 'Client',
       required: row.required !== false,
       status: row.signatory_status || 'Sent',
+      viewedAt: row.viewed_at || '',
       acceptedAt: row.signatory_accepted_at || '',
+      typedName: row.typed_name || '',
+      signatureData: row.signature_data || '',
+      declarations: row.declarations || {},
     },
   };
 }

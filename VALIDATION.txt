@@ -1,21 +1,24 @@
-THiS CRM v0.15.7 validation
+THiS CRM v0.15.9 validation
 
 Validated:
-- netlify/functions/chat.mjs JavaScript syntax
-- public JavaScript syntax
-- App.jsx TypeScript/JSX parse pass (module-resolution warnings ignored)
-- HTML parsing for public Studio/chat pages
+- netlify/functions/crm.mjs JavaScript syntax
+- netlify/functions/agreement.mjs JavaScript syntax
+- public/agreement-studio.js JavaScript syntax
+- App.jsx TypeScript/JSX parse pass
+- public HTML parsing
 - PWA validation script
-- v0.15.7 runtime/cache-busting references
+- v0.15.9 runtime/cache-busting references
 - package ZIP integrity
 
-Workflow checks:
-- chat action creates a Contact-form payload (`formType: contact`) rather than a full assessment payload
-- Contact record is assigned to the chat adviser, with current adviser as fallback
-- public chat transcript is retained with the Contact record
-- existing Contact assessment invitation email/template is reused
-- successful questionnaire send marks the Contact record Contacted / Dealt with
-- failed email sends leave the Contact record available for retry in Enquiries > Contact forms
-- chat footer no longer offers Create enquiry for new conversations
+Agreement acceptance checks:
+- internal getAgreementSet action loads the current agreement and secure signatory records
+- Agreement workspace refreshes statuses on entry
+- opening an agreement refreshes status before initialising the embedded Studio
+- acceptedAt / acceptedBy are overlaid onto the saved Studio snapshot
+- secure signatory rows carry status, viewed date, accepted date, typed name, signature data and audit fields
+- captured PNG signatures render in the Authorisation and acceptance section
+- accepted agreements are protected from subsequent save mutations
+- client secure-review endpoint returns the accepted signatory's signature record
+- PWA cache name and Agreement Studio script cache buster changed for deployment refresh
 
 No database migration, dependency or environment-variable changes.

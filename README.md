@@ -1,4 +1,22 @@
-# THiS CRM v0.15.7 - Live Chat Contact & Intake Handoff
+# THiS CRM v0.15.9 - Agreement Acceptance Visibility Hotfix
+
+This release is deliberately based on v0.15.7 and fixes agreement acceptance visibility before the Unified Client Record Editor is rolled out.
+
+Key changes:
+- Agreement records refresh from the server when opened.
+- Newly signed agreements show **Accepted** in the Agreements workspace after the workspace refreshes.
+- Agreement Studio displays a prominent signatory-status summary for Sent, Viewed, Partially signed and Accepted agreements.
+- The Authorisation and acceptance section displays the actual captured electronic signature, typed legal name, email address and acceptance date/time.
+- Acceptance information is sourced from the secure `agreement_signatories` record, not the older pre-issue Studio snapshot.
+- Accepted agreements are server-locked against later edits while remaining printable.
+- The client-facing secure agreement view also restores the accepted signatory's signature after signing.
+- PWA and Agreement Studio cache-busting was advanced to ensure the corrected script is loaded after deployment.
+
+All v0.15.7 live-chat contact/intake handoff functionality and v0.15.6 Instructions Studio functionality are retained.
+
+No database migration, dependency or environment-variable changes.
+
+## Previous v0.15.7 notes
 
 This release changes the live-chat pre-client workflow so advisers do not create a completed intake record before the visitor has actually supplied the full assessment information.
 

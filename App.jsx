@@ -2056,6 +2056,30 @@ export default function App() {
     return body;
   }
 
+  async function getAgreementSet(agreementSetId) {
+    return callApi('getAgreementSet', { agreementSetId });
+  }
+
+  async function refreshAgreementData() {
+    if (authRequired || (!identityUser && !accessCode)) return null;
+    try {
+      const response = await fetch('/.netlify/functions/crm', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...authHeaders(accessCode, identityUser) },
+        credentials: 'same-origin',
+        body: JSON.stringify({ action: 'getAgreementUpdates' }),
+      });
+      const body = await readJsonResponse(response);
+      if (!response.ok) throw new Error(formatApiError(body, 'Unable to refresh agreements'));
+      const incoming = (body.agreementSets || []).map(normaliseAgreementSet);
+      setData((current) => ({ ...current, agreementSets: incoming }));
+      return body;
+    } catch (error) {
+      console.warn('Agreement status refresh failed.', error);
+      return null;
+    }
+  }
+
   async function deleteAgreementSet(agreementSetId) {
     const confirmed = await askCrmConfirm({ title: 'Delete agreement?', message: 'This removes the saved agreement draft and any unused signing links. Accepted agreements should normally be retained.', confirmLabel: 'Delete', tone: 'danger' });
     if (!confirmed) return null;
@@ -2971,6 +2995,8 @@ export default function App() {
                 deleteInstructionSet={deleteInstructionSet}
                 saveInstructionTemplateLibrary={saveInstructionTemplateLibrary}
                 saveAgreementSet={saveAgreementSet}
+                getAgreementSet={getAgreementSet}
+                refreshAgreementData={refreshAgreementData}
                 deleteAgreementSet={deleteAgreementSet}
                 saveAgreementTemplateLibrary={saveAgreementTemplateLibrary}
                 issueAgreementSet={issueAgreementSet}
@@ -9290,7 +9316,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const dayRows = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']];
-  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.15.7" data-title="Chat with us" defer><\/script>`;
+  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.15.9" data-title="Chat with us" defer><\/script>`;
 
   useEffect(() => {
     if (!open) return;
@@ -12006,6 +12032,8 @@ function StudioWorkspace({
   deleteInstructionSet,
   saveInstructionTemplateLibrary,
   saveAgreementSet,
+  getAgreementSet,
+  refreshAgreementData,
   deleteAgreementSet,
   saveAgreementTemplateLibrary,
   issueAgreementSet,
@@ -12121,6 +12149,8 @@ function StudioWorkspace({
           onInitialCreateHandled={onCreateRequestHandled}
           canManageTemplates={canManageTemplates}
           saveAgreementSet={saveAgreementSet}
+          getAgreementSet={getAgreementSet}
+          refreshAgreementData={refreshAgreementData}
           deleteAgreementSet={deleteAgreementSet}
           saveAgreementTemplateLibrary={saveAgreementTemplateLibrary}
           issueAgreementSet={issueAgreementSet}
@@ -12514,7 +12544,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.15.7" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.15.9" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
         </div>
       )}
     </div>
@@ -12536,6 +12566,8 @@ function AgreementsWorkspace({
   onInitialCreateHandled,
   canManageTemplates = false,
   saveAgreementSet,
+  getAgreementSet,
+  refreshAgreementData,
   deleteAgreementSet,
   saveAgreementTemplateLibrary,
   issueAgreementSet,
@@ -12583,6 +12615,13 @@ function AgreementsWorkspace({
   }, []);
 
   useEffect(() => {
+    refreshAgreementData?.();
+    // Refresh once each time the Agreement workspace is opened so newly signed agreements
+    // are reflected in the list before an adviser opens an individual record.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     if (!initialClientId && !initialAgreementSetId) {
       initialLaunchHandledRef.current = '';
       return;
@@ -12592,10 +12631,10 @@ function AgreementsWorkspace({
     initialLaunchHandledRef.current = launchKey;
     const existing = initialAgreementSetId ? agreementSets.find((item) => item.id === initialAgreementSetId) : null;
     if (existing) {
-      beginEditorSession(existing.id);
+      const sessionId = beginEditorSession(existing.id);
       setIframeReady(false);
-      setStudioMessage('Opening Agreement Studio...');
-      setEditorAgreement(normaliseAgreementSet(existing));
+      setStudioMessage('Refreshing agreement status...');
+      refreshAgreementForEditor(existing, sessionId);
       onInitialClientHandled?.();
       return;
     }
@@ -12608,7 +12647,7 @@ function AgreementsWorkspace({
       setCreateOpen(true);
     }
     onInitialClientHandled?.();
-  }, [initialClientId, initialAgreementSetId, agreementSets, clients]);
+  }, [initialClientId, initialAgreementSetId, agreementSets, clients, getAgreementSet]);
 
   useEffect(() => {
     const nonce = String(initialCreateRequest?.nonce || '');
@@ -12890,16 +12929,35 @@ function AgreementsWorkspace({
     }
   }
 
+  async function refreshAgreementForEditor(item, sessionId) {
+    let current = normaliseAgreementSet(item || {});
+    if (current.id && getAgreementSet) {
+      try {
+        const body = await getAgreementSet(current.id);
+        if (body?.agreementSet) current = normaliseAgreementSet(body.agreementSet);
+      } catch (error) {
+        if (studioSessionRef.current.id === sessionId && studioSessionRef.current.active) {
+          setStudioMessage(error?.message || 'Could not refresh agreement status');
+        }
+      }
+    }
+    if (studioSessionRef.current.id !== sessionId || !studioSessionRef.current.active || studioSessionRef.current.closing) return;
+    setIframeReady(false);
+    setLastSigningLinks([]);
+    setStudioMessage(current.status === 'Accepted' ? 'Loading signed agreement...' : 'Opening Agreement Studio...');
+    setEditorAgreement(current);
+  }
+
   function openAgreement(item, event) {
     event?.preventDefault?.();
     event?.stopPropagation?.();
     if (Date.now() < studioLaunchGuardRef.current) return;
     if (item?.id && deletedAgreementIdsRef.current.has(item.id)) return;
-    beginEditorSession(item?.id || '');
+    const sessionId = beginEditorSession(item?.id || '');
     setIframeReady(false);
     setLastSigningLinks([]);
-    setStudioMessage('Opening Agreement Studio...');
-    setEditorAgreement(normaliseAgreementSet(item));
+    setStudioMessage('Refreshing agreement status...');
+    refreshAgreementForEditor(item, sessionId);
   }
 
   function closeEditor(event) {
@@ -13036,13 +13094,33 @@ function AgreementsWorkspace({
             <div><span>{editorAgreement.clientId ? 'Client-linked agreement' : editorAgreement.intakeId ? 'Intake-linked agreement' : 'Standalone agreement'}</span><strong>{editorAgreement.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
+          {Array.isArray(editorAgreement.signatories) && editorAgreement.signatories.length > 0 && (
+            <div className={`agreement-acceptance-status-bar ${String(editorAgreement.status || '').toLowerCase().replaceAll(' ', '-')}`}>
+              <div className="agreement-acceptance-status-heading">
+                {editorAgreement.status === 'Accepted' ? <CheckCircle2 size={18} /> : <Clock size={18} />}
+                <div>
+                  <strong>{editorAgreement.status === 'Accepted' ? 'Agreement signed and accepted' : editorAgreement.status === 'Partially signed' ? 'Agreement partially signed' : 'Agreement signing status'}</strong>
+                  <span>{editorAgreement.status === 'Accepted' && editorAgreement.acceptedAt ? `Accepted ${formatInstructionDate(editorAgreement.acceptedAt)}${editorAgreement.acceptedBy ? ` by ${editorAgreement.acceptedBy}` : ''}` : 'Current signatory status from the secure acceptance record.'}</span>
+                </div>
+              </div>
+              <div className="agreement-acceptance-signatories">
+                {editorAgreement.signatories.map((signatory) => (
+                  <div className={`agreement-signatory-chip ${String(signatory.status || 'Sent').toLowerCase().replaceAll(' ', '-')}`} key={signatory.id || `${signatory.email}-${signatory.name}`}>
+                    <strong>{signatory.typedName || signatory.name || signatory.email || 'Signatory'}</strong>
+                    <span>{signatory.status || 'Sent'}{signatory.acceptedAt ? ` · ${formatInstructionDate(signatory.acceptedAt)}` : signatory.viewedAt ? ` · viewed ${formatInstructionDate(signatory.viewedAt)}` : ''}</span>
+                    {signatory.signatureData && <small>Electronic signature recorded</small>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {lastSigningLinks.length > 0 && (
             <div className="agreement-signing-links-bar">
               <strong>Secure signing links:</strong>
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.15.7" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.15.9" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
         </div>
       )}
     </div>
@@ -17074,6 +17152,23 @@ function normaliseAgreementSet(input = {}) {
     issuedAt: input.issuedAt || input.issued_at || '',
     acceptedAt: input.acceptedAt || input.accepted_at || '',
     acceptedBy: input.acceptedBy || input.accepted_by || '',
+    signatories: Array.isArray(input.signatories) ? input.signatories.map((item) => ({
+      id: item.id || '',
+      agreementId: item.agreementId || item.agreement_id || '',
+      name: item.name || '',
+      email: item.email || '',
+      role: item.role || 'Client',
+      required: item.required !== false,
+      status: item.status || 'Sent',
+      expiresAt: item.expiresAt || item.expires_at || '',
+      viewedAt: item.viewedAt || item.viewed_at || '',
+      acceptedAt: item.acceptedAt || item.accepted_at || '',
+      typedName: item.typedName || item.typed_name || '',
+      signatureData: item.signatureData || item.signature_data || '',
+      declarations: item.declarations || {},
+      ipAddress: item.ipAddress || item.ip_address || '',
+      userAgent: item.userAgent || item.user_agent || '',
+    })) : [],
   };
 }
 
