@@ -1,18 +1,16 @@
-THiS CRM v0.15.9 - Agreement Acceptance Visibility Hotfix
+THiS CRM v0.15.10 - Agreement Load and Print Flow Hotfix
 
 Baseline
-- Built directly from v0.15.7 Live Chat Contact & Intake Handoff.
-- This hotfix intentionally does not include the v0.15.8 Unified Client Record Editor, so the agreement correction can be deployed and verified first.
+- Built from v0.15.9 Agreement Acceptance Visibility Hotfix.
+- This remains the pre-unified-client-editor branch so the agreement fixes can be verified before merging v0.15.8.
 
-Agreement acceptance
-- Agreement Studio now refreshes the agreement record from the server whenever an adviser opens it.
-- The Agreements workspace refreshes agreement statuses when the workspace is opened, so newly accepted agreements are reflected in the list.
-- Accepted and partially signed agreements display a CRM acceptance summary with each signatory's current status.
-- The signed agreement now overlays the secure acceptance record onto the saved Studio document rather than relying on the pre-issue Studio snapshot.
-- The Authorisation and acceptance section displays the captured electronic signature, typed legal name, signatory email, and New Zealand acceptance date/time.
-- The Signing panel shows Sent, Viewed, and Accepted states and confirms when an electronic signature has been recorded.
-- Accepted agreements are locked against subsequent Studio saves on the server. Print / save PDF remains available.
-- The secure client review page also reflects the accepted signatory's recorded signature details after acceptance.
-- Agreement Studio cache-busting and the PWA shell cache have been advanced so the corrected Studio script is not masked by an older cached copy.
+Changes
+- Opening one agreement now fetches only that agreement and its secure signatory records instead of returning the entire CRM dataset.
+- Agreement workspace status refreshes now return list metadata only; large Studio snapshots are fetched on demand.
+- Signed-agreement signature and acceptance visibility from v0.15.9 is retained.
+- Agreement print pages now include a small physical-page safety reserve to prevent each generated A4 sheet spilling onto an extra browser print page.
+- Print mode no longer applies section-level break-inside avoidance on top of the Studio paginator.
+- Final-page print sizing is constrained to the physical page rather than inheriting the screen-only 1123px minimum.
+- Fee table rows remain protected from splitting mid-row.
 
 No database migration, dependency or environment-variable changes.

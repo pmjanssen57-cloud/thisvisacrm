@@ -1,4 +1,4 @@
-# THiS CRM v0.15.9 - Agreement Acceptance Visibility Hotfix
+# THiS CRM v0.15.10 - Agreement Acceptance Visibility Hotfix
 
 This release is deliberately based on v0.15.7 and fixes agreement acceptance visibility before the Unified Client Record Editor is rolled out.
 

@@ -13,6 +13,7 @@ const APP_TYPES={
  citizenship:{title:'New Zealand Citizenship',short:'Citizenship',scope:['New Zealand citizenship application','Review of identity, presence, character and English-language information','Preparation of the online application and identity-check process','Responses to requests from the Department of Internal Affairs relating to the agreed application'],gov:[['Department of Internal Affairs','New Zealand Citizenship','1','Confirm current','Per applicant']]},
  other:{title:'Other Immigration Matter',short:'Other',scope:['Immigration advice and representation for the matter described in this agreement'],gov:[]}
 };
+const PAGE_CONTENT_LIMIT=1110;
 const CORE_SECTIONS=[
 {id:'introduction',title:'Introduction and scope of services',note:'The agreed applications and services.',body:`<p>Thank you for entrusting Turner Hopkins Services Limited, trading as Turner Hopkins Immigration Specialists, to assist with your immigration journey.</p><p>We will represent you in the immigration matters and applications listed in the scope of services below. This agreement is based on the information provided during our initial discussions and assessment.</p><p>If additional work becomes necessary, we will discuss the work and any change to the fees or terms with you before proceeding. Any agreed variation will be confirmed in writing.</p><p>To represent you effectively, please do not contact Immigration New Zealand or another government agency about the agreed applications without first discussing this with us. This helps maintain a consistent and accurate flow of information.</p><p>You may seek independent legal advice on this agreement and should ask us any questions before accepting it.</p>`},
 {id:'professional',title:'Professional costs',note:'The professional fee and payment structure.',body:`<p>Our professional fees for the agreed immigration services are set out in the schedule below. The schedule has been prepared for this matter, taking account of the work involved and the expected stages of the process.</p><p>All professional fees are quoted in New Zealand dollars. The administration and disbursement charge and any applicable GST are set out in this agreement.</p>`},
@@ -52,7 +53,7 @@ function reserveFinalPageForSignoff(pages){
  if(!result.length)result.push('');
  const reserve='<div class="agreement-signoff-reserve"></div>';
  let safety=0;
- while(measurePageContent(result[result.length-1]+reserve)>1123&&safety++<20){
+ while(measurePageContent(result[result.length-1]+reserve)>PAGE_CONTENT_LIMIT&&safety++<20){
   const holder=document.createElement('div');
   holder.innerHTML=result[result.length-1];
   const last=holder.lastElementChild;
@@ -150,7 +151,7 @@ function paginateSectionFlow(sections){
   const units=sectionFlowUnits(section);
   units.forEach((unit,index)=>{
    const candidate=current+unit.html;
-   if(current&&measurePageContent(candidate)>1123){
+   if(current&&measurePageContent(candidate)>PAGE_CONTENT_LIMIT){
     pages.push(current);
     current=index>0?unit.continuedHtml:unit.html;
    }else{

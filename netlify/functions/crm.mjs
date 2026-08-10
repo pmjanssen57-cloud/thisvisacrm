@@ -480,7 +480,9 @@ async function handleCrmEvent(event) {
 
     if (action === 'getAgreementUpdates') {
       const database = db();
-      const rows = await database.sql`SELECT id, client_id, intake_id, adviser_id, title, app_type, status, standalone_label, recipient_email, studio_state, template_version, created_by, updated_by, created_at, updated_at, issued_at, accepted_at, accepted_by FROM agreement_sets ORDER BY updated_at DESC`;
+      // Workspace refresh only needs list metadata. Large Studio snapshots are fetched
+      // on demand when a specific agreement is opened.
+      const rows = await database.sql`SELECT id, client_id, intake_id, adviser_id, title, app_type, status, standalone_label, recipient_email, created_by, updated_by, created_at, updated_at, issued_at, accepted_at, accepted_by FROM agreement_sets ORDER BY updated_at DESC`;
       return json({ agreementSets: rows.map(mapAgreementSetFromDb), refreshedAt: new Date().toISOString() });
     }
 
@@ -572,7 +574,10 @@ async function handleCrmEvent(event) {
     if (action === 'getAgreementSet') {
       const agreementSet = await readAgreementSetWithSignatories(body.agreementSetId);
       if (!agreementSet) throw new Error('Agreement not found.');
-      return json({ agreementSet, ...(await readCrmData()) });
+      // Keep this response deliberately small. Signed agreements can include a large
+      // base64 signature image, and returning the entire CRM dataset made opening
+      // Agreement Studio unnecessarily slow.
+      return json({ agreementSet });
     }
 
     if (action === 'saveAgreementSet') {

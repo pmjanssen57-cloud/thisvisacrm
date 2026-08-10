@@ -1,24 +1,12 @@
-THiS CRM v0.15.9 validation
+THiS CRM v0.15.10 validation
 
-Validated:
-- netlify/functions/crm.mjs JavaScript syntax
-- netlify/functions/agreement.mjs JavaScript syntax
-- public/agreement-studio.js JavaScript syntax
-- App.jsx TypeScript/JSX parse pass
-- public HTML parsing
-- PWA validation script
-- v0.15.9 runtime/cache-busting references
-- package ZIP integrity
-
-Agreement acceptance checks:
-- internal getAgreementSet action loads the current agreement and secure signatory records
-- Agreement workspace refreshes statuses on entry
-- opening an agreement refreshes status before initialising the embedded Studio
-- acceptedAt / acceptedBy are overlaid onto the saved Studio snapshot
-- secure signatory rows carry status, viewed date, accepted date, typed name, signature data and audit fields
-- captured PNG signatures render in the Authorisation and acceptance section
-- accepted agreements are protected from subsequent save mutations
-- client secure-review endpoint returns the accepted signatory's signature record
-- PWA cache name and Agreement Studio script cache buster changed for deployment refresh
-
-No database migration, dependency or environment-variable changes.
+Checked
+- App.jsx parses successfully.
+- netlify/functions/crm.mjs JavaScript syntax passes.
+- netlify/functions/agreement.mjs JavaScript syntax passes.
+- public/agreement-studio.js JavaScript syntax passes.
+- agreement-studio print CSS uses 296mm page height and removes section-level print fragmentation.
+- Agreement getAgreementSet uses skipDataUpdate and the server returns only the requested agreement.
+- getAgreementUpdates omits Studio snapshot JSON from list refreshes.
+- v0.15.10 cache-busting and service-worker references are present.
+- ZIP integrity checked.
