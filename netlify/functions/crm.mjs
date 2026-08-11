@@ -462,15 +462,25 @@ async function handleCrmEvent(event) {
     const requestBody = method === 'POST' && event.body ? JSON.parse(event.body) : {};
     const requestAction = requestBody.action || '';
     if (requestAction === 'getIntakeUpdates') {
-      return json({ intakeEnquiries: await readIntakeEnquiries(), refreshedAt: new Date().toISOString() });
+      // Capture the cursor before reading so a submission that lands while this query is
+      // running will be returned either now or on the next delta request, never missed.
+      const refreshedAt = new Date().toISOString();
+      const since = normaliseIntakeRefreshCursor(requestBody.since);
+      const intakeEnquiries = since
+        ? await readIntakeEnquiryUpdates(since)
+        : await readIntakeEnquiries();
+      return json({ intakeEnquiries, refreshedAt, mode: since ? 'delta' : 'full' });
     }
 
     await ensureSchema();
     const accessContext = await resolveCrmAccess(auth);
 
     if (method === 'GET') {
+      // Use a server-side intake cursor rather than the browser clock. Capturing this
+      // before the full read makes the subsequent delta refresh race-safe.
+      const intakeRefreshCursor = new Date().toISOString();
       const data = await readCrmData();
-      return json({ ...data, securityMode: auth.mode, authUser: serialiseIdentityUser(auth.user), accessContext });
+      return json({ ...data, intakeRefreshCursor, securityMode: auth.mode, authUser: serialiseIdentityUser(auth.user), accessContext });
     }
 
     if (method !== 'POST') return json({ error: 'Method not allowed' }, 405);
@@ -496,7 +506,7 @@ async function handleCrmEvent(event) {
       requireAdminAccess(accessContext, 'Adviser management');
       const adviser = await saveAdviser(body.adviser);
       const refreshedAccessContext = await resolveCrmAccess(auth);
-      return json({ adviser, ...(await readCrmData()), accessContext: refreshedAccessContext });
+      return json({ adviser, accessContext: refreshedAccessContext });
     }
 
     if (action === 'saveMyPreferences') {
@@ -506,12 +516,12 @@ async function handleCrmEvent(event) {
         throw error;
       }
       const adviser = await saveAdviserPreferences(accessContext.adviserId, body.preferences);
-      return json({ adviser, ...(await readCrmData()), accessContext });
+      return json({ adviser, accessContext });
     }
 
     if (action === 'savePersonalTask') {
       const personalTask = await savePersonalTask(body.task);
-      return json({ personalTask, ...(await readCrmData()) });
+      return json({ personalTask });
     }
 
     if (action === 'deletePersonalTask') {
@@ -521,7 +531,7 @@ async function handleCrmEvent(event) {
 
     if (action === 'saveCalendarEntry') {
       const calendarEntry = await saveCalendarEntry(body.entry);
-      return json({ calendarEntry, ...(await readCrmData()) });
+      return json({ calendarEntry });
     }
 
     if (action === 'deleteCalendarEntry') {
@@ -531,7 +541,7 @@ async function handleCrmEvent(event) {
 
     if (action === 'saveLibraryEntry') {
       const libraryEntry = await saveLibraryEntry(body.entry);
-      return json({ libraryEntry, ...(await readCrmData()) });
+      return json({ libraryEntry });
     }
 
     if (action === 'deleteLibraryEntry') {
@@ -541,7 +551,7 @@ async function handleCrmEvent(event) {
 
     if (action === 'saveIntakeEnquiry') {
       const intakeEnquiry = await saveIntakeEnquiry(body.intake);
-      return json({ intakeEnquiry, ...(await readCrmData()) });
+      return json({ intakeEnquiry });
     }
 
     if (action === 'deleteIntakeEnquiry') {
@@ -551,13 +561,13 @@ async function handleCrmEvent(event) {
 
     if (action === 'convertIntakeToClient') {
       const result = await convertIntakeToClient(body.intakeId);
-      return json({ ...result, ...(await readCrmData()) });
+      return json({ ...result });
     }
 
 
     if (action === 'saveInstructionSet') {
       const instructionSet = await saveInstructionSet(body.instructionSet || {}, auth.user);
-      return json({ instructionSet, ...(await readCrmData()) });
+      return json({ instructionSet });
     }
 
     if (action === 'deleteInstructionSet') {
@@ -568,7 +578,7 @@ async function handleCrmEvent(event) {
     if (action === 'saveInstructionTemplateLibrary') {
       requireAdminAccess(accessContext, 'Instruction template management');
       const result = await saveInstructionTemplateLibrary(body.library || {}, body.versionEvent || null, auth.user);
-      return json({ instructionTemplateLibrary: result.library, instructionTemplateVersions: result.versions, ...(await readCrmData()) });
+      return json({ instructionTemplateLibrary: result.library, instructionTemplateVersions: result.versions });
     }
 
     if (action === 'getAgreementSet') {
@@ -582,7 +592,7 @@ async function handleCrmEvent(event) {
 
     if (action === 'saveAgreementSet') {
       const agreementSet = await saveAgreementSet(body.agreementSet || {}, auth.user);
-      return json({ agreementSet, ...(await readCrmData()) });
+      return json({ agreementSet });
     }
 
     if (action === 'deleteAgreementSet') {
@@ -593,12 +603,12 @@ async function handleCrmEvent(event) {
     if (action === 'saveAgreementTemplateLibrary') {
       requireAdminAccess(accessContext, 'Agreement template management');
       const result = await saveAgreementTemplateLibrary(body.library || {}, body.versionEvent || null, auth.user);
-      return json({ agreementTemplateLibrary: result.library, agreementTemplateVersions: result.versions, ...(await readCrmData()) });
+      return json({ agreementTemplateLibrary: result.library, agreementTemplateVersions: result.versions });
     }
 
     if (action === 'issueAgreementSet') {
       const result = await issueAgreementSet(body.agreementSet || {}, body.issue || {}, auth.user);
-      return json({ ...result, ...(await readCrmData()) });
+      return json({ ...result });
     }
 
     if (action === 'saveClient') {
@@ -638,17 +648,17 @@ async function handleCrmEvent(event) {
 
     if (action === 'sendTestEmail') {
       const emailLog = await sendTestEmail(body.email || {}, auth.user);
-      return json({ emailLog, ...(await readCrmData()) });
+      return json({ emailLog, emailConfig: getEmailConfigStatus() });
     }
 
     if (action === 'saveEmailTemplate') {
       const emailTemplate = await saveEmailTemplate(body.template || {}, auth.user);
-      return json({ emailTemplate, ...(await readCrmData()) });
+      return json({ emailTemplate });
     }
 
     if (action === 'resetEmailTemplate') {
       const emailTemplate = await resetEmailTemplate(body.templateKey || body.key || '', auth.user);
-      return json({ emailTemplate, ...(await readCrmData()) });
+      return json({ emailTemplate });
     }
 
     if (action === 'sendIntakeOutcomeEmail') {
@@ -678,7 +688,7 @@ async function handleCrmEvent(event) {
 
     if (action === 'saveSeminar') {
       const seminar = await saveSeminar(body.seminar || {});
-      return json({ seminar, ...(await readCrmData()) });
+      return json({ seminar });
     }
 
     if (action === 'deleteSeminar') {
@@ -688,12 +698,12 @@ async function handleCrmEvent(event) {
 
     if (action === 'saveSeminarRegistration') {
       const registration = await saveSeminarRegistration(body.registration || {}, auth.user);
-      return json({ seminarRegistration: registration, ...(await readCrmData()) });
+      return json({ seminarRegistration: registration });
     }
 
     if (action === 'saveFeedbackSubmission') {
       const feedbackSubmission = await saveFeedbackSubmission(body.feedback || {}, auth.user);
-      return json({ feedbackSubmission, ...(await readCrmData()) });
+      return json({ feedbackSubmission });
     }
 
     if (action === 'deleteFeedbackSubmission') {
@@ -709,7 +719,7 @@ async function handleCrmEvent(event) {
 
     if (action === 'saveConsultationType') {
       const consultationType = await saveConsultationType(body.consultationType || body.type || {});
-      return json({ consultationType, ...(await readCrmData()) });
+      return json({ consultationType });
     }
 
     if (action === 'deleteConsultationType') {
@@ -719,12 +729,13 @@ async function handleCrmEvent(event) {
 
     if (action === 'saveBookingAvailability') {
       const bookingAvailabilityItem = await saveBookingAvailability(body.availability || {});
-      return json({ bookingAvailabilityItem, ...(await readCrmData()) });
+      return json({ bookingAvailabilityItem });
     }
 
     if (action === 'saveBookingAvailabilityBulk') {
       await saveBookingAvailabilityBulk(body.availability || {});
-      return json(await readCrmData());
+      const rows = await db().sql`SELECT id, adviser_id, day_of_week, start_time, end_time, consultation_type_ids, active, created_at, updated_at FROM adviser_booking_availability ORDER BY adviser_id ASC, day_of_week ASC, start_time ASC`;
+      return json({ bookingAvailability: rows.map(mapBookingAvailabilityFromDb) });
     }
 
     if (action === 'deleteBookingAvailability') {
@@ -734,12 +745,13 @@ async function handleCrmEvent(event) {
 
     if (action === 'saveBookingBlock') {
       const bookingBlock = await saveBookingBlock(body.block || {});
-      return json({ bookingBlock, ...(await readCrmData()) });
+      return json({ bookingBlock });
     }
 
     if (action === 'saveBookingBlockBulk') {
       await saveBookingBlockBulk(body.block || {});
-      return json(await readCrmData());
+      const rows = await db().sql`SELECT id, adviser_id, block_date, start_time, end_time, all_day, reason, created_at, updated_at FROM adviser_booking_blocks ORDER BY block_date DESC, start_time ASC`;
+      return json({ bookingBlocks: rows.map(mapBookingBlockFromDb) });
     }
 
     if (action === 'deleteBookingBlock') {
@@ -749,7 +761,7 @@ async function handleCrmEvent(event) {
 
     if (action === 'saveBookingLink') {
       const bookingLink = await saveBookingLink(body.link || {});
-      return json({ bookingLink, ...(await readCrmData()) });
+      return json({ bookingLink });
     }
 
     if (action === 'deleteBookingLink') {
@@ -759,7 +771,7 @@ async function handleCrmEvent(event) {
 
     if (action === 'saveConsultationBooking') {
       const consultationBooking = await saveConsultationBooking(body.booking || {});
-      return json({ consultationBooking, ...(await readCrmData()) });
+      return json({ consultationBooking });
     }
 
     if (action === 'cancelConsultationBooking') {
@@ -769,7 +781,7 @@ async function handleCrmEvent(event) {
 
     if (action === 'saveCommercialClient') {
       const commercialClient = await saveCommercialClient(body.commercialClient || body.client || {}, auth.user);
-      return json({ commercialClient, ...(await readCrmData()) });
+      return json({ commercialClient });
     }
 
     if (action === 'deleteCommercialClient') {
@@ -780,57 +792,57 @@ async function handleCrmEvent(event) {
 
     if (action === 'saveCommercialPortalUser') {
       const commercialClient = await saveCommercialPortalUser(body.commercialClientId, body.portalUser || body.user || {}, auth.user);
-      return json({ commercialClient, ...(await readCrmData()) });
+      return json({ commercialClient });
     }
 
     if (action === 'deleteCommercialPortalUser') {
       const commercialClient = await deleteCommercialPortalUser(body.commercialClientId, body.portalUserId || body.userId, auth.user);
-      return json({ commercialClient, ...(await readCrmData()) });
+      return json({ commercialClient });
     }
 
     if (action === 'saveCommercialWorker') {
       const commercialClient = await saveCommercialWorker(body.commercialClientId, body.worker || {}, auth.user, 'CRM adviser');
-      return json({ commercialClient, ...(await readCrmData()) });
+      return json({ commercialClient });
     }
 
     if (action === 'importCommercialWorkers') {
       const result = await importCommercialWorkers(body.commercialClientId, body.workers || [], auth.user, 'CRM adviser');
-      return json({ ...result, ...(await readCrmData()) });
+      return json({ ...result });
     }
 
     if (action === 'archiveCommercialWorker') {
       const commercialClient = await archiveCommercialWorker(body.commercialClientId, body.workerId, auth.user, 'CRM adviser');
-      return json({ commercialClient, ...(await readCrmData()) });
+      return json({ commercialClient });
     }
 
     if (action === 'saveCommercialJobCheck') {
       const commercialClient = await saveCommercialJobCheck(body.commercialClientId, body.jobCheck || {}, auth.user, 'CRM adviser');
-      return json({ commercialClient, ...(await readCrmData()) });
+      return json({ commercialClient });
     }
 
     if (action === 'archiveCommercialJobCheck') {
       const commercialClient = await archiveCommercialJobCheck(body.commercialClientId, body.jobCheckId, auth.user, 'CRM adviser');
-      return json({ commercialClient, ...(await readCrmData()) });
+      return json({ commercialClient });
     }
 
     if (action === 'saveCommercialComplianceItem') {
       const commercialClient = await saveCommercialComplianceItem(body.commercialClientId, body.item || {}, auth.user, 'CRM adviser');
-      return json({ commercialClient, ...(await readCrmData()) });
+      return json({ commercialClient });
     }
 
     if (action === 'archiveCommercialComplianceItem') {
       const commercialClient = await archiveCommercialComplianceItem(body.commercialClientId, body.itemId, auth.user, 'CRM adviser');
-      return json({ commercialClient, ...(await readCrmData()) });
+      return json({ commercialClient });
     }
 
     if (action === 'saveCommercialDocument') {
       const commercialClient = await saveCommercialDocument(body.commercialClientId, body.document || {}, auth.user, 'CRM adviser');
-      return json({ commercialClient, ...(await readCrmData()) });
+      return json({ commercialClient });
     }
 
     if (action === 'deleteCommercialDocument') {
       const commercialClient = await deleteCommercialDocument(body.commercialClientId, body.documentId, auth.user, 'CRM adviser');
-      return json({ commercialClient, ...(await readCrmData()) });
+      return json({ commercialClient });
     }
 
     if (action === 'downloadIntakeUpload') {
@@ -1225,6 +1237,7 @@ async function ensureSchema() {
   await database.sql`ALTER TABLE intake_enquiries ADD COLUMN IF NOT EXISTS converted_client_id UUID REFERENCES clients(id) ON DELETE SET NULL`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_enquiries_status ON intake_enquiries(status)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_enquiries_created_at ON intake_enquiries(created_at DESC)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_enquiries_updated_at ON intake_enquiries(updated_at ASC)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_enquiries_assigned_adviser ON intake_enquiries(assigned_adviser_id)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_enquiries_email ON intake_enquiries(LOWER(email))`;
   await database.sql`
@@ -2361,6 +2374,29 @@ async function ensureConsultationBookingSchema(database = db()) {
 
 async function readIntakeEnquiries(database = db()) {
   const rows = await database.sql`SELECT id, status, assigned_adviser_id, applicant_first_name, applicant_last_name, email, phone, current_location, citizenship, date_of_birth, current_visa_type, current_visa_expiry, target_pathway, urgency, flags, raw_payload, adviser_assessment_notes, recommended_pathway, consultation_outcome, converted_client_id, created_at, updated_at FROM intake_enquiries ORDER BY created_at DESC`;
+  return rows.map(mapIntakeEnquiryFromDb);
+}
+
+function normaliseIntakeRefreshCursor(value) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  const parsed = new Date(text);
+  if (Number.isNaN(parsed.getTime())) return '';
+  // Do not accept a cursor materially in the future; a bad browser value should fall
+  // back to a full refresh rather than suppressing legitimate submissions.
+  if (parsed.getTime() > Date.now() + 5 * 60 * 1000) return '';
+  return parsed.toISOString();
+}
+
+async function readIntakeEnquiryUpdates(since, database = db()) {
+  const rows = await database.sql`
+    SELECT id, status, assigned_adviser_id, applicant_first_name, applicant_last_name, email, phone,
+           current_location, citizenship, date_of_birth, current_visa_type, current_visa_expiry,
+           target_pathway, urgency, flags, raw_payload, adviser_assessment_notes, recommended_pathway,
+           consultation_outcome, converted_client_id, created_at, updated_at
+      FROM intake_enquiries
+     WHERE updated_at > ${since}
+     ORDER BY updated_at ASC`;
   return rows.map(mapIntakeEnquiryFromDb);
 }
 

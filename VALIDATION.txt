@@ -1,16 +1,16 @@
-THiS CRM v0.15.11 validation
+THiS CRM v0.15.12 validation
 
 Checked
-- App.jsx JSX syntax/transpilation check passes.
-- Unified Client Record Editor components and styles are present.
-- Client Overview Edit actions open the unified editor at the requested section.
-- Unsaved-change protection and single Save client workflow are present.
-- Left client navigation retains operational workspaces while Family and Notes & strategy remain in the unified editor.
+- App.jsx parses successfully as JSX using the TypeScript parser.
 - netlify/functions/crm.mjs JavaScript syntax passes.
-- netlify/functions/agreement.mjs JavaScript syntax passes.
-- public/agreement-studio.js JavaScript syntax passes.
-- Agreement secure signatory refresh and signature display from v0.15.9 remain present.
-- Agreement targeted loading and lightweight list refresh from v0.15.10 remain present.
-- Agreement print CSS retains the v0.15.10 print-flow safeguards.
-- v0.15.11 cache-busting and service-worker references are present.
+- netlify/functions/intake.mjs JavaScript syntax passes.
+- Other Netlify function JavaScript syntax checks pass.
+- public Agreement, Instructions and Live Chat JavaScript syntax checks pass.
+- Intake refresh sends a server-issued cursor and delta requests merge changed records rather than replacing the complete intake list.
+- Explicit adviser Refresh requests a full intake reconciliation.
+- Intake updated_at index exists in runtime schema setup and migration 202608110001_add_intake_updated_at_index.sql.
+- Main day-to-day save routes return targeted mutation payloads instead of calling readCrmData().
+- Client partial-response merger covers the targeted save entity types.
+- Bulk booking availability and block saves return only their relevant collections.
+- v0.15.12 cache-busting and service-worker references are present.
 - ZIP integrity checked.

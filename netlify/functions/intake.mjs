@@ -280,6 +280,7 @@ async function ensureIntakeSchema() {
   `;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_enquiries_status ON intake_enquiries(status)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_enquiries_created_at ON intake_enquiries(created_at DESC)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_enquiries_updated_at ON intake_enquiries(updated_at ASC)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_enquiries_assigned_adviser ON intake_enquiries(assigned_adviser_id)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_enquiries_email ON intake_enquiries(LOWER(email))`;
 }

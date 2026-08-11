@@ -1,6 +1,6 @@
-THiS CRM v0.15.11 - LIVE CHAT DEPLOYMENT GUIDE
+THiS CRM v0.15.12 - LIVE CHAT DEPLOYMENT GUIDE
 
-1. Deploy the complete v0.15.11 package to the existing Netlify site.
+1. Deploy the complete v0.15.12 package to the existing Netlify site.
 
 2. Confirm the existing LIVE_CHAT_SESSION_SECRET remains configured for Functions and marked as containing secret values.
 
@@ -23,7 +23,7 @@ THiS CRM v0.15.11 - LIVE CHAT DEPLOYMENT GUIDE
    - email notification recipients.
 
 7. The existing Squarespace embed remains valid. The current generated version is:
-   <script src="https://thisvisacrm.netlify.app/live-chat-widget.js?v=0.15.11" data-title="Chat with us" defer></script>
+   <script src="https://thisvisacrm.netlify.app/live-chat-widget.js?v=0.15.12" data-title="Chat with us" defer></script>
 
 8. Test during open hours:
    - Start a website chat.

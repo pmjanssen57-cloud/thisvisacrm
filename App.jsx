@@ -1283,6 +1283,7 @@ export default function App() {
   const [recentClientIds, setRecentClientIds] = useState(() => safeJsonParse(localStorage.getItem('this_crm_recent_clients'), []));
   const crmConfirmResolverRef = useRef(null);
   const intakeRefreshInFlightRef = useRef(false);
+  const intakeRefreshCursorRef = useRef('');
   const dataRef = useRef(emptyData);
   const chatWaitingCountRef = useRef(-1);
   const chatRefreshRequestRef = useRef(0);
@@ -1488,7 +1489,9 @@ export default function App() {
       const nextData = normaliseData(body);
       dataRef.current = nextData;
       setData(nextData);
-      setLastIntakeRefreshAt(new Date().toISOString());
+      const intakeCursor = body.intakeRefreshCursor || new Date().toISOString();
+      intakeRefreshCursorRef.current = intakeCursor;
+      setLastIntakeRefreshAt(intakeCursor);
       setAuthRequired(false);
       if (!selectedClientId && body.clients?.[0]?.id) setSelectedClientId(body.clients[0].id);
       if (!selectedCommercialClientId && body.commercialClients?.[0]?.id) setSelectedCommercialClientId(body.commercialClients[0].id);
@@ -1545,16 +1548,18 @@ export default function App() {
   }, [crmToast]);
 
   async function refreshIntakeData(options = {}) {
-    const silent = options.silent !== false;
+    const silent = options.silent === true;
+    const full = options.full === true;
     if (intakeRefreshInFlightRef.current || authRequired || (!identityUser && !accessCode)) return null;
     intakeRefreshInFlightRef.current = true;
     if (!silent) setIntakeRefreshing(true);
     try {
+      const since = full ? '' : intakeRefreshCursorRef.current;
       const response = await fetch('/.netlify/functions/crm', {
         method: 'POST',
         headers: { 'content-type': 'application/json', ...authHeaders(accessCode, identityUser) },
         credentials: 'same-origin',
-        body: JSON.stringify({ action: 'getIntakeUpdates' }),
+        body: JSON.stringify({ action: 'getIntakeUpdates', ...(since ? { since } : {}) }),
       });
       if (response.status === 401) {
         setAuthRequired(true);
@@ -1566,10 +1571,25 @@ export default function App() {
       const current = dataRef.current || emptyData;
       const existingIds = new Set((current.intakeEnquiries || []).map((item) => String(item.id || '')));
       const newlyReceived = incoming.filter((item) => item.id && !existingIds.has(String(item.id)));
-      const nextData = { ...current, intakeEnquiries: incoming };
+
+      let nextIntakes;
+      if (body.mode === 'full' || full || !since) {
+        nextIntakes = incoming;
+      } else {
+        const changedById = new Map(incoming.filter((item) => item.id).map((item) => [String(item.id), item]));
+        nextIntakes = (current.intakeEnquiries || []).map((item) => changedById.get(String(item.id)) || item);
+        const known = new Set(nextIntakes.map((item) => String(item.id || '')));
+        for (const item of incoming) {
+          if (item.id && !known.has(String(item.id))) nextIntakes.unshift(item);
+        }
+      }
+
+      const nextData = { ...current, intakeEnquiries: nextIntakes };
       dataRef.current = nextData;
-      setData((latest) => ({ ...latest, intakeEnquiries: incoming }));
-      setLastIntakeRefreshAt(body.refreshedAt || new Date().toISOString());
+      setData((latest) => ({ ...latest, intakeEnquiries: nextIntakes }));
+      const refreshedAt = body.refreshedAt || new Date().toISOString();
+      intakeRefreshCursorRef.current = refreshedAt;
+      setLastIntakeRefreshAt(refreshedAt);
       if (newlyReceived.length) {
         const fullIntakes = newlyReceived.filter((item) => !isContactIntake(item)).length;
         const contacts = newlyReceived.length - fullIntakes;
@@ -1629,8 +1649,10 @@ export default function App() {
       if (!response.ok) throw new Error(formatApiError(body, 'CRM save failed'));
       if (!options.skipDataUpdate) {
         setData((current) => {
-          const next = normaliseData(body);
+          const isFullPayload = Array.isArray(body.clients) && Array.isArray(body.advisers);
+          const next = isFullPayload ? normaliseData(body) : mergePartialCrmResponse(current, body);
           if (!body.accessContext) next.accessContext = current.accessContext || {};
+          dataRef.current = next;
           return next;
         });
       }
@@ -6931,7 +6953,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
           )}
           <div className="intake-live-refresh-controls">
             <span title={lastIntakeRefreshAt ? formatPortalDateTime(lastIntakeRefreshAt) : 'Waiting for first refresh'}>Live refresh · {lastIntakeRefreshAt ? formatShortTime(lastIntakeRefreshAt) : 'checking'}</span>
-            <button className="btn enquiries-refresh-button" type="button" onClick={() => refreshIntakeData?.({ silent: false })} disabled={intakeRefreshing}>
+            <button className="btn enquiries-refresh-button" type="button" onClick={() => refreshIntakeData?.({ silent: false, full: true })} disabled={intakeRefreshing}>
               <RefreshCw size={15} className={intakeRefreshing ? 'spin' : ''} />{intakeRefreshing ? 'Refreshing...' : 'Refresh'}
             </button>
             <button className="btn enquiries-reset-button" type="button" onClick={clearSearch}>Reset filters</button>
@@ -9319,7 +9341,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const dayRows = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']];
-  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.15.11" data-title="Chat with us" defer><\/script>`;
+  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.15.12" data-title="Chat with us" defer><\/script>`;
 
   useEffect(() => {
     if (!open) return;
@@ -12547,7 +12569,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.15.11" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.15.12" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -13124,7 +13146,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.15.11" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.15.12" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}
@@ -17302,6 +17324,64 @@ function normaliseData(body) {
     securityMode: body.securityMode || 'unknown',
     accessContext: body.accessContext || {},
   };
+}
+
+
+function normaliseAdviserFromApi(adviser = {}) {
+  return {
+    ...adviser,
+    loginEmail: adviser.loginEmail || adviser.login_email || '',
+    accessRole: normaliseCrmAccessRole(adviser.accessRole || adviser.access_role),
+    availability: adviser.availability === 'Away' ? 'Away' : 'Available',
+    preferences: normaliseAdviserPreferences(adviser.preferences),
+  };
+}
+
+function upsertCrmItem(items = [], item = null) {
+  if (!item?.id) return items;
+  const found = items.some((entry) => String(entry.id || '') === String(item.id));
+  if (!found) return [item, ...items];
+  return items.map((entry) => String(entry.id || '') === String(item.id) ? item : entry);
+}
+
+function mergePartialCrmResponse(current = emptyData, body = {}) {
+  let next = { ...current };
+  if (body.adviser) next.advisers = upsertCrmItem(current.advisers || [], normaliseAdviserFromApi(body.adviser));
+  if (body.client) next.clients = upsertCrmItem(current.clients || [], normaliseClientFromApi(body.client, current.stageTemplates || DEFAULT_STAGE_TEMPLATES));
+  if (body.commercialClient) next.commercialClients = upsertCrmItem(current.commercialClients || [], normaliseCommercialClient(body.commercialClient));
+  if (body.personalTask) next.personalTasks = upsertCrmItem(current.personalTasks || [], normalisePersonalTask(body.personalTask));
+  if (body.calendarEntry) next.calendarEntries = upsertCrmItem(current.calendarEntries || [], normaliseCalendarEntry(body.calendarEntry));
+  if (body.libraryEntry) next.libraryEntries = upsertCrmItem(current.libraryEntries || [], normaliseLibraryEntry(body.libraryEntry));
+  if (body.intakeEnquiry) next.intakeEnquiries = upsertCrmItem(current.intakeEnquiries || [], normaliseIntakeEnquiry(body.intakeEnquiry));
+  if (body.instructionSet) next.instructionSets = upsertCrmItem(current.instructionSets || [], normaliseInstructionSet(body.instructionSet));
+  if (body.instructionTemplateLibrary && typeof body.instructionTemplateLibrary === 'object') next.instructionTemplateLibrary = body.instructionTemplateLibrary;
+  if (Array.isArray(body.instructionTemplateVersions)) next.instructionTemplateVersions = body.instructionTemplateVersions.map(normaliseInstructionTemplateVersion);
+  if (body.agreementSet) next.agreementSets = upsertCrmItem(current.agreementSets || [], normaliseAgreementSet(body.agreementSet));
+  if (body.agreementTemplateLibrary && typeof body.agreementTemplateLibrary === 'object') next.agreementTemplateLibrary = body.agreementTemplateLibrary;
+  if (Array.isArray(body.agreementTemplateVersions)) next.agreementTemplateVersions = body.agreementTemplateVersions.map(normaliseAgreementTemplateVersion);
+  if (body.emailLog) next.emailLogs = [normaliseEmailLog(body.emailLog), ...(current.emailLogs || []).filter((item) => item.id !== body.emailLog.id)].slice(0, 200);
+  if (body.emailTemplate) {
+    const emailTemplate = normaliseEmailTemplate(body.emailTemplate);
+    const templates = current.emailTemplates || [];
+    const found = templates.some((item) => item.key === emailTemplate.key);
+    next.emailTemplates = found
+      ? templates.map((item) => item.key === emailTemplate.key ? emailTemplate : item)
+      : [emailTemplate, ...templates];
+  }
+  if (body.seminar) next.seminars = upsertCrmItem(current.seminars || [], normaliseSeminar(body.seminar));
+  if (body.seminarRegistration) next.seminarRegistrations = upsertCrmItem(current.seminarRegistrations || [], normaliseSeminarRegistration(body.seminarRegistration));
+  if (Array.isArray(body.seminarRegistrations)) next.seminarRegistrations = body.seminarRegistrations.map(normaliseSeminarRegistration);
+  if (body.feedbackSubmission) next.feedbackSubmissions = upsertCrmItem(current.feedbackSubmissions || [], normaliseFeedbackSubmission(body.feedbackSubmission));
+  if (body.consultationType) next.consultationTypes = upsertCrmItem(current.consultationTypes || [], normaliseConsultationType(body.consultationType));
+  if (body.bookingAvailabilityItem) next.bookingAvailability = upsertCrmItem(current.bookingAvailability || [], normaliseBookingAvailability(body.bookingAvailabilityItem));
+  if (Array.isArray(body.bookingAvailability)) next.bookingAvailability = body.bookingAvailability.map(normaliseBookingAvailability);
+  if (body.bookingBlock) next.bookingBlocks = upsertCrmItem(current.bookingBlocks || [], normaliseBookingBlock(body.bookingBlock));
+  if (Array.isArray(body.bookingBlocks)) next.bookingBlocks = body.bookingBlocks.map(normaliseBookingBlock);
+  if (body.bookingLink) next.bookingLinks = upsertCrmItem(current.bookingLinks || [], normaliseBookingLink(body.bookingLink));
+  if (body.consultationBooking) next.consultationBookings = upsertCrmItem(current.consultationBookings || [], normaliseConsultationBooking(body.consultationBooking));
+  if (body.emailConfig) next.emailConfig = normaliseEmailConfig(body.emailConfig);
+  if (body.accessContext) next.accessContext = body.accessContext;
+  return next;
 }
 
 

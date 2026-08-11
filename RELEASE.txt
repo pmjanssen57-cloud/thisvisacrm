@@ -1,28 +1,19 @@
-THiS CRM v0.15.11 - Unified Client Editor + Agreement Hotfixes
+THiS CRM v0.15.12 - Netlify Efficiency Foundation
 
 Baseline
-- Built from v0.15.10 Agreement Load and Print Flow Hotfix.
-- Merges the v0.15.8 Unified Client Record Editor into the latest agreement-safe baseline.
+- Built from v0.15.11 Unified Client Editor + Agreement Hotfixes.
+- Retains the unified client editor, signed-agreement visibility, targeted agreement loading and corrected agreement PDF flow.
 
-Unified client record editor
-- Added one Edit client record drawer from the client header and Client Overview.
-- Personal details, contact information, matter/adviser allocation, family records, case strategy/internal notes and file references are edited in one place.
-- Sections use accordion-style expansion with concise collapsed summaries.
-- Changed sections are marked before save.
-- Edits are held together and committed with one Save client action.
-- Closing with unsaved changes provides discard protection.
-- Overview summary panels open the same editor directly at the relevant section.
-- Family and Notes & strategy are removed from the left client navigation because those details now belong to the unified client profile editor.
-- Actions, Documents, Stages, Key dates, Billing, Instructions, Agreements and Portal remain separate operational workspaces.
-- Closing/reopening a client remains a dedicated lifecycle action.
+Netlify efficiency changes
+- Routine intake/contact polling is now incremental. The CRM sends a server-issued cursor and receives only enquiries created or changed since the previous refresh.
+- A manual Refresh remains a full reconciliation when explicitly requested.
+- The delta cursor is captured server-side before each query so submissions arriving during a refresh are not missed.
+- Added an index on intake_enquiries.updated_at to keep delta queries efficient as the enquiry table grows.
+- Ordinary save operations no longer call readCrmData() and return the full practice dataset.
+- Client-side state now merges targeted mutation responses for advisers, preferences, tasks, calendar entries, library items, intakes, instruction sets/templates, agreements/templates, email templates, seminars, feedback, booking records and commercial-client records.
+- Bulk booking availability and blocked-time saves refresh only their relevant booking collections rather than the entire CRM.
 
-Agreement fixes retained
-- Signed agreements refresh their current secure signatory records when opened.
-- Accepted, partially signed and viewed status is visible in the Agreements workspace and Agreement Studio.
-- Captured electronic signatures, typed names, email addresses and acceptance timestamps remain visible and printable.
-- Accepted agreements remain locked against later edits.
-- Opening one agreement fetches only that agreement and its signatory records rather than the entire CRM dataset.
-- Agreement list refreshes use lightweight metadata and load large Studio snapshots only on demand.
-- Agreement print flow retains the physical-page safety reserve and avoids the blank-page / section-gap behaviour corrected in v0.15.10.
+Database
+- Includes migration 202608110001_add_intake_updated_at_index.sql. It adds an index only; no data transformation is required.
 
-No database migration, dependency or environment-variable changes.
+No dependency or environment-variable changes.
