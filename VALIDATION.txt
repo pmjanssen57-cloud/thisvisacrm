@@ -1,15 +1,16 @@
-THiS CRM v0.15.14 validation
+THiS CRM v0.15.15 validation
 
 Release focus
-- Blob-backed live-chat settings, conversation revisions and attention marker.
-- Delta visitor/staff message and event retrieval.
-- Hidden-tab/logged-out polling suppression.
-- Blob-cached stable CRM reference data.
-- Targeted mutation responses retained.
-- SQL/index housekeeping for high-frequency paths.
+- Newly added family rows are revealed inside the client editor scroll area.
+- The complete new row remains above the fixed editor footer.
+- The new family member name field receives focus.
+- v0.15.14 database-idle, live-chat and targeted-response behaviour is retained.
 
 Validation checklist
-- package version and cache-busting references are v0.15.14.
+- package version and cache-busting references are v0.15.15.
+- family-row reveal waits for the rendered layout before measuring the row.
+- reveal logic scrolls the client editor body rather than the locked page body.
+- spouse/partner and child additions use the same reveal-and-focus path.
 - public live-chat iframe remains lazy-loaded until opened.
 - public launcher visibility handling stops status timers while hidden.
 - visitor polling uses revision + after-message cursor and stops while hidden.
@@ -19,6 +20,7 @@ Validation checklist
 - readCrmData() is limited to initial/full reconciliation paths rather than routine mutations.
 - no SELECT * remains in normal crm.mjs/chat.mjs query paths.
 - migration 202608170001_optimize_idle_runtime_queries.sql is present.
+- no new migration is required for this interface-only fix.
 - Netlify/public JavaScript syntax checks pass.
 - App.jsx parses successfully as JSX.
 - PWA validation passes.

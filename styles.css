@@ -16649,6 +16649,7 @@ body.festive-mode-active {
   gap: 10px;
   align-items: center;
   width: 100%;
+  scroll-margin-block: 18px;
 }
 .client-details-accordion-body .editable-row.family-row .icon-btn {
   justify-self: center;

@@ -1,8 +1,13 @@
-THiS CRM v0.15.14 - Database Idle & Chat Runtime Optimisation
+THiS CRM v0.15.15 - Family Editor Expansion Fix
 
 Baseline
-- Built from v0.15.13 Family Editor Row Fix.
-- Retains the unified client editor, live-chat Contact/Intake handoff, Instructions Studio, signed-agreement visibility, targeted agreement loading, corrected agreement PDF flow and v0.15.12 targeted mutation responses.
+- Built from v0.15.14 Database Idle & Chat Runtime Optimisation.
+- Retains the full v0.15.14 CRM, database-idle optimisations, live chat, intake, portal, Instructions Studio and Agreement Studio functionality.
+
+Family editor fix
+- Adding a spouse/partner or child now reveals the newly created row inside the client editor's own scroll area.
+- The reveal waits for the expanded row layout to settle, keeps the full row above the fixed editor footer and focuses the new member's name field.
+- Existing family records, counts, age calculations, removal and save behaviour are unchanged.
 
 Database-idle optimisation
 - Public chat availability is served from cached Netlify Blob settings after cache warm-up.
@@ -26,7 +31,7 @@ CRM reference/query optimisation
 - Normal CRM/chat query paths no longer use SELECT *.
 - Added indexes for high-frequency chat queue/messages and common client stage/deadline/task/calendar/billing lookups.
 
-Database
+Database retained from v0.15.14
 - Includes migration 202608170001_optimize_idle_runtime_queries.sql.
 - Index-only migration; no data transformation.
 
@@ -35,4 +40,4 @@ Provider-side settings
 - If the database plan exposes a compute cap, test a maximum of one or two compute units and retain the lowest setting that provides acceptable performance.
 - These two settings are account-side and are not changed by the ZIP.
 
-No new dependency or environment-variable changes.
+No new migration, dependency or environment-variable changes.

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { acceptInvite, getUser, handleAuthCallback, login, logout, onAuthChange, requestPasswordRecovery, updateUser } from '@netlify/identity';
 import { AlertTriangle, ArrowUpDown, BookOpen, Building2, Calculator, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Clock, CloudSun, Copy, CreditCard, ClipboardList, Database, DollarSign, Download, ExternalLink, FileCheck2, FileSpreadsheet, FileText, Gift, Globe2, HelpCircle, KeyRound, LayoutDashboard, Link2, ListChecks, LockKeyhole, Mail, MessageSquare, MoreHorizontal, Phone, Pencil, Plus, RefreshCw, Save, Search, Send, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, UserRound, UsersRound, Wrench, X } from 'lucide-react';
 
@@ -9394,7 +9394,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const dayRows = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']];
-  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.15.14" data-title="Chat with us" defer><\/script>`;
+  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.15.15" data-title="Chat with us" defer><\/script>`;
 
   useEffect(() => {
     if (!open) return;
@@ -12622,7 +12622,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.15.14" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.15.15" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -13199,7 +13199,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.15.14" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.15.15" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}
@@ -16570,24 +16570,42 @@ function FamilyDetails({ members, addFamilyMember, updateFamilyMember, removeFam
   const familyRowsRef = useRef(null);
   const previousFamilyIdsRef = useRef(new Set(members.map((member) => String(member.id || ''))));
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const previousIds = previousFamilyIdsRef.current;
     const addedMember = members.find((member) => !previousIds.has(String(member.id || '')));
     previousFamilyIdsRef.current = new Set(members.map((member) => String(member.id || '')));
     if (!addedMember || typeof window === 'undefined') return undefined;
 
-    const frame = window.requestAnimationFrame(() => {
-      const rows = Array.from(familyRowsRef.current?.querySelectorAll('[data-family-member-id]') || []);
-      const row = rows.find((candidate) => candidate.dataset.familyMemberId === String(addedMember.id || ''));
-      if (!row) return;
-      row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      const nameInput = row.querySelector('[data-family-name-input]');
-      if (nameInput) {
-        try { nameInput.focus({ preventScroll: true }); } catch { nameInput.focus(); }
-      }
+    let revealFrame;
+    const layoutFrame = window.requestAnimationFrame(() => {
+      revealFrame = window.requestAnimationFrame(() => {
+        const rows = Array.from(familyRowsRef.current?.querySelectorAll('[data-family-member-id]') || []);
+        const row = rows.find((candidate) => candidate.dataset.familyMemberId === String(addedMember.id || ''));
+        if (!row) return;
+
+        const drawerBody = row.closest('.client-details-drawer-body');
+        if (drawerBody) {
+          const drawerRect = drawerBody.getBoundingClientRect();
+          const rowRect = row.getBoundingClientRect();
+          const topEdge = drawerRect.top + 12;
+          const bottomEdge = drawerRect.bottom - 18;
+          if (rowRect.bottom > bottomEdge) drawerBody.scrollTop += rowRect.bottom - bottomEdge;
+          else if (rowRect.top < topEdge) drawerBody.scrollTop -= topEdge - rowRect.top;
+        } else {
+          row.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+        }
+
+        const nameInput = row.querySelector('[data-family-name-input]');
+        if (nameInput) {
+          try { nameInput.focus({ preventScroll: true }); } catch { nameInput.focus(); }
+        }
+      });
     });
 
-    return () => window.cancelAnimationFrame(frame);
+    return () => {
+      window.cancelAnimationFrame(layoutFrame);
+      if (revealFrame) window.cancelAnimationFrame(revealFrame);
+    };
   }, [members]);
 
   return (

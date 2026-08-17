@@ -1,6 +1,12 @@
-# THiS CRM v0.15.14 - Database Idle & Chat Runtime Optimisation
+# THiS CRM v0.15.15 - Family Editor Expansion Fix
 
-This release is built from v0.15.13 and is focused on reducing unnecessary Postgres wake-ups, Netlify Function compute and bandwidth while preserving the current CRM, unified client editor, live chat, Instructions Studio and Agreement Studio functionality.
+This release is built from v0.15.14. It fixes the unified client editor so a newly added spouse/partner or child is immediately revealed and ready to edit, while retaining the database-idle, live-chat and CRM runtime optimisations from the previous release.
+
+## Family editor
+
+- Adding a spouse/partner or child expands the family content normally and moves the client editor's internal scroll area far enough to show the complete new row.
+- The new member's name field receives focus after layout has settled.
+- Existing family counts, age calculations, editing, removal and saving remain unchanged.
 
 ## Blob-backed live chat runtime
 
