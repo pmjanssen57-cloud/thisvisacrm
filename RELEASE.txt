@@ -1,19 +1,38 @@
-THiS CRM v0.15.12 - Netlify Efficiency Foundation
+THiS CRM v0.15.14 - Database Idle & Chat Runtime Optimisation
 
 Baseline
-- Built from v0.15.11 Unified Client Editor + Agreement Hotfixes.
-- Retains the unified client editor, signed-agreement visibility, targeted agreement loading and corrected agreement PDF flow.
+- Built from v0.15.13 Family Editor Row Fix.
+- Retains the unified client editor, live-chat Contact/Intake handoff, Instructions Studio, signed-agreement visibility, targeted agreement loading, corrected agreement PDF flow and v0.15.12 targeted mutation responses.
 
-Netlify efficiency changes
-- Routine intake/contact polling is now incremental. The CRM sends a server-issued cursor and receives only enquiries created or changed since the previous refresh.
-- A manual Refresh remains a full reconciliation when explicitly requested.
-- The delta cursor is captured server-side before each query so submissions arriving during a refresh are not missed.
-- Added an index on intake_enquiries.updated_at to keep delta queries efficient as the enquiry table grows.
-- Ordinary save operations no longer call readCrmData() and return the full practice dataset.
-- Client-side state now merges targeted mutation responses for advisers, preferences, tasks, calendar entries, library items, intakes, instruction sets/templates, agreements/templates, email templates, seminars, feedback, booking records and commercial-client records.
-- Bulk booking availability and blocked-time saves refresh only their relevant booking collections rather than the entire CRM.
+Database-idle optimisation
+- Public chat availability is served from cached Netlify Blob settings after cache warm-up.
+- Closed website widgets do not load the visitor iframe; their lightweight launcher check no longer needs Postgres once the settings cache exists.
+- Per-conversation Blob revision markers allow unchanged visitor/adviser chat checks to finish without Postgres.
+- Practice-level Blob attention marker tracks waiting/active/unread chat state without querying the conversation tables on every badge check.
+- Visitor and adviser clients retrieve only messages/events newer than their existing cursors.
+- Chat settings and adviser lookup data are cached outside the transactional query path.
+- Chat runtime markers are refreshed after all chat mutations.
+
+Polling behaviour
+- Public launcher status checking stops when the page is hidden.
+- Visitor message polling stops when hidden.
+- CRM chat polling stops when hidden and when the user is logged out.
+- Existing schedule-aware sleep remains active outside chat hours when no waiting/active conversations exist.
+
+CRM reference/query optimisation
+- Advisers, email templates, Instructions templates, Agreement templates and consultation types are Blob-cached for the main CRM loader.
+- Cache entries are invalidated/refreshed by their relevant save/delete actions.
+- Routine save/delete actions use targeted responses rather than full CRM reloads.
+- Normal CRM/chat query paths no longer use SELECT *.
+- Added indexes for high-frequency chat queue/messages and common client stage/deadline/task/calendar/billing lookups.
 
 Database
-- Includes migration 202608110001_add_intake_updated_at_index.sql. It adds an index only; no data transformation is required.
+- Includes migration 202608170001_optimize_idle_runtime_queries.sql.
+- Index-only migration; no data transformation.
 
-No dependency or environment-variable changes.
+Provider-side settings
+- Keep database sleep-on-inactivity at five minutes.
+- If the database plan exposes a compute cap, test a maximum of one or two compute units and retain the lowest setting that provides acceptable performance.
+- These two settings are account-side and are not changed by the ZIP.
+
+No new dependency or environment-variable changes.

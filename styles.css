@@ -16638,3 +16638,40 @@ body.festive-mode-active {
 .client-record-summary-copy > strong { color: var(--ink); font-size: .83rem; line-height: 1.35; overflow-wrap: anywhere; }
 .client-record-summary-copy > small { color: var(--muted); font-size: .69rem; line-height: 1.35; overflow-wrap: anywhere; }
 .client-record-summary-section > .btn { flex: 0 0 auto; min-height: 31px; }
+
+/* v0.15.13 - unified client editor family rows */
+.client-details-accordion-body .family-member-rows {
+  display: grid;
+  gap: 12px;
+}
+.client-details-accordion-body .editable-row.family-row {
+  grid-template-columns: minmax(135px, .8fr) minmax(175px, 1.15fr) minmax(155px, 1fr) minmax(145px, .9fr) 92px 42px;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+}
+.client-details-accordion-body .editable-row.family-row .icon-btn {
+  justify-self: center;
+}
+.client-details-accordion-body .editable-row.family-row:focus-within {
+  border-radius: 14px;
+  background: #fbfffd;
+}
+@media (max-width: 960px) {
+  .client-details-accordion-body .editable-row.family-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 10px 0;
+    border-bottom: 1px solid #e3ece9;
+  }
+  .client-details-accordion-body .editable-row.family-row .age-pill {
+    justify-self: stretch;
+  }
+  .client-details-accordion-body .editable-row.family-row .icon-btn {
+    justify-self: start;
+  }
+}
+@media (max-width: 620px) {
+  .client-details-accordion-body .editable-row.family-row {
+    grid-template-columns: 1fr;
+  }
+}

@@ -86,7 +86,7 @@
   function ensureIframe() {
     if (iframeLoaded) return;
     const url = new URL(`${baseUrl}/live-chat.html`);
-    url.searchParams.set('v', '0.15.12');
+    url.searchParams.set('v', '0.15.14');
     url.searchParams.set('parentOrigin', parentOrigin);
     url.searchParams.set('page', window.location.href);
     iframe.src = url.toString();
@@ -109,6 +109,7 @@
 
   async function refreshLauncherStatus() {
     window.clearTimeout(statusTimer);
+    if (document.visibilityState !== 'visible') return;
     if (statusLoading) {
       statusRerun = true;
       return;
@@ -133,7 +134,7 @@
         statusRerun = false;
         statusTimer = window.setTimeout(refreshLauncherStatus, 250);
       } else {
-        statusTimer = window.setTimeout(refreshLauncherStatus, document.visibilityState === 'visible' ? 300000 : 900000);
+        if (document.visibilityState === 'visible') statusTimer = window.setTimeout(refreshLauncherStatus, 300000);
       }
     }
   }
@@ -153,6 +154,7 @@
     }
   });
   document.addEventListener('visibilitychange', () => {
+    window.clearTimeout(statusTimer);
     if (document.visibilityState === 'visible') refreshLauncherStatus();
   });
   refreshLauncherStatus();

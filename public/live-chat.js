@@ -16,6 +16,7 @@
   let messages = [];
   let pollTimer = null;
   let messageCursor = '';
+  let conversationRevision = '';
   let unreadWhileClosed = 0;
   let widgetOpen = false;
 
@@ -131,6 +132,7 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
       conversation = mergeConversation(result.conversation);
       messages = result.messages || [];
+      conversationRevision = result.revision || '';
       renderConversation(result.mode === 'offline');
       schedulePoll();
     } catch (error) {
@@ -207,6 +209,7 @@
     try {
       const result = await api('/.netlify/functions/chat', { method: 'POST', headers: { 'x-chat-token': session.token }, body: JSON.stringify({ action: 'send', token: session.token, message: text }) });
       messages.push(result.message);
+      if (result.revision) conversationRevision = result.revision;
       textarea.value = '';
       renderMessages();
     } catch (error) {
@@ -222,6 +225,7 @@
     try {
       const result = await api('/.netlify/functions/chat', { method: 'POST', headers: { 'x-chat-token': session.token }, body: JSON.stringify({ action: 'closeVisitor', token: session.token }) });
       conversation = mergeConversation(result.conversation);
+      if (result.revision) conversationRevision = result.revision;
       renderConversation();
       stopPolling();
     } catch (error) {
@@ -232,8 +236,10 @@
   async function pollConversation(initial = false) {
     if (!session?.token) return;
     const after = !initial && messageCursor ? `&after=${encodeURIComponent(messageCursor)}` : '';
-    const adviserId = conversation?.assignedAdviserId ? `&adviserId=${encodeURIComponent(conversation.assignedAdviserId)}` : '';
-    const result = await api(`/.netlify/functions/chat?action=poll&token=${encodeURIComponent(session.token)}${after}${adviserId}`);
+    const revision = conversationRevision ? `&revision=${encodeURIComponent(conversationRevision)}` : '';
+    const result = await api(`/.netlify/functions/chat?action=poll&token=${encodeURIComponent(session.token)}${after}${revision}`);
+    if (result.revision) conversationRevision = result.revision;
+    if (result.unchanged) return;
     const previousIds = new Set(messages.map((item) => item.id));
     const incoming = result.messages || [];
     const previousStatus = conversation?.status || '';
@@ -264,8 +270,10 @@
 
   function schedulePoll() {
     stopPolling();
-    if (!session?.token || conversation?.status === 'Closed') return;
-    const delay = document.visibilityState !== 'visible' ? 15000 : widgetOpen ? 3000 : 12000;
+    if (!session?.token || conversation?.status === 'Closed' || document.visibilityState !== 'visible') return;
+    // When the panel is closed these checks hit only the Blob conversation marker.
+    // Postgres is queried only after that marker reports a real conversation change.
+    const delay = widgetOpen ? 3000 : 12000;
     pollTimer = window.setInterval(() => pollConversation(false).catch(() => {}), delay);
   }
   function stopPolling() { if (pollTimer) window.clearInterval(pollTimer); pollTimer = null; }
@@ -353,7 +361,7 @@
       return value;
     } catch { return null; }
   }
-  function clearSession() { localStorage.removeItem(STORAGE_KEY); session = null; messageCursor = ''; stopPolling(); }
+  function clearSession() { localStorage.removeItem(STORAGE_KEY); session = null; messageCursor = ''; conversationRevision = ''; stopPolling(); }
   function parentMessage(payload) { try { window.parent.postMessage(payload, parentOrigin); } catch { window.parent.postMessage(payload, '*'); } }
   function formatTime(value) { const date = new Date(value); return Number.isNaN(date.getTime()) ? '' : new Intl.DateTimeFormat('en-NZ', { hour: 'numeric', minute: '2-digit' }).format(date); }
   function escapeHtml(value) { return String(value || '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char])); }

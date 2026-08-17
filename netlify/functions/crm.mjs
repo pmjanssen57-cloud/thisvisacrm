@@ -2,6 +2,7 @@ import { getDatabase } from '@netlify/database';
 import { getStore } from '@netlify/blobs';
 import crypto from 'node:crypto';
 import { getUser } from '@netlify/identity';
+import { CRM_REFERENCE_STORE, readCacheJson, writeCacheJson, deleteCacheKey } from './_runtime-cache.mjs';
 
 const STAGE_TEMPLATES = [
   { id: 'instruction-sent', label: 'Instruction Sent', mandatory: true, sortOrder: 1 },
@@ -72,6 +73,11 @@ const PORTAL_RESOURCE_KEYS = ['jobSearchCv', 'lifeInNz', 'usefulLinks', 'relocat
 const PORTAL_DOCUMENT_STORE = 'client-portal-documents';
 const INTAKE_UPLOAD_STORE = 'intake-uploads';
 const COMMERCIAL_DOCUMENT_STORE = 'commercial-documents';
+const CRM_ADVISER_CACHE_KEY = 'advisers-v1';
+const CRM_EMAIL_TEMPLATE_CACHE_KEY = 'email-templates-v1';
+const CRM_INSTRUCTION_LIBRARY_CACHE_KEY = 'instruction-template-library-v1';
+const CRM_AGREEMENT_LIBRARY_CACHE_KEY = 'agreement-template-library-v1';
+const CRM_CONSULTATION_TYPE_CACHE_KEY = 'consultation-types-v1';
 const CONSULTATION_BOOKING_STATUSES = ['Reserved', 'Confirmed', 'Cancelled', 'Completed', 'No-show'];
 const CONSULTATION_LINK_STATUSES = ['Active', 'Used', 'Expired', 'Cancelled'];
 const DEFAULT_CONSULTATION_TYPES = [
@@ -499,12 +505,14 @@ async function handleCrmEvent(event) {
     if (action === 'seed') {
       requireAdminAccess(accessContext, 'Seed sample data');
       await seedSampleData();
+      await invalidateAllCrmReferences();
       return json({ ...(await readCrmData()), accessContext });
     }
 
     if (action === 'saveAdviser') {
       requireAdminAccess(accessContext, 'Adviser management');
       const adviser = await saveAdviser(body.adviser);
+      await invalidateCrmReference(CRM_ADVISER_CACHE_KEY);
       const refreshedAccessContext = await resolveCrmAccess(auth);
       return json({ adviser, accessContext: refreshedAccessContext });
     }
@@ -516,6 +524,7 @@ async function handleCrmEvent(event) {
         throw error;
       }
       const adviser = await saveAdviserPreferences(accessContext.adviserId, body.preferences);
+      await invalidateCrmReference(CRM_ADVISER_CACHE_KEY);
       return json({ adviser, accessContext });
     }
 
@@ -526,7 +535,7 @@ async function handleCrmEvent(event) {
 
     if (action === 'deletePersonalTask') {
       await deletePersonalTask(body.taskId);
-      return json(await readCrmData());
+      return json({ deletedPersonalTaskId: body.taskId });
     }
 
     if (action === 'saveCalendarEntry') {
@@ -536,7 +545,7 @@ async function handleCrmEvent(event) {
 
     if (action === 'deleteCalendarEntry') {
       await deleteCalendarEntry(body.entryId);
-      return json(await readCrmData());
+      return json({ deletedCalendarEntryId: body.entryId });
     }
 
     if (action === 'saveLibraryEntry') {
@@ -546,7 +555,7 @@ async function handleCrmEvent(event) {
 
     if (action === 'deleteLibraryEntry') {
       await deleteLibraryEntry(body.entryId);
-      return json(await readCrmData());
+      return json({ deletedLibraryEntryId: body.entryId });
     }
 
     if (action === 'saveIntakeEnquiry') {
@@ -556,7 +565,7 @@ async function handleCrmEvent(event) {
 
     if (action === 'deleteIntakeEnquiry') {
       await deleteIntakeEnquiry(body.intakeId);
-      return json(await readCrmData());
+      return json({ deletedIntakeEnquiryId: body.intakeId });
     }
 
     if (action === 'convertIntakeToClient') {
@@ -572,12 +581,13 @@ async function handleCrmEvent(event) {
 
     if (action === 'deleteInstructionSet') {
       await deleteInstructionSet(body.instructionSetId);
-      return json(await readCrmData());
+      return json({ deletedInstructionSetId: body.instructionSetId });
     }
 
     if (action === 'saveInstructionTemplateLibrary') {
       requireAdminAccess(accessContext, 'Instruction template management');
       const result = await saveInstructionTemplateLibrary(body.library || {}, body.versionEvent || null, auth.user);
+      await writeCacheJson(CRM_REFERENCE_STORE, CRM_INSTRUCTION_LIBRARY_CACHE_KEY, result.library, { silent: true });
       return json({ instructionTemplateLibrary: result.library, instructionTemplateVersions: result.versions });
     }
 
@@ -597,12 +607,13 @@ async function handleCrmEvent(event) {
 
     if (action === 'deleteAgreementSet') {
       await deleteAgreementSet(body.agreementSetId);
-      return json(await readCrmData());
+      return json({ deletedAgreementSetId: body.agreementSetId });
     }
 
     if (action === 'saveAgreementTemplateLibrary') {
       requireAdminAccess(accessContext, 'Agreement template management');
       const result = await saveAgreementTemplateLibrary(body.library || {}, body.versionEvent || null, auth.user);
+      await writeCacheJson(CRM_REFERENCE_STORE, CRM_AGREEMENT_LIBRARY_CACHE_KEY, result.library, { silent: true });
       return json({ agreementTemplateLibrary: result.library, agreementTemplateVersions: result.versions });
     }
 
@@ -618,7 +629,7 @@ async function handleCrmEvent(event) {
 
     if (action === 'updatePortalMessageStatus') {
       await updatePortalMessageStatus(body.clientId, body.messageId, body.status);
-      return json(await readCrmData());
+      return json({ client: await readSingleClient(body.clientId) });
     }
 
     if (action === 'uploadPortalDocument') {
@@ -643,7 +654,7 @@ async function handleCrmEvent(event) {
 
     if (action === 'deleteClient') {
       await deleteClient(body.clientId);
-      return json(await readCrmData());
+      return json({ deletedClientId: body.clientId });
     }
 
     if (action === 'sendTestEmail') {
@@ -653,11 +664,13 @@ async function handleCrmEvent(event) {
 
     if (action === 'saveEmailTemplate') {
       const emailTemplate = await saveEmailTemplate(body.template || {}, auth.user);
+      await invalidateCrmReference(CRM_EMAIL_TEMPLATE_CACHE_KEY);
       return json({ emailTemplate });
     }
 
     if (action === 'resetEmailTemplate') {
       const emailTemplate = await resetEmailTemplate(body.templateKey || body.key || '', auth.user);
+      await invalidateCrmReference(CRM_EMAIL_TEMPLATE_CACHE_KEY);
       return json({ emailTemplate });
     }
 
@@ -693,7 +706,7 @@ async function handleCrmEvent(event) {
 
     if (action === 'deleteSeminar') {
       await deleteSeminar(body.seminarId);
-      return json(await readCrmData());
+      return json({ deletedSeminarId: body.seminarId });
     }
 
     if (action === 'saveSeminarRegistration') {
@@ -708,23 +721,29 @@ async function handleCrmEvent(event) {
 
     if (action === 'deleteFeedbackSubmission') {
       await deleteFeedbackSubmission(body.feedbackId);
-      return json(await readCrmData());
+      return json({ deletedFeedbackSubmissionId: body.feedbackId });
     }
 
     if (action === 'sendSeminarRegistrationEmail') {
       const emailLog = await sendSeminarRegistrationEmail(body.registrationId, body.outcome || 'approve', auth.user);
-      const data = await readCrmData();
-      return json({ emailLog, seminarRegistrations: data.seminarRegistrations, emailConfig: getEmailConfigStatus() });
+      const rows = await db().sql`SELECT id, seminar_id, status, full_name, date_of_birth, citizenship_country, residence_country, timezone, email, partnership_status, highest_qualification, current_occupation, work_history, health_character_issues, english_ability, raw_payload, reviewed_by, approved_at, declined_at, created_at, updated_at FROM seminar_registrations WHERE id = ${body.registrationId} LIMIT 1`;
+      return json({ emailLog, seminarRegistration: rows[0] ? mapSeminarRegistrationFromDb(rows[0]) : null, emailConfig: getEmailConfigStatus() });
     }
 
     if (action === 'saveConsultationType') {
       const consultationType = await saveConsultationType(body.consultationType || body.type || {});
+      await invalidateCrmReference(CRM_CONSULTATION_TYPE_CACHE_KEY);
       return json({ consultationType });
     }
 
     if (action === 'deleteConsultationType') {
-      await deleteConsultationType(body.consultationTypeId || body.typeId);
-      return json(await readCrmData());
+      const deletedConsultationTypeId = body.consultationTypeId || body.typeId;
+      await deleteConsultationType(deletedConsultationTypeId);
+      await invalidateCrmReference(CRM_CONSULTATION_TYPE_CACHE_KEY);
+      const rows = await db().sql`SELECT id, name, duration_minutes, price_nzd, paid, description, active, sort_order, buffer_minutes, created_at, updated_at FROM consultation_types ORDER BY sort_order ASC, name ASC`;
+      const consultationTypes = rows.map(mapConsultationTypeFromDb);
+      await writeCacheJson(CRM_REFERENCE_STORE, CRM_CONSULTATION_TYPE_CACHE_KEY, consultationTypes, { silent: true });
+      return json({ consultationTypes, deletedConsultationTypeId });
     }
 
     if (action === 'saveBookingAvailability') {
@@ -740,7 +759,7 @@ async function handleCrmEvent(event) {
 
     if (action === 'deleteBookingAvailability') {
       await deleteBookingAvailability(body.availabilityId);
-      return json(await readCrmData());
+      return json({ deletedBookingAvailabilityId: body.availabilityId });
     }
 
     if (action === 'saveBookingBlock') {
@@ -756,7 +775,7 @@ async function handleCrmEvent(event) {
 
     if (action === 'deleteBookingBlock') {
       await deleteBookingBlock(body.blockId);
-      return json(await readCrmData());
+      return json({ deletedBookingBlockId: body.blockId });
     }
 
     if (action === 'saveBookingLink') {
@@ -766,7 +785,7 @@ async function handleCrmEvent(event) {
 
     if (action === 'deleteBookingLink') {
       await deleteBookingLink(body.linkId);
-      return json(await readCrmData());
+      return json({ deletedBookingLinkId: body.linkId });
     }
 
     if (action === 'saveConsultationBooking') {
@@ -776,7 +795,7 @@ async function handleCrmEvent(event) {
 
     if (action === 'cancelConsultationBooking') {
       const result = await cancelConsultationBooking(body.bookingId || body.id, auth.user);
-      return json({ ...result, ...(await readCrmData()), emailConfig: getEmailConfigStatus() });
+      return json({ ...result, emailConfig: getEmailConfigStatus() });
     }
 
     if (action === 'saveCommercialClient') {
@@ -786,8 +805,9 @@ async function handleCrmEvent(event) {
 
     if (action === 'deleteCommercialClient') {
       requireAdminAccess(accessContext, 'Delete commercial client');
-      await deleteCommercialClient(body.commercialClientId || body.clientId);
-      return json(await readCrmData());
+      const deletedCommercialClientId = body.commercialClientId || body.clientId;
+      await deleteCommercialClient(deletedCommercialClientId);
+      return json({ deletedCommercialClientId });
     }
 
     if (action === 'saveCommercialPortalUser') {
@@ -1840,13 +1860,13 @@ function mapCommercialClient(row = {}, portalUsers = [], workers = [], jobChecks
 
 async function readCommercialClients(database = db()) {
   const [clients, portalUsers, workers, jobChecks, complianceItems, documents, auditLog] = await Promise.all([
-    database.sql`SELECT * FROM commercial_clients ORDER BY updated_at DESC, legal_name ASC`,
-    database.sql`SELECT * FROM commercial_portal_users ORDER BY active DESC, name ASC`,
-    database.sql`SELECT * FROM commercial_workers ORDER BY status ASC, visa_expiry_date ASC NULLS LAST, full_name ASC`,
-    database.sql`SELECT * FROM commercial_job_checks ORDER BY status ASC, expiry_date ASC NULLS LAST, role_title ASC`,
-    database.sql`SELECT * FROM commercial_compliance_items ORDER BY status ASC, due_date ASC NULLS LAST, created_at DESC`,
-    database.sql`SELECT * FROM commercial_documents ORDER BY expiry_date ASC NULLS LAST, created_at DESC`,
-    database.sql`SELECT * FROM commercial_audit_log ORDER BY created_at DESC LIMIT 1000`,
+    database.sql`SELECT id, legal_name, trading_name, nzbn, company_number, industry, business_description, address, primary_contact_name, primary_contact_email, primary_contact_phone, primary_adviser_id, backup_adviser_id, client_status, sharepoint_folder_url, one_law_client_number, accreditation_type, accreditation_status, accreditation_approval_date, accreditation_expiry_date, accreditation_renewal_date, accreditation_notes, compliance_summary, internal_notes, portal_enabled, reminder_notifications_enabled, portal_last_accessed_at, created_at, updated_at FROM commercial_clients ORDER BY updated_at DESC, legal_name ASC`,
+    database.sql`SELECT id, commercial_client_id, name, email, role, active, access_code_hash, last_accessed_at, created_at, updated_at FROM commercial_portal_users ORDER BY active DESC, name ASC`,
+    database.sql`SELECT id, commercial_client_id, full_name, email, phone, job_title, work_location, visa_type, visa_start_date, visa_expiry_date, passport_expiry_date, employment_start_date, employment_end_date, hours_per_week, pay_rate, job_check_reference, job_check_id, visa_conditions, responsible_manager, status, adviser_review_status, employer_notes, internal_notes, created_by, updated_by, created_at, updated_at FROM commercial_workers ORDER BY status ASC, visa_expiry_date ASC NULLS LAST, full_name ASC`,
+    database.sql`SELECT id, commercial_client_id, reference_number, role_title, skill_level, work_location, pay_rate_min, pay_rate_max, pay_frequency, positions_approved, positions_used, issue_date, expiry_date, status, employer_notes, internal_notes, adviser_review_status, created_by, updated_by, created_at, updated_at FROM commercial_job_checks ORDER BY status ASC, expiry_date ASC NULLS LAST, role_title ASC`,
+    database.sql`SELECT id, commercial_client_id, worker_id, title, category, status, due_date, completed_date, employer_notes, internal_notes, adviser_review_status, created_by, updated_by, created_at, updated_at FROM commercial_compliance_items ORDER BY status ASC, due_date ASC NULLS LAST, created_at DESC`,
+    database.sql`SELECT id, commercial_client_id, worker_id, title, category, document_url, blob_key, file_name, mime_type, size_bytes, uploaded_by_type, expiry_date, notes, visible_to_employer, created_by, created_at, updated_at FROM commercial_documents ORDER BY expiry_date ASC NULLS LAST, created_at DESC`,
+    database.sql`SELECT id, commercial_client_id, record_type, record_id, action, changed_by, changed_by_type, summary, changes, created_at FROM commercial_audit_log ORDER BY created_at DESC LIMIT 1000`,
   ]);
   return clients.map((row) => mapCommercialClient(row, portalUsers, workers, jobChecks, complianceItems, documents, auditLog));
 }
@@ -2750,11 +2770,54 @@ function normaliseJsonObject(value) {
   return value;
 }
 
+
+async function cachedReference(key, loader) {
+  const cached = await readCacheJson(CRM_REFERENCE_STORE, key, { silent: true });
+  if (cached !== null && cached !== undefined) return cached;
+  const value = await loader();
+  await writeCacheJson(CRM_REFERENCE_STORE, key, value, { silent: true });
+  return value;
+}
+
+async function readCachedCrmReferences(database = db()) {
+  const [advisers, emailTemplates, instructionTemplateLibrary, agreementTemplateLibrary, consultationTypes] = await Promise.all([
+    cachedReference(CRM_ADVISER_CACHE_KEY, async () => {
+      const rows = await database.sql`SELECT id, name, role, email, login_email, access_role, profile_photo_url, availability_status, phone, licence, active, preferences FROM advisers ORDER BY name ASC`;
+      return rows.map(mapAdviserFromDb);
+    }),
+    cachedReference(CRM_EMAIL_TEMPLATE_CACHE_KEY, async () => getEmailTemplates(database)),
+    cachedReference(CRM_INSTRUCTION_LIBRARY_CACHE_KEY, async () => {
+      const rows = await database.sql`SELECT library_json FROM instruction_template_library WHERE id = 'master' LIMIT 1`;
+      return rows[0]?.library_json || {};
+    }),
+    cachedReference(CRM_AGREEMENT_LIBRARY_CACHE_KEY, async () => {
+      const rows = await database.sql`SELECT library_json FROM agreement_template_library WHERE id = 'master' LIMIT 1`;
+      return rows[0]?.library_json || {};
+    }),
+    cachedReference(CRM_CONSULTATION_TYPE_CACHE_KEY, async () => {
+      const rows = await database.sql`SELECT id, name, duration_minutes, price_nzd, paid, description, active, sort_order, buffer_minutes, created_at, updated_at FROM consultation_types ORDER BY sort_order ASC, name ASC`;
+      return rows.map(mapConsultationTypeFromDb);
+    }),
+  ]);
+  return { advisers, emailTemplates, instructionTemplateLibrary, agreementTemplateLibrary, consultationTypes };
+}
+
+async function invalidateCrmReference(key) {
+  await deleteCacheKey(CRM_REFERENCE_STORE, key, { silent: true });
+}
+
+async function invalidateAllCrmReferences() {
+  await Promise.all([
+    CRM_ADVISER_CACHE_KEY, CRM_EMAIL_TEMPLATE_CACHE_KEY, CRM_INSTRUCTION_LIBRARY_CACHE_KEY,
+    CRM_AGREEMENT_LIBRARY_CACHE_KEY, CRM_CONSULTATION_TYPE_CACHE_KEY,
+  ].map((key) => invalidateCrmReference(key)));
+}
+
 async function readCrmData() {
   const database = db();
   await pruneOldEmailNotifications(database);
-  const [advisers, clients, stages, deadlines, billing, personalTasks, calendarEntries, libraryEntries, portalMessages, portalDocuments, intakeEnquiries, seminars, seminarRegistrations, feedbackSubmissions, emailLogs, emailTemplates, consultationTypes, bookingAvailability, bookingBlocks, bookingLinks, consultationBookings, instructionSets, instructionTemplateLibraryRows, instructionTemplateVersions, agreementSets, agreementTemplateLibraryRows, agreementTemplateVersions] = await Promise.all([
-    database.sql`SELECT id, name, role, email, login_email, access_role, profile_photo_url, availability_status, phone, licence, active, preferences FROM advisers ORDER BY name ASC`,
+  const referencePromise = readCachedCrmReferences(database);
+  const [clients, stages, deadlines, billing, personalTasks, calendarEntries, libraryEntries, portalMessages, portalDocuments, intakeEnquiries, seminars, seminarRegistrations, feedbackSubmissions, emailLogs, bookingAvailability, bookingBlocks, bookingLinks, consultationBookings, instructionSets, instructionTemplateVersions, agreementSets, agreementTemplateVersions] = await Promise.all([
     database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, one_law_client_number, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, portal_enabled, portal_email, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_resource_settings, portal_access_code_hash, portal_last_published_at, portal_last_accessed_at, notes, family_members, document_checklist FROM clients ORDER BY updated_at DESC`,
     database.sql`SELECT id, client_id, stage_key, stage_label, mandatory, applied, completed, completed_date, sort_order FROM client_stages ORDER BY sort_order ASC`,
     database.sql`SELECT id, client_id, deadline_type, deadline_date, note, action_status, review_date FROM client_deadlines ORDER BY deadline_date ASC NULLS LAST`,
@@ -2769,34 +2832,30 @@ async function readCrmData() {
     database.sql`SELECT id, seminar_id, status, full_name, date_of_birth, citizenship_country, residence_country, timezone, email, partnership_status, highest_qualification, current_occupation, work_history, health_character_issues, english_ability, raw_payload, reviewed_by, approved_at, declined_at, created_at, updated_at FROM seminar_registrations ORDER BY created_at DESC`,
     database.sql`SELECT id, status, first_name, last_name, email, phone, adviser_name, application_type, overall_rating, recommendation_rating, service_strengths, improvement_suggestions, permission_to_contact, permission_to_use_feedback, raw_payload, reviewed_by, created_at, updated_at FROM feedback_submissions ORDER BY created_at DESC`,
     database.sql`SELECT id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at FROM email_notifications WHERE created_at >= NOW() - INTERVAL '60 days' ORDER BY created_at DESC LIMIT 200`,
-    getEmailTemplates(database),
-    database.sql`SELECT id, name, duration_minutes, price_nzd, paid, description, active, sort_order, buffer_minutes, created_at, updated_at FROM consultation_types ORDER BY sort_order ASC, name ASC`,
     database.sql`SELECT id, adviser_id, day_of_week, start_time, end_time, consultation_type_ids, active, created_at, updated_at FROM adviser_booking_availability ORDER BY adviser_id ASC, day_of_week ASC, start_time ASC`,
     database.sql`SELECT id, adviser_id, block_date, start_time, end_time, all_day, reason, created_at, updated_at FROM adviser_booking_blocks ORDER BY block_date DESC, start_time ASC`,
     database.sql`SELECT id, token, intake_id, adviser_id, applicant_name, applicant_email, applicant_phone, allowed_type_ids, expires_at, status, notes, created_at, updated_at FROM consultation_booking_links ORDER BY created_at DESC`,
     database.sql`SELECT id, booking_link_id, intake_id, adviser_id, consultation_type_id, booking_date, start_time, end_time, applicant_name, applicant_email, applicant_phone, notes, status, payment_status, created_at, updated_at FROM consultation_bookings ORDER BY booking_date DESC, start_time DESC`,
     database.sql`SELECT id, client_id, title, pack_id, status, standalone_label, studio_state, template_version, created_by, updated_by, created_at, updated_at, issued_at FROM instruction_sets ORDER BY updated_at DESC`,
-    database.sql`SELECT id, library_json, updated_by, updated_at FROM instruction_template_library WHERE id = 'master' LIMIT 1`,
     database.sql`SELECT id, pack_id, version_label, change_note, snapshot, created_by, created_at FROM instruction_template_versions ORDER BY created_at DESC LIMIT 200`,
     database.sql`SELECT id, client_id, intake_id, adviser_id, title, app_type, status, standalone_label, recipient_email, studio_state, template_version, created_by, updated_by, created_at, updated_at, issued_at, accepted_at, accepted_by FROM agreement_sets ORDER BY updated_at DESC`,
-    database.sql`SELECT id, library_json, updated_by, updated_at FROM agreement_template_library WHERE id = 'master' LIMIT 1`,
     database.sql`SELECT id, version_label, change_note, snapshot, created_by, created_at FROM agreement_template_versions ORDER BY created_at DESC LIMIT 200`,
   ]);
-
+  const references = await referencePromise;
   const commercialClients = await readCommercialClients(database);
 
   return {
-    advisers: advisers.map(mapAdviserFromDb),
+    advisers: references.advisers,
     clients: clients.map((client) => mapClientFromDb(client, stages, deadlines, billing, portalMessages, portalDocuments)),
     commercialClients,
     personalTasks: personalTasks.map(mapPersonalTaskFromDb),
     calendarEntries: calendarEntries.map(mapCalendarEntryFromDb),
     libraryEntries: libraryEntries.map(mapLibraryEntryFromDb),
     instructionSets: instructionSets.map(mapInstructionSetFromDb),
-    instructionTemplateLibrary: instructionTemplateLibraryRows[0]?.library_json || {},
+    instructionTemplateLibrary: references.instructionTemplateLibrary,
     instructionTemplateVersions: instructionTemplateVersions.map(mapInstructionTemplateVersionFromDb),
     agreementSets: Array.isArray(agreementSets) ? agreementSets.map(mapAgreementSetFromDb) : [],
-    agreementTemplateLibrary: Array.isArray(agreementTemplateLibraryRows) ? (agreementTemplateLibraryRows[0]?.library_json || {}) : {},
+    agreementTemplateLibrary: references.agreementTemplateLibrary,
     agreementTemplateVersions: Array.isArray(agreementTemplateVersions) ? agreementTemplateVersions.map(mapAgreementTemplateVersionFromDb) : [],
     intakeEnquiries: intakeEnquiries.map(mapIntakeEnquiryFromDb),
     intakeStatuses: INTAKE_STATUSES,
@@ -2804,8 +2863,8 @@ async function readCrmData() {
     seminarRegistrations: seminarRegistrations.map(mapSeminarRegistrationFromDb),
     feedbackSubmissions: feedbackSubmissions.map(mapFeedbackSubmissionFromDb),
     emailLogs: emailLogs.map(mapEmailLogFromDb),
-    emailTemplates,
-    consultationTypes: consultationTypes.map(mapConsultationTypeFromDb),
+    emailTemplates: references.emailTemplates,
+    consultationTypes: references.consultationTypes,
     bookingAvailability: bookingAvailability.map(mapBookingAvailabilityFromDb),
     bookingBlocks: bookingBlocks.map(mapBookingBlockFromDb),
     bookingLinks: bookingLinks.map(mapBookingLinkFromDb),

@@ -1,6 +1,6 @@
-THiS CRM v0.15.12 - LIVE CHAT DEPLOYMENT GUIDE
+THiS CRM v0.15.14 - LIVE CHAT DEPLOYMENT GUIDE
 
-1. Deploy the complete v0.15.12 package to the existing Netlify site.
+1. Deploy the complete v0.15.14 package to the existing Netlify site.
 
 2. Confirm the existing LIVE_CHAT_SESSION_SECRET remains configured for Functions and marked as containing secret values.
 
@@ -23,7 +23,7 @@ THiS CRM v0.15.12 - LIVE CHAT DEPLOYMENT GUIDE
    - email notification recipients.
 
 7. The existing Squarespace embed remains valid. The current generated version is:
-   <script src="https://thisvisacrm.netlify.app/live-chat-widget.js?v=0.15.12" data-title="Chat with us" defer></script>
+   <script src="https://thisvisacrm.netlify.app/live-chat-widget.js?v=0.15.14" data-title="Chat with us" defer></script>
 
 8. Test during open hours:
    - Start a website chat.
@@ -54,3 +54,13 @@ CHAT TO CONTACT / ASSESSMENT HANDOFF
 13. The CRM creates an assigned Contact form from the visitor details and chat transcript, then sends the existing assessment invitation email/link.
 14. On a successful send the Contact form is marked Dealt with. If delivery fails, open Enquiries > Contact forms and retry Send intake from the retained New contact.
 15. Do not use live chat as a substitute for the full assessment questionnaire where detailed eligibility information is required.
+
+DATABASE-IDLE / RUNTIME CHECKS
+
+16. v0.15.14 uses Netlify Blobs for the small live-chat settings, attention and conversation-revision markers. No new environment variable is required.
+17. With the website chat panel never opened, confirm the visitor iframe is not loaded. The visible launcher may still check open/closed status every five minutes while the page is visible; after cache warm-up this is served from Blob state rather than Postgres.
+18. Hide the website tab and confirm launcher/message polling stops until the tab becomes visible again.
+19. Hide the CRM tab and confirm staff chat polling stops until visibility returns. Signed-out CRM sessions must not run staff polling.
+20. During an active conversation, confirm only messages newer than the browser's last message are returned after the initial load.
+21. Outside configured opening hours, close all waiting/active chats and confirm the CRM sleeps routine chat checks until the next opening time (apart from focus/online wake events).
+22. Keep the database provider's inactivity sleep at five minutes. If the provider plan offers a maximum-compute control, test a one- or two-unit cap separately; this is an account-side database setting rather than a CRM deployment setting.

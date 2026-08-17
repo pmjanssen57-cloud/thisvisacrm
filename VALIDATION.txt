@@ -1,16 +1,27 @@
-THiS CRM v0.15.12 validation
+THiS CRM v0.15.14 validation
 
-Checked
-- App.jsx parses successfully as JSX using the TypeScript parser.
-- netlify/functions/crm.mjs JavaScript syntax passes.
-- netlify/functions/intake.mjs JavaScript syntax passes.
-- Other Netlify function JavaScript syntax checks pass.
-- public Agreement, Instructions and Live Chat JavaScript syntax checks pass.
-- Intake refresh sends a server-issued cursor and delta requests merge changed records rather than replacing the complete intake list.
-- Explicit adviser Refresh requests a full intake reconciliation.
-- Intake updated_at index exists in runtime schema setup and migration 202608110001_add_intake_updated_at_index.sql.
-- Main day-to-day save routes return targeted mutation payloads instead of calling readCrmData().
-- Client partial-response merger covers the targeted save entity types.
-- Bulk booking availability and block saves return only their relevant collections.
-- v0.15.12 cache-busting and service-worker references are present.
-- ZIP integrity checked.
+Release focus
+- Blob-backed live-chat settings, conversation revisions and attention marker.
+- Delta visitor/staff message and event retrieval.
+- Hidden-tab/logged-out polling suppression.
+- Blob-cached stable CRM reference data.
+- Targeted mutation responses retained.
+- SQL/index housekeeping for high-frequency paths.
+
+Validation checklist
+- package version and cache-busting references are v0.15.14.
+- public live-chat iframe remains lazy-loaded until opened.
+- public launcher visibility handling stops status timers while hidden.
+- visitor polling uses revision + after-message cursor and stops while hidden.
+- staff polling uses global/selected revisions plus message/event cursors and stops while hidden/logged out.
+- explicit staff Refresh forces a conversation-list reconciliation.
+- chat mutations refresh Blob runtime markers.
+- readCrmData() is limited to initial/full reconciliation paths rather than routine mutations.
+- no SELECT * remains in normal crm.mjs/chat.mjs query paths.
+- migration 202608170001_optimize_idle_runtime_queries.sql is present.
+- Netlify/public JavaScript syntax checks pass.
+- App.jsx parses successfully as JSX.
+- PWA validation passes.
+- ZIP integrity passes.
+
+Database sleep and compute caps remain provider/account configuration and are intentionally not encoded in the application package.

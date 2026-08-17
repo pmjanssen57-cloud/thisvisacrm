@@ -1,30 +1,53 @@
-# THiS CRM v0.15.12 - Netlify Efficiency Foundation
+# THiS CRM v0.15.14 - Database Idle & Chat Runtime Optimisation
 
-This release future-proofs the current CRM baseline against unnecessary Netlify Function compute and bandwidth as the practice database grows. It retains all v0.15.11 functionality.
+This release is built from v0.15.13 and is focused on reducing unnecessary Postgres wake-ups, Netlify Function compute and bandwidth while preserving the current CRM, unified client editor, live chat, Instructions Studio and Agreement Studio functionality.
 
-## Incremental intake/contact refresh
+## Blob-backed live chat runtime
 
-The one-minute intake watcher no longer downloads every historical intake and questionnaire on each check. After the initial CRM load, the browser uses a server-issued refresh cursor and the API returns only intake/contact records whose `updated_at` value has changed since that cursor.
+- Public launcher status is cached in Netlify Blobs. Once warmed, a closed website chat widget can check open/closed status without querying Postgres.
+- The visitor iframe is still lazy-loaded only when the visitor opens chat.
+- Each conversation has a small Blob runtime marker containing a revision and latest message/event timestamps.
+- Routine visitor and adviser checks compare revisions first. If nothing changed, the request completes without querying Postgres.
+- Chat mutations refresh the relevant conversation marker and the lightweight practice attention marker.
+- Live-chat settings and the adviser lookup used by chat are cached outside the transactional database path.
 
-The explicit Refresh button still performs a full reconciliation when an adviser asks for one. The server captures each next cursor before running the query, which avoids missing a submission that arrives during an in-flight refresh.
+## Delta message/event retrieval
 
-Migration `202608110001_add_intake_updated_at_index.sql` adds an index supporting these delta queries. Runtime schema checks also create the index if required.
+- Visitor polling requests only public messages newer than the last message already held by the browser.
+- Adviser chat polling requests only messages and audit events newer than the local cursors.
+- The full conversation list is queried only when the global chat revision changes or an adviser explicitly requests a refresh.
 
-## Targeted save responses
+## Hidden/logged-out polling
 
-Routine saves no longer rebuild and return the complete CRM dataset. The API returns only the record or collection affected by the operation and the React client merges that response into its existing state.
+- Website launcher status checks stop while the browser tab is hidden.
+- Visitor message polling stops while the tab is hidden.
+- CRM live-chat attention and conversation polling stop while the CRM tab is hidden.
+- Logged-out CRM sessions do not run staff polling.
+- Existing schedule-aware behaviour remains: outside opening hours with no waiting/active conversations, routine CRM checks sleep until the next opening time.
 
-Targeted responses now cover the main day-to-day save paths including advisers and personal preferences, tasks, calendar entries, library records, intake records, Instructions Studio, Agreement Studio, email templates, seminars and feedback, consultation/booking records, and commercial-client records. Bulk booking availability and blocked-time updates return only their respective booking collection.
+## Cached reference data
 
-Full CRM reads remain available for initial load, explicit refresh/reconciliation and a smaller number of infrequent destructive/admin operations.
+The main CRM loader now reads relatively stable reference data through a Netlify Blob cache rather than repeatedly querying it with transactional records:
 
-## Existing functionality retained
+- advisers;
+- email templates;
+- Instructions Studio template library;
+- Agreement Studio template library; and
+- consultation types.
 
-- Unified Client Record Editor.
-- Live-chat Contact & Intake Handoff.
-- Instructions Studio finished master Road Maps and modular Documentation Guides.
-- Agreement signing visibility, captured signature display and accepted-agreement locking.
-- Targeted agreement opening and lightweight agreement status refresh.
-- Corrected Agreement PDF print flow.
+The cache is invalidated or refreshed when those records are changed through the CRM. Static stage templates already live in application code, while client stage progress remains transactional client data.
 
-No dependency or environment-variable changes.
+## Query and index housekeeping
+
+- Routine CRM mutations continue to use the targeted-response architecture introduced in v0.15.12 rather than rebuilding the complete CRM dataset.
+- Normal CRM and live-chat functions no longer use `SELECT *` for dashboard/chat reads.
+- Added indexes for high-frequency live-chat queue/message lookups and common client task/date queries.
+- The explicit manual Refresh actions remain available for reconciliation when required.
+
+Migration: `202608170001_optimize_idle_runtime_queries.sql`.
+
+## Hosting/database settings
+
+Database sleep-on-inactivity and maximum compute limits are provider/account settings and are not controlled by this source package. Keep the database inactivity sleep at five minutes and, where the database plan permits it, test a one- or two-compute-unit maximum and retain the lowest cap that gives acceptable CRM performance.
+
+No new dependency or environment-variable changes are required. Netlify Blobs uses the existing site runtime.

@@ -1,6 +1,7 @@
 import { getDatabase } from '@netlify/database';
 import { getUser } from '@netlify/identity';
 import crypto from 'node:crypto';
+import { CHAT_RUNTIME_STORE, CRM_REFERENCE_STORE, readCacheJson, writeCacheJson, deleteCacheKey } from './_runtime-cache.mjs';
 
 const DEFAULT_WEEKLY_HOURS = {
   mon: { enabled: true, start: '09:00', end: '16:00' },
@@ -22,6 +23,11 @@ const PUBLIC_CATEGORIES = [
   'Existing client enquiry',
   'Other',
 ];
+const CHAT_SETTINGS_CACHE_KEY = 'settings-v1';
+const CHAT_ATTENTION_CACHE_KEY = 'attention-v1';
+const CHAT_ADVISER_CACHE_KEY = 'advisers-v1';
+const CHAT_CONVERSATION_CACHE_PREFIX = 'conversation-v1/';
+
 const DEFAULT_QUICK_REPLIES = [
   { id: 'welcome', label: 'Welcome', message: 'Kia ora {{first_name}}, thanks for getting in touch. I am {{adviser_name}} from Turner Hopkins. I am reviewing your message now.' },
   { id: 'assessment', label: 'Complete an assessment', message: 'The best next step is to complete our full immigration assessment form. This gives us the information we need to consider your circumstances properly:\n\n{{assessment_url}}' },
@@ -55,22 +61,18 @@ async function handleChatEvent(event) {
   const origin = String(event.headers?.origin || event.headers?.Origin || '').trim();
   try {
     if (event.httpMethod === 'OPTIONS') return empty(204, origin);
-    await ensureChatSchema();
 
     const url = new URL(event.rawUrl || 'https://local.invalid/.netlify/functions/chat');
     const method = String(event.httpMethod || 'GET').toUpperCase();
     const body = method === 'POST' && event.body ? safeJsonParse(event.body, {}) : {};
     const action = String(body.action || url.searchParams.get('action') || (method === 'GET' ? 'status' : '')).trim();
 
+    // Public launcher status and unchanged visitor polls are deliberately served from
+    // Netlify Blobs where possible. They do not initialise the database schema and do
+    // not wake Postgres unless the runtime cache is missing or a conversation changed.
     if (action === 'status') {
-      const settings = await readSettings();
+      const settings = await readSettingsCached();
       return json(publicStatusPayload(settings), 200, origin);
-    }
-
-    if (action === 'start') {
-      const settings = await readSettings();
-      const result = await startConversation(body, settings, event);
-      return json(result, 201, origin);
     }
 
     if (action === 'poll') {
@@ -78,14 +80,16 @@ async function handleChatEvent(event) {
       return json(result, 200, origin);
     }
 
-    if (action === 'send') {
-      const result = await sendVisitorMessage(body, event);
-      return json(result, 201, origin);
-    }
-
-    if (action === 'closeVisitor') {
-      const result = await closeVisitorConversation(body, event);
-      return json(result, 200, origin);
+    const isPublicMutation = ['start', 'send', 'closeVisitor'].includes(action);
+    if (isPublicMutation) {
+      await ensureChatSchema();
+      if (action === 'start') {
+        const settings = await readSettingsCached({ databaseFallback: true });
+        const result = await startConversation(body, settings, event);
+        return json(result, 201, origin);
+      }
+      if (action === 'send') return json(await sendVisitorMessage(body, event), 201, origin);
+      if (action === 'closeVisitor') return json(await closeVisitorConversation(body, event), 200, origin);
     }
 
     const auth = await checkStaffAuth(event);
@@ -93,16 +97,25 @@ async function handleChatEvent(event) {
     const actor = await resolveStaffActor(auth, event.headers || {});
     if (!actor?.id) return json({ error: 'A CRM adviser profile is required for live chat.' }, 403, origin);
 
+    // These read-only staff checks can also remain entirely in Blob storage while no
+    // conversation has changed. Database access is reserved for actual state changes.
     if (action === 'staffAttention') return json(await staffAttention(actor), 200, origin);
-    if (action === 'staffSettings') {
-      if (!actor.isAdmin) return json({ error: 'Administrator access is required to view live chat settings.' }, 403, origin);
-      const settings = await readSettings();
-      return json({ settings, availability: publicStatusPayload(settings), emailConfigured: getEmailConfig().configured }, 200, origin);
-    }
     if (action === 'staffSnapshot') {
       const conversationId = cleanUuid(url.searchParams.get('conversationId') || body.conversationId);
-      return json(await staffSnapshot(actor, conversationId), 200, origin);
+      return json(await staffSnapshot(actor, conversationId, {
+        revision: cleanText(url.searchParams.get('revision') || body.revision, 200),
+        selectedRevision: cleanText(url.searchParams.get('selectedRevision') || body.selectedRevision, 200),
+        afterMessage: cleanTimestamp(url.searchParams.get('afterMessage') || body.afterMessage),
+        afterEvent: cleanTimestamp(url.searchParams.get('afterEvent') || body.afterEvent),
+      }), 200, origin);
     }
+    if (action === 'staffSettings') {
+      if (!actor.isAdmin) return json({ error: 'Administrator access is required to view live chat settings.' }, 403, origin);
+      const settings = await readSettingsCached();
+      return json({ settings, availability: publicStatusPayload(settings), emailConfigured: getEmailConfig().configured }, 200, origin);
+    }
+
+    await ensureChatSchema();
     if (action === 'claim') return json(await claimConversation(body.conversationId, actor), 200, origin);
     if (action === 'release') return json(await releaseConversation(body.conversationId, actor), 200, origin);
     if (action === 'sendStaff') return json(await sendStaffMessage(body, actor), 201, origin);
@@ -208,29 +221,176 @@ async function initialiseChatSchema() {
   await database.sql`CREATE INDEX IF NOT EXISTS idx_live_chat_conversations_fingerprint ON live_chat_conversations(visitor_fingerprint, created_at DESC)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_live_chat_messages_conversation ON live_chat_messages(conversation_id, created_at)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_live_chat_events_conversation ON live_chat_events(conversation_id, created_at)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_live_chat_conversations_open_queue ON live_chat_conversations(status, assigned_adviser_id, last_message_at DESC) WHERE status IN ('Waiting', 'Offline', 'Active')`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_live_chat_conversations_closed_recent ON live_chat_conversations(closed_at DESC) WHERE status = 'Closed'`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_live_chat_messages_public_latest ON live_chat_messages(conversation_id, created_at DESC) WHERE is_internal = FALSE`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_live_chat_messages_sender_rate ON live_chat_messages(conversation_id, sender_type, created_at DESC)`;
   await database.sql`
     INSERT INTO live_chat_settings (id, weekly_hours, welcome_message, offline_message)
     VALUES ('master', CAST(${JSON.stringify(DEFAULT_WEEKLY_HOURS)} AS jsonb), 'Kia ora. You will be chatting with a real member of our team. Send us your question and we will respond as soon as possible.', 'Our live chat is currently closed. Leave your message and we will respond when the team is next available.')
     ON CONFLICT (id) DO NOTHING`;
 }
 
-async function readSettings() {
-  const rows = await db().sql`SELECT * FROM live_chat_settings WHERE id = 'master' LIMIT 1`;
-  const row = rows[0] || {};
+
+function newChatRevision() {
+  return `${Date.now().toString(36)}-${crypto.randomBytes(6).toString('hex')}`;
+}
+
+function conversationCacheKey(conversationId) {
+  return `${CHAT_CONVERSATION_CACHE_PREFIX}${conversationId}`;
+}
+
+async function readConversationMarker(conversationId) {
+  if (!cleanUuid(conversationId)) return null;
+  const marker = await readCacheJson(CHAT_RUNTIME_STORE, conversationCacheKey(conversationId), { silent: true });
+  return marker && typeof marker === 'object' ? marker : null;
+}
+
+async function readAttentionMarker() {
+  const marker = await readCacheJson(CHAT_RUNTIME_STORE, CHAT_ATTENTION_CACHE_KEY, { silent: true });
+  return marker && typeof marker === 'object' ? marker : null;
+}
+
+async function buildConversationMarker(conversationId, database = db()) {
+  const id = cleanUuid(conversationId);
+  if (!id) return null;
+  const rows = await database.sql`
+    SELECT c.id, c.status, c.visitor_name, c.visitor_email, c.visitor_phone, c.existing_client,
+           c.category, c.page_url, c.assigned_adviser_id, c.assigned_adviser_name,
+           c.assigned_adviser_email, c.linked_intake_id, c.first_notification_status,
+           c.last_message_at, c.visitor_last_seen_at, c.adviser_last_seen_at, c.closed_at,
+           c.created_at, c.updated_at,
+           a.role AS assigned_adviser_role, a.profile_photo_url AS assigned_adviser_photo_url,
+           lm.sender_type AS last_sender_type, lm.created_at AS last_public_message_at,
+           (SELECT MAX(m2.created_at) FROM live_chat_messages m2 WHERE m2.conversation_id = c.id) AS last_any_message_at,
+           (SELECT MAX(e.created_at) FROM live_chat_events e WHERE e.conversation_id = c.id) AS last_event_at
+    FROM live_chat_conversations c
+    LEFT JOIN advisers a ON a.id = c.assigned_adviser_id
+    LEFT JOIN LATERAL (
+      SELECT m.sender_type, m.created_at
+      FROM live_chat_messages m
+      WHERE m.conversation_id = c.id AND m.is_internal = FALSE
+      ORDER BY m.created_at DESC
+      LIMIT 1
+    ) lm ON TRUE
+    WHERE c.id = ${id}
+    LIMIT 1`;
+  if (!rows[0]) {
+    await deleteCacheKey(CHAT_RUNTIME_STORE, conversationCacheKey(id), { silent: true });
+    return null;
+  }
+  const conversation = mapConversation(rows[0]);
+  const marker = {
+    revision: newChatRevision(),
+    conversation,
+    lastPublicMessageAt: toIso(rows[0].last_public_message_at) || conversation.lastMessageAt || '',
+    lastAnyMessageAt: toIso(rows[0].last_any_message_at) || conversation.lastMessageAt || '',
+    lastEventAt: toIso(rows[0].last_event_at),
+    updatedAt: new Date().toISOString(),
+  };
+  await writeCacheJson(CHAT_RUNTIME_STORE, conversationCacheKey(id), marker, { silent: true });
+  return marker;
+}
+
+async function buildAttentionMarker(database = db()) {
+  const rows = await database.sql`
+    SELECT c.status, c.assigned_adviser_id, c.last_message_at, c.adviser_last_seen_at,
+           lm.sender_type AS last_sender_type
+    FROM live_chat_conversations c
+    LEFT JOIN LATERAL (
+      SELECT m.sender_type
+      FROM live_chat_messages m
+      WHERE m.conversation_id = c.id AND m.is_internal = FALSE
+      ORDER BY m.created_at DESC
+      LIMIT 1
+    ) lm ON TRUE
+    WHERE c.status IN ('Waiting', 'Offline', 'Active')`;
+  let waiting = 0;
+  let active = 0;
+  const adviserCounts = {};
+  rows.forEach((row) => {
+    const adviserId = row.assigned_adviser_id ? String(row.assigned_adviser_id) : '';
+    if (['Waiting', 'Offline'].includes(row.status) && !adviserId) waiting += 1;
+    if (row.status === 'Active') {
+      active += 1;
+      if (adviserId) {
+        adviserCounts[adviserId] ||= { mine: 0, unread: 0 };
+        adviserCounts[adviserId].mine += 1;
+        const lastMessageAt = row.last_message_at ? new Date(row.last_message_at).getTime() : 0;
+        const lastSeenAt = row.adviser_last_seen_at ? new Date(row.adviser_last_seen_at).getTime() : 0;
+        if (row.last_sender_type === 'visitor' && (!lastSeenAt || lastMessageAt > lastSeenAt)) adviserCounts[adviserId].unread += 1;
+      }
+    }
+  });
+  const marker = {
+    revision: newChatRevision(),
+    waiting,
+    active,
+    adviserCounts,
+    updatedAt: new Date().toISOString(),
+  };
+  await writeCacheJson(CHAT_RUNTIME_STORE, CHAT_ATTENTION_CACHE_KEY, marker, { silent: true });
+  return marker;
+}
+
+async function syncChatRuntimeState(conversationId = '', options = {}) {
+  try {
+    const database = options.database || db();
+    const tasks = [buildAttentionMarker(database)];
+    if (cleanUuid(conversationId)) tasks.push(buildConversationMarker(conversationId, database));
+    const results = await Promise.all(tasks);
+    return { attention: results[0] || null, conversation: results[1] || null };
+  } catch (error) {
+    console.warn('Live chat runtime cache refresh failed', error?.message || error);
+    return { attention: null, conversation: null };
+  }
+}
+
+async function removeConversationRuntimeState(conversationId, database = db()) {
+  await deleteCacheKey(CHAT_RUNTIME_STORE, conversationCacheKey(conversationId), { silent: true });
+  try { return await buildAttentionMarker(database); } catch (error) {
+    console.warn('Live chat attention cache refresh failed after delete', error?.message || error);
+    return null;
+  }
+}
+
+function mapSettingsRow(row = {}) {
   return {
     enabled: row.enabled !== false,
     timezone: cleanTimezone(row.timezone),
-    weeklyHours: normaliseWeeklyHours(row.weekly_hours),
-    awayDates: normaliseAwayDates(row.away_dates),
-    welcomeMessage: cleanText(row.welcome_message, 1000) || 'Kia ora. You will be chatting with a real member of our team. Send us your question and we will respond as soon as possible.',
-    offlineMessage: cleanText(row.offline_message, 1000) || 'Our live chat is currently closed. Leave your message and we will respond when the team is next available.',
-    privacyUrl: cleanUrl(row.privacy_url),
-    notificationEnabled: row.notification_enabled !== false,
-    notificationEmails: cleanText(row.notification_emails, 2000),
-    quickReplies: normaliseQuickReplies(row.quick_replies),
-    updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : '',
-    updatedBy: row.updated_by || '',
+    weeklyHours: normaliseWeeklyHours(row.weekly_hours ?? row.weeklyHours),
+    awayDates: normaliseAwayDates(row.away_dates ?? row.awayDates),
+    welcomeMessage: cleanText(row.welcome_message ?? row.welcomeMessage, 1000) || 'Kia ora. You will be chatting with a real member of our team. Send us your question and we will respond as soon as possible.',
+    offlineMessage: cleanText(row.offline_message ?? row.offlineMessage, 1000) || 'Our live chat is currently closed. Leave your message and we will respond when the team is next available.',
+    privacyUrl: cleanUrl(row.privacy_url ?? row.privacyUrl),
+    notificationEnabled: (row.notification_enabled ?? row.notificationEnabled) !== false,
+    notificationEmails: cleanText(row.notification_emails ?? row.notificationEmails, 2000),
+    quickReplies: normaliseQuickReplies(row.quick_replies ?? row.quickReplies),
+    updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : cleanTimestamp(row.updatedAt),
+    updatedBy: row.updated_by || row.updatedBy || '',
   };
+}
+
+async function readSettingsFromDatabase() {
+  const rows = await db().sql`
+    SELECT enabled, timezone, weekly_hours, away_dates, welcome_message, offline_message,
+           privacy_url, notification_enabled, notification_emails, quick_replies, updated_by, updated_at
+    FROM live_chat_settings WHERE id = 'master' LIMIT 1`;
+  const settings = mapSettingsRow(rows[0] || {});
+  await writeCacheJson(CHAT_RUNTIME_STORE, CHAT_SETTINGS_CACHE_KEY, settings, { silent: true });
+  return settings;
+}
+
+async function readSettingsCached(options = {}) {
+  const cached = await readCacheJson(CHAT_RUNTIME_STORE, CHAT_SETTINGS_CACHE_KEY, { silent: true });
+  if (cached && typeof cached === 'object') return mapSettingsRow(cached);
+  if (options.databaseFallback === false) return mapSettingsRow({});
+  await ensureChatSchema();
+  return readSettingsFromDatabase();
+}
+
+async function readSettings() {
+  return readSettingsCached({ databaseFallback: true });
 }
 
 async function saveSettings(input = {}, actor) {
@@ -262,10 +422,11 @@ async function saveSettings(input = {}, actor) {
       quick_replies = EXCLUDED.quick_replies,
       updated_by = EXCLUDED.updated_by,
       updated_at = NOW()`;
-  const persisted = await readSettings();
+  const persisted = await readSettingsFromDatabase();
   if (JSON.stringify(persisted.weeklyHours) !== JSON.stringify(settings.weeklyHours)) {
     throw httpError(500, 'Live chat opening hours were not persisted correctly. Please try again.');
   }
+  await writeCacheJson(CHAT_RUNTIME_STORE, CHAT_SETTINGS_CACHE_KEY, persisted, { silent: true });
   return persisted;
 }
 
@@ -355,11 +516,13 @@ async function startConversation(input, settings, event) {
   const token = createVisitorToken(conversation.id);
   let notification = { status: 'disabled' };
   if (settings.notificationEnabled) notification = await sendFirstChatNotification(conversation, messageText, settings);
+  const runtime = await syncChatRuntimeState(conversation.id);
 
   return {
     token,
-    conversation: mapConversation(conversation),
+    conversation: runtime.conversation?.conversation || mapConversation(conversation),
     messages: [mapMessage(firstMessageRows[0])],
+    revision: runtime.conversation?.revision || '',
     mode: availability.isOpen ? 'live' : 'offline',
     message: availability.isOpen ? settings.welcomeMessage : settings.offlineMessage,
     notificationStatus: notification.status,
@@ -370,29 +533,51 @@ async function pollVisitorConversation(url, event) {
   const token = extractVisitorToken(event, url.searchParams.get('token'));
   const payload = verifyVisitorToken(token);
   const conversationId = cleanUuid(payload.cid);
-  const rows = await db().sql`SELECT * FROM live_chat_conversations WHERE id = ${conversationId} LIMIT 1`;
-  if (!rows[0]) throw httpError(404, 'Chat conversation not found.');
-  const conversation = rows[0];
-  const knownAdviserId = cleanUuid(url.searchParams.get('adviserId'));
-  let adviserPresence = null;
-  if (conversation.assigned_adviser_id && String(conversation.assigned_adviser_id) !== knownAdviserId) {
-    const adviserRows = await db().sql`SELECT role, profile_photo_url FROM advisers WHERE id = ${conversation.assigned_adviser_id} LIMIT 1`;
-    adviserPresence = adviserRows[0] || null;
-  }
   const after = cleanTimestamp(url.searchParams.get('after'));
-  const messages = after
-    ? await db().sql`SELECT * FROM live_chat_messages WHERE conversation_id = ${conversationId} AND is_internal = FALSE AND created_at > ${after}::timestamptz ORDER BY created_at ASC LIMIT 200`
-    : await db().sql`SELECT * FROM live_chat_messages WHERE conversation_id = ${conversationId} AND is_internal = FALSE ORDER BY created_at ASC LIMIT 200`;
-  await db().sql`UPDATE live_chat_conversations SET visitor_last_seen_at = NOW() WHERE id = ${conversationId}`;
-  const mappedConversation = mapConversation(conversation);
-  if (adviserPresence) {
-    mappedConversation.assignedAdviserRole = adviserPresence.role || 'Turner Hopkins team member';
-    mappedConversation.assignedAdviserPhotoUrl = adviserPresence.profile_photo_url || '';
-  } else if (conversation.assigned_adviser_id && String(conversation.assigned_adviser_id) === knownAdviserId) {
-    delete mappedConversation.assignedAdviserRole;
-    delete mappedConversation.assignedAdviserPhotoUrl;
+  const knownRevision = cleanText(url.searchParams.get('revision'), 200);
+  let marker = await readConversationMarker(conversationId);
+
+  if (marker && knownRevision && marker.revision === knownRevision) {
+    return {
+      unchanged: true,
+      revision: marker.revision,
+      conversation: marker.conversation,
+      messages: [],
+      serverTime: new Date().toISOString(),
+    };
   }
-  return { conversation: mappedConversation, messages: messages.map(mapMessage), serverTime: new Date().toISOString() };
+
+  if (!marker) {
+    await ensureChatSchema();
+    marker = await buildConversationMarker(conversationId);
+    if (!marker) throw httpError(404, 'Chat conversation not found.');
+  }
+
+  let messages = [];
+  const markerMessageAt = marker.lastPublicMessageAt ? new Date(marker.lastPublicMessageAt).getTime() : 0;
+  const afterAt = after ? new Date(after).getTime() : 0;
+  const hasPotentialNewMessages = !after || !markerMessageAt || markerMessageAt > afterAt;
+  if (hasPotentialNewMessages) {
+    await ensureChatSchema();
+    messages = after
+      ? await db().sql`
+          SELECT id, conversation_id, sender_type, sender_name, message_text, is_internal, created_at
+          FROM live_chat_messages
+          WHERE conversation_id = ${conversationId} AND is_internal = FALSE AND created_at > ${after}::timestamptz
+          ORDER BY created_at ASC LIMIT 200`
+      : await db().sql`
+          SELECT id, conversation_id, sender_type, sender_name, message_text, is_internal, created_at
+          FROM live_chat_messages
+          WHERE conversation_id = ${conversationId} AND is_internal = FALSE
+          ORDER BY created_at ASC LIMIT 200`;
+  }
+
+  return {
+    conversation: marker.conversation,
+    messages: messages.map(mapMessage),
+    revision: marker.revision,
+    serverTime: new Date().toISOString(),
+  };
 }
 
 async function sendVisitorMessage(input, event) {
@@ -401,7 +586,7 @@ async function sendVisitorMessage(input, event) {
   const conversationId = cleanUuid(payload.cid);
   const messageText = cleanText(input.message, 4000);
   if (messageText.length < 1) throw httpError(400, 'Enter a message.');
-  const rows = await db().sql`SELECT * FROM live_chat_conversations WHERE id = ${conversationId} LIMIT 1`;
+  const rows = await db().sql`SELECT id, status, visitor_name FROM live_chat_conversations WHERE id = ${conversationId} LIMIT 1`;
   const conversation = rows[0];
   if (!conversation) throw httpError(404, 'Chat conversation not found.');
   if (conversation.status === 'Closed') throw httpError(409, 'This chat has been closed.');
@@ -412,7 +597,8 @@ async function sendVisitorMessage(input, event) {
     VALUES (${conversationId}, 'visitor', ${conversation.visitor_name}, ${messageText}, FALSE)
     RETURNING *`;
   await db().sql`UPDATE live_chat_conversations SET last_message_at = NOW(), visitor_last_seen_at = NOW(), updated_at = NOW() WHERE id = ${conversationId}`;
-  return { message: mapMessage(inserted[0]) };
+  const runtime = await syncChatRuntimeState(conversationId);
+  return { message: mapMessage(inserted[0]), revision: runtime.conversation?.revision || '' };
 }
 
 async function closeVisitorConversation(input, event) {
@@ -422,59 +608,30 @@ async function closeVisitorConversation(input, event) {
   const rows = await db().sql`UPDATE live_chat_conversations SET status = 'Closed', closed_at = NOW(), updated_at = NOW() WHERE id = ${conversationId} RETURNING *`;
   if (!rows[0]) throw httpError(404, 'Chat conversation not found.');
   await logEvent(conversationId, 'closed_by_visitor', rows[0].visitor_name, {});
-  return { conversation: mapConversation(rows[0]) };
+  const runtime = await syncChatRuntimeState(conversationId);
+  return { conversation: runtime.conversation?.conversation || mapConversation(rows[0]), revision: runtime.conversation?.revision || '' };
 }
 
 async function staffAttention(actor) {
-  const rows = await db().sql`
-    WITH chat_counts AS (
-      SELECT
-        (COUNT(*) FILTER (WHERE c.status IN ('Waiting', 'Offline') AND c.assigned_adviser_id IS NULL))::int AS waiting,
-        (COUNT(*) FILTER (WHERE c.status = 'Active' AND c.assigned_adviser_id = ${actor.id}))::int AS mine,
-        (COUNT(*) FILTER (WHERE c.status = 'Active'))::int AS active,
-        (COUNT(*) FILTER (
-          WHERE c.status = 'Active'
-            AND c.assigned_adviser_id = ${actor.id}
-            AND (c.adviser_last_seen_at IS NULL OR c.last_message_at > c.adviser_last_seen_at)
-            AND (
-              SELECT m.sender_type
-              FROM live_chat_messages m
-              WHERE m.conversation_id = c.id AND m.is_internal = FALSE
-              ORDER BY m.created_at DESC
-              LIMIT 1
-            ) = 'visitor'
-        ))::int AS unread
-      FROM live_chat_conversations c
-      WHERE c.status IN ('Waiting', 'Offline', 'Active')
-    )
-    SELECT
-      chat_counts.*,
-      settings.enabled AS settings_enabled,
-      settings.timezone AS settings_timezone,
-      settings.weekly_hours AS settings_weekly_hours,
-      settings.away_dates AS settings_away_dates
-    FROM chat_counts
-    CROSS JOIN live_chat_settings settings
-    WHERE settings.id = 'master'
-    LIMIT 1`;
-  const row = rows[0] || {};
+  let marker = await readAttentionMarker();
+  if (!marker) {
+    await ensureChatSchema();
+    marker = await buildAttentionMarker();
+  }
+  const settings = await readSettingsCached();
+  const adviserCounts = marker?.adviserCounts?.[actor.id] || { mine: 0, unread: 0 };
   const counts = {
-    waiting: Number(row.waiting || 0),
-    mine: Number(row.mine || 0),
-    active: Number(row.active || 0),
-    unread: Number(row.unread || 0),
-  };
-  const settings = {
-    enabled: row.settings_enabled !== false,
-    timezone: cleanTimezone(row.settings_timezone),
-    weeklyHours: normaliseWeeklyHours(row.settings_weekly_hours),
-    awayDates: normaliseAwayDates(row.settings_away_dates),
+    waiting: Number(marker?.waiting || 0),
+    mine: Number(adviserCounts.mine || 0),
+    active: Number(marker?.active || 0),
+    unread: Number(adviserCounts.unread || 0),
   };
   const availability = getAvailability(settings, new Date());
   const hasOpenWork = counts.waiting > 0 || counts.active > 0;
   const shouldPoll = availability.isOpen || hasOpenWork;
   return {
     counts,
+    revision: marker?.revision || '',
     availability: {
       isOpen: availability.isOpen,
       reason: availability.reason,
@@ -490,44 +647,149 @@ async function staffAttention(actor) {
   };
 }
 
-async function staffSnapshot(actor, selectedConversationId = '') {
-  const conversations = await db().sql`
-    SELECT c.*, (SELECT m.sender_type FROM live_chat_messages m WHERE m.conversation_id = c.id AND m.is_internal = FALSE ORDER BY m.created_at DESC LIMIT 1) AS last_sender_type
-    FROM live_chat_conversations c
-    WHERE c.status IN ('Waiting', 'Offline', 'Active') OR c.closed_at > NOW() - INTERVAL '14 days'
-    ORDER BY CASE status WHEN 'Waiting' THEN 0 WHEN 'Offline' THEN 1 WHEN 'Active' THEN 2 ELSE 3 END, last_message_at DESC
-    LIMIT 100`;
-  let selected = null;
-  let messages = [];
-  let events = [];
-  if (selectedConversationId) {
-    const selectedRows = await db().sql`SELECT * FROM live_chat_conversations WHERE id = ${selectedConversationId} LIMIT 1`;
-    selected = selectedRows[0] ? mapConversation(selectedRows[0]) : null;
-    if (selected) {
-      const messageRows = await db().sql`SELECT * FROM live_chat_messages WHERE conversation_id = ${selectedConversationId} ORDER BY created_at ASC LIMIT 500`;
-      const eventRows = await db().sql`SELECT * FROM live_chat_events WHERE conversation_id = ${selectedConversationId} ORDER BY created_at ASC LIMIT 200`;
-      messages = messageRows.map(mapMessage);
-      events = eventRows.map(mapEvent);
-      await db().sql`UPDATE live_chat_conversations SET adviser_last_seen_at = NOW() WHERE id = ${selectedConversationId}`;
-    }
+async function staffSnapshot(actor, selectedConversationId = '', options = {}) {
+  let attentionMarker = await readAttentionMarker();
+  if (!attentionMarker) {
+    await ensureChatSchema();
+    attentionMarker = await buildAttentionMarker();
   }
-  const settings = await readSettings();
-  const mapped = conversations.map(mapConversation);
-  return {
-    conversations: mapped,
-    selectedConversation: selected,
-    messages,
-    events,
+  const settings = await readSettingsCached();
+  let selectedMarker = selectedConversationId ? await readConversationMarker(selectedConversationId) : null;
+  const sameGlobalRevision = Boolean(options.revision && attentionMarker?.revision === options.revision);
+  const sameSelectedRevision = !selectedConversationId || Boolean(selectedMarker && options.selectedRevision && selectedMarker.revision === options.selectedRevision);
+  const adviserCounts = attentionMarker?.adviserCounts?.[actor.id] || { mine: 0, unread: 0 };
+  const base = {
     counts: {
-      waiting: mapped.filter((item) => ['Waiting', 'Offline'].includes(item.status) && !item.assignedAdviserId).length,
-      mine: mapped.filter((item) => item.status === 'Active' && item.assignedAdviserId === actor.id).length,
-      active: mapped.filter((item) => item.status === 'Active').length,
-      unread: mapped.filter((item) => item.status === 'Active' && item.assignedAdviserId === actor.id && item.lastSenderType === 'visitor' && (!item.adviserLastSeenAt || item.lastMessageAt > item.adviserLastSeenAt)).length,
+      waiting: Number(attentionMarker?.waiting || 0),
+      mine: Number(adviserCounts.mine || 0),
+      active: Number(attentionMarker?.active || 0),
+      unread: Number(adviserCounts.unread || 0),
     },
+    revision: attentionMarker?.revision || '',
+    selectedRevision: selectedMarker?.revision || '',
     actor: { id: actor.id, name: actor.name, email: actor.email, isAdmin: actor.isAdmin },
     settings,
     availability: publicStatusPayload(settings),
     emailConfigured: getEmailConfig().configured,
+    refreshedAt: new Date().toISOString(),
+  };
+
+  if (sameGlobalRevision && sameSelectedRevision) return { ...base, unchanged: true };
+
+  let conversations;
+  if (!sameGlobalRevision) {
+    await ensureChatSchema();
+    const rows = await db().sql`
+      SELECT c.id, c.status, c.visitor_name, c.visitor_email, c.visitor_phone, c.existing_client,
+             c.category, c.page_url, c.assigned_adviser_id, c.assigned_adviser_name,
+             c.assigned_adviser_email, c.linked_intake_id, c.first_notification_status,
+             c.last_message_at, c.visitor_last_seen_at, c.adviser_last_seen_at, c.closed_at,
+             c.created_at, c.updated_at,
+             a.role AS assigned_adviser_role, a.profile_photo_url AS assigned_adviser_photo_url,
+             lm.sender_type AS last_sender_type
+      FROM live_chat_conversations c
+      LEFT JOIN advisers a ON a.id = c.assigned_adviser_id
+      LEFT JOIN LATERAL (
+        SELECT m.sender_type
+        FROM live_chat_messages m
+        WHERE m.conversation_id = c.id AND m.is_internal = FALSE
+        ORDER BY m.created_at DESC
+        LIMIT 1
+      ) lm ON TRUE
+      WHERE c.status IN ('Waiting', 'Offline', 'Active') OR c.closed_at > NOW() - INTERVAL '14 days'
+      ORDER BY CASE c.status WHEN 'Waiting' THEN 0 WHEN 'Offline' THEN 1 WHEN 'Active' THEN 2 ELSE 3 END, c.last_message_at DESC
+      LIMIT 100`;
+    conversations = rows.map(mapConversation);
+  }
+
+  let selectedConversation;
+  let messages;
+  let events;
+  let messagesMode;
+  let eventsMode;
+  if (selectedConversationId && !sameSelectedRevision) {
+    if (!selectedMarker) {
+      await ensureChatSchema();
+      selectedMarker = await buildConversationMarker(selectedConversationId);
+    }
+    selectedConversation = selectedMarker?.conversation || null;
+    if (selectedMarker) {
+      const afterMessageAt = options.afterMessage ? new Date(options.afterMessage).getTime() : 0;
+      const lastAnyMessageAt = selectedMarker.lastAnyMessageAt ? new Date(selectedMarker.lastAnyMessageAt).getTime() : 0;
+      if (!options.afterMessage || !lastAnyMessageAt || lastAnyMessageAt > afterMessageAt) {
+        await ensureChatSchema();
+        const rows = options.afterMessage
+          ? await db().sql`
+              SELECT id, conversation_id, sender_type, sender_name, message_text, is_internal, created_at
+              FROM live_chat_messages
+              WHERE conversation_id = ${selectedConversationId} AND created_at > ${options.afterMessage}::timestamptz
+              ORDER BY created_at ASC LIMIT 500`
+          : await db().sql`
+              SELECT id, conversation_id, sender_type, sender_name, message_text, is_internal, created_at
+              FROM live_chat_messages
+              WHERE conversation_id = ${selectedConversationId}
+              ORDER BY created_at ASC LIMIT 500`;
+        messages = rows.map(mapMessage);
+        messagesMode = options.afterMessage ? 'append' : 'replace';
+      } else {
+        messages = [];
+        messagesMode = 'append';
+      }
+
+      const afterEventAt = options.afterEvent ? new Date(options.afterEvent).getTime() : 0;
+      const lastEventAt = selectedMarker.lastEventAt ? new Date(selectedMarker.lastEventAt).getTime() : 0;
+      if (!options.afterEvent || !lastEventAt || lastEventAt > afterEventAt) {
+        await ensureChatSchema();
+        const rows = options.afterEvent
+          ? await db().sql`
+              SELECT id, conversation_id, event_type, actor_name, event_detail, created_at
+              FROM live_chat_events
+              WHERE conversation_id = ${selectedConversationId} AND created_at > ${options.afterEvent}::timestamptz
+              ORDER BY created_at ASC LIMIT 200`
+          : await db().sql`
+              SELECT id, conversation_id, event_type, actor_name, event_detail, created_at
+              FROM live_chat_events
+              WHERE conversation_id = ${selectedConversationId}
+              ORDER BY created_at ASC LIMIT 200`;
+        events = rows.map(mapEvent);
+        eventsMode = options.afterEvent ? 'append' : 'replace';
+      } else {
+        events = [];
+        eventsMode = 'append';
+      }
+
+      const shouldMarkSeen = selectedConversation?.status === 'Active'
+        && selectedConversation.assignedAdviserId === actor.id
+        && selectedConversation.lastSenderType === 'visitor'
+        && (!selectedConversation.adviserLastSeenAt || selectedConversation.lastMessageAt > selectedConversation.adviserLastSeenAt);
+      if (shouldMarkSeen) {
+        await ensureChatSchema();
+        await db().sql`UPDATE live_chat_conversations SET adviser_last_seen_at = NOW() WHERE id = ${selectedConversationId}`;
+        const refreshed = await syncChatRuntimeState(selectedConversationId);
+        if (refreshed.attention) attentionMarker = refreshed.attention;
+        if (refreshed.conversation) {
+          selectedMarker = refreshed.conversation;
+          selectedConversation = selectedMarker.conversation;
+        }
+      }
+    }
+  }
+
+  const finalAdviserCounts = attentionMarker?.adviserCounts?.[actor.id] || { mine: 0, unread: 0 };
+  return {
+    ...base,
+    ...(conversations ? { conversations } : {}),
+    ...(selectedConversationId && selectedConversation !== undefined ? { selectedConversation } : {}),
+    ...(messages !== undefined ? { messages, messagesMode } : {}),
+    ...(events !== undefined ? { events, eventsMode } : {}),
+    counts: {
+      waiting: Number(attentionMarker?.waiting || 0),
+      mine: Number(finalAdviserCounts.mine || 0),
+      active: Number(attentionMarker?.active || 0),
+      unread: Number(finalAdviserCounts.unread || 0),
+    },
+    revision: attentionMarker?.revision || '',
+    selectedRevision: selectedMarker?.revision || '',
     refreshedAt: new Date().toISOString(),
   };
 }
@@ -541,12 +803,13 @@ async function claimConversation(conversationId, actor) {
     RETURNING *`;
   if (!rows[0]) throw httpError(409, 'This chat has already been claimed by another adviser or is closed.');
   await logEvent(id, 'claimed', actor.name, { adviserId: actor.id });
-  return { conversation: mapConversation(rows[0]) };
+  const runtime = await syncChatRuntimeState(id);
+  return { conversation: runtime.conversation?.conversation || mapConversation(rows[0]), revision: runtime.conversation?.revision || '' };
 }
 
 async function releaseConversation(conversationId, actor) {
   const id = requiredUuid(conversationId);
-  const current = await db().sql`SELECT * FROM live_chat_conversations WHERE id = ${id} LIMIT 1`;
+  const current = await db().sql`SELECT id, status, assigned_adviser_id FROM live_chat_conversations WHERE id = ${id} LIMIT 1`;
   if (!current[0]) throw httpError(404, 'Chat conversation not found.');
   if (current[0].assigned_adviser_id && String(current[0].assigned_adviser_id) !== actor.id && !actor.isAdmin) throw httpError(403, 'Only the assigned adviser can release this chat.');
   const settings = await readSettings();
@@ -557,14 +820,15 @@ async function releaseConversation(conversationId, actor) {
     WHERE id = ${id}
     RETURNING *`;
   await logEvent(id, 'released', actor.name, {});
-  return { conversation: mapConversation(rows[0]) };
+  const runtime = await syncChatRuntimeState(id);
+  return { conversation: runtime.conversation?.conversation || mapConversation(rows[0]), revision: runtime.conversation?.revision || '' };
 }
 
 async function sendStaffMessage(input, actor) {
   const id = requiredUuid(input.conversationId);
   const messageText = cleanText(input.message, 4000);
   if (!messageText) throw httpError(400, 'Enter a reply.');
-  const current = await db().sql`SELECT * FROM live_chat_conversations WHERE id = ${id} LIMIT 1`;
+  const current = await db().sql`SELECT id, status, assigned_adviser_id FROM live_chat_conversations WHERE id = ${id} LIMIT 1`;
   if (!current[0]) throw httpError(404, 'Chat conversation not found.');
   if (current[0].status === 'Closed') throw httpError(409, 'This chat is closed.');
   if (String(current[0].assigned_adviser_id || '') !== actor.id) throw httpError(403, 'Claim this chat before replying.');
@@ -573,31 +837,34 @@ async function sendStaffMessage(input, actor) {
     VALUES (${id}, 'adviser', ${actor.name}, ${messageText}, FALSE)
     RETURNING *`;
   await db().sql`UPDATE live_chat_conversations SET status = 'Active', last_message_at = NOW(), adviser_last_seen_at = NOW(), updated_at = NOW() WHERE id = ${id}`;
-  return { message: mapMessage(rows[0]) };
+  const runtime = await syncChatRuntimeState(id);
+  return { message: mapMessage(rows[0]), revision: runtime.conversation?.revision || '' };
 }
 
 async function addInternalNote(input, actor) {
   const id = requiredUuid(input.conversationId);
   const messageText = cleanText(input.message, 4000);
   if (!messageText) throw httpError(400, 'Enter an internal note.');
-  const current = await db().sql`SELECT * FROM live_chat_conversations WHERE id = ${id} LIMIT 1`;
+  const current = await db().sql`SELECT id, status, assigned_adviser_id FROM live_chat_conversations WHERE id = ${id} LIMIT 1`;
   if (!current[0]) throw httpError(404, 'Chat conversation not found.');
   const rows = await db().sql`
     INSERT INTO live_chat_messages (conversation_id, sender_type, sender_name, message_text, is_internal)
     VALUES (${id}, 'internal', ${actor.name}, ${messageText}, TRUE)
     RETURNING *`;
   await db().sql`UPDATE live_chat_conversations SET updated_at = NOW() WHERE id = ${id}`;
-  return { message: mapMessage(rows[0]) };
+  const runtime = await syncChatRuntimeState(id);
+  return { message: mapMessage(rows[0]), revision: runtime.conversation?.revision || '' };
 }
 
 async function closeStaffConversation(conversationId, actor) {
   const id = requiredUuid(conversationId);
-  const current = await db().sql`SELECT * FROM live_chat_conversations WHERE id = ${id} LIMIT 1`;
+  const current = await db().sql`SELECT id, status, assigned_adviser_id FROM live_chat_conversations WHERE id = ${id} LIMIT 1`;
   if (!current[0]) throw httpError(404, 'Chat conversation not found.');
   if (current[0].assigned_adviser_id && String(current[0].assigned_adviser_id) !== actor.id && !actor.isAdmin) throw httpError(403, 'Only the assigned adviser can close this chat.');
   const rows = await db().sql`UPDATE live_chat_conversations SET status = 'Closed', closed_at = NOW(), updated_at = NOW() WHERE id = ${id} RETURNING *`;
   await logEvent(id, 'closed_by_staff', actor.name, {});
-  return { conversation: mapConversation(rows[0]) };
+  const runtime = await syncChatRuntimeState(id);
+  return { conversation: runtime.conversation?.conversation || mapConversation(rows[0]), revision: runtime.conversation?.revision || '' };
 }
 
 async function reopenConversation(conversationId, actor) {
@@ -609,7 +876,8 @@ async function reopenConversation(conversationId, actor) {
     RETURNING *`;
   if (!rows[0]) throw httpError(404, 'Chat conversation not found.');
   await logEvent(id, 'reopened', actor.name, {});
-  return { conversation: mapConversation(rows[0]) };
+  const runtime = await syncChatRuntimeState(id);
+  return { conversation: runtime.conversation?.conversation || mapConversation(rows[0]), revision: runtime.conversation?.revision || '' };
 }
 
 async function deleteClosedConversation(conversationId, actor) {
@@ -622,16 +890,17 @@ async function deleteClosedConversation(conversationId, actor) {
     throw httpError(403, 'Only the assigned adviser or an administrator can delete this closed chat.');
   }
   await db().sql`DELETE FROM live_chat_conversations WHERE id = ${id}`;
+  await removeConversationRuntimeState(id);
   return { deleted: true, conversationId: id, linkedIntakeId: conversation.linked_intake_id ? String(conversation.linked_intake_id) : '' };
 }
 
 async function createContactFromConversation(conversationId, actor) {
   const id = requiredUuid(conversationId);
-  const rows = await db().sql`SELECT * FROM live_chat_conversations WHERE id = ${id} LIMIT 1`;
+  const rows = await db().sql`SELECT id, visitor_name, visitor_email, visitor_phone, existing_client, category, page_url, assigned_adviser_id, linked_intake_id FROM live_chat_conversations WHERE id = ${id} LIMIT 1`;
   const conversation = rows[0];
   if (!conversation) throw httpError(404, 'Chat conversation not found.');
   if (conversation.linked_intake_id) throw httpError(409, 'A contact record has already been created from this chat.');
-  const messages = await db().sql`SELECT * FROM live_chat_messages WHERE conversation_id = ${id} ORDER BY created_at ASC LIMIT 500`;
+  const messages = await db().sql`SELECT id, conversation_id, sender_type, sender_name, message_text, is_internal, created_at FROM live_chat_messages WHERE conversation_id = ${id} ORDER BY created_at ASC LIMIT 500`;
   const publicMessages = messages.filter((message) => !message.is_internal);
   const transcript = publicMessages
     .map((message) => `[${new Date(message.created_at).toLocaleString('en-NZ', { timeZone: 'Pacific/Auckland' })}] ${message.sender_name || message.sender_type}: ${message.message_text}`)
@@ -676,7 +945,8 @@ async function createContactFromConversation(conversationId, actor) {
   const intake = intakeRows[0];
   await db().sql`UPDATE live_chat_conversations SET linked_intake_id = ${intake.id}, updated_at = NOW() WHERE id = ${id}`;
   await logEvent(id, 'contact_created', actor.name, { contactId: intake.id, assignedAdviserId });
-  return { contact: mapIntake(intake), intake: mapIntake(intake), conversationId: id };
+  const runtime = await syncChatRuntimeState(id);
+  return { contact: mapIntake(intake), intake: mapIntake(intake), conversationId: id, revision: runtime.conversation?.revision || '' };
 }
 
 async function logEvent(conversationId, eventType, actorName, detail) {
@@ -809,25 +1079,44 @@ async function checkStaffAuth(event) {
   return { ok: false, mode: 'none', user: null };
 }
 
+async function readCachedChatAdvisers() {
+  const cached = await readCacheJson(CRM_REFERENCE_STORE, CHAT_ADVISER_CACHE_KEY, { silent: true });
+  return Array.isArray(cached) ? cached : null;
+}
+
+async function refreshChatAdviserCacheFromDatabase() {
+  await ensureChatSchema();
+  const rows = await db().sql`
+    SELECT id, name, email, login_email, role, profile_photo_url, access_role, active
+    FROM advisers ORDER BY name ASC`;
+  const advisers = rows.map((row) => ({
+    id: String(row.id || ''),
+    name: row.name || '',
+    email: normaliseEmail(row.email),
+    loginEmail: normaliseEmail(row.login_email),
+    role: row.role || 'Licensed Immigration Adviser',
+    profilePhotoUrl: row.profile_photo_url || '',
+    accessRole: row.access_role || 'User',
+    active: row.active !== false,
+  }));
+  await writeCacheJson(CRM_REFERENCE_STORE, CHAT_ADVISER_CACHE_KEY, advisers, { silent: true });
+  return advisers;
+}
+
 async function resolveStaffActor(auth, headers) {
-  const database = db();
   const requestedId = cleanUuid(headers['x-crm-adviser-id'] || headers['X-CRM-Adviser-Id']);
   const email = normaliseEmail(auth.user?.email);
-  let rows = [];
+  let advisers = await readCachedChatAdvisers();
+  if (!advisers) advisers = await refreshChatAdviserCacheFromDatabase();
+  let row = null;
   if (email) {
-    rows = await database.sql`
-      SELECT id, name, COALESCE(NULLIF(email, ''), NULLIF(login_email, '')) AS email, role, profile_photo_url, access_role, active
-      FROM advisers
-      WHERE LOWER(COALESCE(login_email, '')) = ${email} OR LOWER(COALESCE(email, '')) = ${email}
-      ORDER BY CASE WHEN LOWER(COALESCE(login_email, '')) = ${email} THEN 0 ELSE 1 END
-      LIMIT 1`;
+    row = advisers.find((item) => normaliseEmail(item.loginEmail) === email)
+      || advisers.find((item) => normaliseEmail(item.email) === email)
+      || null;
   } else if (requestedId) {
-    rows = await database.sql`SELECT id, name, COALESCE(NULLIF(email, ''), NULLIF(login_email, '')) AS email, role, profile_photo_url, access_role, active FROM advisers WHERE id = ${requestedId} LIMIT 1`;
+    row = advisers.find((item) => item.id === requestedId) || null;
   }
-  if (!rows[0] && auth.mode === 'token-fallback') {
-    rows = await database.sql`SELECT id, name, COALESCE(NULLIF(email, ''), NULLIF(login_email, '')) AS email, role, profile_photo_url, access_role, active FROM advisers WHERE active = TRUE ORDER BY name LIMIT 1`;
-  }
-  const row = rows[0];
+  if (!row && auth.mode === 'token-fallback') row = advisers.find((item) => item.active !== false) || null;
   if (!row || row.active === false) return null;
   const identityRoles = new Set([
     ...(Array.isArray(auth.user?.roles) ? auth.user.roles : []),
@@ -837,10 +1126,10 @@ async function resolveStaffActor(auth, headers) {
   return {
     id: String(row.id),
     name: row.name || auth.user?.email || 'CRM adviser',
-    email: row.email || auth.user?.email || '',
+    email: normaliseEmail(row.email || row.loginEmail || auth.user?.email),
     role: row.role || 'Licensed Immigration Adviser',
-    profilePhotoUrl: row.profile_photo_url || '',
-    isAdmin: auth.mode === 'token-fallback' || String(row.access_role || '').toLowerCase() === 'admin' || identityRoles.has('admin') || identityRoles.has('manager'),
+    profilePhotoUrl: row.profilePhotoUrl || '',
+    isAdmin: auth.mode === 'token-fallback' || String(row.accessRole || '').toLowerCase() === 'admin' || identityRoles.has('admin') || identityRoles.has('manager'),
   };
 }
 

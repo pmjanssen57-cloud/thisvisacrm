@@ -1288,9 +1288,12 @@ export default function App() {
   const chatWaitingCountRef = useRef(-1);
   const chatRefreshRequestRef = useRef(0);
   const chatRefreshAppliedRef = useRef(0);
+  const chatSnapshotRef = useRef(chatSnapshot);
   const chatDeepLinkHandledRef = useRef(false);
   const festiveActive = isFestiveModeActive(festivePreference);
   const festiveStatus = festiveModeStatus(festivePreference);
+
+  useEffect(() => { chatSnapshotRef.current = chatSnapshot; }, [chatSnapshot]);
 
   function showCrmToast(message, tone = 'success') {
     if (!message) return;
@@ -1689,12 +1692,24 @@ export default function App() {
   async function loadChatSnapshot(options = {}) {
     const silent = options.silent !== false;
     const conversationId = options.conversationId !== undefined ? options.conversationId : chatSelectedId;
-    if (authRequired || (!identityUser && !accessCode)) return null;
+    if (authRequired || (!identityUser && !accessCode) || document.visibilityState !== 'visible') return null;
     const requestId = ++chatRefreshRequestRef.current;
     if (!silent) setChatBusy(true);
     try {
+      const currentSnapshot = chatSnapshotRef.current || {};
       const query = new URLSearchParams({ action: 'staffSnapshot' });
       if (conversationId) query.set('conversationId', conversationId);
+      if (!options.forceList && currentSnapshot.revision) query.set('revision', currentSnapshot.revision);
+      const sameSelected = Boolean(conversationId && currentSnapshot.selectedConversation?.id === conversationId);
+      if (sameSelected && currentSnapshot.selectedRevision) query.set('selectedRevision', currentSnapshot.selectedRevision);
+      if (sameSelected && currentSnapshot.messages?.length) {
+        const lastMessage = currentSnapshot.messages[currentSnapshot.messages.length - 1];
+        if (lastMessage?.createdAt) query.set('afterMessage', lastMessage.createdAt);
+      }
+      if (sameSelected && currentSnapshot.events?.length) {
+        const lastEvent = currentSnapshot.events[currentSnapshot.events.length - 1];
+        if (lastEvent?.createdAt) query.set('afterEvent', lastEvent.createdAt);
+      }
       const response = await fetch(`/.netlify/functions/chat?${query.toString()}`, {
         headers: chatAuthHeaders(),
         credentials: 'same-origin',
@@ -1709,9 +1724,37 @@ export default function App() {
       if (requestId < chatRefreshAppliedRef.current) return body;
       chatRefreshAppliedRef.current = requestId;
       applyChatCounts(body.counts);
-      setChatSnapshot(body);
+      setChatSnapshot((current) => {
+        const mergeById = (existing = [], incoming = []) => {
+          const seen = new Set(existing.map((item) => item.id));
+          return [...existing, ...incoming.filter((item) => !seen.has(item.id))];
+        };
+        const next = body.unchanged ? {
+          ...current,
+          counts: body.counts ? { ...current.counts, ...body.counts } : current.counts,
+          availability: body.availability ? { ...(current.availability || {}), ...body.availability } : current.availability,
+          revision: body.revision || current.revision || '',
+          selectedRevision: body.selectedRevision || current.selectedRevision || '',
+          refreshedAt: body.refreshedAt || current.refreshedAt,
+        } : {
+          ...current,
+          ...body,
+          conversations: Array.isArray(body.conversations) ? body.conversations : current.conversations,
+          selectedConversation: Object.prototype.hasOwnProperty.call(body, 'selectedConversation') ? body.selectedConversation : current.selectedConversation,
+          messages: Array.isArray(body.messages)
+            ? (body.messagesMode === 'append' ? mergeById(current.messages || [], body.messages) : body.messages)
+            : current.messages,
+          events: Array.isArray(body.events)
+            ? (body.eventsMode === 'append' ? mergeById(current.events || [], body.events) : body.events)
+            : current.events,
+          revision: body.revision || current.revision || '',
+          selectedRevision: body.selectedRevision || current.selectedRevision || '',
+        };
+        chatSnapshotRef.current = next;
+        return next;
+      });
       setChatError('');
-      if (conversationId && !body.selectedConversation && chatSelectedId === conversationId) setChatSelectedId('');
+      if (conversationId && Object.prototype.hasOwnProperty.call(body, 'selectedConversation') && !body.selectedConversation && chatSelectedId === conversationId) setChatSelectedId('');
       return body;
     } catch (err) {
       if (!silent) setChatError(err.message || String(err));
@@ -1722,7 +1765,7 @@ export default function App() {
   }
 
   async function loadChatAttention() {
-    if (authRequired || (!identityUser && !accessCode)) return null;
+    if (authRequired || (!identityUser && !accessCode) || document.visibilityState !== 'visible') return null;
     const requestId = ++chatRefreshRequestRef.current;
     try {
       const response = await fetch('/.netlify/functions/chat?action=staffAttention', {
@@ -1739,12 +1782,17 @@ export default function App() {
       if (requestId < chatRefreshAppliedRef.current) return body;
       chatRefreshAppliedRef.current = requestId;
       applyChatCounts(body.counts);
-      setChatSnapshot((current) => ({
-        ...current,
-        counts: { ...current.counts, ...body.counts },
-        availability: body.availability ? { ...(current.availability || {}), ...body.availability } : current.availability,
-        refreshedAt: body.refreshedAt || current.refreshedAt,
-      }));
+      setChatSnapshot((current) => {
+        const next = {
+          ...current,
+          counts: { ...current.counts, ...body.counts },
+          availability: body.availability ? { ...(current.availability || {}), ...body.availability } : current.availability,
+          revision: body.revision || current.revision || '',
+          refreshedAt: body.refreshedAt || current.refreshedAt,
+        };
+        chatSnapshotRef.current = next;
+        return next;
+      });
       return body;
     } catch {
       return null;
@@ -1783,7 +1831,7 @@ export default function App() {
     setNewMenuOpen(false);
     setChatDrawerOpen(true);
     if (conversationId) setChatSelectedId(conversationId);
-    loadChatSnapshot({ silent: true, conversationId: conversationId || chatSelectedId });
+    loadChatSnapshot({ silent: true, conversationId: conversationId || chatSelectedId, forceList: true });
   }
 
   async function sendIntakeQuestionnaireFromChat(conversationId) {
@@ -2154,7 +2202,8 @@ export default function App() {
     const confirmed = await askCrmConfirm({ title: 'Delete commercial client?', message: 'This removes the company, portal users, worker register, approved Job Checks, compliance records and audit history.', confirmLabel: 'Delete commercial client', tone: 'danger' });
     if (!confirmed) return;
     const body = await callApi('deleteCommercialClient', { commercialClientId });
-    setSelectedCommercialClientId(body.commercialClients?.[0]?.id || '');
+    const remaining = (dataRef.current.commercialClients || []).filter((item) => item.id !== commercialClientId);
+    setSelectedCommercialClientId(remaining[0]?.id || '');
   }
 
   async function saveCommercialPortalUser(commercialClientId, portalUser) {
@@ -2536,8 +2585,10 @@ export default function App() {
     if (body.emailLog) {
       setData((current) => ({
         ...current,
-        seminarRegistrations: (body.seminarRegistrations || current.seminarRegistrations || []).map(normaliseSeminarRegistration),
-        emailLogs: [normaliseEmailLog(body.emailLog), ...(current.emailLogs || [])].slice(0, 200),
+        seminarRegistrations: body.seminarRegistration
+          ? upsertCrmItem(current.seminarRegistrations || [], normaliseSeminarRegistration(body.seminarRegistration))
+          : current.seminarRegistrations,
+        emailLogs: [normaliseEmailLog(body.emailLog), ...(current.emailLogs || []).filter((item) => item.id !== body.emailLog.id)].slice(0, 200),
         emailConfig: body.emailConfig ? normaliseEmailConfig(body.emailConfig) : current.emailConfig,
       }));
     }
@@ -2591,7 +2642,8 @@ export default function App() {
     const confirmed = await askCrmConfirm({ title: 'Delete client record?', message: 'This will delete the client and all linked stages, deadlines and billing records.', confirmLabel: 'Delete client', tone: 'danger' });
     if (!confirmed) return;
     const body = await callApi('deleteClient', { clientId });
-    setSelectedClientId(body.clients?.[0]?.id || '');
+    const remaining = (dataRef.current.clients || []).filter((item) => item.id !== clientId);
+    setSelectedClientId(remaining[0]?.id || '');
   }
 
   function addClient() {
@@ -2727,16 +2779,17 @@ export default function App() {
       if (stopped) return;
       window.clearTimeout(timer);
       const visible = document.visibilityState === 'visible';
+      if (!visible) return;
       let delay = delayOverride;
       if (delay === null) {
         if (chatDrawerOpen) {
-          delay = visible ? 3000 : 15000;
+          delay = 3000;
         } else if (attentionPolicy.shouldPoll === false) {
           const nextCheckAt = Date.parse(attentionPolicy.nextCheckAt || '');
           if (!Number.isFinite(nextCheckAt)) return;
           delay = Math.max(5000, Math.min(2140000000, nextCheckAt - Date.now() + 2000));
         } else {
-          delay = visible ? 10000 : 60000;
+          delay = 10000;
         }
       }
       timer = window.setTimeout(refresh, delay);
@@ -2767,7 +2820,7 @@ export default function App() {
     const handleVisibilityChange = () => {
       window.clearTimeout(timer);
       if (document.visibilityState === 'visible') wake();
-      else schedule();
+      // Hidden tabs do not poll. Visibility returning to the CRM wakes the check.
     };
 
     refresh();
@@ -2781,8 +2834,8 @@ export default function App() {
       window.removeEventListener('online', wake);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-    // During configured hours, or while waiting/active chats exist, the closed drawer uses the lightweight attention endpoint.
-    // Outside hours with no open work, polling sleeps until the next opening time and wakes on focus, visibility or reconnection.
+    // Visible tabs use Blob-backed attention markers. Hidden tabs and logged-out sessions do not poll.
+    // Outside hours with no open work, checking sleeps until the next opening time and wakes on focus or reconnection.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, authRequired, identityUser?.id, identityUser?.email, accessCode, chatDrawerOpen, chatSelectedId, chatPollingWakeKey, data.advisers.length]);
 
@@ -2797,7 +2850,7 @@ export default function App() {
     chatDeepLinkHandledRef.current = true;
     setChatSelectedId(conversationId);
     setChatDrawerOpen(true);
-    loadChatSnapshot({ silent: true, conversationId });
+    loadChatSnapshot({ silent: true, conversationId, forceList: true });
     url.searchParams.delete('chat');
     window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3172,7 +3225,7 @@ export default function App() {
         snapshot={chatSnapshot}
         selectedId={chatSelectedId}
         onSelect={(conversationId) => { setChatSelectedId(conversationId); loadChatSnapshot({ silent: true, conversationId }); }}
-        onRefresh={() => loadChatSnapshot({ silent: false, conversationId: chatSelectedId })}
+        onRefresh={() => loadChatSnapshot({ silent: false, conversationId: chatSelectedId, forceList: true })}
         onClaim={(conversationId) => callChatApi('claim', { conversationId })}
         onRelease={(conversationId) => callChatApi('release', { conversationId })}
         onSend={(conversationId, message) => callChatApi('sendStaff', { conversationId, message })}
@@ -9341,7 +9394,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const dayRows = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']];
-  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.15.12" data-title="Chat with us" defer><\/script>`;
+  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.15.14" data-title="Chat with us" defer><\/script>`;
 
   useEffect(() => {
     if (!open) return;
@@ -12569,7 +12622,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.15.12" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.15.14" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -13146,7 +13199,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.15.12" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.15.14" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}
@@ -16514,6 +16567,29 @@ function SharePointFolderPanel({ value, onChange }) {
 function FamilyDetails({ members, addFamilyMember, updateFamilyMember, removeFamilyMember }) {
   const spousePartner = members.filter((member) => member.relationship === 'Spouse/Partner');
   const children = members.filter((member) => member.relationship === 'Child');
+  const familyRowsRef = useRef(null);
+  const previousFamilyIdsRef = useRef(new Set(members.map((member) => String(member.id || ''))));
+
+  useEffect(() => {
+    const previousIds = previousFamilyIdsRef.current;
+    const addedMember = members.find((member) => !previousIds.has(String(member.id || '')));
+    previousFamilyIdsRef.current = new Set(members.map((member) => String(member.id || '')));
+    if (!addedMember || typeof window === 'undefined') return undefined;
+
+    const frame = window.requestAnimationFrame(() => {
+      const rows = Array.from(familyRowsRef.current?.querySelectorAll('[data-family-member-id]') || []);
+      const row = rows.find((candidate) => candidate.dataset.familyMemberId === String(addedMember.id || ''));
+      if (!row) return;
+      row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      const nameInput = row.querySelector('[data-family-name-input]');
+      if (nameInput) {
+        try { nameInput.focus({ preventScroll: true }); } catch { nameInput.focus(); }
+      }
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [members]);
+
   return (
     <section className="sub-panel">
       <div className="sub-panel-head">
@@ -16522,23 +16598,23 @@ function FamilyDetails({ members, addFamilyMember, updateFamilyMember, removeFam
           <p className="muted">Add spouse/partner and children details where relevant. Citizenship and ages are captured for each family member.</p>
         </div>
         <div className="button-row">
-          <button className="btn" onClick={() => addFamilyMember('Spouse/Partner')}><Plus size={16} />Spouse/partner</button>
-          <button className="btn" onClick={() => addFamilyMember('Child')}><Plus size={16} />Child</button>
+          <button className="btn" type="button" onClick={() => addFamilyMember('Spouse/Partner')}><Plus size={16} />Spouse/partner</button>
+          <button className="btn" type="button" onClick={() => addFamilyMember('Child')}><Plus size={16} />Child</button>
         </div>
       </div>
       <datalist id="family-citizenship-options">{COUNTRY_OPTIONS.map((country) => <option key={country} value={country} />)}</datalist>
-      <div className="table-like">
+      <div className="table-like family-member-rows" ref={familyRowsRef}>
         {members.map((member) => (
-          <div className="editable-row family-row" key={member.id}>
+          <div className="editable-row family-row" key={member.id} data-family-member-id={String(member.id || '')}>
             <select value={member.relationship || 'Child'} onChange={(event) => updateFamilyMember(member.id, { relationship: event.target.value })}>
               <option>Spouse/Partner</option>
               <option>Child</option>
             </select>
-            <input value={member.name || ''} onChange={(event) => updateFamilyMember(member.id, { name: event.target.value })} placeholder="Full name" />
+            <input data-family-name-input value={member.name || ''} onChange={(event) => updateFamilyMember(member.id, { name: event.target.value })} placeholder="Full name" />
             <input value={member.nationality || ''} list="family-citizenship-options" onChange={(event) => updateFamilyMember(member.id, { nationality: event.target.value })} placeholder="Citizenship" />
             <input type="date" value={member.dateOfBirth || ''} onChange={(event) => updateFamilyMember(member.id, { dateOfBirth: event.target.value })} />
             <strong className="age-pill">{calculateAge(member.dateOfBirth) === null ? 'Age -' : `${calculateAge(member.dateOfBirth)} yrs`}</strong>
-            <button className="icon-btn" onClick={() => removeFamilyMember(member.id)}><Trash2 size={16} /></button>
+            <button className="icon-btn" type="button" onClick={() => removeFamilyMember(member.id)} aria-label={`Remove ${member.relationship || 'family member'}`}><Trash2 size={16} /></button>
           </div>
         ))}
         {!members.length && <p className="muted center">No spouse/partner or children added yet.</p>}
@@ -17373,12 +17449,34 @@ function mergePartialCrmResponse(current = emptyData, body = {}) {
   if (Array.isArray(body.seminarRegistrations)) next.seminarRegistrations = body.seminarRegistrations.map(normaliseSeminarRegistration);
   if (body.feedbackSubmission) next.feedbackSubmissions = upsertCrmItem(current.feedbackSubmissions || [], normaliseFeedbackSubmission(body.feedbackSubmission));
   if (body.consultationType) next.consultationTypes = upsertCrmItem(current.consultationTypes || [], normaliseConsultationType(body.consultationType));
+  if (Array.isArray(body.consultationTypes)) next.consultationTypes = body.consultationTypes.map(normaliseConsultationType);
   if (body.bookingAvailabilityItem) next.bookingAvailability = upsertCrmItem(current.bookingAvailability || [], normaliseBookingAvailability(body.bookingAvailabilityItem));
   if (Array.isArray(body.bookingAvailability)) next.bookingAvailability = body.bookingAvailability.map(normaliseBookingAvailability);
   if (body.bookingBlock) next.bookingBlocks = upsertCrmItem(current.bookingBlocks || [], normaliseBookingBlock(body.bookingBlock));
   if (Array.isArray(body.bookingBlocks)) next.bookingBlocks = body.bookingBlocks.map(normaliseBookingBlock);
   if (body.bookingLink) next.bookingLinks = upsertCrmItem(current.bookingLinks || [], normaliseBookingLink(body.bookingLink));
   if (body.consultationBooking) next.consultationBookings = upsertCrmItem(current.consultationBookings || [], normaliseConsultationBooking(body.consultationBooking));
+  if (Array.isArray(body.emailLogs)) {
+    const incomingLogs = body.emailLogs.map(normaliseEmailLog);
+    const incomingIds = new Set(incomingLogs.map((item) => item.id));
+    next.emailLogs = [...incomingLogs, ...(current.emailLogs || []).filter((item) => !incomingIds.has(item.id))].slice(0, 200);
+  }
+  if (body.deletedPersonalTaskId) next.personalTasks = (current.personalTasks || []).filter((item) => item.id !== body.deletedPersonalTaskId);
+  if (body.deletedCalendarEntryId) next.calendarEntries = (current.calendarEntries || []).filter((item) => item.id !== body.deletedCalendarEntryId);
+  if (body.deletedLibraryEntryId) next.libraryEntries = (current.libraryEntries || []).filter((item) => item.id !== body.deletedLibraryEntryId);
+  if (body.deletedIntakeEnquiryId) next.intakeEnquiries = (current.intakeEnquiries || []).filter((item) => item.id !== body.deletedIntakeEnquiryId);
+  if (body.deletedInstructionSetId) next.instructionSets = (current.instructionSets || []).filter((item) => item.id !== body.deletedInstructionSetId);
+  if (body.deletedAgreementSetId) next.agreementSets = (current.agreementSets || []).filter((item) => item.id !== body.deletedAgreementSetId);
+  if (body.deletedClientId) next.clients = (current.clients || []).filter((item) => item.id !== body.deletedClientId);
+  if (body.deletedCommercialClientId) next.commercialClients = (current.commercialClients || []).filter((item) => item.id !== body.deletedCommercialClientId);
+  if (body.deletedSeminarId) {
+    next.seminars = (current.seminars || []).filter((item) => item.id !== body.deletedSeminarId);
+    next.seminarRegistrations = (current.seminarRegistrations || []).filter((item) => item.seminarId !== body.deletedSeminarId);
+  }
+  if (body.deletedFeedbackSubmissionId) next.feedbackSubmissions = (current.feedbackSubmissions || []).filter((item) => item.id !== body.deletedFeedbackSubmissionId);
+  if (body.deletedBookingAvailabilityId) next.bookingAvailability = (current.bookingAvailability || []).filter((item) => item.id !== body.deletedBookingAvailabilityId);
+  if (body.deletedBookingBlockId) next.bookingBlocks = (current.bookingBlocks || []).filter((item) => item.id !== body.deletedBookingBlockId);
+  if (body.deletedBookingLinkId) next.bookingLinks = (current.bookingLinks || []).filter((item) => item.id !== body.deletedBookingLinkId);
   if (body.emailConfig) next.emailConfig = normaliseEmailConfig(body.emailConfig);
   if (body.accessContext) next.accessContext = body.accessContext;
   return next;
