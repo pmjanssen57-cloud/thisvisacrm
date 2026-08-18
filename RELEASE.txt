@@ -1,8 +1,13 @@
-THiS CRM v0.15.15 - Family Editor Expansion Fix
+THiS CRM v0.15.16 - Migration Integrity Restoration
 
 Baseline
-- Built from v0.15.14 Database Idle & Chat Runtime Optimisation.
-- Retains the full v0.15.14 CRM, database-idle optimisations, live chat, intake, portal, Instructions Studio and Agreement Studio functionality.
+- Built from v0.15.15 Family Editor Expansion Fix.
+- Retains the full v0.15.15 CRM, family editor fix, database-idle optimisations, live chat, intake, portal, Instructions Studio and Agreement Studio functionality.
+
+Migration integrity restoration
+- Restores 202608110001_add_intake_updated_at_index.sql byte-for-byte to the original v0.15.12 file that was applied to the database.
+- The later v0.15.13 comment-only edit has been removed; the SQL operation itself is unchanged.
+- All other historical migration files match the v0.15.12 package, while the legitimate v0.15.14 optimisation remains in its separate 202608170001 migration.
 
 Family editor fix
 - Adding a spouse/partner or child now reveals the newly created row inside the client editor's own scroll area.

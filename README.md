@@ -1,6 +1,12 @@
-# THiS CRM v0.15.15 - Family Editor Expansion Fix
+# THiS CRM v0.15.16 - Migration Integrity Restoration
 
-This release is built from v0.15.14. It fixes the unified client editor so a newly added spouse/partner or child is immediately revealed and ready to edit, while retaining the database-idle, live-chat and CRM runtime optimisations from the previous release.
+This release is built from v0.15.15. It restores the previously applied `202608110001_add_intake_updated_at_index.sql` migration to its exact original v0.15.12 contents so Netlify can verify migration integrity. The v0.15.15 family editor fix and all v0.15.14 runtime optimisations are retained.
+
+## Migration integrity
+
+- The historical migration's release comment is restored from `v0.15.13` to its original `v0.15.12` value.
+- Its SQL operation remains unchanged.
+- Newer database optimisation work remains correctly isolated in `202608170001_optimize_idle_runtime_queries.sql`.
 
 ## Family editor
 

@@ -1,13 +1,17 @@
-THiS CRM v0.15.15 validation
+THiS CRM v0.15.16 validation
 
 Release focus
+- Applied migration 202608110001 is restored to its original v0.15.12 checksum.
+- All other historical migrations match the v0.15.12 baseline.
+- The v0.15.14 optimisation remains a separate later migration.
 - Newly added family rows are revealed inside the client editor scroll area.
 - The complete new row remains above the fixed editor footer.
 - The new family member name field receives focus.
 - v0.15.14 database-idle, live-chat and targeted-response behaviour is retained.
 
 Validation checklist
-- package version and cache-busting references are v0.15.15.
+- package version and cache-busting references are v0.15.16.
+- 202608110001_add_intake_updated_at_index.sql SHA-256 is 12005fc4f075bc65c70e30cf72ccc28238ff00e756be7e9b91eb912d659097c1.
 - family-row reveal waits for the rendered layout before measuring the row.
 - reveal logic scrolls the client editor body rather than the locked page body.
 - spouse/partner and child additions use the same reveal-and-focus path.
