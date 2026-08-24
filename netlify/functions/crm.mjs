@@ -67,6 +67,8 @@ const LIBRARY_ENTRY_TYPES = ['Policy', 'Form'];
 const LIBRARY_STATUSES = ['Current', 'Watch', 'Superseded', 'Archived', 'Acceptable until'];
 const LIBRARY_CATEGORIES = ['Work', 'Residence', 'Family', 'Student', 'Visitor', 'Investor', 'Health', 'Character', 'Compliance', 'Forms', 'General'];
 const INTAKE_STATUSES = ['New', 'Contacted', 'Converted', 'Spam / Duplicate'];
+const INTAKE_ARCHIVE_STATUS = 'Archived';
+const MAX_BULK_INTAKE_ARCHIVE = 50;
 const SEMINAR_STATUSES = ['Active', 'Closed'];
 const SEMINAR_REGISTRATION_STATUSES = ['New', 'Approved', 'Declined', 'Spam / Duplicate'];
 const PORTAL_RESOURCE_KEYS = ['jobSearchCv', 'lifeInNz', 'usefulLinks', 'relocationResources'];
@@ -563,9 +565,25 @@ async function handleCrmEvent(event) {
       return json({ intakeEnquiry });
     }
 
+    if (action === 'archiveIntakeEnquiries') {
+      const result = await archiveIntakeEnquiries(body.intakeIds || body.ids || [], auth.user);
+      return json({ updatedIntakeEnquiries: result.items, archiveSummary: result.summary });
+    }
+
+    if (action === 'restoreIntakeEnquiry') {
+      const intakeEnquiry = await restoreIntakeEnquiry(body.intakeId, auth.user);
+      return json({ intakeEnquiry });
+    }
+
+    if (action === 'permanentlyDeleteIntakeEnquiry') {
+      requireAdminAccess(accessContext, 'Permanent enquiry deletion');
+      const result = await permanentlyDeleteIntakeEnquiry(body.intakeId, auth.user);
+      return json({ deletedIntakeEnquiryId: body.intakeId, purgeSummary: result });
+    }
+
     if (action === 'deleteIntakeEnquiry') {
-      await deleteIntakeEnquiry(body.intakeId);
-      return json({ deletedIntakeEnquiryId: body.intakeId });
+      const result = await deleteIntakeEnquiry(body.intakeId);
+      return json({ deletedIntakeEnquiryId: result.deleted ? body.intakeId : '', purgeSummary: result });
     }
 
     if (action === 'convertIntakeToClient') {
@@ -3735,9 +3753,204 @@ async function downloadIntakeUpload(intakeId, kind) {
   };
 }
 
+async function archiveIntakeEnquiries(intakeIds = [], user = null) {
+  const ids = [...new Set((Array.isArray(intakeIds) ? intakeIds : [intakeIds]).filter(isUuid))];
+  if (!ids.length) throw new Error('Select at least one contact or intake form to archive.');
+  if (ids.length > MAX_BULK_INTAKE_ARCHIVE) throw new Error(`Archive requests are limited to ${MAX_BULK_INTAKE_ARCHIVE} records at a time.`);
+
+  const items = [];
+  const summary = { requested: ids.length, archived: 0, alreadyArchived: 0, purgedFiles: 0, purgedBytes: 0, purgeFailures: 0 };
+  const actor = user?.email || user?.name || 'CRM adviser';
+
+  for (const intakeId of ids) {
+    const rows = await db().sql`
+      SELECT id, status, raw_payload
+      FROM intake_enquiries
+      WHERE id = ${intakeId}
+      LIMIT 1
+    `;
+    const row = rows[0];
+    if (!row) continue;
+
+    const payload = parseJsonObject(row.raw_payload);
+    const existingMeta = payload.intakeArchive && typeof payload.intakeArchive === 'object' ? payload.intakeArchive : {};
+    const wasArchived = String(row.status || '') === INTAKE_ARCHIVE_STATUS;
+    const previousStatus = wasArchived
+      ? normaliseRestorableIntakeStatus(existingMeta.previousStatus)
+      : normaliseRestorableIntakeStatus(row.status);
+    const archiveRunAt = new Date().toISOString();
+    const archivedAt = wasArchived ? (existingMeta.archivedAt || archiveRunAt) : archiveRunAt;
+    const preArchiveMeta = {
+      ...existingMeta,
+      firstArchivedAt: existingMeta.firstArchivedAt || existingMeta.archivedAt || archiveRunAt,
+      archivedAt,
+      archivedBy: wasArchived ? (existingMeta.archivedBy || actor) : actor,
+      previousStatus,
+      lastArchiveRunAt: new Date().toISOString(),
+      lastArchiveRunBy: actor,
+      purgedUploadCount: Number(existingMeta.purgedUploadCount || 0),
+      purgedBytes: Number(existingMeta.purgedBytes || 0),
+      purgeFailedCount: Number(existingMeta.purgeFailedCount || 0),
+      purgedFileNames: Array.isArray(existingMeta.purgedFileNames) ? existingMeta.purgedFileNames : [],
+    };
+    const preArchivePayload = { ...payload, intakeArchive: preArchiveMeta };
+
+    // Commit the archive state before deleting any blob. If the function stops after
+    // this point, the form is still safely recoverable from the Archive and cleanup
+    // can be retried without leaving an apparently active record whose CV disappeared.
+    if (!wasArchived) {
+      await db().sql`
+        UPDATE intake_enquiries
+        SET status = ${INTAKE_ARCHIVE_STATUS}, raw_payload = CAST(${JSON.stringify(preArchivePayload)} AS jsonb), updated_at = NOW()
+        WHERE id = ${intakeId}
+      `;
+    }
+
+    const purge = await purgeIntakeUploadBlobs(preArchivePayload, { reason: 'Archived from THiS CRM' });
+    const archiveMeta = {
+      ...preArchiveMeta,
+      lastArchiveRunAt: new Date().toISOString(),
+      lastArchiveRunBy: actor,
+      purgedUploadCount: Number(existingMeta.purgedUploadCount || 0) + purge.deletedCount,
+      purgedBytes: Number(existingMeta.purgedBytes || 0) + purge.deletedBytes,
+      purgeFailedCount: purge.failedCount,
+      purgedFileNames: [...new Set([...(Array.isArray(existingMeta.purgedFileNames) ? existingMeta.purgedFileNames : []), ...purge.deletedFileNames])].slice(0, 20),
+    };
+    const nextPayload = { ...purge.payload, intakeArchive: archiveMeta };
+
+    const updated = await db().sql`
+      UPDATE intake_enquiries
+      SET status = ${INTAKE_ARCHIVE_STATUS}, raw_payload = CAST(${JSON.stringify(nextPayload)} AS jsonb), updated_at = NOW()
+      WHERE id = ${intakeId}
+      RETURNING id, status, assigned_adviser_id, applicant_first_name, applicant_last_name, email, phone, current_location, citizenship, date_of_birth, current_visa_type, current_visa_expiry, target_pathway, urgency, flags, raw_payload, adviser_assessment_notes, recommended_pathway, consultation_outcome, converted_client_id, created_at, updated_at
+    `;
+    if (updated[0]) items.push(mapIntakeEnquiryFromDb(updated[0]));
+    summary[wasArchived ? 'alreadyArchived' : 'archived'] += 1;
+    summary.purgedFiles += purge.deletedCount;
+    summary.purgedBytes += purge.deletedBytes;
+    summary.purgeFailures += purge.failedCount;
+  }
+
+  return { items, summary };
+}
+
+async function restoreIntakeEnquiry(intakeId, user = null) {
+  if (!isUuid(intakeId)) throw new Error('A valid archived enquiry is required.');
+  const rows = await db().sql`SELECT id, status, raw_payload FROM intake_enquiries WHERE id = ${intakeId} LIMIT 1`;
+  const row = rows[0];
+  if (!row) throw new Error('The archived enquiry was not found.');
+  if (String(row.status || '') !== INTAKE_ARCHIVE_STATUS) throw new Error('This enquiry is not archived.');
+
+  const payload = parseJsonObject(row.raw_payload);
+  const nextStatus = normaliseRestorableIntakeStatus(payload.intakeArchive?.previousStatus);
+  const nextPayload = {
+    ...payload,
+    intakeArchive: {
+      ...(payload.intakeArchive && typeof payload.intakeArchive === 'object' ? payload.intakeArchive : {}),
+      restoredAt: new Date().toISOString(),
+      restoredBy: user?.email || user?.name || 'CRM adviser',
+    },
+  };
+  const updated = await db().sql`
+    UPDATE intake_enquiries
+    SET status = ${nextStatus}, raw_payload = CAST(${JSON.stringify(nextPayload)} AS jsonb), updated_at = NOW()
+    WHERE id = ${intakeId}
+    RETURNING id, status, assigned_adviser_id, applicant_first_name, applicant_last_name, email, phone, current_location, citizenship, date_of_birth, current_visa_type, current_visa_expiry, target_pathway, urgency, flags, raw_payload, adviser_assessment_notes, recommended_pathway, consultation_outcome, converted_client_id, created_at, updated_at
+  `;
+  if (!updated[0]) throw new Error('The archived enquiry could not be restored.');
+  return mapIntakeEnquiryFromDb(updated[0]);
+}
+
 async function deleteIntakeEnquiry(intakeId) {
-  if (!isUuid(intakeId)) return;
+  if (!isUuid(intakeId)) return { deleted: false, purgedFiles: 0, purgedBytes: 0, purgeFailures: 0 };
+  const rows = await db().sql`SELECT raw_payload, converted_client_id FROM intake_enquiries WHERE id = ${intakeId} LIMIT 1`;
+  const row = rows[0];
+  if (!row || row.converted_client_id) return { deleted: false, purgedFiles: 0, purgedBytes: 0, purgeFailures: 0 };
+  const purge = await purgeIntakeUploadBlobs(parseJsonObject(row.raw_payload), { reason: 'Intake enquiry deleted' });
+  if (purge.failedCount > 0) {
+    await db().sql`UPDATE intake_enquiries SET raw_payload = CAST(${JSON.stringify(purge.payload)} AS jsonb), updated_at = NOW() WHERE id = ${intakeId}`;
+    throw new Error(`The enquiry was not deleted because ${purge.failedCount} uploaded CV file${purge.failedCount === 1 ? '' : 's'} could not be removed from storage. Please retry.`);
+  }
   await db().sql`DELETE FROM intake_enquiries WHERE id = ${intakeId} AND converted_client_id IS NULL`;
+  return { deleted: true, purgedFiles: purge.deletedCount, purgedBytes: purge.deletedBytes, purgeFailures: purge.failedCount };
+}
+
+async function permanentlyDeleteIntakeEnquiry(intakeId, user = null) {
+  if (!isUuid(intakeId)) throw new Error('A valid enquiry is required.');
+  const rows = await db().sql`SELECT raw_payload FROM intake_enquiries WHERE id = ${intakeId} LIMIT 1`;
+  const row = rows[0];
+  if (!row) return { deleted: false, purgedFiles: 0, purgedBytes: 0, purgeFailures: 0 };
+  const purge = await purgeIntakeUploadBlobs(parseJsonObject(row.raw_payload), { reason: `Permanently deleted by ${user?.email || user?.name || 'CRM administrator'}` });
+  if (purge.failedCount > 0) {
+    await db().sql`UPDATE intake_enquiries SET raw_payload = CAST(${JSON.stringify(purge.payload)} AS jsonb), updated_at = NOW() WHERE id = ${intakeId}`;
+    throw new Error(`The archived enquiry was not deleted because ${purge.failedCount} uploaded CV file${purge.failedCount === 1 ? '' : 's'} could not be removed from storage. Retry file cleanup first.`);
+  }
+  await db().sql`DELETE FROM intake_enquiries WHERE id = ${intakeId}`;
+  return { deleted: true, purgedFiles: purge.deletedCount, purgedBytes: purge.deletedBytes, purgeFailures: purge.failedCount };
+}
+
+async function purgeIntakeUploadBlobs(payload = {}, options = {}) {
+  const nextPayload = payload && typeof payload === 'object' && !Array.isArray(payload) ? { ...payload } : {};
+  const nextUploads = nextPayload.intakeUploads && typeof nextPayload.intakeUploads === 'object' && !Array.isArray(nextPayload.intakeUploads)
+    ? { ...nextPayload.intakeUploads }
+    : {};
+  const store = getStore({ name: INTAKE_UPLOAD_STORE, consistency: 'strong' });
+  const processedKeys = new Set();
+  const result = { payload: nextPayload, deletedCount: 0, deletedBytes: 0, failedCount: 0, deletedFileNames: [] };
+
+  for (const kind of ['applicantCv', 'partnerCv']) {
+    const metadata = nextUploads[kind] || nextPayload[kind];
+    if (!metadata || typeof metadata !== 'object') continue;
+    const blobKey = String(metadata.blobKey || '').trim();
+    if (!blobKey) continue;
+
+    let purged = false;
+    if (processedKeys.has(blobKey)) {
+      purged = true;
+    } else {
+      try {
+        await store.delete(blobKey);
+        processedKeys.add(blobKey);
+        purged = true;
+        result.deletedCount += 1;
+        result.deletedBytes += Math.max(0, Number(metadata.fileSize || 0) || 0);
+        if (metadata.fileName) result.deletedFileNames.push(String(metadata.fileName).slice(0, 180));
+      } catch (error) {
+        console.warn('Intake upload blob delete failed', intakeIdFromBlobKey(blobKey), kind, error?.message || error);
+        result.failedCount += 1;
+      }
+    }
+
+    if (purged) {
+      const archivedMetadata = {
+        ...metadata,
+        originalFileName: metadata.originalFileName || metadata.fileName || '',
+        fileName: '',
+        blobKey: '',
+        purged: true,
+        purgedAt: new Date().toISOString(),
+        purgeReason: String(options.reason || 'Archived').slice(0, 240),
+      };
+      nextUploads[kind] = archivedMetadata;
+      if (nextPayload[kind] && typeof nextPayload[kind] === 'object') nextPayload[kind] = archivedMetadata;
+    }
+  }
+
+  nextPayload.intakeUploads = nextUploads;
+  result.payload = nextPayload;
+  return result;
+}
+
+function intakeIdFromBlobKey(blobKey = '') {
+  return String(blobKey || '').split('/')[1] || '';
+}
+
+function normaliseRestorableIntakeStatus(value) {
+  const text = String(value || '').trim();
+  if (INTAKE_STATUSES.includes(text)) return text;
+  if (/converted|signed client/i.test(text)) return 'Converted';
+  if (/spam|duplicate/i.test(text)) return 'Spam / Duplicate';
+  return 'Contacted';
 }
 
 async function convertIntakeToClient(intakeId) {
@@ -3867,9 +4080,10 @@ function buildIntakeFlags(payload = {}) {
 
 function normaliseIntakeStatus(value) {
   const text = String(value || '').trim();
+  if (text === INTAKE_ARCHIVE_STATUS) return INTAKE_ARCHIVE_STATUS;
   if (INTAKE_STATUSES.includes(text)) return text;
   if (/converted|signed client/i.test(text)) return 'Converted';
-  if (['Reviewing', 'Consultation booked', 'Agreement sent', 'Not proceeding', 'Archived'].includes(text)) return 'Contacted';
+  if (['Reviewing', 'Consultation booked', 'Agreement sent', 'Not proceeding'].includes(text)) return 'Contacted';
   if (/spam|duplicate/i.test(text)) return 'Spam / Duplicate';
   return 'New';
 }

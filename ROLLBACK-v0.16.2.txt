@@ -1,0 +1,16 @@
+THiS CRM v0.16.2 rollback
+
+Immediate rollback
+Redeploy the complete THiS-CRM-v0.16.1-Intake-Contact-Archiving.zip package. This returns to the HuB-inspired v0.16.1 interface while retaining the archive feature.
+
+Original pre-archive rollback
+Redeploy THiS-CRM-v0.15.16-ROLLBACK.zip if a complete return to the original styling and pre-archive application code is required.
+
+Database
+v0.16.2 does not add or alter a database migration, so no database/schema rollback is required. Do not edit any already-applied migration.
+
+Archived records
+Records archived while v0.16.2 is running remain in the existing intake_enquiries table with status `Archived`. Rolling back to v0.16.1 retains the Archive workspace. Rolling back to v0.15.16 removes the Archive UI; archived records may then appear in dealt-with queues if interpreted by the older interface.
+
+Purged CV files
+CV blobs deleted by the archive action are not recreated by application rollback. If required later, those files must be supplied again by the client/adviser.

@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { acceptInvite, getUser, handleAuthCallback, login, logout, onAuthChange, requestPasswordRecovery, updateUser } from '@netlify/identity';
-import { AlertTriangle, ArrowUpDown, BookOpen, Building2, Calculator, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Clock, CloudSun, Copy, CreditCard, ClipboardList, Database, DollarSign, Download, ExternalLink, FileCheck2, FileSpreadsheet, FileText, Gift, Globe2, HelpCircle, KeyRound, LayoutDashboard, Link2, ListChecks, LockKeyhole, Mail, MessageSquare, MoreHorizontal, Phone, Pencil, Plus, RefreshCw, Save, Search, Send, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, UserRound, UsersRound, Wrench, X } from 'lucide-react';
+import { AlertTriangle, Archive, ArrowUpDown, BookOpen, Building2, Calculator, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Clock, CloudSun, Copy, CreditCard, ClipboardList, Database, DollarSign, Download, ExternalLink, FileCheck2, FileSpreadsheet, FileText, Gift, Globe2, HelpCircle, KeyRound, LayoutDashboard, Link2, ListChecks, LockKeyhole, Mail, MessageSquare, MoreHorizontal, Phone, Pencil, Plus, RefreshCw, RotateCcw, Save, Search, Send, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, UserRound, UsersRound, Wrench, X } from 'lucide-react';
 
 const BRAND = {
   ink: '#003736',
@@ -2491,6 +2491,50 @@ export default function App() {
     return await callApi('saveIntakeEnquiry', { intake });
   }
 
+  async function archiveIntakeEnquiries(intakeIds = []) {
+    const ids = [...new Set((Array.isArray(intakeIds) ? intakeIds : [intakeIds]).filter(Boolean))];
+    const chunkSize = 40;
+    const combined = {
+      updatedIntakeEnquiries: [],
+      archiveSummary: { requested: 0, archived: 0, alreadyArchived: 0, purgedFiles: 0, purgedBytes: 0, purgeFailures: 0 },
+    };
+    for (let index = 0; index < ids.length; index += chunkSize) {
+      const body = await callApi('archiveIntakeEnquiries', { intakeIds: ids.slice(index, index + chunkSize) });
+      combined.updatedIntakeEnquiries.push(...(body.updatedIntakeEnquiries || []));
+      const summary = body.archiveSummary || {};
+      Object.keys(combined.archiveSummary).forEach((key) => {
+        combined.archiveSummary[key] += Number(summary[key] || 0);
+      });
+    }
+    const summary = combined.archiveSummary;
+    const archivedCount = Number(summary.archived || 0) + Number(summary.alreadyArchived || 0);
+    const storage = Number(summary.purgedBytes || 0);
+    const storageText = storage > 0 ? ` ${formatFileSize(storage)} of uploaded CV storage was released.` : '';
+    const failureText = Number(summary.purgeFailures || 0) > 0 ? ` ${summary.purgeFailures} file${summary.purgeFailures === 1 ? '' : 's'} could not be removed and can be retried from Archive.` : '';
+    showCrmToast(`${archivedCount} enquiry record${archivedCount === 1 ? '' : 's'} archived.${storageText}${failureText}`, failureText ? 'warning' : 'success');
+    return combined;
+  }
+
+  async function restoreIntakeEnquiry(intakeId) {
+    const body = await callApi('restoreIntakeEnquiry', { intakeId });
+    showCrmToast('Enquiry restored to the active workspace. Any CV files previously purged from storage remain deleted.');
+    return body;
+  }
+
+  async function permanentlyDeleteIntakeEnquiry(intakeId) {
+    const confirmed = await askCrmConfirm({
+      title: 'Permanently delete archived enquiry?',
+      message: 'This removes the archived contact or intake form from the CRM database and removes any remaining uploaded CV files. This cannot be undone.',
+      confirmLabel: 'Permanently delete',
+      tone: 'danger',
+      details: ['If the intake was converted, the client record remains. Links from email logs or agreements to this intake record will be cleared.'],
+    });
+    if (!confirmed) return null;
+    const body = await callApi('permanentlyDeleteIntakeEnquiry', { intakeId });
+    showCrmToast('Archived enquiry permanently deleted.');
+    return body;
+  }
+
   async function saveSeminar(seminar) {
     return await callApi('saveSeminar', { seminar });
   }
@@ -2596,7 +2640,7 @@ export default function App() {
   }
 
   async function deleteIntakeEnquiry(intakeId) {
-    const confirmed = await askCrmConfirm({ title: 'Delete intake enquiry?', message: 'Converted enquiries cannot be deleted. This removes the selected enquiry from the CRM.', confirmLabel: 'Delete enquiry', tone: 'danger' });
+    const confirmed = await askCrmConfirm({ title: 'Delete intake enquiry?', message: 'Converted enquiries cannot be deleted. This removes the selected enquiry from the CRM and also deletes any uploaded CV files held in Netlify storage.', confirmLabel: 'Delete enquiry', tone: 'danger' });
     if (!confirmed) return;
     return await callApi('deleteIntakeEnquiry', { intakeId });
   }
@@ -2952,43 +2996,17 @@ export default function App() {
   return (
     <div className={`app-shell ${festiveActive ? 'festive-mode' : ''} ${adviserPreferences.density === 'compact' ? 'density-compact' : 'density-standard'}`}>
       {festiveActive && <FestiveAtmosphere />}
-      <aside className="crm-sidebar desktop-only" aria-label="Main CRM navigation">
-        <div className="crm-sidebar-brand">
-          <span className="crm-sidebar-brand-mark"><b>THiS</b><strong>CRM</strong></span>
-          <small>Immigration practice</small>
-        </div>
-        <nav className="crm-sidebar-nav">
-          <CrmSidebarButton active={tab === 'dashboard' && !myDayOpen} onClick={() => switchTab('dashboard')} icon={LayoutDashboard} label="Dashboard" />
-          <CrmSidebarButton active={myDayOpen} onClick={() => switchTab('home')} icon={CloudSun} label="My Day" />
-          <CrmSidebarButton active={tab === 'tasks'} onClick={() => switchTab('tasks')} icon={ListChecks} label="Tasks" />
-          <CrmSidebarButton active={tab === 'clients'} onClick={() => switchTab('clients')} icon={UsersRound} label="Clients" />
-          <CrmSidebarButton active={tab === 'intake'} onClick={() => switchTab('intake')} icon={ClipboardList} label="Enquiries & Intake" />
-          <CrmSidebarButton active={tab === 'studio'} onClick={() => switchTab('studio')} icon={FileText} label="Studio" />
-          <CrmSidebarButton active={tab === 'commercial'} onClick={() => switchTab('commercial')} icon={Building2} label="Commercial" />
-          <CrmSidebarButton active={tab === 'billing'} onClick={() => switchTab('billing')} icon={CreditCard} label="Billing" />
-          <CrmSidebarButton active={tab === 'bookings'} onClick={() => switchTab('bookings')} icon={CalendarDays} label="Bookings" />
-          <CrmSidebarButton active={tab === 'calendar'} onClick={() => switchTab('calendar')} icon={CalendarDays} label="Calendar" />
-          <CrmSidebarButton active={tab === 'library'} onClick={() => switchTab('library')} icon={BookOpen} label="Resources" />
-        </nav>
-        <div className="crm-sidebar-footer">
-          <button type="button" onClick={() => { setSupportOpen(false); setToolsOpen(true); setNewMenuOpen(false); }}><Wrench size={17} /><span>Tools</span></button>
-          <button type="button" onClick={() => { setToolsOpen(false); setSupportOpen(true); }}><HelpCircle size={17} /><span>Help & Guide</span></button>
-          {canManageAdvisers && <CrmSidebarButton active={tab === 'advisers'} onClick={() => switchTab('advisers')} icon={UserRound} label="Advisers" compact />}
-          {canManageBackups && <CrmSidebarButton active={tab === 'backups'} onClick={() => switchTab('backups')} icon={ShieldCheck} label="Admin & Backups" compact />}
-        </div>
-      </aside>
-      <div className="crm-app-main">
       <header className="topbar">
-        <form className="crm-top-search desktop-only" onSubmit={(event) => { event.preventDefault(); switchTab('clients'); }}>
-          <Search size={17} />
-          <input value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} placeholder="Search clients, matters, citizenship, strategy..." aria-label="Search CRM clients" />
-          <span>Enter</span>
-        </form>
-        <div className="brand-wrap mobile-only">
+        <div className="brand-wrap">
           <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="brand-logo" />
-          <div className="brand-copy"><strong>THiS CRM</strong><span>Client management</span></div>
+          {festiveActive && <span className="festive-logo-hat" aria-hidden="true"><i></i></span>}
+          <div className="brand-copy">
+            <strong>THiS CRM</strong>
+            <span>Client progress, deadlines and billing</span>
+          </div>
         </div>
         <HeaderLocalSnapshot adviser={headerSnapshotAdviser} />
+        <AuthStatus user={identityUser} adviser={identityAdviser} accessRole={currentAccessRole} accessCodeActive={Boolean(accessCode)} onLogout={logoutIdentityUser} />
         <div className="top-actions desktop-only">
           <PwaInstallButton className="btn ghost compact-action pwa-install-button" label="Install app" />
           <button className="btn ghost compact-action crm-my-day-link" type="button" onClick={() => switchTab('home')}><CloudSun size={16} />My Day</button>
@@ -3008,7 +3026,6 @@ export default function App() {
               </div>
             )}
           </div>
-          <AuthStatus user={identityUser} adviser={identityAdviser} accessRole={currentAccessRole} accessCodeActive={Boolean(accessCode)} onLogout={logoutIdentityUser} />
         </div>
         <div className="mobile-header-actions mobile-only">
           <PwaInstallButton className="btn ghost pwa-install-button mobile-pwa-install" label="Install" />
@@ -3016,7 +3033,6 @@ export default function App() {
           <button className="btn ghost" type="button" onClick={() => setPersonalisationOpen(true)}><SlidersHorizontal size={16} />View</button>
           <button className={`btn ghost live-chat-mobile-button ${liveChatAttentionCount > 0 ? 'has-waiting' : ''}`} type="button" onClick={() => openChatDrawer()}><MessageSquare size={16} />Chat{liveChatAttentionCount > 0 && <span key={liveChatAttentionCount} className="live-chat-header-badge" aria-live="polite">{liveChatAttentionCount}</span>}</button>
           <button className="btn ghost" onClick={() => { setSupportOpen(false); setToolsOpen(true); }}><Wrench size={16} />Tools</button>
-          <AuthStatus user={identityUser} adviser={identityAdviser} accessRole={currentAccessRole} accessCodeActive={Boolean(accessCode)} onLogout={logoutIdentityUser} />
         </div>
       </header>
 
@@ -3040,22 +3056,20 @@ export default function App() {
 
         {(data.clients.length > 0 || (data.commercialClients || []).length > 0 || data.advisers.length > 0 || data.libraryEntries.length > 0 || data.intakeEnquiries.length > 0 || data.seminars.length > 0 || data.seminarRegistrations.length > 0 || data.feedbackSubmissions.length > 0 || data.consultationBookings.length > 0 || data.bookingLinks.length > 0 || data.instructionSets.length > 0 || data.agreementSets.length > 0) && (
           <>
-            <div className="crm-context-toolbar">
-              <ViewToolbar
-                advisers={scopeAdvisers}
-                dashboardAdviserFilter={dashboardAdviserFilter}
-                setDashboardAdviserFilter={setDashboardAdviserFilter}
-                clientQuery={clientQuery}
-                setClientQuery={setClientQuery}
-                matchingClientCount={filteredClients.length}
-                setTab={switchTab}
-                setAdviserFilter={setAdviserFilter}
-                setCaseTypeFilter={setCaseTypeFilter}
-                canViewAllAdvisers={canViewAllAdvisers}
-              />
-              <PersonalQuickActions actions={adviserPreferences.quickActions} onAction={runPersonalQuickAction} />
-            </div>
-            <nav className="tabs desktop-tabs main-nav crm-main-nav-polished nav-expanded-row crm-legacy-main-nav" aria-label="Main CRM navigation">
+            <ViewToolbar
+              advisers={scopeAdvisers}
+              dashboardAdviserFilter={dashboardAdviserFilter}
+              setDashboardAdviserFilter={setDashboardAdviserFilter}
+              clientQuery={clientQuery}
+              setClientQuery={setClientQuery}
+              matchingClientCount={filteredClients.length}
+              setTab={switchTab}
+              setAdviserFilter={setAdviserFilter}
+              setCaseTypeFilter={setCaseTypeFilter}
+              canViewAllAdvisers={canViewAllAdvisers}
+            />
+            <PersonalQuickActions actions={adviserPreferences.quickActions} onAction={runPersonalQuickAction} />
+            <nav className="tabs desktop-tabs main-nav crm-main-nav-polished nav-expanded-row" aria-label="Main CRM navigation">
               <TabButton active={tab === 'dashboard'} onClick={() => switchTab('dashboard')} icon={LayoutDashboard} label="Dashboard" />
               <TabButton active={tab === 'tasks'} onClick={() => switchTab('tasks')} icon={ListChecks} label="Tasks" />
               <TabButton active={tab === 'clients'} onClick={() => switchTab('clients')} icon={UsersRound} label="Clients" />
@@ -3143,7 +3157,7 @@ export default function App() {
             )}
 
             {tab === 'intake' && (
-              <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} identityUser={identityUser} canExportContacts={canExportContacts} statuses={data.intakeStatuses || INTAKE_STATUSES} seminars={data.seminars || []} seminarRegistrations={data.seminarRegistrations || []} feedbackSubmissions={data.feedbackSubmissions || []} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendIntakeCvRequestEmail={sendIntakeCvRequestEmail} sendIntakeResultsToAdviser={sendIntakeResultsToAdviser} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} sendContactUnableToAssistEmail={sendContactUnableToAssistEmail} downloadIntakeUpload={downloadIntakeUpload} saveSeminar={saveSeminar} deleteSeminar={deleteSeminar} saveSeminarRegistration={saveSeminarRegistration} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail} saveFeedbackSubmission={saveFeedbackSubmission} deleteFeedbackSubmission={deleteFeedbackSubmission} saving={saving} openClientRecord={openClientRecord} confirmAction={askCrmConfirm} refreshIntakeData={refreshIntakeData} intakeRefreshing={intakeRefreshing} lastIntakeRefreshAt={lastIntakeRefreshAt} />
+              <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} identityUser={identityUser} canExportContacts={canExportContacts} isAdmin={isAdmin} statuses={data.intakeStatuses || INTAKE_STATUSES} seminars={data.seminars || []} seminarRegistrations={data.seminarRegistrations || []} feedbackSubmissions={data.feedbackSubmissions || []} saveIntakeEnquiry={saveIntakeEnquiry} archiveIntakeEnquiries={archiveIntakeEnquiries} restoreIntakeEnquiry={restoreIntakeEnquiry} permanentlyDeleteIntakeEnquiry={permanentlyDeleteIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendIntakeCvRequestEmail={sendIntakeCvRequestEmail} sendIntakeResultsToAdviser={sendIntakeResultsToAdviser} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} sendContactUnableToAssistEmail={sendContactUnableToAssistEmail} downloadIntakeUpload={downloadIntakeUpload} saveSeminar={saveSeminar} deleteSeminar={deleteSeminar} saveSeminarRegistration={saveSeminarRegistration} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail} saveFeedbackSubmission={saveFeedbackSubmission} deleteFeedbackSubmission={deleteFeedbackSubmission} saving={saving} openClientRecord={openClientRecord} confirmAction={askCrmConfirm} refreshIntakeData={refreshIntakeData} intakeRefreshing={intakeRefreshing} lastIntakeRefreshAt={lastIntakeRefreshAt} />
             )}
 
             {tab === 'bookings' && (
@@ -3340,7 +3354,6 @@ export default function App() {
         />
       )}
       {crmConfirm && <CrmConfirmDialog dialog={crmConfirm} onResolve={resolveCrmConfirm} />}
-      </div>
     </div>
   );
 
@@ -6495,7 +6508,7 @@ function RelatedEnquiryPanel({ matches = [] }) {
 }
 
 
-function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', identityUser = null, canExportContacts = false, statuses, seminars = [], seminarRegistrations = [], feedbackSubmissions = [], saveIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, sendIntakeCvRequestEmail, sendIntakeResultsToAdviser, sendContactIntakeInviteEmail, sendContactUnableToAssistEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saveFeedbackSubmission, deleteFeedbackSubmission, saving, openClientRecord, confirmAction, refreshIntakeData, intakeRefreshing = false, lastIntakeRefreshAt = '' }) {
+function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', identityUser = null, canExportContacts = false, isAdmin = false, statuses, seminars = [], seminarRegistrations = [], feedbackSubmissions = [], saveIntakeEnquiry, archiveIntakeEnquiries, restoreIntakeEnquiry, permanentlyDeleteIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, sendIntakeCvRequestEmail, sendIntakeResultsToAdviser, sendContactIntakeInviteEmail, sendContactUnableToAssistEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saveFeedbackSubmission, deleteFeedbackSubmission, saving, openClientRecord, confirmAction, refreshIntakeData, intakeRefreshing = false, lastIntakeRefreshAt = '' }) {
   const askConfirm = confirmAction || (async ({ message }) => window.confirm(message || 'Continue?'));
   const simplifiedStatuses = (statuses || INTAKE_STATUSES).filter((status) => INTAKE_STATUSES.includes(status));
   const [workspaceTab, setWorkspaceTab] = useState('contact');
@@ -6511,6 +6524,10 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
   const [expandedContactId, setExpandedContactId] = useState('');
   const [expandedFeedbackId, setExpandedFeedbackId] = useState('');
   const [contactExportNotice, setContactExportNotice] = useState('');
+  const [selectedArchiveIds, setSelectedArchiveIds] = useState([]);
+  const [archiveKindFilter, setArchiveKindFilter] = useState('All');
+  const [archiveDetailId, setArchiveDetailId] = useState('');
+  const [archiveNotice, setArchiveNotice] = useState('');
   const exportHistoryKeyBase = useMemo(() => {
     const userKey = String(identityUser?.email || identityUser?.id || 'temporary-access')
       .trim()
@@ -6553,11 +6570,17 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
   ];
   const feedbackStatusLabel = (status) => feedbackStatusOptions.find((option) => option.value === status)?.label || status || 'New';
   const selectedScopeAdviser = dashboardAdviserFilter === 'all' ? null : advisers.find((adviser) => adviser.id === dashboardAdviserFilter);
-  const contactEnquiries = normalisedEnquiries
+  const allContactEnquiries = normalisedEnquiries
     .filter((item) => isContactIntake(item))
     .filter((item) => matchesIntakeAdviserScope(item, dashboardAdviserFilter));
-  const allIntakeEnquiries = normalisedEnquiries.filter((item) => !isContactIntake(item));
+  const contactEnquiries = allContactEnquiries.filter((item) => item.status !== 'Archived');
+  const allFullIntakeEnquiries = normalisedEnquiries.filter((item) => !isContactIntake(item));
+  const scopedAllFullIntakeEnquiries = allFullIntakeEnquiries.filter((item) => matchesIntakeAdviserScope(item, dashboardAdviserFilter));
+  const allIntakeEnquiries = allFullIntakeEnquiries.filter((item) => item.status !== 'Archived');
   const scopedIntakeEnquiries = allIntakeEnquiries.filter((item) => matchesIntakeAdviserScope(item, dashboardAdviserFilter));
+  const archivedEnquiries = normalisedEnquiries
+    .filter((item) => item.status === 'Archived')
+    .filter((item) => matchesIntakeAdviserScope(item, dashboardAdviserFilter));
   const intakeScopeOverride = workspaceTab === 'intake' && (statusFilter === 'Contacted' || Boolean(query.trim()));
   const intakeEnquiries = intakeScopeOverride ? allIntakeEnquiries : scopedIntakeEnquiries;
   const normalisedFeedbackSubmissions = (feedbackSubmissions || [])
@@ -6610,6 +6633,18 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
     return matchesQuery && matchesStatus;
   });
 
+  const archivedFiltered = archivedEnquiries.filter((item) => {
+    const q = query.trim().toLowerCase();
+    const kind = isContactIntake(item) ? 'Contact' : 'Intake';
+    if (archiveKindFilter !== 'All' && archiveKindFilter !== kind) return false;
+    if (!q) return true;
+    const payload = intakeAnswerPayload(item);
+    return [item.firstName, item.lastName, item.email, item.phone, item.targetPathway, item.currentLocation, item.citizenship, item.recommendedPathway, payload.helpNeeded, payload.contactSituation]
+      .join(' ')
+      .toLowerCase()
+      .includes(q);
+  });
+
   const feedbackFiltered = normalisedFeedbackSubmissions.filter((item) => {
     const q = query.trim().toLowerCase();
     const matchesStatus = feedbackStatusFilter === 'All' || item.status === feedbackStatusFilter;
@@ -6633,7 +6668,10 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
   const newSeminarRegistrationCount = (seminarRegistrations || []).filter((item) => item.status === 'New').length;
   const newFeedbackCount = normalisedFeedbackSubmissions.filter((item) => item.status === 'New').length;
   const flaggedCount = intakeEnquiries.filter((item) => hasAnyIntakeFlag(item.flags)).length;
-  const expandedItem = expandedId ? intakeEnquiries.find((item) => item.id === expandedId) : null;
+  const archivedCount = archivedEnquiries.length;
+  const archivedStorageReleased = archivedEnquiries.reduce((sum, item) => sum + Number(intakeAnswerPayload(item).intakeArchive?.purgedBytes || 0), 0);
+  const archiveDetailRecord = archiveDetailId ? archivedEnquiries.find((item) => item.id === archiveDetailId) : null;
+  const expandedItem = expandedId ? normalisedEnquiries.find((item) => item.id === expandedId) : null;
   const draftDirty = Boolean(draft && expandedItem && JSON.stringify(intakeCompareSnapshot(draft)) !== JSON.stringify(intakeCompareSnapshot(expandedItem)));
 
   useEffect(() => {
@@ -6648,7 +6686,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
       setDraft(null);
       return;
     }
-    const next = intakeEnquiries.find((item) => item.id === expandedId);
+    const next = normalisedEnquiries.find((item) => item.id === expandedId);
     if (!next) {
       setExpandedId('');
       setDraft(null);
@@ -6656,6 +6694,11 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
     }
     setDraft((current) => current?.id === next.id ? current : normaliseIntakeEnquiry(next));
   }, [enquiries, expandedId]);
+
+  useEffect(() => {
+    setSelectedArchiveIds([]);
+    if (workspaceTab !== 'archive') setArchiveDetailId('');
+  }, [workspaceTab]);
 
   function intakeSortTime(item = {}) {
     return Date.parse(item.createdAt || item.updatedAt || '') || 0;
@@ -6696,6 +6739,8 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
     setStatusFilter('New');
     setContactStatusFilter('New');
     setFeedbackStatusFilter('New');
+    setArchiveKindFilter('All');
+    setSelectedArchiveIds([]);
   }
 
   async function saveDraft(options = {}) {
@@ -6799,6 +6844,105 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
     await deleteIntakeEnquiry(item.id);
   }
 
+  function estimatedUploadBytes(item = {}) {
+    const payload = intakeAnswerPayload(item);
+    const uploads = [payload.intakeUploads?.applicantCv || payload.applicantCv, payload.intakeUploads?.partnerCv || payload.partnerCv];
+    const keys = new Set();
+    return uploads.reduce((sum, upload) => {
+      const key = String(upload?.blobKey || '').trim();
+      if (!key || keys.has(key)) return sum;
+      keys.add(key);
+      return sum + Math.max(0, Number(upload?.fileSize || 0) || 0);
+    }, 0);
+  }
+
+  function toggleArchiveSelection(intakeId) {
+    setSelectedArchiveIds((current) => current.includes(intakeId) ? current.filter((id) => id !== intakeId) : [...current, intakeId]);
+  }
+
+  function clearArchiveSelection() {
+    setSelectedArchiveIds([]);
+  }
+
+  function activeArchiveCandidates() {
+    if (workspaceTab === 'contact') return contactFiltered;
+    if (workspaceTab === 'intake') return intakeFiltered;
+    return [];
+  }
+
+  function selectShownForArchive() {
+    const shownIds = activeArchiveCandidates().map((item) => item.id).filter(Boolean);
+    const allSelected = shownIds.length > 0 && shownIds.every((id) => selectedArchiveIds.includes(id));
+    setSelectedArchiveIds(allSelected ? selectedArchiveIds.filter((id) => !shownIds.includes(id)) : [...new Set([...selectedArchiveIds, ...shownIds])]);
+  }
+
+  async function archiveRecords(records = [], options = {}) {
+    const unique = records.filter((item, index, items) => item?.id && items.findIndex((candidate) => candidate.id === item.id) === index);
+    if (!unique.length || !archiveIntakeEnquiries) return;
+    const estimatedBytes = unique.reduce((sum, item) => sum + estimatedUploadBytes(item), 0);
+    const contactTotal = unique.filter(isContactIntake).length;
+    const intakeTotal = unique.length - contactTotal;
+    const labels = [];
+    if (contactTotal) labels.push(`${contactTotal} contact form${contactTotal === 1 ? '' : 's'}`);
+    if (intakeTotal) labels.push(`${intakeTotal} intake form${intakeTotal === 1 ? '' : 's'}`);
+    const retrying = options.retry === true;
+    const confirmed = await askConfirm({
+      title: retrying ? 'Retry archive file cleanup?' : `Archive ${unique.length} enquiry record${unique.length === 1 ? '' : 's'}?`,
+      message: retrying
+        ? 'The CRM will retry deleting any uploaded CV files that could not be removed during the first archive run.'
+        : `Archive ${labels.join(' and ')} and remove them from the active enquiry queues?`,
+      details: [
+        'The questionnaire/contact details remain searchable in the CRM Archive.',
+        'Uploaded applicant and partner CV files are deleted from Netlify storage and cannot be recovered from the CRM after archiving.',
+        estimatedBytes > 0 ? `Estimated CV storage to release now: ${formatFileSize(estimatedBytes)}.` : 'No currently linked CV file storage is recorded for the selected forms.',
+        unique.some((item) => item.convertedClientId) ? 'Any converted client records remain untouched.' : '',
+      ].filter(Boolean),
+      confirmLabel: retrying ? 'Retry cleanup' : 'Archive records',
+      tone: retrying ? 'warning' : 'danger',
+    });
+    if (!confirmed) return;
+    const body = await archiveIntakeEnquiries(unique.map((item) => item.id));
+    const summary = body?.archiveSummary || {};
+    setSelectedArchiveIds([]);
+    setArchiveNotice(`${Number(summary.archived || 0) + Number(summary.alreadyArchived || 0)} record${Number(summary.archived || 0) + Number(summary.alreadyArchived || 0) === 1 ? '' : 's'} archived${Number(summary.purgedBytes || 0) > 0 ? ` · ${formatFileSize(summary.purgedBytes)} CV storage released` : ''}${Number(summary.purgeFailures || 0) > 0 ? ` · ${summary.purgeFailures} file cleanup warning${summary.purgeFailures === 1 ? '' : 's'}` : ''}.`);
+    return body;
+  }
+
+  function selectedArchiveRecords() {
+    const source = workspaceTab === 'contact' ? contactEnquiries : workspaceTab === 'intake' ? intakeEnquiries : [];
+    return source.filter((item) => selectedArchiveIds.includes(item.id));
+  }
+
+  async function archiveSelectedRecords() {
+    return archiveRecords(selectedArchiveRecords());
+  }
+
+  async function restoreArchivedRecord(item) {
+    if (!item?.id || !restoreIntakeEnquiry) return;
+    const archiveMeta = intakeAnswerPayload(item).intakeArchive || {};
+    const confirmed = await askConfirm({
+      title: 'Restore archived enquiry?',
+      message: `Return ${[item.firstName, item.lastName].filter(Boolean).join(' ') || 'this enquiry'} to the active workspace?`,
+      details: [
+        `It will return to ${archiveMeta.previousStatus || 'Dealt with'} status.`,
+        'CV files that were removed during archiving are not restored.',
+      ],
+      confirmLabel: 'Restore enquiry',
+      tone: 'default',
+    });
+    if (!confirmed) return;
+    await restoreIntakeEnquiry(item.id);
+    if (archiveDetailId === item.id) setArchiveDetailId('');
+    setArchiveNotice('Archived enquiry restored to the active workspace. Purged CV files remain deleted.');
+  }
+
+  async function permanentlyDeleteArchivedRecord(item) {
+    if (!item?.id || !permanentlyDeleteIntakeEnquiry) return;
+    const body = await permanentlyDeleteIntakeEnquiry(item.id);
+    if (body && archiveDetailId === item.id) setArchiveDetailId('');
+    if (body) setArchiveNotice('Archived enquiry permanently deleted from the CRM.');
+  }
+
   async function updateContactStatus(item, status) {
     if (!item?.id || !['New', 'Contacted', 'Spam / Duplicate'].includes(status)) return;
     await saveIntakeEnquiry({ ...item, status });
@@ -6861,7 +7005,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
 
   function exportContactRegister(onlyNew = false) {
     const history = contactExportHistory.register;
-    const result = buildEnquiryContactExport(contactEnquiries, scopedIntakeEnquiries, advisers, {
+    const result = buildEnquiryContactExport(allContactEnquiries, scopedAllFullIntakeEnquiries, advisers, {
       marketingOnly: false,
       since: onlyNew ? history?.cutoffAt : '',
     });
@@ -6884,7 +7028,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
 
   function exportMailchimpConsentList(onlyNew = false) {
     const history = contactExportHistory.mailchimp;
-    const result = buildEnquiryContactExport(contactEnquiries, scopedIntakeEnquiries, advisers, {
+    const result = buildEnquiryContactExport(allContactEnquiries, scopedAllFullIntakeEnquiries, advisers, {
       marketingOnly: true,
       since: onlyNew ? history?.cutoffAt : '',
     });
@@ -6906,7 +7050,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
   }
 
   const intakeTitle = draft ? ([draft.firstName, draft.lastName].filter(Boolean).join(' ') || 'Unnamed intake') : 'Intake record';
-  const visibleRecords = workspaceTab === 'contact' ? contactFiltered : workspaceTab === 'feedback' ? feedbackFiltered : workspaceTab === 'intake' ? intakeFiltered : (seminarRegistrations || []);
+  const visibleRecords = workspaceTab === 'contact' ? contactFiltered : workspaceTab === 'feedback' ? feedbackFiltered : workspaceTab === 'intake' ? intakeFiltered : workspaceTab === 'archive' ? archivedFiltered : (seminarRegistrations || []);
 
   return (
     <div className="intake-workspace intake-inbox-workspace enquiries-intake-workspace">
@@ -6966,7 +7110,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
 
       <div className="enquiries-lean-overview" aria-label="Current enquiry workload">
         <button type="button" className={workspaceTab === 'contact' ? 'active' : ''} onClick={() => { setWorkspaceTab('contact'); setContactStatusFilter('New'); }}>
-          <span>New contacts</span><strong>{newContactCount}</strong><small>{contactCount} retained</small>
+          <span>New contacts</span><strong>{newContactCount}</strong><small>{contactCount} active</small>
         </button>
         <button type="button" className={workspaceTab === 'intake' ? 'active' : ''} onClick={() => { setWorkspaceTab('intake'); setStatusFilter('New'); }}>
           <span>New intake</span><strong>{newIntakeCount}</strong><small>{flaggedCount} flagged</small>
@@ -6977,6 +7121,9 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
         <button type="button" className={workspaceTab === 'feedback' ? 'active' : ''} onClick={() => { setWorkspaceTab('feedback'); setFeedbackStatusFilter('New'); }}>
           <span>New feedback</span><strong>{newFeedbackCount}</strong><small>Website submissions</small>
         </button>
+        <button type="button" className={workspaceTab === 'archive' ? 'active' : ''} onClick={() => setWorkspaceTab('archive')}>
+          <span>Archived enquiries</span><strong>{archivedCount}</strong><small>{archivedStorageReleased > 0 ? `${formatFileSize(archivedStorageReleased)} CV storage released` : 'Retained history'}</small>
+        </button>
       </div>
 
       <section className="intake-inbox-panel enquiries-panel">
@@ -6985,6 +7132,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
           <button type="button" className={workspaceTab === 'intake' ? 'active' : ''} onClick={() => setWorkspaceTab('intake')}><ClipboardList size={16} />Intake <span>{newIntakeCount}</span></button>
           <button type="button" className={workspaceTab === 'seminars' ? 'active' : ''} onClick={() => setWorkspaceTab('seminars')}><CalendarDays size={16} />Seminars <span>{newSeminarRegistrationCount}</span></button>
           <button type="button" className={workspaceTab === 'feedback' ? 'active' : ''} onClick={() => setWorkspaceTab('feedback')}><MessageSquare size={16} />Feedback <span>{newFeedbackCount}</span></button>
+          <button type="button" className={workspaceTab === 'archive' ? 'active' : ''} onClick={() => setWorkspaceTab('archive')}><Archive size={16} />Archive <span>{archivedCount}</span></button>
         </div>
 
         {workspaceTab === 'seminars' ? (
@@ -7003,7 +7151,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
         <div className="intake-inbox-toolbar enquiries-toolbar">
           <label className="intake-search-field">
             <span>Search</span>
-            <div><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={workspaceTab === 'contact' ? 'Name, email, phone, message...' : workspaceTab === 'feedback' ? 'Name, email, adviser, comments...' : 'Name, email, phone, pathway, visa...'} /></div>
+            <div><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={workspaceTab === 'contact' ? 'Name, email, phone, message...' : workspaceTab === 'feedback' ? 'Name, email, adviser, comments...' : workspaceTab === 'archive' ? 'Search archived contacts and intake forms...' : 'Name, email, phone, pathway, visa...'} /></div>
           </label>
           {workspaceTab === 'contact' && (
             <div className="enquiries-status-pills" aria-label="Contact form status filter">
@@ -7035,6 +7183,16 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
               ))}
             </div>
           )}
+          {workspaceTab === 'archive' && (
+            <div className="enquiries-status-pills" aria-label="Archive type filter">
+              {['All', 'Contact', 'Intake'].map((kind) => (
+                <button key={kind} type="button" className={archiveKindFilter === kind ? 'active' : ''} onClick={() => setArchiveKindFilter(kind)}>
+                  {kind === 'Contact' ? 'Contacts' : kind}
+                  <span>{kind === 'All' ? archivedEnquiries.length : archivedEnquiries.filter((item) => (isContactIntake(item) ? 'Contact' : 'Intake') === kind).length}</span>
+                </button>
+              ))}
+            </div>
+          )}
           <div className="intake-live-refresh-controls">
             <span title={lastIntakeRefreshAt ? formatPortalDateTime(lastIntakeRefreshAt) : 'Waiting for first refresh'}>Live refresh · {lastIntakeRefreshAt ? formatShortTime(lastIntakeRefreshAt) : 'checking'}</span>
             <button className="btn enquiries-refresh-button" type="button" onClick={() => refreshIntakeData?.({ silent: false, full: true })} disabled={intakeRefreshing}>
@@ -7044,6 +7202,29 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
           </div>
         </div>
 
+        {(workspaceTab === 'contact' || workspaceTab === 'intake') && (
+          <div className="enquiry-archive-bulkbar">
+            <div>
+              <button className="btn" type="button" onClick={selectShownForArchive} disabled={!activeArchiveCandidates().length}>
+                <Archive size={15} />{activeArchiveCandidates().length && activeArchiveCandidates().every((item) => selectedArchiveIds.includes(item.id)) ? 'Clear shown' : 'Select shown'}
+              </button>
+              <span>{selectedArchiveIds.length} selected</span>
+              {selectedArchiveIds.length > 0 && <small>Estimated linked CV storage: {formatFileSize(selectedArchiveRecords().reduce((sum, item) => sum + estimatedUploadBytes(item), 0)) || '0 B'}</small>}
+            </div>
+            <div>
+              {selectedArchiveIds.length > 0 && <button className="btn" type="button" onClick={clearArchiveSelection}>Clear selection</button>}
+              <button className="btn dark" type="button" onClick={archiveSelectedRecords} disabled={!selectedArchiveIds.length || saving}><Archive size={15} />Archive selected</button>
+            </div>
+          </div>
+        )}
+
+        {archiveNotice && (
+          <div className="success-banner compact enquiries-archive-notice">
+            <Archive size={17} />{archiveNotice}
+            <button type="button" onClick={() => setArchiveNotice('')} aria-label="Dismiss archive notice"><X size={15} /></button>
+          </div>
+        )}
+
         {contactInviteNotice && (
           <div className={contactInviteNotice.includes('could not') ? 'error-banner compact' : 'success-banner compact'}>
             {contactInviteNotice}
@@ -7052,14 +7233,58 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
 
         <div className="enquiries-queue-heading">
           <div>
-            <span className="eyebrow">{workspaceTab === 'contact' ? 'Short website enquiries' : workspaceTab === 'feedback' ? 'Client feedback submissions' : 'Full assessment questionnaires'}</span>
-            <h2>{workspaceTab === 'contact' ? `${contactStatusLabel(contactStatusFilter)} contacts` : workspaceTab === 'feedback' ? `${feedbackStatusLabel(feedbackStatusFilter)} feedback` : `${statusFilter} intake`}</h2>
+            <span className="eyebrow">{workspaceTab === 'contact' ? 'Short website enquiries' : workspaceTab === 'feedback' ? 'Client feedback submissions' : workspaceTab === 'archive' ? 'Retained enquiry history' : 'Full assessment questionnaires'}</span>
+            <h2>{workspaceTab === 'contact' ? `${contactStatusLabel(contactStatusFilter)} contacts` : workspaceTab === 'feedback' ? `${feedbackStatusLabel(feedbackStatusFilter)} feedback` : workspaceTab === 'archive' ? 'Archived contacts & intake' : `${statusFilter} intake`}</h2>
             {workspaceTab === 'intake' && intakeScopeOverride && <p className="intake-scope-note">Showing matching intake forms across the whole practice.</p>}
+            {workspaceTab === 'archive' && <p className="intake-scope-note">Form data is retained here. CV files are removed from Netlify storage when archiving succeeds.</p>}
           </div>
           <span className="enquiries-shown-count">{visibleRecords.length} shown</span>
         </div>
 
-        {workspaceTab === 'contact' ? (
+        {workspaceTab === 'archive' ? (
+          <div className="archive-review-list enquiry-queue-list">
+            {archivedFiltered.map((item) => {
+              const payload = intakeAnswerPayload(item);
+              const archiveMeta = payload.intakeArchive || {};
+              const name = [item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unnamed enquiry';
+              const kind = isContactIntake(item) ? 'Contact form' : 'Intake form';
+              const pendingCleanup = Number(archiveMeta.purgeFailedCount || 0) > 0 || estimatedUploadBytes(item) > 0;
+              return (
+                <article key={item.id} className="enquiry-queue-card archive-queue-card">
+                  <div className="enquiry-queue-row archive-queue-row">
+                    <button className="enquiry-queue-summary" type="button" onClick={() => setArchiveDetailId(item.id)}>
+                      <div className="enquiry-queue-person">
+                        <div className="enquiry-queue-badges">
+                          <span className="library-status archived">Archived</span>
+                          <span className="recommended-action-chip">{kind}</span>
+                          {pendingCleanup && <span className="archive-cleanup-warning">File cleanup pending</span>}
+                        </div>
+                        <h3>{name}</h3>
+                        <p>{item.email || 'No email'}{item.phone ? ` · ${item.phone}` : ''}</p>
+                      </div>
+                      <div className="enquiry-queue-cell"><span>Previous status</span><strong>{archiveMeta.previousStatus || 'Dealt with'}</strong><small>{item.targetPathway || payload.contactSituation || 'Pathway not recorded'}</small></div>
+                      <div className="enquiry-queue-cell"><span>Storage released</span><strong>{formatFileSize(Number(archiveMeta.purgedBytes || 0)) || '0 B'}</strong><small>{Number(archiveMeta.purgedUploadCount || 0)} CV file{Number(archiveMeta.purgedUploadCount || 0) === 1 ? '' : 's'} purged</small></div>
+                      <div className="enquiry-queue-cell enquiry-queue-date"><span>Archived</span><strong>{archiveMeta.archivedAt ? formatPortalDateTime(archiveMeta.archivedAt) : (item.updatedAt ? formatPortalDateTime(item.updatedAt) : 'No date')}</strong><small>{archiveMeta.archivedBy || 'CRM adviser'}</small></div>
+                    </button>
+                    <div className="enquiry-queue-controls archive-queue-controls">
+                      <button className="btn dark" type="button" onClick={() => setArchiveDetailId(item.id)}>View record</button>
+                      {pendingCleanup && <button className="btn" type="button" onClick={() => archiveRecords([item], { retry: true })} disabled={saving}><RefreshCw size={15} />Retry cleanup</button>}
+                      <button className="btn" type="button" onClick={() => restoreArchivedRecord(item)} disabled={saving}><RotateCcw size={15} />Restore</button>
+                      {isAdmin && <button className="btn danger" type="button" onClick={() => permanentlyDeleteArchivedRecord(item)} disabled={saving}><Trash2 size={15} />Delete</button>}
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+            {!archivedFiltered.length && (
+              <div className="empty-state slim intake-inbox-empty">
+                <Archive size={34} />
+                <h2>No archived enquiries match this view</h2>
+                <p>Archived contact and intake forms will appear here after they are removed from the active queues.</p>
+              </div>
+            )}
+          </div>
+        ) : workspaceTab === 'contact' ? (
           <div className="contact-review-list enquiry-queue-list">
             {contactFiltered.map((item) => {
               const payload = intakeAnswerPayload(item);
@@ -7101,6 +7326,10 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
                       </div>
                     </button>
                     <div className="enquiry-queue-controls">
+                      <label className="archive-row-select" title="Select this contact form for archiving">
+                        <input type="checkbox" checked={selectedArchiveIds.includes(item.id)} onChange={() => toggleArchiveSelection(item.id)} />
+                        <span>Archive</span>
+                      </label>
                       <label className="queue-compact-field">
                         <span>Adviser</span>
                         <select value={item.assignedAdviserId || ''} onChange={(event) => assignIntakeAdviser(item, event.target.value)} disabled={saving}>
@@ -7125,7 +7354,10 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
                       <button className="btn queue-details-button" type="button" onClick={() => setExpandedContactId(isExpanded ? '' : item.id)}>{isExpanded ? 'Hide' : 'Details'}</button>
                       <details className="queue-more-menu">
                         <summary aria-label={`More actions for ${name}`}><MoreHorizontal size={18} /></summary>
-                        <div><button className="danger" type="button" onClick={() => deleteContactForm(item)} disabled={saving}><Trash2 size={15} />Delete contact</button></div>
+                        <div>
+                          <button type="button" onClick={() => archiveRecords([item])} disabled={saving}><Archive size={15} />Archive contact</button>
+                          <button className="danger" type="button" onClick={() => deleteContactForm(item)} disabled={saving}><Trash2 size={15} />Delete contact</button>
+                        </div>
                       </details>
                     </div>
                   </div>
@@ -7236,6 +7468,10 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
                       <div className="enquiry-queue-cell enquiry-queue-date"><span>Submitted</span><strong>{item.createdAt ? formatPortalDateTime(item.createdAt) : 'No date'}</strong><small>{item.convertedClientId ? 'Client created' : 'Open full intake'}</small></div>
                     </button>
                     <div className="enquiry-queue-controls intake-queue-controls">
+                      <label className="archive-row-select" title="Select this intake form for archiving">
+                        <input type="checkbox" checked={selectedArchiveIds.includes(item.id)} onChange={() => toggleArchiveSelection(item.id)} />
+                        <span>Archive</span>
+                      </label>
                       <label className="queue-compact-field">
                         <span>Adviser</span>
                         <select value={item.assignedAdviserId || ''} onChange={(event) => assignIntakeAdviser(item, event.target.value)} disabled={saving}>
@@ -7255,6 +7491,10 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
                       ) : (
                         <button className="btn" type="button" onClick={() => openClientRecord(item.convertedClientId)}><ExternalLink size={16} />Open client</button>
                       )}
+                      <details className="queue-more-menu">
+                        <summary aria-label={`More actions for ${name}`}><MoreHorizontal size={18} /></summary>
+                        <div><button type="button" onClick={() => archiveRecords([item])} disabled={saving}><Archive size={15} />Archive intake</button></div>
+                      </details>
                     </div>
                   </div>
                   {flagTotal > 0 && <div className="enquiry-queue-flags"><IntakeFlagList flags={item.flags} compact /></div>}
@@ -7297,6 +7537,105 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
             relatedMatches={draft ? relatedMatchesFor(isContactIntake(draft) ? 'contact' : 'intake', draft) : []}
           />
         </ClientRecordPopoutModal>
+      )}
+
+      {archiveDetailRecord && archiveDetailId && (
+        <ClientRecordPopoutModal title={[archiveDetailRecord.firstName, archiveDetailRecord.lastName].filter(Boolean).join(' ') || 'Archived enquiry'} label="Archived enquiry" ariaLabel="Archived enquiry record" onClose={() => setArchiveDetailId('')}>
+          <ArchivedEnquiryDetail
+            record={archiveDetailRecord}
+            advisers={advisers}
+            isAdmin={isAdmin}
+            saving={saving}
+            onClose={() => setArchiveDetailId('')}
+            onRestore={() => restoreArchivedRecord(archiveDetailRecord)}
+            onDelete={() => permanentlyDeleteArchivedRecord(archiveDetailRecord)}
+            onRetryCleanup={() => archiveRecords([archiveDetailRecord], { retry: true })}
+            openClientRecord={openClientRecord}
+          />
+        </ClientRecordPopoutModal>
+      )}
+    </div>
+  );
+}
+
+function ArchivedEnquiryDetail({ record, advisers = [], isAdmin = false, saving = false, onClose, onRestore, onDelete, onRetryCleanup, openClientRecord }) {
+  const payload = intakeAnswerPayload(record);
+  const archiveMeta = payload.intakeArchive || {};
+  const contact = isContactIntake(record);
+  const pendingCleanup = Number(archiveMeta.purgeFailedCount || 0) > 0 || ['applicantCv', 'partnerCv'].some((kind) => Boolean((payload.intakeUploads?.[kind] || payload[kind])?.blobKey));
+  const purgedNames = Array.isArray(archiveMeta.purgedFileNames) ? archiveMeta.purgedFileNames : [];
+  const name = [record.firstName, record.lastName].filter(Boolean).join(' ') || 'Unnamed enquiry';
+
+  return (
+    <div className="archived-enquiry-detail">
+      <div className="intake-popout-actionbar archive-detail-actionbar">
+        <div>
+          <span className="eyebrow">Archived {contact ? 'contact form' : 'assessment questionnaire'}</span>
+          <h2>{name}</h2>
+          <p>{record.email || 'No email'}{record.phone ? ` · ${record.phone}` : ''}</p>
+        </div>
+        <div className="button-row">
+          <button className="btn" type="button" onClick={onClose}><X size={16} />Close</button>
+          {pendingCleanup && <button className="btn" type="button" onClick={onRetryCleanup} disabled={saving}><RefreshCw size={16} />Retry cleanup</button>}
+          <button className="btn dark" type="button" onClick={onRestore} disabled={saving}><RotateCcw size={16} />Restore</button>
+          {isAdmin && <button className="btn danger" type="button" onClick={onDelete} disabled={saving}><Trash2 size={16} />Permanently delete</button>}
+        </div>
+      </div>
+
+      <section className="archive-storage-summary">
+        <div>
+          <span>Archived</span>
+          <strong>{archiveMeta.archivedAt ? formatPortalDateTime(archiveMeta.archivedAt) : (record.updatedAt ? formatPortalDateTime(record.updatedAt) : 'Date not recorded')}</strong>
+          <small>{archiveMeta.archivedBy || 'CRM adviser'}</small>
+        </div>
+        <div>
+          <span>Previous status</span>
+          <strong>{archiveMeta.previousStatus || 'Dealt with'}</strong>
+          <small>Restoring returns the record to this status</small>
+        </div>
+        <div>
+          <span>CV storage released</span>
+          <strong>{formatFileSize(Number(archiveMeta.purgedBytes || 0)) || '0 B'}</strong>
+          <small>{Number(archiveMeta.purgedUploadCount || 0)} uploaded file{Number(archiveMeta.purgedUploadCount || 0) === 1 ? '' : 's'} removed</small>
+        </div>
+        <div>
+          <span>File cleanup</span>
+          <strong>{pendingCleanup ? 'Needs attention' : 'Complete'}</strong>
+          <small>{pendingCleanup ? `${Number(archiveMeta.purgeFailedCount || 0)} deletion warning${Number(archiveMeta.purgeFailedCount || 0) === 1 ? '' : 's'}` : 'No linked CV blobs remain'}</small>
+        </div>
+      </section>
+
+      {purgedNames.length > 0 && <div className="archive-purged-files"><strong>Purged CV files</strong><span>{purgedNames.join(' · ')}</span></div>}
+
+      {record.convertedClientId && <div className="success-banner compact"><CheckCircle2 size={17} />This intake was converted to a client record. The client remains active independently of this archive.<button type="button" onClick={() => openClientRecord?.(record.convertedClientId)}>Open client</button></div>}
+
+      {contact ? (
+        <section className="intake-review-panel archive-contact-detail">
+          <div className="intake-section-heading"><div><span className="eyebrow">Retained contact record</span><h3>Contact form details</h3></div><p>The short website enquiry is retained in the database for history and search.</p></div>
+          <div className="contact-review-grid">
+            <div><span>Email</span><strong>{record.email || 'Not provided'}</strong></div>
+            <div><span>Phone</span><strong>{record.phone || 'Not provided'}</strong></div>
+            <div><span>Situation</span><strong>{payload.contactSituation || record.targetPathway || 'Not recorded'}</strong></div>
+            <div><span>Location</span><strong>{payload.contactLocation || record.currentLocation || 'Not recorded'}</strong></div>
+            <div><span>Best time to call</span><strong>{payload.bestTimeToCall || 'Not recorded'}</strong></div>
+            <div><span>Submitted</span><strong>{record.createdAt ? formatPortalDateTime(record.createdAt) : 'Not recorded'}</strong></div>
+          </div>
+          <div className="contact-review-message"><span>Message</span><p>{payload.helpNeeded || 'No message recorded.'}</p></div>
+        </section>
+      ) : (
+        <IntakeQuestionnaireReview record={record} advisers={advisers} />
+      )}
+
+      {(record.adviserAssessmentNotes || record.recommendedPathway || record.consultationOutcome) && (
+        <section className="intake-review-panel archive-adviser-notes">
+          <div className="intake-section-heading"><div><span className="eyebrow">Adviser history</span><h3>Assessment notes retained</h3></div></div>
+          <div className="contact-review-grid">
+            <div><span>Assigned adviser</span><strong>{adviserName(record.assignedAdviserId, advisers)}</strong></div>
+            <div><span>Recommended pathway</span><strong>{record.recommendedPathway || 'Not recorded'}</strong></div>
+            <div><span>Consultation / outcome</span><strong>{record.consultationOutcome || 'Not recorded'}</strong></div>
+          </div>
+          {record.adviserAssessmentNotes && <div className="contact-review-message"><span>Adviser assessment notes</span><p>{record.adviserAssessmentNotes}</p></div>}
+        </section>
       )}
     </div>
   );
@@ -7669,8 +8008,8 @@ function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, 
   const applicantCvUpload = uploadPayload.intakeUploads?.applicantCv || uploadPayload.applicantCv;
   const partnerCvUpload = uploadPayload.intakeUploads?.partnerCv || uploadPayload.partnerCv;
   const assignedAdviser = advisers.find((adviser) => String(adviser.id || '') === String(draft.assignedAdviserId || '')) || null;
-  const applicantCvMissing = !applicantCvUpload?.fileName;
-  const partnerCvMissing = uploadPayload.hasPartner === 'Yes' && !partnerCvUpload?.fileName;
+  const applicantCvMissing = !applicantCvUpload?.blobKey;
+  const partnerCvMissing = uploadPayload.hasPartner === 'Yes' && !partnerCvUpload?.blobKey;
   const missingCvCount = Number(applicantCvMissing) + Number(partnerCvMissing);
   const canRequestCv = Boolean(draft.email && assignedAdviser?.email && missingCvCount);
   const [outcomeSending, setOutcomeSending] = useState('');
@@ -7788,8 +8127,8 @@ function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, 
         <div className="button-row">
           <button className="btn" type="button" onClick={() => printIntakeRecord(draft, advisers)}><FileText size={16} />Print / save PDF</button>
           <button className="btn" type="button" disabled={!assignedAdviser?.email || Boolean(outcomeSending) || saving} onClick={emailResultsToAssignedAdviser} title={!draft.assignedAdviserId ? 'Assign an adviser before emailing the results' : !assignedAdviser?.email ? 'The assigned adviser does not have an email address recorded' : `Email the intake results to ${assignedAdviser.email}`}><Mail size={16} />{outcomeSending === 'adviser-results' ? 'Sending...' : 'Email results to adviser'}</button>
-          {!isContactIntake(draft) && applicantCvUpload?.fileName && <button className="btn" type="button" onClick={() => downloadCv('applicantCv', 'Applicant CV')}><Download size={16} />Download applicant CV</button>}
-          {!isContactIntake(draft) && partnerCvUpload?.fileName && <button className="btn" type="button" onClick={() => downloadCv('partnerCv', 'Partner CV')}><Download size={16} />Download partner CV</button>}
+          {!isContactIntake(draft) && applicantCvUpload?.blobKey && <button className="btn" type="button" onClick={() => downloadCv('applicantCv', 'Applicant CV')}><Download size={16} />Download applicant CV</button>}
+          {!isContactIntake(draft) && partnerCvUpload?.blobKey && <button className="btn" type="button" onClick={() => downloadCv('partnerCv', 'Partner CV')}><Download size={16} />Download partner CV</button>}
           {!isContactIntake(draft) && missingCvCount > 0 && <button className="btn" type="button" disabled={!canRequestCv || Boolean(outcomeSending) || saving} onClick={requestMissingCv} title={!draft.email ? 'No applicant email recorded' : !draft.assignedAdviserId ? 'Assign an adviser before requesting a CV' : !assignedAdviser?.email ? 'The assigned adviser does not have an email address recorded' : 'Send a CV request with replies directed to the assigned adviser'}><Mail size={16} />{outcomeSending === 'cv-request' ? 'Sending...' : partnerCvMissing && applicantCvMissing ? 'Request missing CVs' : partnerCvMissing ? 'Request partner CV' : 'Request applicant CV'}</button>}
           {!isContactIntake(draft) && <button className="btn" type="button" disabled={!draft.email || Boolean(outcomeSending) || saving} onClick={() => sendOutcomeEmail('approve')} title={!draft.email ? 'No submitter email recorded' : 'Send the approval email from the CRM'}><Mail size={16} />{outcomeSending === 'approve' ? 'Sending...' : 'Send approval + booking link'}</button>}
           {!isContactIntake(draft) && <button className="btn danger" type="button" disabled={!draft.email || Boolean(outcomeSending) || saving} onClick={() => sendOutcomeEmail('decline')} title={!draft.email ? 'No submitter email recorded' : 'Send the decline email from the CRM'}><Mail size={16} />{outcomeSending === 'decline' ? 'Sending...' : 'Send decline email'}</button>}
@@ -8345,13 +8684,15 @@ function IntakeFileField({ label, file, onChange }) {
 }
 
 function IntakeUploadDownloadCard({ label, upload, onDownload }) {
-  const hasUpload = upload && typeof upload === 'object' && upload.fileName;
+  const displayFileName = upload && typeof upload === 'object' ? (upload.fileName || upload.originalFileName || '') : '';
+  const hasUpload = Boolean(upload?.fileName && upload?.blobKey);
+  const wasPurged = Boolean(displayFileName && upload?.purged && !upload?.blobKey);
   return (
-    <div className={`intake-upload-download ${hasUpload ? 'has-file' : ''}`}>
+    <div className={`intake-upload-download ${hasUpload ? 'has-file' : ''} ${wasPurged ? 'purged-file' : ''}`}>
       <div>
         <span className="eyebrow">{label}</span>
-        <strong>{hasUpload ? upload.fileName : 'No CV uploaded'}</strong>
-        {hasUpload && <small>{formatFileSize(upload.fileSize)}{upload.uploadedAt ? ` · Uploaded ${formatPortalDateTime(upload.uploadedAt)}` : ''}</small>}
+        <strong>{displayFileName || 'No CV uploaded'}</strong>
+        {displayFileName && <small>{wasPurged ? 'Archived copy removed from server storage' : `${formatFileSize(upload.fileSize)}${upload.uploadedAt ? ` · Uploaded ${formatPortalDateTime(upload.uploadedAt)}` : ''}`}</small>}
       </div>
       {hasUpload && <button className="btn" type="button" onClick={onDownload}><Download size={16} />Download CV</button>}
     </div>
@@ -9425,7 +9766,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const dayRows = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']];
-  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.16.0" data-title="Chat with us" defer><\/script>`;
+  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.16.2" data-title="Chat with us" defer><\/script>`;
 
   useEffect(() => {
     if (!open) return;
@@ -12653,7 +12994,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.16.0" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.16.2" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -13230,7 +13571,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.16.0" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.16.2" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}
@@ -15399,16 +15740,6 @@ function MetricCard({ label, value, note, icon: Icon, warning }) {
   return <div className={`metric-card ${warning ? 'warning' : ''}`}><div><span>{label}</span><strong>{formatIntakeValue(value)}</strong><small>{note}</small></div><Icon size={22} /></div>;
 }
 
-function CrmSidebarButton({ active, onClick, icon: Icon, label, compact = false }) {
-  return (
-    <button type="button" className={`crm-sidebar-button ${active ? 'active' : ''} ${compact ? 'compact' : ''}`} onClick={onClick}>
-      <Icon size={18} />
-      <span>{label}</span>
-      {active && <i aria-hidden="true" />}
-    </button>
-  );
-}
-
 function TabButton({ active, onClick, icon: Icon, label }) {
   return <button className={`tab ${active ? 'active' : ''}`} onClick={onClick}><Icon size={17} />{label}</button>;
 }
@@ -17105,9 +17436,10 @@ function makeBlankIntakePayload() {
 
 function normaliseSimplifiedIntakeStatus(value) {
   const status = String(value || '').trim();
+  if (status === 'Archived') return 'Archived';
   if (INTAKE_STATUSES.includes(status)) return status;
   if (/converted|signed client/i.test(status)) return 'Converted';
-  if (['Reviewing', 'Consultation booked', 'Agreement sent', 'Not proceeding', 'Archived'].includes(status)) return 'Contacted';
+  if (['Reviewing', 'Consultation booked', 'Agreement sent', 'Not proceeding'].includes(status)) return 'Contacted';
   if (/spam|duplicate/i.test(status)) return 'Spam / Duplicate';
   return 'New';
 }
@@ -17488,6 +17820,9 @@ function mergePartialCrmResponse(current = emptyData, body = {}) {
   if (body.calendarEntry) next.calendarEntries = upsertCrmItem(current.calendarEntries || [], normaliseCalendarEntry(body.calendarEntry));
   if (body.libraryEntry) next.libraryEntries = upsertCrmItem(current.libraryEntries || [], normaliseLibraryEntry(body.libraryEntry));
   if (body.intakeEnquiry) next.intakeEnquiries = upsertCrmItem(current.intakeEnquiries || [], normaliseIntakeEnquiry(body.intakeEnquiry));
+  if (Array.isArray(body.updatedIntakeEnquiries)) {
+    next.intakeEnquiries = body.updatedIntakeEnquiries.reduce((items, item) => upsertCrmItem(items, normaliseIntakeEnquiry(item)), current.intakeEnquiries || []);
+  }
   if (body.instructionSet) next.instructionSets = upsertCrmItem(current.instructionSets || [], normaliseInstructionSet(body.instructionSet));
   if (body.instructionTemplateLibrary && typeof body.instructionTemplateLibrary === 'object') next.instructionTemplateLibrary = body.instructionTemplateLibrary;
   if (Array.isArray(body.instructionTemplateVersions)) next.instructionTemplateVersions = body.instructionTemplateVersions.map(normaliseInstructionTemplateVersion);

@@ -1,0 +1,37 @@
+THiS CRM v0.16.2 - ENQUIRY ARCHIVING GUIDE
+
+Purpose
+Keep the active Contact and Intake queues tidy and reduce Netlify storage used by uploaded intake CV files without losing the useful form history.
+
+Archive
+1. Open Enquiries & Intake.
+2. In Contacts or Intake, select one or more records using the Archive selector.
+3. Choose Archive selected, or use More > Archive on a single record.
+4. The CRM keeps the contact/form data and adviser history in the Archive.
+5. Any applicant or partner CV blobs linked to the archived intake are deleted from the Netlify `intake-uploads` store.
+6. The Archive records how many CV files and how many bytes were released.
+
+Important
+- CV deletion during archiving is irreversible. Restoring the form does not restore a purged CV.
+- If an intake had already been converted, its client record is not deleted or closed by archiving the intake.
+- Contact forms do not contain CV blobs, so archiving them mainly removes them from the active queue. Their small text record remains in the CRM database.
+- The complete retained Contact/Intake exports continue to include archived records.
+
+Archive view
+- Use Enquiries & Intake > Archive to search retained contact and intake records.
+- Filter the Archive by Contacts or Intake.
+- Open a record to review the retained information.
+- Restore returns the record to its status from immediately before archiving.
+- If Netlify reports a blob deletion failure, the record remains archived with the blob link retained and a Retry cleanup action is shown.
+
+Permanent delete
+- Permanent delete is restricted to CRM administrators.
+- It removes the archived database record as well as any remaining linked CV blobs.
+- Converted client records remain independently in the CRM; linked intake references in tables using ON DELETE SET NULL are cleared by the database.
+- The operation is not completed if a linked CV blob cannot be deleted, avoiding an orphaned uploaded file.
+
+Existing Delete action
+The normal Delete intake/contact action now also removes linked intake CV blobs before deleting the database row. If blob cleanup fails, the database record is retained so cleanup can be retried rather than leaving an orphaned file in storage.
+
+Database/migrations
+This release does not add or alter a database migration. Archive state and cleanup history are stored using the existing intake status and raw_payload fields.

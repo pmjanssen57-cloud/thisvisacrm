@@ -1,16 +1,19 @@
-THiS CRM v0.16.0 validation
+THiS CRM v0.16.2 validation
 
-Validation objectives
-- Build from the supplied v0.15.16 baseline without altering historical database migrations.
-- Apply the HuB-inspired visual refresh to the staff CRM only.
-- Preserve existing public forms, portals, live chat and Studio workflows.
-- Preserve desktop and mobile navigation paths.
-- Ensure cache-busting/version references advance to v0.16.0.
+Completed checks
+- Built from v0.16.1 Intake & Contact Archiving.
+- Restored the staff application shell and base CSS from the v0.15.16 original-style baseline.
+- Removed the v0.16.0/v0.16.1 HuB-refresh sidebar, desktop global-search header and appended HuB visual CSS block.
+- Retained the v0.16.1 Archive workspace, bulk archive actions, restore/permanent-delete controls and CV-storage cleanup UI.
+- netlify/functions/crm.mjs is byte-for-byte identical to v0.16.1, retaining the archive/blob-cleanup server implementation.
+- styles.css differs from v0.15.16 only in two focused areas: the five-card enquiry overview needed for Archive and the Archive-specific control/detail styles.
+- No new database migration added.
+- All 41 migration SQL files have SHA-256 hashes identical to v0.16.1.
+- All Netlify/server .mjs and browser/script .js files pass node --check syntax validation.
+- Existing PWA validation script passes.
+- package.json parses successfully and reports version 0.16.2.
+- styles.css passes a comment/string-aware structural brace check.
+- Runtime cache/version references advance to v0.16.2.
 
-Release checks
-- package version and cache-busting references are v0.16.0.
-- no new migration is added for the visual refresh.
-- all 41 historical migration SHA-256 hashes are identical to the supplied v0.15.16 package.
-- App.jsx and main.jsx pass JSX/JavaScript syntax parsing with zero errors.
-- styles.css passes CSS parsing with zero errors.
-- PWA validation script completes successfully.
+Build environment limitation
+A full Vite production compilation was not run in this container because project npm/yarn dependencies are not installed locally. Netlify deployment remains the final production-bundle compilation check.
