@@ -1,33 +1,22 @@
-THiS CRM v0.15.16 validation
+THiS CRM v0.16.1 validation
 
-Release focus
-- Applied migration 202608110001 is restored to its original v0.15.12 checksum.
-- All other historical migrations match the v0.15.12 baseline.
-- The v0.15.14 optimisation remains a separate later migration.
-- Newly added family rows are revealed inside the client editor scroll area.
-- The complete new row remains above the fixed editor footer.
-- The new family member name field receives focus.
-- v0.15.14 database-idle, live-chat and targeted-response behaviour is retained.
+Completed checks
+- Built from the v0.16.0 HuB Visual Refresh source package.
+- No new database migration added.
+- All 41 migration SQL files have SHA-256 hashes identical to v0.16.0.
+- All Netlify/server .mjs and browser/script .js files pass `node --check` syntax validation.
+- Existing PWA validation script passes.
+- package.json parses successfully and reports version 0.16.1.
+- App.jsx source structural delimiter counts are balanced and the expected archive actions/workspace are present.
+- styles.css passes a structural comment/string-aware brace check.
+- Runtime cache/version references have advanced to v0.16.1.
+- Diff review confirms changes are limited to the archive feature, related storage/deletion safety, version references and release/guide files.
 
-Validation checklist
-- package version and cache-busting references are v0.15.16.
-- 202608110001_add_intake_updated_at_index.sql SHA-256 is 12005fc4f075bc65c70e30cf72ccc28238ff00e756be7e9b91eb912d659097c1.
-- family-row reveal waits for the rendered layout before measuring the row.
-- reveal logic scrolls the client editor body rather than the locked page body.
-- spouse/partner and child additions use the same reveal-and-focus path.
-- public live-chat iframe remains lazy-loaded until opened.
-- public launcher visibility handling stops status timers while hidden.
-- visitor polling uses revision + after-message cursor and stops while hidden.
-- staff polling uses global/selected revisions plus message/event cursors and stops while hidden/logged out.
-- explicit staff Refresh forces a conversation-list reconciliation.
-- chat mutations refresh Blob runtime markers.
-- readCrmData() is limited to initial/full reconciliation paths rather than routine mutations.
-- no SELECT * remains in normal crm.mjs/chat.mjs query paths.
-- migration 202608170001_optimize_idle_runtime_queries.sql is present.
-- no new migration is required for this interface-only fix.
-- Netlify/public JavaScript syntax checks pass.
-- App.jsx parses successfully as JSX.
-- PWA validation passes.
-- ZIP integrity passes.
+Environment limitation
+A full Vite production compilation was not run in this sandbox because project dependencies are not installed and external npm package installation is unavailable from the container. Netlify deployment will therefore provide the final production-bundle compilation check.
 
-Database sleep and compute caps remain provider/account configuration and are intentionally not encoded in the application package.
+Archive safety design
+- The database record is moved to Archived before any linked CV blob is deleted.
+- Failed blob cleanup retains the blob key for retry.
+- Successful purge metadata clears the live filename/blob key and keeps the original filename separately for archive history and safer rollback behaviour.
+- Permanent deletion is admin-only.

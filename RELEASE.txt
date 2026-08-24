@@ -1,48 +1,37 @@
-THiS CRM v0.15.16 - Migration Integrity Restoration
+THiS CRM v0.16.1 - Intake & Contact Archiving
 
 Baseline
-- Built from v0.15.15 Family Editor Expansion Fix.
-- Retains the full v0.15.15 CRM, family editor fix, database-idle optimisations, live chat, intake, portal, Instructions Studio and Agreement Studio functionality.
+- Built directly from v0.16.0 HuB Visual Refresh.
+- v0.16.0 remains the immediate rollback build and is not modified by this package.
+- Retains the complete v0.16.0 staff visual refresh and all v0.15.16 CRM functionality.
 
-Migration integrity restoration
-- Restores 202608110001_add_intake_updated_at_index.sql byte-for-byte to the original v0.15.12 file that was applied to the database.
-- The later v0.15.13 comment-only edit has been removed; the SQL operation itself is unchanged.
-- All other historical migration files match the v0.15.12 package, while the legitimate v0.15.14 optimisation remains in its separate 202608170001 migration.
+Enquiry archiving
+- Adds a dedicated Archive workspace under Enquiries & Intake for both short Contact forms and full Intake questionnaires.
+- Active Contact and Intake queues exclude archived records.
+- Adds single-record and bulk archive actions, including Select shown / Clear shown controls.
+- Archive confirmation shows the estimated linked CV storage that can be released.
+- Archived records remain searchable and readable, with their previous status, archive date/adviser, storage released and cleanup status recorded.
+- Restoring an archived record returns it to its pre-archive status. Purged CV files are deliberately not restored.
+- Existing complete Contact Register and Mailchimp-consent exports continue to include retained archived records.
 
-Family editor fix
-- Adding a spouse/partner or child now reveals the newly created row inside the client editor's own scroll area.
-- The reveal waits for the expanded row layout to settle, keeps the full row above the fixed editor footer and focuses the new member's name field.
-- Existing family records, counts, age calculations, removal and save behaviour are unchanged.
+Netlify storage cleanup
+- Archiving removes linked applicant and partner CV blobs from the existing `intake-uploads` Netlify Blob store while retaining the form/questionnaire data in Postgres.
+- The archive records cumulative file count, byte count and filenames for successfully purged CVs.
+- Failed blob deletions retain their blob key and show a Retry cleanup action rather than falsely reporting the file as removed.
+- Bulk archive requests are split into smaller server batches to reduce function-timeout risk.
 
-Database-idle optimisation
-- Public chat availability is served from cached Netlify Blob settings after cache warm-up.
-- Closed website widgets do not load the visitor iframe; their lightweight launcher check no longer needs Postgres once the settings cache exists.
-- Per-conversation Blob revision markers allow unchanged visitor/adviser chat checks to finish without Postgres.
-- Practice-level Blob attention marker tracks waiting/active/unread chat state without querying the conversation tables on every badge check.
-- Visitor and adviser clients retrieve only messages/events newer than their existing cursors.
-- Chat settings and adviser lookup data are cached outside the transactional query path.
-- Chat runtime markers are refreshed after all chat mutations.
+Deletion safety
+- Existing Delete intake/contact now deletes any linked CV blobs before deleting the database record.
+- If blob cleanup fails, the database record is retained so the cleanup can be retried and an orphaned file is not knowingly left behind.
+- Adds admin-only Permanent delete for archived records. It removes both the archived database row and any remaining CV blobs.
+- Converted client records remain independent if their original intake is archived or permanently deleted.
 
-Polling behaviour
-- Public launcher status checking stops when the page is hidden.
-- Visitor message polling stops when hidden.
-- CRM chat polling stops when hidden and when the user is logged out.
-- Existing schedule-aware sleep remains active outside chat hours when no waiting/active conversations exist.
+Rollback and database safety
+- No new database migration is included.
+- No historical migration is edited.
+- All 41 database migration SHA-256 hashes remain identical to v0.16.0.
+- No database schema change, dependency or environment variable is required.
+- Rolling back to the v0.16.0 package does not require a database rollback. Records carrying status `Archived` will remain in the existing table; v0.16.0 will normalise that legacy status back to Contacted if edited/saved, so normal rollback practice is to restore v0.16.0 only if this release is not retained.
 
-CRM reference/query optimisation
-- Advisers, email templates, Instructions templates, Agreement templates and consultation types are Blob-cached for the main CRM loader.
-- Cache entries are invalidated/refreshed by their relevant save/delete actions.
-- Routine save/delete actions use targeted responses rather than full CRM reloads.
-- Normal CRM/chat query paths no longer use SELECT *.
-- Added indexes for high-frequency chat queue/messages and common client stage/deadline/task/calendar/billing lookups.
-
-Database retained from v0.15.14
-- Includes migration 202608170001_optimize_idle_runtime_queries.sql.
-- Index-only migration; no data transformation.
-
-Provider-side settings
-- Keep database sleep-on-inactivity at five minutes.
-- If the database plan exposes a compute cap, test a maximum of one or two compute units and retain the lowest setting that provides acceptable performance.
-- These two settings are account-side and are not changed by the ZIP.
-
-No new migration, dependency or environment-variable changes.
+Cache/versioning
+- Package, PWA shell, Studio iframe, live-chat asset and backup source-version references advance to v0.16.1.
