@@ -1,22 +1,16 @@
-THiS CRM v0.16.1 validation
+THiS CRM v0.16.0 validation
 
-Completed checks
-- Built from the v0.16.0 HuB Visual Refresh source package.
-- No new database migration added.
-- All 41 migration SQL files have SHA-256 hashes identical to v0.16.0.
-- All Netlify/server .mjs and browser/script .js files pass `node --check` syntax validation.
-- Existing PWA validation script passes.
-- package.json parses successfully and reports version 0.16.1.
-- App.jsx source structural delimiter counts are balanced and the expected archive actions/workspace are present.
-- styles.css passes a structural comment/string-aware brace check.
-- Runtime cache/version references have advanced to v0.16.1.
-- Diff review confirms changes are limited to the archive feature, related storage/deletion safety, version references and release/guide files.
+Validation objectives
+- Build from the supplied v0.15.16 baseline without altering historical database migrations.
+- Apply the HuB-inspired visual refresh to the staff CRM only.
+- Preserve existing public forms, portals, live chat and Studio workflows.
+- Preserve desktop and mobile navigation paths.
+- Ensure cache-busting/version references advance to v0.16.0.
 
-Environment limitation
-A full Vite production compilation was not run in this sandbox because project dependencies are not installed and external npm package installation is unavailable from the container. Netlify deployment will therefore provide the final production-bundle compilation check.
-
-Archive safety design
-- The database record is moved to Archived before any linked CV blob is deleted.
-- Failed blob cleanup retains the blob key for retry.
-- Successful purge metadata clears the live filename/blob key and keeps the original filename separately for archive history and safer rollback behaviour.
-- Permanent deletion is admin-only.
+Release checks
+- package version and cache-busting references are v0.16.0.
+- no new migration is added for the visual refresh.
+- all 41 historical migration SHA-256 hashes are identical to the supplied v0.15.16 package.
+- App.jsx and main.jsx pass JSX/JavaScript syntax parsing with zero errors.
+- styles.css passes CSS parsing with zero errors.
+- PWA validation script completes successfully.

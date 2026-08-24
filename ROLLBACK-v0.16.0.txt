@@ -1,0 +1,7 @@
+THiS CRM v0.16.0 rollback
+
+If you do not want to retain the v0.16.0 visual refresh, redeploy the complete THiS-CRM-v0.15.16 package.
+
+v0.16.0 does not add or alter any database migration, so rolling back the application package does not require a database rollback.
+
+Do not edit any already-applied migration during rollback. In particular, keep 202608110001_add_intake_updated_at_index.sql exactly as supplied in v0.15.16.

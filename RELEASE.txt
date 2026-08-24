@@ -1,37 +1,28 @@
-THiS CRM v0.16.1 - Intake & Contact Archiving
+THiS CRM v0.16.0 - HuB Visual Refresh
 
 Baseline
-- Built directly from v0.16.0 HuB Visual Refresh.
-- v0.16.0 remains the immediate rollback build and is not modified by this package.
-- Retains the complete v0.16.0 staff visual refresh and all v0.15.16 CRM functionality.
+- Built directly from v0.15.16 Migration Integrity Restoration.
+- v0.15.16 remains the rollback baseline and is not modified by this package.
+- Retains the full v0.15.16 CRM, family editor fix, database-idle optimisations, native live chat, enquiries/intake, booking, client portal, commercial compliance, Instructions Studio, Agreement Studio, adviser personalisation and backup functionality.
 
-Enquiry archiving
-- Adds a dedicated Archive workspace under Enquiries & Intake for both short Contact forms and full Intake questionnaires.
-- Active Contact and Intake queues exclude archived records.
-- Adds single-record and bulk archive actions, including Select shown / Clear shown controls.
-- Archive confirmation shows the estimated linked CV storage that can be released.
-- Archived records remain searchable and readable, with their previous status, archive date/adviser, storage released and cleanup status recorded.
-- Restoring an archived record returns it to its pre-archive status. Purged CV files are deliberately not restored.
-- Existing complete Contact Register and Mailchimp-consent exports continue to include retained archived records.
+Visual refresh
+- Introduces a HuB-inspired staff CRM application shell with a persistent dark-teal left navigation rail on desktop.
+- Moves primary staff navigation into the left rail: Dashboard, My Day, Tasks, Clients, Enquiries & Intake, Studio, Commercial, Billing, Bookings, Calendar and Resources.
+- Adds direct Tools, Help & Guide, Adviser and Admin/Backup navigation in the lower rail where permissions allow.
+- Reworks the staff top bar around global client search, local time/weather, compact operational actions, the New menu and adviser identity.
+- Keeps the existing mobile bottom navigation and mobile tool flows.
+- Introduces a mint/teal dashboard hero treatment, refined KPI cards, softer operational cards, modern status pills, cleaner filters, improved card hierarchy and consistent compact application spacing.
+- Restyles client records, commercial records, enquiries/intake, booking, calendar, billing, task, Studio, resource and administrative surfaces to use the same visual system while retaining dense operational layouts where useful.
+- Instructions Studio and Agreement Studio retain their existing editors and workflows; their overlay now aligns with the desktop CRM sidebar.
+- Public assessment/contact/seminar forms, client portal, employer portal, public booking flow and public live-chat experience are intentionally not converted to the staff CRM shell.
 
-Netlify storage cleanup
-- Archiving removes linked applicant and partner CV blobs from the existing `intake-uploads` Netlify Blob store while retaining the form/questionnaire data in Postgres.
-- The archive records cumulative file count, byte count and filenames for successfully purged CVs.
-- Failed blob deletions retain their blob key and show a Retry cleanup action rather than falsely reporting the file as removed.
-- Bulk archive requests are split into smaller server batches to reduce function-timeout risk.
-
-Deletion safety
-- Existing Delete intake/contact now deletes any linked CV blobs before deleting the database record.
-- If blob cleanup fails, the database record is retained so the cleanup can be retried and an orphaned file is not knowingly left behind.
-- Adds admin-only Permanent delete for archived records. It removes both the archived database row and any remaining CV blobs.
-- Converted client records remain independent if their original intake is archived or permanently deleted.
-
-Rollback and database safety
+Rollback safety
+- No historical database migration was edited.
 - No new database migration is included.
-- No historical migration is edited.
-- All 41 database migration SHA-256 hashes remain identical to v0.16.0.
-- No database schema change, dependency or environment variable is required.
-- Rolling back to the v0.16.0 package does not require a database rollback. Records carrying status `Archived` will remain in the existing table; v0.16.0 will normalise that legacy status back to Contacted if edited/saved, so normal rollback practice is to restore v0.16.0 only if this release is not retained.
+- No database schema or data transformation is required.
+- No new dependency or environment variable is required.
+- The original v0.15.16 ZIP is the immediate rollback package if the visual refresh is not retained.
 
 Cache/versioning
-- Package, PWA shell, Studio iframe, live-chat asset and backup source-version references advance to v0.16.1.
+- Package version and staff asset cache-busting references updated to v0.16.0.
+- PWA shell cache name updated so existing installations receive the refreshed interface.
