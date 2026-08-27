@@ -98,6 +98,24 @@ export default async function intakeRequestHandler(request) {
     if (!payload.firstName || !payload.lastName || !payload.email) {
       return json({ error: 'First name, last name and email are required.' }, 400);
     }
+    if (!isValidEmailAddress(payload.email)) {
+      return json({ error: 'Please enter a valid email address.' }, 400);
+    }
+
+    if (payload.intakeSubmissionKey) {
+      const existingRows = await db().sql`SELECT id, raw_payload FROM intake_enquiries WHERE raw_payload ->> 'intakeSubmissionKey' = ${payload.intakeSubmissionKey} ORDER BY created_at DESC LIMIT 1`;
+      const existing = existingRows[0];
+      if (existing?.id) {
+        const existingPayload = existing.raw_payload && typeof existing.raw_payload === 'object' ? existing.raw_payload : {};
+        return json({
+          ok: true,
+          intakeId: existing.id,
+          uploadToken: clean(existingPayload.intakeUploadToken),
+          expectedUploads: Array.isArray(existingPayload.intakeExpectedUploads) ? existingPayload.intakeExpectedUploads : [],
+          resumed: true,
+        });
+      }
+    }
 
     const expectedUploads = [];
     if (payload.applicantCvExpected) expectedUploads.push('applicantCv');
@@ -158,6 +176,10 @@ async function handleIntakeUpload(request, url) {
   if (payload.intakeUploadToken !== token) return json({ error: 'The intake upload token was not accepted.' }, 403);
   const expected = Array.isArray(payload.intakeExpectedUploads) ? payload.intakeExpectedUploads : [];
   if (!expected.includes(kind)) return json({ error: 'That CV upload is not expected for this intake record.' }, 400);
+  const existingUpload = payload.intakeUploads?.[kind];
+  if (existingUpload?.blobKey) {
+    return json({ ok: true, upload: publicUploadMetadata(existingUpload), reused: true });
+  }
 
   const uploadId = crypto.randomUUID();
   const blobKey = `intake/${intakeId}/${kind}/${uploadId}-${fileName}`;
@@ -307,6 +329,7 @@ function normalisePayload(input = {}) {
     marketingConsent: Boolean(input.marketingConsent),
     applicantCvExpected: Boolean(input.applicantCvExpected),
     partnerCvExpected: Boolean(input.partnerCvExpected),
+    intakeSubmissionKey: clean(input.intakeSubmissionKey).slice(0, 120),
     intakeUploads: normaliseStoredUploads(input.intakeUploads),
     urgency: clean(input.urgency) || 'Standard',
     urgentDeadline: clean(input.urgentDeadline),

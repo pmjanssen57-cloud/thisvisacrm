@@ -1,19 +1,20 @@
-THiS CRM v0.16.2 validation
+THiS CRM v0.16.4 validation
 
 Completed checks
-- Built from v0.16.1 Intake & Contact Archiving.
-- Restored the staff application shell and base CSS from the v0.15.16 original-style baseline.
-- Removed the v0.16.0/v0.16.1 HuB-refresh sidebar, desktop global-search header and appended HuB visual CSS block.
-- Retained the v0.16.1 Archive workspace, bulk archive actions, restore/permanent-delete controls and CV-storage cleanup UI.
-- netlify/functions/crm.mjs is byte-for-byte identical to v0.16.1, retaining the archive/blob-cleanup server implementation.
-- styles.css differs from v0.15.16 only in two focused areas: the five-card enquiry overview needed for Archive and the Archive-specific control/detail styles.
-- No new database migration added.
-- All 41 migration SQL files have SHA-256 hashes identical to v0.16.1.
-- All Netlify/server .mjs and browser/script .js files pass node --check syntax validation.
-- Existing PWA validation script passes.
-- package.json parses successfully and reports version 0.16.2.
-- styles.css passes a comment/string-aware structural brace check.
-- Runtime cache/version references advance to v0.16.2.
+- App.jsx parses successfully as JSX.
+- All Netlify .mjs function files pass Node syntax checking.
+- netlify/functions/intake.mjs passes Node syntax checking after email/idempotency/upload changes.
+- scripts/validate-pwa.mjs passes.
+- package.json parses and reports version 0.16.4.
+- Runtime/PWA/Studio/live-chat cache references advance to v0.16.4.
+- All 41 existing database migration files are byte-for-byte unchanged from v0.16.3.
+- No new database migration, dependency or environment variable is introduced.
 
-Build environment limitation
-A full Vite production compilation was not run in this container because project npm/yarn dependencies are not installed locally. Netlify deployment remains the final production-bundle compilation check.
+Assessment reliability covered
+- Invalid email formats are blocked before leaving the applicant-details step.
+- Server-side email validation rejects invalid formats.
+- CV validation occurs when the file is selected.
+- Generic browser MIME types are normalised by approved PDF/DOC/DOCX extension.
+- Partial CV upload failures retain and reuse the same intake record.
+- Repeated initial-save requests with the same per-form submission key return the existing intake record.
+- Repeated upload requests for an already stored CV return the existing upload rather than creating another blob.

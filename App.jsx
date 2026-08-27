@@ -2901,21 +2901,28 @@ export default function App() {
   }, [loading, authRequired]);
 
   const defaultClientListAdviserId = identityAdviser?.id || (dashboardAdviserFilter !== 'all' ? dashboardAdviserFilter : '');
-  const effectiveClientListAdviserId = clientAdviserFilter === 'mine' ? defaultClientListAdviserId : clientAdviserFilter === 'all' ? '' : clientAdviserFilter;
+  const effectiveClientListAdviserId = clientAdviserFilter === 'mine'
+    ? defaultClientListAdviserId
+    : (clientAdviserFilter === 'all' || clientAdviserFilter === 'unassigned')
+      ? ''
+      : clientAdviserFilter;
   const filteredClients = useMemo(() => {
     const q = clientQuery.trim().toLowerCase();
-    return scopedClients.filter((client) => {
+    const sourceClients = clientAdviserFilter === 'unassigned' ? data.clients : scopedClients;
+    return sourceClients.filter((client) => {
       const matchesQuery = !q || [client.firstName, client.lastName, client.email, client.caseType, client.nationality, client.location, client.sharepointFolderUrl, client.oneLawClientNumber, client.caseStrategy, (client.familyMembers || []).map((member) => `${member.name || ''} ${member.nationality || ''}`).join(' ')]
         .join(' ')
         .toLowerCase()
         .includes(q);
-      const matchesAdviser = clientAdviserFilter === 'all' || !effectiveClientListAdviserId
-        || client.primaryAdviserId === effectiveClientListAdviserId
-        || (includeBackupClients && client.backupAdviserId === effectiveClientListAdviserId);
+      const matchesAdviser = clientAdviserFilter === 'unassigned'
+        ? !client.primaryAdviserId
+        : clientAdviserFilter === 'all' || !effectiveClientListAdviserId
+          || client.primaryAdviserId === effectiveClientListAdviserId
+          || (includeBackupClients && client.backupAdviserId === effectiveClientListAdviserId);
       const matchesCaseType = caseTypeFilter === 'all' || client.caseType === caseTypeFilter;
       return matchesQuery && matchesAdviser && matchesCaseType;
     });
-  }, [scopedClients, clientQuery, clientAdviserFilter, effectiveClientListAdviserId, includeBackupClients, caseTypeFilter]);
+  }, [data.clients, scopedClients, clientQuery, clientAdviserFilter, effectiveClientListAdviserId, includeBackupClients, caseTypeFilter]);
 
   useEffect(() => {
     if (tab !== 'clients' || !filteredClients.length) return;
@@ -4299,6 +4306,11 @@ function IntakeFormApp() {
   const [transition, setTransition] = useState(null);
   const [showFunds, setShowFunds] = useState(false);
   const [consentAttention, setConsentAttention] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [cvState, setCvState] = useState({ applicantCv: { status: 'idle', message: '' }, partnerCv: { status: 'idle', message: '' } });
+  const [submissionReceipt, setSubmissionReceipt] = useState(null);
+  const [submissionStatus, setSubmissionStatus] = useState('');
+  const submissionKeyRef = useRef(makeIntakeSubmissionKey());
 
   const hasPartner = form.hasPartner === 'Yes';
   const hasChildren = form.hasChildren === 'Yes';
@@ -4457,6 +4469,7 @@ function IntakeFormApp() {
 
   function setField(name, value) {
     if (name === 'consentToContact' || name === 'privacyAcknowledged') setConsentAttention(false);
+    if (name === 'email' && emailError) setEmailError('');
     if (name === 'hasPartner' && value !== 'Yes') setPartnerCvFile(null);
     setForm((current) => {
       const next = { ...current, [name]: value };
@@ -4548,19 +4561,74 @@ function IntakeFormApp() {
     });
   }
 
+  function updateCvState(kind, status, message = '') {
+    setCvState((current) => ({ ...current, [kind]: { status, message } }));
+  }
+
   function handleCvFile(kind, file) {
-    if (kind === 'applicantCv') {
-      setApplicantCvFile(file);
-      setField('applicantCvExpected', Boolean(file));
+    if (submissionReceipt?.uploadedKinds?.includes(kind)) return false;
+    if (!file) {
+      if (kind === 'applicantCv') {
+        setApplicantCvFile(null);
+        setField('applicantCvExpected', false);
+      } else {
+        setPartnerCvFile(null);
+        setField('partnerCvExpected', false);
+      }
+      updateCvState(kind, 'idle', '');
+      return true;
     }
-    if (kind === 'partnerCv') {
-      setPartnerCvFile(file);
-      setField('partnerCvExpected', Boolean(file));
+
+    try {
+      validateIntakeCvFile(file);
+      if (kind === 'applicantCv') {
+        setApplicantCvFile(file);
+        setField('applicantCvExpected', true);
+      } else {
+        setPartnerCvFile(file);
+        setField('partnerCvExpected', true);
+      }
+      updateCvState(kind, 'ready', `${kind === 'partnerCv' ? 'Partner CV' : 'CV'} ready to upload.`);
+      setError('');
+      return true;
+    } catch (err) {
+      if (kind === 'applicantCv') {
+        setApplicantCvFile(null);
+        setField('applicantCvExpected', false);
+      } else {
+        setPartnerCvFile(null);
+        setField('partnerCvExpected', false);
+      }
+      updateCvState(kind, 'error', err.message || 'That CV could not be selected.');
+      return false;
     }
+  }
+
+  function validateIdentityStep() {
+    const firstName = String(form.firstName || '').trim();
+    const lastName = String(form.lastName || '').trim();
+    const email = String(form.email || '').trim();
+    if (!firstName || !lastName) {
+      setError('Please add your first name and last name before continuing.');
+      scrollElementIntoView('.guided-form', 'start');
+      return false;
+    }
+    if (!email || !isValidIntakeEmailAddress(email)) {
+      const message = 'Please enter a valid email address, for example name@example.com.';
+      setEmailError(message);
+      setError(message);
+      scrollElementIntoView('.intake-email-field', 'center');
+      return false;
+    }
+    setEmailError('');
+    setError('');
+    if (email !== form.email) setField('email', email);
+    return true;
   }
 
   function validateForm() {
     if (!form.firstName || !form.lastName || !form.email) throw new Error('Please add your first name, last name and email before submitting.');
+    if (!isValidIntakeEmailAddress(form.email)) throw new Error('Please enter a valid email address, for example name@example.com.');
     if (!form.consentToContact || !form.privacyAcknowledged) throw new Error('Please confirm the consent and acknowledgement before submitting.');
     if (applicantCvFile) validateIntakeCvFile(applicantCvFile);
     if (hasPartner && partnerCvFile) validateIntakeCvFile(partnerCvFile);
@@ -4570,7 +4638,7 @@ function IntakeFormApp() {
     const params = new URLSearchParams({ upload: '1', intakeId, token, kind, fileName: file.name });
     const response = await fetch(`/.netlify/functions/intake?${params.toString()}`, {
       method: 'POST',
-      headers: { 'content-type': file.type || 'application/octet-stream' },
+      headers: { 'content-type': normaliseCvMimeType(file.type, file.name) || 'application/octet-stream' },
       body: file,
     });
     const body = await readJsonResponse(response);
@@ -4594,24 +4662,71 @@ function IntakeFormApp() {
       nextStep();
       return;
     }
+
+    let receipt = submissionReceipt;
     try {
       validateForm();
       setSubmitting(true);
       setError('');
-      const response = await fetch('/.netlify/functions/intake', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ payload: { ...form, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.13.28-public-form-standardisation' } }),
-      });
-      const body = await readJsonResponse(response);
-      if (!response.ok) throw new Error(body.error || 'The questionnaire could not be submitted.');
-      if (applicantCvFile) await uploadIntakeCvFile(body.intakeId, body.uploadToken, 'applicantCv', applicantCvFile);
-      if (hasPartner && partnerCvFile) await uploadIntakeCvFile(body.intakeId, body.uploadToken, 'partnerCv', partnerCvFile);
+
+      if (!receipt) {
+        setSubmissionStatus('Saving your questionnaire...');
+        const response = await fetch('/.netlify/functions/intake', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ payload: { ...form, email: String(form.email || '').trim(), intakeSubmissionKey: submissionKeyRef.current, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.16.4-assessment-form-reliability' } }),
+        });
+        const body = await readJsonResponse(response);
+        if (!response.ok) throw new Error(body.error || 'The questionnaire could not be submitted.');
+        receipt = { intakeId: body.intakeId, uploadToken: body.uploadToken, expectedUploads: body.expectedUploads || [], uploadedKinds: [] };
+        setSubmissionReceipt(receipt);
+      }
+
+      const uploadsByKind = {
+        applicantCv: { kind: 'applicantCv', file: applicantCvFile, label: 'CV' },
+        partnerCv: { kind: 'partnerCv', file: hasPartner ? partnerCvFile : null, label: 'partner CV' },
+      };
+
+      for (const kind of (receipt.expectedUploads || [])) {
+        const item = uploadsByKind[kind];
+        if (!item || receipt.uploadedKinds?.includes(kind)) continue;
+        if (!item.file) {
+          const missingError = new Error(`Please choose the ${item.label} again before retrying.`);
+          missingError.cvKind = item.kind;
+          missingError.cvLabel = item.label;
+          updateCvState(item.kind, 'error', missingError.message);
+          throw missingError;
+        }
+        updateCvState(item.kind, 'uploading', `Uploading ${item.label}...`);
+        setSubmissionStatus(`Uploading ${item.label}...`);
+        try {
+          await uploadIntakeCvFile(receipt.intakeId, receipt.uploadToken, item.kind, item.file);
+        } catch (uploadError) {
+          updateCvState(item.kind, 'error', uploadError.message || `The ${item.label} could not be uploaded.`);
+          uploadError.cvKind = item.kind;
+          uploadError.cvLabel = item.label;
+          throw uploadError;
+        }
+        receipt = { ...receipt, uploadedKinds: [...new Set([...(receipt.uploadedKinds || []), item.kind])] };
+        setSubmissionReceipt(receipt);
+        updateCvState(item.kind, 'uploaded', `${item.label === 'CV' ? 'CV' : 'Partner CV'} uploaded successfully.`);
+      }
+
+      setSubmissionStatus('Questionnaire submitted successfully.');
       setSubmitted(true);
       scrollFormTop();
     } catch (err) {
       const message = err.message || String(err);
-      setError(message);
+      if (receipt?.intakeId && err.cvKind) {
+        setSubmissionStatus('Questionnaire saved — CV upload needs retry.');
+        setError(`Your questionnaire has been saved, but the ${err.cvLabel || 'CV'} did not finish uploading. ${message} Please check the file or your connection and press “Retry CV upload”. Your questionnaire answers will not be submitted again.`);
+      } else {
+        setSubmissionStatus('');
+        setError(message);
+      }
+      if (/email address/i.test(message)) {
+        setEmailError('Please enter a valid email address, for example name@example.com.');
+      }
       if (/consent|acknowledgement/i.test(message)) {
         setConsentAttention(true);
         scrollToConsentAttention();
@@ -4662,6 +4777,11 @@ function IntakeFormApp() {
     }, 80);
   }
 
+  function canLeaveCurrentStep() {
+    if (step === 2) return validateIdentityStep();
+    return true;
+  }
+
   function jumpTo(targetStep) {
     if (targetStep === step) return;
     if (targetStep < step) {
@@ -4669,11 +4789,12 @@ function IntakeFormApp() {
       scrollFormTop();
       return;
     }
+    if (!canLeaveCurrentStep()) return;
     showTransition(targetStep);
   }
 
   function nextStep() {
-    if (step < steps.length) showTransition(step + 1);
+    if (step < steps.length && canLeaveCurrentStep()) showTransition(step + 1);
   }
 
   function previousStep() {
@@ -4722,7 +4843,7 @@ function IntakeFormApp() {
             <div><strong>3</strong><span>We contact you about the next step</span></div>
           </div>
           <p className="guided-urgent-note">If you have an urgent query, an INZ deadline, or an immediate visa issue, please contact us directly at <a href="mailto:immigration@turnerhopkins.co.nz">immigration@turnerhopkins.co.nz</a>.</p>
-          <button className="btn dark" type="button" onClick={() => { setForm(makeBlankIntakePayload()); setApplicantCvFile(null); setPartnerCvFile(null); setSubmitted(false); setStep(1); }}>Start another questionnaire</button>
+          <button className="btn dark" type="button" onClick={() => { setForm(makeBlankIntakePayload()); setApplicantCvFile(null); setPartnerCvFile(null); setCvState({ applicantCv: { status: 'idle', message: '' }, partnerCv: { status: 'idle', message: '' } }); setSubmissionReceipt(null); setSubmissionStatus(''); setEmailError(''); submissionKeyRef.current = makeIntakeSubmissionKey(); setSubmitted(false); setStep(1); }}>Start another questionnaire</button>
         </main>
       </div>
     );
@@ -4823,14 +4944,14 @@ function IntakeFormApp() {
               <div className="form-grid">
                 <IntakeField label="First name" value={form.firstName} onChange={(v) => setField('firstName', v)} required />
                 <IntakeField label="Last name" value={form.lastName} onChange={(v) => setField('lastName', v)} required />
-                <IntakeField label="Email" type="email" value={form.email} onChange={(v) => setField('email', v)} required />
+                <IntakeField label="Email" className="intake-email-field" type="email" value={form.email} onChange={(v) => setField('email', v)} onBlur={(v) => { const trimmed = String(v || '').trim(); if (trimmed !== v) setField('email', trimmed); if (trimmed && !isValidIntakeEmailAddress(trimmed)) setEmailError('Please enter a valid email address, for example name@example.com.'); else setEmailError(''); }} error={emailError} autoComplete="email" inputMode="email" spellCheck={false} required />
                 <IntakeField label="Mobile phone" value={form.phone} onChange={(v) => setField('phone', v)} />
                 <IntakeSelect label="Preferred contact method" value={form.preferredContactMethod} onChange={(v) => setField('preferredContactMethod', v)} options={['Email', 'Mobile']} />
                 <IntakeSelect label="Country of citizenship" value={form.citizenship} onChange={(v) => setField('citizenship', v)} options={guidedCountryOptions()} />
                 <IntakeField label="Date of birth" type="date" value={form.dateOfBirth} onChange={(v) => setField('dateOfBirth', v)} />
                 <div className="span-2"><IntakeField label="Current physical address" value={form.physicalAddress} onChange={(v) => setField('physicalAddress', v)} placeholder="Street address, suburb, city and country" /></div>
               </div>
-              <IntakeFileField label="Upload CV" file={applicantCvFile} onChange={(file) => handleCvFile('applicantCv', file)} />
+              <IntakeFileField label="Upload CV" file={applicantCvFile} onChange={(file) => handleCvFile('applicantCv', file)} status={cvState.applicantCv.status} statusMessage={cvState.applicantCv.message} locked={Boolean(submissionReceipt?.uploadedKinds?.includes('applicantCv'))} />
             </IntakeSection>
           )}
 
@@ -4945,7 +5066,7 @@ function IntakeFormApp() {
                   <IntakeTextarea label="Partner employment details" value={form.partnerEmploymentDetails} onChange={(v) => setField('partnerEmploymentDetails', v)} rows={3} />
                   <IntakeTextarea label="Partner previous work history" value={form.partnerPreviousWorkHistory} onChange={(v) => setField('partnerPreviousWorkHistory', v)} rows={3} />
                   <IntakeTextarea label="Partner qualification details" value={form.partnerQualificationDetails} onChange={(v) => setField('partnerQualificationDetails', v)} rows={3} />
-                  <IntakeFileField label="Upload partner CV" file={partnerCvFile} onChange={(file) => handleCvFile('partnerCv', file)} />
+                  <IntakeFileField label="Upload partner CV" file={partnerCvFile} onChange={(file) => handleCvFile('partnerCv', file)} status={cvState.partnerCv.status} statusMessage={cvState.partnerCv.message} locked={Boolean(submissionReceipt?.uploadedKinds?.includes('partnerCv'))} />
                 </div>
               )}
               {hasChildren && (
@@ -5049,13 +5170,14 @@ function IntakeFormApp() {
             </IntakeSection>
           )}
 
+          {submissionStatus && <div className={`intake-submission-status ${submissionReceipt ? 'saved' : ''}`} role="status"><FileCheck2 size={17} /><span>{submissionStatus}</span></div>}
           <div className="guided-submit-bar">
             <button className="btn ghost" type="button" onClick={previousStep} disabled={step === 1 || submitting}>Back</button>
             <span>{completedSteps} of {steps.length} stages completed</span>
             {step < steps.length ? (
               <button className="btn dark" type="button" onClick={nextStep} disabled={submitting}>Next</button>
             ) : (
-              <button className="btn dark" type="submit" disabled={submitting}>{submitting ? 'Submitting...' : 'Submit questionnaire'}</button>
+              <button className="btn dark" type="submit" disabled={submitting}>{submitting ? (submissionReceipt ? 'Uploading...' : 'Submitting...') : (submissionReceipt ? 'Retry CV upload' : 'Submit questionnaire')}</button>
             )}
           </div>
         </form>
@@ -6965,11 +7087,31 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
 
   async function convertIntake(item) {
     if (!item?.id) return;
+    if (!item.assignedAdviserId) {
+      await askConfirm({
+        title: 'Assign an adviser first',
+        message: 'Choose the responsible adviser before converting this intake to a client record.',
+        details: ["This prevents the new client from being created outside every adviser's normal client view."],
+        confirmLabel: 'OK',
+        tone: 'warning',
+      });
+      return;
+    }
     await convertIntakeToClient(item.id);
   }
 
   async function convertDraft() {
     if (!draft?.id) return;
+    if (!draft.assignedAdviserId) {
+      await askConfirm({
+        title: 'Assign an adviser first',
+        message: 'Choose the responsible adviser before converting this intake to a client record.',
+        details: ["This prevents the new client from being created outside every adviser's normal client view."],
+        confirmLabel: 'OK',
+        tone: 'warning',
+      });
+      return;
+    }
     await convertIntakeToClient(draft.id);
   }
 
@@ -7487,7 +7629,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
                       </label>
                       <button className="btn dark queue-primary-action" type="button" onClick={() => openIntakeEditor(item)}>View intake</button>
                       {!item.convertedClientId ? (
-                        <button className="btn" type="button" onClick={() => convertIntake(item)} disabled={saving || item.status === 'Converted'}>Convert</button>
+                        <button className="btn" type="button" onClick={() => convertIntake(item)} disabled={saving || item.status === 'Converted' || !item.assignedAdviserId} title={!item.assignedAdviserId ? 'Assign an adviser before converting' : 'Convert intake to client'}>{!item.assignedAdviserId ? 'Assign adviser first' : 'Convert'}</button>
                       ) : (
                         <button className="btn" type="button" onClick={() => openClientRecord(item.convertedClientId)}><ExternalLink size={16} />Open client</button>
                       )}
@@ -8132,7 +8274,7 @@ function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, 
           {!isContactIntake(draft) && missingCvCount > 0 && <button className="btn" type="button" disabled={!canRequestCv || Boolean(outcomeSending) || saving} onClick={requestMissingCv} title={!draft.email ? 'No applicant email recorded' : !draft.assignedAdviserId ? 'Assign an adviser before requesting a CV' : !assignedAdviser?.email ? 'The assigned adviser does not have an email address recorded' : 'Send a CV request with replies directed to the assigned adviser'}><Mail size={16} />{outcomeSending === 'cv-request' ? 'Sending...' : partnerCvMissing && applicantCvMissing ? 'Request missing CVs' : partnerCvMissing ? 'Request partner CV' : 'Request applicant CV'}</button>}
           {!isContactIntake(draft) && <button className="btn" type="button" disabled={!draft.email || Boolean(outcomeSending) || saving} onClick={() => sendOutcomeEmail('approve')} title={!draft.email ? 'No submitter email recorded' : 'Send the approval email from the CRM'}><Mail size={16} />{outcomeSending === 'approve' ? 'Sending...' : 'Send approval + booking link'}</button>}
           {!isContactIntake(draft) && <button className="btn danger" type="button" disabled={!draft.email || Boolean(outcomeSending) || saving} onClick={() => sendOutcomeEmail('decline')} title={!draft.email ? 'No submitter email recorded' : 'Send the decline email from the CRM'}><Mail size={16} />{outcomeSending === 'decline' ? 'Sending...' : 'Send decline email'}</button>}
-          <button className="btn dark" type="button" onClick={onConvert} disabled={saving || Boolean(draft.convertedClientId)}><UsersRound size={16} />Convert to client</button>
+          <button className="btn dark" type="button" onClick={onConvert} disabled={saving || Boolean(draft.convertedClientId) || !draft.assignedAdviserId} title={!draft.assignedAdviserId ? 'Assign an adviser before converting' : 'Convert intake to client'}><UsersRound size={16} />{!draft.assignedAdviserId ? 'Assign adviser first' : 'Convert to client'}</button>
           {draft.convertedClientId && <button className="btn" type="button" onClick={() => openClientRecord(draft.convertedClientId)}><ExternalLink size={16} />Open client</button>}
         </div>
         {outcomeMessage && <p className={outcomeMessage.includes('failed') || outcomeMessage.includes('could not') ? 'inline-error' : 'inline-status'}>{outcomeMessage}</p>}
@@ -8654,8 +8796,8 @@ function IntakeSection({ title, description, children }) {
   return <section className="intake-section"><h2>{title}</h2>{description && <p>{description}</p>}{children}</section>;
 }
 
-function IntakeField({ label, value, onChange, type = 'text', required = false, placeholder = '' }) {
-  return <label className="field"><span>{label}{required ? ' *' : ''}</span><input type={type} value={value || ''} required={required} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} /></label>;
+function IntakeField({ label, value, onChange, onBlur, type = 'text', required = false, placeholder = '', error = '', className = '', autoComplete, inputMode, spellCheck }) {
+  return <label className={`field ${className} ${error ? 'has-error' : ''}`.trim()}><span>{label}{required ? ' *' : ''}</span><input type={type} value={value || ''} required={required} placeholder={placeholder} autoComplete={autoComplete} inputMode={inputMode} spellCheck={spellCheck} aria-invalid={Boolean(error)} aria-describedby={error ? `${className || 'intake-field'}-error` : undefined} onChange={(event) => onChange(event.target.value)} onBlur={(event) => onBlur?.(event.target.value)} />{error && <small id={`${className || 'intake-field'}-error`} className="field-error">{error}</small>}</label>;
 }
 
 function IntakeSelect({ label, value, onChange, options, required = false }) {
@@ -8663,20 +8805,26 @@ function IntakeSelect({ label, value, onChange, options, required = false }) {
   return <label className="field"><span>{label}{required ? ' *' : ''}</span><select value={value || ''} required={required} onChange={(event) => onChange(event.target.value)}><option value="">Select...</option>{normalised.map((option, index) => <option key={`${option.value || option.label}-${index}`} value={option.value} disabled={Boolean(option.disabled)}>{option.label}</option>)}</select></label>;
 }
 
-function IntakeFileField({ label, file, onChange }) {
+function IntakeFileField({ label, file, onChange, status = 'idle', statusMessage = '', locked = false }) {
   const inputId = `intake-file-${label.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
   return (
-    <div className="intake-file-field">
+    <div className={`intake-file-field ${status === 'error' ? 'has-error' : ''}`}>
       <label className="field" htmlFor={inputId}>
         <span>{label}</span>
-        <input id={inputId} type="file" accept={INTAKE_CV_ACCEPT} onChange={(event) => onChange(event.target.files?.[0] || null)} />
+        <input id={inputId} type="file" accept={INTAKE_CV_ACCEPT} disabled={locked} onChange={(event) => { const accepted = onChange(event.target.files?.[0] || null); if (accepted === false) event.currentTarget.value = ''; }} />
       </label>
       <p className="muted">PDF, DOC or DOCX only. Maximum 5 MB. One file only.</p>
+      {status !== 'idle' && statusMessage && (
+        <div className={`intake-upload-status ${status}`} role={status === 'error' ? 'alert' : 'status'}>
+          {status === 'uploaded' || status === 'ready' ? <FileCheck2 size={16} /> : status === 'uploading' ? <Upload size={16} /> : <AlertTriangle size={16} />}
+          <span>{statusMessage}</span>
+        </div>
+      )}
       {file && (
         <div className="intake-upload-pill">
           <FileText size={15} />
           <span>{file.name} · {formatFileSize(file.size)}</span>
-          <button type="button" className="btn mini" onClick={() => onChange(null)}>Remove</button>
+          {locked ? <strong className="intake-upload-locked">Uploaded</strong> : <button type="button" className="btn mini" onClick={() => onChange(null)}>Remove</button>}
         </div>
       )}
     </div>
@@ -9766,7 +9914,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const dayRows = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']];
-  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.16.2" data-title="Chat with us" defer><\/script>`;
+  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.16.3" data-title="Chat with us" defer><\/script>`;
 
   useEffect(() => {
     if (!open) return;
@@ -12994,7 +13142,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.16.2" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.16.3" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -13571,7 +13719,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.16.2" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.16.3" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}
@@ -13639,7 +13787,7 @@ function ClientsWorkspace(props) {
         <SavedViewControls workspace="clients" views={clientSavedViews} onApply={applyClientSavedView} onSave={saveClientView} onDelete={(viewId) => deleteSavedView?.('clients', viewId)} />
         {filtersOpen && (
           <div className="client-filter-panel">
-            <label><span>Adviser</span><select value={adviserFilter} onChange={(event) => setAdviserFilter(event.target.value)}><option value="mine">My clients</option><option value="all">All clients in current view</option>{advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}</select></label>
+            <label><span>Adviser</span><select value={adviserFilter} onChange={(event) => setAdviserFilter(event.target.value)}><option value="mine">My clients</option><option value="all">All clients in current view</option><option value="unassigned">Unassigned clients</option>{advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}</select></label>
             <label><span>Case type</span><select value={caseTypeFilter} onChange={(event) => setCaseTypeFilter(event.target.value)}><option value="all">All case types</option>{caseTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
             <label><span>Sort</span><select value={sortOrder} onChange={(event) => setSortOrder(event.target.value)}><option value="name-asc">Name A-Z</option><option value="name-desc">Name Z-A</option><option value="stage">Current stage</option><option value="action">Next action date</option></select></label>
           </div>
@@ -15653,22 +15801,34 @@ function resizeProfilePhoto(file, maxSize = 420) {
   });
 }
 
+function isValidIntakeEmailAddress(value = '') {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+}
+
+function makeIntakeSubmissionKey() {
+  if (typeof globalThis !== 'undefined' && globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  return `intake-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
 function validateIntakeCvFile(file) {
   if (!file) return;
   const name = String(file.name || '').toLowerCase();
-  const type = normaliseCvMimeType(file.type, name);
-  const allowed = (name.endsWith('.pdf') || name.endsWith('.doc') || name.endsWith('.docx')) && ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(type);
-  if (!allowed) throw new Error('CV uploads must be PDF, DOC or DOCX files.');
+  const hasAllowedExtension = name.endsWith('.pdf') || name.endsWith('.doc') || name.endsWith('.docx');
+  if (!hasAllowedExtension) throw new Error('CV uploads must be PDF, DOC or DOCX files.');
+  if (!Number(file.size || 0)) throw new Error('That CV file appears to be empty. Please choose the file again.');
   if (Number(file.size || 0) > MAX_INTAKE_CV_BYTES) throw new Error('CV uploads must be 5 MB or smaller.');
+  const type = normaliseCvMimeType(file.type, name);
+  if (!['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(type)) throw new Error('CV uploads must be PDF, DOC or DOCX files.');
 }
 
 function normaliseCvMimeType(value = '', fileName = '') {
   const type = String(value || '').split(';')[0].trim().toLowerCase();
-  if (type) return type;
-  if (String(fileName || '').endsWith('.pdf')) return 'application/pdf';
-  if (String(fileName || '').endsWith('.doc')) return 'application/msword';
-  if (String(fileName || '').endsWith('.docx')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-  return '';
+  if (['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(type)) return type;
+  const lower = String(fileName || '').toLowerCase();
+  if (lower.endsWith('.pdf')) return 'application/pdf';
+  if (lower.endsWith('.doc')) return 'application/msword';
+  if (lower.endsWith('.docx')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  return type;
 }
 
 async function uploadIntakeCvFile(intakeId, uploadToken, kind, file) {

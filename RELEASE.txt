@@ -1,32 +1,26 @@
-THiS CRM v0.16.2 - Original Styling Restoration
+THiS CRM v0.16.4 - Assessment Form Reliability
 
 Baseline
-- Built from v0.16.1 Intake & Contact Archiving.
-- Keeps all v0.16.1 archive, blob-cleanup and deletion-safety functionality.
-- Keeps all underlying CRM functionality carried forward from v0.15.16.
+- Built from THiS CRM v0.16.3 Intake Conversion Safety and Agreement A4 Print Fix.
+- Retains original CRM styling, intake/contact archiving, agreement print fixes and all existing functionality.
 
-Interface restoration
-- Removes the HuB-inspired staff visual shell introduced in v0.16.0.
-- Restores the v0.15.16 header, main navigation tabs, dashboard/card styling, client workspace presentation and established CRM spacing.
-- Removes the persistent dark-teal desktop sidebar and desktop global-search header.
-- Restores the original View Toolbar and Personal Quick Actions placement.
-- Archive-specific controls retain only the minimal additional CSS required for the Archive workspace and bulk actions.
+Build reliability
+- Corrects a malformed adviser-conversion warning string inherited from v0.16.3 so the JSX compiles cleanly.
 
-Archive functionality retained
-- Dedicated Archive workspace under Enquiries & Intake.
-- Single and bulk archive actions for Contact and Intake records.
-- Search/open/restore archived records.
-- CV blob cleanup from the Netlify `intake-uploads` store when archiving.
-- Storage-release tracking and retry handling for failed blob deletion.
-- Admin-only permanent delete.
-- Existing Delete intake/contact safely removes linked CV blobs first.
-- Contact Register and Mailchimp-consent exports continue to include retained archived records.
+Assessment email reliability
+- The assessment form now validates the email address before leaving the applicant-details step.
+- Email addresses are trimmed and validated again at final submission.
+- The Netlify intake endpoint now rejects invalid email formats as a server-side safeguard.
 
-Database safety
+CV upload reliability
+- Applicant and partner CV files are validated immediately when selected.
+- Valid PDF, DOC and DOCX files are accepted even when phones or browsers report a generic MIME type.
+- Clear states show CV ready to upload, uploading, uploaded, or a specific error.
+- Empty files and files larger than 5 MB are rejected before submission.
+- If the questionnaire saves but a CV upload fails, the applicant can retry only the CV upload against the same intake record.
+- A client-generated idempotency key prevents duplicate intake records if the initial save succeeds but the browser loses the response.
+
+Database and deployment
 - No new database migration.
-- No historical migration changed.
-- All 41 migration hashes remain identical to v0.16.1 and v0.15.16.
-- No schema change, dependency or environment variable.
-
-Version/cache references
-- Package, PWA shell, Studio iframe, live-chat assets and backup source-version references advance to v0.16.2.
+- All existing migration files remain unchanged from v0.16.3.
+- No new environment variables or dependencies.
