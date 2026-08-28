@@ -16942,3 +16942,17 @@ body.festive-mode-active {
   background: #f1faf6;
   color: #0f6a4a;
 }
+
+/* v0.16.5 additional citizenship fields */
+.intake-multi-country-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+.intake-multi-country-row .field { min-width: 0; }
+.intake-nested-panel-inner { margin-top: 12px; }
+@media (max-width: 720px) {
+  .intake-multi-country-row { grid-template-columns: 1fr; }
+  .intake-multi-country-row .btn { justify-self: start; }
+}

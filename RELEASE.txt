@@ -1,26 +1,5 @@
-THiS CRM v0.16.4 - Assessment Form Reliability
+THiS CRM v0.16.5 - Additional Citizenship Capture
 
-Baseline
-- Built from THiS CRM v0.16.3 Intake Conversion Safety and Agreement A4 Print Fix.
-- Retains original CRM styling, intake/contact archiving, agreement print fixes and all existing functionality.
+Adds additional citizenship questions for applicants and partners, with multi-country capture, adviser review, print/email summaries, search and client conversion support.
 
-Build reliability
-- Corrects a malformed adviser-conversion warning string inherited from v0.16.3 so the JSX compiles cleanly.
-
-Assessment email reliability
-- The assessment form now validates the email address before leaving the applicant-details step.
-- Email addresses are trimmed and validated again at final submission.
-- The Netlify intake endpoint now rejects invalid email formats as a server-side safeguard.
-
-CV upload reliability
-- Applicant and partner CV files are validated immediately when selected.
-- Valid PDF, DOC and DOCX files are accepted even when phones or browsers report a generic MIME type.
-- Clear states show CV ready to upload, uploading, uploaded, or a specific error.
-- Empty files and files larger than 5 MB are rejected before submission.
-- If the questionnaire saves but a CV upload fails, the applicant can retry only the CV upload against the same intake record.
-- A client-generated idempotency key prevents duplicate intake records if the initial save succeeds but the browser loses the response.
-
-Database and deployment
-- No new database migration.
-- All existing migration files remain unchanged from v0.16.3.
-- No new environment variables or dependencies.
+No database migration. Squarespace embed unchanged.

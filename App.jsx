@@ -336,7 +336,7 @@ function agreementClientFromIntake(intake = {}) {
       lastName: names.slice(1).join(' '),
       email: payload.partnerEmail || '',
       dateOfBirth: payload.partnerDateOfBirth || '',
-      nationality: payload.partnerCitizenship || '',
+      nationality: [payload.partnerCitizenship, ...(Array.isArray(payload.partnerOtherCitizenships) ? payload.partnerOtherCitizenships : [])].map((value) => String(value || '').trim()).filter(Boolean).filter((value, index, values) => values.indexOf(value) === index).join('; '),
     });
   }
   const children = Array.isArray(payload.children) ? payload.children : [];
@@ -361,7 +361,7 @@ function agreementClientFromIntake(intake = {}) {
     lastName,
     email: payload.email || intake.email || '',
     phone: payload.phone || intake.phone || '',
-    nationality: payload.citizenship || intake.citizenship || '',
+    nationality: [payload.citizenship || intake.citizenship, ...(Array.isArray(payload.otherCitizenships) ? payload.otherCitizenships : [])].map((value) => String(value || '').trim()).filter(Boolean).filter((value, index, values) => values.indexOf(value) === index).join('; '),
     dateOfBirth: payload.dateOfBirth || intake.dateOfBirth || '',
     location: payload.currentLocation || intake.currentLocation || '',
     matterName: `Intake - ${[firstName, lastName].filter(Boolean).join(' ').trim() || 'Prospective client'}`,
@@ -4313,6 +4313,8 @@ function IntakeFormApp() {
   const submissionKeyRef = useRef(makeIntakeSubmissionKey());
 
   const hasPartner = form.hasPartner === 'Yes';
+  const hasOtherCitizenship = form.hasOtherCitizenship === 'Yes';
+  const partnerHasOtherCitizenship = form.partnerHasOtherCitizenship === 'Yes';
   const hasChildren = form.hasChildren === 'Yes';
   const isInNewZealand = form.isInNewZealand === 'Yes';
   const hasNzJobOffer = form.hasNzJobOffer === 'Yes' || form.hasNzJobOffer === 'In progress';
@@ -4473,6 +4475,8 @@ function IntakeFormApp() {
     if (name === 'hasPartner' && value !== 'Yes') setPartnerCvFile(null);
     setForm((current) => {
       const next = { ...current, [name]: value };
+      if (name === 'hasOtherCitizenship') next.otherCitizenships = value === 'Yes' ? (current.otherCitizenships?.length ? current.otherCitizenships : ['']) : [];
+      if (name === 'partnerHasOtherCitizenship') next.partnerOtherCitizenships = value === 'Yes' ? (current.partnerOtherCitizenships?.length ? current.partnerOtherCitizenships : ['']) : [];
       if (name === 'targetPathway' && value) {
         next.targetPathway = value;
         const workResidenceOrUnsure = /work|permanent|residence|not sure/i.test(value);
@@ -4499,6 +4503,8 @@ function IntakeFormApp() {
         next.partnerFullName = '';
         next.partnerDateOfBirth = '';
         next.partnerCitizenship = '';
+        next.partnerHasOtherCitizenship = '';
+        next.partnerOtherCitizenships = [];
         next.partnerCurrentCountry = '';
         next.partnerVisaStatus = '';
         next.partnerNzStatus = '';
@@ -4558,6 +4564,33 @@ function IntakeFormApp() {
     setForm((current) => {
       const children = (current.children || []).filter((_, childIndex) => childIndex !== index);
       return { ...current, children, hasChildren: children.length ? 'Yes' : current.hasChildren };
+    });
+  }
+
+
+  function setAdditionalCitizenship(kind, index, value) {
+    const key = kind === 'partner' ? 'partnerOtherCitizenships' : 'otherCitizenships';
+    setForm((current) => {
+      const values = [...(current[key] || [])];
+      values[index] = value;
+      return { ...current, [key]: values };
+    });
+  }
+
+  function addAdditionalCitizenship(kind) {
+    const key = kind === 'partner' ? 'partnerOtherCitizenships' : 'otherCitizenships';
+    setForm((current) => {
+      const values = [...(current[key] || [])];
+      if (values.length >= 4) return current;
+      return { ...current, [key]: [...values, ''] };
+    });
+  }
+
+  function removeAdditionalCitizenship(kind, index) {
+    const key = kind === 'partner' ? 'partnerOtherCitizenships' : 'otherCitizenships';
+    setForm((current) => {
+      const values = (current[key] || []).filter((_, itemIndex) => itemIndex !== index);
+      return { ...current, [key]: values.length ? values : [''] };
     });
   }
 
@@ -4629,6 +4662,8 @@ function IntakeFormApp() {
   function validateForm() {
     if (!form.firstName || !form.lastName || !form.email) throw new Error('Please add your first name, last name and email before submitting.');
     if (!isValidIntakeEmailAddress(form.email)) throw new Error('Please enter a valid email address, for example name@example.com.');
+    if (form.hasOtherCitizenship === 'Yes' && !(form.otherCitizenships || []).some((value) => String(value || '').trim())) throw new Error('Please add your other country of citizenship.');
+    if (hasPartner && form.partnerHasOtherCitizenship === 'Yes' && !(form.partnerOtherCitizenships || []).some((value) => String(value || '').trim())) throw new Error("Please add your partner's other country of citizenship.");
     if (!form.consentToContact || !form.privacyAcknowledged) throw new Error('Please confirm the consent and acknowledgement before submitting.');
     if (applicantCvFile) validateIntakeCvFile(applicantCvFile);
     if (hasPartner && partnerCvFile) validateIntakeCvFile(partnerCvFile);
@@ -4674,7 +4709,7 @@ function IntakeFormApp() {
         const response = await fetch('/.netlify/functions/intake', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ payload: { ...form, email: String(form.email || '').trim(), intakeSubmissionKey: submissionKeyRef.current, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.16.4-assessment-form-reliability' } }),
+          body: JSON.stringify({ payload: { ...form, email: String(form.email || '').trim(), intakeSubmissionKey: submissionKeyRef.current, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.16.5-additional-citizenship' } }),
         });
         const body = await readJsonResponse(response);
         if (!response.ok) throw new Error(body.error || 'The questionnaire could not be submitted.');
@@ -4778,7 +4813,20 @@ function IntakeFormApp() {
   }
 
   function canLeaveCurrentStep() {
-    if (step === 2) return validateIdentityStep();
+    if (step === 2) {
+      if (!validateIdentityStep()) return false;
+      if (form.hasOtherCitizenship === 'Yes' && !(form.otherCitizenships || []).some((value) => String(value || '').trim())) {
+        setError('Please add your other country of citizenship before continuing.');
+        scrollElementIntoView('.intake-nested-panel', 'center');
+        return false;
+      }
+    }
+    if (step === 6 && hasPartner && form.partnerHasOtherCitizenship === 'Yes' && !(form.partnerOtherCitizenships || []).some((value) => String(value || '').trim())) {
+      setError("Please add your partner's other country of citizenship before continuing.");
+      scrollElementIntoView('.intake-nested-panel', 'center');
+      return false;
+    }
+    setError('');
     return true;
   }
 
@@ -4948,9 +4996,26 @@ function IntakeFormApp() {
                 <IntakeField label="Mobile phone" value={form.phone} onChange={(v) => setField('phone', v)} />
                 <IntakeSelect label="Preferred contact method" value={form.preferredContactMethod} onChange={(v) => setField('preferredContactMethod', v)} options={['Email', 'Mobile']} />
                 <IntakeSelect label="Country of citizenship" value={form.citizenship} onChange={(v) => setField('citizenship', v)} options={guidedCountryOptions()} />
+                <IntakeSelect label="Do you hold citizenship of any other country?" value={form.hasOtherCitizenship} onChange={(v) => setField('hasOtherCitizenship', v)} options={INTAKE_YES_NO_ONLY_OPTIONS} />
                 <IntakeField label="Date of birth" type="date" value={form.dateOfBirth} onChange={(v) => setField('dateOfBirth', v)} />
                 <div className="span-2"><IntakeField label="Current physical address" value={form.physicalAddress} onChange={(v) => setField('physicalAddress', v)} placeholder="Street address, suburb, city and country" /></div>
               </div>
+              {hasOtherCitizenship && (
+                <div className="intake-nested-panel">
+                  <div className="intake-panel-title-row">
+                    <h3>Other citizenship</h3>
+                    <button className="btn mini" type="button" onClick={() => addAdditionalCitizenship('applicant')} disabled={(form.otherCitizenships || []).length >= 4}><Plus size={14} />Add another</button>
+                  </div>
+                  <div className="form-grid">
+                    {(form.otherCitizenships || ['']).map((country, index) => (
+                      <div key={`other-citizenship-${index}`} className="intake-multi-country-row">
+                        <IntakeSelect label={`Other country of citizenship${index ? ` ${index + 1}` : ''}`} value={country} onChange={(v) => setAdditionalCitizenship('applicant', index, v)} options={guidedCountryOptions()} />
+                        {(form.otherCitizenships || []).length > 1 && <button className="btn danger mini" type="button" onClick={() => removeAdditionalCitizenship('applicant', index)}><Trash2 size={14} />Remove</button>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <IntakeFileField label="Upload CV" file={applicantCvFile} onChange={(file) => handleCvFile('applicantCv', file)} status={cvState.applicantCv.status} statusMessage={cvState.applicantCv.message} locked={Boolean(submissionReceipt?.uploadedKinds?.includes('applicantCv'))} />
             </IntakeSection>
           )}
@@ -5039,6 +5104,7 @@ function IntakeFormApp() {
                     <IntakeField label="Partner full name" value={form.partnerFullName} onChange={(v) => setField('partnerFullName', v)} />
                     <IntakeField label="Partner date of birth" type="date" value={form.partnerDateOfBirth} onChange={(v) => setField('partnerDateOfBirth', v)} />
                     <IntakeSelect label="Partner citizenship" value={form.partnerCitizenship} onChange={(v) => setField('partnerCitizenship', v)} options={guidedCountryOptions()} />
+                    <IntakeSelect label="Does your partner hold citizenship of any other country?" value={form.partnerHasOtherCitizenship} onChange={(v) => setField('partnerHasOtherCitizenship', v)} options={INTAKE_YES_NO_ONLY_OPTIONS} />
                     <IntakeSelect label="Partner current country" value={form.partnerCurrentCountry} onChange={(v) => setField('partnerCurrentCountry', v)} options={guidedCountryOptions()} />
                     <IntakeField label="Partner visa status" value={form.partnerVisaStatus} onChange={(v) => setField('partnerVisaStatus', v)} />
                     <IntakeField label="Partner NZ status" value={form.partnerNzStatus} onChange={(v) => setField('partnerNzStatus', v)} />
@@ -5047,6 +5113,22 @@ function IntakeFormApp() {
                     <IntakeField label="Started living together" type="date" value={form.startedLivingTogether} onChange={(v) => setField('startedLivingTogether', v)} />
                     <IntakeSelect label="Partner included in application?" value={form.partnerIncluded} onChange={(v) => setField('partnerIncluded', v)} options={INTAKE_YES_NO_OPTIONS} />
                   </div>
+                  {partnerHasOtherCitizenship && (
+                    <div className="intake-nested-panel intake-nested-panel-inner">
+                      <div className="intake-panel-title-row">
+                        <h4>Partner other citizenship</h4>
+                        <button className="btn mini" type="button" onClick={() => addAdditionalCitizenship('partner')} disabled={(form.partnerOtherCitizenships || []).length >= 4}><Plus size={14} />Add another</button>
+                      </div>
+                      <div className="form-grid">
+                        {(form.partnerOtherCitizenships || ['']).map((country, index) => (
+                          <div key={`partner-other-citizenship-${index}`} className="intake-multi-country-row">
+                            <IntakeSelect label={`Other country of citizenship${index ? ` ${index + 1}` : ''}`} value={country} onChange={(v) => setAdditionalCitizenship('partner', index, v)} options={guidedCountryOptions()} />
+                            {(form.partnerOtherCitizenships || []).length > 1 && <button className="btn danger mini" type="button" onClick={() => removeAdditionalCitizenship('partner', index)}><Trash2 size={14} />Remove</button>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <IntakeTextarea label="Relationship / family background" value={form.relationshipBackground} onChange={(v) => setField('relationshipBackground', v)} rows={3} />
                 </div>
               )}
@@ -6746,6 +6828,9 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
       item.currentLocation,
       intakeAnswerPayload(item).physicalAddress,
       item.citizenship,
+      ...(Array.isArray(intakeAnswerPayload(item).otherCitizenships) ? intakeAnswerPayload(item).otherCitizenships : []),
+      intakeAnswerPayload(item).partnerCitizenship,
+      ...(Array.isArray(intakeAnswerPayload(item).partnerOtherCitizenships) ? intakeAnswerPayload(item).partnerOtherCitizenships : []),
       item.urgency,
       item.recommendedPathway,
       item.rawPayload?.helpNeeded,
@@ -6761,7 +6846,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
     if (archiveKindFilter !== 'All' && archiveKindFilter !== kind) return false;
     if (!q) return true;
     const payload = intakeAnswerPayload(item);
-    return [item.firstName, item.lastName, item.email, item.phone, item.targetPathway, item.currentLocation, item.citizenship, item.recommendedPathway, payload.helpNeeded, payload.contactSituation]
+    return [item.firstName, item.lastName, item.email, item.phone, item.targetPathway, item.currentLocation, item.citizenship, ...(Array.isArray(payload.otherCitizenships) ? payload.otherCitizenships : []), payload.partnerCitizenship, ...(Array.isArray(payload.partnerOtherCitizenships) ? payload.partnerOtherCitizenships : []), item.recommendedPathway, payload.helpNeeded, payload.contactSituation]
       .join(' ')
       .toLowerCase()
       .includes(q);
@@ -8356,6 +8441,7 @@ function IntakeQuestionnaireEditor({ record = {}, onChange, downloadIntakeUpload
     return value || '';
   };
   const boolValue = (key) => Boolean(payload[key]);
+  const arrayValue = (key) => Array.isArray(payload[key]) ? payload[key] : [];
   return (
     <div className="intake-questionnaire-review intake-questionnaire-editor">
       <div className="intake-questionnaire-title">
@@ -8378,9 +8464,11 @@ function IntakeQuestionnaireEditor({ record = {}, onChange, downloadIntakeUpload
           <IntakeField label="Mobile phone" value={fieldValue('phone')} onChange={(v) => set('phone', v)} />
           <IntakeSelect label="Preferred contact method" value={fieldValue('preferredContactMethod')} onChange={(v) => set('preferredContactMethod', v)} options={['Email', 'Mobile']} />
           <IntakeSelect label="Country of citizenship" value={fieldValue('citizenship')} onChange={(v) => set('citizenship', v)} options={COUNTRY_OPTIONS} />
+          <IntakeSelect label="Other citizenship held?" value={fieldValue('hasOtherCitizenship')} onChange={(v) => { set('hasOtherCitizenship', v); if (v !== 'Yes') set('otherCitizenships', []); else if (!arrayValue('otherCitizenships').length) set('otherCitizenships', ['']); }} options={INTAKE_YES_NO_ONLY_OPTIONS} />
           <IntakeField label="Date of birth" type="date" value={fieldValue('dateOfBirth')} onChange={(v) => set('dateOfBirth', v)} />
           <label className="field"><span>Age</span><input value={fieldValue('dateOfBirthAge') || (fieldValue('dateOfBirth') ? calculateAge(fieldValue('dateOfBirth')) : '')} readOnly /></label>
         </div>
+        {fieldValue('hasOtherCitizenship') === 'Yes' && <div className="intake-nested-panel"><h3>Other citizenship</h3><div className="form-grid">{(arrayValue('otherCitizenships').length ? arrayValue('otherCitizenships') : ['']).map((country, index) => <IntakeSelect key={`editor-other-citizenship-${index}`} label={`Other country of citizenship${index ? ` ${index + 1}` : ''}`} value={country} onChange={(v) => { const values = [...(arrayValue('otherCitizenships').length ? arrayValue('otherCitizenships') : [''])]; values[index] = v; set('otherCitizenships', values); }} options={COUNTRY_OPTIONS} />)}</div><button className="btn mini" type="button" onClick={() => set('otherCitizenships', [...arrayValue('otherCitizenships'), ''])} disabled={arrayValue('otherCitizenships').length >= 4}><Plus size={14} />Add another citizenship</button></div>}
         <IntakeUploadDownloadCard label="Applicant CV" upload={payload.intakeUploads?.applicantCv || payload.applicantCv} onDownload={() => downloadIntakeUpload?.(record.id, 'applicantCv')} />
       </IntakeSection>
 
@@ -8465,6 +8553,7 @@ function IntakeQuestionnaireEditor({ record = {}, onChange, downloadIntakeUpload
             <IntakeField label="Partner full name" value={fieldValue('partnerFullName')} onChange={(v) => set('partnerFullName', v)} />
             <IntakeField label="Partner date of birth" type="date" value={fieldValue('partnerDateOfBirth')} onChange={(v) => set('partnerDateOfBirth', v)} />
             <IntakeSelect label="Partner citizenship" value={fieldValue('partnerCitizenship')} onChange={(v) => set('partnerCitizenship', v)} options={COUNTRY_OPTIONS} />
+            <IntakeSelect label="Partner holds other citizenship?" value={fieldValue('partnerHasOtherCitizenship')} onChange={(v) => { set('partnerHasOtherCitizenship', v); if (v !== 'Yes') set('partnerOtherCitizenships', []); else if (!arrayValue('partnerOtherCitizenships').length) set('partnerOtherCitizenships', ['']); }} options={INTAKE_YES_NO_ONLY_OPTIONS} />
             <IntakeSelect label="Partner current country" value={fieldValue('partnerCurrentCountry')} onChange={(v) => set('partnerCurrentCountry', v)} options={COUNTRY_OPTIONS} />
             <IntakeField label="Partner NZ visa status" value={fieldValue('partnerVisaStatus')} onChange={(v) => set('partnerVisaStatus', v)} />
             <IntakeSelect label="Is your partner a NZ citizen or resident?" value={fieldValue('partnerNzStatus')} onChange={(v) => set('partnerNzStatus', v)} options={INTAKE_YES_NO_OPTIONS} />
@@ -8473,6 +8562,7 @@ function IntakeQuestionnaireEditor({ record = {}, onChange, downloadIntakeUpload
             <IntakeField label="Date started living together" type="date" value={fieldValue('startedLivingTogether')} onChange={(v) => set('startedLivingTogether', v)} />
             <IntakeSelect label="Include partner in assessment?" value={fieldValue('partnerIncluded')} onChange={(v) => set('partnerIncluded', v)} options={INTAKE_YES_NO_OPTIONS} />
           </div>
+          {fieldValue('partnerHasOtherCitizenship') === 'Yes' && <div className="intake-nested-panel intake-nested-panel-inner"><h4>Partner other citizenship</h4><div className="form-grid">{(arrayValue('partnerOtherCitizenships').length ? arrayValue('partnerOtherCitizenships') : ['']).map((country, index) => <IntakeSelect key={`editor-partner-other-citizenship-${index}`} label={`Other country of citizenship${index ? ` ${index + 1}` : ''}`} value={country} onChange={(v) => { const values = [...(arrayValue('partnerOtherCitizenships').length ? arrayValue('partnerOtherCitizenships') : [''])]; values[index] = v; set('partnerOtherCitizenships', values); }} options={COUNTRY_OPTIONS} />)}</div><button className="btn mini" type="button" onClick={() => set('partnerOtherCitizenships', [...arrayValue('partnerOtherCitizenships'), ''])} disabled={arrayValue('partnerOtherCitizenships').length >= 4}><Plus size={14} />Add another citizenship</button></div>}
           <IntakeTextarea label="Relationship background" value={fieldValue('relationshipBackground')} onChange={(v) => set('relationshipBackground', v)} rows={3} />
         </div>
         <div className="intake-nested-panel">
@@ -8667,7 +8757,7 @@ function getIntakeQuestionnaireSections(record = {}) {
   const sections = [
     {
       title: 'Your details',
-      rows: intakeRows(payload, ['firstName', 'lastName', 'email', 'phone', 'preferredContactMethod', 'citizenship', 'dateOfBirth', 'dateOfBirthAge', 'physicalAddress', 'applicantCv']),
+      rows: intakeRows(payload, ['firstName', 'lastName', 'email', 'phone', 'preferredContactMethod', 'citizenship', 'hasOtherCitizenship', 'otherCitizenships', 'dateOfBirth', 'dateOfBirthAge', 'physicalAddress', 'applicantCv']),
     },
     {
       title: 'Immigration goal',
@@ -8693,7 +8783,7 @@ function getIntakeQuestionnaireSections(record = {}) {
       title: 'Partner details',
       rows: intakeRows(payload, ['relationshipStatus', 'hasPartner']),
       panels: [
-        { title: 'Partner identity and relationship', rows: intakeRows(payload, ['partnerFullName', 'partnerDateOfBirth', 'partnerCitizenship', 'partnerCurrentCountry', 'partnerVisaStatus', 'partnerNzStatus', 'livingTogether', 'relationshipStarted', 'startedLivingTogether', 'partnerIncluded', 'relationshipBackground', 'partnerCv']) },
+        { title: 'Partner identity and relationship', rows: intakeRows(payload, ['partnerFullName', 'partnerDateOfBirth', 'partnerCitizenship', 'partnerHasOtherCitizenship', 'partnerOtherCitizenships', 'partnerCurrentCountry', 'partnerVisaStatus', 'partnerNzStatus', 'livingTogether', 'relationshipStarted', 'startedLivingTogether', 'partnerIncluded', 'relationshipBackground', 'partnerCv']) },
         { title: 'Partner work and experience', rows: intakeRows(payload, ['partnerCurrentEmploymentStatus', 'partnerOccupation', 'partnerCurrentEmployer', 'partnerEmploymentCountry', 'partnerCurrentJobStartDate', 'partnerHoursPerWeek', 'partnerAnnualSalary', 'partnerSalaryCurrency', 'partnerYearsExperience', 'partnerEmploymentDetails', 'partnerPreviousWorkHistory']) },
         { title: 'Partner qualifications', rows: intakeRows(payload, ['partnerHighestQualification', 'partnerQualificationName', 'partnerQualificationInstitution', 'partnerQualificationCountry', 'partnerQualificationYearCompleted', 'partnerQualificationStudyLength', 'partnerTaughtInEnglish', 'partnerNzqaAssessed', 'partnerQualificationRelatedToOccupation', 'partnerQualificationDetails']) },
       ],
@@ -17470,6 +17560,8 @@ function makeBlankIntakePayload() {
     phone: '',
     preferredContactMethod: 'Email',
     citizenship: '',
+    hasOtherCitizenship: '',
+    otherCitizenships: [],
     dateOfBirth: '',
     dateOfBirthAge: '',
     consentToContact: false,
@@ -17500,6 +17592,8 @@ function makeBlankIntakePayload() {
     partnerFullName: '',
     partnerDateOfBirth: '',
     partnerCitizenship: '',
+    partnerHasOtherCitizenship: '',
+    partnerOtherCitizenships: [],
     partnerCurrentCountry: '',
     partnerVisaStatus: '',
     partnerNzStatus: '',
@@ -17640,6 +17734,8 @@ function intakeLabelForKey(key = '') {
     phone: 'Mobile phone',
     preferredContactMethod: 'Preferred contact method',
     citizenship: 'Country of citizenship',
+    hasOtherCitizenship: 'Other citizenship held',
+    otherCitizenships: 'Other countries of citizenship',
     dateOfBirth: 'Date of birth',
     dateOfBirthAge: 'Age',
     applicantCv: 'Applicant CV',
@@ -17665,6 +17761,8 @@ function intakeLabelForKey(key = '') {
     partnerFullName: 'Partner full name',
     partnerDateOfBirth: 'Partner date of birth',
     partnerCitizenship: 'Partner citizenship',
+    partnerHasOtherCitizenship: 'Partner holds other citizenship',
+    partnerOtherCitizenships: 'Partner other countries of citizenship',
     partnerCurrentCountry: 'Partner country',
     partnerVisaStatus: 'Partner visa status',
     partnerNzStatus: 'Partner NZ citizen/resident',

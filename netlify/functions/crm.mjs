@@ -4096,7 +4096,7 @@ function buildClientFromIntake(intake = {}) {
       id: `member-${Date.now()}-partner`,
       relationship: 'Spouse/Partner',
       name: String(payload.partnerFullName || payload.partnerName || '').trim(),
-      nationality: String(payload.partnerCitizenship || '').trim(),
+      nationality: [payload.partnerCitizenship, ...(Array.isArray(payload.partnerOtherCitizenships) ? payload.partnerOtherCitizenships : [])].map((value) => String(value || '').trim()).filter(Boolean).filter((value, index, values) => values.indexOf(value) === index).join('; '),
       dateOfBirth: String(payload.partnerDateOfBirth || '').trim(),
     });
   }
@@ -4127,6 +4127,8 @@ function buildClientFromIntake(intake = {}) {
   const notes = [
     `Intake source: ${payload.submittedVia || 'Website intake form'}`,
     payload.preferredContactMethod ? `Preferred contact: ${payload.preferredContactMethod}` : '',
+    Array.isArray(payload.otherCitizenships) && payload.otherCitizenships.filter(Boolean).length ? `Other citizenship(s): ${payload.otherCitizenships.filter(Boolean).join(', ')}` : '',
+    Array.isArray(payload.partnerOtherCitizenships) && payload.partnerOtherCitizenships.filter(Boolean).length ? `Partner other citizenship(s): ${payload.partnerOtherCitizenships.filter(Boolean).join(', ')}` : '',
     payload.additionalInfo ? `Additional intake comments: ${payload.additionalInfo}` : '',
     payload.relationshipBackground ? `Relationship background: ${payload.relationshipBackground}` : '',
     Array.isArray(payload.children) && payload.children.length ? `Children: ${payload.children.map((child, index) => `${index + 1}. ${[child.fullName, child.dateOfBirth, child.citizenship, child.includedInApplication ? `Included: ${child.includedInApplication}` : ''].filter(Boolean).join(' · ')}`).join('\n')}` : '',
@@ -4147,7 +4149,7 @@ function buildClientFromIntake(intake = {}) {
     lastName: intake.lastName || payload.lastName || 'Unnamed client',
     email: intake.email || payload.email || '',
     phone: intake.phone || payload.phone || '',
-    nationality: intake.citizenship || payload.citizenship || '',
+    nationality: [intake.citizenship || payload.citizenship, ...(Array.isArray(payload.otherCitizenships) ? payload.otherCitizenships : [])].map((value) => String(value || '').trim()).filter(Boolean).filter((value, index, values) => values.indexOf(value) === index).join('; '),
     dateOfBirth: intake.dateOfBirth || payload.dateOfBirth || '',
     location: payload.physicalAddress || intake.currentLocation || payload.currentLocation || '',
     matterName: intake.targetPathway || payload.targetPathway || '',

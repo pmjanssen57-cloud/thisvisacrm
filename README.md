@@ -1,4 +1,4 @@
-# THiS CRM v0.16.4 - Assessment Form Reliability
+# THiS CRM v0.16.5 - Additional Citizenship Capture
 
 This release continues directly from **v0.16.3 Intake Conversion Safety + Agreement Print Fix** and retains the existing CRM styling and functionality.
 
@@ -17,3 +17,11 @@ No database migration is added. Existing applied migration files are untouched.
 ## Rollback
 
 Redeploy **THiS CRM v0.16.3 - Intake Conversion Safety + Agreement Print Fix**. No schema rollback is required.
+
+
+## v0.16.5
+- Adds conditional additional-citizenship capture for applicants and partners in the public assessment form.
+- Supports up to four additional citizenships for each person.
+- Includes additional citizenships in adviser review, print/PDF summaries, notification summaries, intake search and client conversion.
+- Keeps the Squarespace iframe embed unchanged.
+- No database migration is required; additional citizenship data is stored in the existing intake raw payload.
