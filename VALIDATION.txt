@@ -1,29 +1,23 @@
-THiS CRM v0.17.1 validation
+THiS CRM v0.17.3 validation
 
 Completed checks
-- Built directly from the v0.17.0 Matter Workspace package.
-- package.json parses and reports version 0.17.1.
-- App.jsx and main.jsx parse successfully.
-- All Netlify function .mjs files pass Node syntax checking.
-- All public/script JavaScript files pass Node syntax checking.
+- Built directly from v0.17.2 Visual Polish and Standard Menus.
+- App.jsx parses successfully as JSX.
+- All Netlify/server .mjs and browser/script .js files pass Node syntax validation.
 - Existing PWA validation script passes.
 - styles.css passes a comment/string-aware structural brace check.
-- Runtime/PWA/Studio/live-chat cache references advance to v0.17.1.
+- package.json reports version 0.17.3.
+- Runtime/PWA/Studio/live-chat/backup source-version references advance to v0.17.3.
+- All 43 database migration files have hashes identical to v0.17.2; no migration is added or edited.
 
-Migration integrity
-- v0.17.0 contains 42 migration files.
-- All 42 v0.17.0 migration SHA-256 hashes are unchanged in v0.17.1.
-- v0.17.1 adds only 202608310002_add_notification_recipient_settings.sql.
-- Total migrations in v0.17.1: 43.
+My Work behaviour checked in source
+- Default date scope is Today + overdue.
+- Additional scopes are Next 7 days, Next 30 days and All scheduled.
+- Safety matters with no next action or missing waiting review date remain visible outside normal date filtering.
+- Waiting matters use Matter Review Date as the primary My Work date.
+- Adviser/action matters use Next Action Due as the primary My Work date.
+- Suggested-next-matter logic uses the selected date scope.
+- Sidebar My Work count now reflects matters requiring attention now rather than all future work.
+- Board guidance explicitly explains that columns are operating states, not a one-way stage sequence.
 
-Notification recipient validation
-- Default Assessment, Contact and Seminar recipient behaviour resolves to the existing configured/historical recipient group until saved in Admin.
-- Default Feedback and SMC calculator behaviour remains all active advisers with valid email addresses.
-- A saved notification setting becomes authoritative for that notification type.
-- Inactive advisers are excluded from effective email delivery.
-- An Admin cannot save a notification type with no active adviser recipient and no valid additional email address.
-- Assessment, Contact, Seminar, Feedback and SMC calculator notification functions now use the shared database-backed recipient resolver.
-- Live Chat remains on its existing independent notification recipient settings.
-
-Build environment limitation
-A full Vite production compilation was not run in this container because project npm dependencies are not installed locally. Netlify deployment remains the final production-bundle compilation check.
+No new dependency or environment variable is introduced.

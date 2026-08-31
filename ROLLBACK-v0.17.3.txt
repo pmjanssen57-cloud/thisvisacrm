@@ -1,0 +1,6 @@
+THiS CRM v0.17.3 rollback
+
+Immediate rollback:
+Redeploy THiS-CRM-v0.17.2-Visual-Polish-Standard-Menus.zip.
+
+v0.17.3 adds no database migration and does not modify any historical migration. No schema rollback is required.

@@ -1,0 +1,39 @@
+THiS CRM v0.17.3 - MATTER WORKSPACE GUIDE
+
+MY WORK DATE FILTER
+My Work defaults to Today + overdue. Use the date buttons above the kanban to widen the view:
+- Today + overdue: normal daily working view.
+- Next 7 days: short-term planning.
+- Next 30 days: broader forward planning.
+- All scheduled: show the full active schedule.
+
+Files with no next action, or waiting files with no review date, remain visible as safety exceptions.
+
+HOW THE FOUR COLUMNS WORK
+The columns are operating states, not sequential matter stages.
+- Needs my attention: the adviser owns the next move.
+- Waiting on client: the client or third party needs to provide/do something.
+- Waiting on INZ: INZ owns the next move; the file returns on the review date or a new INZ event.
+- Ready to progress: no blocker remains and the adviser can move the matter forward.
+
+Typical examples:
+- Client uploads a requested document -> Needs my attention.
+- Application is lodged -> Waiting on INZ.
+- Final checklist becomes complete -> Ready to progress.
+- INZ issues a request -> Needs my attention.
+
+MOVING A CARD
+Open the matter and use + Update File. Changing the Matter status moves the card automatically. Do not treat the board as a drag/drop stage tracker: the Update File workflow also maintains the next action, review/due date, portal wording and timeline.
+
+CLIENT MATTER
+Opening a client takes you to the Matter Command Centre. The page should answer four questions immediately:
+1. What stage are we at?
+2. Who/what are we waiting for?
+3. What happens next?
+4. Is anything overdue or missing?
+
+WAITING STATES
+A waiting matter should have a review date. That review date is its primary My Work date and determines when it returns to the adviser workspace. Adviser-owned work instead uses the Next Action Due date.
+
+FULL RECORD
+Use Full record for detailed client data, family information, documents, key dates, billing, portal configuration, strategy/notes and other existing controls.

@@ -17175,3 +17175,398 @@ body.festive-mode-active {
 .notification-inactive-note { display:flex; align-items:center; gap:7px; margin:12px 0 0; color:#7a6750; font-size:9.5px; }
 @media(max-width:1100px){.notification-recipient-grid{grid-template-columns:1fr}.notification-recipient-head{flex-direction:column}.notification-recipient-head .button-row{width:100%}}
 @media(max-width:650px){.notification-adviser-options{grid-template-columns:1fr}.notification-recipient-head .button-row{display:grid;grid-template-columns:1fr;width:100%}}
+
+/* ========================================================================== */
+/* THiS CRM v0.17.3 — Visual polish, darker navigation and standard menus      */
+/* ========================================================================== */
+.matter-workspace-v17 {
+  --mw-sidebar: #073f3d;
+  --mw-sidebar-deep: #063432;
+  --mw-sidebar-hover: rgba(255,255,255,.075);
+  --mw-sidebar-active: #0b5550;
+  --mw-sidebar-text: #e8f2ef;
+  --mw-sidebar-muted: #a8c2bc;
+  --mw-icon-mint: #77d6ad;
+  --mw-icon-blue: #86b8dc;
+  --mw-icon-amber: #e5bd63;
+  --mw-icon-purple: #b9a2e5;
+  --mw-icon-coral: #df8e84;
+  font-size: 16px;
+}
+
+/* Dark navigation, while retaining the original logo on a clean white brand block. */
+.matter-workspace-v17 .matter-workspace-sidebar {
+  background: linear-gradient(180deg, var(--mw-sidebar) 0%, var(--mw-sidebar-deep) 100%);
+  border-right-color: #0b4a46;
+  box-shadow: 8px 0 26px rgba(5,45,43,.075);
+}
+.matter-sidebar-brand {
+  background: #fff;
+  border-bottom-color: #d0dcd8;
+}
+.matter-sidebar-brand small { color: #667c76; }
+.matter-sidebar-nav button {
+  color: var(--mw-sidebar-text);
+  font-size: 13.25px;
+  font-weight: 760;
+}
+.matter-sidebar-nav.secondary button {
+  color: #cadbd7;
+  font-size: 12.6px;
+}
+.matter-sidebar-nav button:hover,
+.matter-sidebar-nav.secondary button:hover {
+  color: #fff;
+  background: var(--mw-sidebar-hover);
+  border-color: rgba(255,255,255,.11);
+}
+.matter-sidebar-nav button.active,
+.matter-sidebar-nav.secondary button.active {
+  color: #fff;
+  background: var(--mw-sidebar-active);
+  border-color: rgba(119,214,173,.42);
+  box-shadow: inset 3px 0 0 #67d5a5, 0 3px 12px rgba(0,0,0,.11);
+}
+.matter-sidebar-nav button b {
+  color: #e7f4ef;
+  background: rgba(255,255,255,.10);
+  border-color: rgba(255,255,255,.15);
+}
+.matter-sidebar-nav button.active b {
+  color: var(--mw-ink);
+  background: #e3f7ee;
+  border-color: #c3ebd8;
+}
+.matter-sidebar-divider::after { background: rgba(255,255,255,.15); }
+.matter-sidebar-divider span { color: var(--mw-sidebar-muted); font-size: 9px; }
+.matter-sidebar-profile {
+  background: rgba(255,255,255,.075);
+  border-color: rgba(255,255,255,.14);
+}
+.matter-sidebar-profile strong { color: #fff; font-size: 12.5px; }
+.matter-sidebar-profile small { color: #b5cbc5; font-size: 10.2px; }
+.matter-sidebar-avatar { background: #dff4ea; color: var(--mw-ink); }
+
+/* Subtle icon colour cues: enough to scan quickly without turning the nav into a rainbow. */
+.matter-sidebar-nav button svg { color: var(--mw-icon-mint); transition: color .16s ease, transform .16s ease; }
+.matter-sidebar-nav .matter-nav-clients svg,
+.matter-sidebar-nav .matter-nav-bookings svg { color: var(--mw-icon-blue); }
+.matter-sidebar-nav .matter-nav-intake svg,
+.matter-sidebar-nav .matter-nav-billing svg { color: var(--mw-icon-amber); }
+.matter-sidebar-nav .matter-nav-studio svg,
+.matter-sidebar-nav .matter-nav-library svg { color: var(--mw-icon-purple); }
+.matter-sidebar-nav .matter-nav-tasks svg,
+.matter-sidebar-nav .matter-nav-backups svg { color: #91d0c3; }
+.matter-sidebar-nav .matter-nav-commercial svg,
+.matter-sidebar-nav .matter-nav-dashboard svg { color: #9eb8d7; }
+.matter-sidebar-nav .matter-nav-home svg,
+.matter-sidebar-nav .matter-nav-calendar svg { color: #b6db8d; }
+.matter-sidebar-nav .matter-nav-advisers svg { color: #e5a69e; }
+.matter-sidebar-nav button:hover svg { transform: translateX(1px); }
+.matter-sidebar-nav button.active svg { color: #8ce4bd; }
+
+/* One consistent application-menu treatment for adviser scope, filters and More actions. */
+.matter-standard-menu { position: relative; display: inline-flex; align-items: center; min-width: 0; }
+.matter-standard-menu-trigger {
+  height: 42px;
+  min-width: 154px;
+  max-width: 260px;
+  padding: 5px 10px;
+  border: 1px solid #c8d6d1;
+  border-radius: 9px;
+  background: #fff;
+  color: var(--mw-ink);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  text-align: left;
+  box-shadow: 0 1px 3px rgba(20,52,49,.025);
+}
+.matter-standard-menu-trigger:hover { border-color: #a9c8bc; background: #fbfdfc; }
+.matter-standard-menu-trigger > span {
+  flex: 0 0 auto;
+  color: #72827e;
+  font-size: 9.5px;
+  font-weight: 900;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.matter-standard-menu-trigger > strong {
+  min-width: 0;
+  overflow: hidden;
+  flex: 1;
+  color: var(--mw-ink);
+  font-size: 12px;
+  font-weight: 820;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.matter-standard-menu-trigger > svg { flex: 0 0 auto; color: #66807a; transition: transform .16s ease; }
+.matter-standard-menu-trigger > svg.open { transform: rotate(180deg); }
+.matter-standard-menu-popover {
+  position: absolute;
+  top: calc(100% + 7px);
+  right: 0;
+  z-index: 90;
+  min-width: 220px;
+  max-width: 320px;
+  padding: 6px;
+  border: 1px solid #c8d6d1;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 16px 36px rgba(20,52,49,.15);
+  display: grid;
+  gap: 2px;
+}
+.matter-standard-menu-popover button {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 9px;
+  border: 0;
+  border-radius: 7px;
+  background: #fff;
+  color: #29413f;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  text-align: left;
+  font-size: 11.5px;
+  font-weight: 750;
+}
+.matter-standard-menu-popover button:hover { background: #edf7f3; }
+.matter-standard-menu-popover button.active { background: #e4f4ed; color: var(--mw-ink); font-weight: 850; }
+.matter-standard-menu-popover button svg { flex: 0 0 auto; color: #3a9a70; }
+.matter-standard-menu-popover.action { min-width: 190px; }
+.matter-standard-menu-popover.action button { justify-content: flex-start; }
+.matter-standard-menu-popover.action button:nth-child(1) svg { color: #5d9a80; }
+.matter-standard-menu-popover.action button:nth-child(2) svg { color: #4f82bd; }
+.matter-standard-menu-popover.action button:nth-child(3) svg { color: #8b6cb7; }
+.matter-action-menu .matter-standard-action-trigger { height: auto; min-width: auto; max-width: none; }
+.matter-standard-action-trigger > svg:last-child { margin-left: 1px; color: #657d77; transition: transform .16s ease; }
+.matter-standard-action-trigger > svg:last-child.open { transform: rotate(180deg); }
+.matter-scope-menu { min-width: 170px; }
+.matter-scope-menu .matter-standard-menu-trigger { min-width: 170px; }
+.matter-filter-menu .matter-standard-menu-trigger { min-width: 165px; height: 40px; }
+.matter-filter-menu .matter-standard-menu-popover { left: 0; right: auto; min-width: 230px; }
+
+/* Bring the older top-level New menu into the same visual language. */
+.matter-workspace-v17 .dropdown-menu {
+  top: calc(100% + 7px);
+  padding: 6px;
+  border: 1px solid #c8d6d1;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 16px 36px rgba(20,52,49,.15);
+  backdrop-filter: none;
+}
+.matter-workspace-v17 .dropdown-menu button { border-radius: 7px; padding: 9px 10px; font-size: 11.5px; }
+.matter-workspace-v17 .dropdown-menu button:hover,
+.matter-workspace-v17 .dropdown-menu button.active { background: #edf7f3; }
+.matter-workspace-v17 .dropdown-menu button small { font-size: 10.5px; }
+
+/* Legibility lift across the new workspace. */
+.matter-workspace-v17 > .layout { padding-top: 28px; }
+.matter-page-head h1 { font-size: 34px; }
+.matter-page-head p { font-size: 14.5px; }
+.matter-workspace-v17 .eyebrow { font-size: 10.7px; }
+.matter-metric { min-height: 84px; padding: 15px; }
+.matter-metric span { font-size: 12px; }
+.matter-metric strong { font-size: 26px; }
+.matter-kanban-head { min-height: 52px; padding: 13px 14px; }
+.matter-kanban-head > span { font-size: 13px; }
+.matter-kanban-head > b { font-size: 11px; }
+.matter-kanban-list { gap: 10px; padding: 11px; }
+.matter-kanban-card { padding: 14px; }
+.matter-card-top > div > strong { font-size: 14.5px; }
+.matter-card-top > div > small { font-size: 11px; }
+.matter-status-pill { padding: 5px 8px; font-size: 10.3px; }
+.matter-card-action { margin-top: 11px; padding-top: 11px; }
+.matter-card-action span { font-size: 9.5px; }
+.matter-card-action strong { font-size: 13px; }
+.matter-card-meta { font-size: 10.5px; }
+.matter-prompt-grid button strong { font-size: 12px; }
+.matter-prompt-grid button small { font-size: 10.5px; }
+.matter-client-tools input { font-size: 12.5px; }
+.matter-client-table-head { font-size: 9.5px; }
+.matter-client-row { padding-top: 14px; padding-bottom: 14px; font-size: 12.2px; }
+.matter-client-row > span:first-child strong { font-size: 13.5px; }
+.matter-client-row > span:first-child small { font-size: 10px; }
+.matter-client-row > span:nth-child(5) strong { font-size: 11.5px; }
+.matter-identity h1 { font-size: 28px; }
+.matter-identity p { font-size: 11.5px; }
+.matter-identity > div:last-child > span { font-size: 10.4px; }
+.matter-command-actions .btn { min-height: 40px; padding: 9px 11px; font-size: 11.7px; }
+.matter-command-strip { padding-top: 11px; padding-bottom: 11px; }
+.matter-command-strip span { font-size: 10.5px; }
+.matter-command-strip b { font-size: 11.5px; }
+.matter-stage-flow { padding: 16px 16px 15px; }
+.matter-stage-flow-head h3 { margin: 0; color: var(--mw-ink); font-size: 15px; }
+.matter-stage-flow-head span { color: var(--mw-muted); font-size: 11px; }
+.matter-stage b { font-size: 10px; }
+.matter-primary-action { padding: 18px; }
+.matter-primary-action > div:first-child > span { font-size: 9.7px; }
+.matter-primary-action h2 { font-size: 20px; }
+.matter-primary-action p { font-size: 11.5px; }
+.matter-operating-state { padding: 16px; }
+.matter-operating-state label { font-size: 10.5px; }
+.matter-operating-state b { font-size: 11.5px; }
+.matter-operating-state > p { font-size: 10.5px; }
+.matter-section-tabs button { padding: 8px 11px; font-size: 11.5px; }
+.matter-overview-card { padding: 18px; }
+.matter-overview-card h2 { font-size: 18px; }
+.matter-overview-card > p { font-size: 11.5px; }
+.matter-work-item strong { font-size: 12.5px; }
+.matter-work-item small { font-size: 10.5px; }
+.matter-work-item button { font-size: 9.8px; }
+.matter-doc-row span strong { font-size: 11.2px; }
+.matter-doc-row span small,
+.matter-doc-row > b { font-size: 9.8px; }
+.matter-timeline-row strong { font-size: 11.7px; }
+.matter-timeline-row small { font-size: 9.8px; }
+.matter-portal-preview > label { font-size: 10px; }
+.matter-portal-preview select { font-size: 11.5px; }
+.matter-portal-preview > div > span { font-size: 9px; }
+.matter-portal-preview > div > strong { font-size: 11.5px; }
+.matter-modal-head h2 { font-size: 21px; }
+.matter-modal-head p { font-size: 11.5px; }
+.matter-update-steps span { font-size: 10.5px; }
+.matter-modal-body .field > span,
+.matter-housekeeping > label > span { font-size: 10.5px; }
+.matter-modal-body input,
+.matter-modal-body select,
+.matter-modal-body textarea { font-size: 12.5px; }
+.matter-suggestion-box strong { font-size: 11.5px; }
+.matter-suggestion-box p { font-size: 10.5px; }
+.matter-housekeeping .matter-check span { font-size: 11px; }
+.matter-safety-box { font-size: 10.5px; }
+.matter-confirm-summary h3 { font-size: 13.5px; }
+.matter-confirm-summary > div { font-size: 10.5px; }
+.validation-message { font-size: 10.5px; }
+
+/* Subtle action-icon cues in the matter command centre. */
+.matter-command-actions .matter-action-back svg { color: #5e8f80; }
+.matter-command-actions .matter-action-email svg { color: #3979b8; }
+.matter-command-actions .matter-action-note svg { color: #b98524; }
+.matter-command-actions .matter-action-more .matter-standard-action-trigger > svg:first-child { color: #8065ad; }
+.matter-command-actions .matter-action-update svg { color: #dff6eb; }
+
+/* Crisp but quiet icon treatment on common legacy module buttons. */
+.matter-workspace-v17 > .layout .btn:not(.dark):not(.mint) > svg { color: #557c72; }
+.matter-workspace-v17 > .layout .btn.dark > svg { color: #dff6eb; }
+.matter-workspace-v17 > .layout .btn.mint > svg { color: #166547; }
+
+@media (max-width: 1320px) {
+  .matter-standard-menu-trigger { min-width: 142px; }
+  .matter-filter-menu .matter-standard-menu-trigger { min-width: 150px; }
+}
+@media (max-width: 1040px) {
+  .matter-workspace-v17 .matter-workspace-sidebar { background: var(--mw-sidebar); }
+}
+@media (max-width: 820px) {
+  .matter-standard-menu-popover { position: fixed; left: 12px; right: 12px; top: auto; bottom: 78px; max-width: none; min-width: 0; }
+}
+
+/* Keep command-centre popovers above the matter journey rather than clipping them. */
+.matter-command-head { overflow: visible; }
+
+/* THiS CRM v0.17.3 — My Work focus filters and clearer board-state guidance */
+.matter-work-scopebar {
+  display: grid;
+  grid-template-columns: minmax(230px, .8fr) auto auto;
+  align-items: center;
+  gap: 14px;
+  margin: 0 0 13px;
+  padding: 11px 13px;
+  border: 1px solid var(--mw-line);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(20,52,49,.03);
+}
+.matter-work-scope-copy { display:flex; align-items:center; gap:9px; min-width:0; color:var(--mw-ink); }
+.matter-work-scope-copy > svg { flex:0 0 auto; color:#3f8c74; }
+.matter-work-scope-copy strong { display:block; font-size:12.5px; }
+.matter-work-scope-copy small { display:block; margin-top:1px; color:var(--mw-muted); font-size:10.5px; line-height:1.35; }
+.matter-work-scope-options { display:flex; flex-wrap:wrap; gap:6px; }
+.matter-work-scope-options button {
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid #ccd9d5;
+  border-radius: 8px;
+  background: #f9fbfa;
+  color: #526965;
+  font-size: 10.8px;
+  font-weight: 800;
+}
+.matter-work-scope-options button:hover { border-color:#a9c9bd; background:#f2f8f5; color:var(--mw-ink); }
+.matter-work-scope-options button.active { border-color:var(--mw-ink); background:var(--mw-ink); color:#fff; }
+.matter-work-scope-count { color:#71817d; font-size:10.5px; white-space:nowrap; }
+.matter-work-scope-count b { color:var(--mw-ink); font-size:12px; }
+
+.matter-board-guide {
+  margin: 0 0 13px;
+  padding: 12px 13px;
+  border: 1px solid #bfd9cf;
+  border-radius: 10px;
+  background: linear-gradient(90deg,#f1f9f5 0%,#fbfdfc 100%);
+}
+.matter-board-guide-copy { display:flex; align-items:flex-start; gap:9px; }
+.matter-board-guide-copy > svg { flex:0 0 auto; margin-top:1px; color:#2f8a6b; }
+.matter-board-guide-copy strong { display:block; color:var(--mw-ink); font-size:12.5px; }
+.matter-board-guide-copy small { display:block; margin-top:1px; color:#5e726d; font-size:10.5px; line-height:1.45; }
+.matter-board-guide-copy small b { color:var(--mw-ink); }
+.matter-board-guide-states { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-top:10px; }
+.matter-board-guide-states > span {
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr);
+  column-gap:7px;
+  align-items:center;
+  padding:9px 10px;
+  border:1px solid #d7e2de;
+  border-radius:8px;
+  background:#fff;
+}
+.matter-board-guide-states > span > svg { grid-row:1 / span 2; color:#647b75; }
+.matter-board-guide-states > span b { color:#324a46; font-size:10.8px; }
+.matter-board-guide-states > span small { color:#73827f; font-size:9.5px; line-height:1.3; }
+.matter-board-guide-states > span.action { border-left:3px solid #cf716a; }
+.matter-board-guide-states > span.client { border-left:3px solid #d2a83a; }
+.matter-board-guide-states > span.inz { border-left:3px solid #6489cf; }
+.matter-board-guide-states > span.ready { border-left:3px solid #4cae7f; }
+.matter-board-examples { display:flex; flex-wrap:wrap; gap:8px 18px; margin-top:9px; padding-top:9px; border-top:1px solid #d9e7e1; }
+.matter-board-examples span { display:flex; align-items:center; gap:4px; color:#647671; font-size:9.8px; }
+.matter-board-examples span svg { color:#80a69a; }
+.matter-board-examples b { color:var(--mw-ink); }
+
+.matter-kanban-head > div { min-width:0; display:grid; gap:1px; }
+.matter-kanban-head > div > span { display:flex; align-items:center; gap:8px; color:#314744; font-size:13px; font-weight:850; }
+.matter-kanban-head > div > span i { width:8px; height:8px; border-radius:50%; background:#c96c65; }
+.matter-kanban-column.client .matter-kanban-head > div > span i { background:#d2a83a; }
+.matter-kanban-column.inz .matter-kanban-head > div > span i { background:#6489cf; }
+.matter-kanban-column.ready .matter-kanban-head > div > span i { background:#4cae7f; }
+.matter-kanban-head > div > small { padding-left:16px; color:#7b8986; font-size:9.5px; line-height:1.25; }
+.matter-card-open-hint {
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:3px;
+  margin-top:8px;
+  padding-top:8px;
+  border-top:1px solid #edf2f0;
+  color:#5c7b72;
+  font-size:9.5px;
+  font-weight:800;
+}
+.matter-kanban-card:hover .matter-card-open-hint { color:var(--mw-ink); }
+
+@media(max-width:1320px){
+  .matter-work-scopebar { grid-template-columns:1fr; }
+  .matter-work-scope-count { justify-self:start; }
+  .matter-board-guide-states { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media(max-width:820px){
+  .matter-work-scope-options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); width:100%; }
+  .matter-work-scope-options button { width:100%; }
+  .matter-board-guide-states { grid-template-columns:1fr; }
+  .matter-board-examples { display:none; }
+}

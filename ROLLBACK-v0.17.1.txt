@@ -1,9 +1,0 @@
-THiS CRM v0.17.1 rollback
-
-Immediate rollback
-Redeploy THiS-CRM-v0.17.0-Matter-Workspace.zip.
-
-Database
-v0.17.1 adds notification_recipient_settings. The table is additive and can safely remain if v0.17.0 is redeployed; the older application simply ignores it.
-
-Do not delete or edit any previously applied migration during rollback.

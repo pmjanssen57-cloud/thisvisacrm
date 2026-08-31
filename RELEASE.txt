@@ -1,30 +1,32 @@
-THiS CRM v0.17.1 - Configurable Notification Recipients
+THiS CRM v0.17.3 - My Work Focus and Board Guidance
 
 Baseline
-- Built directly from v0.17.0 Matter Workspace.
-- Retains all v0.17.0 Matter Workspace and reconstructed v0.16.x reliability functionality.
+- Built directly from v0.17.2 Visual Polish and Standard Menus.
+- Retains the complete Matter Workspace, configurable notification recipients, assessment-form reliability, enquiry archiving, Agreement Studio print fixes and all existing CRM functionality.
 
-New administration control
-- Adds Admin > Adviser profiles > Who receives website alerts?
-- Recipients can be selected separately for Assessment forms, Contact forms, Seminar registrations, Client feedback and SMC calculator internal alerts.
-- Multiple advisers may be selected for each notification type.
-- Optional additional/team email addresses are supported.
-- Inactive advisers are excluded from delivery automatically.
-- Includes a quick action to copy the Assessment-form recipient group across all notification types.
-- Existing Live Chat recipient controls remain separate in Live Chat settings.
+My Work date focus
+- My Work now defaults to Today + overdue rather than showing every future review/action date at once.
+- Adds explicit date-range controls: Today + overdue, Next 7 days, Next 30 days, and All scheduled.
+- Safety matters with no next action or missing waiting review dates remain visible regardless of the selected range.
+- The Suggested next file action now respects the selected date range.
+- The My Work sidebar badge now reflects work requiring attention now rather than counting all future adviser-owned work.
 
-Notification delivery
-- Public intake/contact notifications now read recipients from the saved database configuration.
-- Seminar registration notifications now read the saved database configuration.
-- Client feedback notifications now read the saved database configuration.
-- SMC calculator internal notifications now read the saved database configuration.
-- Until a setting is explicitly saved, existing recipient behaviour is preserved as the fallback.
+Clearer board behaviour
+- Adds a visible How cards move guide above the kanban.
+- Clarifies that the four columns are operating states, not sequential immigration stages.
+- Explains what each state means: adviser action, client/third-party action, waiting on INZ, and ready to progress.
+- Adds real examples of common state changes such as document receipt, lodgement and checklist completion.
+- Adds concise descriptions beneath each column heading.
+- Kanban cards now include a clearer Open matter cue.
+- Cards continue to move automatically when Matter status is changed through Update File; no separate drag/drop state is introduced, preserving workflow integrity.
 
-Database
-- Adds migration 202608310002_add_notification_recipient_settings.sql.
-- No historical migration was edited.
-- The table stores notification key, selected adviser IDs, optional additional emails and update audit details.
+Work-date behaviour
+- Adviser/action matters use Next Action Due as their primary work date.
+- Waiting matters use Matter Review Date as their primary return-to-work date.
+- This avoids stale review dates masking a live adviser action date.
 
-Deployment
-- No new environment variable or dependency is required.
-- Package/cache references advance to v0.17.1.
+Database and deployment
+- No database migration is added.
+- All 43 v0.17.2 migrations remain unchanged.
+- No new dependency or environment variable is required.
+- Package/cache references advance to v0.17.3.

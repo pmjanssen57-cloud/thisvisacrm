@@ -1,41 +1,28 @@
-# THiS CRM v0.17.1 - Matter Workspace + Notification Recipients
+# THiS CRM v0.17.3 - My Work Focus and Board Guidance
 
-This release is built directly from **v0.17.0 Matter Workspace** and is intended to be deployed instead of v0.17.0.
+This release continues directly from **v0.17.2 Visual Polish & Standard Menus**. It keeps the dark-green navigation, improved typography, standard menus, Matter Command Centre and all existing CRM functionality.
 
-## Configurable internal notification recipients
+## My Work is now genuinely a daily workspace
 
-Administrators can now manage website-notification recipients from **Admin / Adviser profiles**. The new **Who receives website alerts?** panel appears above the adviser profiles and allows different recipient groups for:
+The page defaults to **Today + overdue**, so an adviser is not confronted with every action and review date scheduled weeks or months into the future. The range can be widened to **Next 7 days**, **Next 30 days**, or **All scheduled** when planning ahead.
 
-- Assessment form submissions
-- Contact form submissions
-- Seminar registrations
-- Client feedback submissions
-- SMC calculator internal alerts
+Safety exceptions are always surfaced: active matters with no clear next action, or waiting matters with no review date, are not allowed to disappear simply because of a date filter.
 
-Each notification type can have multiple advisers. Additional non-adviser/team email addresses can also be entered if required.
+## Clearer movement between the four work states
 
-Inactive advisers are automatically excluded from delivery, so a departing staff member can be deactivated without continuing to receive alerts. When a replacement staff member is added as an adviser, an Admin can select them in the relevant notification groups and save — no code or Netlify environment-variable change is required.
+The board now explains that its four columns are **operating states**, not a linear visa pathway. A matter can move in either direction depending on what happens on the file.
 
-A convenience action copies the Assessment-form recipients across all notification types when the same team should receive everything.
+- **Needs my attention** — the adviser owns the next move.
+- **Waiting on client** — the client or a third party owes something.
+- **Waiting on INZ** — adviser work is quiet until a review date or new INZ event.
+- **Ready to progress** — nothing is blocking the next substantive step.
 
-Live-chat notifications remain under **Live Chat settings**, because live chat already has its own notification controls.
+Cards still move through the existing **Update File** workflow rather than unrestricted drag-and-drop. That keeps Matter status, next action, review dates, portal wording and timeline history coherent.
 
-## Existing defaults and safe transition
+## Database safety
 
-Until an Admin saves the new settings, v0.17.1 preserves the existing notification behaviour. This prevents a deployment from silently changing who receives alerts. Once saved, the database settings become authoritative and the old hard-coded/environment fallbacks are no longer used for that notification type.
-
-## Matter Workspace and retained functionality
-
-All v0.17.0 Matter Workspace functionality remains in place, including My Work, the client Matter Command Centre, Stage / Matter Status / Next Action separation, Update File workflow, portal wording library and full-record access.
-
-The release also retains enquiry archiving/CV cleanup, unassigned-client recovery, adviser-before-conversion protection, Agreement Studio A4 print fixes and assessment-form email/CV reliability.
-
-## Database
-
-v0.17.1 adds one non-destructive table, `notification_recipient_settings`, through migration `202608310002_add_notification_recipient_settings.sql`.
-
-No historical migration has been edited. The existing v0.17.0 Matter Workspace migration remains unchanged.
+No database migration is added. All 43 migrations from v0.17.2 remain unchanged.
 
 ## Rollback
 
-Redeploy **THiS CRM v0.17.0 Matter Workspace** to roll the application back. The additional notification-settings table can safely remain in the database; v0.17.0 will ignore it.
+Redeploy **THiS CRM v0.17.2 - Visual Polish & Standard Menus**. No schema rollback is required.
