@@ -1,23 +1,20 @@
-THiS CRM v0.17.3 validation
+THiS CRM v0.17.4 validation
 
 Completed checks
-- Built directly from v0.17.2 Visual Polish and Standard Menus.
+- Built directly from v0.17.3 My Work Focus & Board Guidance.
 - App.jsx parses successfully as JSX.
-- All Netlify/server .mjs and browser/script .js files pass Node syntax validation.
-- Existing PWA validation script passes.
-- styles.css passes a comment/string-aware structural brace check.
-- package.json reports version 0.17.3.
-- Runtime/PWA/Studio/live-chat/backup source-version references advance to v0.17.3.
-- All 43 database migration files have hashes identical to v0.17.2; no migration is added or edited.
+- All Netlify .mjs functions pass Node syntax checking.
+- PWA validation passes.
+- styles.css passes structural brace validation.
+- All 43 existing database migration files are byte-for-byte unchanged from v0.17.3.
+- No new migration, environment variable or dependency.
 
-My Work behaviour checked in source
-- Default date scope is Today + overdue.
-- Additional scopes are Next 7 days, Next 30 days and All scheduled.
-- Safety matters with no next action or missing waiting review date remain visible outside normal date filtering.
-- Waiting matters use Matter Review Date as the primary My Work date.
-- Adviser/action matters use Next Action Due as the primary My Work date.
-- Suggested-next-matter logic uses the selected date scope.
-- Sidebar My Work count now reflects matters requiring attention now rather than all future work.
-- Board guidance explicitly explains that columns are operating states, not a one-way stage sequence.
-
-No new dependency or environment variable is introduced.
+My Work role filtering checked
+- A specific adviser view defaults to Main adviser files.
+- Main adviser filtering requires primaryAdviserId to match the selected adviser.
+- Backup adviser filtering requires backupAdviserId to match and excludes files where the adviser is also primary.
+- All files combines main and backup matters already within the selected adviser scope.
+- The All advisers global view defaults My Work to All practice files.
+- Ownership counts are calculated after the selected date range is applied.
+- Board columns, metrics, safety prompts and suggested next matter follow the selected ownership view.
+- My Work sidebar badge counts primary-adviser files by default for a selected adviser.

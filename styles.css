@@ -17177,7 +17177,7 @@ body.festive-mode-active {
 @media(max-width:650px){.notification-adviser-options{grid-template-columns:1fr}.notification-recipient-head .button-row{display:grid;grid-template-columns:1fr;width:100%}}
 
 /* ========================================================================== */
-/* THiS CRM v0.17.3 — Visual polish, darker navigation and standard menus      */
+/* THiS CRM v0.17.4 — Visual polish, darker navigation and standard menus      */
 /* ========================================================================== */
 .matter-workspace-v17 {
   --mw-sidebar: #073f3d;
@@ -17470,7 +17470,7 @@ body.festive-mode-active {
 /* Keep command-centre popovers above the matter journey rather than clipping them. */
 .matter-command-head { overflow: visible; }
 
-/* THiS CRM v0.17.3 — My Work focus filters and clearer board-state guidance */
+/* THiS CRM v0.17.4 — My Work focus filters and clearer board-state guidance */
 .matter-work-scopebar {
   display: grid;
   grid-template-columns: minmax(230px, .8fr) auto auto;
@@ -17569,4 +17569,84 @@ body.festive-mode-active {
   .matter-work-scope-options button { width:100%; }
   .matter-board-guide-states { grid-template-columns:1fr; }
   .matter-board-examples { display:none; }
+}
+
+/* THiS CRM v0.17.4 — My Work adviser-role filtering */
+.matter-work-filter-panel {
+  margin: 0 0 14px;
+  border: 1px solid var(--mw-line);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(20,52,49,.03);
+  overflow: hidden;
+}
+.matter-work-filter-row {
+  display: grid;
+  grid-template-columns: minmax(205px,.62fr) minmax(0,1.6fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 13px;
+}
+.matter-work-filter-row + .matter-work-filter-row { border-top: 1px solid #e1e9e6; }
+.matter-work-filter-row.ownership { background: #fbfdfc; }
+.matter-work-filter-label { display:flex; align-items:center; gap:9px; min-width:0; color:var(--mw-ink); }
+.matter-work-filter-label > svg { flex:0 0 auto; color:#3f8c74; }
+.matter-work-filter-label strong { display:block; font-size:12.5px; }
+.matter-work-filter-label small { display:block; margin-top:1px; color:var(--mw-muted); font-size:10.3px; line-height:1.35; }
+.matter-work-ownership-options { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; }
+.matter-work-ownership-options button {
+  position: relative;
+  min-height: 51px;
+  padding: 8px 38px 8px 10px;
+  border: 1px solid #ccd9d5;
+  border-radius: 8px;
+  background: #fff;
+  color: #526965;
+  text-align: left;
+}
+.matter-work-ownership-options button:hover { border-color:#a9c9bd; background:#f3f9f6; color:var(--mw-ink); }
+.matter-work-ownership-options button.active { border-color:#86bca7; background:#eaf6f0; color:var(--mw-ink); box-shadow:inset 0 0 0 1px rgba(63,140,116,.08); }
+.matter-work-ownership-options button > span { display:block; font-size:11.5px; font-weight:850; }
+.matter-work-ownership-options button > small { display:block; margin-top:2px; color:#75847f; font-size:9.3px; line-height:1.25; }
+.matter-work-ownership-options button.active > small { color:#5b716a; }
+.matter-work-ownership-options button > b {
+  position:absolute;
+  right:9px;
+  top:50%;
+  transform:translateY(-50%);
+  min-width:23px;
+  height:23px;
+  padding:0 5px;
+  display:grid;
+  place-items:center;
+  border:1px solid #cfddd8;
+  border-radius:999px;
+  background:#f8fbfa;
+  color:#526965;
+  font-size:10px;
+}
+.matter-work-ownership-options button.active > b { border-color:#94c6b3; background:#fff; color:var(--mw-ink); }
+.matter-work-filter-row.dates .matter-work-scope-options { justify-self:start; }
+.matter-work-filter-row.dates .matter-work-scope-count { justify-self:end; }
+.matter-card-owner-role {
+  display:inline-flex;
+  align-items:center;
+  width:max-content;
+  margin-top:8px;
+  padding:3px 7px;
+  border-radius:999px;
+  font-size:8.8px;
+  font-weight:850;
+  letter-spacing:.015em;
+}
+.matter-card-owner-role.main { background:#eaf6f0; color:#176648; }
+.matter-card-owner-role.backup { background:#eef3fb; color:#315e9a; }
+
+@media (max-width: 1180px) {
+  .matter-work-filter-row { grid-template-columns:1fr; gap:9px; }
+  .matter-work-filter-row.dates .matter-work-scope-count { justify-self:start; }
+}
+@media (max-width: 760px) {
+  .matter-work-ownership-options { grid-template-columns:1fr; }
+  .matter-work-filter-row { padding:10px; }
 }

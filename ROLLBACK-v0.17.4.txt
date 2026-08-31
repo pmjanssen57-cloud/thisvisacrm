@@ -1,0 +1,4 @@
+THiS CRM v0.17.4 rollback
+
+Redeploy THiS-CRM-v0.17.3-My-Work-Focus-Board-Guidance.zip.
+No database or schema rollback is required because v0.17.4 adds no migration.

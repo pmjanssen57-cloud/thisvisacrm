@@ -1,32 +1,21 @@
-THiS CRM v0.17.3 - My Work Focus and Board Guidance
+THiS CRM v0.17.4 - My Work Adviser Role Filter
 
 Baseline
-- Built directly from v0.17.2 Visual Polish and Standard Menus.
-- Retains the complete Matter Workspace, configurable notification recipients, assessment-form reliability, enquiry archiving, Agreement Studio print fixes and all existing CRM functionality.
+- Built directly from v0.17.3 My Work Focus & Board Guidance.
+- Retains the Matter Workspace architecture, visual polish, configurable notification recipients, archive/storage cleanup, assessment reliability fixes and Agreement Studio print fixes.
 
-My Work date focus
-- My Work now defaults to Today + overdue rather than showing every future review/action date at once.
-- Adds explicit date-range controls: Today + overdue, Next 7 days, Next 30 days, and All scheduled.
-- Safety matters with no next action or missing waiting review dates remain visible regardless of the selected range.
-- The Suggested next file action now respects the selected date range.
-- The My Work sidebar badge now reflects work requiring attention now rather than counting all future adviser-owned work.
-
-Clearer board behaviour
-- Adds a visible How cards move guide above the kanban.
-- Clarifies that the four columns are operating states, not sequential immigration stages.
-- Explains what each state means: adviser action, client/third-party action, waiting on INZ, and ready to progress.
-- Adds real examples of common state changes such as document receipt, lodgement and checklist completion.
-- Adds concise descriptions beneath each column heading.
-- Kanban cards now include a clearer Open matter cue.
-- Cards continue to move automatically when Matter status is changed through Update File; no separate drag/drop state is introduced, preserving workflow integrity.
-
-Work-date behaviour
-- Adviser/action matters use Next Action Due as their primary work date.
-- Waiting matters use Matter Review Date as their primary return-to-work date.
-- This avoids stale review dates masking a live adviser action date.
+My Work ownership filtering
+- My Work now defaults to Main adviser files when a specific adviser is selected in the global View menu.
+- Adds three clear ownership views: Main adviser files, Backup adviser files, and All files.
+- Main adviser shows only matters where the selected adviser is the primary adviser.
+- Backup adviser shows only matters where the selected adviser is the backup adviser and not also the primary adviser.
+- All files combines both roles for the selected adviser.
+- When the global View is set to All advisers, My Work defaults to All practice files.
+- Ownership counts respond to the selected date range, so advisers can see how many primary, backup and combined files fall into Today, Next 7 days, Next 30 days or All scheduled.
+- My Work metrics, quiet prompts and suggested next file now follow the ownership selection rather than mixing primary and backup responsibility.
+- In All files mode, cards show a small Main adviser file / Backup adviser file badge so ownership is obvious at a glance.
 
 Database and deployment
-- No database migration is added.
-- All 43 v0.17.2 migrations remain unchanged.
-- No new dependency or environment variable is required.
-- Package/cache references advance to v0.17.3.
+- No database migration.
+- All existing migration files remain unchanged from v0.17.3.
+- No new environment variable or dependency.

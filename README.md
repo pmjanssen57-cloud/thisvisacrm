@@ -1,28 +1,25 @@
-# THiS CRM v0.17.3 - My Work Focus and Board Guidance
+# THiS CRM v0.17.4 - My Work Adviser Role Filter
 
-This release continues directly from **v0.17.2 Visual Polish & Standard Menus**. It keeps the dark-green navigation, improved typography, standard menus, Matter Command Centre and all existing CRM functionality.
+This release continues directly from **v0.17.3 My Work Focus & Board Guidance**.
 
-## My Work is now genuinely a daily workspace
+## My Work ownership
 
-The page defaults to **Today + overdue**, so an adviser is not confronted with every action and review date scheduled weeks or months into the future. The range can be widened to **Next 7 days**, **Next 30 days**, or **All scheduled** when planning ahead.
+The My Work page now separates a selected adviser's responsibilities into three views:
 
-Safety exceptions are always surfaced: active matters with no clear next action, or waiting matters with no review date, are not allowed to disappear simply because of a date filter.
+- **Main adviser files** — the default. Only files where the selected adviser is the primary adviser.
+- **Backup adviser files** — files where the selected adviser is supporting another primary adviser.
+- **All files** — combines the selected adviser's main and backup files.
 
-## Clearer movement between the four work states
+The existing date controls remain independent, so an adviser can view, for example, **Main adviser files + Today & overdue**, then switch to **Backup adviser files + Next 7 days** when they deliberately want to check their support workload.
 
-The board now explains that its four columns are **operating states**, not a linear visa pathway. A matter can move in either direction depending on what happens on the file.
+Counts on the ownership buttons update with the chosen date range. When **All files** is selected, cards identify whether the selected adviser is Main or Backup on that file.
 
-- **Needs my attention** — the adviser owns the next move.
-- **Waiting on client** — the client or a third party owes something.
-- **Waiting on INZ** — adviser work is quiet until a review date or new INZ event.
-- **Ready to progress** — nothing is blocking the next substantive step.
-
-Cards still move through the existing **Update File** workflow rather than unrestricted drag-and-drop. That keeps Matter status, next action, review dates, portal wording and timeline history coherent.
+If the global adviser View is set to **All advisers**, My Work defaults to **All practice files** rather than pretending there is one main adviser.
 
 ## Database safety
 
-No database migration is added. All 43 migrations from v0.17.2 remain unchanged.
+No database migration is included. Existing migrations are unchanged from v0.17.3.
 
 ## Rollback
 
-Redeploy **THiS CRM v0.17.2 - Visual Polish & Standard Menus**. No schema rollback is required.
+Redeploy **THiS CRM v0.17.3 - My Work Focus & Board Guidance**. No schema rollback is required.

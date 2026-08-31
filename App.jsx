@@ -3016,6 +3016,7 @@ export default function App() {
         isAdmin={isAdmin}
         newEnquiryCount={(data.intakeEnquiries || []).filter((item) => item.status === 'New').length}
         actionCount={activeClients.filter((client) => {
+          if (dashboardAdviserFilter !== 'all' && client.primaryAdviserId !== dashboardAdviserFilter) return false;
           const status = normaliseMatterStatus(client.matterStatus, client.clientStatus, client.nextAction);
           const due = matterWorkDate(client);
           const diff = due ? dateDiff(due) : null;
@@ -3221,7 +3222,7 @@ export default function App() {
             )}
 
             {tab === 'work' && (
-              <MatterWorkDashboard clients={activeClients} advisers={data.advisers} openClientRecord={openClientRecord} setTab={switchTab} />
+              <MatterWorkDashboard clients={activeClients} advisers={data.advisers} scopeAdviserId={dashboardAdviserFilter} openClientRecord={openClientRecord} setTab={switchTab} />
             )}
 
             {tab === 'clients' && (
@@ -3508,10 +3509,20 @@ function MatterWorkspaceSidebar({ tab = 'work', onNavigate, adviser = null, isAd
   );
 }
 
-function MatterWorkDashboard({ clients = [], advisers = [], openClientRecord, setTab }) {
+function MatterWorkDashboard({ clients = [], advisers = [], scopeAdviserId = 'all', openClientRecord, setTab }) {
   const [dateScope, setDateScope] = useState('today');
+  const [ownershipScope, setOwnershipScope] = useState(() => scopeAdviserId === 'all' ? 'all' : 'primary');
+
+  useEffect(() => {
+    setOwnershipScope(scopeAdviserId === 'all' ? 'all' : 'primary');
+  }, [scopeAdviserId]);
+
+  const selectedAdviser = scopeAdviserId === 'all' ? null : advisers.find((item) => item.id === scopeAdviserId) || null;
   const active = clients.filter((client) => client.clientStatus !== 'Closed');
-  const rows = active.map((client) => ({ ...client, matterStatus: normaliseMatterStatus(client.matterStatus, client.clientStatus, client.nextAction) })).filter((client) => client.matterStatus !== 'Completed');
+  const rows = active
+    .map((client) => ({ ...client, matterStatus: normaliseMatterStatus(client.matterStatus, client.clientStatus, client.nextAction) }))
+    .filter((client) => client.matterStatus !== 'Completed');
+
   const scopeOptions = [
     { key: 'today', label: 'Today + overdue', maxDays: 0 },
     { key: 'week', label: 'Next 7 days', maxDays: 7 },
@@ -3519,8 +3530,24 @@ function MatterWorkDashboard({ clients = [], advisers = [], openClientRecord, se
     { key: 'all', label: 'All scheduled', maxDays: null },
   ];
   const currentScope = scopeOptions.find((item) => item.key === dateScope) || scopeOptions[0];
-  const isSafetyMatter = (client) => client.matterStatus === 'No current action' || (!client.nextAction && !matterWorkDate(client)) || (client.matterStatus.startsWith('Waiting') && !matterWorkDate(client));
-  const scopedRows = rows.filter((client) => {
+
+  const matchesOwnership = (client, ownerScope = ownershipScope) => {
+    if (ownerScope === 'all') return true;
+    if (scopeAdviserId === 'all') {
+      if (ownerScope === 'primary') return Boolean(client.primaryAdviserId);
+      if (ownerScope === 'backup') return Boolean(client.backupAdviserId);
+      return true;
+    }
+    if (ownerScope === 'primary') return client.primaryAdviserId === scopeAdviserId;
+    if (ownerScope === 'backup') return client.backupAdviserId === scopeAdviserId && client.primaryAdviserId !== scopeAdviserId;
+    return true;
+  };
+
+  const isSafetyMatter = (client) => client.matterStatus === 'No current action'
+    || (!client.nextAction && !matterWorkDate(client))
+    || (client.matterStatus.startsWith('Waiting') && !matterWorkDate(client));
+
+  const matchesDateScope = (client) => {
     if (dateScope === 'all') return true;
     if (isSafetyMatter(client)) return true;
     const due = matterWorkDate(client);
@@ -3528,11 +3555,36 @@ function MatterWorkDashboard({ clients = [], advisers = [], openClientRecord, se
     const diff = dateDiff(due);
     if (diff === null) return true;
     return diff <= currentScope.maxDays;
-  });
-  const overdue = rows.filter((client) => { const due = matterWorkDate(client); return due && dateDiff(due) < 0; });
-  const today = rows.filter((client) => { const due = matterWorkDate(client); return due && dateDiff(due) === 0; });
-  const noNext = rows.filter((client) => client.matterStatus === 'No current action' || (!client.nextAction && !client.matterReviewDate));
-  const waitingNoReview = rows.filter((client) => client.matterStatus.startsWith('Waiting') && !client.matterReviewDate && !client.nextActionDue);
+  };
+
+  const dateScopedRows = rows.filter(matchesDateScope);
+  const ownershipOptions = [
+    {
+      key: 'primary',
+      label: scopeAdviserId === 'all' ? 'Primary adviser files' : 'Main adviser files',
+      detail: scopeAdviserId === 'all' ? 'Files with a primary adviser' : `You are the main adviser${selectedAdviser ? ` · ${selectedAdviser.name}` : ''}`,
+      count: dateScopedRows.filter((client) => matchesOwnership(client, 'primary')).length,
+    },
+    {
+      key: 'backup',
+      label: 'Backup adviser files',
+      detail: scopeAdviserId === 'all' ? 'Files with a backup adviser' : 'You are supporting another adviser',
+      count: dateScopedRows.filter((client) => matchesOwnership(client, 'backup')).length,
+    },
+    {
+      key: 'all',
+      label: scopeAdviserId === 'all' ? 'All practice files' : 'All files',
+      detail: scopeAdviserId === 'all' ? 'Everything in the selected date range' : 'Main + backup files together',
+      count: dateScopedRows.length,
+    },
+  ];
+
+  const ownershipRows = rows.filter((client) => matchesOwnership(client));
+  const scopedRows = ownershipRows.filter(matchesDateScope);
+  const overdue = ownershipRows.filter((client) => { const due = matterWorkDate(client); return due && dateDiff(due) < 0; });
+  const today = ownershipRows.filter((client) => { const due = matterWorkDate(client); return due && dateDiff(due) === 0; });
+  const noNext = ownershipRows.filter((client) => client.matterStatus === 'No current action' || (!client.nextAction && !client.matterReviewDate));
+  const waitingNoReview = ownershipRows.filter((client) => client.matterStatus.startsWith('Waiting') && !client.matterReviewDate && !client.nextActionDue);
   const columns = [
     { key: 'action', title: 'Needs my attention', subtitle: 'You need to do something', rows: scopedRows.filter((client) => ['Adviser action required', 'No current action'].includes(client.matterStatus)) },
     { key: 'client', title: 'Waiting on client', subtitle: 'Client or third party action', rows: scopedRows.filter((client) => ['Client action required', 'Waiting on third party'].includes(client.matterStatus)) },
@@ -3541,9 +3593,24 @@ function MatterWorkDashboard({ clients = [], advisers = [], openClientRecord, se
   ];
   const suggested = [...scopedRows].sort((a, b) => matterPriorityScore(a) - matterPriorityScore(b))[0];
   const shownCount = columns.reduce((total, column) => total + column.rows.length, 0);
+  const ownershipLabel = ownershipOptions.find((item) => item.key === ownershipScope)?.label || 'Main adviser files';
+
   return (
     <section className="matter-work-page">
-      <div className="matter-page-head"><div><span className="eyebrow">Daily workspace</span><h1>My Work</h1><p>Focus on what is due now, then widen the date window when you want to look ahead. The four columns are operating states, not visa stages.</p></div>{suggested && <button className="btn dark" type="button" onClick={() => openClientRecord?.(suggested.id)}>Open next matter <ChevronRight size={16} /></button>}</div>
+      <div className="matter-page-head"><div><span className="eyebrow">Daily workspace</span><h1>My Work</h1><p>Start with files where you are the main adviser. Switch to backup matters when you want to review the files you are supporting, or combine both for the selected date range.</p></div>{suggested && <button className="btn dark" type="button" onClick={() => openClientRecord?.(suggested.id)}>Open next matter <ChevronRight size={16} /></button>}</div>
+
+      <section className="matter-work-filter-panel">
+        <div className="matter-work-filter-row ownership">
+          <div className="matter-work-filter-label"><UserRound size={17} /><div><strong>Which files?</strong><small>Main adviser is the default for an individual adviser view.</small></div></div>
+          <div className="matter-work-ownership-options" aria-label="My Work adviser role">{ownershipOptions.map((option) => <button key={option.key} type="button" className={ownershipScope === option.key ? 'active' : ''} onClick={() => setOwnershipScope(option.key)}><span>{option.label}</span><small>{option.detail}</small><b>{option.count}</b></button>)}</div>
+        </div>
+        <div className="matter-work-filter-row dates">
+          <div className="matter-work-filter-label"><CalendarDays size={17} /><div><strong>When?</strong><small>Today is deliberately the default so future review dates do not swamp the board.</small></div></div>
+          <div className="matter-work-scope-options" aria-label="My Work date range">{scopeOptions.map((option) => <button key={option.key} type="button" className={dateScope === option.key ? 'active' : ''} onClick={() => setDateScope(option.key)}>{option.label}</button>)}</div>
+          <span className="matter-work-scope-count"><b>{shownCount}</b> shown · {ownershipLabel}</span>
+        </div>
+      </section>
+
       <div className="matter-metric-row">
         <MatterMetric label="Needs my attention" value={columns[0].rows.length} />
         <MatterMetric label="Overdue" value={overdue.length} warning={overdue.length > 0} />
@@ -3551,12 +3618,6 @@ function MatterWorkDashboard({ clients = [], advisers = [], openClientRecord, se
         <MatterMetric label="Waiting on client" value={columns[1].rows.length} />
         <MatterMetric label="Waiting on INZ" value={columns[2].rows.length} />
         <MatterMetric label="No next action" value={noNext.length} warning={noNext.length > 0} />
-      </div>
-
-      <div className="matter-work-scopebar">
-        <div className="matter-work-scope-copy"><CalendarDays size={17} /><div><strong>What do you want to see?</strong><small>Today is deliberately the default so future review dates do not swamp the board.</small></div></div>
-        <div className="matter-work-scope-options" aria-label="My Work date range">{scopeOptions.map((option) => <button key={option.key} type="button" className={dateScope === option.key ? 'active' : ''} onClick={() => setDateScope(option.key)}>{option.label}</button>)}</div>
-        <span className="matter-work-scope-count">Showing <b>{shownCount}</b> of {rows.length} active matters</span>
       </div>
 
       <section className="matter-board-guide">
@@ -3571,7 +3632,7 @@ function MatterWorkDashboard({ clients = [], advisers = [], openClientRecord, se
       </section>
 
       <div className="matter-kanban">
-        {columns.map((column) => <section className={`matter-kanban-column ${column.key}`} key={column.key}><div className="matter-kanban-head"><div><span><i></i>{column.title}</span><small>{column.subtitle}</small></div><b>{column.rows.length}</b></div><div className="matter-kanban-list">{column.rows.length ? column.rows.slice(0, 18).map((client) => <MatterKanbanCard key={client.id} client={client} advisers={advisers} onOpen={() => openClientRecord?.(client.id)} />) : <div className="matter-kanban-empty">Nothing in this state for {currentScope.label.toLowerCase()}.</div>}</div></section>)}
+        {columns.map((column) => <section className={`matter-kanban-column ${column.key}`} key={column.key}><div className="matter-kanban-head"><div><span><i></i>{column.title}</span><small>{column.subtitle}</small></div><b>{column.rows.length}</b></div><div className="matter-kanban-list">{column.rows.length ? column.rows.slice(0, 18).map((client) => <MatterKanbanCard key={client.id} client={client} advisers={advisers} scopeAdviserId={scopeAdviserId} ownershipScope={ownershipScope} onOpen={() => openClientRecord?.(client.id)} />) : <div className="matter-kanban-empty">Nothing in this state for {currentScope.label.toLowerCase()}.</div>}</div></section>)}
       </div>
       <div className="matter-work-lower">
         <section className="panel matter-quiet-prompts"><div><span className="eyebrow">Quiet prompts</span><h2>Things worth checking</h2></div><div className="matter-prompt-grid"><button type="button" onClick={() => setTab?.('clients')}><strong>{noNext.length} matter{noNext.length === 1 ? '' : 's'} with no next action</strong><small>Active files should always have either a next action or a controlled waiting state.</small></button><button type="button" onClick={() => setTab?.('clients')}><strong>{waitingNoReview.length} waiting matter{waitingNoReview.length === 1 ? '' : 's'} without a review date</strong><small>A waiting file should know when it comes back into the adviser queue.</small></button><button type="button" onClick={() => setTab?.('intake')}><strong>Keep conversion disciplined</strong><small>Assign an adviser before converting intake so ownership is clear from day one.</small></button></div></section>
@@ -3585,12 +3646,18 @@ function MatterMetric({ label, value, warning = false }) {
   return <div className={`matter-metric ${warning ? 'warning' : ''}`}><span>{label}</span><strong>{value}</strong></div>;
 }
 
-function MatterKanbanCard({ client, advisers = [], onOpen }) {
+function MatterKanbanCard({ client, advisers = [], scopeAdviserId = 'all', ownershipScope = 'primary', onOpen }) {
   const primary = advisers.find((item) => item.id === client.primaryAdviserId);
+  const backup = advisers.find((item) => item.id === client.backupAdviserId);
   const status = normaliseMatterStatus(client.matterStatus, client.clientStatus, client.nextAction);
   const due = matterWorkDate(client);
   const diff = due ? dateDiff(due) : null;
-  return <button className="matter-kanban-card" type="button" onClick={onOpen} title="Open this matter to review or update its work state"><div className="matter-card-top"><div><strong>{clientName(client)}</strong><small>{client.caseType || 'Matter'}</small></div><span className={`matter-status-pill ${matterStatusClass(status)}`}>{shortMatterStatus(status)}</span></div><div className="matter-card-action"><span>{status.startsWith('Waiting') ? 'Review / waiting for' : 'Next action'}</span><strong>{client.nextAction || (status === 'No current action' ? 'Set the next action' : matterWaitingLabel(status))}</strong></div><div className="matter-card-meta"><span className={diff !== null && diff < 0 ? 'overdue' : ''}>{due ? (diff !== null && diff < 0 ? `Overdue · ${formatRecordDate(due)}` : formatRecordDate(due)) : 'No date'}</span><span>{primary?.name || 'Unassigned'}</span></div><div className="matter-card-open-hint">Open matter <ChevronRight size={13} /></div></button>;
+  const isSelectedBackup = scopeAdviserId !== 'all' && client.backupAdviserId === scopeAdviserId && client.primaryAdviserId !== scopeAdviserId;
+  const ownerRole = scopeAdviserId === 'all' ? '' : (isSelectedBackup ? 'Backup' : 'Main');
+  const ownerName = scopeAdviserId === 'all' ? (primary?.name || 'Unassigned') : (isSelectedBackup ? (backup?.name || 'Backup adviser') : (primary?.name || 'Unassigned'));
+  const showRole = scopeAdviserId !== 'all' && (ownershipScope === 'all' || ownershipScope === 'backup');
+  const ownerMeta = primary?.name ? `Main · ${primary.name}` : 'Main adviser unassigned';
+  return <button className="matter-kanban-card" type="button" onClick={onOpen} title="Open this matter to review or update its work state"><div className="matter-card-top"><div><strong>{clientName(client)}</strong><small>{client.caseType || 'Matter'}</small></div><span className={`matter-status-pill ${matterStatusClass(status)}`}>{shortMatterStatus(status)}</span></div>{showRole && <div className={`matter-card-owner-role ${isSelectedBackup ? 'backup' : 'main'}`}>{ownerRole} adviser file</div>}<div className="matter-card-action"><span>{status.startsWith('Waiting') ? 'Review / waiting for' : 'Next action'}</span><strong>{client.nextAction || (status === 'No current action' ? 'Set the next action' : matterWaitingLabel(status))}</strong></div><div className="matter-card-meta"><span className={diff !== null && diff < 0 ? 'overdue' : ''}>{due ? (diff !== null && diff < 0 ? `Overdue · ${formatRecordDate(due)}` : formatRecordDate(due)) : 'No date'}</span><span>{scopeAdviserId === 'all' ? ownerName : ownerMeta}</span></div><div className="matter-card-open-hint">Open matter <ChevronRight size={13} /></div></button>;
 }
 
 function MatterClientRegister({ clients = [], advisers = [], clientQuery, setClientQuery, adviserFilter, setAdviserFilter, caseTypeFilter, setCaseTypeFilter, caseTypes = [], openClientRecord, addClient }) {
@@ -4973,7 +5040,7 @@ function IntakeFormApp() {
       validateForm(); setSubmitting(true); setError('');
       if (!receipt) {
         setSubmissionStatus('Saving your questionnaire...');
-        const response = await fetch('/.netlify/functions/intake', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ payload: { ...form, email: String(form.email || '').trim(), intakeSubmissionKey: submissionKeyRef.current, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.17.3-assessment-form-reliability' } }) });
+        const response = await fetch('/.netlify/functions/intake', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ payload: { ...form, email: String(form.email || '').trim(), intakeSubmissionKey: submissionKeyRef.current, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.17.4-assessment-form-reliability' } }) });
         const body = await readJsonResponse(response);
         if (!response.ok) throw new Error(body.error || 'The questionnaire could not be submitted.');
         receipt = { intakeId: body.intakeId, uploadToken: body.uploadToken, expectedUploads: body.expectedUploads || [], uploadedKinds: [] };
@@ -9891,7 +9958,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const dayRows = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']];
-  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.17.3" data-title="Chat with us" defer><\/script>`;
+  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.17.4" data-title="Chat with us" defer><\/script>`;
 
   useEffect(() => {
     if (!open) return;
@@ -13138,7 +13205,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.3" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.4" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -13715,7 +13782,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.3" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.4" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}
