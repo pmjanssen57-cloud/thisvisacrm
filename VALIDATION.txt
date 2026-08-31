@@ -1,19 +1,28 @@
-THiS CRM v0.17.5 validation
+THiS CRM v0.17.6 validation
 
 Completed checks
-- Built directly from v0.17.4 My Work Adviser Role Filter.
-- App.jsx parses successfully as JSX.
-- All Netlify/server .mjs and browser/script .js files pass Node syntax checks.
+- Built directly from v0.17.5 My Work Quick Move.
+- App.jsx parses successfully as JSX after workspace wrapper/style hooks were added.
+- All Netlify .mjs function files pass Node syntax checking.
 - Existing PWA validation passes.
-- package.json parses and reports version 0.17.5.
+- package.json parses and reports version 0.17.6.
 - styles.css passes a comment/string-aware structural brace check.
-- Quick Move uses the existing saveClient workflow; no separate API or database write path is introduced.
-- Quick Move creates a normal matter timeline activity entry for each status change.
-- Waiting on INZ cannot be quick-moved without a review date.
-- Action/client states cannot be quick-moved without a next action where none already exists.
-- Quick Move preserves existing next-action/date information where possible and deliberately leaves matter stage, portal wording and email untouched.
-- All 43 existing database migration files are byte-for-byte unchanged from v0.17.4.
-- No new migration, dependency or environment variable.
+- All 43 database migration SQL files are byte-for-byte unchanged from v0.17.5.
+- No new database migration, dependency or environment variable is introduced.
+- Runtime/PWA/Studio/live-chat/backup source-version references advance to v0.17.6.
 
-Build environment note
-A full Vite production compile was not run because project dependencies are not installed in this sandbox. Netlify deployment remains the final production bundle check.
+Visual consistency scope
+- Enquiries & Intake
+- Commercial
+- Studio home, Instructions and Agreements workspaces
+- Tasks
+- Calendar
+- Billing
+- Legacy Dashboard
+- Consultation Booking
+- Knowledge Library
+- Adviser/Admin notification/profile pages
+- Backup centre
+- Full client record shell
+
+The changes are visual-system consolidation only. Existing workflows and underlying module functionality are retained.

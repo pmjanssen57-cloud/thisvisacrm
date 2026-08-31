@@ -3293,7 +3293,7 @@ export default function App() {
             )}
 
             {tab === 'advisers' && canManageAdvisers && (
-              <div className="stack">
+              <div className="stack workspace-modern-page advisers-workspace-modern">
                 <NotificationRecipientSettings settings={data.notificationRecipientSettings || []} advisers={data.advisers} onSave={saveNotificationRecipientSettings} saving={saving} />
                 <AdviserProfiles advisers={data.advisers} clients={data.clients} saveAdviser={saveAdviser} saving={saving} />
               </div>
@@ -3893,8 +3893,8 @@ function CommercialClientsWorkspace({
   useEffect(() => { setSection('overview'); }, [selectedCommercialClient?.id]);
 
   return (
-    <section className="commercial-workspace">
-      <div className="commercial-page-head">
+    <section className="commercial-workspace workspace-modern-page commercial-workspace-modern">
+      <div className="commercial-page-head workspace-page-heading bare-heading">
         <div>
           <span>Employer compliance</span>
           <h1>Commercial clients</h1>
@@ -5142,7 +5142,7 @@ function IntakeFormApp() {
       validateForm(); setSubmitting(true); setError('');
       if (!receipt) {
         setSubmissionStatus('Saving your questionnaire...');
-        const response = await fetch('/.netlify/functions/intake', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ payload: { ...form, email: String(form.email || '').trim(), intakeSubmissionKey: submissionKeyRef.current, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.17.5-assessment-form-reliability' } }) });
+        const response = await fetch('/.netlify/functions/intake', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ payload: { ...form, email: String(form.email || '').trim(), intakeSubmissionKey: submissionKeyRef.current, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.17.6-assessment-form-reliability' } }) });
         const body = await readJsonResponse(response);
         if (!response.ok) throw new Error(body.error || 'The questionnaire could not be submitted.');
         receipt = { intakeId: body.intakeId, uploadToken: body.uploadToken, expectedUploads: body.expectedUploads || [], uploadedKinds: [] };
@@ -6443,7 +6443,7 @@ function BackupWorkspace({ accessCode = '', identityUser = null, confirmAction, 
   const strengthError = password ? backupPasswordStrengthError(password) : '';
 
   return (
-    <section className="backup-workspace">
+    <section className="backup-workspace workspace-modern-page backup-workspace-modern">
       <div className="page-heading-row backup-heading-row">
         <div>
           <span className="eyebrow">Administration</span>
@@ -6706,10 +6706,10 @@ function ConsultationBookingWorkspace({ advisers = [], intakeEnquiries = [], con
   }
 
   return (
-    <section className="consultation-booking-workspace">
-      <div className="page-heading-row">
+    <section className="consultation-booking-workspace workspace-modern-page booking-workspace-modern">
+      <div className="page-heading-row workspace-page-heading bare-heading">
         <div>
-          <span className="eyebrow">Separate module</span>
+          <span className="eyebrow">Consultations</span>
           <h1>Consultation Booking</h1>
           <p className="muted">Create controlled booking links, set adviser availability, block unavailable times, and review self-booked consultations. No Outlook or payment integration yet; keep those goblins outside the room for now.</p>
         </div>
@@ -7514,8 +7514,8 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
   const visibleRecords = workspaceTab === 'contact' ? contactFiltered : workspaceTab === 'feedback' ? feedbackFiltered : workspaceTab === 'intake' ? intakeFiltered : workspaceTab === 'archive' ? archivedFiltered : (seminarRegistrations || []);
 
   return (
-    <div className="intake-workspace intake-inbox-workspace enquiries-intake-workspace">
-      <div className="library-heading intake-heading enquiries-heading enquiries-heading-polished">
+    <div className="intake-workspace intake-inbox-workspace enquiries-intake-workspace workspace-modern-page enquiries-workspace-modern">
+      <div className="library-heading intake-heading enquiries-heading enquiries-heading-polished workspace-page-heading bare-heading">
         <div className="enquiries-heading-copy">
           <h1>Enquiries & Intake</h1>
           <p className="muted">Review contact forms, assessment questionnaires, client feedback and seminar registrations separately from active client work.</p>
@@ -10060,7 +10060,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const dayRows = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']];
-  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.17.5" data-title="Chat with us" defer><\/script>`;
+  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.17.6" data-title="Chat with us" defer><\/script>`;
 
   useEffect(() => {
     if (!open) return;
@@ -11913,8 +11913,8 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
   };
 
   return (
-    <div className="stack dashboard-lean">
-      <section className="panel dashboard-compact-heading">
+    <div className="stack dashboard-lean workspace-modern-page dashboard-workspace-modern">
+      <section className="panel dashboard-compact-heading workspace-page-heading">
         <div>
           <h2>{viewTitle}</h2>
           <p className="muted">Focused on work due now or within 30 days. Longer-dated tasks remain available in the full Tasks view.</p>
@@ -12813,8 +12813,8 @@ function StudioWorkspace({
 
   if (section === 'home') {
     return (
-      <div className="studio-home-page">
-        <div className="detail-header studio-home-header">
+      <div className="studio-home-page workspace-modern-page studio-workspace-modern">
+        <div className="detail-header studio-home-header workspace-page-heading bare-heading">
           <div>
             <span className="eyebrow">THiS document authoring</span>
             <h1>Studio</h1>
@@ -12865,7 +12865,7 @@ function StudioWorkspace({
   }
 
   return (
-    <div className="studio-workspace-shell">
+    <div className="studio-workspace-shell workspace-modern-page studio-workspace-modern">
       <div className="studio-workspace-nav">
         <button className="btn ghost" type="button" onClick={() => onSectionChange?.('home')}><ChevronRight className="studio-back-icon" size={16} />Studio home</button>
         <div className="segmented-filter studio-section-switcher">
@@ -13307,7 +13307,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.5" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.6" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -13884,7 +13884,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.5" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.6" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}
@@ -13942,7 +13942,7 @@ function ClientsWorkspace(props) {
   const clientName = [selectedClient?.firstName, selectedClient?.lastName].filter(Boolean).join(' ') || 'New client';
 
   return (
-    <div className="workspace-grid">
+    <div className="workspace-grid workspace-modern-page client-record-workspace-modern">
       <aside className="panel list-panel">
         <div className="client-list-head">
           <h2>Clients</h2>
@@ -15165,8 +15165,8 @@ function TasksDashboard({ taskRows, personalTasks, allClients, advisers, dashboa
   }
 
   return (
-    <div className="stack">
-      <section className="panel dashboard-heading">
+    <div className="stack workspace-modern-page tasks-workspace-modern">
+      <section className="panel dashboard-heading workspace-page-heading">
         <div>
           <h2>Task list</h2>
           <p className="muted">Deadlines, expiry dates, next-action dates, calendar appointments and adviser reminders for the current view: {scopeLabel}.</p>
@@ -15624,8 +15624,8 @@ function CalendarWorkspace({ entries, clients, scopedClients, advisers, dashboar
   }
 
   return (
-    <div className="stack">
-      <section className="panel dashboard-heading">
+    <div className="stack workspace-modern-page calendar-workspace-modern">
+      <section className="panel dashboard-heading workspace-page-heading">
         <div>
           <h2>Calendar</h2>
           <p className="muted">Book appointments, link them to clients and advisers, and feed open appointments into the task list. Current scope: {scopeLabel}.</p>
@@ -15818,8 +15818,8 @@ function BillingDashboard({ billingRows, advisers, adviserFilter, setAdviserFilt
   }, { total: 0, wip: 0, invoiced: 0, overdue: 0 });
 
   return (
-    <div className="stack">
-      <section className="panel dashboard-heading billing-period-heading">
+    <div className="stack workspace-modern-page billing-workspace-modern">
+      <section className="panel dashboard-heading billing-period-heading workspace-page-heading">
         <div>
           <h2>Billing view</h2>
           <p className="muted">Shows billing raised or due to be raised in the selected month or period. Current scope: {scopeLabel}.</p>
@@ -15917,7 +15917,7 @@ function NotificationRecipientSettings({ settings = [], advisers = [], onSave, s
   }
 
   return (
-    <section className="panel notification-recipient-panel">
+    <section className="panel notification-recipient-panel workspace-modern-section">
       <div className="notification-recipient-head">
         <div>
           <span className="eyebrow">Internal notifications</span>
@@ -15989,7 +15989,7 @@ function AdviserProfiles({ advisers, clients, saveAdviser, saving }) {
   }
 
   return (
-    <section className="panel">
+    <section className="panel adviser-profiles-panel workspace-modern-section">
       <h2>Adviser profiles</h2>
       <p className="muted">Add or edit adviser details used for allocation, reporting, login mapping, CRM permissions and client portal adviser cards.</p>
       <div className="adviser-role-guide"><ShieldCheck size={18} /><span><strong>Admin</strong> can manage advisers, backups and contact exports. <strong>User</strong> can use all operational CRM workspaces but cannot access administration tools.</span></div>
@@ -17169,8 +17169,8 @@ function LibraryWorkspace({ entries, caseTypes, saveLibraryEntry, deleteLibraryE
   const officialLink = normaliseExternalUrl(draft.officialUrl);
 
   return (
-    <section className="library-workspace">
-      <div className="library-heading compact-heading">
+    <section className="library-workspace workspace-modern-page library-workspace-modern">
+      <div className="library-heading compact-heading workspace-page-heading bare-heading">
         <div>
           <h1>Policy and forms reference</h1>
           <p className="muted">Controlled source-linked records for adviser reference.</p>

@@ -1,22 +1,26 @@
-THiS CRM v0.17.5 - My Work Quick Move
+THiS CRM v0.17.6 - Unified Staff Workspace Styling
 
 Baseline
-- Built directly from v0.17.4 My Work Adviser Role Filter.
-- Retains all v0.17.4 functionality and visual treatment.
+- Built directly from v0.17.5 My Work Quick Move.
+- Retains all v0.17.5 functionality, including Matter Workspace, adviser role/date filters, Quick Move, configurable notification recipients, enquiry archiving, assessment-form reliability and Studio workflows.
 
-My Work Quick Move
-- Adds a Move control to every My Work matter card alongside Open matter.
-- Move provides direct access to the four operating states: Needs my attention, Waiting on client, Waiting on INZ, and Ready to progress.
-- Simple moves save immediately when the existing next action/review information is sufficient.
-- If required information is missing, a compact Quick Move dialog asks only for the minimum needed to keep the matter safe in the workflow.
-- Waiting on INZ requires a review date so the matter returns to My Work.
-- Matters with no next action cannot be moved into an active/client state without a short next action.
-- Existing next-action and date information is preserved wherever possible when moving between states.
-- Quick Move does not alter the visa stage, portal wording or client communications.
-- Each move writes an automatic matter timeline entry showing the previous and new board state.
-- The How cards move panel now explains the difference between Quick Move and the full Update File workflow.
+Visual consistency pass
+- Brings Enquiries & Intake into the same crisp Matter Workspace design language used by My Work, Clients and the Matter Command Centre.
+- Refreshes Commercial client navigation, summary cards, section tabs, registers, fields and controls without changing the employer-compliance functionality.
+- Refreshes Studio home, Instructions and Agreements list workspaces with consistent page hierarchy, cards, metrics, filters and records.
+- Refreshes Tasks, Calendar, Billing and Legacy Dashboard cards, metrics, toolbars, tables and typography.
+- Refreshes Consultation Booking, Knowledge Library, Adviser/Admin and Backup workspaces.
+- Applies the same visual skin to the Full Record workspace while preserving its existing dense functionality.
+- Standardises page title scale, panel borders, corner radii, buttons, inputs, tabs and table rows across staff-facing modules.
+- Adds restrained mint, blue, amber, purple and coral icon/metric accents to improve scanning without making the CRM visually noisy.
+
+Design principle
+- Dark structured sidebar remains unchanged.
+- Main working canvas stays light.
+- Functional layouts and workflows are preserved; this is a visual-system consolidation rather than a module rewrite.
 
 Database and deployment
 - No database migration.
-- All 43 existing migration files remain unchanged from v0.17.4.
-- No new environment variable or dependency.
+- All 43 v0.17.5 migrations remain unchanged.
+- No new dependency or environment variable.
+- PWA/Studio/live-chat/source-version references advance to v0.17.6.

@@ -1,31 +1,15 @@
-# THiS CRM v0.17.5 - My Work Quick Move
+# THiS CRM v0.17.6 - Unified Staff Workspace Styling
 
-This release continues directly from **v0.17.4 My Work Adviser Role Filter** and retains all existing Matter Workspace, adviser filtering, visual polish, notification, intake, portal, Studio and CRM functionality.
+This release continues from **v0.17.5 My Work Quick Move** and applies the Matter Workspace visual system across the remaining staff-facing CRM modules.
 
-## Quick Move on My Work
+The underlying architecture and functionality are deliberately retained. Enquiries & Intake, Commercial, Studio, Tasks, Calendar, Billing, Bookings, Knowledge Library, Adviser/Admin, Backup and the Full Record view now share the same page hierarchy, typography, cards, controls, tabs, fields, tables and restrained colour cues as My Work and the Matter Command Centre.
 
-Each My Work card now has two clear actions:
-
-- **Open matter** — opens the full Matter Workspace.
-- **Move** — changes the file's operating state directly from My Work without requiring the full Update File workflow.
-
-The Move menu uses the same four board states:
-
-- **Needs my attention** — adviser owns the next move.
-- **Waiting on client** — client action is outstanding.
-- **Waiting on INZ** — the file is quiet until its review date or a new INZ event.
-- **Ready to progress** — no blocker remains.
-
-When the existing next action and date are sufficient, the move saves immediately. If the move would otherwise create an unsafe workflow state, the CRM asks only for the missing minimum information. For example, Moving to Waiting on INZ requires a review date; moving an action-less matter into an adviser/client state asks for a short next action.
-
-Quick Move deliberately does **not** change the matter stage, portal wording or send an email. Those substantive changes remain in **Update File**.
-
-Every Quick Move adds a short automatic timeline entry recording the previous and new operating state.
+The dark Turner Hopkins sidebar remains the structural anchor. Working pages remain predominantly white/light grey, with mint/teal as the main accent and subtle blue, amber, purple and coral icon treatments to help advisers scan the interface.
 
 ## Database safety
 
-No database migration is included. All existing 43 migrations remain unchanged from v0.17.4.
+No migration is added or changed. All 43 existing migrations are unchanged from v0.17.5.
 
 ## Rollback
 
-Redeploy **THiS CRM v0.17.4 - My Work Adviser Role Filter**. No schema rollback is required.
+Redeploy **THiS CRM v0.17.5 - My Work Quick Move**. No schema rollback is required.

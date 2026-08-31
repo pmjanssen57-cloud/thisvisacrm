@@ -17760,3 +17760,473 @@ body.festive-mode-active {
   .matter-card-footer { margin: 0 12px; }
   .matter-quick-move-modal { width: 100%; max-height: 94vh; border-radius: 12px 12px 0 0; }
 }
+
+/* ========================================================================== */
+/* THiS CRM v0.17.6 — Unified staff workspace visual system                   */
+/* Brings remaining legacy modules into the Matter Workspace design language. */
+/* ========================================================================== */
+.matter-workspace-v17 .workspace-modern-page {
+  width: 100%;
+  max-width: 1510px;
+  margin: 0 auto;
+  color: var(--mw-text);
+}
+
+/* Consistent page titles: the same hierarchy as My Work / Clients. */
+.matter-workspace-v17 .workspace-page-heading,
+.matter-workspace-v17 .workspace-modern-page .library-heading,
+.matter-workspace-v17 .workspace-modern-page .detail-header {
+  min-height: 0;
+}
+.matter-workspace-v17 .workspace-page-heading.bare-heading,
+.matter-workspace-v17 .workspace-modern-page > .workspace-page-heading,
+.matter-workspace-v17 .workspace-modern-page > .dashboard-heading.workspace-page-heading,
+.matter-workspace-v17 .workspace-modern-page > .dashboard-compact-heading.workspace-page-heading {
+  margin: 0 0 18px;
+  padding: 1px 2px 4px;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.matter-workspace-v17 .workspace-page-heading h1,
+.matter-workspace-v17 .workspace-page-heading h2,
+.matter-workspace-v17 .workspace-modern-page > .library-heading h1,
+.matter-workspace-v17 .studio-home-header h1 {
+  margin: 3px 0 5px;
+  color: var(--mw-ink);
+  font-size: 34px;
+  line-height: 1.12;
+  letter-spacing: -.035em;
+  font-weight: 820;
+}
+.matter-workspace-v17 .workspace-page-heading p,
+.matter-workspace-v17 .workspace-modern-page > .library-heading p,
+.matter-workspace-v17 .studio-home-header p {
+  max-width: 840px;
+  margin: 0;
+  color: var(--mw-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+.matter-workspace-v17 .workspace-page-heading > span,
+.matter-workspace-v17 .workspace-page-heading > div > span:not(.eyebrow) {
+  color: #60736e;
+  font-size: 11px;
+}
+
+/* Shared panels, cards, controls and text scale. */
+.matter-workspace-v17 .workspace-modern-page .panel,
+.matter-workspace-v17 .workspace-modern-section,
+.matter-workspace-v17 .workspace-modern-page .sub-panel,
+.matter-workspace-v17 .workspace-modern-page .library-inbox-panel {
+  border-color: var(--mw-line);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 2px 9px rgba(20,52,49,.035);
+}
+.matter-workspace-v17 .workspace-modern-page h2 { color: var(--mw-ink); }
+.matter-workspace-v17 .workspace-modern-page h3 { color: #23413e; }
+.matter-workspace-v17 .workspace-modern-page .muted { color: var(--mw-muted); }
+.matter-workspace-v17 .workspace-modern-page .btn,
+.matter-workspace-v17 .workspace-modern-section .btn {
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 790;
+}
+.matter-workspace-v17 .workspace-modern-page .btn:not(.mini),
+.matter-workspace-v17 .workspace-modern-section .btn:not(.mini) { min-height: 39px; }
+.matter-workspace-v17 .workspace-modern-page .btn.mini { border-radius: 7px; font-size: 10.5px; }
+.matter-workspace-v17 .workspace-modern-page input,
+.matter-workspace-v17 .workspace-modern-page select,
+.matter-workspace-v17 .workspace-modern-page textarea,
+.matter-workspace-v17 .workspace-modern-section input,
+.matter-workspace-v17 .workspace-modern-section select,
+.matter-workspace-v17 .workspace-modern-section textarea {
+  border-color: #c9d6d1;
+  border-radius: 8px;
+  color: var(--mw-text);
+  font-size: 12.5px;
+}
+.matter-workspace-v17 .workspace-modern-page input:focus,
+.matter-workspace-v17 .workspace-modern-page select:focus,
+.matter-workspace-v17 .workspace-modern-page textarea:focus,
+.matter-workspace-v17 .workspace-modern-section input:focus,
+.matter-workspace-v17 .workspace-modern-section select:focus,
+.matter-workspace-v17 .workspace-modern-section textarea:focus {
+  border-color: #83bda8;
+  box-shadow: 0 0 0 3px rgba(86,201,154,.12);
+  outline: 0;
+}
+.matter-workspace-v17 .workspace-modern-page .field > span,
+.matter-workspace-v17 .workspace-modern-section .field > span,
+.matter-workspace-v17 .workspace-modern-page label > span {
+  color: #4e6862;
+  font-size: 10.5px;
+  font-weight: 820;
+}
+
+/* Common metric cards used by Tasks, Calendar, Billing and Library. */
+.matter-workspace-v17 .workspace-modern-page .metric-grid { gap: 10px; }
+.matter-workspace-v17 .workspace-modern-page .metric-card {
+  min-height: 92px;
+  padding: 15px 16px;
+  border: 1px solid var(--mw-line);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: none;
+}
+.matter-workspace-v17 .workspace-modern-page .metric-card:hover { transform: none; box-shadow: 0 4px 14px rgba(20,52,49,.045); }
+.matter-workspace-v17 .workspace-modern-page .metric-card span { color: #61736f; font-size: 11.5px; }
+.matter-workspace-v17 .workspace-modern-page .metric-card strong { margin: 5px 0 2px; color: var(--mw-ink); font-size: 25px; letter-spacing: -.025em; }
+.matter-workspace-v17 .workspace-modern-page .metric-card small { color: var(--mw-muted); font-size: 10.5px; }
+.matter-workspace-v17 .workspace-modern-page .metric-card svg { width: 38px; height: 38px; padding: 8px; border-radius: 9px; background: #e9f6f0; color: #2e8d69; }
+.matter-workspace-v17 .workspace-modern-page .metric-card:nth-child(2) svg { background: #eef4ff; color: #527fc0; }
+.matter-workspace-v17 .workspace-modern-page .metric-card:nth-child(3) svg { background: #fff7e3; color: #b08220; }
+.matter-workspace-v17 .workspace-modern-page .metric-card:nth-child(4) svg { background: #f4effd; color: #8061b2; }
+.matter-workspace-v17 .workspace-modern-page .metric-card.warning { background: #fffafa; border-color: #ecc6c1; }
+.matter-workspace-v17 .workspace-modern-page .metric-card.warning svg { background: #fff0ed; color: #bd554b; }
+
+/* -------------------------------------------------------------------------- */
+/* Enquiries & Intake                                                         */
+/* -------------------------------------------------------------------------- */
+.matter-workspace-v17 .enquiries-workspace-modern { gap: 14px; }
+.matter-workspace-v17 .enquiries-workspace-modern .enquiries-heading-polished { align-items: flex-start; }
+.matter-workspace-v17 .enquiries-workspace-modern .enquiries-heading-copy h1 { font-size: 34px; }
+.matter-workspace-v17 .enquiries-workspace-modern .enquiries-heading-copy p { font-size: 14px; }
+.matter-workspace-v17 .enquiries-workspace-modern .enquiries-lean-overview { gap: 9px; }
+.matter-workspace-v17 .enquiries-workspace-modern .enquiries-lean-overview > button {
+  min-height: 78px;
+  padding: 12px 13px;
+  border: 1px solid var(--mw-line);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: none;
+}
+.matter-workspace-v17 .enquiries-workspace-modern .enquiries-lean-overview > button:hover { border-color: #a8c8bc; background: #fbfdfc; }
+.matter-workspace-v17 .enquiries-workspace-modern .enquiries-lean-overview > button.active { border-color: #8ec7b2; background: #edf8f3; }
+.matter-workspace-v17 .enquiries-workspace-modern .enquiries-lean-overview span { font-size: 11px; }
+.matter-workspace-v17 .enquiries-workspace-modern .enquiries-lean-overview strong { font-size: 24px; }
+.matter-workspace-v17 .enquiries-workspace-modern .enquiries-lean-overview small { font-size: 9.8px; }
+.matter-workspace-v17 .enquiries-workspace-modern .enquiries-panel {
+  padding: 11px;
+  border: 1px solid var(--mw-line);
+  border-radius: 11px;
+  background: #fff;
+  box-shadow: 0 2px 9px rgba(20,52,49,.035);
+}
+.matter-workspace-v17 .enquiries-workspace-modern .enquiries-tab-row-lean,
+.matter-workspace-v17 .booking-workspace-modern .booking-tab-row {
+  width: max-content;
+  max-width: 100%;
+  gap: 3px;
+  padding: 4px;
+  border: 1px solid var(--mw-line);
+  border-radius: 10px;
+  background: #f8fbfa;
+  overflow-x: auto;
+}
+.matter-workspace-v17 .enquiries-workspace-modern .enquiries-tab-row-lean button,
+.matter-workspace-v17 .booking-workspace-modern .booking-tab-row button {
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #61736f;
+  font-size: 11.5px;
+  font-weight: 800;
+  box-shadow: none;
+}
+.matter-workspace-v17 .enquiries-workspace-modern .enquiries-tab-row-lean button.active,
+.matter-workspace-v17 .booking-workspace-modern .booking-tab-row button.active { background: var(--mw-ink); color: #fff; }
+.matter-workspace-v17 .enquiries-workspace-modern .enquiries-tab-row-lean button:nth-child(1) svg { color: #55a78a; }
+.matter-workspace-v17 .enquiries-workspace-modern .enquiries-tab-row-lean button:nth-child(2) svg { color: #5b8fc5; }
+.matter-workspace-v17 .enquiries-workspace-modern .enquiries-tab-row-lean button:nth-child(3) svg { color: #b2892a; }
+.matter-workspace-v17 .enquiries-workspace-modern .enquiries-tab-row-lean button:nth-child(4) svg { color: #896ab4; }
+.matter-workspace-v17 .enquiries-workspace-modern .enquiries-tab-row-lean button:nth-child(5) svg { color: #758681; }
+.matter-workspace-v17 .enquiries-workspace-modern .enquiries-tab-row-lean button.active svg { color: #dff6eb; }
+.matter-workspace-v17 .enquiries-workspace-modern .enquiries-toolbar {
+  margin-top: 9px;
+  padding: 11px 0 4px;
+  border-top: 1px solid var(--mw-line-soft);
+  background: transparent;
+}
+.matter-workspace-v17 .enquiries-workspace-modern .enquiries-toolbar input { min-height: 40px; font-size: 12.5px; }
+.matter-workspace-v17 .enquiries-workspace-modern .enquiries-status-pills button { min-height: 36px; border-radius: 999px; font-size: 10.8px; }
+.matter-workspace-v17 .enquiries-workspace-modern .enquiries-status-pills button.active { background: var(--mw-ink); border-color: var(--mw-ink); color: #fff; }
+.matter-workspace-v17 .enquiries-workspace-modern .enquiry-archive-bulkbar { border-radius: 9px; background: #f7faf9; }
+.matter-workspace-v17 .enquiries-workspace-modern .enquiries-queue-heading { padding: 14px 1px 10px; border-bottom-color: var(--mw-line-soft); }
+.matter-workspace-v17 .enquiries-workspace-modern .enquiries-queue-heading h2 { font-size: 19px; }
+.matter-workspace-v17 .enquiries-workspace-modern .enquiry-queue-list { gap: 10px; }
+.matter-workspace-v17 .enquiries-workspace-modern .enquiry-queue-card {
+  overflow: hidden;
+  border: 1px solid var(--mw-line);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: none;
+}
+.matter-workspace-v17 .enquiries-workspace-modern .enquiry-queue-card:hover { border-color: #b4cbc2; box-shadow: 0 4px 15px rgba(20,52,49,.045); }
+.matter-workspace-v17 .enquiries-workspace-modern .enquiry-queue-summary { padding: 14px 15px; }
+.matter-workspace-v17 .enquiries-workspace-modern .enquiry-queue-person h3 { font-size: 14px; }
+.matter-workspace-v17 .enquiries-workspace-modern .enquiry-queue-person p,
+.matter-workspace-v17 .enquiries-workspace-modern .enquiry-queue-cell small { font-size: 10.5px; }
+.matter-workspace-v17 .enquiries-workspace-modern .enquiry-queue-cell strong { font-size: 11.8px; }
+.matter-workspace-v17 .enquiries-workspace-modern .enquiry-queue-controls { padding: 10px 12px; border-top: 1px solid var(--mw-line-soft); background: #f8fbfa; }
+.matter-workspace-v17 .enquiries-workspace-modern .enquiry-queue-controls select { min-height: 38px; }
+
+/* -------------------------------------------------------------------------- */
+/* Commercial                                                                 */
+/* -------------------------------------------------------------------------- */
+.matter-workspace-v17 .commercial-workspace-modern { gap: 15px; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-page-head h1 { font-size: 34px; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-page-head p { font-size: 14px; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-layout { grid-template-columns: 300px minmax(0,1fr); gap: 14px; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-client-list { top: 92px; padding: 10px; border-radius: 10px; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-search { border-radius: 8px; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-client-list-item { border-radius: 8px; padding: 10px; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-client-list-item.active { background: #e9f6f0; border-color: #a9d4c2; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-company-icon { border-radius: 8px; background: #e8f5ef; color: #2d8868; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-company-copy strong { font-size: 12.5px; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-company-copy small { font-size: 10px; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-client-head { padding: 17px 18px; border-radius: 10px; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-company-mark { width: 46px; height: 46px; border-radius: 9px; background: #e7f5ef; color: #237557; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-client-head h2 { font-size: 20px; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-client-head p { font-size: 11.5px; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-summary-grid { grid-template-columns: repeat(5,minmax(0,1fr)); gap: 9px; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-summary-grid article { min-height: 88px; padding: 13px 14px; border-radius: 9px; box-shadow: none; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-summary-grid article:nth-child(1) { border-top: 3px solid #69ba98; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-summary-grid article:nth-child(2) { border-top: 3px solid #6f99ca; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-summary-grid article:nth-child(3) { border-top: 3px solid #d0aa4f; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-summary-grid article:nth-child(4) { border-top: 3px solid #c77770; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-summary-grid article:nth-child(5) { border-top: 3px solid #9478b9; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-summary-grid span { font-size: 9.5px; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-summary-grid strong { margin: 4px 0 2px; font-size: 17px; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-summary-grid small { font-size: 10px; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-section-tabs { gap: 3px; padding: 4px; border-radius: 9px; background: #f8fbfa; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-section-tabs button { padding: 8px 10px; border-radius: 7px; font-size: 11px; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-section-tabs button.active { background: var(--mw-ink); }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-section-tabs button:nth-child(1) svg { color: #4c9a7c; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-section-tabs button:nth-child(2) svg { color: #5888bd; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-section-tabs button:nth-child(3) svg { color: #be8f2f; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-section-tabs button:nth-child(4) svg { color: #b9635d; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-section-tabs button:nth-child(5) svg { color: #7b67a7; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-section-tabs button.active svg { color: #dff6eb; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-editor-panel,
+.matter-workspace-v17 .commercial-workspace-modern .commercial-register-panel { padding: 18px; border-radius: 10px; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-panel-head h3 { font-size: 17px; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-panel-head p { font-size: 11.5px; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-form-grid label > span { font-size: 10.5px; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-record-row { border-radius: 8px; padding: 12px; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-record-row strong { font-size: 12px; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-record-row span { font-size: 10px; }
+.matter-workspace-v17 .commercial-workspace-modern .commercial-record-row small { font-size: 9px; }
+
+/* -------------------------------------------------------------------------- */
+/* Studio                                                                     */
+/* -------------------------------------------------------------------------- */
+.matter-workspace-v17 .studio-workspace-modern { gap: 15px; }
+.matter-workspace-v17 .studio-home-header { margin-bottom: 2px; }
+.matter-workspace-v17 .studio-launch-grid { gap: 13px; }
+.matter-workspace-v17 .studio-launch-card {
+  overflow: hidden;
+  border: 1px solid var(--mw-line);
+  border-radius: 11px;
+  background: #fff;
+  box-shadow: 0 2px 9px rgba(20,52,49,.035);
+}
+.matter-workspace-v17 .studio-launch-card.agreement,
+.matter-workspace-v17 .studio-launch-card.instructions { background: #fff; }
+.matter-workspace-v17 .studio-launch-card-head { padding: 19px 19px 15px; }
+.matter-workspace-v17 .studio-launch-icon { border-radius: 9px; background: #e8f5ef; color: #287d5f; }
+.matter-workspace-v17 .studio-launch-card.agreement .studio-launch-icon { background: #eef4ff; color: #557fc0; }
+.matter-workspace-v17 .studio-launch-card-head span { font-size: 9.5px; }
+.matter-workspace-v17 .studio-launch-card-head h2 { font-size: 20px; }
+.matter-workspace-v17 .studio-launch-card-head p { font-size: 11.5px; line-height: 1.5; }
+.matter-workspace-v17 .studio-launch-metrics { margin: 0 19px; border-radius: 9px; background: #f7faf9; }
+.matter-workspace-v17 .studio-launch-metrics strong { font-size: 20px; }
+.matter-workspace-v17 .studio-launch-metrics span { font-size: 9.5px; }
+.matter-workspace-v17 .studio-launch-actions { padding: 15px 19px; }
+.matter-workspace-v17 .studio-open-workspace { min-height: 44px; padding: 0 19px; color: var(--mw-ink); font-size: 11.5px; }
+.matter-workspace-v17 .studio-workspace-nav { padding: 0 0 11px; border-bottom: 1px solid var(--mw-line-soft); }
+.matter-workspace-v17 .studio-section-switcher { padding: 4px; border: 1px solid var(--mw-line); border-radius: 9px; background: #f8fbfa; }
+.matter-workspace-v17 .studio-section-switcher button { border-radius: 6px; font-size: 11.5px; }
+.matter-workspace-v17 .studio-section-switcher button.active { background: var(--mw-ink); color: #fff; }
+.matter-workspace-v17 .studio-record-list { border: 1px solid var(--mw-line); border-radius: 10px; overflow: hidden; }
+.matter-workspace-v17 .studio-record-head { background: #f3f6f5; font-size: 9.5px; }
+.matter-workspace-v17 .studio-record-row { border-top-color: var(--mw-line-soft); background: #fff; }
+.matter-workspace-v17 .studio-record-row:hover { background: #f8fbfa; }
+.matter-workspace-v17 .studio-record-primary strong { font-size: 13px; }
+.matter-workspace-v17 .studio-record-primary small,
+.matter-workspace-v17 .studio-record-cell { font-size: 10.5px; }
+
+/* -------------------------------------------------------------------------- */
+/* Tasks, Calendar, Billing and legacy Dashboard                              */
+/* -------------------------------------------------------------------------- */
+.matter-workspace-v17 .tasks-workspace-modern,
+.matter-workspace-v17 .calendar-workspace-modern,
+.matter-workspace-v17 .billing-workspace-modern,
+.matter-workspace-v17 .dashboard-workspace-modern { gap: 14px; }
+.matter-workspace-v17 .workspace-page-heading.dashboard-heading,
+.matter-workspace-v17 .dashboard-compact-heading.workspace-page-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.matter-workspace-v17 .workspace-page-heading.dashboard-heading h2,
+.matter-workspace-v17 .dashboard-compact-heading.workspace-page-heading h2 { font-size: 31px; }
+.matter-workspace-v17 .task-toolbar,
+.matter-workspace-v17 .calendar-controls,
+.matter-workspace-v17 .billing-toolbar {
+  gap: 10px;
+  padding: 14px;
+  border-radius: 9px;
+  background: #f8fbfa;
+}
+.matter-workspace-v17 .task-toolbar label > span,
+.matter-workspace-v17 .calendar-controls label > span,
+.matter-workspace-v17 .billing-toolbar label > span { font-size: 9.8px; }
+.matter-workspace-v17 .task-toolbar input,
+.matter-workspace-v17 .task-toolbar select,
+.matter-workspace-v17 .calendar-controls input,
+.matter-workspace-v17 .calendar-controls select { min-height: 38px; font-size: 11.5px; }
+.matter-workspace-v17 .task-head,
+.matter-workspace-v17 .billing-head { background: #f3f6f5; color: #68797d; font-size: 9.5px; }
+.matter-workspace-v17 .task-line,
+.matter-workspace-v17 .billing-line { border-top-color: var(--mw-line-soft); font-size: 11.5px; }
+.matter-workspace-v17 .task-line:hover,
+.matter-workspace-v17 .billing-line:hover { background: #f8fbfa; }
+.matter-workspace-v17 .task-line strong,
+.matter-workspace-v17 .billing-line strong { font-size: 12px; }
+.matter-workspace-v17 .task-line small,
+.matter-workspace-v17 .billing-line small { font-size: 10px; }
+.matter-workspace-v17 .billing-table { margin-top: 12px; border-color: var(--mw-line); border-radius: 9px; }
+.matter-workspace-v17 .calendar-controls-panel { padding: 13px; }
+.matter-workspace-v17 .calendar-day-group { border-radius: 9px; }
+.matter-workspace-v17 .calendar-entry-card { border-radius: 8px; border-color: var(--mw-line); }
+.matter-workspace-v17 .dashboard-stat-strip button { border-radius: 9px; border-color: var(--mw-line); box-shadow: none; }
+.matter-workspace-v17 .dashboard-stat-strip button svg { border-radius: 8px; }
+.matter-workspace-v17 .dashboard-side-panel { border-radius: 10px; }
+
+/* -------------------------------------------------------------------------- */
+/* Consultation booking                                                       */
+/* -------------------------------------------------------------------------- */
+.matter-workspace-v17 .booking-workspace-modern { gap: 14px; }
+.matter-workspace-v17 .booking-workspace-modern .page-heading-row h1 { font-size: 34px; }
+.matter-workspace-v17 .booking-workspace-modern .page-heading-row p { font-size: 14px; }
+.matter-workspace-v17 .booking-workspace-modern .booking-overview-grid { gap: 10px; }
+.matter-workspace-v17 .booking-workspace-modern .booking-card,
+.matter-workspace-v17 .booking-workspace-modern .booking-form-panel,
+.matter-workspace-v17 .booking-workspace-modern .booking-list-panel,
+.matter-workspace-v17 .booking-workspace-modern .booking-wide-panel { border-radius: 10px; border-color: var(--mw-line); box-shadow: none; }
+.matter-workspace-v17 .booking-workspace-modern .booking-card h3 { font-size: 15px; }
+.matter-workspace-v17 .booking-workspace-modern .booking-list-row { border-radius: 8px; }
+.matter-workspace-v17 .booking-workspace-modern .booking-record-main strong { font-size: 12px; }
+.matter-workspace-v17 .booking-workspace-modern .booking-record-main small { font-size: 10px; }
+
+/* -------------------------------------------------------------------------- */
+/* Knowledge library                                                          */
+/* -------------------------------------------------------------------------- */
+.matter-workspace-v17 .library-workspace-modern { gap: 14px; }
+.matter-workspace-v17 .library-workspace-modern .library-heading { align-items: flex-start; }
+.matter-workspace-v17 .library-workspace-modern .library-heading h1 { font-size: 34px; }
+.matter-workspace-v17 .library-workspace-modern .library-heading p { font-size: 14px; }
+.matter-workspace-v17 .library-workspace-modern .library-toolbar { margin: 0; }
+.matter-workspace-v17 .library-workspace-modern .library-tabs { width: max-content; max-width: 100%; gap: 3px; padding: 4px; border: 1px solid var(--mw-line); border-radius: 9px; background: #f8fbfa; }
+.matter-workspace-v17 .library-workspace-modern .library-tabs button { min-height: 36px; border-radius: 6px; font-size: 11.5px; }
+.matter-workspace-v17 .library-workspace-modern .library-tabs button.active { background: var(--mw-ink); color: #fff; }
+.matter-workspace-v17 .library-workspace-modern .library-tabs button:first-child svg { color: #4d967b; }
+.matter-workspace-v17 .library-workspace-modern .library-tabs button:last-child svg { color: #648bc0; }
+.matter-workspace-v17 .library-workspace-modern .library-tabs button.active svg { color: #dff6eb; }
+.matter-workspace-v17 .library-workspace-modern .library-inbox-panel { padding: 12px; }
+.matter-workspace-v17 .library-workspace-modern .library-filters { padding: 0 0 11px; border-bottom: 1px solid var(--mw-line-soft); }
+.matter-workspace-v17 .library-workspace-modern .library-summary-card { border-color: var(--mw-line); border-radius: 9px; box-shadow: none; }
+.matter-workspace-v17 .library-workspace-modern .library-summary-card:hover { border-color: #b0cbc1; box-shadow: 0 4px 14px rgba(20,52,49,.045); }
+.matter-workspace-v17 .library-workspace-modern .library-summary-card > strong { font-size: 12.5px; }
+.matter-workspace-v17 .library-workspace-modern .library-summary-card > small { font-size: 10px; }
+.matter-workspace-v17 .library-workspace-modern .library-summary-card > p { font-size: 10.5px; }
+
+/* -------------------------------------------------------------------------- */
+/* Adviser administration + Backup                                            */
+/* -------------------------------------------------------------------------- */
+.matter-workspace-v17 .advisers-workspace-modern,
+.matter-workspace-v17 .backup-workspace-modern { gap: 14px; }
+.matter-workspace-v17 .advisers-workspace-modern > .panel,
+.matter-workspace-v17 .backup-workspace-modern > .panel,
+.matter-workspace-v17 .notification-recipient-panel,
+.matter-workspace-v17 .adviser-profiles-panel { border-radius: 10px; }
+.matter-workspace-v17 .notification-recipient-head h2,
+.matter-workspace-v17 .adviser-profiles-panel > h2,
+.matter-workspace-v17 .backup-workspace-modern h1 { color: var(--mw-ink); }
+.matter-workspace-v17 .notification-recipient-head h2,
+.matter-workspace-v17 .adviser-profiles-panel > h2 { font-size: 20px; }
+.matter-workspace-v17 .notification-recipient-head p,
+.matter-workspace-v17 .adviser-profiles-panel > p { font-size: 11.5px; }
+.matter-workspace-v17 .notification-recipient-card { border-radius: 9px; border-color: var(--mw-line); }
+.matter-workspace-v17 .adviser-row { border-radius: 9px; border-color: var(--mw-line); }
+
+/* -------------------------------------------------------------------------- */
+/* Full client record — same visual skin, existing dense functionality kept. */
+/* -------------------------------------------------------------------------- */
+.matter-workspace-v17 .client-record-workspace-modern { gap: 14px; }
+.matter-workspace-v17 .client-record-workspace-modern .list-panel,
+.matter-workspace-v17 .client-record-workspace-modern .detail-panel { border-radius: 10px; border-color: var(--mw-line); box-shadow: 0 2px 9px rgba(20,52,49,.035); }
+.matter-workspace-v17 .client-record-workspace-modern .client-list-head h2 { font-size: 18px; }
+.matter-workspace-v17 .client-record-workspace-modern .search-box { border-radius: 8px; }
+.matter-workspace-v17 .client-record-workspace-modern .client-card { border-radius: 8px; }
+.matter-workspace-v17 .client-record-workspace-modern .client-card strong { font-size: 12.5px; }
+.matter-workspace-v17 .client-record-workspace-modern .client-card small { font-size: 10px; }
+
+/* Smaller screens: preserve the existing responsive behaviour but avoid oversized titles. */
+@media (max-width: 1180px) {
+  .matter-workspace-v17 .commercial-workspace-modern .commercial-summary-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .matter-workspace-v17 .commercial-workspace-modern .commercial-layout { grid-template-columns: 260px minmax(0,1fr); }
+}
+@media (max-width: 900px) {
+  .matter-workspace-v17 .workspace-page-heading h1,
+  .matter-workspace-v17 .workspace-page-heading h2,
+  .matter-workspace-v17 .library-workspace-modern .library-heading h1 { font-size: 28px; }
+  .matter-workspace-v17 .commercial-workspace-modern .commercial-layout { grid-template-columns: 1fr; }
+  .matter-workspace-v17 .commercial-workspace-modern .commercial-client-list { position: static; max-height: none; }
+  .matter-workspace-v17 .commercial-workspace-modern .commercial-client-list-scroll { max-height: 300px; }
+}
+@media (max-width: 650px) {
+  .matter-workspace-v17 .commercial-workspace-modern .commercial-summary-grid { grid-template-columns: 1fr 1fr; }
+  .matter-workspace-v17 .workspace-page-heading.bare-heading,
+  .matter-workspace-v17 .workspace-page-heading.dashboard-heading { flex-direction: column; gap: 10px; }
+  .matter-workspace-v17 .enquiries-workspace-modern .enquiries-tab-row-lean,
+  .matter-workspace-v17 .booking-workspace-modern .booking-tab-row,
+  .matter-workspace-v17 .library-workspace-modern .library-tabs { width: 100%; }
+}
+
+/* Studio list workspaces (Instructions + Agreements). */
+.matter-workspace-v17 .studio-workspace-modern .instructions-workspace-page { gap: 14px; padding-bottom: 24px; }
+.matter-workspace-v17 .studio-workspace-modern .instructions-page-header {
+  margin: 0;
+  padding: 1px 2px 3px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  align-items: flex-start;
+}
+.matter-workspace-v17 .studio-workspace-modern .instructions-page-header h1 { margin: 3px 0 5px; color: var(--mw-ink); font-size: 30px; letter-spacing: -.03em; }
+.matter-workspace-v17 .studio-workspace-modern .instructions-page-header p { color: var(--mw-muted); font-size: 12.5px; }
+.matter-workspace-v17 .studio-workspace-modern .instructions-overview-strip { gap: 9px; }
+.matter-workspace-v17 .studio-workspace-modern .instructions-overview-strip > div {
+  padding: 13px 14px;
+  border-color: var(--mw-line);
+  border-radius: 9px;
+  box-shadow: none;
+}
+.matter-workspace-v17 .studio-workspace-modern .instructions-overview-strip > div:nth-child(1) { border-top: 3px solid #64b894; }
+.matter-workspace-v17 .studio-workspace-modern .instructions-overview-strip > div:nth-child(2) { border-top: 3px solid #6a91c7; }
+.matter-workspace-v17 .studio-workspace-modern .instructions-overview-strip > div:nth-child(3) { border-top: 3px solid #cfaa50; }
+.matter-workspace-v17 .studio-workspace-modern .instructions-overview-strip > div:nth-child(4) { border-top: 3px solid #9277b8; }
+.matter-workspace-v17 .studio-workspace-modern .instructions-overview-strip span { font-size: 9.5px; }
+.matter-workspace-v17 .studio-workspace-modern .instructions-overview-strip strong { font-size: 21px; }
+.matter-workspace-v17 .studio-workspace-modern .instructions-list-toolbar { gap: 10px; padding: 10px; border: 1px solid var(--mw-line); border-radius: 9px; background: #f8fbfa; }
+.matter-workspace-v17 .studio-workspace-modern .instructions-list-toolbar .search-box { border-radius: 8px; background: #fff; }
+
+/* Backup centre follows the same card and field treatment. */
+.matter-workspace-v17 .backup-workspace-modern .backup-hero,
+.matter-workspace-v17 .backup-workspace-modern .backup-card,
+.matter-workspace-v17 .backup-workspace-modern .backup-job-card { border-radius: 10px; border-color: var(--mw-line); box-shadow: none; }
+.matter-workspace-v17 .backup-workspace-modern h1 { font-size: 31px; letter-spacing: -.03em; }
+.matter-workspace-v17 .backup-workspace-modern h2 { font-size: 18px; }
+
