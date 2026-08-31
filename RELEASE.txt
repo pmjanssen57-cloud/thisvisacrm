@@ -1,5 +1,30 @@
-THiS CRM v0.16.5 - Additional Citizenship Capture
+THiS CRM v0.17.1 - Configurable Notification Recipients
 
-Adds additional citizenship questions for applicants and partners, with multi-country capture, adviser review, print/email summaries, search and client conversion support.
+Baseline
+- Built directly from v0.17.0 Matter Workspace.
+- Retains all v0.17.0 Matter Workspace and reconstructed v0.16.x reliability functionality.
 
-No database migration. Squarespace embed unchanged.
+New administration control
+- Adds Admin > Adviser profiles > Who receives website alerts?
+- Recipients can be selected separately for Assessment forms, Contact forms, Seminar registrations, Client feedback and SMC calculator internal alerts.
+- Multiple advisers may be selected for each notification type.
+- Optional additional/team email addresses are supported.
+- Inactive advisers are excluded from delivery automatically.
+- Includes a quick action to copy the Assessment-form recipient group across all notification types.
+- Existing Live Chat recipient controls remain separate in Live Chat settings.
+
+Notification delivery
+- Public intake/contact notifications now read recipients from the saved database configuration.
+- Seminar registration notifications now read the saved database configuration.
+- Client feedback notifications now read the saved database configuration.
+- SMC calculator internal notifications now read the saved database configuration.
+- Until a setting is explicitly saved, existing recipient behaviour is preserved as the fallback.
+
+Database
+- Adds migration 202608310002_add_notification_recipient_settings.sql.
+- No historical migration was edited.
+- The table stores notification key, selected adviser IDs, optional additional emails and update audit details.
+
+Deployment
+- No new environment variable or dependency is required.
+- Package/cache references advance to v0.17.1.

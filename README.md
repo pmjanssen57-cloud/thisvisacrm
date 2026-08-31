@@ -1,27 +1,41 @@
-# THiS CRM v0.16.5 - Additional Citizenship Capture
+# THiS CRM v0.17.1 - Matter Workspace + Notification Recipients
 
-This release continues directly from **v0.16.3 Intake Conversion Safety + Agreement Print Fix** and retains the existing CRM styling and functionality.
+This release is built directly from **v0.17.0 Matter Workspace** and is intended to be deployed instead of v0.17.0.
 
-## Assessment form fixes
+## Configurable internal notification recipients
 
-The public assessment form now validates email addresses before the user leaves the **Your details** step and validates them again on the server. Trailing spaces are removed automatically and invalid formats receive a clear inline message.
+Administrators can now manage website-notification recipients from **Admin / Adviser profiles**. The new **Who receives website alerts?** panel appears above the adviser profiles and allows different recipient groups for:
 
-CV selection is validated immediately. PDF, DOC and DOCX files up to 5 MB are accepted even where a mobile browser supplies a generic MIME type. The applicant sees a clear **ready**, **uploading**, **uploaded** or **error** state.
+- Assessment form submissions
+- Contact form submissions
+- Seminar registrations
+- Client feedback submissions
+- SMC calculator internal alerts
 
-If the questionnaire record has been saved but an applicant or partner CV fails to upload, the record is retained and the submit action changes to **Retry CV upload**. The questionnaire is not inserted again. A per-form submission key also makes the initial save idempotent, protecting against duplicate intake records if a network interruption occurs after the server has saved the questionnaire but before the browser receives the response.
+Each notification type can have multiple advisers. Additional non-adviser/team email addresses can also be entered if required.
 
-## Database safety
+Inactive advisers are automatically excluded from delivery, so a departing staff member can be deactivated without continuing to receive alerts. When a replacement staff member is added as an adviser, an Admin can select them in the relevant notification groups and save — no code or Netlify environment-variable change is required.
 
-No database migration is added. Existing applied migration files are untouched.
+A convenience action copies the Assessment-form recipients across all notification types when the same team should receive everything.
+
+Live-chat notifications remain under **Live Chat settings**, because live chat already has its own notification controls.
+
+## Existing defaults and safe transition
+
+Until an Admin saves the new settings, v0.17.1 preserves the existing notification behaviour. This prevents a deployment from silently changing who receives alerts. Once saved, the database settings become authoritative and the old hard-coded/environment fallbacks are no longer used for that notification type.
+
+## Matter Workspace and retained functionality
+
+All v0.17.0 Matter Workspace functionality remains in place, including My Work, the client Matter Command Centre, Stage / Matter Status / Next Action separation, Update File workflow, portal wording library and full-record access.
+
+The release also retains enquiry archiving/CV cleanup, unassigned-client recovery, adviser-before-conversion protection, Agreement Studio A4 print fixes and assessment-form email/CV reliability.
+
+## Database
+
+v0.17.1 adds one non-destructive table, `notification_recipient_settings`, through migration `202608310002_add_notification_recipient_settings.sql`.
+
+No historical migration has been edited. The existing v0.17.0 Matter Workspace migration remains unchanged.
 
 ## Rollback
 
-Redeploy **THiS CRM v0.16.3 - Intake Conversion Safety + Agreement Print Fix**. No schema rollback is required.
-
-
-## v0.16.5
-- Adds conditional additional-citizenship capture for applicants and partners in the public assessment form.
-- Supports up to four additional citizenships for each person.
-- Includes additional citizenships in adviser review, print/PDF summaries, notification summaries, intake search and client conversion.
-- Keeps the Squarespace iframe embed unchanged.
-- No database migration is required; additional citizenship data is stored in the existing intake raw payload.
+Redeploy **THiS CRM v0.17.0 Matter Workspace** to roll the application back. The additional notification-settings table can safely remain in the database; v0.17.0 will ignore it.

@@ -1,4 +1,5 @@
 import { getDatabase } from '@netlify/database';
+import { getNotificationRecipients } from './_notification-recipients.mjs';
 
 const MAX_TEXT = 6000;
 
@@ -210,10 +211,7 @@ function normalisePayload(input = {}) {
 
 async function sendFeedbackNotificationEmail({ feedbackId = '', payload = {}, createdAt = '' } = {}) {
   const database = db();
-  const adviserRows = await database.sql`SELECT email FROM advisers WHERE active IS DISTINCT FROM FALSE AND email IS NOT NULL AND email <> '' ORDER BY name ASC`;
-  const adviserEmails = Array.from(new Set(adviserRows.map((row) => String(row.email || '').trim().toLowerCase()).filter(isValidEmailAddress)));
-  const fallback = String(process.env.FEEDBACK_NOTIFICATION_EMAILS || process.env.INTAKE_NOTIFICATION_EMAILS || process.env.CRM_NOTIFICATION_EMAILS || '').split(/[;,]/).map((item) => item.trim()).filter(isValidEmailAddress);
-  const recipients = adviserEmails.length ? adviserEmails : fallback;
+  const recipients = await getNotificationRecipients(database, 'feedback_internal_notification');
   if (!recipients.length) throw new Error('No adviser notification email addresses are configured.');
 
   const applicantName = [payload.firstName, payload.lastName].filter(Boolean).join(' ') || 'Unnamed client';

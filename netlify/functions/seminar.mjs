@@ -1,4 +1,5 @@
 import { getDatabase } from '@netlify/database';
+import { getNotificationRecipients } from './_notification-recipients.mjs';
 
 const MAX_TEXT = 6000;
 const SEMINAR_REGISTRATION_STATUSES = ['New', 'Approved', 'Declined', 'Spam / Duplicate'];
@@ -213,7 +214,8 @@ function normaliseRegistration(input = {}) {
 }
 
 async function sendSeminarNotificationEmail({ registrationId = '', registration = {}, seminar = {} } = {}) {
-  const recipients = getSeminarNotificationRecipients();
+  const database = db();
+  const recipients = await getNotificationRecipients(database, 'seminar_new_registration');
   if (!recipients.length) return false;
   const config = requireMicrosoftEmailConfig();
   const fallbackSubject = `New seminar registration: ${registration.fullName || 'Unnamed registrant'}`;
@@ -269,7 +271,6 @@ async function sendSeminarNotificationEmail({ registrationId = '', registration 
   const subject = templateDraft.subject;
   const bodyText = templateDraft.bodyText;
   const bodyHtml = templateDraft.bodyHtml;
-  const database = db();
   const [created] = await database.sql`
     INSERT INTO email_notifications (related_record_type, related_record_id, template_key, from_email, from_name, to_email, subject, body_text, body_html, status, sent_by)
     VALUES ('seminar_registration', ${nullableUuidValue(registrationId)}, 'seminar_new_registration', ${config.fromEmail}, ${config.fromName}, ${recipients.join(',')}, ${subject}, ${bodyText}, ${bodyHtml}, 'Sending', 'Website seminar form')
@@ -469,11 +470,6 @@ function renderTemplateText(value = '', context = {}) {
   });
 }
 
-function getSeminarNotificationRecipients() {
-  const configured = String(process.env.SEMINAR_NOTIFICATION_RECIPIENTS || process.env.INTAKE_NOTIFICATION_RECIPIENTS || '').trim();
-  const value = configured || 'paul.janssen@turnerhopkins.co.nz,sejoo.han@turnerhopkins.co.nz';
-  return value.split(/[;,]/).map((email) => email.trim()).filter(isValidEmailAddress);
-}
 
 function requireMicrosoftEmailConfig() {
   const tenantId = String(process.env.MICROSOFT_TENANT_ID || '').trim();

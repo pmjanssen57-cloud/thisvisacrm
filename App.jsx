@@ -336,7 +336,7 @@ function agreementClientFromIntake(intake = {}) {
       lastName: names.slice(1).join(' '),
       email: payload.partnerEmail || '',
       dateOfBirth: payload.partnerDateOfBirth || '',
-      nationality: [payload.partnerCitizenship, ...(Array.isArray(payload.partnerOtherCitizenships) ? payload.partnerOtherCitizenships : [])].map((value) => String(value || '').trim()).filter(Boolean).filter((value, index, values) => values.indexOf(value) === index).join('; '),
+      nationality: payload.partnerCitizenship || '',
     });
   }
   const children = Array.isArray(payload.children) ? payload.children : [];
@@ -361,7 +361,7 @@ function agreementClientFromIntake(intake = {}) {
     lastName,
     email: payload.email || intake.email || '',
     phone: payload.phone || intake.phone || '',
-    nationality: [payload.citizenship || intake.citizenship, ...(Array.isArray(payload.otherCitizenships) ? payload.otherCitizenships : [])].map((value) => String(value || '').trim()).filter(Boolean).filter((value, index, values) => values.indexOf(value) === index).join('; '),
+    nationality: payload.citizenship || intake.citizenship || '',
     dateOfBirth: payload.dateOfBirth || intake.dateOfBirth || '',
     location: payload.currentLocation || intake.currentLocation || '',
     matterName: `Intake - ${[firstName, lastName].filter(Boolean).join(' ').trim() || 'Prospective client'}`,
@@ -416,6 +416,18 @@ const LIBRARY_ENTRY_TYPES = ['Policy', 'Form'];
 const LIBRARY_STATUSES = ['Current', 'Watch', 'Superseded', 'Archived', 'Acceptable until'];
 const LIBRARY_CATEGORIES = ['Work', 'Residence', 'Family', 'Student', 'Visitor', 'Investor', 'Health', 'Character', 'Compliance', 'Forms', 'General'];
 const INTAKE_STATUSES = ['New', 'Contacted', 'Converted', 'Spam / Duplicate'];
+const MATTER_STATUSES = ['Adviser action required', 'Client action required', 'Waiting on INZ', 'Waiting on third party', 'Ready to progress', 'No current action', 'Completed'];
+const PORTAL_UPDATE_TEMPLATES = [
+  { key: 'reviewing-documents', label: 'Reviewing documents', stageHint: 'Preparing', current: 'We are reviewing the information and documents you have provided.', next: 'We will complete our review and contact you if we require anything further.' },
+  { key: 'preparing-application', label: 'Preparing application', stageHint: 'Preparing', current: 'We are preparing your application for submission.', next: 'We will complete our final checks and contact you if anything further is required before submission.' },
+  { key: 'ready-to-lodge', label: 'Ready to lodge', stageHint: 'Ready', current: 'Your application is ready to be submitted to Immigration New Zealand.', next: 'We will submit the application and confirm once this has been completed.' },
+  { key: 'application-submitted', label: 'Application submitted', stageHint: 'Lodged', current: 'Your application has been submitted to Immigration New Zealand.', next: 'No action is currently required from you. We will contact you when Immigration New Zealand provides a further update.' },
+  { key: 'processing', label: 'Application processing', stageHint: 'Lodged', current: 'Your application is currently being processed by Immigration New Zealand.', next: 'We will let you know as soon as Immigration New Zealand provides a further update.' },
+  { key: 'further-information', label: 'Further information requested', stageHint: 'Further', current: 'Immigration New Zealand has requested further information in relation to your application.', next: 'We are reviewing the request and will contact you if we need any information or documents from you.' },
+  { key: 'response-submitted', label: 'Further information provided', stageHint: 'Awaiting', current: 'We have provided the requested further information to Immigration New Zealand.', next: 'No action is currently required from you. We will let you know when Immigration New Zealand provides a further update.' },
+  { key: 'waiting-client', label: 'Waiting on client', stageHint: '', current: 'We are currently waiting for information or documents from you.', next: 'Please provide the requested information so that we can continue progressing your application.' },
+  { key: 'approved', label: 'Application approved', stageHint: 'Approved', current: 'Your application has been approved.', next: 'We will send you the approval information and explain any final steps that apply to your matter.' },
+];
 const SEMINAR_STATUSES = ['Active', 'Closed'];
 const SEMINAR_REGISTRATION_STATUSES = ['New', 'Approved', 'Declined', 'Spam / Duplicate'];
 const SEMINAR_ENGLISH_OPTIONS = ['Fluent', 'Medium', 'None'];
@@ -787,6 +799,7 @@ const emptyData = {
   feedbackSubmissions: [],
   emailLogs: [],
   emailTemplates: [],
+  notificationRecipientSettings: [],
   consultationTypes: [],
   bookingAvailability: [],
   bookingBlocks: [],
@@ -825,6 +838,9 @@ function makeBlankClient(data) {
     nextAction: '',
     nextActionDue: '',
     nextActionLog: [],
+    matterStatus: 'No current action',
+    matterReviewDate: '',
+    matterActivity: [],
     portalEnabled: false,
     portalEmail: '',
     portalStatusUpdate: '',
@@ -1229,7 +1245,7 @@ export default function App() {
   if (window.location.pathname.startsWith('/commercial-portal')) return <CommercialPortalApp />;
   if (window.location.pathname.startsWith('/portal')) return <ClientPortalApp />;
   const [data, setData] = useState(emptyData);
-  const [tab, setTab] = useState('dashboard');
+  const [tab, setTab] = useState('work');
   const [myDayOpen, setMyDayOpen] = useState(false);
   const [studioSection, setStudioSection] = useState('home');
   const [studioCreateRequest, setStudioCreateRequest] = useState(null);
@@ -1415,7 +1431,7 @@ export default function App() {
     if (!selectClient(clientId)) return false;
     setCalendarEditorDirty(false);
     setMyDayOpen(false);
-    setTab('clients');
+    setTab('matter');
     return true;
   }
 
@@ -2072,7 +2088,7 @@ export default function App() {
       setSelectedClientId(nextSelectedId);
       showCrmToast(wasNewClient ? 'Client record created.' : 'Client record saved.');
       if (!String(nextSelectedId || '').startsWith('temp-')) rememberClient(nextSelectedId);
-      if (wasNewClient && options.resetNewClientForm) setTab('clients');
+      if (wasNewClient && options.resetNewClientForm) setTab('client-record');
     }
     if (body.emailLog) {
       setData((current) => ({
@@ -2334,6 +2350,12 @@ export default function App() {
     await callApi('saveAdviser', { adviser });
   }
 
+  async function saveNotificationRecipientSettings(settings) {
+    const body = await callApi('saveNotificationRecipientSettings', { settings });
+    showCrmToast('Notification recipients saved.', 'success');
+    return body;
+  }
+
 
   async function saveMyPreferences(preferences, options = {}) {
     const nextPreferences = normaliseAdviserPreferences(preferences);
@@ -2493,46 +2515,32 @@ export default function App() {
 
   async function archiveIntakeEnquiries(intakeIds = []) {
     const ids = [...new Set((Array.isArray(intakeIds) ? intakeIds : [intakeIds]).filter(Boolean))];
-    const chunkSize = 40;
-    const combined = {
-      updatedIntakeEnquiries: [],
-      archiveSummary: { requested: 0, archived: 0, alreadyArchived: 0, purgedFiles: 0, purgedBytes: 0, purgeFailures: 0 },
-    };
-    for (let index = 0; index < ids.length; index += chunkSize) {
-      const body = await callApi('archiveIntakeEnquiries', { intakeIds: ids.slice(index, index + chunkSize) });
+    if (!ids.length) return null;
+    const confirmed = await askCrmConfirm({
+      title: `Archive ${ids.length} enquiry record${ids.length === 1 ? '' : 's'}?`,
+      message: 'Archived records leave the active queues but remain searchable in the CRM Archive.',
+      details: ['Linked applicant and partner CV files are removed from Netlify storage where possible.', 'The form answers and adviser history remain in the CRM. Purged CV files are not restored if the record is later restored.'],
+      confirmLabel: 'Archive',
+      tone: 'warning',
+    });
+    if (!confirmed) return null;
+    const combined = { updatedIntakeEnquiries: [], archiveSummary: { requested: 0, archived: 0, alreadyArchived: 0, purgedFiles: 0, purgedBytes: 0, purgeFailures: 0 } };
+    for (let index = 0; index < ids.length; index += 40) {
+      const body = await callApi('archiveIntakeEnquiries', { intakeIds: ids.slice(index, index + 40) });
       combined.updatedIntakeEnquiries.push(...(body.updatedIntakeEnquiries || []));
-      const summary = body.archiveSummary || {};
-      Object.keys(combined.archiveSummary).forEach((key) => {
-        combined.archiveSummary[key] += Number(summary[key] || 0);
-      });
+      Object.keys(combined.archiveSummary).forEach((key) => { combined.archiveSummary[key] += Number(body.archiveSummary?.[key] || 0); });
     }
-    const summary = combined.archiveSummary;
-    const archivedCount = Number(summary.archived || 0) + Number(summary.alreadyArchived || 0);
-    const storage = Number(summary.purgedBytes || 0);
-    const storageText = storage > 0 ? ` ${formatFileSize(storage)} of uploaded CV storage was released.` : '';
-    const failureText = Number(summary.purgeFailures || 0) > 0 ? ` ${summary.purgeFailures} file${summary.purgeFailures === 1 ? '' : 's'} could not be removed and can be retried from Archive.` : '';
-    showCrmToast(`${archivedCount} enquiry record${archivedCount === 1 ? '' : 's'} archived.${storageText}${failureText}`, failureText ? 'warning' : 'success');
     return combined;
   }
 
   async function restoreIntakeEnquiry(intakeId) {
-    const body = await callApi('restoreIntakeEnquiry', { intakeId });
-    showCrmToast('Enquiry restored to the active workspace. Any CV files previously purged from storage remain deleted.');
-    return body;
+    return await callApi('restoreIntakeEnquiry', { intakeId });
   }
 
   async function permanentlyDeleteIntakeEnquiry(intakeId) {
-    const confirmed = await askCrmConfirm({
-      title: 'Permanently delete archived enquiry?',
-      message: 'This removes the archived contact or intake form from the CRM database and removes any remaining uploaded CV files. This cannot be undone.',
-      confirmLabel: 'Permanently delete',
-      tone: 'danger',
-      details: ['If the intake was converted, the client record remains. Links from email logs or agreements to this intake record will be cleared.'],
-    });
+    const confirmed = await askCrmConfirm({ title: 'Permanently delete archived enquiry?', message: 'This removes the retained enquiry record and any remaining linked CV file. This cannot be undone.', confirmLabel: 'Permanently delete', tone: 'danger' });
     if (!confirmed) return null;
-    const body = await callApi('permanentlyDeleteIntakeEnquiry', { intakeId });
-    showCrmToast('Archived enquiry permanently deleted.');
-    return body;
+    return await callApi('permanentlyDeleteIntakeEnquiry', { intakeId });
   }
 
   async function saveSeminar(seminar) {
@@ -2640,7 +2648,7 @@ export default function App() {
   }
 
   async function deleteIntakeEnquiry(intakeId) {
-    const confirmed = await askCrmConfirm({ title: 'Delete intake enquiry?', message: 'Converted enquiries cannot be deleted. This removes the selected enquiry from the CRM and also deletes any uploaded CV files held in Netlify storage.', confirmLabel: 'Delete enquiry', tone: 'danger' });
+    const confirmed = await askCrmConfirm({ title: 'Delete intake enquiry?', message: 'Converted enquiries cannot be deleted. This removes the selected enquiry from the CRM and also removes any linked CV files from storage.', confirmLabel: 'Delete enquiry', tone: 'danger' });
     if (!confirmed) return;
     return await callApi('deleteIntakeEnquiry', { intakeId });
   }
@@ -2649,7 +2657,7 @@ export default function App() {
     const body = await callApi('convertIntakeToClient', { intakeId });
     if (body.client?.id) {
       setSelectedClientId(body.client.id);
-      setTab('clients');
+      setTab('matter');
     }
     return body;
   }
@@ -2709,7 +2717,7 @@ export default function App() {
     setClientQuery('');
     setData((current) => ({ ...current, clients: [newClient, ...current.clients] }));
     setSelectedClientId(newClient.id);
-    setTab('clients');
+    setTab('client-record');
   }
 
   function addCommercialClient() {
@@ -2784,7 +2792,8 @@ export default function App() {
   useEffect(() => {
     if (loading || authRequired || !identityAdviser || landingPreferenceAppliedRef.current) return;
     landingPreferenceAppliedRef.current = true;
-    const destination = adviserPreferences.defaultLandingPage || 'dashboard';
+    const destinationRaw = adviserPreferences.defaultLandingPage || 'dashboard';
+    const destination = destinationRaw === 'dashboard' ? 'work' : destinationRaw;
     if (destination === 'instructions' || destination === 'agreements') {
       setStudioSection(destination);
       setStudioCreateRequest(null);
@@ -2795,15 +2804,13 @@ export default function App() {
   }, [loading, authRequired, identityAdviser, adviserPreferences.defaultLandingPage]);
 
   useEffect(() => {
-    if (!isAdmin && ['advisers', 'backups'].includes(tab)) setTab('dashboard');
+    if (!isAdmin && ['advisers', 'backups'].includes(tab)) setTab('work');
   }, [isAdmin, tab]);
 
   useEffect(() => {
-    if (!selectedClientId || !scopedClients.length) return;
-    if (!scopedClients.some((client) => client.id === selectedClientId)) {
-      setSelectedClientId(scopedClients[0].id);
-    }
-  }, [selectedClientId, scopedClients]);
+    if (tab !== 'clients' || !selectedClientId || !scopedClients.length) return;
+    if (!scopedClients.some((client) => client.id === selectedClientId)) setSelectedClientId(scopedClients[0].id);
+  }, [tab, selectedClientId, scopedClients]);
 
   useEffect(() => {
     if (!scopedCommercialClients.length) return;
@@ -3001,7 +3008,15 @@ export default function App() {
   }
 
   return (
-    <div className={`app-shell ${festiveActive ? 'festive-mode' : ''} ${adviserPreferences.density === 'compact' ? 'density-compact' : 'density-standard'}`}>
+    <div className={`app-shell matter-workspace-v17 ${festiveActive ? 'festive-mode' : ''} ${adviserPreferences.density === 'compact' ? 'density-compact' : 'density-standard'}`}>
+      <MatterWorkspaceSidebar
+        tab={tab}
+        onNavigate={switchTab}
+        adviser={identityAdviser || headerSnapshotAdviser}
+        isAdmin={isAdmin}
+        newEnquiryCount={(data.intakeEnquiries || []).filter((item) => item.status === 'New').length}
+        actionCount={activeClients.filter((client) => ['Adviser action required', 'Ready to progress', 'No current action'].includes(normaliseMatterStatus(client.matterStatus, client.clientStatus, client.nextAction))).length}
+      />
       {festiveActive && <FestiveAtmosphere />}
       <header className="topbar">
         <div className="brand-wrap">
@@ -3012,6 +3027,11 @@ export default function App() {
             <span>Client progress, deadlines and billing</span>
           </div>
         </div>
+        <div className="matter-global-search">
+          <Search size={17} />
+          <input value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') switchTab('clients'); }} placeholder="Search clients, OneLaw number, email or matter…" />
+        </div>
+        <label className="matter-scope-select desktop-only"><span>View</span><select value={dashboardAdviserFilter} onChange={(event) => setDashboardAdviserFilter(event.target.value)}><option value="all">All advisers</option>{data.advisers.filter((item) => item.active !== false).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
         <HeaderLocalSnapshot adviser={headerSnapshotAdviser} />
         <AuthStatus user={identityUser} adviser={identityAdviser} accessRole={currentAccessRole} accessCodeActive={Boolean(accessCode)} onLogout={logoutIdentityUser} />
         <div className="top-actions desktop-only">
@@ -3164,7 +3184,7 @@ export default function App() {
             )}
 
             {tab === 'intake' && (
-              <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} identityUser={identityUser} canExportContacts={canExportContacts} isAdmin={isAdmin} statuses={data.intakeStatuses || INTAKE_STATUSES} seminars={data.seminars || []} seminarRegistrations={data.seminarRegistrations || []} feedbackSubmissions={data.feedbackSubmissions || []} saveIntakeEnquiry={saveIntakeEnquiry} archiveIntakeEnquiries={archiveIntakeEnquiries} restoreIntakeEnquiry={restoreIntakeEnquiry} permanentlyDeleteIntakeEnquiry={permanentlyDeleteIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendIntakeCvRequestEmail={sendIntakeCvRequestEmail} sendIntakeResultsToAdviser={sendIntakeResultsToAdviser} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} sendContactUnableToAssistEmail={sendContactUnableToAssistEmail} downloadIntakeUpload={downloadIntakeUpload} saveSeminar={saveSeminar} deleteSeminar={deleteSeminar} saveSeminarRegistration={saveSeminarRegistration} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail} saveFeedbackSubmission={saveFeedbackSubmission} deleteFeedbackSubmission={deleteFeedbackSubmission} saving={saving} openClientRecord={openClientRecord} confirmAction={askCrmConfirm} refreshIntakeData={refreshIntakeData} intakeRefreshing={intakeRefreshing} lastIntakeRefreshAt={lastIntakeRefreshAt} />
+              <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} identityUser={identityUser} canExportContacts={canExportContacts} statuses={data.intakeStatuses || INTAKE_STATUSES} seminars={data.seminars || []} seminarRegistrations={data.seminarRegistrations || []} feedbackSubmissions={data.feedbackSubmissions || []} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} archiveIntakeEnquiries={archiveIntakeEnquiries} restoreIntakeEnquiry={restoreIntakeEnquiry} permanentlyDeleteIntakeEnquiry={permanentlyDeleteIntakeEnquiry} isAdmin={isAdmin} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendIntakeCvRequestEmail={sendIntakeCvRequestEmail} sendIntakeResultsToAdviser={sendIntakeResultsToAdviser} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} sendContactUnableToAssistEmail={sendContactUnableToAssistEmail} downloadIntakeUpload={downloadIntakeUpload} saveSeminar={saveSeminar} deleteSeminar={deleteSeminar} saveSeminarRegistration={saveSeminarRegistration} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail} saveFeedbackSubmission={saveFeedbackSubmission} deleteFeedbackSubmission={deleteFeedbackSubmission} saving={saving} openClientRecord={openClientRecord} confirmAction={askCrmConfirm} refreshIntakeData={refreshIntakeData} intakeRefreshing={intakeRefreshing} lastIntakeRefreshAt={lastIntakeRefreshAt} />
             )}
 
             {tab === 'bookings' && (
@@ -3193,6 +3213,18 @@ export default function App() {
               />
             )}
 
+            {tab === 'work' && (
+              <MatterWorkDashboard clients={activeClients} advisers={data.advisers} openClientRecord={openClientRecord} setTab={switchTab} />
+            )}
+
+            {tab === 'clients' && (
+              <MatterClientRegister clients={filteredClients} advisers={data.advisers} clientQuery={clientQuery} setClientQuery={setClientQuery} adviserFilter={clientAdviserFilter} setAdviserFilter={setClientAdviserFilter} caseTypeFilter={caseTypeFilter} setCaseTypeFilter={setCaseTypeFilter} caseTypes={data.caseTypes} openClientRecord={openClientRecord} addClient={addClient} />
+            )}
+
+            {tab === 'matter' && selectedClient && (
+              <MatterCommandCentre client={selectedClient} advisers={data.advisers} calendarEntries={data.calendarEntries} saveClient={saveClient} saving={saving} onOpenFullRecord={() => switchTab('client-record')} onBack={() => switchTab('clients')} openInstructionsForClient={openInstructionsForClient} openAgreementsForClient={openAgreementsForClient} />
+            )}
+
             {tab === 'dashboard' && (
               <Dashboard clients={scopedClients} activeClients={activeClients} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} deadlineRows={deadlineRows} taskRows={taskRows} stageTemplates={data.stageTemplates} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} saveClient={saveClient} saving={saving} intakeEnquiries={data.intakeEnquiries || []} recentClientIds={recentClientIds} preferences={adviserPreferences} />
             )}
@@ -3209,7 +3241,7 @@ export default function App() {
               <LibraryWorkspace entries={data.libraryEntries} caseTypes={data.caseTypes} saveLibraryEntry={saveLibraryEntry} deleteLibraryEntry={deleteLibraryEntry} saving={saving} />
             )}
 
-            {tab === 'clients' && selectedClient && (
+            {tab === 'client-record' && selectedClient && (
               <ClientsWorkspace
                 clients={filteredClients}
                 selectedClient={selectedClient}
@@ -3252,7 +3284,10 @@ export default function App() {
             )}
 
             {tab === 'advisers' && canManageAdvisers && (
-              <AdviserProfiles advisers={data.advisers} clients={data.clients} saveAdviser={saveAdviser} saving={saving} />
+              <div className="stack">
+                <NotificationRecipientSettings settings={data.notificationRecipientSettings || []} advisers={data.advisers} onSave={saveNotificationRecipientSettings} saving={saving} />
+                <AdviserProfiles advisers={data.advisers} clients={data.clients} saveAdviser={saveAdviser} saving={saving} />
+              </div>
             )}
 
             {tab === 'backups' && canManageBackups && (
@@ -3366,6 +3401,205 @@ export default function App() {
 
 }
 
+
+
+
+function MatterWorkspaceSidebar({ tab = 'work', onNavigate, adviser = null, isAdmin = false, newEnquiryCount = 0, actionCount = 0 }) {
+  const activeKey = ['matter', 'client-record'].includes(tab) ? 'clients' : tab;
+  const primary = [
+    ['work', LayoutDashboard, 'My Work', actionCount],
+    ['clients', UsersRound, 'Clients', 0],
+    ['intake', ClipboardList, 'Enquiries', newEnquiryCount],
+    ['calendar', CalendarDays, 'Calendar', 0],
+  ];
+  const practice = [
+    ['tasks', ListChecks, 'Tasks', 0],
+    ['studio', FileText, 'Studio', 0],
+    ['commercial', Building2, 'Commercial', 0],
+    ['billing', CreditCard, 'Billing', 0],
+  ];
+  const more = [
+    ['home', CloudSun, 'My Day', 0],
+    ['bookings', Clock, 'Bookings', 0],
+    ['library', BookOpen, 'Resources', 0],
+    ['dashboard', LayoutDashboard, 'Legacy dashboard', 0],
+  ];
+  const render = ([key, Icon, label, badge]) => <button key={key} type="button" className={activeKey === key ? 'active' : ''} onClick={() => onNavigate?.(key)}><Icon size={18} /><span>{label}</span>{badge > 0 && <b>{badge}</b>}</button>;
+  return (
+    <aside className="matter-workspace-sidebar">
+      <div className="matter-sidebar-brand"><img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" /><small>Matter workspace</small></div>
+      <nav className="matter-sidebar-nav" aria-label="Matter workspace navigation">{primary.map(render)}</nav>
+      <div className="matter-sidebar-divider"><span>Practice</span></div>
+      <nav className="matter-sidebar-nav secondary">{practice.map(render)}</nav>
+      <div className="matter-sidebar-divider"><span>More</span></div>
+      <nav className="matter-sidebar-nav secondary">{more.map(render)}{isAdmin && render(['advisers', UserRound, 'Advisers', 0])}{isAdmin && render(['backups', ShieldCheck, 'Admin / Backup', 0])}</nav>
+      <div className="matter-sidebar-profile"><div className="matter-sidebar-avatar">{matterAdviserInitials(adviser)}</div><div><strong>{adviser?.name || 'THiS adviser'}</strong><small>{adviser?.role || 'Adviser workspace'}</small></div></div>
+    </aside>
+  );
+}
+
+function MatterWorkDashboard({ clients = [], advisers = [], openClientRecord, setTab }) {
+  const active = clients.filter((client) => client.clientStatus !== 'Closed');
+  const rows = active.map((client) => ({ ...client, matterStatus: normaliseMatterStatus(client.matterStatus, client.clientStatus, client.nextAction) }));
+  const overdue = rows.filter((client) => client.nextActionDue && dateDiff(client.nextActionDue) < 0);
+  const today = rows.filter((client) => client.nextActionDue && dateDiff(client.nextActionDue) === 0);
+  const noNext = rows.filter((client) => client.matterStatus === 'No current action' || (!client.nextAction && !client.matterReviewDate));
+  const waitingNoReview = rows.filter((client) => client.matterStatus.startsWith('Waiting') && !client.matterReviewDate && !client.nextActionDue);
+  const columns = [
+    { key: 'action', title: 'Needs my attention', dot: 'action', rows: rows.filter((client) => ['Adviser action required', 'No current action'].includes(client.matterStatus)) },
+    { key: 'client', title: 'Waiting on client', dot: 'client', rows: rows.filter((client) => ['Client action required', 'Waiting on third party'].includes(client.matterStatus)) },
+    { key: 'inz', title: 'Waiting on INZ', dot: 'inz', rows: rows.filter((client) => client.matterStatus === 'Waiting on INZ') },
+    { key: 'ready', title: 'Ready to progress', dot: 'ready', rows: rows.filter((client) => client.matterStatus === 'Ready to progress') },
+  ];
+  const suggested = [...rows].sort((a, b) => matterPriorityScore(a) - matterPriorityScore(b))[0];
+  return (
+    <section className="matter-work-page">
+      <div className="matter-page-head"><div><span className="eyebrow">Daily workspace</span><h1>My Work</h1><p>Work from what needs attention now. Waiting matters stay quiet until their review date or a new event brings them back.</p></div>{suggested && <button className="btn dark" type="button" onClick={() => openClientRecord?.(suggested.id)}>Open next matter <ChevronRight size={16} /></button>}</div>
+      <div className="matter-metric-row">
+        <MatterMetric label="Needs my attention" value={columns[0].rows.length} />
+        <MatterMetric label="Overdue" value={overdue.length} warning={overdue.length > 0} />
+        <MatterMetric label="Due today" value={today.length} />
+        <MatterMetric label="Waiting on client" value={columns[1].rows.length} />
+        <MatterMetric label="Waiting on INZ" value={columns[2].rows.length} />
+        <MatterMetric label="No next action" value={noNext.length} warning={noNext.length > 0} />
+      </div>
+      <div className="matter-kanban">
+        {columns.map((column) => <section className={`matter-kanban-column ${column.key}`} key={column.key}><div className="matter-kanban-head"><span><i></i>{column.title}</span><b>{column.rows.length}</b></div><div className="matter-kanban-list">{column.rows.length ? column.rows.slice(0, 18).map((client) => <MatterKanbanCard key={client.id} client={client} advisers={advisers} onOpen={() => openClientRecord?.(client.id)} />) : <div className="matter-kanban-empty">Nothing here at the moment.</div>}</div></section>)}
+      </div>
+      <div className="matter-work-lower">
+        <section className="panel matter-quiet-prompts"><div><span className="eyebrow">Quiet prompts</span><h2>Things worth checking</h2></div><div className="matter-prompt-grid"><button type="button" onClick={() => setTab?.('clients')}><strong>{noNext.length} matter{noNext.length === 1 ? '' : 's'} with no next action</strong><small>Active files should always have either a next action or a controlled waiting state.</small></button><button type="button" onClick={() => setTab?.('clients')}><strong>{waitingNoReview.length} waiting matter{waitingNoReview.length === 1 ? '' : 's'} without a review date</strong><small>A waiting file should know when it comes back into the adviser queue.</small></button><button type="button" onClick={() => setTab?.('intake')}><strong>Keep conversion disciplined</strong><small>Assign an adviser before converting intake so ownership is clear from day one.</small></button></div></section>
+        {suggested && <section className="panel matter-next-up"><span className="eyebrow">Suggested next file</span><h2>Keep the day moving</h2><strong>{clientName(suggested)}</strong><small>{suggested.caseType} · {suggested.nextAction || 'Set the next action'}</small><button className="btn dark" type="button" onClick={() => openClientRecord?.(suggested.id)}>Open matter <ChevronRight size={15} /></button></section>}
+      </div>
+    </section>
+  );
+}
+
+function MatterMetric({ label, value, warning = false }) {
+  return <div className={`matter-metric ${warning ? 'warning' : ''}`}><span>{label}</span><strong>{value}</strong></div>;
+}
+
+function MatterKanbanCard({ client, advisers = [], onOpen }) {
+  const primary = advisers.find((item) => item.id === client.primaryAdviserId);
+  const status = normaliseMatterStatus(client.matterStatus, client.clientStatus, client.nextAction);
+  const due = client.matterReviewDate || client.nextActionDue || '';
+  const diff = due ? dateDiff(due) : null;
+  return <button className="matter-kanban-card" type="button" onClick={onOpen}><div className="matter-card-top"><div><strong>{clientName(client)}</strong><small>{client.caseType || 'Matter'}</small></div><span className={`matter-status-pill ${matterStatusClass(status)}`}>{shortMatterStatus(status)}</span></div><div className="matter-card-action"><span>{status.startsWith('Waiting') ? 'Review / waiting for' : 'Next action'}</span><strong>{client.nextAction || (status === 'No current action' ? 'Set the next action' : matterWaitingLabel(status))}</strong></div><div className="matter-card-meta"><span className={diff !== null && diff < 0 ? 'overdue' : ''}>{due ? (diff !== null && diff < 0 ? `Overdue · ${formatRecordDate(due)}` : formatRecordDate(due)) : 'No date'}</span><span>{primary?.name || 'Unassigned'}</span></div></button>;
+}
+
+function MatterClientRegister({ clients = [], advisers = [], clientQuery, setClientQuery, adviserFilter, setAdviserFilter, caseTypeFilter, setCaseTypeFilter, caseTypes = [], openClientRecord, addClient }) {
+  const [statusFilter, setStatusFilter] = useState('all');
+  const statusFiltered = clients.filter((client) => {
+    const status = normaliseMatterStatus(client.matterStatus, client.clientStatus, client.nextAction);
+    if (statusFilter === 'all') return true;
+    if (statusFilter === 'action') return status === 'Adviser action required';
+    if (statusFilter === 'client') return ['Client action required', 'Waiting on third party'].includes(status);
+    if (statusFilter === 'inz') return status === 'Waiting on INZ';
+    if (statusFilter === 'ready') return status === 'Ready to progress';
+    if (statusFilter === 'none') return status === 'No current action';
+    return true;
+  });
+  return <section className="matter-client-register"><div className="matter-page-head"><div><span className="eyebrow">Matter register</span><h1>Clients</h1><p>See ownership, stage, operating status and the next action without opening every record.</p></div><button className="btn dark" type="button" onClick={addClient}><Plus size={16} />New client</button></div><div className="matter-filter-chips">{[['all','All'],['action','Needs action'],['client','Waiting on client'],['inz','Waiting on INZ'],['ready','Ready to progress'],['none','No next action']].map(([key,label]) => <button key={key} type="button" className={statusFilter === key ? 'active' : ''} onClick={() => setStatusFilter(key)}>{label}</button>)}</div><section className="panel matter-client-table-card"><div className="matter-client-tools"><label><Search size={15} /><input value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} placeholder="Search clients, email, OneLaw number or matter…" /></label><select value={adviserFilter} onChange={(event) => setAdviserFilter(event.target.value)}><option value="mine">My clients</option><option value="all">All clients in current view</option><option value="unassigned">Unassigned clients</option>{advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}</select><select value={caseTypeFilter} onChange={(event) => setCaseTypeFilter(event.target.value)}><option value="all">All matter types</option>{caseTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></div><div className="matter-client-table"><div className="matter-client-table-head"><span>Client</span><span>Matter</span><span>Stage</span><span>Status</span><span>Next action / review</span><span>Due</span></div>{statusFiltered.map((client) => { const status=normaliseMatterStatus(client.matterStatus,client.clientStatus,client.nextAction); const due=client.matterReviewDate||client.nextActionDue||''; const diff=due?dateDiff(due):null; return <button className="matter-client-row" type="button" key={client.id} onClick={() => openClientRecord?.(client.id)}><span><strong>{clientName(client)}</strong><small>{client.oneLawClientNumber ? `OneLaw ${client.oneLawClientNumber}` : client.email || 'No email'}</small></span><span>{client.caseType || 'Matter'}</span><span>{currentStageLabel(client)}</span><span><i className={`matter-status-pill ${matterStatusClass(status)}`}>{status}</i></span><span><strong>{client.nextAction || matterWaitingLabel(status)}</strong></span><span className={diff !== null && diff < 0 ? 'overdue' : ''}>{due ? formatRecordDate(due) : 'No date'}</span></button>})}{!statusFiltered.length && <div className="matter-table-empty">No clients match this view.</div>}</div></section></section>;
+}
+
+function MatterCommandCentre({ client, advisers = [], calendarEntries = [], saveClient, saving, onOpenFullRecord, onBack, openInstructionsForClient, openAgreementsForClient }) {
+  const [updateOpen, setUpdateOpen] = useState(false);
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [noteText, setNoteText] = useState('');
+  const [portalTemplateKey, setPortalTemplateKey] = useState('');
+  const status = normaliseMatterStatus(client.matterStatus, client.clientStatus, client.nextAction);
+  const primary = advisers.find((item) => item.id === client.primaryAdviserId);
+  const appliedStages = normaliseStages(client.stages).filter((stage) => stage.applied !== false).sort((a,b) => Number(a.sortOrder||0)-Number(b.sortOrder||0));
+  const currentIndex = Math.max(0, appliedStages.findIndex((stage) => !stage.completed));
+  const docs = normaliseDocumentChecklist(client.documentChecklist).filter((item) => item.applied !== false);
+  const obtained = docs.filter((item) => item.obtained).length;
+  const outstanding = docs.filter((item) => !item.obtained);
+  const appointments = (calendarEntries || []).filter((entry) => entry.clientId === client.id && entry.status !== 'Completed').sort((a,b) => String(a.appointmentDate||'').localeCompare(String(b.appointmentDate||'')));
+  const activity = buildMatterTimeline(client).slice(0, 12);
+  const applyPortalTemplate = async (key, publish = false) => {
+    const template = PORTAL_UPDATE_TEMPLATES.find((item) => item.key === key); if (!template) return;
+    setPortalTemplateKey(key);
+    await saveClient?.({ ...client, portalStatusUpdate: template.current, portalNextStep: template.next, portalPublishNow: Boolean(publish && client.portalEnabled) }, { resetNewClientForm: false });
+  };
+  async function saveNote() {
+    const text=noteText.trim(); if(!text) return;
+    const nextActivity=[...normaliseMatterActivity(client.matterActivity), makeMatterActivity('note','Adviser note added',text,primary?.name||'Adviser')];
+    await saveClient?.({ ...client, matterActivity: nextActivity }, { resetNewClientForm:false }); setNoteText(''); setNoteOpen(false);
+  }
+  return <section className="matter-command-centre"><div className="matter-command-head panel"><div className="matter-command-top"><div className="matter-identity"><div className="matter-client-avatar">{clientInitials(client)}</div><div><h1>{clientName(client)}</h1><p>{client.caseType || 'Matter'}{client.oneLawClientNumber ? ` · OneLaw ${client.oneLawClientNumber}` : ''}{primary?.name ? ` · ${primary.name}` : ' · Unassigned'}</p><span>{currentStageLabel(client)}</span></div></div><div className="matter-command-actions"><button className="btn" type="button" onClick={onBack}><ChevronRight size={15} style={{transform:'rotate(180deg)'}} />Clients</button><a className="btn" href={client.email ? `mailto:${client.email}` : undefined} aria-disabled={!client.email}><Mail size={15} />Email client</a><button className="btn" type="button" onClick={() => setNoteOpen(true)}><Pencil size={15} />Add note</button><details className="matter-more-menu"><summary className="btn"><MoreHorizontal size={15} />More</summary><div><button type="button" onClick={() => openInstructionsForClient?.(client.id)}><FileText size={15} />Instructions</button><button type="button" onClick={() => openAgreementsForClient?.(client.id)}><FileCheck2 size={15} />Agreement</button><button type="button" onClick={onOpenFullRecord}><Database size={15} />Full record</button></div></details><button className="btn dark" type="button" onClick={() => setUpdateOpen(true)}><Plus size={15} />Update file</button></div></div><div className="matter-command-strip"><span>Matter status <b>{status}</b></span><span>Documents <b>{obtained} / {docs.length || 0}</b></span><span>Portal <b>{client.portalEnabled ? 'Active' : 'Not active'}</b></span><span>Billing <b>{matterBillingSummary(client)}</b></span><span>Next appointment <b>{appointments[0] ? `${formatRecordDate(appointments[0].appointmentDate)}${appointments[0].startTime ? ` · ${appointments[0].startTime}` : ''}` : 'None'}</b></span></div></div>
+    <MatterStageFlow stages={appliedStages} currentIndex={currentIndex} />
+    <div className="matter-control-grid"><section className="matter-primary-action"><div><span className="eyebrow">Primary next action</span><h2>{client.nextAction || (status === 'No current action' ? 'Set the next action' : matterWaitingLabel(status))}</h2><p>{client.nextActionDue ? `Due ${formatRecordDate(client.nextActionDue)}` : client.matterReviewDate ? `Review ${formatRecordDate(client.matterReviewDate)}` : 'No date'}{primary?.name ? ` · ${primary.name}` : ''} · {status}</p></div><div><button className="btn mint" type="button" onClick={() => setUpdateOpen(true)}><CheckCircle2 size={15} />Complete / update</button><button className="btn" type="button" onClick={() => setUpdateOpen(true)}>Change</button></div></section><section className="panel matter-operating-state"><span className="eyebrow">Current operating state</span><div><label>Status</label><b><i className={`matter-status-pill ${matterStatusClass(status)}`}>{status}</i></b></div><div><label>We are waiting for</label><b>{matterWaitingLabel(status, primary?.name)}</b></div><div><label>Review / due date</label><b>{formatRecordDate(client.matterReviewDate || client.nextActionDue) || 'No date'}</b></div>{matterSafetyWarning(client) && <p>{matterSafetyWarning(client)}</p>}</section></div>
+    <div className="matter-section-tabs"><button className="active">Overview</button><button onClick={onOpenFullRecord}>Work</button><button onClick={onOpenFullRecord}>Documents</button><button onClick={onOpenFullRecord}>Communications</button><button onClick={onOpenFullRecord}>Full record</button></div>
+    <div className="matter-overview-grid"><div><section className="panel matter-overview-card"><span className="eyebrow">Operational view</span><h2>What needs to happen</h2><p>Keep one primary action visible, with supporting work underneath it.</p><div className="matter-work-items"><MatterWorkItem number="1" title={client.nextAction || 'Set the next action'} meta={client.nextActionDue ? `Primary action · ${formatRecordDate(client.nextActionDue)}` : 'Primary action'} primary onOpen={() => setUpdateOpen(true)} />{outstanding.slice(0,4).map((doc,index) => <MatterWorkItem key={doc.id} number={String(index+2)} title={doc.name} meta={doc.reviewDate ? `Outstanding · review ${formatRecordDate(doc.reviewDate)}` : 'Outstanding document'} onOpen={onOpenFullRecord} />)}{outstanding.length===0 && <MatterWorkItem number="✓" title="Document checklist complete" meta="Ready for the next substantive step" onOpen={() => setUpdateOpen(true)} />}</div></section><section className="panel matter-overview-card"><span className="eyebrow">Matter history</span><h2>Timeline</h2><p>Significant updates populate automatically so another adviser can understand the file quickly.</p><div className="matter-timeline">{activity.length ? activity.map((item) => <div className="matter-timeline-row" key={item.id}><i></i><div><strong>{item.title}</strong><small>{[formatPortalDateTime(item.createdAt), item.createdBy, item.detail].filter(Boolean).join(' · ')}</small></div></div>) : <p className="muted">No matter activity recorded yet.</p>}</div></section></div><div><section className="panel matter-overview-card"><span className="eyebrow">Documents</span><h2>Document readiness</h2><p>{obtained} of {docs.length} required items received.</p><div className="matter-doc-progress"><span style={{width:`${docs.length ? Math.round(obtained/docs.length*100) : 0}%`}}></span></div>{docs.slice(0,5).map((doc) => <div className={`matter-doc-row ${doc.obtained ? 'complete' : 'missing'}`} key={doc.id}><span><strong>{doc.name}</strong><small>{doc.obtained ? 'Obtained' : doc.reviewDate ? `Review ${formatRecordDate(doc.reviewDate)}` : 'Outstanding'}</small></span><b>{doc.obtained ? '✓' : 'Required'}</b></div>)}<button className="btn full" type="button" onClick={onOpenFullRecord}>Open document checklist</button></section><section className="panel matter-overview-card"><span className="eyebrow">Client-facing</span><h2>Portal update</h2><p>Use standard wording as the starting point. Edit only when this file actually needs something different.</p><div className="matter-portal-preview"><label>Standard update<select value={portalTemplateKey} onChange={(event) => { const key=event.target.value; setPortalTemplateKey(key); const template=PORTAL_UPDATE_TEMPLATES.find((item)=>item.key===key); if(template){ /* preview only */ } }}><option value="">Choose wording…</option>{PORTAL_UPDATE_TEMPLATES.map((item)=><option key={item.key} value={item.key}>{item.label}</option>)}</select></label><div><span>Current update</span><strong>{portalTemplateKey ? PORTAL_UPDATE_TEMPLATES.find((item)=>item.key===portalTemplateKey)?.current : client.portalStatusUpdate || 'No portal update published yet.'}</strong></div><div><span>What happens next</span><strong>{portalTemplateKey ? PORTAL_UPDATE_TEMPLATES.find((item)=>item.key===portalTemplateKey)?.next : client.portalNextStep || 'No next-step wording published yet.'}</strong></div><div className="button-row"><button className="btn" type="button" disabled={!portalTemplateKey || saving} onClick={() => applyPortalTemplate(portalTemplateKey,false)}>Save wording</button><button className="btn mint" type="button" disabled={!portalTemplateKey || saving || !client.portalEnabled} onClick={() => applyPortalTemplate(portalTemplateKey,true)}>Publish update</button></div>{!client.portalEnabled && <small className="muted">Portal is not active. Open the full record to enable access.</small>}</div></section></div></div>
+    {updateOpen && <GuidedMatterUpdateModal client={client} adviser={primary} onClose={() => setUpdateOpen(false)} saveClient={saveClient} saving={saving} />}
+    {noteOpen && <div className="matter-modal-backdrop" onMouseDown={(event)=>{if(event.target===event.currentTarget)setNoteOpen(false)}}><section className="matter-simple-modal"><div><span className="eyebrow">Internal file note</span><h2>Add note</h2></div><textarea rows="6" value={noteText} onChange={(event)=>setNoteText(event.target.value)} placeholder="Record the note for the matter timeline…" autoFocus /><div className="button-row"><button className="btn" type="button" onClick={()=>setNoteOpen(false)}>Cancel</button><button className="btn dark" type="button" onClick={saveNote} disabled={!noteText.trim()||saving}>Save note</button></div></section></div>}
+  </section>;
+}
+
+function MatterStageFlow({ stages = [], currentIndex = 0 }) {
+  if (!stages.length) return null;
+  return <section className="panel matter-stage-flow"><div className="matter-stage-flow-head"><h3>Matter journey</h3><span>Stage answers “where are we?” · Status and next action answer “what happens now?”</span></div><div className="matter-stage-track">{stages.map((stage,index)=><div className={`matter-stage ${stage.completed ? 'done' : index===currentIndex ? 'active' : 'future'}`} key={stage.id}><i>{stage.completed?'✓':index+1}</i><b>{stage.label}</b></div>)}</div></section>;
+}
+
+function MatterWorkItem({ number, title, meta, onOpen, primary = false }) {
+  return <div className={`matter-work-item ${primary ? 'primary' : ''}`}><i>{number}</i><span><strong>{title}</strong><small>{meta}</small></span><button type="button" onClick={onOpen}>Open</button></div>;
+}
+
+function GuidedMatterUpdateModal({ client, adviser = null, onClose, saveClient, saving }) {
+  const [step, setStep] = useState(1);
+  const [eventType, setEventType] = useState('Reviewed documents');
+  const suggestion = useMemo(() => buildMatterUpdateSuggestion(client,eventType),[client,eventType]);
+  const [stageId,setStageId] = useState(suggestion.stageId);
+  const [matterStatus,setMatterStatus] = useState(suggestion.matterStatus);
+  const [nextAction,setNextAction] = useState(suggestion.nextAction);
+  const [actionDate,setActionDate] = useState(suggestion.actionDate);
+  const [note,setNote] = useState(suggestion.note);
+  const [portalTemplateKey,setPortalTemplateKey] = useState(suggestion.portalTemplateKey);
+  const [publishPortal,setPublishPortal] = useState(Boolean(suggestion.portalTemplateKey && client.portalEnabled));
+  const [timeline,setTimeline] = useState(true);
+  const [error,setError] = useState('');
+  useEffect(()=>{const next=buildMatterUpdateSuggestion(client,eventType);setStageId(next.stageId);setMatterStatus(next.matterStatus);setNextAction(next.nextAction);setActionDate(next.actionDate);setNote(next.note);setPortalTemplateKey(next.portalTemplateKey);setPublishPortal(Boolean(next.portalTemplateKey&&client.portalEnabled));setError('');},[eventType,client.id]);
+  const appliedStages=normaliseStages(client.stages).filter((item)=>item.applied!==false).sort((a,b)=>Number(a.sortOrder||0)-Number(b.sortOrder||0));
+  const waiting=matterStatus.startsWith('Waiting');
+  function validate(){if(matterStatus==='No current action'){setError('Choose a next action or a controlled waiting status before saving this active matter.');return false}if(matterStatus!=='Completed'&&!nextAction.trim()){setError('Add the primary next action before saving.');return false}if(waiting&&!actionDate){setError('Waiting matters need a review date so they return to My Work.');return false}setError('');return true}
+  async function save(){if(!validate())return;const template=PORTAL_UPDATE_TEMPLATES.find((item)=>item.key===portalTemplateKey);const activity=timeline?[...normaliseMatterActivity(client.matterActivity),makeMatterActivity('workflow',suggestion.activityTitle,note||suggestion.activityDetail,adviser?.name||'Adviser')]:normaliseMatterActivity(client.matterActivity);const nextStages=applyMatterStageSelection(client.stages,stageId,matterStatus==='Completed');const payload={...client,stages:nextStages,matterStatus,matterReviewDate:waiting?actionDate:'',nextAction:nextAction.trim(),nextActionDue:waiting?'':(actionDate||''),matterActivity:activity,portalStatusUpdate:template?template.current:client.portalStatusUpdate,portalNextStep:template?template.next:client.portalNextStep,portalPublishNow:Boolean(publishPortal&&template&&client.portalEnabled)};await saveClient?.(payload,{resetNewClientForm:false});onClose?.()}
+  return <div className="matter-modal-backdrop" onMouseDown={(event)=>{if(event.target===event.currentTarget)onClose?.()}}><section className="matter-guided-modal"><div className="matter-modal-head"><div><span className="eyebrow">One guided action</span><h2>Update file</h2><p>Record what happened. The CRM proposes the related housekeeping; you remain in control.</p></div><button className="btn" type="button" onClick={onClose}><X size={16} /></button></div><div className="matter-update-steps"><span className={step===1?'active':''}>1 · What happened</span><span className={step===2?'active':''}>2 · Housekeeping</span><span className={step===3?'active':''}>3 · Confirm</span></div>{step===1&&<div className="matter-modal-body"><label className="field"><span>What happened?</span><select value={eventType} onChange={(event)=>setEventType(event.target.value)}>{MATTER_UPDATE_EVENTS.map((item)=><option key={item}>{item}</option>)}</select></label><label className="field"><span>Internal note</span><textarea rows="5" value={note} onChange={(event)=>setNote(event.target.value)} /></label><div className="matter-suggestion-box"><strong>What the CRM understands</strong><p>{suggestion.explanation}</p></div></div>}{step===2&&<div className="matter-modal-body matter-housekeeping"><label><span>Stage</span><select value={stageId} onChange={(event)=>setStageId(event.target.value)}><option value="">Keep current stage</option>{appliedStages.map((item)=><option key={item.id} value={item.id}>{item.label}</option>)}</select></label><label><span>Operating status</span><select value={matterStatus} onChange={(event)=>setMatterStatus(event.target.value)}>{MATTER_STATUSES.filter((item)=>item!=='No current action'||client.clientStatus==='Closed').map((item)=><option key={item}>{item}</option>)}</select></label><label className="wide"><span>{waiting?'Review action':'Primary next action'}</span><input value={nextAction} onChange={(event)=>setNextAction(event.target.value)} /></label><label><span>{waiting?'Review date':'Due date'}</span><input type="date" value={actionDate} onChange={(event)=>setActionDate(event.target.value)} /></label><label><span>Portal wording</span><select value={portalTemplateKey} onChange={(event)=>setPortalTemplateKey(event.target.value)}><option value="">No portal wording change</option>{PORTAL_UPDATE_TEMPLATES.map((item)=><option key={item.key} value={item.key}>{item.label}</option>)}</select></label><label className="matter-check"><input type="checkbox" checked={publishPortal} disabled={!portalTemplateKey||!client.portalEnabled} onChange={(event)=>setPublishPortal(event.target.checked)} /><span>Publish portal update now{!client.portalEnabled?' (portal not active)':''}</span></label><label className="matter-check"><input type="checkbox" checked={timeline} onChange={(event)=>setTimeline(event.target.checked)} /><span>Add this event to the matter timeline</span></label><div className="matter-safety-box">Active files cannot be left with neither a next action nor a controlled waiting state. Waiting files require a review date.</div></div>}{step===3&&<div className="matter-modal-body"><div className="matter-confirm-summary"><h3>One save will update</h3><div><span>Event</span><b>{eventType}</b></div><div><span>Stage</span><b>{appliedStages.find((item)=>item.id===stageId)?.label||currentStageLabel(client)}</b></div><div><span>Status</span><b>{matterStatus}</b></div><div><span>{waiting?'Review action':'Next action'}</span><b>{nextAction||'—'}{actionDate?` · ${formatRecordDate(actionDate)}`:''}</b></div><div><span>Portal</span><b>{portalTemplateKey?(publishPortal?'Publish standard update':'Save standard wording'):'No change'}</b></div><div><span>Timeline</span><b>{timeline?'Add event':'No timeline event'}</b></div></div></div>}<div className="matter-modal-foot"><span className="validation-message">{error}</span><div>{step>1&&<button className="btn" type="button" onClick={()=>setStep(step-1)}>Back</button>}<button className="btn" type="button" onClick={onClose}>Cancel</button>{step<3?<button className="btn dark" type="button" onClick={()=>{if(step===2&&!validate())return;setStep(step+1)}}>Continue <ChevronRight size={15}/></button>:<button className="btn dark" type="button" disabled={saving} onClick={save}><Save size={15}/>{saving?'Saving…':'Save update'}</button>}</div></div></section></div>;
+}
+
+const MATTER_UPDATE_EVENTS = ['Reviewed documents','Documents received','Application prepared','Application submitted','INZ update received','Further information requested','Response submitted','Application approved','Spoke with client','Other'];
+
+function buildMatterUpdateSuggestion(client,eventType){
+  const stages=normaliseStages(client.stages).filter((item)=>item.applied!==false).sort((a,b)=>Number(a.sortOrder||0)-Number(b.sortOrder||0));
+  const currentIndex=Math.max(0,stages.findIndex((item)=>!item.completed));
+  const current=stages[currentIndex];
+  const next=stages[Math.min(stages.length-1,currentIndex+1)];
+  const match=(pattern,fallback=current?.id||'')=>stages.find((item)=>pattern.test(item.label))?.id||fallback;
+  const plus=(days)=>addDaysIso(todayIso(),days);
+  const defaults={stageId:current?.id||'',matterStatus:'Adviser action required',nextAction:client.nextAction||'Set next action',actionDate:plus(2),portalTemplateKey:'',note:'',activityTitle:'Matter updated',activityDetail:'',explanation:'Keep the current stage and confirm the operating status and next action.'};
+  const map={
+    'Reviewed documents':{...defaults,nextAction:'Complete final adviser review',activityTitle:'Documents reviewed',note:'Documents reviewed. Record any remaining evidence gaps.',explanation:'This is adviser work within the current stage. Keep ownership with the adviser and move the primary action forward.'},
+    'Documents received':{...defaults,nextAction:'Review newly received documents',actionDate:plus(1),activityTitle:'Documents received',note:'New documents received and ready for adviser review.',explanation:'A client item has arrived. The file should return to adviser action rather than remain in a waiting queue.'},
+    'Application prepared':{...defaults,stageId:next?.id||current?.id||'',matterStatus:'Ready to progress',nextAction:'Complete final review and lodge application',actionDate:plus(1),portalTemplateKey:'ready-to-lodge',activityTitle:'Application preparation completed',note:'Application preparation completed and ready for final review.',explanation:'Preparation is complete. Move the file to the next stage and surface it as ready to progress.'},
+    'Application submitted':{...defaults,stageId:match(/lodg|submit|filed/i,next?.id||current?.id||''),matterStatus:'Waiting on INZ',nextAction:'Review INZ position',actionDate:plus(14),portalTemplateKey:'application-submitted',activityTitle:'Application submitted to Immigration New Zealand',note:'Application submitted to Immigration New Zealand.',explanation:'Lodgement moves the matter into a controlled waiting state with a review date rather than leaving another adviser task.'},
+    'INZ update received':{...defaults,matterStatus:'Adviser action required',nextAction:'Review INZ update and advise client',actionDate:plus(1),activityTitle:'INZ update received',note:'Immigration New Zealand update received for adviser review.',explanation:'An INZ event wakes the matter up and returns it to adviser action until assessed.'},
+    'Further information requested':{...defaults,stageId:match(/further|information|rfi|ppi/i,current?.id||''),matterStatus:'Adviser action required',nextAction:'Prepare response to INZ request',actionDate:plus(10),portalTemplateKey:'further-information',activityTitle:'Further information request received from INZ',note:'Further information request received. Review the request and prepare the response.',explanation:'A request from INZ should expose the response deadline, client communication and one clear primary response action.'},
+    'Response submitted':{...defaults,stageId:next?.id||current?.id||'',matterStatus:'Waiting on INZ',nextAction:'Review INZ position after response',actionDate:plus(14),portalTemplateKey:'response-submitted',activityTitle:'Further information response submitted',note:'Requested further information submitted to Immigration New Zealand.',explanation:'The response is filed. Adviser work is complete for now, so the matter returns to a controlled waiting state.'},
+    'Application approved':{...defaults,stageId:stages[stages.length-1]?.id||current?.id||'',matterStatus:'Adviser action required',nextAction:'Send approval information and complete closure',actionDate:todayIso(),portalTemplateKey:'approved',activityTitle:'Application approved',note:'Approval received. Complete client communication, billing and file closure.',explanation:'Approval triggers final communication and closure work rather than making the matter disappear immediately.'},
+    'Spoke with client':{...defaults,nextAction:'Complete agreed client follow-up',activityTitle:'Client discussion recorded',note:'Spoke with client. Record the agreed follow-up and any key advice.',explanation:'A client conversation normally changes the next action rather than the immigration stage.'},
+    'Other':{...defaults,activityTitle:'Matter update recorded',note:'',explanation:'No automatic stage change is assumed. Confirm the operating state and next action.'},
+  };
+  return map[eventType]||defaults;
+}
+
+function applyMatterStageSelection(stages=[],stageId='',completeAll=false){const rows=normaliseStages(stages);if(completeAll)return rows.map((stage)=>stage.applied===false?stage:{...stage,completed:true,completedDate:stage.completedDate||todayIso()});if(!stageId)return rows;const applied=rows.filter((item)=>item.applied!==false).sort((a,b)=>Number(a.sortOrder||0)-Number(b.sortOrder||0));const targetIndex=applied.findIndex((item)=>item.id===stageId);if(targetIndex<0)return rows;const before=new Set(applied.slice(0,targetIndex).map((item)=>item.id));return rows.map((stage)=>{if(stage.applied===false)return stage;if(before.has(stage.id))return {...stage,completed:true,completedDate:stage.completedDate||todayIso()};if(stage.id===stageId)return {...stage,completed:false,completedDate:''};return stage;});}
+function makeMatterActivity(type,title,detail,createdBy){return {id:`matter-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,type,title,detail,createdAt:new Date().toISOString(),createdBy};}
+function buildMatterTimeline(client){const activity=normaliseMatterActivity(client.matterActivity);const actionLog=normaliseNextActionLog(client.nextActionLog).map((item)=>({id:item.id,type:'action',title:item.action||'Previous next action',detail:item.replacedByAction?`Completed / replaced by: ${item.replacedByAction}`:'Completed action',createdAt:item.completedAt||item.completedDate,createdBy:''}));return [...activity,...actionLog].sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));}
+function matterPriorityScore(client){const status=normaliseMatterStatus(client.matterStatus,client.clientStatus,client.nextAction);const due=client.nextActionDue||client.matterReviewDate;const diff=due?dateDiff(due):999;const weight=status==='Adviser action required'?0:status==='Ready to progress'?10:status==='No current action'?5:50;return weight+(diff===null?999:diff);}
+function shortMatterStatus(status){if(status==='Adviser action required')return 'Adviser';if(status==='Client action required')return 'Client';if(status==='Waiting on INZ')return 'INZ';if(status==='Waiting on third party')return 'Third party';if(status==='Ready to progress')return 'Ready';if(status==='No current action')return 'No action';return status;}
+function matterWaitingLabel(status,adviserName=''){if(status==='Waiting on INZ')return 'Immigration New Zealand';if(status==='Client action required')return 'Client';if(status==='Waiting on third party')return 'Third party';if(status==='Ready to progress')return `${adviserName||'Adviser'} to progress`;if(status==='Adviser action required')return `${adviserName||'Adviser'} to act`;if(status==='Completed')return 'Matter completed';return 'No clear next step';}
+function matterSafetyWarning(client){const status=normaliseMatterStatus(client.matterStatus,client.clientStatus,client.nextAction);if(status==='No current action')return 'This active matter has no next action. Set one before it quietly falls out of the workflow.';if(status.startsWith('Waiting')&&!client.matterReviewDate&&!client.nextActionDue)return 'This matter is waiting but has no review date. Add one so it returns to My Work.';return '';}
+function matterBillingSummary(client){const items=normaliseBillingItems(client.billing||[]);const overdue=items.filter((item)=>effectiveBillingStatus(item,client)==='Overdue');if(overdue.length)return `${overdue.length} overdue`;const wip=items.filter((item)=>effectiveBillingStatus(item,client)==='WIP');return wip.length?`${wip.length} WIP`:'Current';}
+function clientInitials(client){return [client?.firstName,client?.lastName].filter(Boolean).map((part)=>String(part).trim().charAt(0)).join('').slice(0,2).toUpperCase()||'TH';}
+function matterAdviserInitials(adviser){return String(adviser?.name||'TH').split(/\s+/).filter(Boolean).slice(0,2).map((part)=>part.charAt(0)).join('').toUpperCase();}
 
 
 function CommercialClientsWorkspace({
@@ -4313,8 +4547,6 @@ function IntakeFormApp() {
   const submissionKeyRef = useRef(makeIntakeSubmissionKey());
 
   const hasPartner = form.hasPartner === 'Yes';
-  const hasOtherCitizenship = form.hasOtherCitizenship === 'Yes';
-  const partnerHasOtherCitizenship = form.partnerHasOtherCitizenship === 'Yes';
   const hasChildren = form.hasChildren === 'Yes';
   const isInNewZealand = form.isInNewZealand === 'Yes';
   const hasNzJobOffer = form.hasNzJobOffer === 'Yes' || form.hasNzJobOffer === 'In progress';
@@ -4475,8 +4707,6 @@ function IntakeFormApp() {
     if (name === 'hasPartner' && value !== 'Yes') setPartnerCvFile(null);
     setForm((current) => {
       const next = { ...current, [name]: value };
-      if (name === 'hasOtherCitizenship') next.otherCitizenships = value === 'Yes' ? (current.otherCitizenships?.length ? current.otherCitizenships : ['']) : [];
-      if (name === 'partnerHasOtherCitizenship') next.partnerOtherCitizenships = value === 'Yes' ? (current.partnerOtherCitizenships?.length ? current.partnerOtherCitizenships : ['']) : [];
       if (name === 'targetPathway' && value) {
         next.targetPathway = value;
         const workResidenceOrUnsure = /work|permanent|residence|not sure/i.test(value);
@@ -4503,8 +4733,6 @@ function IntakeFormApp() {
         next.partnerFullName = '';
         next.partnerDateOfBirth = '';
         next.partnerCitizenship = '';
-        next.partnerHasOtherCitizenship = '';
-        next.partnerOtherCitizenships = [];
         next.partnerCurrentCountry = '';
         next.partnerVisaStatus = '';
         next.partnerNzStatus = '';
@@ -4567,33 +4795,6 @@ function IntakeFormApp() {
     });
   }
 
-
-  function setAdditionalCitizenship(kind, index, value) {
-    const key = kind === 'partner' ? 'partnerOtherCitizenships' : 'otherCitizenships';
-    setForm((current) => {
-      const values = [...(current[key] || [])];
-      values[index] = value;
-      return { ...current, [key]: values };
-    });
-  }
-
-  function addAdditionalCitizenship(kind) {
-    const key = kind === 'partner' ? 'partnerOtherCitizenships' : 'otherCitizenships';
-    setForm((current) => {
-      const values = [...(current[key] || [])];
-      if (values.length >= 4) return current;
-      return { ...current, [key]: [...values, ''] };
-    });
-  }
-
-  function removeAdditionalCitizenship(kind, index) {
-    const key = kind === 'partner' ? 'partnerOtherCitizenships' : 'otherCitizenships';
-    setForm((current) => {
-      const values = (current[key] || []).filter((_, itemIndex) => itemIndex !== index);
-      return { ...current, [key]: values.length ? values : [''] };
-    });
-  }
-
   function updateCvState(kind, status, message = '') {
     setCvState((current) => ({ ...current, [kind]: { status, message } }));
   }
@@ -4601,37 +4802,21 @@ function IntakeFormApp() {
   function handleCvFile(kind, file) {
     if (submissionReceipt?.uploadedKinds?.includes(kind)) return false;
     if (!file) {
-      if (kind === 'applicantCv') {
-        setApplicantCvFile(null);
-        setField('applicantCvExpected', false);
-      } else {
-        setPartnerCvFile(null);
-        setField('partnerCvExpected', false);
-      }
+      if (kind === 'applicantCv') { setApplicantCvFile(null); setField('applicantCvExpected', false); }
+      else { setPartnerCvFile(null); setField('partnerCvExpected', false); }
       updateCvState(kind, 'idle', '');
       return true;
     }
-
     try {
       validateIntakeCvFile(file);
-      if (kind === 'applicantCv') {
-        setApplicantCvFile(file);
-        setField('applicantCvExpected', true);
-      } else {
-        setPartnerCvFile(file);
-        setField('partnerCvExpected', true);
-      }
+      if (kind === 'applicantCv') { setApplicantCvFile(file); setField('applicantCvExpected', true); }
+      else { setPartnerCvFile(file); setField('partnerCvExpected', true); }
       updateCvState(kind, 'ready', `${kind === 'partnerCv' ? 'Partner CV' : 'CV'} ready to upload.`);
       setError('');
       return true;
     } catch (err) {
-      if (kind === 'applicantCv') {
-        setApplicantCvFile(null);
-        setField('applicantCvExpected', false);
-      } else {
-        setPartnerCvFile(null);
-        setField('partnerCvExpected', false);
-      }
+      if (kind === 'applicantCv') { setApplicantCvFile(null); setField('applicantCvExpected', false); }
+      else { setPartnerCvFile(null); setField('partnerCvExpected', false); }
       updateCvState(kind, 'error', err.message || 'That CV could not be selected.');
       return false;
     }
@@ -4641,29 +4826,14 @@ function IntakeFormApp() {
     const firstName = String(form.firstName || '').trim();
     const lastName = String(form.lastName || '').trim();
     const email = String(form.email || '').trim();
-    if (!firstName || !lastName) {
-      setError('Please add your first name and last name before continuing.');
-      scrollElementIntoView('.guided-form', 'start');
-      return false;
-    }
-    if (!email || !isValidIntakeEmailAddress(email)) {
-      const message = 'Please enter a valid email address, for example name@example.com.';
-      setEmailError(message);
-      setError(message);
-      scrollElementIntoView('.intake-email-field', 'center');
-      return false;
-    }
-    setEmailError('');
-    setError('');
-    if (email !== form.email) setField('email', email);
-    return true;
+    if (!firstName || !lastName) { setError('Please add your first name and last name before continuing.'); scrollElementIntoView('.guided-form', 'start'); return false; }
+    if (!email || !isValidIntakeEmailAddress(email)) { const message = 'Please enter a valid email address, for example name@example.com.'; setEmailError(message); setError(message); scrollElementIntoView('.intake-email-field', 'center'); return false; }
+    setEmailError(''); setError(''); if (email !== form.email) setField('email', email); return true;
   }
 
   function validateForm() {
     if (!form.firstName || !form.lastName || !form.email) throw new Error('Please add your first name, last name and email before submitting.');
     if (!isValidIntakeEmailAddress(form.email)) throw new Error('Please enter a valid email address, for example name@example.com.');
-    if (form.hasOtherCitizenship === 'Yes' && !(form.otherCitizenships || []).some((value) => String(value || '').trim())) throw new Error('Please add your other country of citizenship.');
-    if (hasPartner && form.partnerHasOtherCitizenship === 'Yes' && !(form.partnerOtherCitizenships || []).some((value) => String(value || '').trim())) throw new Error("Please add your partner's other country of citizenship.");
     if (!form.consentToContact || !form.privacyAcknowledged) throw new Error('Please confirm the consent and acknowledgement before submitting.');
     if (applicantCvFile) validateIntakeCvFile(applicantCvFile);
     if (hasPartner && partnerCvFile) validateIntakeCvFile(partnerCvFile);
@@ -4671,11 +4841,7 @@ function IntakeFormApp() {
 
   async function uploadIntakeCvFile(intakeId, token, kind, file) {
     const params = new URLSearchParams({ upload: '1', intakeId, token, kind, fileName: file.name });
-    const response = await fetch(`/.netlify/functions/intake?${params.toString()}`, {
-      method: 'POST',
-      headers: { 'content-type': normaliseCvMimeType(file.type, file.name) || 'application/octet-stream' },
-      body: file,
-    });
+    const response = await fetch(`/.netlify/functions/intake?${params.toString()}`, { method: 'POST', headers: { 'content-type': normaliseCvMimeType(file.type, file.name) || 'application/octet-stream' }, body: file });
     const body = await readJsonResponse(response);
     if (!response.ok) throw new Error(body.error || `The ${kind === 'partnerCv' ? 'partner' : 'applicant'} CV could not be uploaded.`);
     return body;
@@ -4693,82 +4859,35 @@ function IntakeFormApp() {
 
   async function submit(event) {
     event.preventDefault();
-    if (step < steps.length) {
-      nextStep();
-      return;
-    }
-
+    if (step < steps.length) { nextStep(); return; }
     let receipt = submissionReceipt;
     try {
-      validateForm();
-      setSubmitting(true);
-      setError('');
-
+      validateForm(); setSubmitting(true); setError('');
       if (!receipt) {
         setSubmissionStatus('Saving your questionnaire...');
-        const response = await fetch('/.netlify/functions/intake', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ payload: { ...form, email: String(form.email || '').trim(), intakeSubmissionKey: submissionKeyRef.current, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.16.5-additional-citizenship' } }),
-        });
+        const response = await fetch('/.netlify/functions/intake', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ payload: { ...form, email: String(form.email || '').trim(), intakeSubmissionKey: submissionKeyRef.current, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.17.1-assessment-form-reliability' } }) });
         const body = await readJsonResponse(response);
         if (!response.ok) throw new Error(body.error || 'The questionnaire could not be submitted.');
         receipt = { intakeId: body.intakeId, uploadToken: body.uploadToken, expectedUploads: body.expectedUploads || [], uploadedKinds: [] };
         setSubmissionReceipt(receipt);
       }
-
-      const uploadsByKind = {
-        applicantCv: { kind: 'applicantCv', file: applicantCvFile, label: 'CV' },
-        partnerCv: { kind: 'partnerCv', file: hasPartner ? partnerCvFile : null, label: 'partner CV' },
-      };
-
+      const uploadsByKind = { applicantCv: { kind: 'applicantCv', file: applicantCvFile, label: 'CV' }, partnerCv: { kind: 'partnerCv', file: hasPartner ? partnerCvFile : null, label: 'partner CV' } };
       for (const kind of (receipt.expectedUploads || [])) {
-        const item = uploadsByKind[kind];
-        if (!item || receipt.uploadedKinds?.includes(kind)) continue;
-        if (!item.file) {
-          const missingError = new Error(`Please choose the ${item.label} again before retrying.`);
-          missingError.cvKind = item.kind;
-          missingError.cvLabel = item.label;
-          updateCvState(item.kind, 'error', missingError.message);
-          throw missingError;
-        }
-        updateCvState(item.kind, 'uploading', `Uploading ${item.label}...`);
-        setSubmissionStatus(`Uploading ${item.label}...`);
-        try {
-          await uploadIntakeCvFile(receipt.intakeId, receipt.uploadToken, item.kind, item.file);
-        } catch (uploadError) {
-          updateCvState(item.kind, 'error', uploadError.message || `The ${item.label} could not be uploaded.`);
-          uploadError.cvKind = item.kind;
-          uploadError.cvLabel = item.label;
-          throw uploadError;
-        }
-        receipt = { ...receipt, uploadedKinds: [...new Set([...(receipt.uploadedKinds || []), item.kind])] };
-        setSubmissionReceipt(receipt);
-        updateCvState(item.kind, 'uploaded', `${item.label === 'CV' ? 'CV' : 'Partner CV'} uploaded successfully.`);
+        const item = uploadsByKind[kind]; if (!item || receipt.uploadedKinds?.includes(kind)) continue;
+        if (!item.file) { const missingError = new Error(`Please choose the ${item.label} again before retrying.`); missingError.cvKind=item.kind; missingError.cvLabel=item.label; updateCvState(item.kind,'error',missingError.message); throw missingError; }
+        updateCvState(item.kind,'uploading',`Uploading ${item.label}...`); setSubmissionStatus(`Uploading ${item.label}...`);
+        try { await uploadIntakeCvFile(receipt.intakeId, receipt.uploadToken, item.kind, item.file); }
+        catch (uploadError) { updateCvState(item.kind,'error',uploadError.message || `The ${item.label} could not be uploaded.`); uploadError.cvKind=item.kind; uploadError.cvLabel=item.label; throw uploadError; }
+        receipt={...receipt,uploadedKinds:[...new Set([...(receipt.uploadedKinds||[]),item.kind])]}; setSubmissionReceipt(receipt); updateCvState(item.kind,'uploaded',`${item.label === 'CV' ? 'CV' : 'Partner CV'} uploaded successfully.`);
       }
-
-      setSubmissionStatus('Questionnaire submitted successfully.');
-      setSubmitted(true);
-      scrollFormTop();
+      setSubmissionStatus('Questionnaire submitted successfully.'); setSubmitted(true); scrollFormTop();
     } catch (err) {
-      const message = err.message || String(err);
-      if (receipt?.intakeId && err.cvKind) {
-        setSubmissionStatus('Questionnaire saved — CV upload needs retry.');
-        setError(`Your questionnaire has been saved, but the ${err.cvLabel || 'CV'} did not finish uploading. ${message} Please check the file or your connection and press “Retry CV upload”. Your questionnaire answers will not be submitted again.`);
-      } else {
-        setSubmissionStatus('');
-        setError(message);
-      }
-      if (/email address/i.test(message)) {
-        setEmailError('Please enter a valid email address, for example name@example.com.');
-      }
-      if (/consent|acknowledgement/i.test(message)) {
-        setConsentAttention(true);
-        scrollToConsentAttention();
-      }
-    } finally {
-      setSubmitting(false);
-    }
+      const message=err.message || String(err);
+      if (receipt?.intakeId && err.cvKind) { setSubmissionStatus('Questionnaire saved — CV upload needs retry.'); setError(`Your questionnaire has been saved, but the ${err.cvLabel || 'CV'} did not finish uploading. ${message} Please check the file or your connection and press “Retry CV upload”. Your questionnaire answers will not be submitted again.`); }
+      else { setSubmissionStatus(''); setError(message); }
+      if (/email address/i.test(message)) setEmailError('Please enter a valid email address, for example name@example.com.');
+      if (/consent|acknowledgement/i.test(message)) { setConsentAttention(true); scrollToConsentAttention(); }
+    } finally { setSubmitting(false); }
   }
 
   function postEmbedScroll(offset = 0, align = 'start') {
@@ -4812,23 +4931,7 @@ function IntakeFormApp() {
     }, 80);
   }
 
-  function canLeaveCurrentStep() {
-    if (step === 2) {
-      if (!validateIdentityStep()) return false;
-      if (form.hasOtherCitizenship === 'Yes' && !(form.otherCitizenships || []).some((value) => String(value || '').trim())) {
-        setError('Please add your other country of citizenship before continuing.');
-        scrollElementIntoView('.intake-nested-panel', 'center');
-        return false;
-      }
-    }
-    if (step === 6 && hasPartner && form.partnerHasOtherCitizenship === 'Yes' && !(form.partnerOtherCitizenships || []).some((value) => String(value || '').trim())) {
-      setError("Please add your partner's other country of citizenship before continuing.");
-      scrollElementIntoView('.intake-nested-panel', 'center');
-      return false;
-    }
-    setError('');
-    return true;
-  }
+  function canLeaveCurrentStep() { if (step === 2) return validateIdentityStep(); return true; }
 
   function jumpTo(targetStep) {
     if (targetStep === step) return;
@@ -4841,9 +4944,7 @@ function IntakeFormApp() {
     showTransition(targetStep);
   }
 
-  function nextStep() {
-    if (step < steps.length && canLeaveCurrentStep()) showTransition(step + 1);
-  }
+  function nextStep() { if (step < steps.length && canLeaveCurrentStep()) showTransition(step + 1); }
 
   function previousStep() {
     if (step > 1) {
@@ -4996,26 +5097,9 @@ function IntakeFormApp() {
                 <IntakeField label="Mobile phone" value={form.phone} onChange={(v) => setField('phone', v)} />
                 <IntakeSelect label="Preferred contact method" value={form.preferredContactMethod} onChange={(v) => setField('preferredContactMethod', v)} options={['Email', 'Mobile']} />
                 <IntakeSelect label="Country of citizenship" value={form.citizenship} onChange={(v) => setField('citizenship', v)} options={guidedCountryOptions()} />
-                <IntakeSelect label="Do you hold citizenship of any other country?" value={form.hasOtherCitizenship} onChange={(v) => setField('hasOtherCitizenship', v)} options={INTAKE_YES_NO_ONLY_OPTIONS} />
                 <IntakeField label="Date of birth" type="date" value={form.dateOfBirth} onChange={(v) => setField('dateOfBirth', v)} />
                 <div className="span-2"><IntakeField label="Current physical address" value={form.physicalAddress} onChange={(v) => setField('physicalAddress', v)} placeholder="Street address, suburb, city and country" /></div>
               </div>
-              {hasOtherCitizenship && (
-                <div className="intake-nested-panel">
-                  <div className="intake-panel-title-row">
-                    <h3>Other citizenship</h3>
-                    <button className="btn mini" type="button" onClick={() => addAdditionalCitizenship('applicant')} disabled={(form.otherCitizenships || []).length >= 4}><Plus size={14} />Add another</button>
-                  </div>
-                  <div className="form-grid">
-                    {(form.otherCitizenships || ['']).map((country, index) => (
-                      <div key={`other-citizenship-${index}`} className="intake-multi-country-row">
-                        <IntakeSelect label={`Other country of citizenship${index ? ` ${index + 1}` : ''}`} value={country} onChange={(v) => setAdditionalCitizenship('applicant', index, v)} options={guidedCountryOptions()} />
-                        {(form.otherCitizenships || []).length > 1 && <button className="btn danger mini" type="button" onClick={() => removeAdditionalCitizenship('applicant', index)}><Trash2 size={14} />Remove</button>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
               <IntakeFileField label="Upload CV" file={applicantCvFile} onChange={(file) => handleCvFile('applicantCv', file)} status={cvState.applicantCv.status} statusMessage={cvState.applicantCv.message} locked={Boolean(submissionReceipt?.uploadedKinds?.includes('applicantCv'))} />
             </IntakeSection>
           )}
@@ -5104,7 +5188,6 @@ function IntakeFormApp() {
                     <IntakeField label="Partner full name" value={form.partnerFullName} onChange={(v) => setField('partnerFullName', v)} />
                     <IntakeField label="Partner date of birth" type="date" value={form.partnerDateOfBirth} onChange={(v) => setField('partnerDateOfBirth', v)} />
                     <IntakeSelect label="Partner citizenship" value={form.partnerCitizenship} onChange={(v) => setField('partnerCitizenship', v)} options={guidedCountryOptions()} />
-                    <IntakeSelect label="Does your partner hold citizenship of any other country?" value={form.partnerHasOtherCitizenship} onChange={(v) => setField('partnerHasOtherCitizenship', v)} options={INTAKE_YES_NO_ONLY_OPTIONS} />
                     <IntakeSelect label="Partner current country" value={form.partnerCurrentCountry} onChange={(v) => setField('partnerCurrentCountry', v)} options={guidedCountryOptions()} />
                     <IntakeField label="Partner visa status" value={form.partnerVisaStatus} onChange={(v) => setField('partnerVisaStatus', v)} />
                     <IntakeField label="Partner NZ status" value={form.partnerNzStatus} onChange={(v) => setField('partnerNzStatus', v)} />
@@ -5113,22 +5196,6 @@ function IntakeFormApp() {
                     <IntakeField label="Started living together" type="date" value={form.startedLivingTogether} onChange={(v) => setField('startedLivingTogether', v)} />
                     <IntakeSelect label="Partner included in application?" value={form.partnerIncluded} onChange={(v) => setField('partnerIncluded', v)} options={INTAKE_YES_NO_OPTIONS} />
                   </div>
-                  {partnerHasOtherCitizenship && (
-                    <div className="intake-nested-panel intake-nested-panel-inner">
-                      <div className="intake-panel-title-row">
-                        <h4>Partner other citizenship</h4>
-                        <button className="btn mini" type="button" onClick={() => addAdditionalCitizenship('partner')} disabled={(form.partnerOtherCitizenships || []).length >= 4}><Plus size={14} />Add another</button>
-                      </div>
-                      <div className="form-grid">
-                        {(form.partnerOtherCitizenships || ['']).map((country, index) => (
-                          <div key={`partner-other-citizenship-${index}`} className="intake-multi-country-row">
-                            <IntakeSelect label={`Other country of citizenship${index ? ` ${index + 1}` : ''}`} value={country} onChange={(v) => setAdditionalCitizenship('partner', index, v)} options={guidedCountryOptions()} />
-                            {(form.partnerOtherCitizenships || []).length > 1 && <button className="btn danger mini" type="button" onClick={() => removeAdditionalCitizenship('partner', index)}><Trash2 size={14} />Remove</button>}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                   <IntakeTextarea label="Relationship / family background" value={form.relationshipBackground} onChange={(v) => setField('relationshipBackground', v)} rows={3} />
                 </div>
               )}
@@ -6712,7 +6779,7 @@ function RelatedEnquiryPanel({ matches = [] }) {
 }
 
 
-function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', identityUser = null, canExportContacts = false, isAdmin = false, statuses, seminars = [], seminarRegistrations = [], feedbackSubmissions = [], saveIntakeEnquiry, archiveIntakeEnquiries, restoreIntakeEnquiry, permanentlyDeleteIntakeEnquiry, deleteIntakeEnquiry, convertIntakeToClient, sendIntakeOutcomeEmail, sendIntakeCvRequestEmail, sendIntakeResultsToAdviser, sendContactIntakeInviteEmail, sendContactUnableToAssistEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saveFeedbackSubmission, deleteFeedbackSubmission, saving, openClientRecord, confirmAction, refreshIntakeData, intakeRefreshing = false, lastIntakeRefreshAt = '' }) {
+function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', identityUser = null, canExportContacts = false, statuses, seminars = [], seminarRegistrations = [], feedbackSubmissions = [], saveIntakeEnquiry, deleteIntakeEnquiry, archiveIntakeEnquiries, restoreIntakeEnquiry, permanentlyDeleteIntakeEnquiry, isAdmin = false, convertIntakeToClient, sendIntakeOutcomeEmail, sendIntakeCvRequestEmail, sendIntakeResultsToAdviser, sendContactIntakeInviteEmail, sendContactUnableToAssistEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saveFeedbackSubmission, deleteFeedbackSubmission, saving, openClientRecord, confirmAction, refreshIntakeData, intakeRefreshing = false, lastIntakeRefreshAt = '' }) {
   const askConfirm = confirmAction || (async ({ message }) => window.confirm(message || 'Continue?'));
   const simplifiedStatuses = (statuses || INTAKE_STATUSES).filter((status) => INTAKE_STATUSES.includes(status));
   const [workspaceTab, setWorkspaceTab] = useState('contact');
@@ -6730,8 +6797,8 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
   const [contactExportNotice, setContactExportNotice] = useState('');
   const [selectedArchiveIds, setSelectedArchiveIds] = useState([]);
   const [archiveKindFilter, setArchiveKindFilter] = useState('All');
-  const [archiveDetailId, setArchiveDetailId] = useState('');
   const [archiveNotice, setArchiveNotice] = useState('');
+  const [archiveDetailId, setArchiveDetailId] = useState('');
   const exportHistoryKeyBase = useMemo(() => {
     const userKey = String(identityUser?.email || identityUser?.id || 'temporary-access')
       .trim()
@@ -6774,17 +6841,15 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
   ];
   const feedbackStatusLabel = (status) => feedbackStatusOptions.find((option) => option.value === status)?.label || status || 'New';
   const selectedScopeAdviser = dashboardAdviserFilter === 'all' ? null : advisers.find((adviser) => adviser.id === dashboardAdviserFilter);
-  const allContactEnquiries = normalisedEnquiries
+  const archivedEnquiries = normalisedEnquiries.filter((item) => item.status === 'Archived');
+  const activeEnquiries = normalisedEnquiries.filter((item) => item.status !== 'Archived');
+  const retainedContactEnquiries = normalisedEnquiries.filter((item) => isContactIntake(item)).filter((item) => matchesIntakeAdviserScope(item, dashboardAdviserFilter));
+  const retainedFullIntakeEnquiries = normalisedEnquiries.filter((item) => !isContactIntake(item)).filter((item) => matchesIntakeAdviserScope(item, dashboardAdviserFilter));
+  const contactEnquiries = activeEnquiries
     .filter((item) => isContactIntake(item))
     .filter((item) => matchesIntakeAdviserScope(item, dashboardAdviserFilter));
-  const contactEnquiries = allContactEnquiries.filter((item) => item.status !== 'Archived');
-  const allFullIntakeEnquiries = normalisedEnquiries.filter((item) => !isContactIntake(item));
-  const scopedAllFullIntakeEnquiries = allFullIntakeEnquiries.filter((item) => matchesIntakeAdviserScope(item, dashboardAdviserFilter));
-  const allIntakeEnquiries = allFullIntakeEnquiries.filter((item) => item.status !== 'Archived');
+  const allIntakeEnquiries = activeEnquiries.filter((item) => !isContactIntake(item));
   const scopedIntakeEnquiries = allIntakeEnquiries.filter((item) => matchesIntakeAdviserScope(item, dashboardAdviserFilter));
-  const archivedEnquiries = normalisedEnquiries
-    .filter((item) => item.status === 'Archived')
-    .filter((item) => matchesIntakeAdviserScope(item, dashboardAdviserFilter));
   const intakeScopeOverride = workspaceTab === 'intake' && (statusFilter === 'Contacted' || Boolean(query.trim()));
   const intakeEnquiries = intakeScopeOverride ? allIntakeEnquiries : scopedIntakeEnquiries;
   const normalisedFeedbackSubmissions = (feedbackSubmissions || [])
@@ -6828,9 +6893,6 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
       item.currentLocation,
       intakeAnswerPayload(item).physicalAddress,
       item.citizenship,
-      ...(Array.isArray(intakeAnswerPayload(item).otherCitizenships) ? intakeAnswerPayload(item).otherCitizenships : []),
-      intakeAnswerPayload(item).partnerCitizenship,
-      ...(Array.isArray(intakeAnswerPayload(item).partnerOtherCitizenships) ? intakeAnswerPayload(item).partnerOtherCitizenships : []),
       item.urgency,
       item.recommendedPathway,
       item.rawPayload?.helpNeeded,
@@ -6841,16 +6903,15 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
   });
 
   const archivedFiltered = archivedEnquiries.filter((item) => {
-    const q = query.trim().toLowerCase();
     const kind = isContactIntake(item) ? 'Contact' : 'Intake';
-    if (archiveKindFilter !== 'All' && archiveKindFilter !== kind) return false;
+    if (archiveKindFilter !== 'All' && kind !== archiveKindFilter) return false;
+    const q = query.trim().toLowerCase();
     if (!q) return true;
     const payload = intakeAnswerPayload(item);
-    return [item.firstName, item.lastName, item.email, item.phone, item.targetPathway, item.currentLocation, item.citizenship, ...(Array.isArray(payload.otherCitizenships) ? payload.otherCitizenships : []), payload.partnerCitizenship, ...(Array.isArray(payload.partnerOtherCitizenships) ? payload.partnerOtherCitizenships : []), item.recommendedPathway, payload.helpNeeded, payload.contactSituation]
-      .join(' ')
-      .toLowerCase()
-      .includes(q);
+    return [item.firstName, item.lastName, item.email, item.phone, item.targetPathway, item.currentLocation, item.recommendedPathway, payload.helpNeeded].join(' ').toLowerCase().includes(q);
   });
+
+  const archiveDetailRecord = archivedEnquiries.find((item) => item.id === archiveDetailId) || null;
 
   const feedbackFiltered = normalisedFeedbackSubmissions.filter((item) => {
     const q = query.trim().toLowerCase();
@@ -6875,10 +6936,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
   const newSeminarRegistrationCount = (seminarRegistrations || []).filter((item) => item.status === 'New').length;
   const newFeedbackCount = normalisedFeedbackSubmissions.filter((item) => item.status === 'New').length;
   const flaggedCount = intakeEnquiries.filter((item) => hasAnyIntakeFlag(item.flags)).length;
-  const archivedCount = archivedEnquiries.length;
-  const archivedStorageReleased = archivedEnquiries.reduce((sum, item) => sum + Number(intakeAnswerPayload(item).intakeArchive?.purgedBytes || 0), 0);
-  const archiveDetailRecord = archiveDetailId ? archivedEnquiries.find((item) => item.id === archiveDetailId) : null;
-  const expandedItem = expandedId ? normalisedEnquiries.find((item) => item.id === expandedId) : null;
+  const expandedItem = expandedId ? intakeEnquiries.find((item) => item.id === expandedId) : null;
   const draftDirty = Boolean(draft && expandedItem && JSON.stringify(intakeCompareSnapshot(draft)) !== JSON.stringify(intakeCompareSnapshot(expandedItem)));
 
   useEffect(() => {
@@ -6893,7 +6951,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
       setDraft(null);
       return;
     }
-    const next = normalisedEnquiries.find((item) => item.id === expandedId);
+    const next = intakeEnquiries.find((item) => item.id === expandedId);
     if (!next) {
       setExpandedId('');
       setDraft(null);
@@ -6901,11 +6959,6 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
     }
     setDraft((current) => current?.id === next.id ? current : normaliseIntakeEnquiry(next));
   }, [enquiries, expandedId]);
-
-  useEffect(() => {
-    setSelectedArchiveIds([]);
-    if (workspaceTab !== 'archive') setArchiveDetailId('');
-  }, [workspaceTab]);
 
   function intakeSortTime(item = {}) {
     return Date.parse(item.createdAt || item.updatedAt || '') || 0;
@@ -6940,6 +6993,21 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
     setExpandedId('');
     setDraft(null);
   }
+
+  function toggleArchiveSelection(id) { setSelectedArchiveIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]); }
+  async function archiveRecords(records = []) {
+    const ids = records.map((item) => item.id).filter(Boolean);
+    if (!ids.length) return;
+    const body = await archiveIntakeEnquiries?.(ids);
+    if (body) {
+      const summary = body.archiveSummary || {};
+      setSelectedArchiveIds([]);
+      setArchiveNotice(`${Number(summary.archived || 0) + Number(summary.alreadyArchived || 0)} record${ids.length === 1 ? '' : 's'} archived${Number(summary.purgedBytes || 0) > 0 ? ` · ${formatFileSize(summary.purgedBytes)} CV storage released` : ''}${Number(summary.purgeFailures || 0) > 0 ? ` · ${summary.purgeFailures} cleanup warning${summary.purgeFailures === 1 ? '' : 's'}` : ''}.`);
+    }
+  }
+  async function restoreArchiveRecord(item) { const body = await restoreIntakeEnquiry?.(item.id); if (body) { if (archiveDetailId === item.id) setArchiveDetailId(''); setArchiveNotice('Archived enquiry restored to the active workspace. Purged CV files remain deleted.'); } }
+  async function deleteArchiveRecord(item) { const body = await permanentlyDeleteIntakeEnquiry?.(item.id); if (body) { if (archiveDetailId === item.id) setArchiveDetailId(''); setArchiveNotice('Archived enquiry permanently deleted.'); } }
+  function selectedActiveArchiveRecords() { const source = workspaceTab === 'contact' ? contactEnquiries : workspaceTab === 'intake' ? intakeEnquiries : []; return source.filter((item) => selectedArchiveIds.includes(item.id)); }
 
   function clearSearch() {
     setQuery('');
@@ -7051,105 +7119,6 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
     await deleteIntakeEnquiry(item.id);
   }
 
-  function estimatedUploadBytes(item = {}) {
-    const payload = intakeAnswerPayload(item);
-    const uploads = [payload.intakeUploads?.applicantCv || payload.applicantCv, payload.intakeUploads?.partnerCv || payload.partnerCv];
-    const keys = new Set();
-    return uploads.reduce((sum, upload) => {
-      const key = String(upload?.blobKey || '').trim();
-      if (!key || keys.has(key)) return sum;
-      keys.add(key);
-      return sum + Math.max(0, Number(upload?.fileSize || 0) || 0);
-    }, 0);
-  }
-
-  function toggleArchiveSelection(intakeId) {
-    setSelectedArchiveIds((current) => current.includes(intakeId) ? current.filter((id) => id !== intakeId) : [...current, intakeId]);
-  }
-
-  function clearArchiveSelection() {
-    setSelectedArchiveIds([]);
-  }
-
-  function activeArchiveCandidates() {
-    if (workspaceTab === 'contact') return contactFiltered;
-    if (workspaceTab === 'intake') return intakeFiltered;
-    return [];
-  }
-
-  function selectShownForArchive() {
-    const shownIds = activeArchiveCandidates().map((item) => item.id).filter(Boolean);
-    const allSelected = shownIds.length > 0 && shownIds.every((id) => selectedArchiveIds.includes(id));
-    setSelectedArchiveIds(allSelected ? selectedArchiveIds.filter((id) => !shownIds.includes(id)) : [...new Set([...selectedArchiveIds, ...shownIds])]);
-  }
-
-  async function archiveRecords(records = [], options = {}) {
-    const unique = records.filter((item, index, items) => item?.id && items.findIndex((candidate) => candidate.id === item.id) === index);
-    if (!unique.length || !archiveIntakeEnquiries) return;
-    const estimatedBytes = unique.reduce((sum, item) => sum + estimatedUploadBytes(item), 0);
-    const contactTotal = unique.filter(isContactIntake).length;
-    const intakeTotal = unique.length - contactTotal;
-    const labels = [];
-    if (contactTotal) labels.push(`${contactTotal} contact form${contactTotal === 1 ? '' : 's'}`);
-    if (intakeTotal) labels.push(`${intakeTotal} intake form${intakeTotal === 1 ? '' : 's'}`);
-    const retrying = options.retry === true;
-    const confirmed = await askConfirm({
-      title: retrying ? 'Retry archive file cleanup?' : `Archive ${unique.length} enquiry record${unique.length === 1 ? '' : 's'}?`,
-      message: retrying
-        ? 'The CRM will retry deleting any uploaded CV files that could not be removed during the first archive run.'
-        : `Archive ${labels.join(' and ')} and remove them from the active enquiry queues?`,
-      details: [
-        'The questionnaire/contact details remain searchable in the CRM Archive.',
-        'Uploaded applicant and partner CV files are deleted from Netlify storage and cannot be recovered from the CRM after archiving.',
-        estimatedBytes > 0 ? `Estimated CV storage to release now: ${formatFileSize(estimatedBytes)}.` : 'No currently linked CV file storage is recorded for the selected forms.',
-        unique.some((item) => item.convertedClientId) ? 'Any converted client records remain untouched.' : '',
-      ].filter(Boolean),
-      confirmLabel: retrying ? 'Retry cleanup' : 'Archive records',
-      tone: retrying ? 'warning' : 'danger',
-    });
-    if (!confirmed) return;
-    const body = await archiveIntakeEnquiries(unique.map((item) => item.id));
-    const summary = body?.archiveSummary || {};
-    setSelectedArchiveIds([]);
-    setArchiveNotice(`${Number(summary.archived || 0) + Number(summary.alreadyArchived || 0)} record${Number(summary.archived || 0) + Number(summary.alreadyArchived || 0) === 1 ? '' : 's'} archived${Number(summary.purgedBytes || 0) > 0 ? ` · ${formatFileSize(summary.purgedBytes)} CV storage released` : ''}${Number(summary.purgeFailures || 0) > 0 ? ` · ${summary.purgeFailures} file cleanup warning${summary.purgeFailures === 1 ? '' : 's'}` : ''}.`);
-    return body;
-  }
-
-  function selectedArchiveRecords() {
-    const source = workspaceTab === 'contact' ? contactEnquiries : workspaceTab === 'intake' ? intakeEnquiries : [];
-    return source.filter((item) => selectedArchiveIds.includes(item.id));
-  }
-
-  async function archiveSelectedRecords() {
-    return archiveRecords(selectedArchiveRecords());
-  }
-
-  async function restoreArchivedRecord(item) {
-    if (!item?.id || !restoreIntakeEnquiry) return;
-    const archiveMeta = intakeAnswerPayload(item).intakeArchive || {};
-    const confirmed = await askConfirm({
-      title: 'Restore archived enquiry?',
-      message: `Return ${[item.firstName, item.lastName].filter(Boolean).join(' ') || 'this enquiry'} to the active workspace?`,
-      details: [
-        `It will return to ${archiveMeta.previousStatus || 'Dealt with'} status.`,
-        'CV files that were removed during archiving are not restored.',
-      ],
-      confirmLabel: 'Restore enquiry',
-      tone: 'default',
-    });
-    if (!confirmed) return;
-    await restoreIntakeEnquiry(item.id);
-    if (archiveDetailId === item.id) setArchiveDetailId('');
-    setArchiveNotice('Archived enquiry restored to the active workspace. Purged CV files remain deleted.');
-  }
-
-  async function permanentlyDeleteArchivedRecord(item) {
-    if (!item?.id || !permanentlyDeleteIntakeEnquiry) return;
-    const body = await permanentlyDeleteIntakeEnquiry(item.id);
-    if (body && archiveDetailId === item.id) setArchiveDetailId('');
-    if (body) setArchiveNotice('Archived enquiry permanently deleted from the CRM.');
-  }
-
   async function updateContactStatus(item, status) {
     if (!item?.id || !['New', 'Contacted', 'Spam / Duplicate'].includes(status)) return;
     await saveIntakeEnquiry({ ...item, status });
@@ -7173,13 +7142,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
   async function convertIntake(item) {
     if (!item?.id) return;
     if (!item.assignedAdviserId) {
-      await askConfirm({
-        title: 'Assign an adviser first',
-        message: 'Choose the responsible adviser before converting this intake to a client record.',
-        details: ["This prevents the new client from being created outside every adviser's normal client view."],
-        confirmLabel: 'OK',
-        tone: 'warning',
-      });
+      await askConfirm({ title: 'Assign an adviser first', message: 'Choose the responsible adviser before converting this intake to a client record.', details: ["This prevents the new client from being created outside every adviser's normal client view."], confirmLabel: 'OK', tone: 'warning' });
       return;
     }
     await convertIntakeToClient(item.id);
@@ -7188,13 +7151,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
   async function convertDraft() {
     if (!draft?.id) return;
     if (!draft.assignedAdviserId) {
-      await askConfirm({
-        title: 'Assign an adviser first',
-        message: 'Choose the responsible adviser before converting this intake to a client record.',
-        details: ["This prevents the new client from being created outside every adviser's normal client view."],
-        confirmLabel: 'OK',
-        tone: 'warning',
-      });
+      await askConfirm({ title: 'Assign an adviser first', message: 'Choose the responsible adviser before converting this intake to a client record.', details: ["This prevents the new client from being created outside every adviser's normal client view."], confirmLabel: 'OK', tone: 'warning' });
       return;
     }
     await convertIntakeToClient(draft.id);
@@ -7232,7 +7189,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
 
   function exportContactRegister(onlyNew = false) {
     const history = contactExportHistory.register;
-    const result = buildEnquiryContactExport(allContactEnquiries, scopedAllFullIntakeEnquiries, advisers, {
+    const result = buildEnquiryContactExport(retainedContactEnquiries, retainedFullIntakeEnquiries, advisers, {
       marketingOnly: false,
       since: onlyNew ? history?.cutoffAt : '',
     });
@@ -7255,7 +7212,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
 
   function exportMailchimpConsentList(onlyNew = false) {
     const history = contactExportHistory.mailchimp;
-    const result = buildEnquiryContactExport(allContactEnquiries, scopedAllFullIntakeEnquiries, advisers, {
+    const result = buildEnquiryContactExport(retainedContactEnquiries, retainedFullIntakeEnquiries, advisers, {
       marketingOnly: true,
       since: onlyNew ? history?.cutoffAt : '',
     });
@@ -7349,7 +7306,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
           <span>New feedback</span><strong>{newFeedbackCount}</strong><small>Website submissions</small>
         </button>
         <button type="button" className={workspaceTab === 'archive' ? 'active' : ''} onClick={() => setWorkspaceTab('archive')}>
-          <span>Archived enquiries</span><strong>{archivedCount}</strong><small>{archivedStorageReleased > 0 ? `${formatFileSize(archivedStorageReleased)} CV storage released` : 'Retained history'}</small>
+          <span>Archived enquiries</span><strong>{archivedEnquiries.length}</strong><small>Retained history</small>
         </button>
       </div>
 
@@ -7359,7 +7316,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
           <button type="button" className={workspaceTab === 'intake' ? 'active' : ''} onClick={() => setWorkspaceTab('intake')}><ClipboardList size={16} />Intake <span>{newIntakeCount}</span></button>
           <button type="button" className={workspaceTab === 'seminars' ? 'active' : ''} onClick={() => setWorkspaceTab('seminars')}><CalendarDays size={16} />Seminars <span>{newSeminarRegistrationCount}</span></button>
           <button type="button" className={workspaceTab === 'feedback' ? 'active' : ''} onClick={() => setWorkspaceTab('feedback')}><MessageSquare size={16} />Feedback <span>{newFeedbackCount}</span></button>
-          <button type="button" className={workspaceTab === 'archive' ? 'active' : ''} onClick={() => setWorkspaceTab('archive')}><Archive size={16} />Archive <span>{archivedCount}</span></button>
+          <button type="button" className={workspaceTab === 'archive' ? 'active' : ''} onClick={() => setWorkspaceTab('archive')}><Archive size={16} />Archive <span>{archivedEnquiries.length}</span></button>
         </div>
 
         {workspaceTab === 'seminars' ? (
@@ -7412,12 +7369,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
           )}
           {workspaceTab === 'archive' && (
             <div className="enquiries-status-pills" aria-label="Archive type filter">
-              {['All', 'Contact', 'Intake'].map((kind) => (
-                <button key={kind} type="button" className={archiveKindFilter === kind ? 'active' : ''} onClick={() => setArchiveKindFilter(kind)}>
-                  {kind === 'Contact' ? 'Contacts' : kind}
-                  <span>{kind === 'All' ? archivedEnquiries.length : archivedEnquiries.filter((item) => (isContactIntake(item) ? 'Contact' : 'Intake') === kind).length}</span>
-                </button>
-              ))}
+              {['All', 'Contact', 'Intake'].map((kind) => <button key={kind} type="button" className={archiveKindFilter === kind ? 'active' : ''} onClick={() => setArchiveKindFilter(kind)}>{kind === 'Contact' ? 'Contacts' : kind}<span>{kind === 'All' ? archivedEnquiries.length : archivedEnquiries.filter((item) => (isContactIntake(item) ? 'Contact' : 'Intake') === kind).length}</span></button>)}
             </div>
           )}
           <div className="intake-live-refresh-controls">
@@ -7430,27 +7382,9 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
         </div>
 
         {(workspaceTab === 'contact' || workspaceTab === 'intake') && (
-          <div className="enquiry-archive-bulkbar">
-            <div>
-              <button className="btn" type="button" onClick={selectShownForArchive} disabled={!activeArchiveCandidates().length}>
-                <Archive size={15} />{activeArchiveCandidates().length && activeArchiveCandidates().every((item) => selectedArchiveIds.includes(item.id)) ? 'Clear shown' : 'Select shown'}
-              </button>
-              <span>{selectedArchiveIds.length} selected</span>
-              {selectedArchiveIds.length > 0 && <small>Estimated linked CV storage: {formatFileSize(selectedArchiveRecords().reduce((sum, item) => sum + estimatedUploadBytes(item), 0)) || '0 B'}</small>}
-            </div>
-            <div>
-              {selectedArchiveIds.length > 0 && <button className="btn" type="button" onClick={clearArchiveSelection}>Clear selection</button>}
-              <button className="btn dark" type="button" onClick={archiveSelectedRecords} disabled={!selectedArchiveIds.length || saving}><Archive size={15} />Archive selected</button>
-            </div>
-          </div>
+          <div className="enquiry-archive-bulkbar"><div><span>{selectedArchiveIds.length} selected</span>{selectedArchiveIds.length > 0 && <small>Linked CV storage is removed when these records are archived.</small>}</div><div>{selectedArchiveIds.length > 0 && <button className="btn" type="button" onClick={() => setSelectedArchiveIds([])}>Clear</button>}<button className="btn dark" type="button" disabled={!selectedArchiveIds.length || saving} onClick={() => archiveRecords(selectedActiveArchiveRecords())}><Archive size={15} />Archive selected</button></div></div>
         )}
-
-        {archiveNotice && (
-          <div className="success-banner compact enquiries-archive-notice">
-            <Archive size={17} />{archiveNotice}
-            <button type="button" onClick={() => setArchiveNotice('')} aria-label="Dismiss archive notice"><X size={15} /></button>
-          </div>
-        )}
+        {archiveNotice && <div className="success-banner compact enquiries-archive-notice"><Archive size={16} />{archiveNotice}<button type="button" onClick={() => setArchiveNotice('')}><X size={14}/></button></div>}
 
         {contactInviteNotice && (
           <div className={contactInviteNotice.includes('could not') ? 'error-banner compact' : 'success-banner compact'}>
@@ -7463,53 +7397,14 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
             <span className="eyebrow">{workspaceTab === 'contact' ? 'Short website enquiries' : workspaceTab === 'feedback' ? 'Client feedback submissions' : workspaceTab === 'archive' ? 'Retained enquiry history' : 'Full assessment questionnaires'}</span>
             <h2>{workspaceTab === 'contact' ? `${contactStatusLabel(contactStatusFilter)} contacts` : workspaceTab === 'feedback' ? `${feedbackStatusLabel(feedbackStatusFilter)} feedback` : workspaceTab === 'archive' ? 'Archived contacts & intake' : `${statusFilter} intake`}</h2>
             {workspaceTab === 'intake' && intakeScopeOverride && <p className="intake-scope-note">Showing matching intake forms across the whole practice.</p>}
-            {workspaceTab === 'archive' && <p className="intake-scope-note">Form data is retained here. CV files are removed from Netlify storage when archiving succeeds.</p>}
           </div>
           <span className="enquiries-shown-count">{visibleRecords.length} shown</span>
         </div>
 
         {workspaceTab === 'archive' ? (
           <div className="archive-review-list enquiry-queue-list">
-            {archivedFiltered.map((item) => {
-              const payload = intakeAnswerPayload(item);
-              const archiveMeta = payload.intakeArchive || {};
-              const name = [item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unnamed enquiry';
-              const kind = isContactIntake(item) ? 'Contact form' : 'Intake form';
-              const pendingCleanup = Number(archiveMeta.purgeFailedCount || 0) > 0 || estimatedUploadBytes(item) > 0;
-              return (
-                <article key={item.id} className="enquiry-queue-card archive-queue-card">
-                  <div className="enquiry-queue-row archive-queue-row">
-                    <button className="enquiry-queue-summary" type="button" onClick={() => setArchiveDetailId(item.id)}>
-                      <div className="enquiry-queue-person">
-                        <div className="enquiry-queue-badges">
-                          <span className="library-status archived">Archived</span>
-                          <span className="recommended-action-chip">{kind}</span>
-                          {pendingCleanup && <span className="archive-cleanup-warning">File cleanup pending</span>}
-                        </div>
-                        <h3>{name}</h3>
-                        <p>{item.email || 'No email'}{item.phone ? ` · ${item.phone}` : ''}</p>
-                      </div>
-                      <div className="enquiry-queue-cell"><span>Previous status</span><strong>{archiveMeta.previousStatus || 'Dealt with'}</strong><small>{item.targetPathway || payload.contactSituation || 'Pathway not recorded'}</small></div>
-                      <div className="enquiry-queue-cell"><span>Storage released</span><strong>{formatFileSize(Number(archiveMeta.purgedBytes || 0)) || '0 B'}</strong><small>{Number(archiveMeta.purgedUploadCount || 0)} CV file{Number(archiveMeta.purgedUploadCount || 0) === 1 ? '' : 's'} purged</small></div>
-                      <div className="enquiry-queue-cell enquiry-queue-date"><span>Archived</span><strong>{archiveMeta.archivedAt ? formatPortalDateTime(archiveMeta.archivedAt) : (item.updatedAt ? formatPortalDateTime(item.updatedAt) : 'No date')}</strong><small>{archiveMeta.archivedBy || 'CRM adviser'}</small></div>
-                    </button>
-                    <div className="enquiry-queue-controls archive-queue-controls">
-                      <button className="btn dark" type="button" onClick={() => setArchiveDetailId(item.id)}>View record</button>
-                      {pendingCleanup && <button className="btn" type="button" onClick={() => archiveRecords([item], { retry: true })} disabled={saving}><RefreshCw size={15} />Retry cleanup</button>}
-                      <button className="btn" type="button" onClick={() => restoreArchivedRecord(item)} disabled={saving}><RotateCcw size={15} />Restore</button>
-                      {isAdmin && <button className="btn danger" type="button" onClick={() => permanentlyDeleteArchivedRecord(item)} disabled={saving}><Trash2 size={15} />Delete</button>}
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-            {!archivedFiltered.length && (
-              <div className="empty-state slim intake-inbox-empty">
-                <Archive size={34} />
-                <h2>No archived enquiries match this view</h2>
-                <p>Archived contact and intake forms will appear here after they are removed from the active queues.</p>
-              </div>
-            )}
+            {archivedFiltered.map((item) => { const payload=intakeAnswerPayload(item); const meta=payload.intakeArchive||{}; const name=[item.firstName,item.lastName].filter(Boolean).join(' ')||'Unnamed enquiry'; const kind=isContactIntake(item)?'Contact form':'Intake form'; return <article key={item.id} className="enquiry-queue-card archive-queue-card"><div className="enquiry-queue-row"><div className="enquiry-queue-summary archive-static-summary"><div className="enquiry-queue-person"><div className="enquiry-queue-badges"><span className="library-status archived">Archived</span><span className="recommended-action-chip">{kind}</span></div><h3>{name}</h3><p>{item.email||'No email'}{item.phone?` · ${item.phone}`:''}</p></div><div className="enquiry-queue-cell"><span>Previous status</span><strong>{meta.previousStatus||'Dealt with'}</strong><small>{item.targetPathway||payload.contactSituation||'No pathway recorded'}</small></div><div className="enquiry-queue-cell"><span>CV storage released</span><strong>{formatFileSize(Number(meta.purgedBytes||0))||'0 B'}</strong><small>{Number(meta.purgedUploadCount||0)} file{Number(meta.purgedUploadCount||0)===1?'':'s'} purged</small></div><div className="enquiry-queue-cell enquiry-queue-date"><span>Archived</span><strong>{meta.archivedAt?formatPortalDateTime(meta.archivedAt):'Date not recorded'}</strong></div></div><div className="enquiry-queue-controls"><button className="btn dark" type="button" onClick={() => setArchiveDetailId(item.id)}>View record</button><button className="btn" type="button" onClick={() => restoreArchiveRecord(item)} disabled={saving}><RotateCcw size={15}/>Restore</button>{isAdmin&&<button className="btn danger" type="button" onClick={() => deleteArchiveRecord(item)} disabled={saving}><Trash2 size={15}/>Delete</button>}</div></div></article>; })}
+            {!archivedFiltered.length && <div className="empty-state slim intake-inbox-empty"><Archive size={34}/><h2>No archived enquiries in this view</h2><p>Archived contact and intake forms remain searchable here after leaving the active queues.</p></div>}
           </div>
         ) : workspaceTab === 'contact' ? (
           <div className="contact-review-list enquiry-queue-list">
@@ -7553,10 +7448,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
                       </div>
                     </button>
                     <div className="enquiry-queue-controls">
-                      <label className="archive-row-select" title="Select this contact form for archiving">
-                        <input type="checkbox" checked={selectedArchiveIds.includes(item.id)} onChange={() => toggleArchiveSelection(item.id)} />
-                        <span>Archive</span>
-                      </label>
+                      <label className="archive-row-select"><input type="checkbox" checked={selectedArchiveIds.includes(item.id)} onChange={() => toggleArchiveSelection(item.id)} /><span>Archive</span></label>
                       <label className="queue-compact-field">
                         <span>Adviser</span>
                         <select value={item.assignedAdviserId || ''} onChange={(event) => assignIntakeAdviser(item, event.target.value)} disabled={saving}>
@@ -7581,10 +7473,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
                       <button className="btn queue-details-button" type="button" onClick={() => setExpandedContactId(isExpanded ? '' : item.id)}>{isExpanded ? 'Hide' : 'Details'}</button>
                       <details className="queue-more-menu">
                         <summary aria-label={`More actions for ${name}`}><MoreHorizontal size={18} /></summary>
-                        <div>
-                          <button type="button" onClick={() => archiveRecords([item])} disabled={saving}><Archive size={15} />Archive contact</button>
-                          <button className="danger" type="button" onClick={() => deleteContactForm(item)} disabled={saving}><Trash2 size={15} />Delete contact</button>
-                        </div>
+                        <div><button type="button" onClick={() => archiveRecords([item])} disabled={saving}><Archive size={15}/>Archive contact</button><button className="danger" type="button" onClick={() => deleteContactForm(item)} disabled={saving}><Trash2 size={15} />Delete contact</button></div>
                       </details>
                     </div>
                   </div>
@@ -7695,10 +7584,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
                       <div className="enquiry-queue-cell enquiry-queue-date"><span>Submitted</span><strong>{item.createdAt ? formatPortalDateTime(item.createdAt) : 'No date'}</strong><small>{item.convertedClientId ? 'Client created' : 'Open full intake'}</small></div>
                     </button>
                     <div className="enquiry-queue-controls intake-queue-controls">
-                      <label className="archive-row-select" title="Select this intake form for archiving">
-                        <input type="checkbox" checked={selectedArchiveIds.includes(item.id)} onChange={() => toggleArchiveSelection(item.id)} />
-                        <span>Archive</span>
-                      </label>
+                      <label className="archive-row-select"><input type="checkbox" checked={selectedArchiveIds.includes(item.id)} onChange={() => toggleArchiveSelection(item.id)} /><span>Archive</span></label>
                       <label className="queue-compact-field">
                         <span>Adviser</span>
                         <select value={item.assignedAdviserId || ''} onChange={(event) => assignIntakeAdviser(item, event.target.value)} disabled={saving}>
@@ -7718,10 +7604,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
                       ) : (
                         <button className="btn" type="button" onClick={() => openClientRecord(item.convertedClientId)}><ExternalLink size={16} />Open client</button>
                       )}
-                      <details className="queue-more-menu">
-                        <summary aria-label={`More actions for ${name}`}><MoreHorizontal size={18} /></summary>
-                        <div><button type="button" onClick={() => archiveRecords([item])} disabled={saving}><Archive size={15} />Archive intake</button></div>
-                      </details>
+                      <button className="btn" type="button" onClick={() => archiveRecords([item])} disabled={saving}><Archive size={15}/>Archive</button>
                     </div>
                   </div>
                   {flagTotal > 0 && <div className="enquiry-queue-flags"><IntakeFlagList flags={item.flags} compact /></div>}
@@ -7766,108 +7649,22 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
         </ClientRecordPopoutModal>
       )}
 
-      {archiveDetailRecord && archiveDetailId && (
+      {archiveDetailRecord && (
         <ClientRecordPopoutModal title={[archiveDetailRecord.firstName, archiveDetailRecord.lastName].filter(Boolean).join(' ') || 'Archived enquiry'} label="Archived enquiry" ariaLabel="Archived enquiry record" onClose={() => setArchiveDetailId('')}>
-          <ArchivedEnquiryDetail
-            record={archiveDetailRecord}
-            advisers={advisers}
-            isAdmin={isAdmin}
-            saving={saving}
-            onClose={() => setArchiveDetailId('')}
-            onRestore={() => restoreArchivedRecord(archiveDetailRecord)}
-            onDelete={() => permanentlyDeleteArchivedRecord(archiveDetailRecord)}
-            onRetryCleanup={() => archiveRecords([archiveDetailRecord], { retry: true })}
-            openClientRecord={openClientRecord}
-          />
+          <ArchivedEnquiryDetail record={archiveDetailRecord} advisers={advisers} isAdmin={isAdmin} saving={saving} onClose={() => setArchiveDetailId('')} onRestore={() => restoreArchiveRecord(archiveDetailRecord)} onDelete={() => deleteArchiveRecord(archiveDetailRecord)} openClientRecord={openClientRecord} />
         </ClientRecordPopoutModal>
       )}
     </div>
   );
 }
 
-function ArchivedEnquiryDetail({ record, advisers = [], isAdmin = false, saving = false, onClose, onRestore, onDelete, onRetryCleanup, openClientRecord }) {
+function ArchivedEnquiryDetail({ record, advisers = [], isAdmin = false, saving = false, onClose, onRestore, onDelete, openClientRecord }) {
   const payload = intakeAnswerPayload(record);
-  const archiveMeta = payload.intakeArchive || {};
+  const meta = payload.intakeArchive || {};
   const contact = isContactIntake(record);
-  const pendingCleanup = Number(archiveMeta.purgeFailedCount || 0) > 0 || ['applicantCv', 'partnerCv'].some((kind) => Boolean((payload.intakeUploads?.[kind] || payload[kind])?.blobKey));
-  const purgedNames = Array.isArray(archiveMeta.purgedFileNames) ? archiveMeta.purgedFileNames : [];
-  const name = [record.firstName, record.lastName].filter(Boolean).join(' ') || 'Unnamed enquiry';
-
-  return (
-    <div className="archived-enquiry-detail">
-      <div className="intake-popout-actionbar archive-detail-actionbar">
-        <div>
-          <span className="eyebrow">Archived {contact ? 'contact form' : 'assessment questionnaire'}</span>
-          <h2>{name}</h2>
-          <p>{record.email || 'No email'}{record.phone ? ` · ${record.phone}` : ''}</p>
-        </div>
-        <div className="button-row">
-          <button className="btn" type="button" onClick={onClose}><X size={16} />Close</button>
-          {pendingCleanup && <button className="btn" type="button" onClick={onRetryCleanup} disabled={saving}><RefreshCw size={16} />Retry cleanup</button>}
-          <button className="btn dark" type="button" onClick={onRestore} disabled={saving}><RotateCcw size={16} />Restore</button>
-          {isAdmin && <button className="btn danger" type="button" onClick={onDelete} disabled={saving}><Trash2 size={16} />Permanently delete</button>}
-        </div>
-      </div>
-
-      <section className="archive-storage-summary">
-        <div>
-          <span>Archived</span>
-          <strong>{archiveMeta.archivedAt ? formatPortalDateTime(archiveMeta.archivedAt) : (record.updatedAt ? formatPortalDateTime(record.updatedAt) : 'Date not recorded')}</strong>
-          <small>{archiveMeta.archivedBy || 'CRM adviser'}</small>
-        </div>
-        <div>
-          <span>Previous status</span>
-          <strong>{archiveMeta.previousStatus || 'Dealt with'}</strong>
-          <small>Restoring returns the record to this status</small>
-        </div>
-        <div>
-          <span>CV storage released</span>
-          <strong>{formatFileSize(Number(archiveMeta.purgedBytes || 0)) || '0 B'}</strong>
-          <small>{Number(archiveMeta.purgedUploadCount || 0)} uploaded file{Number(archiveMeta.purgedUploadCount || 0) === 1 ? '' : 's'} removed</small>
-        </div>
-        <div>
-          <span>File cleanup</span>
-          <strong>{pendingCleanup ? 'Needs attention' : 'Complete'}</strong>
-          <small>{pendingCleanup ? `${Number(archiveMeta.purgeFailedCount || 0)} deletion warning${Number(archiveMeta.purgeFailedCount || 0) === 1 ? '' : 's'}` : 'No linked CV blobs remain'}</small>
-        </div>
-      </section>
-
-      {purgedNames.length > 0 && <div className="archive-purged-files"><strong>Purged CV files</strong><span>{purgedNames.join(' · ')}</span></div>}
-
-      {record.convertedClientId && <div className="success-banner compact"><CheckCircle2 size={17} />This intake was converted to a client record. The client remains active independently of this archive.<button type="button" onClick={() => openClientRecord?.(record.convertedClientId)}>Open client</button></div>}
-
-      {contact ? (
-        <section className="intake-review-panel archive-contact-detail">
-          <div className="intake-section-heading"><div><span className="eyebrow">Retained contact record</span><h3>Contact form details</h3></div><p>The short website enquiry is retained in the database for history and search.</p></div>
-          <div className="contact-review-grid">
-            <div><span>Email</span><strong>{record.email || 'Not provided'}</strong></div>
-            <div><span>Phone</span><strong>{record.phone || 'Not provided'}</strong></div>
-            <div><span>Situation</span><strong>{payload.contactSituation || record.targetPathway || 'Not recorded'}</strong></div>
-            <div><span>Location</span><strong>{payload.contactLocation || record.currentLocation || 'Not recorded'}</strong></div>
-            <div><span>Best time to call</span><strong>{payload.bestTimeToCall || 'Not recorded'}</strong></div>
-            <div><span>Submitted</span><strong>{record.createdAt ? formatPortalDateTime(record.createdAt) : 'Not recorded'}</strong></div>
-          </div>
-          <div className="contact-review-message"><span>Message</span><p>{payload.helpNeeded || 'No message recorded.'}</p></div>
-        </section>
-      ) : (
-        <IntakeQuestionnaireReview record={record} advisers={advisers} />
-      )}
-
-      {(record.adviserAssessmentNotes || record.recommendedPathway || record.consultationOutcome) && (
-        <section className="intake-review-panel archive-adviser-notes">
-          <div className="intake-section-heading"><div><span className="eyebrow">Adviser history</span><h3>Assessment notes retained</h3></div></div>
-          <div className="contact-review-grid">
-            <div><span>Assigned adviser</span><strong>{adviserName(record.assignedAdviserId, advisers)}</strong></div>
-            <div><span>Recommended pathway</span><strong>{record.recommendedPathway || 'Not recorded'}</strong></div>
-            <div><span>Consultation / outcome</span><strong>{record.consultationOutcome || 'Not recorded'}</strong></div>
-          </div>
-          {record.adviserAssessmentNotes && <div className="contact-review-message"><span>Adviser assessment notes</span><p>{record.adviserAssessmentNotes}</p></div>}
-        </section>
-      )}
-    </div>
-  );
+  const purgedNames = Array.isArray(meta.purgedFileNames) ? meta.purgedFileNames : [];
+  return <div className="archived-enquiry-detail"><div className="intake-popout-actionbar archive-detail-actionbar"><div><span className="eyebrow">Archived {contact ? 'contact form' : 'assessment questionnaire'}</span><h2>{[record.firstName, record.lastName].filter(Boolean).join(' ') || 'Unnamed enquiry'}</h2><p>{record.email || 'No email'}{record.phone ? ` · ${record.phone}` : ''}</p></div><div className="button-row"><button className="btn" type="button" onClick={onClose}><X size={15}/>Close</button><button className="btn dark" type="button" onClick={onRestore} disabled={saving}><RotateCcw size={15}/>Restore</button>{isAdmin && <button className="btn danger" type="button" onClick={onDelete} disabled={saving}><Trash2 size={15}/>Permanently delete</button>}</div></div><section className="archive-storage-summary"><div><span>Previous status</span><strong>{meta.previousStatus || 'Dealt with'}</strong></div><div><span>Archived</span><strong>{meta.archivedAt ? formatPortalDateTime(meta.archivedAt) : 'Date not recorded'}</strong></div><div><span>CV storage released</span><strong>{formatFileSize(Number(meta.purgedBytes || 0)) || '0 B'}</strong></div><div><span>CV files removed</span><strong>{Number(meta.purgedUploadCount || 0)}</strong></div></section>{purgedNames.length > 0 && <div className="archive-purged-files"><strong>Purged CV files</strong><span>{purgedNames.join(' · ')}</span></div>}{record.convertedClientId && <div className="success-banner compact"><CheckCircle2 size={16}/>The converted client record remains active independently of this archived intake.<button type="button" onClick={() => openClientRecord?.(record.convertedClientId)}>Open client</button></div>}{contact ? <section className="intake-review-panel"><div className="intake-section-heading"><div><span className="eyebrow">Retained contact record</span><h3>Contact form details</h3></div></div><div className="contact-review-grid"><div><span>Email</span><strong>{record.email || 'Not provided'}</strong></div><div><span>Phone</span><strong>{record.phone || 'Not provided'}</strong></div><div><span>Situation</span><strong>{payload.contactSituation || record.targetPathway || 'Not recorded'}</strong></div><div><span>Location</span><strong>{payload.contactLocation || record.currentLocation || 'Not recorded'}</strong></div></div><div className="contact-review-message"><span>Message</span><p>{payload.helpNeeded || 'No message recorded.'}</p></div></section> : <IntakeQuestionnaireReview record={record} advisers={advisers} />}</div>;
 }
-
 
 function makeBlankSeminar() {
   return {
@@ -8441,7 +8238,6 @@ function IntakeQuestionnaireEditor({ record = {}, onChange, downloadIntakeUpload
     return value || '';
   };
   const boolValue = (key) => Boolean(payload[key]);
-  const arrayValue = (key) => Array.isArray(payload[key]) ? payload[key] : [];
   return (
     <div className="intake-questionnaire-review intake-questionnaire-editor">
       <div className="intake-questionnaire-title">
@@ -8464,11 +8260,9 @@ function IntakeQuestionnaireEditor({ record = {}, onChange, downloadIntakeUpload
           <IntakeField label="Mobile phone" value={fieldValue('phone')} onChange={(v) => set('phone', v)} />
           <IntakeSelect label="Preferred contact method" value={fieldValue('preferredContactMethod')} onChange={(v) => set('preferredContactMethod', v)} options={['Email', 'Mobile']} />
           <IntakeSelect label="Country of citizenship" value={fieldValue('citizenship')} onChange={(v) => set('citizenship', v)} options={COUNTRY_OPTIONS} />
-          <IntakeSelect label="Other citizenship held?" value={fieldValue('hasOtherCitizenship')} onChange={(v) => { set('hasOtherCitizenship', v); if (v !== 'Yes') set('otherCitizenships', []); else if (!arrayValue('otherCitizenships').length) set('otherCitizenships', ['']); }} options={INTAKE_YES_NO_ONLY_OPTIONS} />
           <IntakeField label="Date of birth" type="date" value={fieldValue('dateOfBirth')} onChange={(v) => set('dateOfBirth', v)} />
           <label className="field"><span>Age</span><input value={fieldValue('dateOfBirthAge') || (fieldValue('dateOfBirth') ? calculateAge(fieldValue('dateOfBirth')) : '')} readOnly /></label>
         </div>
-        {fieldValue('hasOtherCitizenship') === 'Yes' && <div className="intake-nested-panel"><h3>Other citizenship</h3><div className="form-grid">{(arrayValue('otherCitizenships').length ? arrayValue('otherCitizenships') : ['']).map((country, index) => <IntakeSelect key={`editor-other-citizenship-${index}`} label={`Other country of citizenship${index ? ` ${index + 1}` : ''}`} value={country} onChange={(v) => { const values = [...(arrayValue('otherCitizenships').length ? arrayValue('otherCitizenships') : [''])]; values[index] = v; set('otherCitizenships', values); }} options={COUNTRY_OPTIONS} />)}</div><button className="btn mini" type="button" onClick={() => set('otherCitizenships', [...arrayValue('otherCitizenships'), ''])} disabled={arrayValue('otherCitizenships').length >= 4}><Plus size={14} />Add another citizenship</button></div>}
         <IntakeUploadDownloadCard label="Applicant CV" upload={payload.intakeUploads?.applicantCv || payload.applicantCv} onDownload={() => downloadIntakeUpload?.(record.id, 'applicantCv')} />
       </IntakeSection>
 
@@ -8553,7 +8347,6 @@ function IntakeQuestionnaireEditor({ record = {}, onChange, downloadIntakeUpload
             <IntakeField label="Partner full name" value={fieldValue('partnerFullName')} onChange={(v) => set('partnerFullName', v)} />
             <IntakeField label="Partner date of birth" type="date" value={fieldValue('partnerDateOfBirth')} onChange={(v) => set('partnerDateOfBirth', v)} />
             <IntakeSelect label="Partner citizenship" value={fieldValue('partnerCitizenship')} onChange={(v) => set('partnerCitizenship', v)} options={COUNTRY_OPTIONS} />
-            <IntakeSelect label="Partner holds other citizenship?" value={fieldValue('partnerHasOtherCitizenship')} onChange={(v) => { set('partnerHasOtherCitizenship', v); if (v !== 'Yes') set('partnerOtherCitizenships', []); else if (!arrayValue('partnerOtherCitizenships').length) set('partnerOtherCitizenships', ['']); }} options={INTAKE_YES_NO_ONLY_OPTIONS} />
             <IntakeSelect label="Partner current country" value={fieldValue('partnerCurrentCountry')} onChange={(v) => set('partnerCurrentCountry', v)} options={COUNTRY_OPTIONS} />
             <IntakeField label="Partner NZ visa status" value={fieldValue('partnerVisaStatus')} onChange={(v) => set('partnerVisaStatus', v)} />
             <IntakeSelect label="Is your partner a NZ citizen or resident?" value={fieldValue('partnerNzStatus')} onChange={(v) => set('partnerNzStatus', v)} options={INTAKE_YES_NO_OPTIONS} />
@@ -8562,7 +8355,6 @@ function IntakeQuestionnaireEditor({ record = {}, onChange, downloadIntakeUpload
             <IntakeField label="Date started living together" type="date" value={fieldValue('startedLivingTogether')} onChange={(v) => set('startedLivingTogether', v)} />
             <IntakeSelect label="Include partner in assessment?" value={fieldValue('partnerIncluded')} onChange={(v) => set('partnerIncluded', v)} options={INTAKE_YES_NO_OPTIONS} />
           </div>
-          {fieldValue('partnerHasOtherCitizenship') === 'Yes' && <div className="intake-nested-panel intake-nested-panel-inner"><h4>Partner other citizenship</h4><div className="form-grid">{(arrayValue('partnerOtherCitizenships').length ? arrayValue('partnerOtherCitizenships') : ['']).map((country, index) => <IntakeSelect key={`editor-partner-other-citizenship-${index}`} label={`Other country of citizenship${index ? ` ${index + 1}` : ''}`} value={country} onChange={(v) => { const values = [...(arrayValue('partnerOtherCitizenships').length ? arrayValue('partnerOtherCitizenships') : [''])]; values[index] = v; set('partnerOtherCitizenships', values); }} options={COUNTRY_OPTIONS} />)}</div><button className="btn mini" type="button" onClick={() => set('partnerOtherCitizenships', [...arrayValue('partnerOtherCitizenships'), ''])} disabled={arrayValue('partnerOtherCitizenships').length >= 4}><Plus size={14} />Add another citizenship</button></div>}
           <IntakeTextarea label="Relationship background" value={fieldValue('relationshipBackground')} onChange={(v) => set('relationshipBackground', v)} rows={3} />
         </div>
         <div className="intake-nested-panel">
@@ -8757,7 +8549,7 @@ function getIntakeQuestionnaireSections(record = {}) {
   const sections = [
     {
       title: 'Your details',
-      rows: intakeRows(payload, ['firstName', 'lastName', 'email', 'phone', 'preferredContactMethod', 'citizenship', 'hasOtherCitizenship', 'otherCitizenships', 'dateOfBirth', 'dateOfBirthAge', 'physicalAddress', 'applicantCv']),
+      rows: intakeRows(payload, ['firstName', 'lastName', 'email', 'phone', 'preferredContactMethod', 'citizenship', 'dateOfBirth', 'dateOfBirthAge', 'physicalAddress', 'applicantCv']),
     },
     {
       title: 'Immigration goal',
@@ -8783,7 +8575,7 @@ function getIntakeQuestionnaireSections(record = {}) {
       title: 'Partner details',
       rows: intakeRows(payload, ['relationshipStatus', 'hasPartner']),
       panels: [
-        { title: 'Partner identity and relationship', rows: intakeRows(payload, ['partnerFullName', 'partnerDateOfBirth', 'partnerCitizenship', 'partnerHasOtherCitizenship', 'partnerOtherCitizenships', 'partnerCurrentCountry', 'partnerVisaStatus', 'partnerNzStatus', 'livingTogether', 'relationshipStarted', 'startedLivingTogether', 'partnerIncluded', 'relationshipBackground', 'partnerCv']) },
+        { title: 'Partner identity and relationship', rows: intakeRows(payload, ['partnerFullName', 'partnerDateOfBirth', 'partnerCitizenship', 'partnerCurrentCountry', 'partnerVisaStatus', 'partnerNzStatus', 'livingTogether', 'relationshipStarted', 'startedLivingTogether', 'partnerIncluded', 'relationshipBackground', 'partnerCv']) },
         { title: 'Partner work and experience', rows: intakeRows(payload, ['partnerCurrentEmploymentStatus', 'partnerOccupation', 'partnerCurrentEmployer', 'partnerEmploymentCountry', 'partnerCurrentJobStartDate', 'partnerHoursPerWeek', 'partnerAnnualSalary', 'partnerSalaryCurrency', 'partnerYearsExperience', 'partnerEmploymentDetails', 'partnerPreviousWorkHistory']) },
         { title: 'Partner qualifications', rows: intakeRows(payload, ['partnerHighestQualification', 'partnerQualificationName', 'partnerQualificationInstitution', 'partnerQualificationCountry', 'partnerQualificationYearCompleted', 'partnerQualificationStudyLength', 'partnerTaughtInEnglish', 'partnerNzqaAssessed', 'partnerQualificationRelatedToOccupation', 'partnerQualificationDetails']) },
       ],
@@ -8887,7 +8679,7 @@ function IntakeSection({ title, description, children }) {
 }
 
 function IntakeField({ label, value, onChange, onBlur, type = 'text', required = false, placeholder = '', error = '', className = '', autoComplete, inputMode, spellCheck }) {
-  return <label className={`field ${className} ${error ? 'has-error' : ''}`.trim()}><span>{label}{required ? ' *' : ''}</span><input type={type} value={value || ''} required={required} placeholder={placeholder} autoComplete={autoComplete} inputMode={inputMode} spellCheck={spellCheck} aria-invalid={Boolean(error)} aria-describedby={error ? `${className || 'intake-field'}-error` : undefined} onChange={(event) => onChange(event.target.value)} onBlur={(event) => onBlur?.(event.target.value)} />{error && <small id={`${className || 'intake-field'}-error`} className="field-error">{error}</small>}</label>;
+  return <label className={`field ${className} ${error ? 'has-error' : ''}`.trim()}><span>{label}{required ? ' *' : ''}</span><input type={type} value={value || ''} required={required} placeholder={placeholder} autoComplete={autoComplete} inputMode={inputMode} spellCheck={spellCheck} aria-invalid={Boolean(error)} onChange={(event) => onChange(event.target.value)} onBlur={(event) => onBlur?.(event.target.value)} />{error && <small className="field-error">{error}</small>}</label>;
 }
 
 function IntakeSelect({ label, value, onChange, options, required = false }) {
@@ -8899,24 +8691,10 @@ function IntakeFileField({ label, file, onChange, status = 'idle', statusMessage
   const inputId = `intake-file-${label.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
   return (
     <div className={`intake-file-field ${status === 'error' ? 'has-error' : ''}`}>
-      <label className="field" htmlFor={inputId}>
-        <span>{label}</span>
-        <input id={inputId} type="file" accept={INTAKE_CV_ACCEPT} disabled={locked} onChange={(event) => { const accepted = onChange(event.target.files?.[0] || null); if (accepted === false) event.currentTarget.value = ''; }} />
-      </label>
+      <label className="field" htmlFor={inputId}><span>{label}</span><input id={inputId} type="file" accept={INTAKE_CV_ACCEPT} disabled={locked} onChange={(event) => { const accepted = onChange(event.target.files?.[0] || null); if (accepted === false) event.currentTarget.value = ''; }} /></label>
       <p className="muted">PDF, DOC or DOCX only. Maximum 5 MB. One file only.</p>
-      {status !== 'idle' && statusMessage && (
-        <div className={`intake-upload-status ${status}`} role={status === 'error' ? 'alert' : 'status'}>
-          {status === 'uploaded' || status === 'ready' ? <FileCheck2 size={16} /> : status === 'uploading' ? <Upload size={16} /> : <AlertTriangle size={16} />}
-          <span>{statusMessage}</span>
-        </div>
-      )}
-      {file && (
-        <div className="intake-upload-pill">
-          <FileText size={15} />
-          <span>{file.name} · {formatFileSize(file.size)}</span>
-          {locked ? <strong className="intake-upload-locked">Uploaded</strong> : <button type="button" className="btn mini" onClick={() => onChange(null)}>Remove</button>}
-        </div>
-      )}
+      {status !== 'idle' && statusMessage && <div className={`intake-upload-status ${status}`} role={status === 'error' ? 'alert' : 'status'}>{status === 'uploaded' || status === 'ready' ? <FileCheck2 size={16} /> : status === 'uploading' ? <Upload size={16} /> : <AlertTriangle size={16} />}<span>{statusMessage}</span></div>}
+      {file && <div className="intake-upload-pill"><FileText size={15} /><span>{file.name} · {formatFileSize(file.size)}</span>{locked ? <strong className="intake-upload-locked">Uploaded</strong> : <button type="button" className="btn mini" onClick={() => onChange(null)}>Remove</button>}</div>}
     </div>
   );
 }
@@ -9757,17 +9535,18 @@ function adviserInitials(value = '') {
 
 
 function MobileBottomNav({ activeTab, onNavigate, onOpenMore }) {
+  const effectiveTab = ['matter', 'client-record'].includes(activeTab) ? 'clients' : activeTab;
   const navItems = [
-    { tab: 'home', label: 'My Day', icon: CloudSun },
-    { tab: 'tasks', label: 'Tasks', icon: ListChecks },
+    { tab: 'work', label: 'My Work', icon: LayoutDashboard },
     { tab: 'clients', label: 'Clients', icon: UsersRound },
     { tab: 'intake', label: 'Enquiries', icon: ClipboardList },
+    { tab: 'calendar', label: 'Calendar', icon: CalendarDays },
   ];
-  const moreActive = ['dashboard', 'commercial', 'studio', 'calendar', 'billing', 'advisers', 'library', 'bookings', 'backups'].includes(activeTab);
+  const moreActive = ['home', 'dashboard', 'tasks', 'commercial', 'studio', 'billing', 'advisers', 'library', 'bookings', 'backups'].includes(effectiveTab);
   return (
     <nav className="mobile-bottom-nav" aria-label="Mobile CRM navigation">
       {navItems.map(({ tab, label, icon: Icon }) => (
-        <button key={tab} type="button" className={activeTab === tab ? 'active' : ''} onClick={() => onNavigate(tab)}>
+        <button key={tab} type="button" className={effectiveTab === tab ? 'active' : ''} onClick={() => onNavigate(tab)}>
           <Icon size={18} />
           <span>{label}</span>
         </button>
@@ -10004,7 +9783,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const dayRows = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']];
-  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.16.3" data-title="Chat with us" defer><\/script>`;
+  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.17.1" data-title="Chat with us" defer><\/script>`;
 
   useEffect(() => {
     if (!open) return;
@@ -12399,6 +12178,24 @@ function ProgressMap({ client }) {
 }
 
 
+function PortalUpdateTemplatePicker({ onApply }) {
+  const [key, setKey] = useState('');
+  const template = PORTAL_UPDATE_TEMPLATES.find((item) => item.key === key);
+  return (
+    <div className="portal-update-template-picker">
+      <span>Standard portal wording</span>
+      <p>Select a sensible base update and next step, then edit the text below only if this file needs different wording.</p>
+      <div>
+        <select value={key} onChange={(event) => setKey(event.target.value)}>
+          <option value="">Choose standard wording…</option>
+          {PORTAL_UPDATE_TEMPLATES.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
+        </select>
+        <button className="btn mint" type="button" disabled={!template} onClick={() => template && onApply?.(template)}>Use wording</button>
+      </div>
+    </div>
+  );
+}
+
 function ClientPortalPanel({ client, advisers, calendarEntries, generatedPortalCode, setField, updatePortalSelection, generatePortalAccessCode, copyPortalInstructions, publishPortalUpdate, updatePortalMessageStatus, uploadPortalDocument, updatePortalDocument, deletePortalDocument, saving }) {
   const portalLink = `${window.location.origin}/portal`;
   const documents = normaliseDocumentChecklist(client.documentChecklist).filter((item) => item.applied !== false);
@@ -12443,6 +12240,7 @@ function ClientPortalPanel({ client, advisers, calendarEntries, generatedPortalC
         <label className="field"><span>Allocated adviser shown to client</span><input value={primaryAdviser ? `${primaryAdviser.name} · ${primaryAdviser.email || 'no email'} · ${primaryAdviser.phone || 'no phone'}` : 'No primary adviser selected'} readOnly /></label>
       </div>
 
+      <PortalUpdateTemplatePicker onApply={(template) => { setField('portalStatusUpdate', template.current); setField('portalNextStep', template.next); }} />
       <TextArea label="Plain-English update" value={client.portalStatusUpdate || ''} onChange={(value) => setField('portalStatusUpdate', value)} rows={5} />
       <TextArea label="Next client step" value={client.portalNextStep || ''} onChange={(value) => setField('portalNextStep', value)} rows={3} />
 
@@ -13232,7 +13030,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.16.3" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.1" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -13809,7 +13607,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.16.3" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.1" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}
@@ -15788,6 +15586,106 @@ function BillingDashboard({ billingRows, advisers, adviserFilter, setAdviserFilt
   );
 }
 
+
+function normaliseNotificationRecipientSetting(input = {}) {
+  return {
+    key: input.key || input.notificationKey || input.notification_key || '',
+    label: input.label || '',
+    description: input.description || '',
+    configured: Boolean(input.configured),
+    adviserIds: Array.isArray(input.adviserIds) ? input.adviserIds : Array.isArray(input.adviser_ids) ? input.adviser_ids : [],
+    customEmails: input.customEmails || input.custom_emails || '',
+    effectiveEmails: Array.isArray(input.effectiveEmails) ? input.effectiveEmails : Array.isArray(input.effective_emails) ? input.effective_emails : [],
+    updatedBy: input.updatedBy || input.updated_by || '',
+    updatedAt: input.updatedAt || input.updated_at || '',
+  };
+}
+
+function NotificationRecipientSettings({ settings = [], advisers = [], onSave, saving = false }) {
+  const [drafts, setDrafts] = useState(() => settings.map(normaliseNotificationRecipientSetting));
+  const [copied, setCopied] = useState(false);
+  useEffect(() => setDrafts(settings.map(normaliseNotificationRecipientSetting)), [settings]);
+
+  const activeAdvisers = advisers.filter((adviser) => adviser.active !== false && adviser.email);
+  const inactiveAdvisers = advisers.filter((adviser) => adviser.active === false || !adviser.email);
+
+  function updateSetting(key, patch) {
+    setDrafts((current) => current.map((item) => item.key === key ? { ...item, ...patch } : item));
+  }
+
+  function toggleAdviser(key, adviserId) {
+    setDrafts((current) => current.map((item) => {
+      if (item.key !== key) return item;
+      const ids = item.adviserIds || [];
+      return { ...item, adviserIds: ids.includes(adviserId) ? ids.filter((id) => id !== adviserId) : [...ids, adviserId] };
+    }));
+  }
+
+  function copyAssessmentRecipients() {
+    const source = drafts.find((item) => item.key === 'assessment_form_internal_notification');
+    if (!source) return;
+    setDrafts((current) => current.map((item) => ({ ...item, adviserIds: [...(source.adviserIds || [])], customEmails: source.customEmails || '' })));
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1800);
+  }
+
+  function recipientSummary(item) {
+    const selected = activeAdvisers.filter((adviser) => (item.adviserIds || []).includes(adviser.id)).map((adviser) => adviser.name || adviser.email);
+    const extras = String(item.customEmails || '').split(/[;,\n]/).map((value) => value.trim()).filter(Boolean);
+    return [...selected, ...extras];
+  }
+
+  async function saveAll() {
+    await onSave?.(drafts.map((item) => ({ key: item.key, adviserIds: item.adviserIds || [], customEmails: item.customEmails || '' })));
+  }
+
+  return (
+    <section className="panel notification-recipient-panel">
+      <div className="notification-recipient-head">
+        <div>
+          <span className="eyebrow">Internal notifications</span>
+          <h2>Who receives website alerts?</h2>
+          <p className="muted">Choose the advisers who should receive each new-submission email. This replaces the old hard-coded recipient list, so staff changes can be handled here without changing Netlify settings or code.</p>
+        </div>
+        <div className="button-row">
+          <button className="btn" type="button" onClick={copyAssessmentRecipients} disabled={!drafts.length}>{copied ? 'Copied' : 'Use assessment recipients for all'}</button>
+          <button className="btn dark" type="button" onClick={saveAll} disabled={saving || !drafts.length}><Save size={16} />Save notification recipients</button>
+        </div>
+      </div>
+      <div className="notification-recipient-note"><Mail size={17} /><span><strong>Inactive advisers are automatically excluded from delivery.</strong> Live-chat notification recipients continue to be managed separately under Live Chat settings.</span></div>
+      <div className="notification-recipient-grid">
+        {drafts.map((item) => {
+          const recipients = recipientSummary(item);
+          return (
+            <article className="notification-recipient-card" key={item.key}>
+              <div className="notification-recipient-card-head">
+                <div><h3>{item.label || item.key}</h3><p>{item.description || 'Internal website notification.'}</p></div>
+                <span className={`notification-config-chip ${item.configured ? 'saved' : 'default'}`}>{item.configured ? 'Saved setting' : 'Current default'}</span>
+              </div>
+              <div className="notification-adviser-options">
+                {activeAdvisers.map((adviser) => (
+                  <label key={adviser.id} className={(item.adviserIds || []).includes(adviser.id) ? 'selected' : ''}>
+                    <input type="checkbox" checked={(item.adviserIds || []).includes(adviser.id)} onChange={() => toggleAdviser(item.key, adviser.id)} />
+                    <AdviserAvatar adviser={adviser} size="sm" />
+                    <span><strong>{adviser.name}</strong><small>{adviser.email}</small></span>
+                  </label>
+                ))}
+                {!activeAdvisers.length && <p className="muted">No active adviser profiles currently have an email address.</p>}
+              </div>
+              <label className="notification-extra-emails"><span>Additional email addresses <small>(optional)</small></span><input value={item.customEmails || ''} onChange={(event) => updateSetting(item.key, { customEmails: event.target.value })} placeholder="team@turnerhopkins.co.nz" /><small>Use commas for more than one address.</small></label>
+              <div className={`notification-recipient-summary ${recipients.length ? '' : 'warning'}`}>
+                <strong>{recipients.length ? `${recipients.length} recipient${recipients.length === 1 ? '' : 's'}` : 'No recipients selected'}</strong>
+                <span>{recipients.length ? recipients.join(' · ') : 'Select at least one active adviser or add an email address before saving.'}</span>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+      {inactiveAdvisers.length > 0 && <p className="notification-inactive-note"><AlertTriangle size={15} />{inactiveAdvisers.length} inactive adviser profile{inactiveAdvisers.length === 1 ? ' is' : 's are'} not available for new notification delivery.</p>}
+    </section>
+  );
+}
+
 function AdviserProfiles({ advisers, clients, saveAdviser, saving }) {
   const [drafts, setDrafts] = useState(advisers);
   const [photoMessages, setPhotoMessages] = useState({});
@@ -15891,26 +15789,17 @@ function resizeProfilePhoto(file, maxSize = 420) {
   });
 }
 
-function isValidIntakeEmailAddress(value = '') {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
-}
-
-function makeIntakeSubmissionKey() {
-  if (typeof globalThis !== 'undefined' && globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
-  return `intake-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
-}
-
+function isValidIntakeEmailAddress(value = '') { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim()); }
+function makeIntakeSubmissionKey() { if (typeof globalThis !== 'undefined' && globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID(); return `intake-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`; }
 function validateIntakeCvFile(file) {
   if (!file) return;
   const name = String(file.name || '').toLowerCase();
-  const hasAllowedExtension = name.endsWith('.pdf') || name.endsWith('.doc') || name.endsWith('.docx');
-  if (!hasAllowedExtension) throw new Error('CV uploads must be PDF, DOC or DOCX files.');
+  if (!(name.endsWith('.pdf') || name.endsWith('.doc') || name.endsWith('.docx'))) throw new Error('CV uploads must be PDF, DOC or DOCX files.');
   if (!Number(file.size || 0)) throw new Error('That CV file appears to be empty. Please choose the file again.');
   if (Number(file.size || 0) > MAX_INTAKE_CV_BYTES) throw new Error('CV uploads must be 5 MB or smaller.');
   const type = normaliseCvMimeType(file.type, name);
   if (!['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(type)) throw new Error('CV uploads must be PDF, DOC or DOCX files.');
 }
-
 function normaliseCvMimeType(value = '', fileName = '') {
   const type = String(value || '').split(';')[0].trim().toLowerCase();
   if (['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(type)) return type;
@@ -17560,8 +17449,6 @@ function makeBlankIntakePayload() {
     phone: '',
     preferredContactMethod: 'Email',
     citizenship: '',
-    hasOtherCitizenship: '',
-    otherCitizenships: [],
     dateOfBirth: '',
     dateOfBirthAge: '',
     consentToContact: false,
@@ -17592,8 +17479,6 @@ function makeBlankIntakePayload() {
     partnerFullName: '',
     partnerDateOfBirth: '',
     partnerCitizenship: '',
-    partnerHasOtherCitizenship: '',
-    partnerOtherCitizenships: [],
     partnerCurrentCountry: '',
     partnerVisaStatus: '',
     partnerNzStatus: '',
@@ -17690,10 +17575,9 @@ function makeBlankIntakePayload() {
 
 function normaliseSimplifiedIntakeStatus(value) {
   const status = String(value || '').trim();
-  if (status === 'Archived') return 'Archived';
   if (INTAKE_STATUSES.includes(status)) return status;
   if (/converted|signed client/i.test(status)) return 'Converted';
-  if (['Reviewing', 'Consultation booked', 'Agreement sent', 'Not proceeding'].includes(status)) return 'Contacted';
+  if (['Reviewing', 'Consultation booked', 'Agreement sent', 'Not proceeding', 'Archived'].includes(status)) return 'Contacted';
   if (/spam|duplicate/i.test(status)) return 'Spam / Duplicate';
   return 'New';
 }
@@ -17734,8 +17618,6 @@ function intakeLabelForKey(key = '') {
     phone: 'Mobile phone',
     preferredContactMethod: 'Preferred contact method',
     citizenship: 'Country of citizenship',
-    hasOtherCitizenship: 'Other citizenship held',
-    otherCitizenships: 'Other countries of citizenship',
     dateOfBirth: 'Date of birth',
     dateOfBirthAge: 'Age',
     applicantCv: 'Applicant CV',
@@ -17761,8 +17643,6 @@ function intakeLabelForKey(key = '') {
     partnerFullName: 'Partner full name',
     partnerDateOfBirth: 'Partner date of birth',
     partnerCitizenship: 'Partner citizenship',
-    partnerHasOtherCitizenship: 'Partner holds other citizenship',
-    partnerOtherCitizenships: 'Partner other countries of citizenship',
     partnerCurrentCountry: 'Partner country',
     partnerVisaStatus: 'Partner visa status',
     partnerNzStatus: 'Partner NZ citizen/resident',
@@ -17936,6 +17816,9 @@ function normaliseClientFromApi(client = {}, stageTemplates = DEFAULT_STAGE_TEMP
     oneLawClientNumber: client.oneLawClientNumber || client.one_law_client_number || '',
     dateOfBirth: client.dateOfBirth || '',
     nextActionLog: normaliseNextActionLog(client.nextActionLog),
+    matterStatus: normaliseMatterStatus(client.matterStatus || client.matter_status, client.clientStatus, client.nextAction),
+    matterReviewDate: client.matterReviewDate || client.matter_review_date || '',
+    matterActivity: normaliseMatterActivity(client.matterActivity || client.matter_activity),
     portalEnabled: Boolean(client.portalEnabled),
     portalEmail: client.portalEmail || '',
     portalStatusUpdate: client.portalStatusUpdate || '',
@@ -18040,6 +17923,7 @@ function normaliseData(body) {
     feedbackSubmissions: (body.feedbackSubmissions || []).map(normaliseFeedbackSubmission),
     emailLogs: (body.emailLogs || []).map(normaliseEmailLog),
     emailTemplates: (body.emailTemplates || []).map(normaliseEmailTemplate),
+    notificationRecipientSettings: (body.notificationRecipientSettings || []).map(normaliseNotificationRecipientSetting),
     consultationTypes: (body.consultationTypes || []).map(normaliseConsultationType),
     bookingAvailability: (body.bookingAvailability || []).map(normaliseBookingAvailability),
     bookingBlocks: (body.bookingBlocks || []).map(normaliseBookingBlock),
@@ -18079,7 +17963,9 @@ function mergePartialCrmResponse(current = emptyData, body = {}) {
   if (body.libraryEntry) next.libraryEntries = upsertCrmItem(current.libraryEntries || [], normaliseLibraryEntry(body.libraryEntry));
   if (body.intakeEnquiry) next.intakeEnquiries = upsertCrmItem(current.intakeEnquiries || [], normaliseIntakeEnquiry(body.intakeEnquiry));
   if (Array.isArray(body.updatedIntakeEnquiries)) {
-    next.intakeEnquiries = body.updatedIntakeEnquiries.reduce((items, item) => upsertCrmItem(items, normaliseIntakeEnquiry(item)), current.intakeEnquiries || []);
+    let rows = current.intakeEnquiries || [];
+    body.updatedIntakeEnquiries.map(normaliseIntakeEnquiry).forEach((item) => { rows = upsertCrmItem(rows, item); });
+    next.intakeEnquiries = rows;
   }
   if (body.instructionSet) next.instructionSets = upsertCrmItem(current.instructionSets || [], normaliseInstructionSet(body.instructionSet));
   if (body.instructionTemplateLibrary && typeof body.instructionTemplateLibrary === 'object') next.instructionTemplateLibrary = body.instructionTemplateLibrary;
@@ -18088,6 +17974,7 @@ function mergePartialCrmResponse(current = emptyData, body = {}) {
   if (body.agreementTemplateLibrary && typeof body.agreementTemplateLibrary === 'object') next.agreementTemplateLibrary = body.agreementTemplateLibrary;
   if (Array.isArray(body.agreementTemplateVersions)) next.agreementTemplateVersions = body.agreementTemplateVersions.map(normaliseAgreementTemplateVersion);
   if (body.emailLog) next.emailLogs = [normaliseEmailLog(body.emailLog), ...(current.emailLogs || []).filter((item) => item.id !== body.emailLog.id)].slice(0, 200);
+  if (Array.isArray(body.notificationRecipientSettings)) next.notificationRecipientSettings = body.notificationRecipientSettings.map(normaliseNotificationRecipientSetting);
   if (body.emailTemplate) {
     const emailTemplate = normaliseEmailTemplate(body.emailTemplate);
     const templates = current.emailTemplates || [];
@@ -18543,6 +18430,39 @@ function normaliseNextActionLog(items = []) {
     }))
     .filter((item) => item.action || item.dueDate)
     .slice(-200);
+}
+
+function normaliseMatterStatus(value = '', clientStatus = 'Active', nextAction = '') {
+  if (clientStatus === 'Closed') return 'Completed';
+  const text = String(value || '').trim();
+  const hasNextAction = Boolean(String(nextAction || '').trim());
+  if (text === 'No current action' && hasNextAction) return 'Adviser action required';
+  if (MATTER_STATUSES.includes(text)) return text;
+  return hasNextAction ? 'Adviser action required' : 'No current action';
+}
+
+function normaliseMatterActivity(value = []) {
+  let input = value;
+  if (typeof input === 'string') input = safeJsonParse(input, []);
+  if (!Array.isArray(input)) return [];
+  return input.map((item, index) => ({
+    id: String(item?.id || `matter-activity-${Date.now()}-${index}`),
+    type: String(item?.type || 'update'),
+    title: String(item?.title || 'Matter updated'),
+    detail: String(item?.detail || ''),
+    createdAt: item?.createdAt || item?.created_at || '',
+    createdBy: String(item?.createdBy || item?.created_by || ''),
+  })).slice(-250);
+}
+
+function matterStatusClass(value = '') {
+  if (value === 'Adviser action required') return 'action';
+  if (value === 'Client action required') return 'client';
+  if (value === 'Waiting on INZ') return 'inz';
+  if (value === 'Waiting on third party') return 'third';
+  if (value === 'Ready to progress') return 'ready';
+  if (value === 'Completed') return 'done';
+  return 'quiet';
 }
 
 

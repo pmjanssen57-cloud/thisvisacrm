@@ -1,0 +1,27 @@
+THiS CRM v0.17.1 - NOTIFICATION RECIPIENTS
+
+Where to manage recipients
+1. Sign in with an Admin account.
+2. Open Admin / Adviser profiles.
+3. At the top, use "Who receives website alerts?"
+4. Tick the advisers who should receive each notification type.
+5. Add any optional team/shared email address if required.
+6. Click Save notification recipients.
+
+Notification types
+- Assessment form submissions
+- Contact form submissions
+- Seminar registrations
+- Client feedback submissions
+- SMC calculator internal alerts
+
+Staff changes
+- When an adviser is leaving, set their adviser profile to Inactive. Inactive advisers are automatically excluded from new notification emails even if their ID is still present in a saved notification group.
+- Add the replacement adviser profile with their email address, then tick them in the required notification groups and save.
+- No code or Netlify environment-variable change is required.
+
+Existing behaviour
+Until the new settings are saved for the first time, the CRM retains the existing notification recipient behaviour so deployment does not silently change recipients.
+
+Live chat
+Live-chat notification recipients remain managed in Live Chat > Settings.

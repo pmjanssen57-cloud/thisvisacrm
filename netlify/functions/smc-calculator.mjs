@@ -1,4 +1,5 @@
 import { getDatabase } from '@netlify/database';
+import { getNotificationRecipients } from './_notification-recipients.mjs';
 
 const MAX_TEXT = 12000;
 const DEFAULT_CALCULATOR_URL = 'https://thisvisacrm.netlify.app/smc-work-experience-calculator.html';
@@ -273,24 +274,7 @@ function buildWorkPeriodsText(rows = []) {
 }
 
 async function getInternalNotificationRecipients(database) {
-  const adviserEmails = new Set();
-  try {
-    const rows = await database.sql`SELECT email FROM advisers WHERE active IS DISTINCT FROM FALSE AND email IS NOT NULL AND TRIM(email) <> '' ORDER BY name ASC`;
-    rows.forEach((row) => {
-      const email = cleanEmail(row.email);
-      if (isValidEmailAddress(email)) adviserEmails.add(email);
-    });
-  } catch (error) {
-    console.warn('Could not read adviser notification emails', error?.message || error);
-  }
-
-  if (!adviserEmails.size) {
-    const fallback = [process.env.SMC_CALCULATOR_NOTIFICATION_EMAILS, process.env.INTAKE_NOTIFICATION_EMAILS, process.env.CRM_NOTIFICATION_EMAILS]
-      .filter(Boolean)
-      .join(',');
-    normaliseEmailList(fallback).forEach((email) => adviserEmails.add(email));
-  }
-  return Array.from(adviserEmails);
+  return getNotificationRecipients(database, 'smc_calculator_internal_notification');
 }
 
 async function sendLoggedEmail(database, { templateKey, toEmail, subject, bodyText, bodyHtml, sentBy }) {

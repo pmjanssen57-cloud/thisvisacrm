@@ -3,6 +3,7 @@ import { getStore } from '@netlify/blobs';
 import crypto from 'node:crypto';
 import { getUser } from '@netlify/identity';
 import { CRM_REFERENCE_STORE, readCacheJson, writeCacheJson, deleteCacheKey } from './_runtime-cache.mjs';
+import { readNotificationRecipientSettings, saveNotificationRecipientSettings } from './_notification-recipients.mjs';
 
 const STAGE_TEMPLATES = [
   { id: 'instruction-sent', label: 'Instruction Sent', mandatory: true, sortOrder: 1 },
@@ -517,6 +518,13 @@ async function handleCrmEvent(event) {
       await invalidateCrmReference(CRM_ADVISER_CACHE_KEY);
       const refreshedAccessContext = await resolveCrmAccess(auth);
       return json({ adviser, accessContext: refreshedAccessContext });
+    }
+
+    if (action === 'saveNotificationRecipientSettings') {
+      requireAdminAccess(accessContext, 'Notification recipient management');
+      const actor = auth.user?.email || auth.user?.name || accessContext.adviserName || 'CRM administrator';
+      const notificationRecipientSettings = await saveNotificationRecipientSettings(db(), body.settings || [], actor);
+      return json({ notificationRecipientSettings });
     }
 
     if (action === 'saveMyPreferences') {
@@ -1040,6 +1048,9 @@ async function ensureSchema() {
       next_action TEXT,
       next_action_due DATE,
       next_action_log JSONB NOT NULL DEFAULT '[]'::jsonb,
+      matter_status TEXT NOT NULL DEFAULT 'No current action',
+      matter_review_date DATE,
+      matter_activity JSONB NOT NULL DEFAULT '[]'::jsonb,
       portal_enabled BOOLEAN NOT NULL DEFAULT FALSE,
       portal_email TEXT,
       portal_status_update TEXT,
@@ -1141,6 +1152,9 @@ async function ensureSchema() {
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS sharepoint_folder_url TEXT`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS one_law_client_number TEXT`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS next_action_log JSONB NOT NULL DEFAULT '[]'::jsonb`;
+  await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS matter_status TEXT NOT NULL DEFAULT 'No current action'`;
+  await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS matter_review_date DATE`;
+  await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS matter_activity JSONB NOT NULL DEFAULT '[]'::jsonb`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_enabled BOOLEAN NOT NULL DEFAULT FALSE`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_email TEXT`;
   await database.sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_status_update TEXT`;
@@ -2596,6 +2610,7 @@ async function saveAgreementTemplateLibrary(library = {}, versionEvent = null, u
   const [libraryRows, versions] = await Promise.all([
     database.sql`SELECT library_json FROM agreement_template_library WHERE id = 'master' LIMIT 1`,
     database.sql`SELECT id, version_label, change_note, snapshot, created_by, created_at FROM agreement_template_versions ORDER BY created_at DESC LIMIT 200`,
+    readNotificationRecipientSettings(database),
   ]);
   return { library: libraryRows[0]?.library_json || {}, versions: versions.map(mapAgreementTemplateVersionFromDb) };
 }
@@ -2835,8 +2850,8 @@ async function readCrmData() {
   const database = db();
   await pruneOldEmailNotifications(database);
   const referencePromise = readCachedCrmReferences(database);
-  const [clients, stages, deadlines, billing, personalTasks, calendarEntries, libraryEntries, portalMessages, portalDocuments, intakeEnquiries, seminars, seminarRegistrations, feedbackSubmissions, emailLogs, bookingAvailability, bookingBlocks, bookingLinks, consultationBookings, instructionSets, instructionTemplateVersions, agreementSets, agreementTemplateVersions] = await Promise.all([
-    database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, one_law_client_number, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, portal_enabled, portal_email, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_resource_settings, portal_access_code_hash, portal_last_published_at, portal_last_accessed_at, notes, family_members, document_checklist FROM clients ORDER BY updated_at DESC`,
+  const [clients, stages, deadlines, billing, personalTasks, calendarEntries, libraryEntries, portalMessages, portalDocuments, intakeEnquiries, seminars, seminarRegistrations, feedbackSubmissions, emailLogs, bookingAvailability, bookingBlocks, bookingLinks, consultationBookings, instructionSets, instructionTemplateVersions, agreementSets, agreementTemplateVersions, notificationRecipientSettings] = await Promise.all([
+    database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, one_law_client_number, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, matter_status, matter_review_date, matter_activity, portal_enabled, portal_email, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_resource_settings, portal_access_code_hash, portal_last_published_at, portal_last_accessed_at, notes, family_members, document_checklist FROM clients ORDER BY updated_at DESC`,
     database.sql`SELECT id, client_id, stage_key, stage_label, mandatory, applied, completed, completed_date, sort_order FROM client_stages ORDER BY sort_order ASC`,
     database.sql`SELECT id, client_id, deadline_type, deadline_date, note, action_status, review_date FROM client_deadlines ORDER BY deadline_date ASC NULLS LAST`,
     database.sql`SELECT id, client_id, milestone, due_date, amount, status, invoice_no, billing_trigger_type, billing_stage_key FROM billing_milestones ORDER BY due_date ASC NULLS LAST`,
@@ -2882,6 +2897,7 @@ async function readCrmData() {
     feedbackSubmissions: feedbackSubmissions.map(mapFeedbackSubmissionFromDb),
     emailLogs: emailLogs.map(mapEmailLogFromDb),
     emailTemplates: references.emailTemplates,
+    notificationRecipientSettings,
     consultationTypes: references.consultationTypes,
     bookingAvailability: bookingAvailability.map(mapBookingAvailabilityFromDb),
     bookingBlocks: bookingBlocks.map(mapBookingBlockFromDb),
@@ -2897,7 +2913,7 @@ async function readCrmData() {
 async function readSingleClient(clientId) {
   const database = db();
   const [clients, stages, deadlines, billing, portalMessages, portalDocuments] = await Promise.all([
-    database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, one_law_client_number, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, portal_enabled, portal_email, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_resource_settings, portal_access_code_hash, portal_last_published_at, portal_last_accessed_at, notes, family_members, document_checklist FROM clients WHERE id = ${clientId} LIMIT 1`,
+    database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, one_law_client_number, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, matter_status, matter_review_date, matter_activity, portal_enabled, portal_email, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_resource_settings, portal_access_code_hash, portal_last_published_at, portal_last_accessed_at, notes, family_members, document_checklist FROM clients WHERE id = ${clientId} LIMIT 1`,
     database.sql`SELECT id, client_id, stage_key, stage_label, mandatory, applied, completed, completed_date, sort_order FROM client_stages WHERE client_id = ${clientId} ORDER BY sort_order ASC`,
     database.sql`SELECT id, client_id, deadline_type, deadline_date, note, action_status, review_date FROM client_deadlines WHERE client_id = ${clientId} ORDER BY deadline_date ASC NULLS LAST`,
     database.sql`SELECT id, client_id, milestone, due_date, amount, status, invoice_no, billing_trigger_type, billing_stage_key FROM billing_milestones WHERE client_id = ${clientId} ORDER BY due_date ASC NULLS LAST`,
@@ -3437,6 +3453,9 @@ function mapClientFromDb(row, stages, deadlines, billing, portalMessages = [], p
     nextAction: row.next_action || '',
     nextActionDue: toDateOnly(row.next_action_due),
     nextActionLog: parseNextActionLog(row.next_action_log),
+    matterStatus: normaliseMatterStatus(row.matter_status, row.client_status, row.next_action),
+    matterReviewDate: toDateOnly(row.matter_review_date),
+    matterActivity: parseMatterActivity(row.matter_activity),
     portalEnabled: Boolean(row.portal_enabled),
     portalEmail: row.portal_email || '',
     portalStatusUpdate: row.portal_status_update || '',
@@ -3757,80 +3776,32 @@ async function archiveIntakeEnquiries(intakeIds = [], user = null) {
   const ids = [...new Set((Array.isArray(intakeIds) ? intakeIds : [intakeIds]).filter(isUuid))];
   if (!ids.length) throw new Error('Select at least one contact or intake form to archive.');
   if (ids.length > MAX_BULK_INTAKE_ARCHIVE) throw new Error(`Archive requests are limited to ${MAX_BULK_INTAKE_ARCHIVE} records at a time.`);
-
   const items = [];
   const summary = { requested: ids.length, archived: 0, alreadyArchived: 0, purgedFiles: 0, purgedBytes: 0, purgeFailures: 0 };
   const actor = user?.email || user?.name || 'CRM adviser';
-
   for (const intakeId of ids) {
-    const rows = await db().sql`
-      SELECT id, status, raw_payload
-      FROM intake_enquiries
-      WHERE id = ${intakeId}
-      LIMIT 1
-    `;
+    const rows = await db().sql`SELECT id, status, raw_payload FROM intake_enquiries WHERE id = ${intakeId} LIMIT 1`;
     const row = rows[0];
     if (!row) continue;
-
     const payload = parseJsonObject(row.raw_payload);
     const existingMeta = payload.intakeArchive && typeof payload.intakeArchive === 'object' ? payload.intakeArchive : {};
     const wasArchived = String(row.status || '') === INTAKE_ARCHIVE_STATUS;
-    const previousStatus = wasArchived
-      ? normaliseRestorableIntakeStatus(existingMeta.previousStatus)
-      : normaliseRestorableIntakeStatus(row.status);
+    const previousStatus = wasArchived ? normaliseRestorableIntakeStatus(existingMeta.previousStatus) : normaliseRestorableIntakeStatus(row.status);
     const archiveRunAt = new Date().toISOString();
     const archivedAt = wasArchived ? (existingMeta.archivedAt || archiveRunAt) : archiveRunAt;
-    const preArchiveMeta = {
-      ...existingMeta,
-      firstArchivedAt: existingMeta.firstArchivedAt || existingMeta.archivedAt || archiveRunAt,
-      archivedAt,
-      archivedBy: wasArchived ? (existingMeta.archivedBy || actor) : actor,
-      previousStatus,
-      lastArchiveRunAt: new Date().toISOString(),
-      lastArchiveRunBy: actor,
-      purgedUploadCount: Number(existingMeta.purgedUploadCount || 0),
-      purgedBytes: Number(existingMeta.purgedBytes || 0),
-      purgeFailedCount: Number(existingMeta.purgeFailedCount || 0),
-      purgedFileNames: Array.isArray(existingMeta.purgedFileNames) ? existingMeta.purgedFileNames : [],
-    };
+    const preArchiveMeta = { ...existingMeta, firstArchivedAt: existingMeta.firstArchivedAt || existingMeta.archivedAt || archiveRunAt, archivedAt, archivedBy: wasArchived ? (existingMeta.archivedBy || actor) : actor, previousStatus, lastArchiveRunAt: archiveRunAt, lastArchiveRunBy: actor, purgedUploadCount: Number(existingMeta.purgedUploadCount || 0), purgedBytes: Number(existingMeta.purgedBytes || 0), purgeFailedCount: Number(existingMeta.purgeFailedCount || 0), purgedFileNames: Array.isArray(existingMeta.purgedFileNames) ? existingMeta.purgedFileNames : [] };
     const preArchivePayload = { ...payload, intakeArchive: preArchiveMeta };
-
-    // Commit the archive state before deleting any blob. If the function stops after
-    // this point, the form is still safely recoverable from the Archive and cleanup
-    // can be retried without leaving an apparently active record whose CV disappeared.
-    if (!wasArchived) {
-      await db().sql`
-        UPDATE intake_enquiries
-        SET status = ${INTAKE_ARCHIVE_STATUS}, raw_payload = CAST(${JSON.stringify(preArchivePayload)} AS jsonb), updated_at = NOW()
-        WHERE id = ${intakeId}
-      `;
-    }
-
+    if (!wasArchived) await db().sql`UPDATE intake_enquiries SET status = ${INTAKE_ARCHIVE_STATUS}, raw_payload = CAST(${JSON.stringify(preArchivePayload)} AS jsonb), updated_at = NOW() WHERE id = ${intakeId}`;
     const purge = await purgeIntakeUploadBlobs(preArchivePayload, { reason: 'Archived from THiS CRM' });
-    const archiveMeta = {
-      ...preArchiveMeta,
-      lastArchiveRunAt: new Date().toISOString(),
-      lastArchiveRunBy: actor,
-      purgedUploadCount: Number(existingMeta.purgedUploadCount || 0) + purge.deletedCount,
-      purgedBytes: Number(existingMeta.purgedBytes || 0) + purge.deletedBytes,
-      purgeFailedCount: purge.failedCount,
-      purgedFileNames: [...new Set([...(Array.isArray(existingMeta.purgedFileNames) ? existingMeta.purgedFileNames : []), ...purge.deletedFileNames])].slice(0, 20),
-    };
+    const archiveMeta = { ...preArchiveMeta, lastArchiveRunAt: new Date().toISOString(), lastArchiveRunBy: actor, purgedUploadCount: Number(existingMeta.purgedUploadCount || 0) + purge.deletedCount, purgedBytes: Number(existingMeta.purgedBytes || 0) + purge.deletedBytes, purgeFailedCount: purge.failedCount, purgedFileNames: [...new Set([...(Array.isArray(existingMeta.purgedFileNames) ? existingMeta.purgedFileNames : []), ...purge.deletedFileNames])].slice(0, 20) };
     const nextPayload = { ...purge.payload, intakeArchive: archiveMeta };
-
-    const updated = await db().sql`
-      UPDATE intake_enquiries
-      SET status = ${INTAKE_ARCHIVE_STATUS}, raw_payload = CAST(${JSON.stringify(nextPayload)} AS jsonb), updated_at = NOW()
-      WHERE id = ${intakeId}
-      RETURNING id, status, assigned_adviser_id, applicant_first_name, applicant_last_name, email, phone, current_location, citizenship, date_of_birth, current_visa_type, current_visa_expiry, target_pathway, urgency, flags, raw_payload, adviser_assessment_notes, recommended_pathway, consultation_outcome, converted_client_id, created_at, updated_at
-    `;
+    const updated = await db().sql`UPDATE intake_enquiries SET status = ${INTAKE_ARCHIVE_STATUS}, raw_payload = CAST(${JSON.stringify(nextPayload)} AS jsonb), updated_at = NOW() WHERE id = ${intakeId} RETURNING id, status, assigned_adviser_id, applicant_first_name, applicant_last_name, email, phone, current_location, citizenship, date_of_birth, current_visa_type, current_visa_expiry, target_pathway, urgency, flags, raw_payload, adviser_assessment_notes, recommended_pathway, consultation_outcome, converted_client_id, created_at, updated_at`;
     if (updated[0]) items.push(mapIntakeEnquiryFromDb(updated[0]));
     summary[wasArchived ? 'alreadyArchived' : 'archived'] += 1;
     summary.purgedFiles += purge.deletedCount;
     summary.purgedBytes += purge.deletedBytes;
     summary.purgeFailures += purge.failedCount;
   }
-
   return { items, summary };
 }
 
@@ -3840,23 +3811,10 @@ async function restoreIntakeEnquiry(intakeId, user = null) {
   const row = rows[0];
   if (!row) throw new Error('The archived enquiry was not found.');
   if (String(row.status || '') !== INTAKE_ARCHIVE_STATUS) throw new Error('This enquiry is not archived.');
-
   const payload = parseJsonObject(row.raw_payload);
   const nextStatus = normaliseRestorableIntakeStatus(payload.intakeArchive?.previousStatus);
-  const nextPayload = {
-    ...payload,
-    intakeArchive: {
-      ...(payload.intakeArchive && typeof payload.intakeArchive === 'object' ? payload.intakeArchive : {}),
-      restoredAt: new Date().toISOString(),
-      restoredBy: user?.email || user?.name || 'CRM adviser',
-    },
-  };
-  const updated = await db().sql`
-    UPDATE intake_enquiries
-    SET status = ${nextStatus}, raw_payload = CAST(${JSON.stringify(nextPayload)} AS jsonb), updated_at = NOW()
-    WHERE id = ${intakeId}
-    RETURNING id, status, assigned_adviser_id, applicant_first_name, applicant_last_name, email, phone, current_location, citizenship, date_of_birth, current_visa_type, current_visa_expiry, target_pathway, urgency, flags, raw_payload, adviser_assessment_notes, recommended_pathway, consultation_outcome, converted_client_id, created_at, updated_at
-  `;
+  const nextPayload = { ...payload, intakeArchive: { ...(payload.intakeArchive && typeof payload.intakeArchive === 'object' ? payload.intakeArchive : {}), restoredAt: new Date().toISOString(), restoredBy: user?.email || user?.name || 'CRM adviser' } };
+  const updated = await db().sql`UPDATE intake_enquiries SET status = ${nextStatus}, raw_payload = CAST(${JSON.stringify(nextPayload)} AS jsonb), updated_at = NOW() WHERE id = ${intakeId} RETURNING id, status, assigned_adviser_id, applicant_first_name, applicant_last_name, email, phone, current_location, citizenship, date_of_birth, current_visa_type, current_visa_expiry, target_pathway, urgency, flags, raw_payload, adviser_assessment_notes, recommended_pathway, consultation_outcome, converted_client_id, created_at, updated_at`;
   if (!updated[0]) throw new Error('The archived enquiry could not be restored.');
   return mapIntakeEnquiryFromDb(updated[0]);
 }
@@ -3891,23 +3849,18 @@ async function permanentlyDeleteIntakeEnquiry(intakeId, user = null) {
 
 async function purgeIntakeUploadBlobs(payload = {}, options = {}) {
   const nextPayload = payload && typeof payload === 'object' && !Array.isArray(payload) ? { ...payload } : {};
-  const nextUploads = nextPayload.intakeUploads && typeof nextPayload.intakeUploads === 'object' && !Array.isArray(nextPayload.intakeUploads)
-    ? { ...nextPayload.intakeUploads }
-    : {};
+  const nextUploads = nextPayload.intakeUploads && typeof nextPayload.intakeUploads === 'object' && !Array.isArray(nextPayload.intakeUploads) ? { ...nextPayload.intakeUploads } : {};
   const store = getStore({ name: INTAKE_UPLOAD_STORE, consistency: 'strong' });
   const processedKeys = new Set();
   const result = { payload: nextPayload, deletedCount: 0, deletedBytes: 0, failedCount: 0, deletedFileNames: [] };
-
   for (const kind of ['applicantCv', 'partnerCv']) {
     const metadata = nextUploads[kind] || nextPayload[kind];
     if (!metadata || typeof metadata !== 'object') continue;
     const blobKey = String(metadata.blobKey || '').trim();
     if (!blobKey) continue;
-
     let purged = false;
-    if (processedKeys.has(blobKey)) {
-      purged = true;
-    } else {
+    if (processedKeys.has(blobKey)) purged = true;
+    else {
       try {
         await store.delete(blobKey);
         processedKeys.add(blobKey);
@@ -3916,33 +3869,19 @@ async function purgeIntakeUploadBlobs(payload = {}, options = {}) {
         result.deletedBytes += Math.max(0, Number(metadata.fileSize || 0) || 0);
         if (metadata.fileName) result.deletedFileNames.push(String(metadata.fileName).slice(0, 180));
       } catch (error) {
-        console.warn('Intake upload blob delete failed', intakeIdFromBlobKey(blobKey), kind, error?.message || error);
+        console.warn('Intake upload blob delete failed', blobKey, kind, error?.message || error);
         result.failedCount += 1;
       }
     }
-
     if (purged) {
-      const archivedMetadata = {
-        ...metadata,
-        originalFileName: metadata.originalFileName || metadata.fileName || '',
-        fileName: '',
-        blobKey: '',
-        purged: true,
-        purgedAt: new Date().toISOString(),
-        purgeReason: String(options.reason || 'Archived').slice(0, 240),
-      };
+      const archivedMetadata = { ...metadata, originalFileName: metadata.originalFileName || metadata.fileName || '', fileName: '', blobKey: '', purged: true, purgedAt: new Date().toISOString(), purgeReason: String(options.reason || 'Archived').slice(0, 240) };
       nextUploads[kind] = archivedMetadata;
       if (nextPayload[kind] && typeof nextPayload[kind] === 'object') nextPayload[kind] = archivedMetadata;
     }
   }
-
   nextPayload.intakeUploads = nextUploads;
   result.payload = nextPayload;
   return result;
-}
-
-function intakeIdFromBlobKey(blobKey = '') {
-  return String(blobKey || '').split('/')[1] || '';
 }
 
 function normaliseRestorableIntakeStatus(value) {
@@ -4096,7 +4035,7 @@ function buildClientFromIntake(intake = {}) {
       id: `member-${Date.now()}-partner`,
       relationship: 'Spouse/Partner',
       name: String(payload.partnerFullName || payload.partnerName || '').trim(),
-      nationality: [payload.partnerCitizenship, ...(Array.isArray(payload.partnerOtherCitizenships) ? payload.partnerOtherCitizenships : [])].map((value) => String(value || '').trim()).filter(Boolean).filter((value, index, values) => values.indexOf(value) === index).join('; '),
+      nationality: String(payload.partnerCitizenship || '').trim(),
       dateOfBirth: String(payload.partnerDateOfBirth || '').trim(),
     });
   }
@@ -4127,8 +4066,6 @@ function buildClientFromIntake(intake = {}) {
   const notes = [
     `Intake source: ${payload.submittedVia || 'Website intake form'}`,
     payload.preferredContactMethod ? `Preferred contact: ${payload.preferredContactMethod}` : '',
-    Array.isArray(payload.otherCitizenships) && payload.otherCitizenships.filter(Boolean).length ? `Other citizenship(s): ${payload.otherCitizenships.filter(Boolean).join(', ')}` : '',
-    Array.isArray(payload.partnerOtherCitizenships) && payload.partnerOtherCitizenships.filter(Boolean).length ? `Partner other citizenship(s): ${payload.partnerOtherCitizenships.filter(Boolean).join(', ')}` : '',
     payload.additionalInfo ? `Additional intake comments: ${payload.additionalInfo}` : '',
     payload.relationshipBackground ? `Relationship background: ${payload.relationshipBackground}` : '',
     Array.isArray(payload.children) && payload.children.length ? `Children: ${payload.children.map((child, index) => `${index + 1}. ${[child.fullName, child.dateOfBirth, child.citizenship, child.includedInApplication ? `Included: ${child.includedInApplication}` : ''].filter(Boolean).join(' · ')}`).join('\n')}` : '',
@@ -4149,7 +4086,7 @@ function buildClientFromIntake(intake = {}) {
     lastName: intake.lastName || payload.lastName || 'Unnamed client',
     email: intake.email || payload.email || '',
     phone: intake.phone || payload.phone || '',
-    nationality: [intake.citizenship || payload.citizenship, ...(Array.isArray(payload.otherCitizenships) ? payload.otherCitizenships : [])].map((value) => String(value || '').trim()).filter(Boolean).filter((value, index, values) => values.indexOf(value) === index).join('; '),
+    nationality: intake.citizenship || payload.citizenship || '',
     dateOfBirth: intake.dateOfBirth || payload.dateOfBirth || '',
     location: payload.physicalAddress || intake.currentLocation || payload.currentLocation || '',
     matterName: intake.targetPathway || payload.targetPathway || '',
@@ -4223,20 +4160,21 @@ async function saveClient(input = {}, authUser = null) {
          SET first_name = $1, last_name = $2, email = $3, phone = $4, nationality = $5, date_of_birth = $6, location = $7, sharepoint_folder_url = $8, one_law_client_number = $9,
              matter_name = $10, case_strategy = $11, case_type = $12, primary_adviser_id = $13, backup_adviser_id = $14,
              priority = $15, client_status = $16, next_action = $17, next_action_due = $18, next_action_log = $19::jsonb,
-             portal_enabled = $20, portal_email = $21, portal_status_update = $22, portal_next_step = $23,
-             portal_visible_document_ids = $24::jsonb, portal_visible_deadline_ids = $25::jsonb, portal_visible_appointment_ids = $26::jsonb, portal_visible_billing_ids = $27::jsonb,
-             portal_resource_settings = $28::jsonb,
-             portal_access_code_hash = COALESCE($29, portal_access_code_hash), portal_last_published_at = CASE WHEN $30 THEN NOW() ELSE portal_last_published_at END,
-             notes = $31, family_members = $32::jsonb, document_checklist = $33::jsonb, updated_at = NOW()
-         WHERE id = $34`,
-        [client.firstName, client.lastName || 'Unnamed client', client.email, client.phone, client.nationality, nullableDate(client.dateOfBirth), client.location, client.sharepointFolderUrl, client.oneLawClientNumber, client.matterName, client.caseStrategy, client.caseType, nullableUuid(client.primaryAdviserId), nullableUuid(client.backupAdviserId), client.priority, client.clientStatus, client.nextAction, nullableDate(client.nextActionDue), JSON.stringify(nextActionLog), client.portalEnabled, client.portalEmail, client.portalStatusUpdate, client.portalNextStep, JSON.stringify(client.portalVisibleDocumentIds || []), JSON.stringify(client.portalVisibleDeadlineIds || []), JSON.stringify(client.portalVisibleAppointmentIds || []), JSON.stringify(client.portalVisibleBillingIds || []), JSON.stringify(client.portalResourceSettings || {}), client.portalNewAccessCode ? hashPortalAccessCode(client.portalNewAccessCode) : null, client.portalPublishNow, client.notes, JSON.stringify(client.familyMembers || []), JSON.stringify(client.documentChecklist || []), clientId]
+             matter_status = $20, matter_review_date = $21, matter_activity = $22::jsonb,
+             portal_enabled = $23, portal_email = $24, portal_status_update = $25, portal_next_step = $26,
+             portal_visible_document_ids = $27::jsonb, portal_visible_deadline_ids = $28::jsonb, portal_visible_appointment_ids = $29::jsonb, portal_visible_billing_ids = $30::jsonb,
+             portal_resource_settings = $31::jsonb,
+             portal_access_code_hash = COALESCE($32, portal_access_code_hash), portal_last_published_at = CASE WHEN $33 THEN NOW() ELSE portal_last_published_at END,
+             notes = $34, family_members = $35::jsonb, document_checklist = $36::jsonb, updated_at = NOW()
+         WHERE id = $37`,
+        [client.firstName, client.lastName || 'Unnamed client', client.email, client.phone, client.nationality, nullableDate(client.dateOfBirth), client.location, client.sharepointFolderUrl, client.oneLawClientNumber, client.matterName, client.caseStrategy, client.caseType, nullableUuid(client.primaryAdviserId), nullableUuid(client.backupAdviserId), client.priority, client.clientStatus, client.nextAction, nullableDate(client.nextActionDue), JSON.stringify(nextActionLog), client.matterStatus, nullableDate(client.matterReviewDate), JSON.stringify(client.matterActivity || []), client.portalEnabled, client.portalEmail, client.portalStatusUpdate, client.portalNextStep, JSON.stringify(client.portalVisibleDocumentIds || []), JSON.stringify(client.portalVisibleDeadlineIds || []), JSON.stringify(client.portalVisibleAppointmentIds || []), JSON.stringify(client.portalVisibleBillingIds || []), JSON.stringify(client.portalResourceSettings || {}), client.portalNewAccessCode ? hashPortalAccessCode(client.portalNewAccessCode) : null, client.portalPublishNow, client.notes, JSON.stringify(client.familyMembers || []), JSON.stringify(client.documentChecklist || []), clientId]
       );
     } else {
       const result = await poolClient.query(
-        `INSERT INTO clients (first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, one_law_client_number, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, portal_enabled, portal_email, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_resource_settings, portal_access_code_hash, portal_last_published_at, notes, family_members, document_checklist)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19::jsonb, $20, $21, $22, $23, $24::jsonb, $25::jsonb, $26::jsonb, $27::jsonb, $28::jsonb, $29, CASE WHEN $30 THEN NOW() ELSE NULL END, $31, $32::jsonb, $33::jsonb)
+        `INSERT INTO clients (first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, one_law_client_number, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, matter_status, matter_review_date, matter_activity, portal_enabled, portal_email, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_resource_settings, portal_access_code_hash, portal_last_published_at, notes, family_members, document_checklist)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19::jsonb, $20, $21, $22::jsonb, $23, $24, $25, $26, $27::jsonb, $28::jsonb, $29::jsonb, $30::jsonb, $31::jsonb, $32, CASE WHEN $33 THEN NOW() ELSE NULL END, $34, $35::jsonb, $36::jsonb)
          RETURNING id`,
-        [client.firstName, client.lastName || 'Unnamed client', client.email, client.phone, client.nationality, nullableDate(client.dateOfBirth), client.location, client.sharepointFolderUrl, client.oneLawClientNumber, client.matterName, client.caseStrategy, client.caseType, nullableUuid(client.primaryAdviserId), nullableUuid(client.backupAdviserId), client.priority, client.clientStatus, client.nextAction, nullableDate(client.nextActionDue), JSON.stringify(nextActionLog), client.portalEnabled, client.portalEmail, client.portalStatusUpdate, client.portalNextStep, JSON.stringify(client.portalVisibleDocumentIds || []), JSON.stringify(client.portalVisibleDeadlineIds || []), JSON.stringify(client.portalVisibleAppointmentIds || []), JSON.stringify(client.portalVisibleBillingIds || []), JSON.stringify(client.portalResourceSettings || {}), client.portalNewAccessCode ? hashPortalAccessCode(client.portalNewAccessCode) : null, client.portalPublishNow, client.notes, JSON.stringify(client.familyMembers || []), JSON.stringify(client.documentChecklist || [])]
+        [client.firstName, client.lastName || 'Unnamed client', client.email, client.phone, client.nationality, nullableDate(client.dateOfBirth), client.location, client.sharepointFolderUrl, client.oneLawClientNumber, client.matterName, client.caseStrategy, client.caseType, nullableUuid(client.primaryAdviserId), nullableUuid(client.backupAdviserId), client.priority, client.clientStatus, client.nextAction, nullableDate(client.nextActionDue), JSON.stringify(nextActionLog), client.matterStatus, nullableDate(client.matterReviewDate), JSON.stringify(client.matterActivity || []), client.portalEnabled, client.portalEmail, client.portalStatusUpdate, client.portalNextStep, JSON.stringify(client.portalVisibleDocumentIds || []), JSON.stringify(client.portalVisibleDeadlineIds || []), JSON.stringify(client.portalVisibleAppointmentIds || []), JSON.stringify(client.portalVisibleBillingIds || []), JSON.stringify(client.portalResourceSettings || {}), client.portalNewAccessCode ? hashPortalAccessCode(client.portalNewAccessCode) : null, client.portalPublishNow, client.notes, JSON.stringify(client.familyMembers || []), JSON.stringify(client.documentChecklist || [])]
       );
       clientId = result.rows[0].id;
     }
@@ -6068,6 +6006,37 @@ function parseNextActionLog(value) {
   }
 }
 
+const MATTER_STATUSES = ['Adviser action required', 'Client action required', 'Waiting on INZ', 'Waiting on third party', 'Ready to progress', 'No current action', 'Completed'];
+
+function normaliseMatterStatus(value, clientStatus = 'Active', nextAction = '') {
+  if (clientStatus === 'Closed') return 'Completed';
+  const text = String(value || '').trim();
+  const hasNextAction = Boolean(String(nextAction || '').trim());
+  if (text === 'No current action' && hasNextAction) return 'Adviser action required';
+  if (MATTER_STATUSES.includes(text)) return text;
+  return hasNextAction ? 'Adviser action required' : 'No current action';
+}
+
+function normaliseMatterActivity(value = []) {
+  let rows = value;
+  if (typeof rows === 'string') {
+    try { rows = JSON.parse(rows); } catch { rows = []; }
+  }
+  if (!Array.isArray(rows)) return [];
+  return rows.map((item) => ({
+    id: String(item?.id || `matter-activity-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`).slice(0, 160),
+    type: String(item?.type || 'update').slice(0, 80),
+    title: String(item?.title || 'Matter updated').slice(0, 300),
+    detail: String(item?.detail || '').slice(0, 2400),
+    createdAt: item?.createdAt || item?.created_at || new Date().toISOString(),
+    createdBy: String(item?.createdBy || item?.created_by || '').slice(0, 240),
+  })).slice(-250);
+}
+
+function parseMatterActivity(value) {
+  return normaliseMatterActivity(value);
+}
+
 function buildNextActionLog(existing, client) {
   const previousAction = String(existing?.next_action || '').trim();
   const previousDueDate = toDateOnly(existing?.next_action_due);
@@ -6278,6 +6247,9 @@ function normaliseClientInput(input) {
     nextAction: input.nextAction || '',
     nextActionDue: input.nextActionDue || null,
     nextActionLog: normaliseNextActionLog(input.nextActionLog),
+    matterStatus: normaliseMatterStatus(input.matterStatus || input.matter_status, input.clientStatus, input.nextAction),
+    matterReviewDate: input.matterReviewDate || input.matter_review_date || null,
+    matterActivity: normaliseMatterActivity(input.matterActivity || input.matter_activity),
     portalEnabled: Boolean(input.portalEnabled) || Boolean(input.portalPublishNow),
     portalEmail: String(input.portalEmail || (input.portalPublishNow ? input.email : '') || '').trim(),
     portalStatusUpdate: String(input.portalStatusUpdate || '').trim(),

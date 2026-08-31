@@ -1,19 +1,29 @@
-THiS CRM v0.16.5 validation
+THiS CRM v0.17.1 validation
 
-- App.jsx JSX/JavaScript parse: PASS (TypeScript transpile parser)
-- netlify/functions/intake.mjs syntax: PASS
-- netlify/functions/crm.mjs syntax: PASS
-- PWA validation: PASS
-- All 41 existing database migration hashes: unchanged from v0.16.4
-- No new database migration required
-- Squarespace iframe embed: unchanged
-- PWA shell cache advanced to v0.16.5
+Completed checks
+- Built directly from the v0.17.0 Matter Workspace package.
+- package.json parses and reports version 0.17.1.
+- App.jsx and main.jsx parse successfully.
+- All Netlify function .mjs files pass Node syntax checking.
+- All public/script JavaScript files pass Node syntax checking.
+- Existing PWA validation script passes.
+- styles.css passes a comment/string-aware structural brace check.
+- Runtime/PWA/Studio/live-chat cache references advance to v0.17.1.
 
-Functional scope checked:
-- applicant additional citizenship Yes/No + up to four countries
-- partner additional citizenship Yes/No + up to four countries
-- client-side and server-side required-country validation when Yes is selected
-- adviser intake editor display/edit support
-- print/PDF and email summary support
-- intake search support
-- client conversion preserves all citizenships in the existing nationality field and notes
+Migration integrity
+- v0.17.0 contains 42 migration files.
+- All 42 v0.17.0 migration SHA-256 hashes are unchanged in v0.17.1.
+- v0.17.1 adds only 202608310002_add_notification_recipient_settings.sql.
+- Total migrations in v0.17.1: 43.
+
+Notification recipient validation
+- Default Assessment, Contact and Seminar recipient behaviour resolves to the existing configured/historical recipient group until saved in Admin.
+- Default Feedback and SMC calculator behaviour remains all active advisers with valid email addresses.
+- A saved notification setting becomes authoritative for that notification type.
+- Inactive advisers are excluded from effective email delivery.
+- An Admin cannot save a notification type with no active adviser recipient and no valid additional email address.
+- Assessment, Contact, Seminar, Feedback and SMC calculator notification functions now use the shared database-backed recipient resolver.
+- Live Chat remains on its existing independent notification recipient settings.
+
+Build environment limitation
+A full Vite production compilation was not run in this container because project npm dependencies are not installed locally. Netlify deployment remains the final production-bundle compilation check.

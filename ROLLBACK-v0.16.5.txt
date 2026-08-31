@@ -1,2 +1,0 @@
-Rollback baseline: THiS CRM v0.16.4 - Assessment Form Reliability.
-No database migration is introduced by v0.16.5.
