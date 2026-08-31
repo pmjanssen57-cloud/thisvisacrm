@@ -1,20 +1,19 @@
-THiS CRM v0.17.4 validation
+THiS CRM v0.17.5 validation
 
 Completed checks
-- Built directly from v0.17.3 My Work Focus & Board Guidance.
+- Built directly from v0.17.4 My Work Adviser Role Filter.
 - App.jsx parses successfully as JSX.
-- All Netlify .mjs functions pass Node syntax checking.
-- PWA validation passes.
-- styles.css passes structural brace validation.
-- All 43 existing database migration files are byte-for-byte unchanged from v0.17.3.
-- No new migration, environment variable or dependency.
+- All Netlify/server .mjs and browser/script .js files pass Node syntax checks.
+- Existing PWA validation passes.
+- package.json parses and reports version 0.17.5.
+- styles.css passes a comment/string-aware structural brace check.
+- Quick Move uses the existing saveClient workflow; no separate API or database write path is introduced.
+- Quick Move creates a normal matter timeline activity entry for each status change.
+- Waiting on INZ cannot be quick-moved without a review date.
+- Action/client states cannot be quick-moved without a next action where none already exists.
+- Quick Move preserves existing next-action/date information where possible and deliberately leaves matter stage, portal wording and email untouched.
+- All 43 existing database migration files are byte-for-byte unchanged from v0.17.4.
+- No new migration, dependency or environment variable.
 
-My Work role filtering checked
-- A specific adviser view defaults to Main adviser files.
-- Main adviser filtering requires primaryAdviserId to match the selected adviser.
-- Backup adviser filtering requires backupAdviserId to match and excludes files where the adviser is also primary.
-- All files combines main and backup matters already within the selected adviser scope.
-- The All advisers global view defaults My Work to All practice files.
-- Ownership counts are calculated after the selected date range is applied.
-- Board columns, metrics, safety prompts and suggested next matter follow the selected ownership view.
-- My Work sidebar badge counts primary-adviser files by default for a selected adviser.
+Build environment note
+A full Vite production compile was not run because project dependencies are not installed in this sandbox. Netlify deployment remains the final production bundle check.

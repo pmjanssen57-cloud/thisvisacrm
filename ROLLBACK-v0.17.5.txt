@@ -1,0 +1,4 @@
+THiS CRM v0.17.5 rollback
+
+Redeploy THiS-CRM-v0.17.4-My-Work-Adviser-Role-Filter.zip.
+No database migration or schema rollback is required.

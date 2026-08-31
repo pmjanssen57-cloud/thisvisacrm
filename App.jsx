@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { acceptInvite, getUser, handleAuthCallback, login, logout, onAuthChange, requestPasswordRecovery, updateUser } from '@netlify/identity';
 import { AlertTriangle, Archive, ArrowUpDown, BookOpen, Building2, Calculator, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Clock, CloudSun, Copy, CreditCard, ClipboardList, Database, DollarSign, Download, ExternalLink, FileCheck2, FileSpreadsheet, FileText, Gift, Globe2, HelpCircle, KeyRound, LayoutDashboard, Link2, ListChecks, LockKeyhole, Mail, MessageSquare, MoreHorizontal, Phone, Pencil, Plus, RefreshCw, RotateCcw, Save, Search, Send, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, UserRound, UsersRound, Wrench, X } from 'lucide-react';
 
@@ -3222,7 +3223,7 @@ export default function App() {
             )}
 
             {tab === 'work' && (
-              <MatterWorkDashboard clients={activeClients} advisers={data.advisers} scopeAdviserId={dashboardAdviserFilter} openClientRecord={openClientRecord} setTab={switchTab} />
+              <MatterWorkDashboard clients={activeClients} advisers={data.advisers} scopeAdviserId={dashboardAdviserFilter} openClientRecord={openClientRecord} setTab={switchTab} saveClient={saveClient} saving={saving} actorAdviser={identityAdviser} />
             )}
 
             {tab === 'clients' && (
@@ -3509,7 +3510,7 @@ function MatterWorkspaceSidebar({ tab = 'work', onNavigate, adviser = null, isAd
   );
 }
 
-function MatterWorkDashboard({ clients = [], advisers = [], scopeAdviserId = 'all', openClientRecord, setTab }) {
+function MatterWorkDashboard({ clients = [], advisers = [], scopeAdviserId = 'all', openClientRecord, setTab, saveClient, saving = false, actorAdviser = null }) {
   const [dateScope, setDateScope] = useState('today');
   const [ownershipScope, setOwnershipScope] = useState(() => scopeAdviserId === 'all' ? 'all' : 'primary');
 
@@ -3621,7 +3622,7 @@ function MatterWorkDashboard({ clients = [], advisers = [], scopeAdviserId = 'al
       </div>
 
       <section className="matter-board-guide">
-        <div className="matter-board-guide-copy"><Sparkles size={17} /><div><strong>How cards move</strong><small>Use <b>Update File</b> inside a matter. When the Matter status changes, its card moves automatically. These columns are not a one-way process.</small></div></div>
+        <div className="matter-board-guide-copy"><Sparkles size={17} /><div><strong>How cards move</strong><small>Use <b>Move</b> on a card for a quick status change, or <b>Update File</b> inside a matter when something substantive has happened. These columns are not a one-way process.</small></div></div>
         <div className="matter-board-guide-states">
           <span className="action"><UserRound size={15} /><b>Needs attention</b><small>Adviser owns the next move</small></span>
           <span className="client"><UsersRound size={15} /><b>Waiting on client</b><small>Something is outstanding externally</small></span>
@@ -3632,7 +3633,7 @@ function MatterWorkDashboard({ clients = [], advisers = [], scopeAdviserId = 'al
       </section>
 
       <div className="matter-kanban">
-        {columns.map((column) => <section className={`matter-kanban-column ${column.key}`} key={column.key}><div className="matter-kanban-head"><div><span><i></i>{column.title}</span><small>{column.subtitle}</small></div><b>{column.rows.length}</b></div><div className="matter-kanban-list">{column.rows.length ? column.rows.slice(0, 18).map((client) => <MatterKanbanCard key={client.id} client={client} advisers={advisers} scopeAdviserId={scopeAdviserId} ownershipScope={ownershipScope} onOpen={() => openClientRecord?.(client.id)} />) : <div className="matter-kanban-empty">Nothing in this state for {currentScope.label.toLowerCase()}.</div>}</div></section>)}
+        {columns.map((column) => <section className={`matter-kanban-column ${column.key}`} key={column.key}><div className="matter-kanban-head"><div><span><i></i>{column.title}</span><small>{column.subtitle}</small></div><b>{column.rows.length}</b></div><div className="matter-kanban-list">{column.rows.length ? column.rows.slice(0, 18).map((client) => <MatterKanbanCard key={client.id} client={client} advisers={advisers} scopeAdviserId={scopeAdviserId} ownershipScope={ownershipScope} onOpen={() => openClientRecord?.(client.id)} saveClient={saveClient} saving={saving} actorAdviser={actorAdviser} />) : <div className="matter-kanban-empty">Nothing in this state for {currentScope.label.toLowerCase()}.</div>}</div></section>)}
       </div>
       <div className="matter-work-lower">
         <section className="panel matter-quiet-prompts"><div><span className="eyebrow">Quiet prompts</span><h2>Things worth checking</h2></div><div className="matter-prompt-grid"><button type="button" onClick={() => setTab?.('clients')}><strong>{noNext.length} matter{noNext.length === 1 ? '' : 's'} with no next action</strong><small>Active files should always have either a next action or a controlled waiting state.</small></button><button type="button" onClick={() => setTab?.('clients')}><strong>{waitingNoReview.length} waiting matter{waitingNoReview.length === 1 ? '' : 's'} without a review date</strong><small>A waiting file should know when it comes back into the adviser queue.</small></button><button type="button" onClick={() => setTab?.('intake')}><strong>Keep conversion disciplined</strong><small>Assign an adviser before converting intake so ownership is clear from day one.</small></button></div></section>
@@ -3646,7 +3647,7 @@ function MatterMetric({ label, value, warning = false }) {
   return <div className={`matter-metric ${warning ? 'warning' : ''}`}><span>{label}</span><strong>{value}</strong></div>;
 }
 
-function MatterKanbanCard({ client, advisers = [], scopeAdviserId = 'all', ownershipScope = 'primary', onOpen }) {
+function MatterKanbanCard({ client, advisers = [], scopeAdviserId = 'all', ownershipScope = 'primary', onOpen, saveClient, saving = false, actorAdviser = null }) {
   const primary = advisers.find((item) => item.id === client.primaryAdviserId);
   const backup = advisers.find((item) => item.id === client.backupAdviserId);
   const status = normaliseMatterStatus(client.matterStatus, client.clientStatus, client.nextAction);
@@ -3657,7 +3658,108 @@ function MatterKanbanCard({ client, advisers = [], scopeAdviserId = 'all', owner
   const ownerName = scopeAdviserId === 'all' ? (primary?.name || 'Unassigned') : (isSelectedBackup ? (backup?.name || 'Backup adviser') : (primary?.name || 'Unassigned'));
   const showRole = scopeAdviserId !== 'all' && (ownershipScope === 'all' || ownershipScope === 'backup');
   const ownerMeta = primary?.name ? `Main · ${primary.name}` : 'Main adviser unassigned';
-  return <button className="matter-kanban-card" type="button" onClick={onOpen} title="Open this matter to review or update its work state"><div className="matter-card-top"><div><strong>{clientName(client)}</strong><small>{client.caseType || 'Matter'}</small></div><span className={`matter-status-pill ${matterStatusClass(status)}`}>{shortMatterStatus(status)}</span></div>{showRole && <div className={`matter-card-owner-role ${isSelectedBackup ? 'backup' : 'main'}`}>{ownerRole} adviser file</div>}<div className="matter-card-action"><span>{status.startsWith('Waiting') ? 'Review / waiting for' : 'Next action'}</span><strong>{client.nextAction || (status === 'No current action' ? 'Set the next action' : matterWaitingLabel(status))}</strong></div><div className="matter-card-meta"><span className={diff !== null && diff < 0 ? 'overdue' : ''}>{due ? (diff !== null && diff < 0 ? `Overdue · ${formatRecordDate(due)}` : formatRecordDate(due)) : 'No date'}</span><span>{scopeAdviserId === 'all' ? ownerName : ownerMeta}</span></div><div className="matter-card-open-hint">Open matter <ChevronRight size={13} /></div></button>;
+  return <article className="matter-kanban-card">
+    <button className="matter-card-main" type="button" onClick={onOpen} title="Open this matter to review or update its work state">
+      <div className="matter-card-top"><div><strong>{clientName(client)}</strong><small>{client.caseType || 'Matter'}</small></div><span className={`matter-status-pill ${matterStatusClass(status)}`}>{shortMatterStatus(status)}</span></div>
+      {showRole && <div className={`matter-card-owner-role ${isSelectedBackup ? 'backup' : 'main'}`}>{ownerRole} adviser file</div>}
+      <div className="matter-card-action"><span>{status.startsWith('Waiting') ? 'Review / waiting for' : 'Next action'}</span><strong>{client.nextAction || (status === 'No current action' ? 'Set the next action' : matterWaitingLabel(status))}</strong></div>
+      <div className="matter-card-meta"><span className={diff !== null && diff < 0 ? 'overdue' : ''}>{due ? (diff !== null && diff < 0 ? `Overdue · ${formatRecordDate(due)}` : formatRecordDate(due)) : 'No date'}</span><span>{scopeAdviserId === 'all' ? ownerName : ownerMeta}</span></div>
+    </button>
+    <div className="matter-card-footer">
+      <button className="matter-card-open-hint" type="button" onClick={onOpen}>Open matter <ChevronRight size={13} /></button>
+      <MatterQuickMoveMenu client={client} currentStatus={status} saveClient={saveClient} saving={saving} actorName={actorAdviser?.name || 'Adviser'} />
+    </div>
+  </article>;
+}
+
+const MATTER_QUICK_MOVE_STATES = [
+  { key: 'Adviser action required', label: 'Needs my attention', detail: 'Adviser owns the next move', tone: 'action', icon: UserRound },
+  { key: 'Client action required', label: 'Waiting on client', detail: 'Client needs to provide or do something', tone: 'client', icon: UsersRound },
+  { key: 'Waiting on INZ', label: 'Waiting on INZ', detail: 'Quiet until review date or new INZ event', tone: 'inz', icon: Clock },
+  { key: 'Ready to progress', label: 'Ready to progress', detail: 'Nothing is blocking the next step', tone: 'ready', icon: CheckCircle2 },
+];
+
+function MatterQuickMoveMenu({ client, currentStatus, saveClient, saving = false, actorName = 'Adviser' }) {
+  const [open, setOpen] = useState(false);
+  const [pending, setPending] = useState(null);
+  const [nextAction, setNextAction] = useState('');
+  const [reviewDate, setReviewDate] = useState('');
+  const [error, setError] = useState('');
+  const shellRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const closeOnPointer = (event) => { if (shellRef.current && !shellRef.current.contains(event.target)) setOpen(false); };
+    const closeOnKey = (event) => { if (event.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', closeOnPointer);
+    document.addEventListener('keydown', closeOnKey);
+    return () => { document.removeEventListener('mousedown', closeOnPointer); document.removeEventListener('keydown', closeOnKey); };
+  }, [open]);
+
+  function prepareMove(targetStatus) {
+    if (!targetStatus || targetStatus === currentStatus || saving) return;
+    const waitingInz = targetStatus === 'Waiting on INZ';
+    const action = String(client.nextAction || '').trim() || (waitingInz ? 'Review INZ position' : '');
+    const date = waitingInz ? (client.matterReviewDate || client.nextActionDue || '') : '';
+    const needsAction = !action;
+    const needsReviewDate = waitingInz && !date;
+    if (needsAction || needsReviewDate) {
+      setPending(targetStatus);
+      setNextAction(action);
+      setReviewDate(date);
+      setError('');
+      setOpen(false);
+      return;
+    }
+    commitMove(targetStatus, action, date);
+  }
+
+  async function commitMove(targetStatus, actionValue = String(client.nextAction || '').trim(), reviewValue = '') {
+    if (!saveClient || saving) return;
+    const waitingInz = targetStatus === 'Waiting on INZ';
+    const action = String(actionValue || '').trim() || (waitingInz ? 'Review INZ position' : '');
+    const date = waitingInz ? String(reviewValue || client.matterReviewDate || client.nextActionDue || '').trim() : '';
+    if (!action) { setError('Add a short next action before moving this matter.'); return; }
+    if (waitingInz && !date) { setError('Choose a review date so this matter comes back into My Work.'); return; }
+    const fromLabel = quickMoveBoardLabel(currentStatus);
+    const toLabel = quickMoveBoardLabel(targetStatus);
+    const activity = [...normaliseMatterActivity(client.matterActivity), makeMatterActivity('workflow', 'Matter status changed', `${fromLabel} → ${toLabel} via Quick Move.`, actorName)];
+    const nextDate = client.nextActionDue || client.matterReviewDate || '';
+    const payload = {
+      ...client,
+      matterStatus: targetStatus,
+      nextAction: action,
+      matterReviewDate: waitingInz ? date : '',
+      nextActionDue: waitingInz ? '' : nextDate,
+      matterActivity: activity,
+    };
+    await saveClient(payload, { resetNewClientForm: false });
+    setPending(null);
+    setOpen(false);
+    setError('');
+  }
+
+  return <div ref={shellRef} className="matter-quick-move">
+    <button className="matter-quick-move-trigger" type="button" disabled={saving} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((value) => !value)}><ArrowUpDown size={13} />Move<ChevronDown size={12} className={open ? 'open' : ''} /></button>
+    {open && <div className="matter-quick-move-popover" role="menu">
+      <div className="matter-quick-move-title"><strong>Move this file</strong><small>Change the operating status only</small></div>
+      {MATTER_QUICK_MOVE_STATES.map((item) => { const Icon=item.icon; const active=item.key===currentStatus || (item.key==='Client action required' && currentStatus==='Waiting on third party'); return <button key={item.key} type="button" role="menuitem" className={`${item.tone} ${active?'active':''}`.trim()} disabled={active || saving} onClick={() => prepareMove(item.key)}><Icon size={15}/><span><b>{item.label}</b><small>{item.detail}</small></span>{active && <CheckCircle2 size={14}/>}</button>; })}
+      <div className="matter-quick-move-note">For stage changes, portal wording, emails or detailed notes, use <b>Update File</b>.</div>
+    </div>}
+    {pending && typeof document !== 'undefined' && createPortal(<div className="matter-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setPending(null); }}><section className="matter-quick-move-modal"><div className="matter-modal-head"><div><span className="eyebrow">Quick move</span><h2>Move to {quickMoveBoardLabel(pending)}</h2><p>Only the minimum information needed to keep the file safely in the workflow.</p></div><button className="btn" type="button" onClick={() => setPending(null)}><X size={16}/></button></div><div className="matter-modal-body">
+      {!String(client.nextAction || '').trim() && pending !== 'Waiting on INZ' && <label className="field"><span>Next action</span><input autoFocus value={nextAction} onChange={(event) => setNextAction(event.target.value)} placeholder={pending === 'Client action required' ? 'What are we waiting for from the client?' : 'What needs to happen next?'} /></label>}
+      {pending === 'Waiting on INZ' && <><label className="field"><span>Review action</span><input value={nextAction || 'Review INZ position'} onChange={(event) => setNextAction(event.target.value)} /></label><label className="field"><span>Review date</span><input autoFocus type="date" value={reviewDate} onChange={(event) => setReviewDate(event.target.value)} /></label></>}
+      <div className="matter-safety-box">The CRM will keep the existing matter stage and portal wording. A short timeline entry records the status change automatically.</div>
+    </div><div className="matter-modal-foot"><span className="validation-message">{error}</span><div><button className="btn" type="button" onClick={() => setPending(null)}>Cancel</button><button className="btn dark" type="button" disabled={saving} onClick={() => commitMove(pending, nextAction || client.nextAction, reviewDate)}><Save size={15}/>{saving?'Saving…':'Move file'}</button></div></div></section></div>, document.body)}
+  </div>;
+}
+
+function quickMoveBoardLabel(status = '') {
+  if (status === 'Adviser action required' || status === 'No current action') return 'Needs my attention';
+  if (status === 'Client action required' || status === 'Waiting on third party') return 'Waiting on client';
+  if (status === 'Waiting on INZ') return 'Waiting on INZ';
+  if (status === 'Ready to progress') return 'Ready to progress';
+  return status || 'Needs my attention';
 }
 
 function MatterClientRegister({ clients = [], advisers = [], clientQuery, setClientQuery, adviserFilter, setAdviserFilter, caseTypeFilter, setCaseTypeFilter, caseTypes = [], openClientRecord, addClient }) {
@@ -5040,7 +5142,7 @@ function IntakeFormApp() {
       validateForm(); setSubmitting(true); setError('');
       if (!receipt) {
         setSubmissionStatus('Saving your questionnaire...');
-        const response = await fetch('/.netlify/functions/intake', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ payload: { ...form, email: String(form.email || '').trim(), intakeSubmissionKey: submissionKeyRef.current, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.17.4-assessment-form-reliability' } }) });
+        const response = await fetch('/.netlify/functions/intake', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ payload: { ...form, email: String(form.email || '').trim(), intakeSubmissionKey: submissionKeyRef.current, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.17.5-assessment-form-reliability' } }) });
         const body = await readJsonResponse(response);
         if (!response.ok) throw new Error(body.error || 'The questionnaire could not be submitted.');
         receipt = { intakeId: body.intakeId, uploadToken: body.uploadToken, expectedUploads: body.expectedUploads || [], uploadedKinds: [] };
@@ -9958,7 +10060,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const dayRows = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']];
-  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.17.4" data-title="Chat with us" defer><\/script>`;
+  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.17.5" data-title="Chat with us" defer><\/script>`;
 
   useEffect(() => {
     if (!open) return;
@@ -13205,7 +13307,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.4" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.5" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -13782,7 +13884,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.4" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.5" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}

@@ -1,0 +1,25 @@
+THiS CRM v0.17.5 - MY WORK QUICK MOVE
+
+Purpose
+Use Quick Move when the only thing that needs changing is who/what currently owns the next move on a file.
+
+From a My Work card
+1. Click Move.
+2. Choose Needs my attention, Waiting on client, Waiting on INZ, or Ready to progress.
+3. If the existing matter information is sufficient, the move saves immediately.
+4. If the CRM needs a next action or INZ review date to keep the file safe, it asks only for that missing item.
+
+Quick Move does
+- change Matter Status;
+- preserve the existing next action and useful date where possible;
+- convert the existing date between due/review use where appropriate;
+- add a short automatic timeline entry.
+
+Quick Move does not
+- change the immigration/matter stage;
+- change portal wording;
+- publish the portal;
+- send an email;
+- create detailed workflow housekeeping.
+
+Use Update File for substantive events such as lodgement, an INZ request, response submission or approval.
