@@ -1,0 +1,4 @@
+THiS CRM v0.17.11 rollback
+
+Redeploy THiS-CRM-v0.17.10-Streamlined-Client-Update.zip.
+No database or schema rollback is required because v0.17.11 adds no migration.

@@ -1,12 +1,18 @@
-THiS CRM v0.17.10 validation
+THiS CRM v0.17.11 validation
 
-- Built from v0.17.9 Navigation Badge Synchronisation.
+Completed checks
 - App.jsx parses successfully as JSX.
-- All Netlify function JavaScript passes Node syntax checking.
-- Existing PWA validation passes.
-- package.json parses and reports version 0.17.10.
-- All 43 database migration files are unchanged from v0.17.9.
-- No new migration, dependency or environment variable.
-- Back-to-clients controls are present in both client workspaces.
-- Compact Update Client drawer is available from Matter Command Centre and Full Record summaries.
-- Existing full profile editor remains available as a fallback.
+- All Netlify .mjs function files pass Node syntax checking.
+- Browser/public JavaScript files pass Node syntax checking.
+- PWA validation passes.
+- package.json parses and reports version 0.17.11.
+- All existing database migration files are byte-for-byte unchanged from v0.17.10.
+- CSS passes structural brace/comment/string validation.
+- ZIP integrity check passes.
+
+Workflow checks
+- Complete and Change no longer invoke GuidedMatterUpdateModal.
+- Complete invokes QuickCompleteActionModal.
+- Change invokes QuickChangeActionModal.
+- Update File continues to invoke GuidedMatterUpdateModal.
+- Full client record uses flattened horizontal navigation and retains the full editor fallback.

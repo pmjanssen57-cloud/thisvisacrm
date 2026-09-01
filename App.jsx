@@ -3778,6 +3778,8 @@ function MatterClientRegister({ clients = [], advisers = [], clientQuery, setCli
 
 function MatterCommandCentre({ client, advisers = [], caseTypes = [], calendarEntries = [], saveClient, saving, onOpenFullRecord, onBack, openInstructionsForClient, openAgreementsForClient }) {
   const [updateOpen, setUpdateOpen] = useState(false);
+  const [completeActionOpen, setCompleteActionOpen] = useState(false);
+  const [changeActionOpen, setChangeActionOpen] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [clientUpdateOpen, setClientUpdateOpen] = useState(false);
@@ -3803,9 +3805,11 @@ function MatterCommandCentre({ client, advisers = [], caseTypes = [], calendarEn
   }
   return <section className="matter-command-centre"><div className="matter-command-head panel"><div className="matter-command-top"><div className="matter-identity"><div className="matter-client-avatar">{clientInitials(client)}</div><div><h1>{clientName(client)}</h1><p>{client.caseType || 'Matter'}{client.oneLawClientNumber ? ` · OneLaw ${client.oneLawClientNumber}` : ''}{primary?.name ? ` · ${primary.name}` : ' · Unassigned'}</p><span>{currentStageLabel(client)}</span></div></div><div className="matter-command-actions"><button className="btn matter-action-back" type="button" onClick={onBack}><ChevronRight size={15} style={{transform:'rotate(180deg)'}} />Back to clients</button><button className="btn matter-action-client" type="button" onClick={() => setClientUpdateOpen(true)}><UserRound size={15} />Update client</button><a className="btn matter-action-email" href={client.email ? `mailto:${client.email}` : undefined} aria-disabled={!client.email}><Mail size={15} />Email client</a><button className="btn matter-action-note" type="button" onClick={() => setNoteOpen(true)}><Pencil size={15} />Add note</button><MatterActionMenu className="matter-action-more" label="More" items={[{ key:'instructions', label:'Instructions', icon:FileText, onClick:() => openInstructionsForClient?.(client.id) }, { key:'agreement', label:'Agreement', icon:FileCheck2, onClick:() => openAgreementsForClient?.(client.id) }, { key:'full-record', label:'Full record', icon:Database, onClick:onOpenFullRecord }]} /><button className="btn dark matter-action-update" type="button" onClick={() => setUpdateOpen(true)}><Plus size={15} />Update file</button></div></div><div className="matter-command-strip"><span>Matter status <b>{status}</b></span><span>Documents <b>{obtained} / {docs.length || 0}</b></span><span>Portal <b>{client.portalEnabled ? 'Active' : 'Not active'}</b></span><span>Billing <b>{matterBillingSummary(client)}</b></span><span>Next appointment <b>{appointments[0] ? `${formatRecordDate(appointments[0].appointmentDate)}${appointments[0].startTime ? ` · ${appointments[0].startTime}` : ''}` : 'None'}</b></span></div></div>
     <MatterStageFlow stages={appliedStages} currentIndex={currentIndex} />
-    <div className="matter-control-grid"><section className="matter-primary-action"><div><span className="eyebrow">Primary next action</span><h2>{client.nextAction || (status === 'No current action' ? 'Set the next action' : matterWaitingLabel(status))}</h2><p>{client.nextActionDue ? `Due ${formatRecordDate(client.nextActionDue)}` : client.matterReviewDate ? `Review ${formatRecordDate(client.matterReviewDate)}` : 'No date'}{primary?.name ? ` · ${primary.name}` : ''} · {status}</p></div><div><button className="btn mint" type="button" onClick={() => setUpdateOpen(true)}><CheckCircle2 size={15} />Complete / update</button><button className="btn" type="button" onClick={() => setUpdateOpen(true)}>Change</button></div></section><section className="panel matter-operating-state"><span className="eyebrow">Current operating state</span><div><label>Status</label><b><i className={`matter-status-pill ${matterStatusClass(status)}`}>{status}</i></b></div><div><label>We are waiting for</label><b>{matterWaitingLabel(status, primary?.name)}</b></div><div><label>Review / due date</label><b>{formatRecordDate(client.matterReviewDate || client.nextActionDue) || 'No date'}</b></div>{matterSafetyWarning(client) && <p>{matterSafetyWarning(client)}</p>}</section></div>
+    <div className="matter-control-grid"><section className="matter-primary-action"><div><span className="eyebrow">Primary next action</span><h2>{client.nextAction || (status === 'No current action' ? 'Set the next action' : matterWaitingLabel(status))}</h2><p>{client.nextActionDue ? `Due ${formatRecordDate(client.nextActionDue)}` : client.matterReviewDate ? `Review ${formatRecordDate(client.matterReviewDate)}` : 'No date'}{primary?.name ? ` · ${primary.name}` : ''} · {status}</p></div><div><button className="btn mint" type="button" onClick={() => setCompleteActionOpen(true)}><CheckCircle2 size={15} />Complete</button><button className="btn" type="button" onClick={() => setChangeActionOpen(true)}><Pencil size={15} />Change</button></div></section><section className="panel matter-operating-state"><span className="eyebrow">Current operating state</span><div><label>Status</label><b><i className={`matter-status-pill ${matterStatusClass(status)}`}>{status}</i></b></div><div><label>We are waiting for</label><b>{matterWaitingLabel(status, primary?.name)}</b></div><div><label>Review / due date</label><b>{formatRecordDate(client.matterReviewDate || client.nextActionDue) || 'No date'}</b></div>{matterSafetyWarning(client) && <p>{matterSafetyWarning(client)}</p>}</section></div>
     <div className="matter-section-tabs"><button className="active">Overview</button><button onClick={onOpenFullRecord}>Work</button><button onClick={onOpenFullRecord}>Documents</button><button onClick={onOpenFullRecord}>Communications</button><button onClick={onOpenFullRecord}>Full record</button></div>
-    <div className="matter-overview-grid"><div><section className="panel matter-overview-card"><span className="eyebrow">Operational view</span><h2>What needs to happen</h2><p>Keep one primary action visible, with supporting work underneath it.</p><div className="matter-work-items"><MatterWorkItem number="1" title={client.nextAction || 'Set the next action'} meta={client.nextActionDue ? `Primary action · ${formatRecordDate(client.nextActionDue)}` : 'Primary action'} primary onOpen={() => setUpdateOpen(true)} />{outstanding.slice(0,4).map((doc,index) => <MatterWorkItem key={doc.id} number={String(index+2)} title={doc.name} meta={doc.reviewDate ? `Outstanding · review ${formatRecordDate(doc.reviewDate)}` : 'Outstanding document'} onOpen={onOpenFullRecord} />)}{outstanding.length===0 && <MatterWorkItem number="✓" title="Document checklist complete" meta="Ready for the next substantive step" onOpen={() => setUpdateOpen(true)} />}</div></section><section className="panel matter-overview-card"><span className="eyebrow">Matter history</span><h2>Timeline</h2><p>Significant updates populate automatically so another adviser can understand the file quickly.</p><div className="matter-timeline">{activity.length ? activity.map((item) => <div className="matter-timeline-row" key={item.id}><i></i><div><strong>{item.title}</strong><small>{[formatPortalDateTime(item.createdAt), item.createdBy, item.detail].filter(Boolean).join(' · ')}</small></div></div>) : <p className="muted">No matter activity recorded yet.</p>}</div></section></div><div><section className="panel matter-overview-card"><span className="eyebrow">Documents</span><h2>Document readiness</h2><p>{obtained} of {docs.length} required items received.</p><div className="matter-doc-progress"><span style={{width:`${docs.length ? Math.round(obtained/docs.length*100) : 0}%`}}></span></div>{docs.slice(0,5).map((doc) => <div className={`matter-doc-row ${doc.obtained ? 'complete' : 'missing'}`} key={doc.id}><span><strong>{doc.name}</strong><small>{doc.obtained ? 'Obtained' : doc.reviewDate ? `Review ${formatRecordDate(doc.reviewDate)}` : 'Outstanding'}</small></span><b>{doc.obtained ? '✓' : 'Required'}</b></div>)}<button className="btn full" type="button" onClick={onOpenFullRecord}>Open document checklist</button></section><section className="panel matter-overview-card"><span className="eyebrow">Client-facing</span><h2>Portal update</h2><p>Use standard wording as the starting point. Edit only when this file actually needs something different.</p><div className="matter-portal-preview"><label>Standard update<select value={portalTemplateKey} onChange={(event) => { const key=event.target.value; setPortalTemplateKey(key); const template=PORTAL_UPDATE_TEMPLATES.find((item)=>item.key===key); if(template){ /* preview only */ } }}><option value="">Choose wording…</option>{PORTAL_UPDATE_TEMPLATES.map((item)=><option key={item.key} value={item.key}>{item.label}</option>)}</select></label><div><span>Current update</span><strong>{portalTemplateKey ? PORTAL_UPDATE_TEMPLATES.find((item)=>item.key===portalTemplateKey)?.current : client.portalStatusUpdate || 'No portal update published yet.'}</strong></div><div><span>What happens next</span><strong>{portalTemplateKey ? PORTAL_UPDATE_TEMPLATES.find((item)=>item.key===portalTemplateKey)?.next : client.portalNextStep || 'No next-step wording published yet.'}</strong></div><div className="button-row"><button className="btn" type="button" disabled={!portalTemplateKey || saving} onClick={() => applyPortalTemplate(portalTemplateKey,false)}>Save wording</button><button className="btn mint" type="button" disabled={!portalTemplateKey || saving || !client.portalEnabled} onClick={() => applyPortalTemplate(portalTemplateKey,true)}>Publish update</button></div>{!client.portalEnabled && <small className="muted">Portal is not active. Open the full record to enable access.</small>}</div></section></div></div>
+    <div className="matter-overview-grid"><div><section className="panel matter-overview-card"><span className="eyebrow">Operational view</span><h2>What needs to happen</h2><p>Keep one primary action visible, with supporting work underneath it.</p><div className="matter-work-items"><MatterWorkItem number="1" title={client.nextAction || 'Set the next action'} meta={client.nextActionDue ? `Primary action · ${formatRecordDate(client.nextActionDue)}` : client.matterReviewDate ? `Primary review · ${formatRecordDate(client.matterReviewDate)}` : 'Primary action'} primary onOpen={() => setChangeActionOpen(true)} />{outstanding.slice(0,4).map((doc,index) => <MatterWorkItem key={doc.id} number={String(index+2)} title={doc.name} meta={doc.reviewDate ? `Outstanding · review ${formatRecordDate(doc.reviewDate)}` : 'Outstanding document'} onOpen={onOpenFullRecord} />)}{outstanding.length===0 && <MatterWorkItem number="✓" title="Document checklist complete" meta="Ready for the next substantive step" onOpen={() => setUpdateOpen(true)} />}</div></section><section className="panel matter-overview-card"><span className="eyebrow">Matter history</span><h2>Timeline</h2><p>Significant updates populate automatically so another adviser can understand the file quickly.</p><div className="matter-timeline">{activity.length ? activity.map((item) => <div className="matter-timeline-row" key={item.id}><i></i><div><strong>{item.title}</strong><small>{[formatPortalDateTime(item.createdAt), item.createdBy, item.detail].filter(Boolean).join(' · ')}</small></div></div>) : <p className="muted">No matter activity recorded yet.</p>}</div></section></div><div><section className="panel matter-overview-card"><span className="eyebrow">Documents</span><h2>Document readiness</h2><p>{obtained} of {docs.length} required items received.</p><div className="matter-doc-progress"><span style={{width:`${docs.length ? Math.round(obtained/docs.length*100) : 0}%`}}></span></div>{docs.slice(0,5).map((doc) => <div className={`matter-doc-row ${doc.obtained ? 'complete' : 'missing'}`} key={doc.id}><span><strong>{doc.name}</strong><small>{doc.obtained ? 'Obtained' : doc.reviewDate ? `Review ${formatRecordDate(doc.reviewDate)}` : 'Outstanding'}</small></span><b>{doc.obtained ? '✓' : 'Required'}</b></div>)}<button className="btn full" type="button" onClick={onOpenFullRecord}>Open document checklist</button></section><section className="panel matter-overview-card"><span className="eyebrow">Client-facing</span><h2>Portal update</h2><p>Use standard wording as the starting point. Edit only when this file actually needs something different.</p><div className="matter-portal-preview"><label>Standard update<select value={portalTemplateKey} onChange={(event) => { const key=event.target.value; setPortalTemplateKey(key); const template=PORTAL_UPDATE_TEMPLATES.find((item)=>item.key===key); if(template){ /* preview only */ } }}><option value="">Choose wording…</option>{PORTAL_UPDATE_TEMPLATES.map((item)=><option key={item.key} value={item.key}>{item.label}</option>)}</select></label><div><span>Current update</span><strong>{portalTemplateKey ? PORTAL_UPDATE_TEMPLATES.find((item)=>item.key===portalTemplateKey)?.current : client.portalStatusUpdate || 'No portal update published yet.'}</strong></div><div><span>What happens next</span><strong>{portalTemplateKey ? PORTAL_UPDATE_TEMPLATES.find((item)=>item.key===portalTemplateKey)?.next : client.portalNextStep || 'No next-step wording published yet.'}</strong></div><div className="button-row"><button className="btn" type="button" disabled={!portalTemplateKey || saving} onClick={() => applyPortalTemplate(portalTemplateKey,false)}>Save wording</button><button className="btn mint" type="button" disabled={!portalTemplateKey || saving || !client.portalEnabled} onClick={() => applyPortalTemplate(portalTemplateKey,true)}>Publish update</button></div>{!client.portalEnabled && <small className="muted">Portal is not active. Open the full record to enable access.</small>}</div></section></div></div>
+    {completeActionOpen && <QuickCompleteActionModal client={client} adviser={primary} onClose={() => setCompleteActionOpen(false)} saveClient={saveClient} saving={saving} />}
+    {changeActionOpen && <QuickChangeActionModal client={client} adviser={primary} onClose={() => setChangeActionOpen(false)} saveClient={saveClient} saving={saving} />}
     {updateOpen && <GuidedMatterUpdateModal client={client} adviser={primary} onClose={() => setUpdateOpen(false)} saveClient={saveClient} saving={saving} />}
     {clientUpdateOpen && <QuickClientUpdateDrawer client={client} advisers={advisers} caseTypes={caseTypes} initialSection="matter" saving={saving} onClose={() => setClientUpdateOpen(false)} onSave={async (payload) => { const body = await saveClient?.(payload, { resetNewClientForm: false }); setClientUpdateOpen(false); return body; }} />}
     {noteOpen && <div className="matter-modal-backdrop" onMouseDown={(event)=>{if(event.target===event.currentTarget)setNoteOpen(false)}}><section className="matter-simple-modal"><div><span className="eyebrow">Internal file note</span><h2>Add note</h2></div><textarea rows="6" value={noteText} onChange={(event)=>setNoteText(event.target.value)} placeholder="Record the note for the matter timeline…" autoFocus /><div className="button-row"><button className="btn" type="button" onClick={()=>setNoteOpen(false)}>Cancel</button><button className="btn dark" type="button" onClick={saveNote} disabled={!noteText.trim()||saving}>Save note</button></div></section></div>}
@@ -3819,6 +3823,68 @@ function MatterStageFlow({ stages = [], currentIndex = 0 }) {
 
 function MatterWorkItem({ number, title, meta, onOpen, primary = false }) {
   return <div className={`matter-work-item ${primary ? 'primary' : ''}`}><i>{number}</i><span><strong>{title}</strong><small>{meta}</small></span><button type="button" onClick={onOpen}>Open</button></div>;
+}
+
+function QuickChangeActionModal({ client, adviser = null, onClose, saveClient, saving }) {
+  const status = normaliseMatterStatus(client.matterStatus, client.clientStatus, client.nextAction);
+  const waiting = status.startsWith('Waiting') || status === 'Client action required';
+  const [nextAction, setNextAction] = useState(client.nextAction || '');
+  const [actionDate, setActionDate] = useState(waiting ? (client.matterReviewDate || '') : (client.nextActionDue || ''));
+  const [error, setError] = useState('');
+  async function save() {
+    const action = nextAction.trim();
+    if (status !== 'Completed' && !action) { setError('Add the next action before saving.'); return; }
+    if (waiting && !actionDate) { setError('Waiting matters need a review date so they return to My Work.'); return; }
+    const changed = action !== String(client.nextAction || '').trim() || actionDate !== (waiting ? (client.matterReviewDate || '') : (client.nextActionDue || ''));
+    if (!changed) { onClose?.(); return; }
+    const activity = [...normaliseMatterActivity(client.matterActivity), makeMatterActivity('action', 'Next action changed', `${client.nextAction || 'No previous action'} → ${action || 'No next action'}`, adviser?.name || 'Adviser')];
+    const payload = { ...client, nextAction: action, nextActionDue: waiting ? '' : actionDate, matterReviewDate: waiting ? actionDate : '', matterActivity: activity };
+    await saveClient?.(payload, { resetNewClientForm: false });
+    onClose?.();
+  }
+  return <div className="matter-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose?.(); }}><section className="matter-quick-action-modal"><div className="matter-modal-head"><div><span className="eyebrow">Quick edit</span><h2>Change next action</h2><p>Change only the action and its date. Stage, status, portal wording and other matter housekeeping stay untouched.</p></div><button className="btn" type="button" onClick={onClose}><X size={16} /></button></div><div className="matter-modal-body matter-quick-action-body"><label className="field"><span>{waiting ? 'Review / waiting action' : 'Next action'}</span><input autoFocus value={nextAction} onChange={(event) => { setNextAction(event.target.value); setError(''); }} /></label><label className="field"><span>{waiting ? 'Review date' : 'Due date'}</span><input type="date" value={actionDate} onChange={(event) => { setActionDate(event.target.value); setError(''); }} /></label><div className="matter-quick-context"><span>Current matter status</span><strong>{status}</strong><small>Use Update File instead if something substantive happened and the stage/status should also change.</small></div></div><div className="matter-modal-foot"><span className="validation-message">{error}</span><div><button className="btn" type="button" onClick={onClose}>Cancel</button><button className="btn dark" type="button" disabled={saving} onClick={save}><Save size={15} />{saving ? 'Saving…' : 'Save action'}</button></div></div></section></div>;
+}
+
+const COMPLETE_ACTION_DESTINATIONS = [
+  { key: 'adviser', label: 'Another adviser action', status: 'Adviser action required', action: '', days: 1 },
+  { key: 'client', label: 'Waiting on client', status: 'Client action required', action: 'Await client information', days: 7 },
+  { key: 'third-party', label: 'Waiting on third party', status: 'Waiting on third party', action: 'Follow up with third party', days: 7 },
+  { key: 'inz', label: 'Waiting on INZ', status: 'Waiting on INZ', action: 'Review INZ position', days: 14 },
+  { key: 'ready', label: 'Ready to progress', status: 'Ready to progress', action: 'Progress matter to the next step', days: 1 },
+  { key: 'completed', label: 'Matter work completed', status: 'Completed', action: '', days: 0 },
+];
+
+function QuickCompleteActionModal({ client, adviser = null, onClose, saveClient, saving }) {
+  const currentStatus = normaliseMatterStatus(client.matterStatus, client.clientStatus, client.nextAction);
+  const [destination, setDestination] = useState('adviser');
+  const selected = COMPLETE_ACTION_DESTINATIONS.find((item) => item.key === destination) || COMPLETE_ACTION_DESTINATIONS[0];
+  const [nextAction, setNextAction] = useState(selected.action);
+  const [actionDate, setActionDate] = useState(selected.days ? addDaysIso(todayIso(), selected.days) : '');
+  const [error, setError] = useState('');
+  useEffect(() => {
+    const option = COMPLETE_ACTION_DESTINATIONS.find((item) => item.key === destination) || COMPLETE_ACTION_DESTINATIONS[0];
+    setNextAction(option.action);
+    setActionDate(option.days ? addDaysIso(todayIso(), option.days) : '');
+    setError('');
+  }, [destination]);
+  const waiting = ['Client action required', 'Waiting on third party', 'Waiting on INZ'].includes(selected.status);
+  async function save() {
+    const action = nextAction.trim();
+    if (selected.status !== 'Completed' && !action) { setError('Add what happens next before saving.'); return; }
+    if (selected.status !== 'Completed' && !actionDate) { setError(waiting ? 'Add the review date so the file returns to My Work.' : 'Add a due date for the next action.'); return; }
+    const activity = [...normaliseMatterActivity(client.matterActivity), makeMatterActivity('action-completed', 'Action completed', client.nextAction || 'Previous action completed', adviser?.name || 'Adviser')];
+    const payload = {
+      ...client,
+      matterStatus: selected.status,
+      nextAction: selected.status === 'Completed' ? '' : action,
+      nextActionDue: selected.status === 'Completed' || waiting ? '' : actionDate,
+      matterReviewDate: selected.status === 'Completed' ? '' : waiting ? actionDate : '',
+      matterActivity: activity,
+    };
+    await saveClient?.(payload, { resetNewClientForm: false });
+    onClose?.();
+  }
+  return <div className="matter-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose?.(); }}><section className="matter-quick-action-modal complete"><div className="matter-modal-head"><div><span className="eyebrow">Complete current action</span><h2>What happens next?</h2><p><strong>{client.nextAction || 'Current action'}</strong> will be recorded as completed. Choose where the file goes next.</p></div><button className="btn" type="button" onClick={onClose}><X size={16} /></button></div><div className="matter-modal-body matter-quick-action-body"><div className="matter-complete-destinations">{COMPLETE_ACTION_DESTINATIONS.map((item) => <button key={item.key} type="button" className={destination === item.key ? 'active' : ''} onClick={() => setDestination(item.key)}><strong>{item.label}</strong><small>{item.status}</small></button>)}</div>{selected.status !== 'Completed' && <><label className="field"><span>{waiting ? 'Waiting / review action' : 'Next action'}</span><input value={nextAction} onChange={(event) => { setNextAction(event.target.value); setError(''); }} placeholder="What happens next?" /></label><label className="field"><span>{waiting ? 'Review date' : 'Due date'}</span><input type="date" value={actionDate} onChange={(event) => { setActionDate(event.target.value); setError(''); }} /></label></>}<div className="matter-quick-context"><span>Current status</span><strong>{currentStatus}</strong><small>This quick action records completion and the next operating state only. Use Update File for stage changes, portal updates, client emails or detailed housekeeping.</small></div></div><div className="matter-modal-foot"><span className="validation-message">{error}</span><div><button className="btn" type="button" onClick={onClose}>Cancel</button><button className="btn dark" type="button" disabled={saving} onClick={save}><CheckCircle2 size={15} />{saving ? 'Saving…' : 'Complete action'}</button></div></div></section></div>;
 }
 
 function GuidedMatterUpdateModal({ client, adviser = null, onClose, saveClient, saving }) {
@@ -5169,7 +5235,7 @@ function IntakeFormApp() {
       validateForm(); setSubmitting(true); setError('');
       if (!receipt) {
         setSubmissionStatus('Saving your questionnaire...');
-        const response = await fetch('/.netlify/functions/intake', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ payload: { ...form, email: String(form.email || '').trim(), intakeSubmissionKey: submissionKeyRef.current, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.17.10-assessment-form-reliability' } }) });
+        const response = await fetch('/.netlify/functions/intake', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ payload: { ...form, email: String(form.email || '').trim(), intakeSubmissionKey: submissionKeyRef.current, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.17.11-assessment-form-reliability' } }) });
         const body = await readJsonResponse(response);
         if (!response.ok) throw new Error(body.error || 'The questionnaire could not be submitted.');
         receipt = { intakeId: body.intakeId, uploadToken: body.uploadToken, expectedUploads: body.expectedUploads || [], uploadedKinds: [] };
@@ -10087,7 +10153,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const dayRows = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']];
-  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.17.10" data-title="Chat with us" defer><\/script>`;
+  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.17.11" data-title="Chat with us" defer><\/script>`;
 
   useEffect(() => {
     if (!open) return;
@@ -13334,7 +13400,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.10" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.11" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -13911,7 +13977,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.10" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.11" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}
@@ -15038,41 +15104,17 @@ function clientHealthStatus(client, outstandingDocuments = [], nearestDeadlineDi
 
 function ClientWorkspaceShell({ sections, activeSection, onSelect, children }) {
   const activeIsSecondary = sections.some((section) => section.id === activeSection && section.secondary);
-  const [showMore, setShowMore] = useState(activeIsSecondary);
-  useEffect(() => { if (activeIsSecondary) setShowMore(true); }, [activeIsSecondary]);
+  const [moreOpen, setMoreOpen] = useState(false);
+  useEffect(() => { setMoreOpen(false); }, [activeSection]);
   const primarySections = sections.filter((section) => !section.secondary);
   const secondarySections = sections.filter((section) => section.secondary);
-
-  function renderSection(section) {
+  function selectSection(id) { onSelect(id); setMoreOpen(false); }
+  function renderTab(section) {
     const Icon = section.icon || FileText;
     const active = activeSection === section.id;
-    return (
-      <button key={section.id} type="button" className={`client-workspace-nav-card ${active ? 'active' : ''}`} onClick={() => onSelect(section.id)}>
-        <span className="client-workspace-nav-icon"><Icon size={18} /></span>
-        <span className="client-workspace-nav-copy"><strong>{section.label}</strong><small>{section.summary}</small></span>
-        {section.badge && <b className="client-workspace-nav-badge">{section.badge}</b>}
-      </button>
-    );
+    return <button key={section.id} type="button" title={section.summary || section.label} className={`client-workspace-tab ${active ? 'active' : ''}`} onClick={() => selectSection(section.id)}><Icon size={15} /><span>{section.label}</span>{section.badge && <b>{section.badge}</b>}</button>;
   }
-
-  return (
-    <section className="client-workspace streamlined-client-workspace">
-      <aside className="client-workspace-nav" aria-label="Client record sections">
-        <div className="client-workspace-nav-head">
-          <strong>Client file</strong>
-          <span>Open the section you need.</span>
-        </div>
-        <div className="client-workspace-section-list">{primarySections.map(renderSection)}</div>
-        {secondarySections.length > 0 && <div className="client-workspace-more">
-          <button className={`client-workspace-more-toggle ${showMore ? 'open' : ''}`} type="button" onClick={() => setShowMore((value) => !value)}>
-            <MoreHorizontal size={16} /><span>More sections</span><ChevronDown size={14} />
-          </button>
-          {showMore && <div className="client-workspace-section-list secondary">{secondarySections.map(renderSection)}</div>}
-        </div>}
-      </aside>
-      <div className="client-workspace-body">{children}</div>
-    </section>
-  );
+  return <section className="client-workspace streamlined-client-workspace flattened-client-workspace"><nav className="client-workspace-tabs" aria-label="Client record sections">{primarySections.map(renderTab)}{secondarySections.length > 0 && <div className="client-workspace-tabs-more"><button type="button" className={`client-workspace-tab ${activeIsSecondary ? 'active' : ''}`} onClick={() => setMoreOpen((value) => !value)}><MoreHorizontal size={15}/><span>More</span><ChevronDown size={13}/></button>{moreOpen && <div className="client-workspace-tabs-menu">{secondarySections.map((section) => { const Icon=section.icon||FileText; return <button key={section.id} type="button" className={activeSection===section.id?'active':''} onClick={() => selectSection(section.id)}><Icon size={15}/><span><strong>{section.label}</strong><small>{section.summary}</small></span>{section.badge&&<b>{section.badge}</b>}</button>; })}</div>}</div>}</nav><div className="client-workspace-body">{children}</div></section>;
 }
 
 function ClientWorkspaceIntro({ title, description }) {
@@ -16284,8 +16326,7 @@ function ClientSummaryPanel({ draft, advisers = [], onOpenQuickEditor, onOpenFul
   return (
     <section className="client-summary-panel streamlined-client-summary unified-client-summary inline-client-record" id="client-inline-record">
       <div className="sub-panel-head compact inline-client-record-head">
-        <div><h2>Client record</h2><p className="muted">Review the client profile at a glance. Use Update client when something changes; the full editor remains available for unusual or detailed changes.</p></div>
-        <div className="button-row"><button className="btn dark mini" type="button" onClick={() => onOpenQuickEditor?.('matter')}><Pencil size={14} />Update client</button><button className="btn ghost mini" type="button" onClick={() => onOpenFullEditor?.('personal')}><ExternalLink size={14} />Full editor</button></div>
+        <div><h2>Client details</h2><p className="muted">The core profile at a glance. Use the Edit link beside a section for a quick change; the full editor stays under More for unusual or detailed updates.</p></div>
       </div>
       <div className="client-profile-summary-list">
         {sections.map((section) => { const Icon=section.icon; return <article className="client-profile-summary-row" key={section.id}><span className={`inline-client-record-icon tone-${section.id}`}><Icon size={17}/></span><div><span>{section.title}</span><strong>{section.summary}</strong>{section.detail&&<small>{section.detail}</small>}</div><button className="btn ghost mini" type="button" onClick={() => onOpenQuickEditor?.(section.id)}><Pencil size={13}/>Edit</button></article>; })}

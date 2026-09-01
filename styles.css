@@ -17762,7 +17762,7 @@ body.festive-mode-active {
 }
 
 /* ========================================================================== */
-/* THiS CRM v0.17.10 — Unified staff workspace visual system                   */
+/* THiS CRM v0.17.11 — Unified staff workspace visual system                   */
 /* Brings remaining legacy modules into the Matter Workspace design language. */
 /* ========================================================================== */
 .matter-workspace-v17 .workspace-modern-page {
@@ -18232,7 +18232,7 @@ body.festive-mode-active {
 
 
 /* ========================================================================== */
-/* THiS CRM v0.17.10 — inline expandable client record editor                  */
+/* THiS CRM v0.17.11 — inline expandable client record editor                  */
 /* ========================================================================== */
 .inline-client-record { scroll-margin-top: 84px; }
 .inline-client-record-head { align-items: center; }
@@ -18314,7 +18314,7 @@ body.festive-mode-active {
   .inline-client-record-actions .button-row .btn { flex: 1 1 0; justify-content: center; }
 }
 
-/* THiS CRM v0.17.10 — streamlined client update flow */
+/* THiS CRM v0.17.11 — streamlined client update flow */
 .client-workspace-title-block {
   display: flex;
   align-items: flex-start;
@@ -18456,4 +18456,188 @@ body.festive-mode-active {
   .quick-client-update-drawer > footer { align-items: stretch; flex-direction: column; }
   .quick-client-update-drawer > footer > div { width: 100%; }
   .quick-client-update-drawer > footer .btn { flex: 1 1 0; justify-content: center; }
+}
+
+/* -------------------------------------------------------------------------- */
+/* THiS CRM v0.17.11 — flattened client workspace + distinct action controls  */
+/* -------------------------------------------------------------------------- */
+.matter-workspace-v17 .flattened-client-workspace {
+  display: block;
+  width: 100%;
+  max-width: none;
+  margin-top: 14px;
+}
+.matter-workspace-v17 .flattened-client-workspace .client-workspace-body,
+.matter-workspace-v17 .flattened-client-workspace .client-workspace-section-stack {
+  width: 100%;
+  max-width: none;
+}
+.client-workspace-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  margin: 0 0 14px;
+  padding: 5px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  border: 1px solid var(--mw-line, #cbd8d4);
+  border-radius: 10px;
+  background: #f7faf9;
+}
+.client-workspace-tab {
+  flex: 0 0 auto;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: #526a65;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.client-workspace-tab:hover { background: #edf5f1; color: var(--ink); }
+.client-workspace-tab.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+.client-workspace-tab > b {
+  min-width: 20px;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: #e1eee9;
+  color: #34594f;
+  font-size: 9px;
+  line-height: 1;
+}
+.client-workspace-tab.active > b { background: rgba(255,255,255,.18); color: #fff; }
+.client-workspace-tabs-more { position: relative; flex: 0 0 auto; }
+.client-workspace-tabs-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 35;
+  width: 250px;
+  display: grid;
+  gap: 3px;
+  padding: 6px;
+  border: 1px solid var(--mw-line, #cbd8d4);
+  border-radius: 9px;
+  background: #fff;
+  box-shadow: 0 16px 34px rgba(20,52,49,.14);
+}
+.client-workspace-tabs-menu > button {
+  display: grid;
+  grid-template-columns: 28px minmax(0,1fr) auto;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  padding: 8px 9px;
+  border: 0;
+  border-radius: 7px;
+  background: #fff;
+  color: #29413f;
+  text-align: left;
+}
+.client-workspace-tabs-menu > button:hover,
+.client-workspace-tabs-menu > button.active { background: #edf6f2; }
+.client-workspace-tabs-menu > button > span { min-width: 0; display: grid; gap: 1px; }
+.client-workspace-tabs-menu strong { font-size: 11px; }
+.client-workspace-tabs-menu small { color: var(--muted); font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.client-workspace-tabs-menu b { padding: 3px 6px; border-radius: 999px; background: #e5f4ed; color: #285a49; font-size: 9px; }
+
+/* The Full Record overview should read as one workspace rather than cards inside cards. */
+.matter-workspace-v17 .flattened-client-workspace .client-workspace-intro {
+  padding: 1px 1px 9px;
+  margin: 0;
+}
+.matter-workspace-v17 .flattened-client-workspace .streamlined-overview-stats { margin-bottom: 12px; }
+.matter-workspace-v17 .flattened-client-workspace .workspace-stat { border-radius: 9px; box-shadow: none; }
+.matter-workspace-v17 .flattened-client-workspace .streamlined-client-summary {
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: none;
+}
+.matter-workspace-v17 .flattened-client-workspace .client-profile-summary-list { gap: 0; border-top: 1px solid #e0e8e5; }
+.matter-workspace-v17 .flattened-client-workspace .client-profile-summary-row {
+  border: 0;
+  border-bottom: 1px solid #e0e8e5;
+  border-radius: 0;
+  padding: 11px 8px;
+  background: transparent;
+}
+.matter-workspace-v17 .flattened-client-workspace .client-profile-summary-row:hover { background: #f7faf9; }
+.matter-workspace-v17 .flattened-client-workspace .client-file-tools { margin-top: 13px; padding-top: 12px; }
+
+/* Keep the left client picker useful, but visually lighter and less card-heavy. */
+.matter-workspace-v17 .client-record-workspace-modern .client-list { gap: 4px; }
+.matter-workspace-v17 .client-record-workspace-modern .client-card {
+  min-height: 74px;
+  padding: 10px 11px;
+  border-color: transparent;
+  border-bottom-color: #dce5e2;
+  border-radius: 7px;
+  box-shadow: none;
+}
+.matter-workspace-v17 .client-record-workspace-modern .client-card:hover { background: #f5f9f7; border-color: #cfddd8; }
+.matter-workspace-v17 .client-record-workspace-modern .client-card.active { background: #e9f7f0; border-color: #8fcfb3; }
+.matter-workspace-v17 .client-record-workspace-modern .client-card .progress { height: 5px; margin-top: 7px; }
+
+/* Complete and Change are intentionally separate from the full Update File workflow. */
+.matter-quick-action-modal {
+  width: min(590px, 94vw);
+  max-height: calc(100vh - 44px);
+  overflow-y: auto;
+  border: 1px solid #bfd0ca;
+  border-radius: 11px;
+  background: #fff;
+  box-shadow: 0 28px 80px rgba(7,34,33,.24);
+}
+.matter-quick-action-modal.complete { width: min(680px, 94vw); }
+.matter-quick-action-body { display: grid; gap: 12px; }
+.matter-quick-context {
+  display: grid;
+  gap: 3px;
+  padding: 10px 11px;
+  border: 1px solid #d5e3de;
+  border-radius: 8px;
+  background: #f5faf8;
+}
+.matter-quick-context > span { color: #667b75; font-size: 9px; font-weight: 850; text-transform: uppercase; letter-spacing: .06em; }
+.matter-quick-context > strong { color: var(--ink); font-size: 11.5px; }
+.matter-quick-context > small { color: var(--muted); font-size: 10px; line-height: 1.45; }
+.matter-complete-destinations {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 7px;
+}
+.matter-complete-destinations button {
+  min-height: 58px;
+  display: grid;
+  gap: 2px;
+  padding: 10px 11px;
+  border: 1px solid #cfddd8;
+  border-radius: 8px;
+  background: #fff;
+  color: #29413f;
+  text-align: left;
+}
+.matter-complete-destinations button:hover { background: #f5faf8; border-color: #a9cfc0; }
+.matter-complete-destinations button.active { background: #e8f6ef; border-color: #79be9f; box-shadow: inset 3px 0 0 #2b9670; }
+.matter-complete-destinations strong { font-size: 11px; }
+.matter-complete-destinations small { color: var(--muted); font-size: 9px; }
+.matter-primary-action > div:last-child .btn { min-height: 36px; }
+
+@media (max-width: 900px) {
+  .client-workspace-tabs { overflow-x: auto; }
+  .matter-complete-destinations { grid-template-columns: 1fr; }
+}
+@media (max-width: 680px) {
+  .client-workspace-tabs-menu { position: fixed; left: 12px; right: 12px; top: auto; bottom: 84px; width: auto; }
+  .matter-quick-action-modal, .matter-quick-action-modal.complete { width: 100%; border-radius: 12px 12px 0 0; }
 }

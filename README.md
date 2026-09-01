@@ -1,34 +1,35 @@
-# THiS CRM v0.17.10 - Streamlined Client Update
+# THiS CRM v0.17.11 - Flattened Client Workspace & Split Actions
 
-This release continues from **v0.17.9 Navigation Badge Synchronisation** and simplifies the client-record workflow without removing any underlying CRM capability.
+This release continues directly from **v0.17.10 Streamlined Client Update**.
 
-## Back to clients
+## Full client record simplification
 
-Both the Matter Command Centre and the Full Record workspace now have an explicit **Back to clients** control. It returns to the existing Clients register, preserving the current adviser/search/filter state.
+The detailed client record keeps the client picker on the left, but removes the second vertical **Client file** navigation layer. The client record sections now sit in one compact horizontal navigation bar:
 
-## Update client
+- Overview
+- Actions
+- Documents
+- Stages
+- Key dates
+- Billing
+- More (Instructions, Agreements and Portal)
 
-The Matter Command Centre now separates two everyday actions clearly:
+This flattens the hierarchy and brings the detailed record into the same navigation language as the rest of the remodel.
 
-- **Update File** — use when something substantive has happened on the immigration matter and the CRM should guide stage/status/portal/timeline housekeeping.
-- **Update Client** — use when the underlying client/profile information needs changing.
+The Overview remains primarily read-only. The duplicate large **Update client** and **Full editor** controls have been removed from the Client details panel; the main Update client action stays in the page header and the full editor remains available under **More**. Section-level Edit links still jump straight to the relevant Update client section.
 
-**Update Client** opens a compact side drawer rather than the large legacy editor. It is organised into five simple categories:
+The client picker has also been visually lightened so it behaves more like a compact list than a stack of large cards.
 
-1. Matter & adviser
-2. Contact
-3. Personal
-4. Family
-5. Other
+## Primary action controls
 
-The Matter & adviser category provides the commonly changed operational fields: case type, primary/backup adviser, priority, current stage, matter status, next action and due/review date. Contact and Personal expose only their relevant fields. Family contains the family/dependant editor. Other contains strategy, internal notes, OneLaw and SharePoint references.
+**Complete**, **Change** and **Update File** now perform different jobs:
 
-## Full Record simplification
+- **Complete** records the current primary action as completed and asks only what happens next. The adviser can put the file into another adviser action, Waiting on client, Waiting on third party, Waiting on INZ, Ready to progress, or Completed. The next action/review date is set in the same compact window.
+- **Change** edits only the current next action/review action and its date. It does not change stage, matter status, portal wording or any other housekeeping.
+- **Update File** remains the full guided workflow for substantive matter events where stage, status, portal wording, timeline and related housekeeping may all need to change together.
 
-The Overview no longer asks advisers to expand and save a series of embedded editing accordions. The Client Record panel is now primarily a **read-and-understand** view: each profile area shows its summary with a small **Edit** button that opens the same compact Update Client drawer in the correct category.
-
-The existing comprehensive editor remains available under **More → Open full profile editor** and as **Full editor** in the Client Record panel. No fields or power-user capability have been removed.
+Changing or completing a next action continues to use the existing server-side next-action history, so the previous action is retained automatically.
 
 ## Database safety
 
-No database migration is added. All 43 existing migration files remain unchanged.
+No database migration is added. All existing migrations are unchanged from v0.17.10.
