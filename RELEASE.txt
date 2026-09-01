@@ -1,9 +1,8 @@
-THiS CRM v0.17.12 - Client Navigation & Mobile Header Refinement
+THiS CRM v0.17.13 — Notification Recipient & Adviser Profile Fix
 
-- Replaces the scrolling client section strip + More popover with wrapped, always-visible standard section tabs.
-- Instructions, Agreements and Portal are directly visible alongside the other client sections.
-- Client section tabs wrap on desktop/tablet and become a two-column grid on mobile.
-- Removes the duplicate Tools action from the mobile top header; Tools remains in Mobile More.
-- Makes remaining mobile header actions compact, single-row controls rather than large tiles.
-- No database migration or schema change.
-- Runtime/PWA/Studio/live-chat cache references advance to v0.17.12.
+- Fixes missing website-notification recipient cards on the Adviser page.
+- Enables the assessment-recipient copy and save-recipient controls once settings are loaded.
+- Keeps inactive advisers excluded from delivery.
+- Adds explicit Edit adviser / Save adviser / Cancel controls to each adviser profile.
+- Adviser profiles are read-only by default to prevent accidental changes.
+- No database migration.

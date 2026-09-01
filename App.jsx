@@ -16073,10 +16073,28 @@ function NotificationRecipientSettings({ settings = [], advisers = [], onSave, s
 function AdviserProfiles({ advisers, clients, saveAdviser, saving }) {
   const [drafts, setDrafts] = useState(advisers);
   const [photoMessages, setPhotoMessages] = useState({});
+  const [editingId, setEditingId] = useState('');
   useEffect(() => setDrafts(advisers), [advisers]);
 
   function updateAdviser(id, patch) {
     setDrafts((current) => current.map((adviser) => adviser.id === id ? { ...adviser, ...patch } : adviser));
+  }
+
+  function startEditing(adviserId) {
+    setEditingId(adviserId);
+    setPhotoMessages((current) => ({ ...current, [adviserId]: '' }));
+  }
+
+  function cancelEditing(adviserId) {
+    const original = advisers.find((adviser) => adviser.id === adviserId);
+    if (original) setDrafts((current) => current.map((adviser) => adviser.id === adviserId ? { ...original } : adviser));
+    setPhotoMessages((current) => ({ ...current, [adviserId]: '' }));
+    setEditingId('');
+  }
+
+  async function saveEditing(adviser) {
+    await saveAdviser(adviser);
+    setEditingId('');
   }
 
   async function handlePhotoFile(adviserId, file) {
@@ -16097,41 +16115,60 @@ function AdviserProfiles({ advisers, clients, saveAdviser, saving }) {
 
   return (
     <section className="panel adviser-profiles-panel workspace-modern-section">
-      <h2>Adviser profiles</h2>
-      <p className="muted">Add or edit adviser details used for allocation, reporting, login mapping, CRM permissions and client portal adviser cards.</p>
+      <div className="adviser-profiles-heading">
+        <div>
+          <h2>Adviser profiles</h2>
+          <p className="muted">Select <strong>Edit adviser</strong> to change an individual profile. Save or cancel that adviser before moving on to another.</p>
+        </div>
+      </div>
       <div className="adviser-role-guide"><ShieldCheck size={18} /><span><strong>Admin</strong> can manage advisers, backups and contact exports. <strong>User</strong> can use all operational CRM workspaces but cannot access administration tools.</span></div>
       <div className="adviser-edit-grid">
         {drafts.map((adviser) => {
           const primary = clients.filter((client) => client.primaryAdviserId === adviser.id && client.clientStatus !== 'Closed').length;
           const backup = clients.filter((client) => client.backupAdviserId === adviser.id && client.clientStatus !== 'Closed').length;
           const photoInputId = `adviser-photo-${adviser.id}`;
+          const editing = editingId === adviser.id;
           return (
-            <div className="adviser-edit-card" key={adviser.id}>
+            <div className={`adviser-edit-card ${editing ? 'editing' : 'viewing'}`} key={adviser.id}>
               <div className="adviser-profile-head">
                 <AdviserAvatar adviser={adviser} size="lg" />
                 <div>
                   <strong>{adviser.name || 'New adviser'}</strong>
                   <span>{adviser.role || 'Adviser profile'}</span>
                 </div>
-                <label className="btn mini ghost adviser-photo-upload" htmlFor={photoInputId}>Upload photo</label>
-                <input id={photoInputId} type="file" accept="image/*" className="visually-hidden" onChange={(event) => handlePhotoFile(adviser.id, event.target.files?.[0])} />
+                <div className="adviser-card-head-actions">
+                  {editing ? <>
+                    <button className="btn mini" type="button" onClick={() => cancelEditing(adviser.id)} disabled={saving}>Cancel</button>
+                    <button className="btn mini dark" type="button" onClick={() => saveEditing(adviser)} disabled={saving}><Save size={14} />{saving ? 'Saving...' : 'Save adviser'}</button>
+                  </> : <button className="btn mini ghost" type="button" onClick={() => startEditing(adviser.id)}><Pencil size={14} />Edit adviser</button>}
+                </div>
               </div>
-              <div className="adviser-photo-actions">
-                <button type="button" className="btn mini" onClick={() => updateAdviser(adviser.id, { profilePhotoUrl: '' })}>Remove photo</button>
-                <span>{photoMessages[adviser.id] || 'Use a clear square or head-and-shoulders image. It will be shown as a round photo.'}</span>
+              <div className="adviser-profile-summary-strip">
+                <span><strong>{adviser.email || 'No email'}</strong><small>{normaliseCrmAccessRole(adviser.accessRole)} access</small></span>
+                <span><strong>{adviser.active ? 'Active' : 'Inactive'}</strong><small>{adviser.availability === 'Away' ? 'Away' : 'Available'}</small></span>
+                <span><strong>{primary}</strong><small>Primary matters</small></span>
+                <span><strong>{backup}</strong><small>Backup matters</small></span>
               </div>
-              <div className="form-grid two">
-                <Field label="Name" value={adviser.name} onChange={(v) => updateAdviser(adviser.id, { name: v })} />
-                <Field label="Role" value={adviser.role} onChange={(v) => updateAdviser(adviser.id, { role: v })} />
-                <Field label="Email" value={adviser.email} onChange={(v) => updateAdviser(adviser.id, { email: v })} />
-                <Field label="Login Email" value={adviser.loginEmail} onChange={(v) => updateAdviser(adviser.id, { loginEmail: v })} />
-                <SelectField label="CRM access role" value={normaliseCrmAccessRole(adviser.accessRole)} onChange={(v) => updateAdviser(adviser.id, { accessRole: v })} options={['Admin', 'User']} />
-                <Field label="Phone" value={adviser.phone} onChange={(v) => updateAdviser(adviser.id, { phone: v })} />
-                <Field label="LIA licence" value={adviser.licence} onChange={(v) => updateAdviser(adviser.id, { licence: v })} />
-                <SelectField label="Portal availability" value={adviser.availability === 'Away' ? 'Away' : 'Available'} onChange={(v) => updateAdviser(adviser.id, { availability: v })} options={ADVISER_AVAILABILITY_OPTIONS} />
-                <SelectField label="CRM status" value={adviser.active ? 'Active' : 'Inactive'} onChange={(v) => updateAdviser(adviser.id, { active: v === 'Active' })} options={['Active', 'Inactive']} />
-              </div>
-              <div className="split bottom"><span><b>{primary}</b> Primary matters · <b>{backup}</b> Backup matters</span><button className="btn dark" onClick={() => saveAdviser(adviser)} disabled={saving}><Save size={16} />Save</button></div>
+              {editing ? <>
+                <div className="adviser-photo-actions adviser-photo-edit-actions">
+                  <label className="btn mini ghost adviser-photo-upload" htmlFor={photoInputId}>Upload photo</label>
+                  <input id={photoInputId} type="file" accept="image/*" className="visually-hidden" onChange={(event) => handlePhotoFile(adviser.id, event.target.files?.[0])} />
+                  <button type="button" className="btn mini" onClick={() => updateAdviser(adviser.id, { profilePhotoUrl: '' })}>Remove photo</button>
+                  <span>{photoMessages[adviser.id] || 'Use a clear square or head-and-shoulders image. It will be shown as a round photo.'}</span>
+                </div>
+                <div className="form-grid two adviser-profile-edit-fields">
+                  <Field label="Name" value={adviser.name} onChange={(v) => updateAdviser(adviser.id, { name: v })} />
+                  <Field label="Role" value={adviser.role} onChange={(v) => updateAdviser(adviser.id, { role: v })} />
+                  <Field label="Email" value={adviser.email} onChange={(v) => updateAdviser(adviser.id, { email: v })} />
+                  <Field label="Login Email" value={adviser.loginEmail} onChange={(v) => updateAdviser(adviser.id, { loginEmail: v })} />
+                  <SelectField label="CRM access role" value={normaliseCrmAccessRole(adviser.accessRole)} onChange={(v) => updateAdviser(adviser.id, { accessRole: v })} options={['Admin', 'User']} />
+                  <Field label="Phone" value={adviser.phone} onChange={(v) => updateAdviser(adviser.id, { phone: v })} />
+                  <Field label="LIA licence" value={adviser.licence} onChange={(v) => updateAdviser(adviser.id, { licence: v })} />
+                  <SelectField label="Portal availability" value={adviser.availability === 'Away' ? 'Away' : 'Available'} onChange={(v) => updateAdviser(adviser.id, { availability: v })} options={ADVISER_AVAILABILITY_OPTIONS} />
+                  <SelectField label="CRM status" value={adviser.active ? 'Active' : 'Inactive'} onChange={(v) => updateAdviser(adviser.id, { active: v === 'Active' })} options={['Active', 'Inactive']} />
+                </div>
+                <div className="split bottom adviser-edit-footer"><span>Changes apply only when you select <strong>Save adviser</strong>.</span><div className="button-row"><button className="btn" type="button" onClick={() => cancelEditing(adviser.id)} disabled={saving}>Cancel</button><button className="btn dark" type="button" onClick={() => saveEditing(adviser)} disabled={saving}><Save size={16} />Save adviser</button></div></div>
+              </> : <div className="adviser-view-note"><span>Profile details are locked to prevent accidental changes.</span><button className="btn mini ghost" type="button" onClick={() => startEditing(adviser.id)}><Pencil size={13} />Edit profile</button></div>}
             </div>
           );
         })}

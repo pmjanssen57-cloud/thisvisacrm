@@ -2873,6 +2873,7 @@ async function readCrmData() {
     database.sql`SELECT id, pack_id, version_label, change_note, snapshot, created_by, created_at FROM instruction_template_versions ORDER BY created_at DESC LIMIT 200`,
     database.sql`SELECT id, client_id, intake_id, adviser_id, title, app_type, status, standalone_label, recipient_email, studio_state, template_version, created_by, updated_by, created_at, updated_at, issued_at, accepted_at, accepted_by FROM agreement_sets ORDER BY updated_at DESC`,
     database.sql`SELECT id, version_label, change_note, snapshot, created_by, created_at FROM agreement_template_versions ORDER BY created_at DESC LIMIT 200`,
+    readNotificationRecipientSettings(database),
   ]);
   const references = await referencePromise;
   const commercialClients = await readCommercialClients(database);

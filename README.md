@@ -1,19 +1,20 @@
-# THiS CRM v0.17.12 - Client Navigation & Mobile Header Refinement
+# THiS CRM v0.17.13 — Notification Recipient & Adviser Profile Fix
 
-Built from v0.17.11. This is a focused UI refinement with no database changes.
+Built from v0.17.12.
 
-## Client section navigation
+## Notification recipient fix
 
-The Full Record client workspace no longer hides Instructions, Agreements and Portal behind a More menu inside a horizontally scrolling tab strip. All client sections are now visible as standard tabs and wrap cleanly onto additional rows when required. On small screens the tabs become a two-column grid, so there is no horizontal scrolling or clipped popover navigation.
+The CRM data loader now actually includes `readNotificationRecipientSettings(database)` in its Promise.all call. v0.17.12 declared the result variable but omitted the corresponding read operation, so the Adviser page received an empty notification settings array. That is why the recipient cards were absent and both top buttons were disabled.
 
-## Mobile header
+The five notification categories now render with adviser checkboxes and optional additional email fields:
+- Assessment form submissions
+- Contact form submissions
+- Seminar registrations
+- Client feedback submissions
+- SMC calculator internal alerts
 
-The large mobile Tools button has been removed from the top header because Tools is already available from the persistent bottom **More** menu. The remaining top actions use a compact single-row treatment rather than large card-style buttons, substantially reducing vertical space on mobile.
+## Adviser profile editing
 
-## Database safety
+Individual adviser cards now have a clear **Edit adviser** action. Profiles are read-only by default. Editing one adviser reveals their fields and photo controls, with explicit **Save adviser** and **Cancel** actions. This removes the ambiguity of the previous always-editable cards.
 
-No migration is added or changed. Existing v0.17.11 migrations remain untouched.
-
-## Rollback
-
-Redeploy THiS CRM v0.17.11 - Flattened Client Workspace & Split Actions. No schema rollback is required.
+No database migration is added. Existing notification recipient migration and all prior migrations remain unchanged.

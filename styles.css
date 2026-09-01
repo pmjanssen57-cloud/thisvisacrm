@@ -18727,3 +18727,33 @@ body.festive-mode-active {
   .matter-workspace-v17 .mobile-header-actions .live-chat-header-badge,
   .mobile-header-actions .live-chat-header-badge { position: static; margin-left: 2px; }
 }
+
+
+/* v0.17.13 notification recipient + adviser profile clarity */
+.notification-recipient-grid:empty::before {
+  content: 'Notification options are loading. Refresh this page if they do not appear.';
+  display: block;
+  padding: 18px;
+  border: 1px dashed #bfd2ca;
+  border-radius: 10px;
+  color: #60736d;
+  background: #f8fbfa;
+}
+.adviser-profiles-heading { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; }
+.adviser-card-head-actions { margin-left:auto; display:flex; gap:7px; align-items:center; }
+.adviser-edit-card.viewing { background:#fbfdfc; }
+.adviser-edit-card.editing { border-color:#8dcbb3; box-shadow:0 0 0 3px rgba(72,176,133,.08); }
+.adviser-profile-summary-strip { display:grid; grid-template-columns:2fr 1fr .8fr .8fr; gap:8px; margin:12px 0; }
+.adviser-profile-summary-strip > span { padding:10px 11px; border:1px solid #d7e3df; border-radius:9px; background:#fff; min-width:0; }
+.adviser-profile-summary-strip strong,.adviser-profile-summary-strip small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.adviser-profile-summary-strip strong { color:#123f3b; font-size:.9rem; }
+.adviser-profile-summary-strip small { color:#6d7d79; margin-top:2px; font-size:.75rem; }
+.adviser-view-note { display:flex; justify-content:space-between; align-items:center; gap:12px; border-top:1px solid #deebe6; padding-top:10px; color:#6d7d79; font-size:.82rem; }
+.adviser-photo-edit-actions { margin-bottom:14px; }
+.adviser-profile-edit-fields { padding-top:3px; }
+.adviser-edit-footer { margin-top:14px; padding-top:12px; border-top:1px solid #d8e5e0; }
+@media (max-width: 900px) {
+  .adviser-profile-summary-strip { grid-template-columns:1fr 1fr; }
+  .adviser-profile-head { flex-wrap:wrap; }
+  .adviser-card-head-actions { width:100%; margin-left:0; justify-content:flex-end; }
+}
