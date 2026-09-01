@@ -1,18 +1,13 @@
-THiS CRM v0.17.11 validation
+THiS CRM v0.17.12 validation
 
 Completed checks
 - App.jsx parses successfully as JSX.
-- All Netlify .mjs function files pass Node syntax checking.
-- Browser/public JavaScript files pass Node syntax checking.
+- All Netlify .mjs functions pass Node syntax checks.
 - PWA validation passes.
-- package.json parses and reports version 0.17.11.
-- All existing database migration files are byte-for-byte unchanged from v0.17.10.
-- CSS passes structural brace/comment/string validation.
-- ZIP integrity check passes.
-
-Workflow checks
-- Complete and Change no longer invoke GuidedMatterUpdateModal.
-- Complete invokes QuickCompleteActionModal.
-- Change invokes QuickChangeActionModal.
-- Update File continues to invoke GuidedMatterUpdateModal.
-- Full client record uses flattened horizontal navigation and retains the full editor fallback.
+- package.json parses and reports version 0.17.12.
+- ClientWorkspaceShell renders every configured section directly; no More popover remains in the client section navigation.
+- Client section navigation uses wrapping tabs on desktop/tablet and a two-column grid on mobile.
+- Mobile header no longer includes a duplicate Tools button; Tools remains available in the Mobile More sheet.
+- Mobile header action CSS uses compact single-row controls instead of the previous 66-72px action tiles.
+- All 43 existing database migration files have hashes identical to v0.17.11.
+- No new migration, dependency or environment variable is introduced.

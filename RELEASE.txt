@@ -1,27 +1,9 @@
-THiS CRM v0.17.11 - Flattened Client Workspace & Split Actions
+THiS CRM v0.17.12 - Client Navigation & Mobile Header Refinement
 
-Baseline
-- Built from THiS CRM v0.17.10 Streamlined Client Update.
-- Retains all Matter Workspace, My Work, enquiries, commercial, Studio, portal, notification-recipient, archive, assessment-form and agreement functionality.
-
-Client record
-- Removes the second vertical Client file navigation from the detailed record.
-- Replaces it with a compact horizontal section bar for Overview, Actions, Documents, Stages, Key dates and Billing.
-- Instructions, Agreements and Portal sit under a consistent More menu.
-- Keeps the client picker on the left for rapid movement between records.
-- Lightens the client picker rows and reduces nested card treatment.
-- Removes duplicate Update client / Full editor buttons from the Client details panel.
-- Keeps section-level Edit links, the page-level Update client action and the full editor fallback under More.
-
-Primary action workflow
-- Complete now opens a compact completion workflow rather than Update File.
-- The completion workflow records the current action as completed and asks what happens next.
-- Change now opens a compact next-action editor only.
-- Update File remains the full three-step guided matter-event workflow.
-- Existing server-side next-action logging continues to retain replaced/completed actions automatically.
-
-Database and deployment
-- No new database migration.
-- No historical migration changed.
-- No new dependency or environment variable.
-- Runtime/PWA/Studio/live-chat cache references advance to v0.17.11.
+- Replaces the scrolling client section strip + More popover with wrapped, always-visible standard section tabs.
+- Instructions, Agreements and Portal are directly visible alongside the other client sections.
+- Client section tabs wrap on desktop/tablet and become a two-column grid on mobile.
+- Removes the duplicate Tools action from the mobile top header; Tools remains in Mobile More.
+- Makes remaining mobile header actions compact, single-row controls rather than large tiles.
+- No database migration or schema change.
+- Runtime/PWA/Studio/live-chat cache references advance to v0.17.12.

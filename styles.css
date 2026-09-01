@@ -17762,7 +17762,7 @@ body.festive-mode-active {
 }
 
 /* ========================================================================== */
-/* THiS CRM v0.17.11 — Unified staff workspace visual system                   */
+/* THiS CRM v0.17.12 — Unified staff workspace visual system                   */
 /* Brings remaining legacy modules into the Matter Workspace design language. */
 /* ========================================================================== */
 .matter-workspace-v17 .workspace-modern-page {
@@ -18232,7 +18232,7 @@ body.festive-mode-active {
 
 
 /* ========================================================================== */
-/* THiS CRM v0.17.11 — inline expandable client record editor                  */
+/* THiS CRM v0.17.12 — inline expandable client record editor                  */
 /* ========================================================================== */
 .inline-client-record { scroll-margin-top: 84px; }
 .inline-client-record-head { align-items: center; }
@@ -18314,7 +18314,7 @@ body.festive-mode-active {
   .inline-client-record-actions .button-row .btn { flex: 1 1 0; justify-content: center; }
 }
 
-/* THiS CRM v0.17.11 — streamlined client update flow */
+/* THiS CRM v0.17.12 — streamlined client update flow */
 .client-workspace-title-block {
   display: flex;
   align-items: flex-start;
@@ -18459,7 +18459,7 @@ body.festive-mode-active {
 }
 
 /* -------------------------------------------------------------------------- */
-/* THiS CRM v0.17.11 — flattened client workspace + distinct action controls  */
+/* THiS CRM v0.17.12 — flattened client workspace + distinct action controls  */
 /* -------------------------------------------------------------------------- */
 .matter-workspace-v17 .flattened-client-workspace {
   display: block;
@@ -18640,4 +18640,90 @@ body.festive-mode-active {
 @media (max-width: 680px) {
   .client-workspace-tabs-menu { position: fixed; left: 12px; right: 12px; top: auto; bottom: 84px; width: auto; }
   .matter-quick-action-modal, .matter-quick-action-modal.complete { width: 100%; border-radius: 12px 12px 0 0; }
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* THiS CRM v0.17.12 — client section navigation + compact mobile header       */
+/* -------------------------------------------------------------------------- */
+.client-workspace-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 5px;
+  width: 100%;
+  margin: 0 0 14px;
+  padding: 6px;
+  overflow: visible;
+  scrollbar-width: auto;
+}
+.client-workspace-tab {
+  flex: 1 1 124px;
+  justify-content: center;
+  min-width: 112px;
+  max-width: 190px;
+  min-height: 40px;
+}
+.client-workspace-tab.secondary {
+  background: #fbfdfc;
+  border-color: #e0e9e5;
+}
+.client-workspace-tab.secondary:hover { background: #edf5f1; }
+.client-workspace-tab.secondary.active { background: var(--ink); border-color: var(--ink); }
+.client-workspace-tabs-more,
+.client-workspace-tabs-menu { display: none !important; }
+
+@media (max-width: 900px) {
+  .client-workspace-tabs { overflow: visible; }
+  .client-workspace-tab { flex: 1 1 calc(33.333% - 6px); max-width: none; min-width: 118px; }
+}
+@media (max-width: 680px) {
+  .client-workspace-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    padding: 6px;
+  }
+  .client-workspace-tab { width: 100%; max-width: none; min-width: 0; justify-content: flex-start; padding: 9px 10px; }
+}
+
+@media (max-width: 820px) {
+  .matter-workspace-v17 .mobile-header-actions,
+  .mobile-header-actions {
+    display: flex !important;
+    width: 100%;
+    flex-wrap: nowrap;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 0 0 1px;
+    scrollbar-width: none;
+  }
+  .matter-workspace-v17 .mobile-header-actions::-webkit-scrollbar,
+  .mobile-header-actions::-webkit-scrollbar { display: none; }
+  .matter-workspace-v17 .mobile-header-actions .btn,
+  .mobile-header-actions .btn {
+    flex: 1 1 0;
+    min-width: 74px;
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 7px 8px;
+    border-radius: 9px;
+    border-color: #cfe0d9;
+    background: #f8fbfa;
+    color: var(--ink);
+    font-size: 10px;
+    line-height: 1;
+    box-shadow: none;
+  }
+  .matter-workspace-v17 .mobile-header-actions .btn svg,
+  .mobile-header-actions .btn svg {
+    width: 17px;
+    height: 17px;
+    stroke-width: 2;
+  }
+  .matter-workspace-v17 .mobile-header-actions .live-chat-header-badge,
+  .mobile-header-actions .live-chat-header-badge { position: static; margin-left: 2px; }
 }

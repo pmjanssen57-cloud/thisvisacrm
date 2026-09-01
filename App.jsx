@@ -3063,7 +3063,6 @@ export default function App() {
           <button className="btn ghost" type="button" onClick={() => switchTab('home')}><CloudSun size={16} />My Day</button>
           <button className="btn ghost" type="button" onClick={() => setPersonalisationOpen(true)}><SlidersHorizontal size={16} />View</button>
           <button className={`btn ghost live-chat-mobile-button ${liveChatAttentionCount > 0 ? 'has-waiting' : ''}`} type="button" onClick={() => openChatDrawer()}><MessageSquare size={16} />Chat{liveChatAttentionCount > 0 && <span key={liveChatAttentionCount} className="live-chat-header-badge" aria-live="polite">{liveChatAttentionCount}</span>}</button>
-          <button className="btn ghost" onClick={() => { setSupportOpen(false); setToolsOpen(true); }}><Wrench size={16} />Tools</button>
         </div>
       </header>
 
@@ -5235,7 +5234,7 @@ function IntakeFormApp() {
       validateForm(); setSubmitting(true); setError('');
       if (!receipt) {
         setSubmissionStatus('Saving your questionnaire...');
-        const response = await fetch('/.netlify/functions/intake', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ payload: { ...form, email: String(form.email || '').trim(), intakeSubmissionKey: submissionKeyRef.current, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.17.11-assessment-form-reliability' } }) });
+        const response = await fetch('/.netlify/functions/intake', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ payload: { ...form, email: String(form.email || '').trim(), intakeSubmissionKey: submissionKeyRef.current, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.17.12-assessment-form-reliability' } }) });
         const body = await readJsonResponse(response);
         if (!response.ok) throw new Error(body.error || 'The questionnaire could not be submitted.');
         receipt = { intakeId: body.intakeId, uploadToken: body.uploadToken, expectedUploads: body.expectedUploads || [], uploadedKinds: [] };
@@ -10153,7 +10152,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const dayRows = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']];
-  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.17.11" data-title="Chat with us" defer><\/script>`;
+  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.17.12" data-title="Chat with us" defer><\/script>`;
 
   useEffect(() => {
     if (!open) return;
@@ -13400,7 +13399,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.11" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.12" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -13977,7 +13976,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.11" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.12" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}
@@ -15103,18 +15102,12 @@ function clientHealthStatus(client, outstandingDocuments = [], nearestDeadlineDi
 }
 
 function ClientWorkspaceShell({ sections, activeSection, onSelect, children }) {
-  const activeIsSecondary = sections.some((section) => section.id === activeSection && section.secondary);
-  const [moreOpen, setMoreOpen] = useState(false);
-  useEffect(() => { setMoreOpen(false); }, [activeSection]);
-  const primarySections = sections.filter((section) => !section.secondary);
-  const secondarySections = sections.filter((section) => section.secondary);
-  function selectSection(id) { onSelect(id); setMoreOpen(false); }
   function renderTab(section) {
     const Icon = section.icon || FileText;
     const active = activeSection === section.id;
-    return <button key={section.id} type="button" title={section.summary || section.label} className={`client-workspace-tab ${active ? 'active' : ''}`} onClick={() => selectSection(section.id)}><Icon size={15} /><span>{section.label}</span>{section.badge && <b>{section.badge}</b>}</button>;
+    return <button key={section.id} type="button" title={section.summary || section.label} className={`client-workspace-tab ${section.secondary ? 'secondary' : ''} ${active ? 'active' : ''}`.trim()} onClick={() => onSelect(section.id)}><Icon size={15} /><span>{section.label}</span>{section.badge && <b>{section.badge}</b>}</button>;
   }
-  return <section className="client-workspace streamlined-client-workspace flattened-client-workspace"><nav className="client-workspace-tabs" aria-label="Client record sections">{primarySections.map(renderTab)}{secondarySections.length > 0 && <div className="client-workspace-tabs-more"><button type="button" className={`client-workspace-tab ${activeIsSecondary ? 'active' : ''}`} onClick={() => setMoreOpen((value) => !value)}><MoreHorizontal size={15}/><span>More</span><ChevronDown size={13}/></button>{moreOpen && <div className="client-workspace-tabs-menu">{secondarySections.map((section) => { const Icon=section.icon||FileText; return <button key={section.id} type="button" className={activeSection===section.id?'active':''} onClick={() => selectSection(section.id)}><Icon size={15}/><span><strong>{section.label}</strong><small>{section.summary}</small></span>{section.badge&&<b>{section.badge}</b>}</button>; })}</div>}</div>}</nav><div className="client-workspace-body">{children}</div></section>;
+  return <section className="client-workspace streamlined-client-workspace flattened-client-workspace"><nav className="client-workspace-tabs" aria-label="Client record sections">{sections.map(renderTab)}</nav><div className="client-workspace-body">{children}</div></section>;
 }
 
 function ClientWorkspaceIntro({ title, description }) {
