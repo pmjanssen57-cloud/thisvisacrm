@@ -1,26 +1,11 @@
-THiS CRM v0.17.8 - Inline Expandable Client Record
+THiS CRM v0.17.10 - Streamlined Client Update
 
-Baseline
-- Built directly from v0.17.7 Agreement GST Treatment.
-- Retains the Matter Workspace, My Work filters/Quick Move, unified workspace styling, configurable notifications, assessment-form fixes, agreement print/GST changes and all existing CRM functionality.
-
-Client record redesign
-- The Client Overview is now the normal place to edit basic client profile information.
-- Personal details, Contact details, Matter & adviser, Family & dependants, Strategy & internal notes and File references are expandable inline sections.
-- Each collapsed section continues to show a concise summary of the information already recorded.
-- Opening a section reveals only that section's fields.
-- Each section has its own Save section and Cancel controls.
-- Unsaved changes are clearly marked on the open section.
-- Cancelling a section restores only the fields from that section rather than disturbing the rest of the client workspace.
-- Switching away from an edited section prompts before discarding its unsaved changes.
-- The separate full profile editor remains available as a fallback under More and via the subtle Full editor control.
-
-Client header
-- The former Edit client record button now acts as Client details and returns/scrolls to the inline profile editor in Overview.
-- More -> Open full profile editor preserves access to the larger editor when required.
-
-Database and deployment
-- No new database migration.
-- All existing migration files remain unchanged from v0.17.7.
-- No new dependency or environment variable.
-- Runtime/PWA/Studio/live-chat cache references advance to v0.17.8.
+- Adds explicit Back to clients buttons to the Matter Command Centre and Full Record workspace.
+- Adds a compact Update Client drawer to the Matter Command Centre.
+- Separates Update Client (profile changes) from Update File (substantive matter workflow).
+- Update Client categories: Matter & adviser, Contact, Personal, Family, Other.
+- Matter & adviser includes stage, matter status, next action and due/review date as well as ownership/case type/priority.
+- Simplifies Full Record Overview into read-only profile summaries with targeted Edit buttons.
+- Retains the comprehensive full profile editor as a secondary fallback.
+- Preserves client-list search/filter/adviser state when returning to Clients.
+- No database migration, dependency or environment-variable change.

@@ -1,4 +1,0 @@
-THiS CRM v0.17.8 rollback
-
-Redeploy THiS-CRM-v0.17.7-Agreement-GST-Treatment.zip.
-No database migration or schema rollback is required.

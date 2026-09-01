@@ -1,0 +1,4 @@
+THiS CRM v0.17.10 rollback
+
+Redeploy THiS-CRM-v0.17.9-Navigation-Badge-Synchronisation.zip.
+No database migration or schema rollback is required.

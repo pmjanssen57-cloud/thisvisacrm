@@ -1,16 +1,12 @@
-THiS CRM v0.17.8 validation
+THiS CRM v0.17.10 validation
 
-- Built from v0.17.7 source.
-- App.jsx JSX syntax parse passes.
-- All Netlify .mjs function files pass Node syntax checking.
-- Existing PWA validation script passes.
-- styles.css structural brace validation passes.
-- package.json parses and reports version 0.17.8.
-- All existing database migration hashes are unchanged from v0.17.7.
+- Built from v0.17.9 Navigation Badge Synchronisation.
+- App.jsx parses successfully as JSX.
+- All Netlify function JavaScript passes Node syntax checking.
+- Existing PWA validation passes.
+- package.json parses and reports version 0.17.10.
+- All 43 database migration files are unchanged from v0.17.9.
 - No new migration, dependency or environment variable.
-
-Inline client record checks
-- Overview contains six expandable profile sections.
-- Each section has section-local Save/Cancel controls.
-- Full profile editor remains accessible as fallback.
-- Header Client details action scrolls to the inline record.
+- Back-to-clients controls are present in both client workspaces.
+- Compact Update Client drawer is available from Matter Command Centre and Full Record summaries.
+- Existing full profile editor remains available as a fallback.
