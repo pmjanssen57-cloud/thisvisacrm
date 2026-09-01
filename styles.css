@@ -17762,7 +17762,7 @@ body.festive-mode-active {
 }
 
 /* ========================================================================== */
-/* THiS CRM v0.17.6 — Unified staff workspace visual system                   */
+/* THiS CRM v0.17.8 — Unified staff workspace visual system                   */
 /* Brings remaining legacy modules into the Matter Workspace design language. */
 /* ========================================================================== */
 .matter-workspace-v17 .workspace-modern-page {
@@ -18230,3 +18230,86 @@ body.festive-mode-active {
 .matter-workspace-v17 .backup-workspace-modern h1 { font-size: 31px; letter-spacing: -.03em; }
 .matter-workspace-v17 .backup-workspace-modern h2 { font-size: 18px; }
 
+
+/* ========================================================================== */
+/* THiS CRM v0.17.8 — inline expandable client record editor                  */
+/* ========================================================================== */
+.inline-client-record { scroll-margin-top: 84px; }
+.inline-client-record-head { align-items: center; }
+.inline-client-record-head .btn { flex: 0 0 auto; }
+.inline-client-record-sections { display: grid; gap: 8px; }
+.inline-client-record-section {
+  overflow: hidden;
+  border: 1px solid #d7e3df;
+  border-radius: 11px;
+  background: #fff;
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+.inline-client-record-section:hover { border-color: #c5d9d2; }
+.inline-client-record-section.open { border-color: #9fcfc0; box-shadow: 0 4px 14px rgba(0,55,54,.055); }
+.inline-client-record-section.changed { border-color: #6dc9aa; }
+.inline-client-record-toggle {
+  width: 100%;
+  min-height: 72px;
+  display: grid;
+  grid-template-columns: 38px minmax(0,1fr) auto;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 13px;
+  border: 0;
+  background: #fff;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.inline-client-record-section.open .inline-client-record-toggle { background: #f6fbf9; border-bottom: 1px solid #dfebe7; }
+.inline-client-record-toggle:hover { background: #fbfdfc; }
+.inline-client-record-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  color: #0a5a50;
+  background: #e6f6ef;
+}
+.inline-client-record-icon.tone-contact { color: #245f85; background: #edf6fb; }
+.inline-client-record-icon.tone-matter { color: #6b5718; background: #fbf5df; }
+.inline-client-record-icon.tone-family { color: #6a4f92; background: #f4effa; }
+.inline-client-record-icon.tone-strategy { color: #8b5522; background: #fbf0e4; }
+.inline-client-record-icon.tone-file { color: #405e71; background: #edf3f6; }
+.inline-client-record-copy { min-width: 0; display: grid; gap: 2px; }
+.inline-client-record-copy > span { color: #55716b; font-size: .67rem; font-weight: 900; text-transform: uppercase; letter-spacing: .055em; }
+.inline-client-record-copy > strong { color: var(--ink); font-size: .88rem; line-height: 1.35; overflow-wrap: anywhere; }
+.inline-client-record-copy > small { color: var(--muted); font-size: .72rem; line-height: 1.35; overflow-wrap: anywhere; }
+.inline-client-record-toggle-meta { display: flex; align-items: center; gap: 8px; color: #55716b; }
+.inline-client-record-toggle-meta b { padding: 3px 7px; border-radius: 999px; background: #fff1df; color: #8a5600; font-size: .6rem; text-transform: uppercase; letter-spacing: .04em; }
+.inline-client-record-toggle-meta svg { transition: transform .18s ease; }
+.inline-client-record-section.open .inline-client-record-toggle-meta svg { transform: rotate(180deg); }
+.inline-client-record-body { padding: 16px; background: #fff; }
+.inline-client-record-body .form-grid { margin: 0; }
+.inline-client-record-body .sharepoint-panel,
+.inline-client-record-body .sharepoint-folder-panel { margin-top: 14px; }
+.inline-client-record-body > .sub-panel { margin: 0; padding: 0; border: 0; box-shadow: none; background: transparent; }
+.inline-client-record-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 15px;
+  padding-top: 12px;
+  border-top: 1px solid #e2ebe8;
+}
+.inline-client-record-state { color: var(--muted); font-size: .7rem; font-weight: 750; }
+.inline-client-record-state.dirty { color: #8a5600; }
+.inline-client-record-state.error { color: #9f3029; }
+.inline-client-record-actions .button-row { margin-left: auto; }
+.inline-client-record-actions .btn { min-height: 33px; }
+@media (max-width: 760px) {
+  .inline-client-record-toggle { grid-template-columns: 34px minmax(0,1fr) auto; padding: 10px; }
+  .inline-client-record-body { padding: 12px; }
+  .inline-client-record-actions { align-items: stretch; flex-direction: column; }
+  .inline-client-record-actions .button-row { width: 100%; margin-left: 0; }
+  .inline-client-record-actions .button-row .btn { flex: 1 1 0; justify-content: center; }
+}

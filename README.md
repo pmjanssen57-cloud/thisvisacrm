@@ -1,15 +1,32 @@
-# THiS CRM v0.17.6 - Unified Staff Workspace Styling
+# THiS CRM v0.17.8 - Inline Expandable Client Record
 
-This release continues from **v0.17.5 My Work Quick Move** and applies the Matter Workspace visual system across the remaining staff-facing CRM modules.
+This release continues directly from **v0.17.7 Agreement GST Treatment**.
 
-The underlying architecture and functionality are deliberately retained. Enquiries & Intake, Commercial, Studio, Tasks, Calendar, Billing, Bookings, Knowledge Library, Adviser/Admin, Backup and the Full Record view now share the same page hierarchy, typography, cards, controls, tabs, fields, tables and restrained colour cues as My Work and the Matter Command Centre.
+The basic client profile is now edited directly inside the **Client Overview** rather than requiring advisers to enter a separate edit-record experience for normal changes.
 
-The dark Turner Hopkins sidebar remains the structural anchor. Working pages remain predominantly white/light grey, with mint/teal as the main accent and subtle blue, amber, purple and coral icon treatments to help advisers scan the interface.
+## Expandable profile sections
+
+The Client record panel contains six collapsed sections:
+
+- Personal details
+- Contact details
+- Matter & adviser
+- Family & dependants
+- Strategy & internal notes
+- File references
+
+Each row shows the useful summary while closed. Click the row to expand its fields, make the change, then use **Save section** or **Cancel**. Only one section is open at a time, keeping the page compact and consistent with the simplified HuB-style administration pattern.
+
+Cancelling restores only the fields in that section. If an adviser attempts to switch sections with unsaved changes, the CRM warns before discarding them.
+
+The full profile editor has not been removed. It remains available under **More -> Open full profile editor** and from the small **Full editor** control in the Client record panel.
+
+Actions, Documents, Stages, Key dates, Billing, Instructions, Agreements and Portal remain separate workspaces because they are operational records rather than basic profile information.
 
 ## Database safety
 
-No migration is added or changed. All 43 existing migrations are unchanged from v0.17.5.
+No database migration is added and all existing migrations are unchanged.
 
 ## Rollback
 
-Redeploy **THiS CRM v0.17.5 - My Work Quick Move**. No schema rollback is required.
+Redeploy **THiS CRM v0.17.7 - Agreement GST Treatment**. No schema rollback is required.

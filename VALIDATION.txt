@@ -1,28 +1,16 @@
-THiS CRM v0.17.6 validation
+THiS CRM v0.17.8 validation
 
-Completed checks
-- Built directly from v0.17.5 My Work Quick Move.
-- App.jsx parses successfully as JSX after workspace wrapper/style hooks were added.
+- Built from v0.17.7 source.
+- App.jsx JSX syntax parse passes.
 - All Netlify .mjs function files pass Node syntax checking.
-- Existing PWA validation passes.
-- package.json parses and reports version 0.17.6.
-- styles.css passes a comment/string-aware structural brace check.
-- All 43 database migration SQL files are byte-for-byte unchanged from v0.17.5.
-- No new database migration, dependency or environment variable is introduced.
-- Runtime/PWA/Studio/live-chat/backup source-version references advance to v0.17.6.
+- Existing PWA validation script passes.
+- styles.css structural brace validation passes.
+- package.json parses and reports version 0.17.8.
+- All existing database migration hashes are unchanged from v0.17.7.
+- No new migration, dependency or environment variable.
 
-Visual consistency scope
-- Enquiries & Intake
-- Commercial
-- Studio home, Instructions and Agreements workspaces
-- Tasks
-- Calendar
-- Billing
-- Legacy Dashboard
-- Consultation Booking
-- Knowledge Library
-- Adviser/Admin notification/profile pages
-- Backup centre
-- Full client record shell
-
-The changes are visual-system consolidation only. Existing workflows and underlying module functionality are retained.
+Inline client record checks
+- Overview contains six expandable profile sections.
+- Each section has section-local Save/Cancel controls.
+- Full profile editor remains accessible as fallback.
+- Header Client details action scrolls to the inline record.

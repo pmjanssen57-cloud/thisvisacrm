@@ -1,26 +1,26 @@
-THiS CRM v0.17.6 - Unified Staff Workspace Styling
+THiS CRM v0.17.8 - Inline Expandable Client Record
 
 Baseline
-- Built directly from v0.17.5 My Work Quick Move.
-- Retains all v0.17.5 functionality, including Matter Workspace, adviser role/date filters, Quick Move, configurable notification recipients, enquiry archiving, assessment-form reliability and Studio workflows.
+- Built directly from v0.17.7 Agreement GST Treatment.
+- Retains the Matter Workspace, My Work filters/Quick Move, unified workspace styling, configurable notifications, assessment-form fixes, agreement print/GST changes and all existing CRM functionality.
 
-Visual consistency pass
-- Brings Enquiries & Intake into the same crisp Matter Workspace design language used by My Work, Clients and the Matter Command Centre.
-- Refreshes Commercial client navigation, summary cards, section tabs, registers, fields and controls without changing the employer-compliance functionality.
-- Refreshes Studio home, Instructions and Agreements list workspaces with consistent page hierarchy, cards, metrics, filters and records.
-- Refreshes Tasks, Calendar, Billing and Legacy Dashboard cards, metrics, toolbars, tables and typography.
-- Refreshes Consultation Booking, Knowledge Library, Adviser/Admin and Backup workspaces.
-- Applies the same visual skin to the Full Record workspace while preserving its existing dense functionality.
-- Standardises page title scale, panel borders, corner radii, buttons, inputs, tabs and table rows across staff-facing modules.
-- Adds restrained mint, blue, amber, purple and coral icon/metric accents to improve scanning without making the CRM visually noisy.
+Client record redesign
+- The Client Overview is now the normal place to edit basic client profile information.
+- Personal details, Contact details, Matter & adviser, Family & dependants, Strategy & internal notes and File references are expandable inline sections.
+- Each collapsed section continues to show a concise summary of the information already recorded.
+- Opening a section reveals only that section's fields.
+- Each section has its own Save section and Cancel controls.
+- Unsaved changes are clearly marked on the open section.
+- Cancelling a section restores only the fields from that section rather than disturbing the rest of the client workspace.
+- Switching away from an edited section prompts before discarding its unsaved changes.
+- The separate full profile editor remains available as a fallback under More and via the subtle Full editor control.
 
-Design principle
-- Dark structured sidebar remains unchanged.
-- Main working canvas stays light.
-- Functional layouts and workflows are preserved; this is a visual-system consolidation rather than a module rewrite.
+Client header
+- The former Edit client record button now acts as Client details and returns/scrolls to the inline profile editor in Overview.
+- More -> Open full profile editor preserves access to the larger editor when required.
 
 Database and deployment
-- No database migration.
-- All 43 v0.17.5 migrations remain unchanged.
+- No new database migration.
+- All existing migration files remain unchanged from v0.17.7.
 - No new dependency or environment variable.
-- PWA/Studio/live-chat/source-version references advance to v0.17.6.
+- Runtime/PWA/Studio/live-chat cache references advance to v0.17.8.
