@@ -1,22 +1,14 @@
-THiS CRM v0.17.14 — Simple Matter Update + Advanced Editing
+THiS CRM v0.17.15 - Update Matter Modal Hotfix
 
-Workflow direction
-- Day-to-day adviser work is now centred on one Update matter action.
-- The normal update captures what happened, what happens next, the next/review date and who has the ball.
-- Portal publishing is optional inside the same update and includes editable preset wording.
-- A separate Reschedule shortcut changes only the next/review date.
-- Complete / Change / Update File are removed from the normal matter screen to reduce competing actions.
+Baseline
+- Direct hotfix to v0.17.14 Simple Matter Update + Advanced Editing.
+- All v0.17.14 workflow, mobile, notification, client workspace and styling changes are retained.
 
-Advanced editing
-- Documents, Billing, Key dates and Stages are grouped under a clear Matter tools panel.
-- Each tool opens the existing detailed client record directly at the relevant section.
-- Client details remain separate from matter progression.
-- Advanced record remains available for full control without exposing that complexity in the everyday workflow.
-
-Mobile
-- The matter screen uses a compact sticky bottom action bar for Update matter and Reschedule.
-- Update matter becomes a mobile bottom sheet with a sticky save area and single-column fields.
-- Secondary actions remain under More / Client details rather than consuming the mobile header.
+Fix
+- Restores the missing MATTER_UPDATE_EVENTS preset list used by the new Update Matter modal.
+- In v0.17.14 the modal referenced this list at render time even though it had not been declared, causing the React client workspace to crash to a blank screen when Update matter was opened.
+- The modal now renders the intended preset event choices: Reviewed documents, Documents received, Application prepared, Application submitted, INZ update received, Further information requested, Response submitted, Application approved, Spoke with client, and Other.
 
 Database
-- No new migration. All existing migrations remain unchanged.
+- No migration or schema change.
+- All existing 43 migration files are unchanged.

@@ -418,6 +418,19 @@ const LIBRARY_STATUSES = ['Current', 'Watch', 'Superseded', 'Archived', 'Accepta
 const LIBRARY_CATEGORIES = ['Work', 'Residence', 'Family', 'Student', 'Visitor', 'Investor', 'Health', 'Character', 'Compliance', 'Forms', 'General'];
 const INTAKE_STATUSES = ['New', 'Contacted', 'Converted', 'Spam / Duplicate'];
 const MATTER_STATUSES = ['Adviser action required', 'Client action required', 'Waiting on INZ', 'Waiting on third party', 'Ready to progress', 'No current action', 'Completed'];
+const MATTER_UPDATE_EVENTS = [
+  'Reviewed documents',
+  'Documents received',
+  'Application prepared',
+  'Application submitted',
+  'INZ update received',
+  'Further information requested',
+  'Response submitted',
+  'Application approved',
+  'Spoke with client',
+  'Other',
+];
+
 const PORTAL_UPDATE_TEMPLATES = [
   { key: 'reviewing-documents', label: 'Reviewing documents', stageHint: 'Preparing', current: 'We are reviewing the information and documents you have provided.', next: 'We will complete our review and contact you if we require anything further.' },
   { key: 'preparing-application', label: 'Preparing application', stageHint: 'Preparing', current: 'We are preparing your application for submission.', next: 'We will complete our final checks and contact you if anything further is required before submission.' },
