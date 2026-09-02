@@ -1,19 +1,12 @@
-THiS CRM v0.17.14 validation
+THiS CRM v0.17.16 validation
 
-Completed checks
-- App.jsx parses successfully as JSX after the simplified matter-workflow changes.
+- App.jsx parses successfully as JSX.
 - All Netlify .mjs function files pass Node syntax checking.
-- scripts/validate-pwa.mjs passes.
-- package.json parses and reports version 0.17.14.
-- Runtime/PWA/Studio/live-chat cache references advance to v0.17.14.
-- All 43 existing database migration files are byte-for-byte unchanged from v0.17.13.
-- No new database migration, dependency or environment variable is introduced.
-
-Workflow checks
-- Matter Command Centre exposes Update matter + Reschedule as the normal adviser controls.
-- Update matter is a single-screen workflow with event preset, next action, date, operating status and optional portal publishing.
-- Portal presets remain editable before publication.
-- Save & My Work returns the adviser to the My Work queue.
-- Documents, Billing, Key dates and Stages route directly to their advanced record sections.
-- Client details remain a separate editor from matter progression.
-- Mobile gets a compact sticky Update matter / Reschedule bar and bottom-sheet update form.
+- PWA validation passes.
+- All existing database migration files are byte-for-byte unchanged from v0.17.15.
+- No new database migration, dependency or environment variable.
+- Startup load sequencing ignores stale request failures.
+- Latest successful load explicitly clears the CRM error state.
+- Empty database UI requires a confirmed successful CRM response and no load error.
+- Initial network/5xx load failures receive one short automatic retry.
+- Existing loaded data is preserved if a later reload fails.

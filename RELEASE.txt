@@ -1,14 +1,14 @@
-THiS CRM v0.17.15 - Update Matter Modal Hotfix
+THiS CRM v0.17.16 - CRM Startup Load Stabilisation
 
-Baseline
-- Direct hotfix to v0.17.14 Simple Matter Update + Advanced Editing.
-- All v0.17.14 workflow, mobile, notification, client workspace and styling changes are retained.
+Built from v0.17.15.
 
-Fix
-- Restores the missing MATTER_UPDATE_EVENTS preset list used by the new Update Matter modal.
-- In v0.17.14 the modal referenced this list at render time even though it had not been declared, causing the React client workspace to crash to a blank screen when Update matter was opened.
-- The modal now renders the intended preset event choices: Reviewed documents, Documents received, Application prepared, Application submitted, INZ update received, Further information requested, Response submitted, Application approved, Spoke with client, and Other.
+Fixes
+- Prevents a stale/failed CRM load request from overwriting the result of a newer successful request.
+- Clears the CRM load error immediately after the latest successful load.
+- Adds one short automatic retry for transient network or 5xx startup failures.
+- The empty-database screen is now shown only after a confirmed successful CRM response containing no records.
+- A load error no longer masquerades as an empty database.
+- Existing CRM data remains visible if a later refresh fails.
+- Adds a Retry button to the CRM load error banner.
 
-Database
-- No migration or schema change.
-- All existing 43 migration files are unchanged.
+No database migration or schema change.

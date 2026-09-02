@@ -1288,6 +1288,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [crmLoadConfirmed, setCrmLoadConfirmed] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [personalisationOpen, setPersonalisationOpen] = useState(false);
@@ -1316,6 +1317,7 @@ export default function App() {
   const intakeRefreshInFlightRef = useRef(false);
   const intakeRefreshCursorRef = useRef('');
   const dataRef = useRef(emptyData);
+  const crmLoadRequestRef = useRef(0);
   const chatWaitingCountRef = useRef(-1);
   const chatRefreshRequestRef = useRef(0);
   const chatRefreshAppliedRef = useRef(0);
@@ -1505,34 +1507,86 @@ export default function App() {
     }
   }
 
-  async function load(code = accessCode, userForRequest = identityUser) {
-    setLoading(true);
-    setError('');
-    try {
+  async function load(code = accessCode, userForRequest = identityUser, options = {}) {
+    const requestId = ++crmLoadRequestRef.current;
+    const isLatestRequest = () => requestId === crmLoadRequestRef.current;
+    const preserveExistingData = options.preserveExistingData === true || Boolean((dataRef.current?.clients || []).length || (dataRef.current?.advisers || []).length);
+    if (isLatestRequest()) {
+      setLoading(true);
+      setError('');
+    }
+
+    const fetchCrmData = async () => {
       const response = await fetch('/.netlify/functions/crm', { headers: authHeaders(code, userForRequest), credentials: 'same-origin' });
+      const body = await readJsonResponse(response);
+      return { response, body };
+    };
+
+    try {
+      let result;
+      try {
+        result = await fetchCrmData();
+      } catch (networkError) {
+        if (!isLatestRequest()) return null;
+        // One short retry absorbs transient browser/Netlify startup failures without
+        // turning a momentary connection problem into a false empty-database screen.
+        await new Promise((resolve) => window.setTimeout(resolve, 450));
+        if (!isLatestRequest()) return null;
+        result = await fetchCrmData();
+      }
+
+      if (!isLatestRequest()) return null;
+      const { response, body } = result;
       if (response.status === 401) {
         setAuthRequired(true);
-        if (identityUser) {
+        if (userForRequest || identityUser) {
           setError('You are logged in, but the CRM API did not accept the Identity session. Check the invited-user setup or use the temporary CRM access code only if it is configured.');
         }
-        setLoading(false);
-        return;
+        setCrmLoadConfirmed(false);
+        return null;
       }
-      const body = await readJsonResponse(response);
-      if (!response.ok) throw new Error(formatApiError(body, 'Unable to load CRM data'));
-      const nextData = normaliseData(body);
+      if (!response.ok) {
+        // Retry one transient server-side failure. Do not retry normal validation/auth errors.
+        if (response.status >= 500 && response.status <= 599) {
+          await new Promise((resolve) => window.setTimeout(resolve, 550));
+          if (!isLatestRequest()) return null;
+          const retry = await fetchCrmData();
+          if (!isLatestRequest()) return null;
+          if (retry.response.status === 401) {
+            setAuthRequired(true);
+            setCrmLoadConfirmed(false);
+            return null;
+          }
+          if (!retry.response.ok) throw new Error(formatApiError(retry.body, 'Unable to load CRM data'));
+          result = retry;
+        } else {
+          throw new Error(formatApiError(body, 'Unable to load CRM data'));
+        }
+      }
+
+      if (!isLatestRequest()) return null;
+      const successfulBody = result.body;
+      const nextData = normaliseData(successfulBody);
       dataRef.current = nextData;
       setData(nextData);
-      const intakeCursor = body.intakeRefreshCursor || new Date().toISOString();
+      setError('');
+      setCrmLoadConfirmed(true);
+      const intakeCursor = successfulBody.intakeRefreshCursor || new Date().toISOString();
       intakeRefreshCursorRef.current = intakeCursor;
       setLastIntakeRefreshAt(intakeCursor);
       setAuthRequired(false);
-      if (!selectedClientId && body.clients?.[0]?.id) setSelectedClientId(body.clients[0].id);
-      if (!selectedCommercialClientId && body.commercialClients?.[0]?.id) setSelectedCommercialClientId(body.commercialClients[0].id);
+      if (!selectedClientId && successfulBody.clients?.[0]?.id) setSelectedClientId(successfulBody.clients[0].id);
+      if (!selectedCommercialClientId && successfulBody.commercialClients?.[0]?.id) setSelectedCommercialClientId(successfulBody.commercialClients[0].id);
+      return successfulBody;
     } catch (err) {
+      if (!isLatestRequest()) return null;
+      // If usable CRM data is already on screen, keep it there and surface the refresh
+      // problem without replacing the workspace with an empty-database message.
       setError(err.message || String(err));
+      if (!preserveExistingData) setCrmLoadConfirmed(false);
+      return null;
     } finally {
-      setLoading(false);
+      if (isLatestRequest()) setLoading(false);
     }
   }
 
@@ -1544,6 +1598,7 @@ export default function App() {
         identityScopeAppliedRef.current = false;
         landingPreferenceAppliedRef.current = false;
         setData(emptyData);
+        setCrmLoadConfirmed(false);
         setAuthRequired(true);
       }
     });
@@ -3086,10 +3141,10 @@ export default function App() {
       {festiveActive && <FestiveBurst burst={festiveBurst} />}
 
       <main className="layout">
-        {error && <div className="error-banner"><AlertTriangle size={18} />{error}</div>}
+        {error && <div className="error-banner"><AlertTriangle size={18} /><span>{error}</span><button className="btn mini" type="button" onClick={() => load(accessCode, identityUser, { preserveExistingData: true })}>Retry</button></div>}
         {loading && <div className="loading-card"><Database size={18} />Loading database-backed CRM data...</div>}
 
-        {!loading && !data.clients.length && !(data.commercialClients || []).length && !data.advisers.length && !data.intakeEnquiries.length && !data.seminars.length && !data.seminarRegistrations.length && !data.feedbackSubmissions.length && !data.consultationBookings.length && !data.instructionSets.length && !data.agreementSets.length && (
+        {!loading && !error && crmLoadConfirmed && !data.clients.length && !(data.commercialClients || []).length && !data.advisers.length && !data.intakeEnquiries.length && !data.seminars.length && !data.seminarRegistrations.length && !data.feedbackSubmissions.length && !data.consultationBookings.length && !data.instructionSets.length && !data.agreementSets.length && (
           <section className="empty-state">
             <Database size={40} />
             <h1>Database is connected, but no CRM records exist yet.</h1>
