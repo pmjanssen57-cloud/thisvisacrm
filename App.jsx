@@ -1251,6 +1251,7 @@ export default function App() {
   const [studioSection, setStudioSection] = useState('home');
   const [studioCreateRequest, setStudioCreateRequest] = useState(null);
   const [selectedClientId, setSelectedClientId] = useState('');
+  const [clientRecordInitialSection, setClientRecordInitialSection] = useState('overview');
   const [selectedCommercialClientId, setSelectedCommercialClientId] = useState('');
   const [instructionLaunchClientId, setInstructionLaunchClientId] = useState('');
   const [instructionLaunchSetId, setInstructionLaunchSetId] = useState('');
@@ -3225,7 +3226,7 @@ export default function App() {
             )}
 
             {tab === 'matter' && selectedClient && (
-              <MatterCommandCentre client={selectedClient} advisers={data.advisers} caseTypes={data.caseTypes} calendarEntries={data.calendarEntries} saveClient={saveClient} saving={saving} onOpenFullRecord={() => switchTab('client-record')} onBack={() => switchTab('clients')} openInstructionsForClient={openInstructionsForClient} openAgreementsForClient={openAgreementsForClient} />
+              <MatterCommandCentre client={selectedClient} advisers={data.advisers} caseTypes={data.caseTypes} calendarEntries={data.calendarEntries} saveClient={saveClient} saving={saving} onOpenAdvanced={(section = 'overview') => { setClientRecordInitialSection(section); switchTab('client-record'); }} onBack={() => switchTab('clients')} onReturnToWork={() => switchTab('work')} openInstructionsForClient={openInstructionsForClient} openAgreementsForClient={openAgreementsForClient} />
             )}
 
             {tab === 'dashboard' && (
@@ -3280,6 +3281,7 @@ export default function App() {
                 deleteSavedView={deleteSavedView}
                 saveMyPreferences={saveMyPreferences}
                 onBackToClients={() => switchTab('clients')}
+                initialSection={clientRecordInitialSection}
               />
             )}
 
@@ -3620,7 +3622,7 @@ function MatterWorkDashboard({ clients = [], advisers = [], scopeAdviserId = 'al
       </div>
 
       <section className="matter-board-guide">
-        <div className="matter-board-guide-copy"><Sparkles size={17} /><div><strong>How cards move</strong><small>Use <b>Move</b> on a card for a quick status change, or <b>Update File</b> inside a matter when something substantive has happened. These columns are not a one-way process.</small></div></div>
+        <div className="matter-board-guide-copy"><Sparkles size={17} /><div><strong>How cards move</strong><small>Use <b>Move</b> on a card for a quick status change, or <b>Update matter</b> when something substantive has happened. These columns are not a one-way process.</small></div></div>
         <div className="matter-board-guide-states">
           <span className="action"><UserRound size={15} /><b>Needs attention</b><small>Adviser owns the next move</small></span>
           <span className="client"><UsersRound size={15} /><b>Waiting on client</b><small>Something is outstanding externally</small></span>
@@ -3742,7 +3744,7 @@ function MatterQuickMoveMenu({ client, currentStatus, saveClient, saving = false
     {open && <div className="matter-quick-move-popover" role="menu">
       <div className="matter-quick-move-title"><strong>Move this file</strong><small>Change the operating status only</small></div>
       {MATTER_QUICK_MOVE_STATES.map((item) => { const Icon=item.icon; const active=item.key===currentStatus || (item.key==='Client action required' && currentStatus==='Waiting on third party'); return <button key={item.key} type="button" role="menuitem" className={`${item.tone} ${active?'active':''}`.trim()} disabled={active || saving} onClick={() => prepareMove(item.key)}><Icon size={15}/><span><b>{item.label}</b><small>{item.detail}</small></span>{active && <CheckCircle2 size={14}/>}</button>; })}
-      <div className="matter-quick-move-note">For stage changes, portal wording, emails or detailed notes, use <b>Update File</b>.</div>
+      <div className="matter-quick-move-note">For stage changes, portal wording, emails or detailed notes, use <b>Update matter</b>.</div>
     </div>}
     {pending && typeof document !== 'undefined' && createPortal(<div className="matter-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setPending(null); }}><section className="matter-quick-move-modal"><div className="matter-modal-head"><div><span className="eyebrow">Quick move</span><h2>Move to {quickMoveBoardLabel(pending)}</h2><p>Only the minimum information needed to keep the file safely in the workflow.</p></div><button className="btn" type="button" onClick={() => setPending(null)}><X size={16}/></button></div><div className="matter-modal-body">
       {!String(client.nextAction || '').trim() && pending !== 'Waiting on INZ' && <label className="field"><span>Next action</span><input autoFocus value={nextAction} onChange={(event) => setNextAction(event.target.value)} placeholder={pending === 'Client action required' ? 'What are we waiting for from the client?' : 'What needs to happen next?'} /></label>}
@@ -3775,14 +3777,12 @@ function MatterClientRegister({ clients = [], advisers = [], clientQuery, setCli
   return <section className="matter-client-register"><div className="matter-page-head"><div><span className="eyebrow">Matter register</span><h1>Clients</h1><p>See ownership, stage, operating status and the next action without opening every record.</p></div><button className="btn dark" type="button" onClick={addClient}><Plus size={16} />New client</button></div><div className="matter-filter-chips">{[['all','All'],['action','Needs action'],['client','Waiting on client'],['inz','Waiting on INZ'],['ready','Ready to progress'],['none','No next action']].map(([key,label]) => <button key={key} type="button" className={statusFilter === key ? 'active' : ''} onClick={() => setStatusFilter(key)}>{label}</button>)}</div><section className="panel matter-client-table-card"><div className="matter-client-tools"><label><Search size={15} /><input value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} placeholder="Search clients, email, OneLaw number or matter…" /></label><MatterMenuSelect className="matter-filter-menu" ariaLabel="Client adviser filter" value={adviserFilter} onChange={setAdviserFilter} options={[{ value: 'mine', label: 'My clients' }, { value: 'all', label: 'All clients in current view' }, { value: 'unassigned', label: 'Unassigned clients' }, ...advisers.map((adviser) => ({ value: adviser.id, label: adviser.name }))]} /><MatterMenuSelect className="matter-filter-menu" ariaLabel="Matter type filter" value={caseTypeFilter} onChange={setCaseTypeFilter} options={[{ value: 'all', label: 'All matter types' }, ...caseTypes.map((type) => ({ value: type, label: type }))]} /></div><div className="matter-client-table"><div className="matter-client-table-head"><span>Client</span><span>Matter</span><span>Stage</span><span>Status</span><span>Next action / review</span><span>Due</span></div>{statusFiltered.map((client) => { const status=normaliseMatterStatus(client.matterStatus,client.clientStatus,client.nextAction); const due=matterWorkDate(client); const diff=due?dateDiff(due):null; return <button className="matter-client-row" type="button" key={client.id} onClick={() => openClientRecord?.(client.id)}><span><strong>{clientName(client)}</strong><small>{client.oneLawClientNumber ? `OneLaw ${client.oneLawClientNumber}` : client.email || 'No email'}</small></span><span>{client.caseType || 'Matter'}</span><span>{currentStageLabel(client)}</span><span><i className={`matter-status-pill ${matterStatusClass(status)}`}>{status}</i></span><span><strong>{client.nextAction || matterWaitingLabel(status)}</strong></span><span className={diff !== null && diff < 0 ? 'overdue' : ''}>{due ? formatRecordDate(due) : 'No date'}</span></button>})}{!statusFiltered.length && <div className="matter-table-empty">No clients match this view.</div>}</div></section></section>;
 }
 
-function MatterCommandCentre({ client, advisers = [], caseTypes = [], calendarEntries = [], saveClient, saving, onOpenFullRecord, onBack, openInstructionsForClient, openAgreementsForClient }) {
+function MatterCommandCentre({ client, advisers = [], caseTypes = [], calendarEntries = [], saveClient, saving, onOpenAdvanced, onBack, onReturnToWork, openInstructionsForClient, openAgreementsForClient }) {
   const [updateOpen, setUpdateOpen] = useState(false);
-  const [completeActionOpen, setCompleteActionOpen] = useState(false);
-  const [changeActionOpen, setChangeActionOpen] = useState(false);
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [clientUpdateOpen, setClientUpdateOpen] = useState(false);
-  const [portalTemplateKey, setPortalTemplateKey] = useState('');
   const status = normaliseMatterStatus(client.matterStatus, client.clientStatus, client.nextAction);
   const primary = advisers.find((item) => item.id === client.primaryAdviserId);
   const appliedStages = normaliseStages(client.stages).filter((stage) => stage.applied !== false).sort((a,b) => Number(a.sortOrder||0)-Number(b.sortOrder||0));
@@ -3790,28 +3790,64 @@ function MatterCommandCentre({ client, advisers = [], caseTypes = [], calendarEn
   const docs = normaliseDocumentChecklist(client.documentChecklist).filter((item) => item.applied !== false);
   const obtained = docs.filter((item) => item.obtained).length;
   const outstanding = docs.filter((item) => !item.obtained);
+  const billingItems = normaliseBillingItems(client.billing || []);
+  const deadlines = (client.deadlines || []).filter((item) => item.date).sort((a,b) => String(a.date||'').localeCompare(String(b.date||'')));
   const appointments = (calendarEntries || []).filter((entry) => entry.clientId === client.id && entry.status !== 'Completed').sort((a,b) => String(a.appointmentDate||'').localeCompare(String(b.appointmentDate||'')));
   const activity = buildMatterTimeline(client).slice(0, 12);
-  const applyPortalTemplate = async (key, publish = false) => {
-    const template = PORTAL_UPDATE_TEMPLATES.find((item) => item.key === key); if (!template) return;
-    setPortalTemplateKey(key);
-    await saveClient?.({ ...client, portalStatusUpdate: template.current, portalNextStep: template.next, portalPublishNow: Boolean(publish && client.portalEnabled) }, { resetNewClientForm: false });
-  };
+
   async function saveNote() {
     const text=noteText.trim(); if(!text) return;
     const nextActivity=[...normaliseMatterActivity(client.matterActivity), makeMatterActivity('note','Adviser note added',text,primary?.name||'Adviser')];
     await saveClient?.({ ...client, matterActivity: nextActivity }, { resetNewClientForm:false }); setNoteText(''); setNoteOpen(false);
   }
-  return <section className="matter-command-centre"><div className="matter-command-head panel"><div className="matter-command-top"><div className="matter-identity"><div className="matter-client-avatar">{clientInitials(client)}</div><div><h1>{clientName(client)}</h1><p>{client.caseType || 'Matter'}{client.oneLawClientNumber ? ` · OneLaw ${client.oneLawClientNumber}` : ''}{primary?.name ? ` · ${primary.name}` : ' · Unassigned'}</p><span>{currentStageLabel(client)}</span></div></div><div className="matter-command-actions"><button className="btn matter-action-back" type="button" onClick={onBack}><ChevronRight size={15} style={{transform:'rotate(180deg)'}} />Back to clients</button><button className="btn matter-action-client" type="button" onClick={() => setClientUpdateOpen(true)}><UserRound size={15} />Update client</button><a className="btn matter-action-email" href={client.email ? `mailto:${client.email}` : undefined} aria-disabled={!client.email}><Mail size={15} />Email client</a><button className="btn matter-action-note" type="button" onClick={() => setNoteOpen(true)}><Pencil size={15} />Add note</button><MatterActionMenu className="matter-action-more" label="More" items={[{ key:'instructions', label:'Instructions', icon:FileText, onClick:() => openInstructionsForClient?.(client.id) }, { key:'agreement', label:'Agreement', icon:FileCheck2, onClick:() => openAgreementsForClient?.(client.id) }, { key:'full-record', label:'Full record', icon:Database, onClick:onOpenFullRecord }]} /><button className="btn dark matter-action-update" type="button" onClick={() => setUpdateOpen(true)}><Plus size={15} />Update file</button></div></div><div className="matter-command-strip"><span>Matter status <b>{status}</b></span><span>Documents <b>{obtained} / {docs.length || 0}</b></span><span>Portal <b>{client.portalEnabled ? 'Active' : 'Not active'}</b></span><span>Billing <b>{matterBillingSummary(client)}</b></span><span>Next appointment <b>{appointments[0] ? `${formatRecordDate(appointments[0].appointmentDate)}${appointments[0].startTime ? ` · ${appointments[0].startTime}` : ''}` : 'None'}</b></span></div></div>
+
+  const advancedItems = [
+    { key:'email', label:'Email client', icon:Mail, onClick:() => { if (client.email) window.location.href=`mailto:${client.email}`; } },
+    { key:'note', label:'Add internal note', icon:Pencil, onClick:() => setNoteOpen(true) },
+    { key:'instructions', label:'Instructions', icon:FileText, onClick:() => openInstructionsForClient?.(client.id) },
+    { key:'agreement', label:'Agreement', icon:FileCheck2, onClick:() => openAgreementsForClient?.(client.id) },
+    { key:'advanced', label:'Advanced record', icon:Database, onClick:() => onOpenAdvanced?.('overview') },
+  ];
+
+  return <section className="matter-command-centre streamlined-matter-centre">
+    <div className="matter-command-head panel">
+      <div className="matter-command-top">
+        <div className="matter-identity"><div className="matter-client-avatar">{clientInitials(client)}</div><div><h1>{clientName(client)}</h1><p>{client.caseType || 'Matter'}{client.oneLawClientNumber ? ` · OneLaw ${client.oneLawClientNumber}` : ''}{primary?.name ? ` · ${primary.name}` : ' · Unassigned'}</p><span>{currentStageLabel(client)}</span></div></div>
+        <div className="matter-command-actions simplified">
+          <button className="btn matter-action-back" type="button" onClick={onBack}><ChevronRight size={15} style={{transform:'rotate(180deg)'}} />Back to clients</button>
+          <button className="btn matter-action-client" type="button" onClick={() => setClientUpdateOpen(true)}><UserRound size={15} />Client details</button>
+          <MatterActionMenu className="matter-action-more" label="More" items={advancedItems} />
+        </div>
+      </div>
+      <div className="matter-command-strip"><span>Matter status <b>{status}</b></span><span>Documents <b>{obtained} / {docs.length || 0}</b></span><span>Portal <b>{client.portalEnabled ? 'Active' : 'Not active'}</b></span><span>Billing <b>{matterBillingSummary(client)}</b></span><span>Next appointment <b>{appointments[0] ? `${formatRecordDate(appointments[0].appointmentDate)}${appointments[0].startTime ? ` · ${appointments[0].startTime}` : ''}` : 'None'}</b></span></div>
+    </div>
+
     <MatterStageFlow stages={appliedStages} currentIndex={currentIndex} />
-    <div className="matter-control-grid"><section className="matter-primary-action"><div><span className="eyebrow">Primary next action</span><h2>{client.nextAction || (status === 'No current action' ? 'Set the next action' : matterWaitingLabel(status))}</h2><p>{client.nextActionDue ? `Due ${formatRecordDate(client.nextActionDue)}` : client.matterReviewDate ? `Review ${formatRecordDate(client.matterReviewDate)}` : 'No date'}{primary?.name ? ` · ${primary.name}` : ''} · {status}</p></div><div><button className="btn mint" type="button" onClick={() => setCompleteActionOpen(true)}><CheckCircle2 size={15} />Complete</button><button className="btn" type="button" onClick={() => setChangeActionOpen(true)}><Pencil size={15} />Change</button></div></section><section className="panel matter-operating-state"><span className="eyebrow">Current operating state</span><div><label>Status</label><b><i className={`matter-status-pill ${matterStatusClass(status)}`}>{status}</i></b></div><div><label>We are waiting for</label><b>{matterWaitingLabel(status, primary?.name)}</b></div><div><label>Review / due date</label><b>{formatRecordDate(client.matterReviewDate || client.nextActionDue) || 'No date'}</b></div>{matterSafetyWarning(client) && <p>{matterSafetyWarning(client)}</p>}</section></div>
-    <div className="matter-section-tabs"><button className="active">Overview</button><button onClick={onOpenFullRecord}>Work</button><button onClick={onOpenFullRecord}>Documents</button><button onClick={onOpenFullRecord}>Communications</button><button onClick={onOpenFullRecord}>Full record</button></div>
-    <div className="matter-overview-grid"><div><section className="panel matter-overview-card"><span className="eyebrow">Operational view</span><h2>What needs to happen</h2><p>Keep one primary action visible, with supporting work underneath it.</p><div className="matter-work-items"><MatterWorkItem number="1" title={client.nextAction || 'Set the next action'} meta={client.nextActionDue ? `Primary action · ${formatRecordDate(client.nextActionDue)}` : client.matterReviewDate ? `Primary review · ${formatRecordDate(client.matterReviewDate)}` : 'Primary action'} primary onOpen={() => setChangeActionOpen(true)} />{outstanding.slice(0,4).map((doc,index) => <MatterWorkItem key={doc.id} number={String(index+2)} title={doc.name} meta={doc.reviewDate ? `Outstanding · review ${formatRecordDate(doc.reviewDate)}` : 'Outstanding document'} onOpen={onOpenFullRecord} />)}{outstanding.length===0 && <MatterWorkItem number="✓" title="Document checklist complete" meta="Ready for the next substantive step" onOpen={() => setUpdateOpen(true)} />}</div></section><section className="panel matter-overview-card"><span className="eyebrow">Matter history</span><h2>Timeline</h2><p>Significant updates populate automatically so another adviser can understand the file quickly.</p><div className="matter-timeline">{activity.length ? activity.map((item) => <div className="matter-timeline-row" key={item.id}><i></i><div><strong>{item.title}</strong><small>{[formatPortalDateTime(item.createdAt), item.createdBy, item.detail].filter(Boolean).join(' · ')}</small></div></div>) : <p className="muted">No matter activity recorded yet.</p>}</div></section></div><div><section className="panel matter-overview-card"><span className="eyebrow">Documents</span><h2>Document readiness</h2><p>{obtained} of {docs.length} required items received.</p><div className="matter-doc-progress"><span style={{width:`${docs.length ? Math.round(obtained/docs.length*100) : 0}%`}}></span></div>{docs.slice(0,5).map((doc) => <div className={`matter-doc-row ${doc.obtained ? 'complete' : 'missing'}`} key={doc.id}><span><strong>{doc.name}</strong><small>{doc.obtained ? 'Obtained' : doc.reviewDate ? `Review ${formatRecordDate(doc.reviewDate)}` : 'Outstanding'}</small></span><b>{doc.obtained ? '✓' : 'Required'}</b></div>)}<button className="btn full" type="button" onClick={onOpenFullRecord}>Open document checklist</button></section><section className="panel matter-overview-card"><span className="eyebrow">Client-facing</span><h2>Portal update</h2><p>Use standard wording as the starting point. Edit only when this file actually needs something different.</p><div className="matter-portal-preview"><label>Standard update<select value={portalTemplateKey} onChange={(event) => { const key=event.target.value; setPortalTemplateKey(key); const template=PORTAL_UPDATE_TEMPLATES.find((item)=>item.key===key); if(template){ /* preview only */ } }}><option value="">Choose wording…</option>{PORTAL_UPDATE_TEMPLATES.map((item)=><option key={item.key} value={item.key}>{item.label}</option>)}</select></label><div><span>Current update</span><strong>{portalTemplateKey ? PORTAL_UPDATE_TEMPLATES.find((item)=>item.key===portalTemplateKey)?.current : client.portalStatusUpdate || 'No portal update published yet.'}</strong></div><div><span>What happens next</span><strong>{portalTemplateKey ? PORTAL_UPDATE_TEMPLATES.find((item)=>item.key===portalTemplateKey)?.next : client.portalNextStep || 'No next-step wording published yet.'}</strong></div><div className="button-row"><button className="btn" type="button" disabled={!portalTemplateKey || saving} onClick={() => applyPortalTemplate(portalTemplateKey,false)}>Save wording</button><button className="btn mint" type="button" disabled={!portalTemplateKey || saving || !client.portalEnabled} onClick={() => applyPortalTemplate(portalTemplateKey,true)}>Publish update</button></div>{!client.portalEnabled && <small className="muted">Portal is not active. Open the full record to enable access.</small>}</div></section></div></div>
-    {completeActionOpen && <QuickCompleteActionModal client={client} adviser={primary} onClose={() => setCompleteActionOpen(false)} saveClient={saveClient} saving={saving} />}
-    {changeActionOpen && <QuickChangeActionModal client={client} adviser={primary} onClose={() => setChangeActionOpen(false)} saveClient={saveClient} saving={saving} />}
-    {updateOpen && <GuidedMatterUpdateModal client={client} adviser={primary} onClose={() => setUpdateOpen(false)} saveClient={saveClient} saving={saving} />}
-    {clientUpdateOpen && <QuickClientUpdateDrawer client={client} advisers={advisers} caseTypes={caseTypes} initialSection="matter" saving={saving} onClose={() => setClientUpdateOpen(false)} onSave={async (payload) => { const body = await saveClient?.(payload, { resetNewClientForm: false }); setClientUpdateOpen(false); return body; }} />}
-    {noteOpen && <div className="matter-modal-backdrop" onMouseDown={(event)=>{if(event.target===event.currentTarget)setNoteOpen(false)}}><section className="matter-simple-modal"><div><span className="eyebrow">Internal file note</span><h2>Add note</h2></div><textarea rows="6" value={noteText} onChange={(event)=>setNoteText(event.target.value)} placeholder="Record the note for the matter timeline…" autoFocus /><div className="button-row"><button className="btn" type="button" onClick={()=>setNoteOpen(false)}>Cancel</button><button className="btn dark" type="button" onClick={saveNote} disabled={!noteText.trim()||saving}>Save note</button></div></section></div>}
+
+    <section className="matter-primary-action matter-primary-action-streamlined">
+      <div><span className="eyebrow">What happens next</span><h2>{client.nextAction || (status === 'No current action' ? 'Set the next action' : matterWaitingLabel(status))}</h2><p>{client.nextActionDue ? `Due ${formatRecordDate(client.nextActionDue)}` : client.matterReviewDate ? `Review ${formatRecordDate(client.matterReviewDate)}` : 'No date'}{primary?.name ? ` · ${primary.name}` : ''} · {status}</p></div>
+      <div className="matter-primary-buttons"><button className="btn dark matter-main-update" type="button" onClick={() => setUpdateOpen(true)}><RefreshCw size={15} />Update matter</button><button className="btn" type="button" onClick={() => setRescheduleOpen(true)}><CalendarDays size={15} />Reschedule</button></div>
+    </section>
+
+    <div className="matter-simple-principle"><Sparkles size={16}/><div><strong>Simple day-to-day workflow</strong><span>Record what happened, set what happens next and when you want to see the file again. Use Advanced editing only when you need to change the underlying file structure.</span></div></div>
+
+    <div className="matter-overview-grid simplified-overview">
+      <div>
+        <section className="panel matter-overview-card"><span className="eyebrow">Today’s file</span><h2>Current position</h2><div className="matter-current-position"><div><span>Status</span><b><i className={`matter-status-pill ${matterStatusClass(status)}`}>{status}</i></b></div><div><span>Waiting for</span><b>{matterWaitingLabel(status, primary?.name)}</b></div><div><span>Review / due</span><b>{formatRecordDate(client.matterReviewDate || client.nextActionDue) || 'No date'}</b></div><div><span>Stage</span><b>{currentStageLabel(client)}</b></div></div>{matterSafetyWarning(client) && <div className="matter-safety-box">{matterSafetyWarning(client)}</div>}</section>
+        <section className="panel matter-overview-card"><span className="eyebrow">Recent history</span><h2>Latest updates</h2><div className="matter-timeline compact">{activity.length ? activity.slice(0,6).map((item) => <div className="matter-timeline-row" key={item.id}><i></i><div><strong>{item.title}</strong><small>{[formatPortalDateTime(item.createdAt), item.createdBy, item.detail].filter(Boolean).join(' · ')}</small></div></div>) : <p className="muted">No matter activity recorded yet.</p>}</div></section>
+      </div>
+      <div>
+        <section className="panel matter-overview-card matter-tools-card"><span className="eyebrow">Advanced editing</span><h2>Matter tools</h2><p>The detailed data remains available, but it stays out of the normal update flow.</p><div className="matter-tool-grid"><button type="button" onClick={() => onOpenAdvanced?.('documents')}><ListChecks size={17}/><span><b>Documents</b><small>{outstanding.length ? `${outstanding.length} outstanding` : 'Checklist clear'}</small></span></button><button type="button" onClick={() => onOpenAdvanced?.('billing')}><CreditCard size={17}/><span><b>Billing</b><small>{billingItems.length ? `${billingItems.length} milestones` : 'No milestones'}</small></span></button><button type="button" onClick={() => onOpenAdvanced?.('dates')}><CalendarDays size={17}/><span><b>Key dates</b><small>{deadlines[0]?.date ? formatRecordDate(deadlines[0].date) : 'No key dates'}</small></span></button><button type="button" onClick={() => onOpenAdvanced?.('stages')}><ArrowUpDown size={17}/><span><b>Stages</b><small>{currentStageLabel(client)}</small></span></button></div><button className="btn full" type="button" onClick={() => onOpenAdvanced?.('overview')}><Database size={15}/>Open advanced record</button></section>
+        <section className="panel matter-overview-card matter-portal-summary"><span className="eyebrow">Client portal</span><h2>{client.portalEnabled ? 'Portal ready when you update' : 'Portal not active'}</h2><p>{client.portalEnabled ? 'When you use Update matter, choose whether the update should be published and use the suggested wording or edit it.' : 'Portal publishing stays off until client access is enabled in Advanced editing.'}</p>{client.portalStatusUpdate && <div className="matter-latest-portal"><span>Latest client update</span><strong>{client.portalStatusUpdate}</strong></div>}</section>
+      </div>
+    </div>
+
+    <div className="matter-mobile-update-bar"><button className="btn dark" type="button" onClick={() => setUpdateOpen(true)}><RefreshCw size={15}/>Update matter</button><button className="btn" type="button" onClick={() => setRescheduleOpen(true)}><CalendarDays size={15}/>Reschedule</button></div>
+
+    {updateOpen && <GuidedMatterUpdateModal client={client} adviser={primary} onClose={() => setUpdateOpen(false)} saveClient={saveClient} saving={saving} onReturnToWork={onReturnToWork} />}
+    {rescheduleOpen && <MatterRescheduleModal client={client} adviser={primary} onClose={() => setRescheduleOpen(false)} saveClient={saveClient} saving={saving} />}
+    {noteOpen && <div className="matter-modal-backdrop"><section className="matter-note-modal"><div className="matter-modal-head"><div><span className="eyebrow">Internal note</span><h2>Add adviser note</h2></div><button className="btn" type="button" onClick={() => setNoteOpen(false)}><X size={16}/></button></div><div className="matter-modal-body"><textarea rows="6" value={noteText} onChange={(event)=>setNoteText(event.target.value)} placeholder="Add a concise note for the matter timeline…" /></div><div className="matter-modal-foot"><span></span><div><button className="btn" type="button" onClick={()=>setNoteOpen(false)}>Cancel</button><button className="btn dark" type="button" disabled={saving||!noteText.trim()} onClick={saveNote}>Save note</button></div></div></section></div>}
+    {clientUpdateOpen && <QuickClientUpdatePanel client={client} advisers={advisers} caseTypes={caseTypes} initialSection="matter" saving={saving} onClose={() => setClientUpdateOpen(false)} onSave={async (payload) => { const body=await saveClient?.(payload,{resetNewClientForm:false}); setClientUpdateOpen(false); return body; }} />}
   </section>;
 }
 
@@ -3822,6 +3858,20 @@ function MatterStageFlow({ stages = [], currentIndex = 0 }) {
 
 function MatterWorkItem({ number, title, meta, onOpen, primary = false }) {
   return <div className={`matter-work-item ${primary ? 'primary' : ''}`}><i>{number}</i><span><strong>{title}</strong><small>{meta}</small></span><button type="button" onClick={onOpen}>Open</button></div>;
+}
+
+function MatterRescheduleModal({ client, adviser = null, onClose, saveClient, saving }) {
+  const status = normaliseMatterStatus(client.matterStatus, client.clientStatus, client.nextAction);
+  const waiting = status.startsWith('Waiting') || status === 'Client action required';
+  const [date, setDate] = useState(waiting ? (client.matterReviewDate || client.nextActionDue || '') : (client.nextActionDue || client.matterReviewDate || ''));
+  const [error, setError] = useState('');
+  async function save() {
+    if (!date) { setError('Choose the date when this matter should return to your attention.'); return; }
+    const activity=[...normaliseMatterActivity(client.matterActivity),makeMatterActivity('reschedule','Next review rescheduled',`${client.nextAction || matterWaitingLabel(status)} · ${formatRecordDate(date)}`,adviser?.name||'Adviser')];
+    await saveClient?.({ ...client, nextActionDue: waiting ? '' : date, matterReviewDate: waiting ? date : '', matterActivity: activity }, { resetNewClientForm:false });
+    onClose?.();
+  }
+  return <div className="matter-modal-backdrop" onMouseDown={(event)=>{if(event.target===event.currentTarget)onClose?.()}}><section className="matter-reschedule-modal"><div className="matter-modal-head"><div><span className="eyebrow">Quick reschedule</span><h2>When should this file come back?</h2><p>No other matter details will change.</p></div><button className="btn" type="button" onClick={onClose}><X size={16}/></button></div><div className="matter-modal-body"><div className="matter-reschedule-current"><span>{waiting?'Current review action':'Current next action'}</span><strong>{client.nextAction || matterWaitingLabel(status)}</strong></div><label className="field"><span>{waiting?'New review date':'New due date'}</span><input autoFocus type="date" value={date} onChange={(event)=>{setDate(event.target.value);setError('')}} /></label><p className="matter-reschedule-note">Use <b>Update matter</b> instead if something has happened or the next action/status needs to change.</p></div><div className="matter-modal-foot"><span className="validation-message">{error}</span><div><button className="btn" type="button" onClick={onClose}>Cancel</button><button className="btn dark" type="button" disabled={saving} onClick={save}><CalendarDays size={15}/>{saving?'Saving…':'Reschedule'}</button></div></div></section></div>;
 }
 
 function QuickChangeActionModal({ client, adviser = null, onClose, saveClient, saving }) {
@@ -3841,7 +3891,7 @@ function QuickChangeActionModal({ client, adviser = null, onClose, saveClient, s
     await saveClient?.(payload, { resetNewClientForm: false });
     onClose?.();
   }
-  return <div className="matter-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose?.(); }}><section className="matter-quick-action-modal"><div className="matter-modal-head"><div><span className="eyebrow">Quick edit</span><h2>Change next action</h2><p>Change only the action and its date. Stage, status, portal wording and other matter housekeeping stay untouched.</p></div><button className="btn" type="button" onClick={onClose}><X size={16} /></button></div><div className="matter-modal-body matter-quick-action-body"><label className="field"><span>{waiting ? 'Review / waiting action' : 'Next action'}</span><input autoFocus value={nextAction} onChange={(event) => { setNextAction(event.target.value); setError(''); }} /></label><label className="field"><span>{waiting ? 'Review date' : 'Due date'}</span><input type="date" value={actionDate} onChange={(event) => { setActionDate(event.target.value); setError(''); }} /></label><div className="matter-quick-context"><span>Current matter status</span><strong>{status}</strong><small>Use Update File instead if something substantive happened and the stage/status should also change.</small></div></div><div className="matter-modal-foot"><span className="validation-message">{error}</span><div><button className="btn" type="button" onClick={onClose}>Cancel</button><button className="btn dark" type="button" disabled={saving} onClick={save}><Save size={15} />{saving ? 'Saving…' : 'Save action'}</button></div></div></section></div>;
+  return <div className="matter-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose?.(); }}><section className="matter-quick-action-modal"><div className="matter-modal-head"><div><span className="eyebrow">Quick edit</span><h2>Change next action</h2><p>Change only the action and its date. Stage, status, portal wording and other matter housekeeping stay untouched.</p></div><button className="btn" type="button" onClick={onClose}><X size={16} /></button></div><div className="matter-modal-body matter-quick-action-body"><label className="field"><span>{waiting ? 'Review / waiting action' : 'Next action'}</span><input autoFocus value={nextAction} onChange={(event) => { setNextAction(event.target.value); setError(''); }} /></label><label className="field"><span>{waiting ? 'Review date' : 'Due date'}</span><input type="date" value={actionDate} onChange={(event) => { setActionDate(event.target.value); setError(''); }} /></label><div className="matter-quick-context"><span>Current matter status</span><strong>{status}</strong><small>Use Update matter instead if something substantive happened and the stage/status should also change.</small></div></div><div className="matter-modal-foot"><span className="validation-message">{error}</span><div><button className="btn" type="button" onClick={onClose}>Cancel</button><button className="btn dark" type="button" disabled={saving} onClick={save}><Save size={15} />{saving ? 'Saving…' : 'Save action'}</button></div></div></section></div>;
 }
 
 const COMPLETE_ACTION_DESTINATIONS = [
@@ -3883,31 +3933,74 @@ function QuickCompleteActionModal({ client, adviser = null, onClose, saveClient,
     await saveClient?.(payload, { resetNewClientForm: false });
     onClose?.();
   }
-  return <div className="matter-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose?.(); }}><section className="matter-quick-action-modal complete"><div className="matter-modal-head"><div><span className="eyebrow">Complete current action</span><h2>What happens next?</h2><p><strong>{client.nextAction || 'Current action'}</strong> will be recorded as completed. Choose where the file goes next.</p></div><button className="btn" type="button" onClick={onClose}><X size={16} /></button></div><div className="matter-modal-body matter-quick-action-body"><div className="matter-complete-destinations">{COMPLETE_ACTION_DESTINATIONS.map((item) => <button key={item.key} type="button" className={destination === item.key ? 'active' : ''} onClick={() => setDestination(item.key)}><strong>{item.label}</strong><small>{item.status}</small></button>)}</div>{selected.status !== 'Completed' && <><label className="field"><span>{waiting ? 'Waiting / review action' : 'Next action'}</span><input value={nextAction} onChange={(event) => { setNextAction(event.target.value); setError(''); }} placeholder="What happens next?" /></label><label className="field"><span>{waiting ? 'Review date' : 'Due date'}</span><input type="date" value={actionDate} onChange={(event) => { setActionDate(event.target.value); setError(''); }} /></label></>}<div className="matter-quick-context"><span>Current status</span><strong>{currentStatus}</strong><small>This quick action records completion and the next operating state only. Use Update File for stage changes, portal updates, client emails or detailed housekeeping.</small></div></div><div className="matter-modal-foot"><span className="validation-message">{error}</span><div><button className="btn" type="button" onClick={onClose}>Cancel</button><button className="btn dark" type="button" disabled={saving} onClick={save}><CheckCircle2 size={15} />{saving ? 'Saving…' : 'Complete action'}</button></div></div></section></div>;
+  return <div className="matter-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose?.(); }}><section className="matter-quick-action-modal complete"><div className="matter-modal-head"><div><span className="eyebrow">Complete current action</span><h2>What happens next?</h2><p><strong>{client.nextAction || 'Current action'}</strong> will be recorded as completed. Choose where the file goes next.</p></div><button className="btn" type="button" onClick={onClose}><X size={16} /></button></div><div className="matter-modal-body matter-quick-action-body"><div className="matter-complete-destinations">{COMPLETE_ACTION_DESTINATIONS.map((item) => <button key={item.key} type="button" className={destination === item.key ? 'active' : ''} onClick={() => setDestination(item.key)}><strong>{item.label}</strong><small>{item.status}</small></button>)}</div>{selected.status !== 'Completed' && <><label className="field"><span>{waiting ? 'Waiting / review action' : 'Next action'}</span><input value={nextAction} onChange={(event) => { setNextAction(event.target.value); setError(''); }} placeholder="What happens next?" /></label><label className="field"><span>{waiting ? 'Review date' : 'Due date'}</span><input type="date" value={actionDate} onChange={(event) => { setActionDate(event.target.value); setError(''); }} /></label></>}<div className="matter-quick-context"><span>Current status</span><strong>{currentStatus}</strong><small>This quick action records completion and the next operating state only. Use Update matter for the normal day-to-day matter update.</small></div></div><div className="matter-modal-foot"><span className="validation-message">{error}</span><div><button className="btn" type="button" onClick={onClose}>Cancel</button><button className="btn dark" type="button" disabled={saving} onClick={save}><CheckCircle2 size={15} />{saving ? 'Saving…' : 'Complete action'}</button></div></div></section></div>;
 }
 
-function GuidedMatterUpdateModal({ client, adviser = null, onClose, saveClient, saving }) {
-  const [step, setStep] = useState(1);
+function GuidedMatterUpdateModal({ client, adviser = null, onClose, saveClient, saving, onReturnToWork }) {
   const [eventType, setEventType] = useState('Reviewed documents');
   const suggestion = useMemo(() => buildMatterUpdateSuggestion(client,eventType),[client,eventType]);
-  const [stageId,setStageId] = useState(suggestion.stageId);
   const [matterStatus,setMatterStatus] = useState(suggestion.matterStatus);
   const [nextAction,setNextAction] = useState(suggestion.nextAction);
   const [actionDate,setActionDate] = useState(suggestion.actionDate);
-  const [note,setNote] = useState(suggestion.note);
-  const [portalTemplateKey,setPortalTemplateKey] = useState(suggestion.portalTemplateKey);
-  const [publishPortal,setPublishPortal] = useState(Boolean(suggestion.portalTemplateKey && client.portalEnabled));
-  const [timeline,setTimeline] = useState(true);
+  const [stageId,setStageId] = useState(suggestion.stageId);
+  const [note,setNote] = useState('');
+  const [updatePortal,setUpdatePortal] = useState(Boolean(suggestion.portalTemplateKey && client.portalEnabled));
+  const [portalTemplateKey,setPortalTemplateKey] = useState(suggestion.portalTemplateKey || '');
+  const initialTemplate = PORTAL_UPDATE_TEMPLATES.find((item)=>item.key===suggestion.portalTemplateKey);
+  const [portalCurrent,setPortalCurrent] = useState(initialTemplate?.current || client.portalStatusUpdate || '');
+  const [portalNext,setPortalNext] = useState(initialTemplate?.next || client.portalNextStep || '');
   const [error,setError] = useState('');
-  useEffect(()=>{const next=buildMatterUpdateSuggestion(client,eventType);setStageId(next.stageId);setMatterStatus(next.matterStatus);setNextAction(next.nextAction);setActionDate(next.actionDate);setNote(next.note);setPortalTemplateKey(next.portalTemplateKey);setPublishPortal(Boolean(next.portalTemplateKey&&client.portalEnabled));setError('');},[eventType,client.id]);
   const appliedStages=normaliseStages(client.stages).filter((item)=>item.applied!==false).sort((a,b)=>Number(a.sortOrder||0)-Number(b.sortOrder||0));
   const waiting=matterStatus.startsWith('Waiting') || matterStatus==='Client action required';
-  function validate(){if(matterStatus==='No current action'){setError('Choose a next action or a controlled waiting status before saving this active matter.');return false}if(matterStatus!=='Completed'&&!nextAction.trim()){setError('Add the primary next action before saving.');return false}if(waiting&&!actionDate){setError('Waiting matters need a review date so they return to My Work.');return false}setError('');return true}
-  async function save(){if(!validate())return;const template=PORTAL_UPDATE_TEMPLATES.find((item)=>item.key===portalTemplateKey);const activity=timeline?[...normaliseMatterActivity(client.matterActivity),makeMatterActivity('workflow',suggestion.activityTitle,note||suggestion.activityDetail,adviser?.name||'Adviser')]:normaliseMatterActivity(client.matterActivity);const nextStages=applyMatterStageSelection(client.stages,stageId,matterStatus==='Completed');const payload={...client,stages:nextStages,matterStatus,matterReviewDate:waiting?actionDate:'',nextAction:nextAction.trim(),nextActionDue:waiting?'':(actionDate||''),matterActivity:activity,portalStatusUpdate:template?template.current:client.portalStatusUpdate,portalNextStep:template?template.next:client.portalNextStep,portalPublishNow:Boolean(publishPortal&&template&&client.portalEnabled)};await saveClient?.(payload,{resetNewClientForm:false});onClose?.()}
-  return <div className="matter-modal-backdrop" onMouseDown={(event)=>{if(event.target===event.currentTarget)onClose?.()}}><section className="matter-guided-modal"><div className="matter-modal-head"><div><span className="eyebrow">One guided action</span><h2>Update file</h2><p>Record what happened. The CRM proposes the related housekeeping; you remain in control.</p></div><button className="btn" type="button" onClick={onClose}><X size={16} /></button></div><div className="matter-update-steps"><span className={step===1?'active':''}>1 · What happened</span><span className={step===2?'active':''}>2 · Housekeeping</span><span className={step===3?'active':''}>3 · Confirm</span></div>{step===1&&<div className="matter-modal-body"><label className="field"><span>What happened?</span><select value={eventType} onChange={(event)=>setEventType(event.target.value)}>{MATTER_UPDATE_EVENTS.map((item)=><option key={item}>{item}</option>)}</select></label><label className="field"><span>Internal note</span><textarea rows="5" value={note} onChange={(event)=>setNote(event.target.value)} /></label><div className="matter-suggestion-box"><strong>What the CRM understands</strong><p>{suggestion.explanation}</p></div></div>}{step===2&&<div className="matter-modal-body matter-housekeeping"><label><span>Stage</span><select value={stageId} onChange={(event)=>setStageId(event.target.value)}><option value="">Keep current stage</option>{appliedStages.map((item)=><option key={item.id} value={item.id}>{item.label}</option>)}</select></label><label><span>Operating status</span><select value={matterStatus} onChange={(event)=>setMatterStatus(event.target.value)}>{MATTER_STATUSES.filter((item)=>item!=='No current action'||client.clientStatus==='Closed').map((item)=><option key={item}>{item}</option>)}</select></label><label className="wide"><span>{waiting?'Review action':'Primary next action'}</span><input value={nextAction} onChange={(event)=>setNextAction(event.target.value)} /></label><label><span>{waiting?'Review date':'Due date'}</span><input type="date" value={actionDate} onChange={(event)=>setActionDate(event.target.value)} /></label><label><span>Portal wording</span><select value={portalTemplateKey} onChange={(event)=>setPortalTemplateKey(event.target.value)}><option value="">No portal wording change</option>{PORTAL_UPDATE_TEMPLATES.map((item)=><option key={item.key} value={item.key}>{item.label}</option>)}</select></label><label className="matter-check"><input type="checkbox" checked={publishPortal} disabled={!portalTemplateKey||!client.portalEnabled} onChange={(event)=>setPublishPortal(event.target.checked)} /><span>Publish portal update now{!client.portalEnabled?' (portal not active)':''}</span></label><label className="matter-check"><input type="checkbox" checked={timeline} onChange={(event)=>setTimeline(event.target.checked)} /><span>Add this event to the matter timeline</span></label><div className="matter-safety-box">Active files cannot be left with neither a next action nor a controlled waiting state. Waiting files require a review date.</div></div>}{step===3&&<div className="matter-modal-body"><div className="matter-confirm-summary"><h3>One save will update</h3><div><span>Event</span><b>{eventType}</b></div><div><span>Stage</span><b>{appliedStages.find((item)=>item.id===stageId)?.label||currentStageLabel(client)}</b></div><div><span>Status</span><b>{matterStatus}</b></div><div><span>{waiting?'Review action':'Next action'}</span><b>{nextAction||'—'}{actionDate?` · ${formatRecordDate(actionDate)}`:''}</b></div><div><span>Portal</span><b>{portalTemplateKey?(publishPortal?'Publish standard update':'Save standard wording'):'No change'}</b></div><div><span>Timeline</span><b>{timeline?'Add event':'No timeline event'}</b></div></div></div>}<div className="matter-modal-foot"><span className="validation-message">{error}</span><div>{step>1&&<button className="btn" type="button" onClick={()=>setStep(step-1)}>Back</button>}<button className="btn" type="button" onClick={onClose}>Cancel</button>{step<3?<button className="btn dark" type="button" onClick={()=>{if(step===2&&!validate())return;setStep(step+1)}}>Continue <ChevronRight size={15}/></button>:<button className="btn dark" type="button" disabled={saving} onClick={save}><Save size={15}/>{saving?'Saving…':'Save update'}</button>}</div></div></section></div>;
-}
 
-const MATTER_UPDATE_EVENTS = ['Reviewed documents','Documents received','Application prepared','Application submitted','INZ update received','Further information requested','Response submitted','Application approved','Spoke with client','Other'];
+  useEffect(()=>{
+    const next=buildMatterUpdateSuggestion(client,eventType);
+    const template=PORTAL_UPDATE_TEMPLATES.find((item)=>item.key===next.portalTemplateKey);
+    setMatterStatus(next.matterStatus);setNextAction(next.nextAction);setActionDate(next.actionDate);setStageId(next.stageId);setPortalTemplateKey(next.portalTemplateKey||'');setPortalCurrent(template?.current||client.portalStatusUpdate||'');setPortalNext(template?.next||client.portalNextStep||'');setUpdatePortal(Boolean(next.portalTemplateKey&&client.portalEnabled));setNote('');setError('');
+  },[eventType,client.id]);
+
+  function selectPortalTemplate(key){
+    setPortalTemplateKey(key);
+    const template=PORTAL_UPDATE_TEMPLATES.find((item)=>item.key===key);
+    if(template){setPortalCurrent(template.current);setPortalNext(template.next)}
+  }
+
+  function validate(){
+    if(matterStatus==='No current action'){setError('Choose what happens next or move the file into a controlled waiting state.');return false}
+    if(matterStatus!=='Completed'&&!nextAction.trim()){setError('Add what happens next before saving.');return false}
+    if(matterStatus!=='Completed'&&!actionDate){setError(waiting?'Add the review date so the file returns to My Work.':'Add the next action date.');return false}
+    if(updatePortal&&client.portalEnabled&&(!portalCurrent.trim()||!portalNext.trim())){setError('Add both portal update fields, or turn portal publishing off.');return false}
+    setError('');return true;
+  }
+
+  async function save(returnToWork=false){
+    if(!validate())return;
+    const activity=[...normaliseMatterActivity(client.matterActivity),makeMatterActivity('workflow',suggestion.activityTitle,note.trim()||suggestion.note||suggestion.explanation,adviser?.name||'Adviser')];
+    const nextStages=applyMatterStageSelection(client.stages,stageId,matterStatus==='Completed');
+    const payload={...client,stages:nextStages,matterStatus,matterReviewDate:waiting?actionDate:'',nextAction:matterStatus==='Completed'?'':nextAction.trim(),nextActionDue:matterStatus==='Completed'||waiting?'':actionDate,matterActivity:activity,portalStatusUpdate:updatePortal&&client.portalEnabled?portalCurrent.trim():client.portalStatusUpdate,portalNextStep:updatePortal&&client.portalEnabled?portalNext.trim():client.portalNextStep,portalPublishNow:Boolean(updatePortal&&client.portalEnabled)};
+    await saveClient?.(payload,{resetNewClientForm:false});
+    onClose?.();
+    if(returnToWork) onReturnToWork?.();
+  }
+
+  return <div className="matter-modal-backdrop" onMouseDown={(event)=>{if(event.target===event.currentTarget)onClose?.()}}><section className="matter-guided-modal matter-simple-update-modal"><div className="matter-modal-head"><div><span className="eyebrow">Simple matter update</span><h2>Update matter</h2><p>Three things matter: what happened, what happens next, and when you want to see the file again.</p></div><button className="btn" type="button" onClick={onClose}><X size={16}/></button></div>
+    <div className="matter-modal-body">
+      <div className="matter-simple-update-grid">
+        <label className="field wide"><span>What happened?</span><select value={eventType} onChange={(event)=>setEventType(event.target.value)}>{MATTER_UPDATE_EVENTS.map((item)=><option key={item}>{item}</option>)}</select></label>
+        <label className="field wide"><span>What happens next?</span><input value={nextAction} onChange={(event)=>{setNextAction(event.target.value);setError('')}} placeholder="The one thing that should happen next" /></label>
+        <label className="field"><span>{waiting?'Review date':'Next action date'}</span><input type="date" value={actionDate} onChange={(event)=>{setActionDate(event.target.value);setError('')}} /></label>
+        <label className="field"><span>Who has the ball?</span><select value={matterStatus} onChange={(event)=>{setMatterStatus(event.target.value);setError('')}}><option value="Adviser action required">Adviser — I need to act</option><option value="Client action required">Client — waiting on client</option><option value="Waiting on third party">Third party — waiting externally</option><option value="Waiting on INZ">INZ — waiting on Immigration New Zealand</option><option value="Ready to progress">Ready — no blocker</option><option value="Completed">Completed — close matter workflow</option></select></label>
+      </div>
+
+      <div className="matter-simple-suggestion"><Sparkles size={16}/><div><strong>CRM suggestion</strong><span>{suggestion.explanation}</span></div></div>
+
+      <section className={`matter-simple-portal ${updatePortal?'active':''}`}><label className="matter-portal-toggle"><input type="checkbox" checked={updatePortal} disabled={!client.portalEnabled} onChange={(event)=>setUpdatePortal(event.target.checked)}/><span><b>Update client portal</b><small>{client.portalEnabled?'Optional — use the suggested wording or edit it below.':'Portal is not active for this client.'}</small></span></label>{updatePortal&&client.portalEnabled&&<div className="matter-simple-portal-fields"><label className="field"><span>Preset wording</span><select value={portalTemplateKey} onChange={(event)=>selectPortalTemplate(event.target.value)}><option value="">Keep / write my own wording</option>{PORTAL_UPDATE_TEMPLATES.map((item)=><option key={item.key} value={item.key}>{item.label}</option>)}</select></label><label className="field"><span>Current update</span><textarea rows="3" value={portalCurrent} onChange={(event)=>setPortalCurrent(event.target.value)}/></label><label className="field"><span>What happens next for the client</span><textarea rows="3" value={portalNext} onChange={(event)=>setPortalNext(event.target.value)}/></label></div>}</section>
+
+      <details className="matter-advanced-update"><summary><SlidersHorizontal size={15}/>Advanced changes</summary><div className="matter-advanced-update-body"><label className="field"><span>Matter stage</span><select value={stageId} onChange={(event)=>setStageId(event.target.value)}><option value="">Keep current stage</option>{appliedStages.map((item)=><option key={item.id} value={item.id}>{item.label}</option>)}</select></label><label className="field"><span>Internal note</span><textarea rows="4" value={note} onChange={(event)=>setNote(event.target.value)} placeholder="Optional internal detail for the timeline"/></label><p>Documents, billing, key dates and detailed client information remain available from Advanced editing on the matter screen.</p></div></details>
+    </div>
+    <div className="matter-modal-foot matter-simple-update-foot"><span className="validation-message">{error}</span><div><button className="btn" type="button" onClick={onClose}>Cancel</button><button className="btn" type="button" disabled={saving} onClick={()=>save(false)}><Save size={15}/>{saving?'Saving…':'Save update'}</button><button className="btn dark" type="button" disabled={saving} onClick={()=>save(true)}><CheckCircle2 size={15}/>{saving?'Saving…':'Save & My Work'}</button></div></div>
+  </section></div>;
+}
 
 function buildMatterUpdateSuggestion(client,eventType){
   const stages=normaliseStages(client.stages).filter((item)=>item.applied!==false).sort((a,b)=>Number(a.sortOrder||0)-Number(b.sortOrder||0));
@@ -5234,7 +5327,7 @@ function IntakeFormApp() {
       validateForm(); setSubmitting(true); setError('');
       if (!receipt) {
         setSubmissionStatus('Saving your questionnaire...');
-        const response = await fetch('/.netlify/functions/intake', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ payload: { ...form, email: String(form.email || '').trim(), intakeSubmissionKey: submissionKeyRef.current, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.17.12-assessment-form-reliability' } }) });
+        const response = await fetch('/.netlify/functions/intake', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ payload: { ...form, email: String(form.email || '').trim(), intakeSubmissionKey: submissionKeyRef.current, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.17.14-assessment-form-reliability' } }) });
         const body = await readJsonResponse(response);
         if (!response.ok) throw new Error(body.error || 'The questionnaire could not be submitted.');
         receipt = { intakeId: body.intakeId, uploadToken: body.uploadToken, expectedUploads: body.expectedUploads || [], uploadedKinds: [] };
@@ -10152,7 +10245,7 @@ function LiveChatSettingsLightbox({ open, onClose, settings = null, availability
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const dayRows = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']];
-  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.17.12" data-title="Chat with us" defer><\/script>`;
+  const embedCode = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://thisvisacrm.netlify.app'}/live-chat-widget.js?v=0.17.14" data-title="Chat with us" defer><\/script>`;
 
   useEffect(() => {
     if (!open) return;
@@ -13399,7 +13492,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.12" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.14" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -13976,7 +14069,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.12" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.14" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}
@@ -13985,7 +14078,7 @@ function AgreementsWorkspace({
 }
 
 function ClientsWorkspace(props) {
-  const { clients, selectedClient, advisers, caseTypes, deadlineTypes, clientQuery, setClientQuery, adviserFilter, setAdviserFilter, includeBackupClients = false, setIncludeBackupClients, effectiveAdviserId = '', caseTypeFilter, setCaseTypeFilter, setSelectedClientId, onDirtyChange, saveClient, updatePortalMessageStatus, uploadPortalDocument, updatePortalDocument, deletePortalDocument, deleteClient, changeClientStatus, instructionSets = [], openInstructionsForClient, agreementSets = [], openAgreementsForClient, saving, calendarEntries = [], preferences = DEFAULT_ADVISER_PREFERENCES, upsertSavedView, deleteSavedView, saveMyPreferences, onBackToClients } = props;
+  const { clients, selectedClient, advisers, caseTypes, deadlineTypes, clientQuery, setClientQuery, adviserFilter, setAdviserFilter, includeBackupClients = false, setIncludeBackupClients, effectiveAdviserId = '', caseTypeFilter, setCaseTypeFilter, setSelectedClientId, onDirtyChange, saveClient, updatePortalMessageStatus, uploadPortalDocument, updatePortalDocument, deletePortalDocument, deleteClient, changeClientStatus, instructionSets = [], openInstructionsForClient, agreementSets = [], openAgreementsForClient, saving, calendarEntries = [], preferences = DEFAULT_ADVISER_PREFERENCES, upsertSavedView, deleteSavedView, saveMyPreferences, onBackToClients, initialSection = 'overview' } = props;
   const [popoutOpen, setPopoutOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [popoutDirty, setPopoutDirty] = useState(false);
@@ -14093,7 +14186,7 @@ function ClientsWorkspace(props) {
             <button className="btn dark" type="button" onClick={() => setPopoutOpen(true)}><ExternalLink size={16} />Resume pop-out editor</button>
           </div>
         ) : (
-          <ClientEditor client={selectedClient} advisers={advisers} caseTypes={caseTypes} deadlineTypes={deadlineTypes} calendarEntries={calendarEntries} saveClient={saveClient} updatePortalMessageStatus={updatePortalMessageStatus} uploadPortalDocument={uploadPortalDocument} updatePortalDocument={updatePortalDocument} deletePortalDocument={deletePortalDocument} deleteClient={deleteClient} changeClientStatus={changeClientStatus} instructionSets={instructionSets} openInstructionsForClient={openInstructionsForClient} agreementSets={agreementSets} openAgreementsForClient={openAgreementsForClient} saving={saving} onDirtyChange={onDirtyChange} onOpenPopout={openPopoutEditor} onBackToClients={onBackToClients} />
+          <ClientEditor client={selectedClient} advisers={advisers} caseTypes={caseTypes} deadlineTypes={deadlineTypes} calendarEntries={calendarEntries} saveClient={saveClient} updatePortalMessageStatus={updatePortalMessageStatus} uploadPortalDocument={uploadPortalDocument} updatePortalDocument={updatePortalDocument} deletePortalDocument={deletePortalDocument} deleteClient={deleteClient} changeClientStatus={changeClientStatus} instructionSets={instructionSets} openInstructionsForClient={openInstructionsForClient} agreementSets={agreementSets} openAgreementsForClient={openAgreementsForClient} saving={saving} onDirtyChange={onDirtyChange} onOpenPopout={openPopoutEditor} onBackToClients={onBackToClients} initialSection={initialSection} />
         )}
       </section>
       {popoutOpen && (
@@ -14165,8 +14258,8 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
   }, [isDirty, onDirtyChange]);
 
   useEffect(() => {
-    if (popoutMode && initialSection) setActiveClientSection(initialSection);
-  }, [popoutMode, initialSection]);
+    if (initialSection) setActiveClientSection(initialSection);
+  }, [initialSection, client.id]);
 
   useEffect(() => {
     function handleBeforeUnload(event) {

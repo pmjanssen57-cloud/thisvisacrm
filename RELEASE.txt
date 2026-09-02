@@ -1,8 +1,22 @@
-THiS CRM v0.17.13 — Notification Recipient & Adviser Profile Fix
+THiS CRM v0.17.14 — Simple Matter Update + Advanced Editing
 
-- Fixes missing website-notification recipient cards on the Adviser page.
-- Enables the assessment-recipient copy and save-recipient controls once settings are loaded.
-- Keeps inactive advisers excluded from delivery.
-- Adds explicit Edit adviser / Save adviser / Cancel controls to each adviser profile.
-- Adviser profiles are read-only by default to prevent accidental changes.
-- No database migration.
+Workflow direction
+- Day-to-day adviser work is now centred on one Update matter action.
+- The normal update captures what happened, what happens next, the next/review date and who has the ball.
+- Portal publishing is optional inside the same update and includes editable preset wording.
+- A separate Reschedule shortcut changes only the next/review date.
+- Complete / Change / Update File are removed from the normal matter screen to reduce competing actions.
+
+Advanced editing
+- Documents, Billing, Key dates and Stages are grouped under a clear Matter tools panel.
+- Each tool opens the existing detailed client record directly at the relevant section.
+- Client details remain separate from matter progression.
+- Advanced record remains available for full control without exposing that complexity in the everyday workflow.
+
+Mobile
+- The matter screen uses a compact sticky bottom action bar for Update matter and Reschedule.
+- Update matter becomes a mobile bottom sheet with a sticky save area and single-column fields.
+- Secondary actions remain under More / Client details rather than consuming the mobile header.
+
+Database
+- No new migration. All existing migrations remain unchanged.

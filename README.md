@@ -1,20 +1,23 @@
-# THiS CRM v0.17.13 — Notification Recipient & Adviser Profile Fix
+# THiS CRM v0.17.14 — Simple Matter Update + Advanced Editing
 
-Built from v0.17.12.
+This release continues the Matter Workspace redesign by separating **simple day-to-day matter updates** from **advanced record editing**.
 
-## Notification recipient fix
+## Normal adviser workflow
 
-The CRM data loader now actually includes `readNotificationRecipientSettings(database)` in its Promise.all call. v0.17.12 declared the result variable but omitted the corresponding read operation, so the Adviser page received an empty notification settings array. That is why the recipient cards were absent and both top buttons were disabled.
+Open a matter from My Work and use **Update matter**. The adviser records what happened, sets the one next action, chooses the due/review date and confirms who has the ball. If the portal should be updated, turn on **Update client portal** and use the suggested preset wording or edit it before saving.
 
-The five notification categories now render with adviser checkboxes and optional additional email fields:
-- Assessment form submissions
-- Contact form submissions
-- Seminar registrations
-- Client feedback submissions
-- SMC calculator internal alerts
+**Save & My Work** saves the update and returns directly to the work queue.
 
-## Adviser profile editing
+**Reschedule** is deliberately separate and changes only the next/review date when nothing substantive has happened.
 
-Individual adviser cards now have a clear **Edit adviser** action. Profiles are read-only by default. Editing one adviser reveals their fields and photo controls, with explicit **Save adviser** and **Cancel** actions. This removes the ambiguity of the previous always-editable cards.
+## Advanced editing
 
-No database migration is added. Existing notification recipient migration and all prior migrations remain unchanged.
+Documents, Billing, Key dates and Stages remain intact but are presented as secondary **Matter tools**. Selecting one opens the existing advanced record directly at that section. Client details remain a separate compact editor.
+
+## Mobile
+
+The same operating model is used on mobile. Update matter / Reschedule sit in a compact sticky bar at the bottom of the matter, while the update form opens as a bottom sheet with a sticky save area.
+
+## Database safety
+
+No database migration is added. Existing applied migration files are untouched.
