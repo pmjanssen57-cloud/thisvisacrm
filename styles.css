@@ -18850,3 +18850,90 @@ body.festive-mode-active {
   .matter-simple-update-foot > div .btn.dark { grid-column:1/-1; }
   .matter-simple-portal-fields textarea { min-height:68px; }
 }
+
+/* v0.17.17 - assessment draft / resume */
+.intake-recovery-banner,
+.intake-resume-confirmation {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin:16px 0;
+  padding:14px 16px;
+  border:1px solid #b9ddcf;
+  border-radius:14px;
+  background:#eef9f4;
+  color:#234b45;
+}
+.intake-recovery-banner.loading { justify-content:flex-start; }
+.intake-recovery-banner > div:first-child,
+.intake-resume-confirmation { display:flex; flex-direction:column; align-items:flex-start; }
+.intake-recovery-banner strong,
+.intake-resume-confirmation strong { color:#003f3a; }
+.intake-recovery-banner span,
+.intake-resume-confirmation span { font-size:.88rem; color:#60746f; }
+.intake-recovery-banner > div:last-child { display:flex; gap:8px; flex:0 0 auto; }
+.guided-submit-bar-resume { gap:12px; }
+.guided-submit-left { display:flex; gap:8px; align-items:center; }
+.intake-save-later { white-space:nowrap; }
+.intake-draft-save-note {
+  display:flex;
+  align-items:center;
+  gap:7px;
+  margin:12px 0 -2px;
+  color:#267456;
+  font-size:.82rem;
+  font-weight:750;
+}
+.intake-pause-card { max-width:760px; }
+.intake-pause-actions { width:100%; justify-content:center; margin-top:10px; }
+
+.matter-workspace-v17 .enquiries-workspace-modern .enquiries-lean-overview {
+  grid-template-columns:repeat(6,minmax(0,1fr));
+}
+.incomplete-assessment-panel { padding:18px 20px 24px; }
+.incomplete-assessment-list { display:grid; gap:10px; margin-top:14px; }
+.incomplete-assessment-card {
+  display:grid;
+  grid-template-columns:minmax(180px,1.1fr) minmax(180px,.9fr) minmax(180px,.95fr) minmax(180px,.9fr) auto;
+  gap:14px;
+  align-items:center;
+  padding:14px 16px;
+  border:1px solid #d3e1dc;
+  border-radius:12px;
+  background:#fff;
+}
+.incomplete-assessment-card > div { min-width:0; }
+.incomplete-assessment-person strong { display:block; color:#003f3a; font-size:14px; }
+.incomplete-assessment-person span,
+.incomplete-assessment-card small { display:block; color:#667b76; font-size:10.5px; margin-top:3px; }
+.incomplete-assessment-card .field-caption { display:block; color:#748983; font-size:9px; font-weight:850; text-transform:uppercase; letter-spacing:.07em; margin-bottom:3px; }
+.incomplete-assessment-card > div > strong { color:#284a45; font-size:11.5px; }
+.incomplete-assessment-progress > span { display:block; color:#748983; font-size:9px; font-weight:850; text-transform:uppercase; letter-spacing:.07em; }
+.incomplete-assessment-progress > strong { display:block; color:#284a45; font-size:11.5px; margin:3px 0 7px; }
+.incomplete-assessment-progress > div { height:6px; border-radius:999px; background:#e5eeeb; overflow:hidden; }
+.incomplete-assessment-progress i { display:block; height:100%; border-radius:999px; background:#55c997; }
+.incomplete-assessment-actions { display:flex; gap:7px; justify-content:flex-end; }
+
+@media(max-width:1250px){
+  .matter-workspace-v17 .enquiries-workspace-modern .enquiries-lean-overview { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .incomplete-assessment-card { grid-template-columns:1fr 1fr 1fr; }
+  .incomplete-assessment-actions { grid-column:1/-1; justify-content:flex-start; }
+}
+@media(max-width:720px){
+  .intake-recovery-banner { align-items:flex-start; flex-direction:column; }
+  .intake-recovery-banner > div:last-child { width:100%; }
+  .intake-recovery-banner > div:last-child .btn { flex:1; }
+  .guided-submit-bar-resume { align-items:stretch; flex-wrap:wrap; }
+  .guided-submit-left { width:100%; }
+  .guided-submit-left .btn { flex:1; }
+  .guided-submit-bar-resume > span { order:3; width:100%; text-align:center; }
+  .guided-submit-bar-resume > .btn.dark { flex:1; }
+  .matter-workspace-v17 .enquiries-workspace-modern .enquiries-lean-overview { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .incomplete-assessment-panel { padding:14px 12px 20px; }
+  .incomplete-assessment-card { grid-template-columns:1fr; gap:10px; }
+  .incomplete-assessment-actions { grid-column:auto; flex-wrap:wrap; }
+  .incomplete-assessment-actions .btn { flex:1; }
+}
+.intake-draft-disclosure { display:flex; align-items:flex-start; gap:8px; margin:12px 0 14px; padding:10px 12px; border-radius:11px; background:#f5faf8; color:#5d716c; font-size:.82rem; line-height:1.45; }
+.intake-draft-disclosure svg { flex:0 0 auto; color:#25815f; margin-top:2px; }

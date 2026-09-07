@@ -5,6 +5,7 @@ import { getNotificationRecipients } from './_notification-recipients.mjs';
 
 const MAX_TEXT = 6000;
 const INTAKE_UPLOAD_STORE = 'intake-uploads';
+const INTAKE_DRAFT_DAYS = 30;
 const MAX_INTAKE_UPLOAD_BYTES = 5 * 1024 * 1024;
 const INTAKE_UPLOAD_KINDS = {
   applicantCv: 'Applicant CV',
@@ -53,6 +54,26 @@ Please review this in THiS CRM > Enquiries & Intake > Contact Forms.`,
     placeholders: ['applicantName', 'email', 'phone', 'submitted', 'flags', 'flagLine', 'summary'],
   },
   {
+    key: 'assessment_resume_link',
+    name: 'Assessment form - continue later',
+    description: 'Sent to an applicant when they save a partially completed assessment to finish later.',
+    subject: 'Continue your Turner Hopkins assessment',
+    bodyText: `Hi {{firstName}},
+
+Your Turner Hopkins immigration assessment has been saved, so you do not need to start again.
+
+Continue your assessment here:
+{{resumeUrl}}
+
+Your saved assessment is currently {{progressPercent}}% complete and the secure continuation link will remain available until {{expiresDate}}.
+
+For your privacy, please do not forward this link to anyone else. If you did not request this email, you can simply ignore it.
+
+Kind regards,
+Turner Hopkins Immigration Specialists`,
+    placeholders: ['firstName', 'applicantName', 'resumeUrl', 'progressPercent', 'expiresDate'],
+  },
+  {
     key: 'new_intake_adviser_notification',
     name: 'Legacy contact/intake notification',
     description: 'Legacy internal notification retained for older deployments and existing email log records.',
@@ -89,8 +110,11 @@ export default async function intakeRequestHandler(request) {
     await ensureIntakeSchema();
     const url = new URL(request.url);
     if (url.searchParams.get('upload') === '1') return await handleIntakeUpload(request, url);
+    const draftAction = clean(url.searchParams.get('draft')).toLowerCase();
+    if (draftAction) return await handleIntakeDraftAction(request, url, draftAction);
 
     const body = await request.json().catch(() => ({}));
+    const resumeToken = clean(body.resumeToken);
     const payload = normalisePayload(body.payload || body);
 
     if (!payload.consentToContact || !payload.privacyAcknowledged) {
@@ -106,12 +130,22 @@ export default async function intakeRequestHandler(request) {
       if (existing?.id) { const existingPayload = existing.raw_payload && typeof existing.raw_payload === 'object' ? existing.raw_payload : {}; return json({ ok: true, intakeId: existing.id, uploadToken: clean(existingPayload.intakeUploadToken), expectedUploads: Array.isArray(existingPayload.intakeExpectedUploads) ? existingPayload.intakeExpectedUploads : [], resumed: true }); }
     }
 
-    const expectedUploads = [];
-    if (payload.applicantCvExpected) expectedUploads.push('applicantCv');
-    if (payload.partnerCvExpected && /^yes/i.test(payload.hasPartner || '')) expectedUploads.push('partnerCv');
+    let linkedDraft = null;
+    let storedDraftUploads = {};
+    if (resumeToken) {
+      linkedDraft = await readIntakeDraftByToken(resumeToken);
+      if (linkedDraft && linkedDraft.status === 'Draft' && !isDraftExpired(linkedDraft)) {
+        storedDraftUploads = normaliseStoredUploads(linkedDraft.uploaded_files || {});
+      }
+    }
+
+    const requiredUploadKinds = [];
+    if (payload.applicantCvExpected) requiredUploadKinds.push('applicantCv');
+    if (payload.partnerCvExpected && /^yes/i.test(payload.hasPartner || '')) requiredUploadKinds.push('partnerCv');
+    const expectedUploads = requiredUploadKinds.filter((kind) => !storedDraftUploads[kind]?.blobKey);
     payload.intakeExpectedUploads = expectedUploads;
     payload.intakeUploadToken = expectedUploads.length ? crypto.randomUUID() : '';
-    payload.intakeUploads = {};
+    payload.intakeUploads = storedDraftUploads;
 
     const flags = buildIntakeFlags(payload);
     const rows = await db().sql`
@@ -122,6 +156,10 @@ export default async function intakeRequestHandler(request) {
 
     const intakeId = rows[0]?.id || '';
 
+    if (linkedDraft?.id && intakeId) {
+      await db().sql`UPDATE intake_drafts SET status = 'Submitted', submitted_intake_id = ${intakeId}, updated_at = NOW() WHERE id = ${linkedDraft.id}`;
+    }
+
     if (!expectedUploads.length) {
       try {
         await markAndSendNewIntakeNotification({ intakeId, payload, flags, createdAt: rows[0]?.created_at });
@@ -130,10 +168,206 @@ export default async function intakeRequestHandler(request) {
       }
     }
 
-    return json({ ok: true, intakeId, uploadToken: payload.intakeUploadToken, expectedUploads });
+    return json({ ok: true, intakeId, uploadToken: payload.intakeUploadToken, expectedUploads, uploadedKinds: Object.keys(storedDraftUploads) });
   } catch (error) {
     console.error(error);
     return json({ error: 'Intake submission failed', detail: String(error?.message || error) }, 500);
+  }
+}
+
+
+async function handleIntakeDraftAction(request, url, action) {
+  if (action === 'save') {
+    const body = await request.json().catch(() => ({}));
+    return await saveIntakeDraft(body);
+  }
+  if (action === 'resume') {
+    const body = await request.json().catch(() => ({}));
+    return await resumeIntakeDraft(clean(body.token));
+  }
+  if (action === 'upload') return await handleIntakeDraftUpload(request, url);
+  if (action === 'remove-upload') {
+    const body = await request.json().catch(() => ({}));
+    return await removeIntakeDraftUpload(clean(body.token), clean(body.kind));
+  }
+  return json({ error: 'Unknown draft action.' }, 400);
+}
+
+function createIntakeResumeToken() {
+  return crypto.randomBytes(32).toString('base64url');
+}
+
+function hashIntakeResumeToken(token = '') {
+  return crypto.createHash('sha256').update(String(token || ''), 'utf8').digest('hex');
+}
+
+function intakeDraftProgress(step = 1) {
+  const safeStep = Math.min(8, Math.max(1, Number(step || 1)));
+  return Math.max(0, Math.min(100, Math.round(((safeStep - 1) / 7) * 100)));
+}
+
+function isDraftExpired(row = {}) {
+  const expires = new Date(row.expires_at || row.expiresAt || '');
+  return Number.isNaN(expires.getTime()) || expires.getTime() <= Date.now();
+}
+
+async function readIntakeDraftByToken(token = '') {
+  if (!token) return null;
+  const hash = hashIntakeResumeToken(token);
+  const rows = await db().sql`SELECT id, resume_token_hash, status, applicant_first_name, applicant_last_name, email, current_step, progress_percent, raw_payload, uploaded_files, expires_at, resume_email_sent_at, submitted_intake_id, created_at, updated_at FROM intake_drafts WHERE resume_token_hash = ${hash} LIMIT 1`;
+  return rows[0] || null;
+}
+
+function publicIntakeDraft(row = {}, token = '') {
+  return {
+    id: row.id || '',
+    token,
+    status: row.status || 'Draft',
+    firstName: row.applicant_first_name || '',
+    lastName: row.applicant_last_name || '',
+    email: row.email || '',
+    currentStep: Number(row.current_step || 2),
+    progressPercent: Number(row.progress_percent || 0),
+    payload: row.raw_payload && typeof row.raw_payload === 'object' ? row.raw_payload : {},
+    uploads: normaliseStoredUploads(row.uploaded_files || {}),
+    expiresAt: row.expires_at || '',
+    resumeEmailSentAt: row.resume_email_sent_at || '',
+    submittedIntakeId: row.submitted_intake_id || '',
+    updatedAt: row.updated_at || '',
+  };
+}
+
+async function saveIntakeDraft(input = {}) {
+  const payload = normalisePayload(input.payload || {});
+  const email = clean(payload.email).toLowerCase();
+  if (!payload.firstName || !payload.lastName || !email || !isValidEmailAddress(email)) {
+    return json({ error: 'A valid first name, last name and email are required before the assessment can be saved.' }, 400);
+  }
+  const currentStep = Math.min(8, Math.max(2, Number(input.step || 2)));
+  const progressPercent = intakeDraftProgress(currentStep);
+  const suppliedToken = clean(input.token);
+  let token = suppliedToken;
+  let row = suppliedToken ? await readIntakeDraftByToken(suppliedToken) : null;
+  if (row && row.status !== 'Draft') return json({ error: 'This saved assessment is no longer available for editing.' }, 409);
+  if (row && isDraftExpired(row)) return json({ error: 'This saved assessment link has expired.' }, 410);
+  if (!row) {
+    token = createIntakeResumeToken();
+    const hash = hashIntakeResumeToken(token);
+    const rows = await db().sql`
+      INSERT INTO intake_drafts (resume_token_hash, applicant_first_name, applicant_last_name, email, current_step, progress_percent, raw_payload, uploaded_files, expires_at)
+      VALUES (${hash}, ${payload.firstName}, ${payload.lastName}, ${email}, ${currentStep}, ${progressPercent}, CAST(${JSON.stringify(payload)} AS jsonb), '{}'::jsonb, NOW() + INTERVAL '30 days')
+      RETURNING id, resume_token_hash, status, applicant_first_name, applicant_last_name, email, current_step, progress_percent, raw_payload, uploaded_files, expires_at, resume_email_sent_at, submitted_intake_id, created_at, updated_at`;
+    row = rows[0];
+  } else {
+    const rows = await db().sql`
+      UPDATE intake_drafts
+         SET applicant_first_name = ${payload.firstName}, applicant_last_name = ${payload.lastName}, email = ${email}, current_step = ${currentStep}, progress_percent = ${progressPercent}, raw_payload = CAST(${JSON.stringify(payload)} AS jsonb), expires_at = NOW() + INTERVAL '30 days', updated_at = NOW()
+       WHERE id = ${row.id}
+       RETURNING id, resume_token_hash, status, applicant_first_name, applicant_last_name, email, current_step, progress_percent, raw_payload, uploaded_files, expires_at, resume_email_sent_at, submitted_intake_id, created_at, updated_at`;
+    row = rows[0];
+  }
+  let emailSent = false;
+  if (input.sendResumeEmail) emailSent = await sendIntakeResumeEmail(row, token);
+  const refreshed = await readIntakeDraftByToken(token);
+  return json({ ok: true, draft: publicIntakeDraft(refreshed || row, token), emailSent });
+}
+
+async function resumeIntakeDraft(token = '') {
+  if (!token) return json({ error: 'The continuation link is incomplete.' }, 400);
+  const row = await readIntakeDraftByToken(token);
+  if (!row) return json({ error: 'We could not find that saved assessment.' }, 404);
+  if (row.status === 'Submitted') return json({ ok: true, submitted: true, draft: publicIntakeDraft(row, token) });
+  if (isDraftExpired(row)) return json({ error: 'This saved assessment link has expired. Please start a new assessment or contact Turner Hopkins.' }, 410);
+  return json({ ok: true, draft: publicIntakeDraft(row, token) });
+}
+
+async function handleIntakeDraftUpload(request, url) {
+  const token = clean(url.searchParams.get('token'));
+  const kind = clean(url.searchParams.get('kind'));
+  if (!token || !INTAKE_UPLOAD_KINDS[kind]) return json({ error: 'Invalid saved-assessment upload request.' }, 400);
+  const draft = await readIntakeDraftByToken(token);
+  if (!draft || draft.status !== 'Draft' || isDraftExpired(draft)) return json({ error: 'The saved assessment is no longer available.' }, 410);
+  const rawName = clean(url.searchParams.get('fileName')) || 'uploaded-cv.pdf';
+  const fileName = sanitiseFileName(decodeURIComponentSafe(rawName));
+  const fileType = normaliseUploadMimeType(clean(request.headers.get('content-type')), fileName);
+  if (!isAllowedIntakeUpload(fileName, fileType)) return json({ error: 'CV uploads must be PDF, DOC or DOCX files.' }, 400);
+  const buffer = Buffer.from(await request.arrayBuffer());
+  if (!buffer.length) return json({ error: 'The uploaded file was empty.' }, 400);
+  if (buffer.length > MAX_INTAKE_UPLOAD_BYTES) return json({ error: 'CV uploads must be 5 MB or smaller.' }, 400);
+  const currentUploads = draft.uploaded_files && typeof draft.uploaded_files === 'object' ? draft.uploaded_files : {};
+  const previousKey = clean(currentUploads[kind]?.blobKey);
+  const blobKey = `intake-drafts/${draft.id}/${kind}/${crypto.randomUUID()}-${fileName}`;
+  const metadata = { kind, label: INTAKE_UPLOAD_KINDS[kind], fileName, fileType, fileSize: buffer.length, blobKey, uploadedAt: new Date().toISOString() };
+  const store = getStore({ name: INTAKE_UPLOAD_STORE, consistency: 'strong' });
+  await store.set(blobKey, buffer, { metadata: { intakeDraftId: draft.id, kind, fileName, fileType } });
+  if (previousKey && previousKey !== blobKey) {
+    try { await store.delete(previousKey); } catch (error) { console.warn('Unable to delete replaced intake draft upload', error?.message || error); }
+  }
+  const uploads = { ...currentUploads, [kind]: metadata };
+  await db().sql`UPDATE intake_drafts SET uploaded_files = CAST(${JSON.stringify(uploads)} AS jsonb), expires_at = NOW() + INTERVAL '30 days', updated_at = NOW() WHERE id = ${draft.id}`;
+  return json({ ok: true, upload: publicUploadMetadata(metadata) });
+}
+
+async function removeIntakeDraftUpload(token = '', kind = '') {
+  if (!token || !INTAKE_UPLOAD_KINDS[kind]) return json({ error: 'Invalid saved-assessment upload request.' }, 400);
+  const draft = await readIntakeDraftByToken(token);
+  if (!draft || draft.status !== 'Draft' || isDraftExpired(draft)) return json({ error: 'The saved assessment is no longer available.' }, 410);
+  const uploads = draft.uploaded_files && typeof draft.uploaded_files === 'object' ? { ...draft.uploaded_files } : {};
+  const previous = uploads[kind];
+  delete uploads[kind];
+  if (previous?.blobKey) {
+    try { await getStore({ name: INTAKE_UPLOAD_STORE, consistency: 'strong' }).delete(previous.blobKey); } catch (error) { console.warn('Unable to delete intake draft upload', error?.message || error); }
+  }
+  await db().sql`UPDATE intake_drafts SET uploaded_files = CAST(${JSON.stringify(uploads)} AS jsonb), updated_at = NOW() WHERE id = ${draft.id}`;
+  return json({ ok: true, removedKind: kind });
+}
+
+function buildIntakeResumeUrl(token = '') {
+  const base = String(process.env.PUBLIC_INTAKE_FORM_URL || 'https://www.turnerhopkinsimmigration.co.nz/assessment').trim() || 'https://www.turnerhopkinsimmigration.co.nz/assessment';
+  try {
+    const url = new URL(base);
+    url.searchParams.set('resume', token);
+    return url.toString();
+  } catch {
+    return `${base}${base.includes('?') ? '&' : '?'}resume=${encodeURIComponent(token)}`;
+  }
+}
+
+async function sendIntakeResumeEmail(row = {}, token = '') {
+  if (!row?.id || !token || !isValidEmailAddress(row.email)) return false;
+  const database = db();
+  const recent = row.resume_email_sent_at ? Date.now() - new Date(row.resume_email_sent_at).getTime() : Infinity;
+  if (Number.isFinite(recent) && recent >= 0 && recent < 45000) return true;
+  await ensureEmailNotificationSchema();
+  await pruneOldEmailNotifications();
+  const resumeUrl = buildIntakeResumeUrl(token);
+  const expiresDate = row.expires_at ? new Date(row.expires_at).toLocaleDateString('en-NZ', { timeZone: 'Pacific/Auckland', day: 'numeric', month: 'long', year: 'numeric' }) : '30 days from now';
+  const context = {
+    firstName: row.applicant_first_name || 'there',
+    applicantName: [row.applicant_first_name, row.applicant_last_name].filter(Boolean).join(' ') || 'Applicant',
+    resumeUrl,
+    progressPercent: Number(row.progress_percent || 0),
+    expiresDate,
+  };
+  const draft = await buildEmailFromTemplate('assessment_resume_link', context, {
+    subject: 'Continue your Turner Hopkins assessment',
+    bodyText: `Hi ${context.firstName},\n\nYour Turner Hopkins immigration assessment has been saved.\n\nContinue here: ${resumeUrl}\n\nThis secure link remains available until ${expiresDate}.`,
+  });
+  const config = requireMicrosoftEmailConfig();
+  const [log] = await database.sql`
+    INSERT INTO email_notifications (related_record_type, related_record_id, template_key, from_email, from_name, to_email, subject, body_text, body_html, status, sent_by)
+    VALUES ('intake_draft', ${row.id}, 'assessment_resume_link', ${config.fromEmail}, ${config.fromName}, ${row.email}, ${draft.subject}, ${draft.bodyText}, ${draft.bodyHtml}, 'Sending', 'THiS assessment form')
+    RETURNING id`;
+  try {
+    const graphToken = await getMicrosoftGraphAccessToken(config);
+    const sent = await sendMicrosoftGraphEmail({ config, token: graphToken, toEmail: row.email, subject: draft.subject, bodyText: draft.bodyText, bodyHtml: draft.bodyHtml });
+    await database.sql`UPDATE email_notifications SET status = 'Sent', sent_at = NOW(), provider_request_id = ${sent.requestId || ''}, updated_at = NOW() WHERE id = ${log.id}`;
+    await database.sql`UPDATE intake_drafts SET resume_email_sent_at = NOW(), updated_at = NOW() WHERE id = ${row.id}`;
+    return true;
+  } catch (error) {
+    const message = String(error?.message || error).slice(0, 1000);
+    await database.sql`UPDATE email_notifications SET status = 'Failed', failed_at = NOW(), failure_message = ${message}, updated_at = NOW() WHERE id = ${log.id}`;
+    throw error;
   }
 }
 
@@ -292,6 +526,27 @@ async function ensureIntakeSchema() {
   await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_enquiries_updated_at ON intake_enquiries(updated_at ASC)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_enquiries_assigned_adviser ON intake_enquiries(assigned_adviser_id)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_enquiries_email ON intake_enquiries(LOWER(email))`;
+  await database.sql`
+    CREATE TABLE IF NOT EXISTS intake_drafts (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      resume_token_hash TEXT NOT NULL UNIQUE,
+      status TEXT NOT NULL DEFAULT 'Draft',
+      applicant_first_name TEXT,
+      applicant_last_name TEXT,
+      email TEXT NOT NULL,
+      current_step INTEGER NOT NULL DEFAULT 2,
+      progress_percent INTEGER NOT NULL DEFAULT 0,
+      raw_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+      uploaded_files JSONB NOT NULL DEFAULT '{}'::jsonb,
+      expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '30 days'),
+      resume_email_sent_at TIMESTAMPTZ,
+      submitted_intake_id UUID,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_drafts_status_updated ON intake_drafts(status, updated_at DESC)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_drafts_email ON intake_drafts(LOWER(email))`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_drafts_expires_at ON intake_drafts(expires_at)`;
 }
 
 function normalisePayload(input = {}) {

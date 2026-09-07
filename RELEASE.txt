@@ -1,14 +1,5 @@
-THiS CRM v0.17.16 - CRM Startup Load Stabilisation
+THiS CRM v0.17.17 - Assessment Draft & Resume
 
-Built from v0.17.15.
+Adds secure assessment-form autosave, Save & finish later, email continuation links, resume-on-any-device, draft CV persistence, same-device recovery, CRM incomplete-assessment management, editable continuation email template and Squarespace resume-token forwarding.
 
-Fixes
-- Prevents a stale/failed CRM load request from overwriting the result of a newer successful request.
-- Clears the CRM load error immediately after the latest successful load.
-- Adds one short automatic retry for transient network or 5xx startup failures.
-- The empty-database screen is now shown only after a confirmed successful CRM response containing no records.
-- A load error no longer masquerades as an empty database.
-- Existing CRM data remains visible if a later refresh fails.
-- Adds a Retry button to the CRM load error banner.
-
-No database migration or schema change.
+One additive migration: 202609080001_add_intake_drafts.sql.

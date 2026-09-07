@@ -807,6 +807,7 @@ const emptyData = {
   agreementTemplateLibrary: {},
   agreementTemplateVersions: [],
   intakeEnquiries: [],
+  intakeDrafts: [],
   intakeStatuses: INTAKE_STATUSES,
   seminars: [],
   seminarRegistrations: [],
@@ -1657,6 +1658,7 @@ export default function App() {
       const body = await readJsonResponse(response);
       if (!response.ok) throw new Error(formatApiError(body, 'Unable to refresh intake forms'));
       const incoming = (body.intakeEnquiries || []).map(normaliseIntakeEnquiry);
+      const incomingDrafts = (body.intakeDrafts || []).map(normaliseIntakeDraft);
       const current = dataRef.current || emptyData;
       const existingIds = new Set((current.intakeEnquiries || []).map((item) => String(item.id || '')));
       const newlyReceived = incoming.filter((item) => item.id && !existingIds.has(String(item.id)));
@@ -1673,9 +1675,9 @@ export default function App() {
         }
       }
 
-      const nextData = { ...current, intakeEnquiries: nextIntakes };
+      const nextData = { ...current, intakeEnquiries: nextIntakes, intakeDrafts: incomingDrafts };
       dataRef.current = nextData;
-      setData((latest) => ({ ...latest, intakeEnquiries: nextIntakes }));
+      setData((latest) => ({ ...latest, intakeEnquiries: nextIntakes, intakeDrafts: incomingDrafts }));
       const refreshedAt = body.refreshedAt || new Date().toISOString();
       intakeRefreshCursorRef.current = refreshedAt;
       setLastIntakeRefreshAt(refreshedAt);
@@ -2515,6 +2517,20 @@ export default function App() {
     return body;
   }
 
+  async function sendIntakeDraftResumeEmail(draftId) {
+    const body = await callApi('sendIntakeDraftResumeEmail', { draftId });
+    showCrmToast('Continuation link sent.');
+    return body;
+  }
+
+  async function deleteIntakeDraft(draftId) {
+    const confirmed = await askCrmConfirm({ title: 'Delete incomplete assessment?', message: 'This permanently removes the saved assessment draft and any CV stored with it.', confirmLabel: 'Delete', tone: 'danger' });
+    if (!confirmed) return null;
+    const body = await callApi('deleteIntakeDraft', { draftId });
+    showCrmToast('Incomplete assessment deleted.');
+    return body;
+  }
+
   async function sendContactIntakeInviteEmail(contact) {
     const body = await callApi('sendContactIntakeInviteEmail', { contact }, { skipDataUpdate: true });
     if (body.emailLog) {
@@ -3256,7 +3272,7 @@ export default function App() {
             )}
 
             {tab === 'intake' && (
-              <IntakeWorkspace enquiries={data.intakeEnquiries || []} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} identityUser={identityUser} canExportContacts={canExportContacts} statuses={data.intakeStatuses || INTAKE_STATUSES} seminars={data.seminars || []} seminarRegistrations={data.seminarRegistrations || []} feedbackSubmissions={data.feedbackSubmissions || []} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} archiveIntakeEnquiries={archiveIntakeEnquiries} restoreIntakeEnquiry={restoreIntakeEnquiry} permanentlyDeleteIntakeEnquiry={permanentlyDeleteIntakeEnquiry} isAdmin={isAdmin} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendIntakeCvRequestEmail={sendIntakeCvRequestEmail} sendIntakeResultsToAdviser={sendIntakeResultsToAdviser} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} sendContactUnableToAssistEmail={sendContactUnableToAssistEmail} downloadIntakeUpload={downloadIntakeUpload} saveSeminar={saveSeminar} deleteSeminar={deleteSeminar} saveSeminarRegistration={saveSeminarRegistration} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail} saveFeedbackSubmission={saveFeedbackSubmission} deleteFeedbackSubmission={deleteFeedbackSubmission} saving={saving} openClientRecord={openClientRecord} confirmAction={askCrmConfirm} refreshIntakeData={refreshIntakeData} intakeRefreshing={intakeRefreshing} lastIntakeRefreshAt={lastIntakeRefreshAt} />
+              <IntakeWorkspace enquiries={data.intakeEnquiries || []} intakeDrafts={data.intakeDrafts || []} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} identityUser={identityUser} canExportContacts={canExportContacts} statuses={data.intakeStatuses || INTAKE_STATUSES} seminars={data.seminars || []} seminarRegistrations={data.seminarRegistrations || []} feedbackSubmissions={data.feedbackSubmissions || []} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} archiveIntakeEnquiries={archiveIntakeEnquiries} restoreIntakeEnquiry={restoreIntakeEnquiry} permanentlyDeleteIntakeEnquiry={permanentlyDeleteIntakeEnquiry} isAdmin={isAdmin} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendIntakeCvRequestEmail={sendIntakeCvRequestEmail} sendIntakeResultsToAdviser={sendIntakeResultsToAdviser} sendIntakeDraftResumeEmail={sendIntakeDraftResumeEmail} deleteIntakeDraft={deleteIntakeDraft} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} sendContactUnableToAssistEmail={sendContactUnableToAssistEmail} downloadIntakeUpload={downloadIntakeUpload} saveSeminar={saveSeminar} deleteSeminar={deleteSeminar} saveSeminarRegistration={saveSeminarRegistration} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail} saveFeedbackSubmission={saveFeedbackSubmission} deleteFeedbackSubmission={deleteFeedbackSubmission} saving={saving} openClientRecord={openClientRecord} confirmAction={askCrmConfirm} refreshIntakeData={refreshIntakeData} intakeRefreshing={intakeRefreshing} lastIntakeRefreshAt={lastIntakeRefreshAt} />
             )}
 
             {tab === 'bookings' && (
@@ -5074,7 +5090,19 @@ function IntakeFormApp() {
   const [cvState, setCvState] = useState({ applicantCv: { status: 'idle', message: '' }, partnerCv: { status: 'idle', message: '' } });
   const [submissionReceipt, setSubmissionReceipt] = useState(null);
   const [submissionStatus, setSubmissionStatus] = useState('');
+  const [draftResumeToken, setDraftResumeToken] = useState('');
+  const [draftUploads, setDraftUploads] = useState({});
+  const [draftSaving, setDraftSaving] = useState(false);
+  const [draftSavedAt, setDraftSavedAt] = useState('');
+  const [paused, setPaused] = useState(false);
+  const [pauseEmailSent, setPauseEmailSent] = useState(false);
+  const [resumeLoading, setResumeLoading] = useState(false);
+  const [localRecovery, setLocalRecovery] = useState(null);
   const submissionKeyRef = useRef(makeIntakeSubmissionKey());
+  const draftSaveSeqRef = useRef(0);
+  const draftResumeTokenRef = useRef('');
+  const draftCreatePromiseRef = useRef(null);
+  const intakeDraftStorageKey = 'this_guided_intake_draft_v2';
 
   const hasPartner = form.hasPartner === 'Yes';
   const hasChildren = form.hasChildren === 'Yes';
@@ -5131,6 +5159,75 @@ function IntakeFormApp() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    async function initialiseResume() {
+      const token = new URLSearchParams(window.location.search).get('resume') || '';
+      if (token) {
+        setResumeLoading(true);
+        try {
+          const response = await fetch('/.netlify/functions/intake?draft=resume', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token }) });
+          const body = await readJsonResponse(response);
+          if (!response.ok) throw new Error(body.error || 'The saved assessment could not be loaded.');
+          if (cancelled) return;
+          if (body.submitted) {
+            setError('This saved assessment has already been submitted. If you need to provide new information, please contact Turner Hopkins.');
+            return;
+          }
+          const draft = body.draft || {};
+          setForm({ ...makeBlankIntakePayload(), ...(draft.payload || {}) });
+          setStep(Math.min(8, Math.max(1, Number(draft.currentStep || 2))));
+          setDraftResumeToken(token);
+          draftResumeTokenRef.current = token;
+          setDraftUploads(draft.uploads || {});
+          setDraftSavedAt(draft.updatedAt || '');
+          setCvState({
+            applicantCv: draft.uploads?.applicantCv ? { status: 'uploaded', message: 'CV saved with your assessment.' } : { status: 'idle', message: '' },
+            partnerCv: draft.uploads?.partnerCv ? { status: 'uploaded', message: 'Partner CV saved with your assessment.' } : { status: 'idle', message: '' },
+          });
+          setSubmissionStatus('Saved assessment restored.');
+          localStorage.setItem(intakeDraftStorageKey, JSON.stringify({ token, form: draft.payload || {}, step: draft.currentStep || 2, uploads: draft.uploads || {}, savedAt: draft.updatedAt || new Date().toISOString() }));
+        } catch (err) {
+          if (!cancelled) setError(err.message || String(err));
+        } finally {
+          if (!cancelled) setResumeLoading(false);
+        }
+        return;
+      }
+      try {
+        const stored = JSON.parse(localStorage.getItem(intakeDraftStorageKey) || 'null');
+        const savedAt = stored?.savedAt ? new Date(stored.savedAt).getTime() : 0;
+        const stillCurrent = savedAt && (Date.now() - savedAt) < (30 * 24 * 60 * 60 * 1000);
+        if (stillCurrent && stored?.form && (stored.form.firstName || stored.form.email || stored.step > 1)) setLocalRecovery(stored);
+        else if (stored) localStorage.removeItem(intakeDraftStorageKey);
+      } catch {}
+    }
+    initialiseResume();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (submitted || paused || resumeLoading) return;
+    const meaningful = Boolean(form.targetPathway || form.firstName || form.lastName || form.email || step > 1);
+    if (!meaningful) return;
+    try {
+      localStorage.setItem(intakeDraftStorageKey, JSON.stringify({ token: draftResumeToken, form, step, uploads: draftUploads, savedAt: new Date().toISOString() }));
+    } catch {}
+  }, [form, step, draftResumeToken, draftUploads, submitted, paused, resumeLoading]);
+
+  useEffect(() => {
+    if (submitted || paused || resumeLoading || step < 2) return undefined;
+    if (!form.firstName || !form.lastName || !isValidIntakeEmailAddress(form.email)) return undefined;
+    const timer = window.setTimeout(() => { saveAssessmentDraft({ silent: true }).catch(() => {}); }, 1100);
+    return () => window.clearTimeout(timer);
+  }, [form, step, submitted, paused, resumeLoading]);
+
+  useEffect(() => {
+    if (!draftResumeToken) return;
+    if (applicantCvFile && !draftUploads.applicantCv && cvState.applicantCv.status !== 'uploading') uploadPendingDraftCv('applicantCv', applicantCvFile).catch(() => {});
+    if (partnerCvFile && !draftUploads.partnerCv && cvState.partnerCv.status !== 'uploading') uploadPendingDraftCv('partnerCv', partnerCvFile).catch(() => {});
+  }, [draftResumeToken]);
+
+  useEffect(() => {
     const shell = intakeShellRef.current;
     if (!shell || window.parent === window) return undefined;
 
@@ -5184,7 +5281,7 @@ function IntakeFormApp() {
       window.removeEventListener('load', postHeight);
       window.removeEventListener('message', handleParentMessage);
     };
-  }, [form, submitted, error, step, transition, showFunds]);
+  }, [form, submitted, paused, error, step, transition, showFunds, localRecovery, resumeLoading, draftUploads]);
 
   useEffect(() => {
     if (isInvestmentMatter) setShowFunds(true);
@@ -5329,20 +5426,91 @@ function IntakeFormApp() {
     setCvState((current) => ({ ...current, [kind]: { status, message } }));
   }
 
+  async function saveAssessmentDraft({ sendResumeEmail = false, silent = false } = {}) {
+    const firstName = String(form.firstName || '').trim();
+    const lastName = String(form.lastName || '').trim();
+    const email = String(form.email || '').trim();
+    if (!firstName || !lastName || !isValidIntakeEmailAddress(email)) {
+      if (!silent) throw new Error('Please add your first name, last name and a valid email before saving for later.');
+      return null;
+    }
+    const seq = ++draftSaveSeqRef.current;
+    if (!silent) setDraftSaving(true);
+    const existingToken = draftResumeTokenRef.current || draftResumeToken;
+    const performSave = async () => {
+      const response = await fetch('/.netlify/functions/intake?draft=save', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ token: existingToken, payload: { ...form, email }, step, sendResumeEmail }),
+      });
+      const body = await readJsonResponse(response);
+      if (!response.ok) throw new Error(body.error || 'Your assessment could not be saved.');
+      return body;
+    };
+    try {
+      let body;
+      if (!existingToken && draftCreatePromiseRef.current) body = await draftCreatePromiseRef.current;
+      else if (!existingToken) {
+        draftCreatePromiseRef.current = performSave();
+        try { body = await draftCreatePromiseRef.current; } finally { draftCreatePromiseRef.current = null; }
+      } else body = await performSave();
+      if (seq < draftSaveSeqRef.current && silent && !body.draft?.token) return body.draft || null;
+      const draft = body.draft || {};
+      if (draft.token) { setDraftResumeToken(draft.token); draftResumeTokenRef.current = draft.token; }
+      if (draft.uploads) setDraftUploads(draft.uploads);
+      setDraftSavedAt(draft.updatedAt || new Date().toISOString());
+      if (!silent) setSubmissionStatus(sendResumeEmail ? (body.emailSent ? 'Progress saved and continuation link emailed.' : 'Progress saved.') : 'Progress saved.');
+      return { ...draft, emailSent: Boolean(body.emailSent) };
+    } finally {
+      if (!silent) setDraftSaving(false);
+    }
+  }
+
+  async function uploadPendingDraftCv(kind, file) {
+    if (!file) return null;
+    let token = draftResumeTokenRef.current || draftResumeToken;
+    if (!token) {
+      const draft = await saveAssessmentDraft({ silent: true });
+      token = draft?.token || '';
+    }
+    if (!token) return null;
+    updateCvState(kind, 'uploading', `Uploading ${kind === 'partnerCv' ? 'partner CV' : 'CV'} to your saved assessment...`);
+    const params = new URLSearchParams({ draft: 'upload', token, kind, fileName: file.name });
+    const response = await fetch(`/.netlify/functions/intake?${params.toString()}`, { method: 'POST', headers: { 'content-type': normaliseCvMimeType(file.type, file.name) || 'application/octet-stream' }, body: file });
+    const body = await readJsonResponse(response);
+    if (!response.ok) {
+      updateCvState(kind, 'error', body.error || 'The CV could not be saved.');
+      throw new Error(body.error || 'The CV could not be saved.');
+    }
+    setDraftUploads((current) => ({ ...current, [kind]: body.upload }));
+    if (kind === 'applicantCv') setApplicantCvFile(null); else setPartnerCvFile(null);
+    updateCvState(kind, 'uploaded', `${kind === 'partnerCv' ? 'Partner CV' : 'CV'} saved with your assessment.`);
+    return body.upload;
+  }
+
+  async function removeDraftCv(kind) {
+    if (draftResumeToken && draftUploads[kind]) {
+      const response = await fetch('/.netlify/functions/intake?draft=remove-upload', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token: draftResumeToken, kind }) });
+      const body = await readJsonResponse(response);
+      if (!response.ok) throw new Error(body.error || 'The saved CV could not be removed.');
+    }
+    setDraftUploads((current) => { const next = { ...current }; delete next[kind]; return next; });
+    if (kind === 'applicantCv') { setApplicantCvFile(null); setField('applicantCvExpected', false); }
+    else { setPartnerCvFile(null); setField('partnerCvExpected', false); }
+    updateCvState(kind, 'idle', '');
+  }
+
   function handleCvFile(kind, file) {
     if (submissionReceipt?.uploadedKinds?.includes(kind)) return false;
-    if (!file) {
-      if (kind === 'applicantCv') { setApplicantCvFile(null); setField('applicantCvExpected', false); }
-      else { setPartnerCvFile(null); setField('partnerCvExpected', false); }
-      updateCvState(kind, 'idle', '');
-      return true;
-    }
+    if (!file) { removeDraftCv(kind).catch((err) => setError(err.message || String(err))); return true; }
     try {
       validateIntakeCvFile(file);
       if (kind === 'applicantCv') { setApplicantCvFile(file); setField('applicantCvExpected', true); }
       else { setPartnerCvFile(file); setField('partnerCvExpected', true); }
-      updateCvState(kind, 'ready', `${kind === 'partnerCv' ? 'Partner CV' : 'CV'} ready to upload.`);
+      updateCvState(kind, 'ready', `${kind === 'partnerCv' ? 'Partner CV' : 'CV'} ready to save.`);
       setError('');
+      if (draftResumeToken || (form.firstName && form.lastName && isValidIntakeEmailAddress(form.email))) {
+        window.setTimeout(() => uploadPendingDraftCv(kind, file).catch((err) => setError(err.message || String(err))), 0);
+      }
       return true;
     } catch (err) {
       if (kind === 'applicantCv') { setApplicantCvFile(null); setField('applicantCvExpected', false); }
@@ -5350,6 +5518,36 @@ function IntakeFormApp() {
       updateCvState(kind, 'error', err.message || 'That CV could not be selected.');
       return false;
     }
+  }
+
+  async function saveAndFinishLater() {
+    if (!validateIdentityStep()) return;
+    try {
+      setError('');
+      const draft = await saveAssessmentDraft({ sendResumeEmail: true, silent: false });
+      setPauseEmailSent(Boolean(draft?.emailSent));
+      setPaused(true);
+      scrollFormTop();
+    } catch (err) {
+      setError(err.message || String(err));
+    }
+  }
+
+  function restoreLocalAssessment() {
+    if (!localRecovery) return;
+    setForm({ ...makeBlankIntakePayload(), ...(localRecovery.form || {}) });
+    setStep(Math.min(8, Math.max(1, Number(localRecovery.step || 1))));
+    setDraftResumeToken(localRecovery.token || '');
+    draftResumeTokenRef.current = localRecovery.token || '';
+    setDraftUploads(localRecovery.uploads || {});
+    setLocalRecovery(null);
+    setSubmissionStatus('Your unfinished assessment has been restored on this device.');
+    scrollFormTop();
+  }
+
+  function discardLocalAssessment() {
+    try { localStorage.removeItem(intakeDraftStorageKey); } catch {}
+    setLocalRecovery(null);
   }
 
   function validateIdentityStep() {
@@ -5395,10 +5593,10 @@ function IntakeFormApp() {
       validateForm(); setSubmitting(true); setError('');
       if (!receipt) {
         setSubmissionStatus('Saving your questionnaire...');
-        const response = await fetch('/.netlify/functions/intake', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ payload: { ...form, email: String(form.email || '').trim(), intakeSubmissionKey: submissionKeyRef.current, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.17.14-assessment-form-reliability' } }) });
+        const response = await fetch('/.netlify/functions/intake', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ resumeToken: draftResumeTokenRef.current || draftResumeToken, payload: { ...form, email: String(form.email || '').trim(), intakeSubmissionKey: submissionKeyRef.current, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.17.17-assessment-draft-resume' } }) });
         const body = await readJsonResponse(response);
         if (!response.ok) throw new Error(body.error || 'The questionnaire could not be submitted.');
-        receipt = { intakeId: body.intakeId, uploadToken: body.uploadToken, expectedUploads: body.expectedUploads || [], uploadedKinds: [] };
+        receipt = { intakeId: body.intakeId, uploadToken: body.uploadToken, expectedUploads: body.expectedUploads || [], uploadedKinds: body.uploadedKinds || [] };
         setSubmissionReceipt(receipt);
       }
       const uploadsByKind = { applicantCv: { kind: 'applicantCv', file: applicantCvFile, label: 'CV' }, partnerCv: { kind: 'partnerCv', file: hasPartner ? partnerCvFile : null, label: 'partner CV' } };
@@ -5410,7 +5608,9 @@ function IntakeFormApp() {
         catch (uploadError) { updateCvState(item.kind,'error',uploadError.message || `The ${item.label} could not be uploaded.`); uploadError.cvKind=item.kind; uploadError.cvLabel=item.label; throw uploadError; }
         receipt={...receipt,uploadedKinds:[...new Set([...(receipt.uploadedKinds||[]),item.kind])]}; setSubmissionReceipt(receipt); updateCvState(item.kind,'uploaded',`${item.label === 'CV' ? 'CV' : 'Partner CV'} uploaded successfully.`);
       }
-      setSubmissionStatus('Questionnaire submitted successfully.'); setSubmitted(true); scrollFormTop();
+      setSubmissionStatus('Questionnaire submitted successfully.');
+      try { localStorage.removeItem(intakeDraftStorageKey); } catch {}
+      setSubmitted(true); scrollFormTop();
     } catch (err) {
       const message=err.message || String(err);
       if (receipt?.intakeId && err.cvKind) { setSubmissionStatus('Questionnaire saved — CV upload needs retry.'); setError(`Your questionnaire has been saved, but the ${err.cvLabel || 'CV'} did not finish uploading. ${message} Please check the file or your connection and press “Retry CV upload”. Your questionnaire answers will not be submitted again.`); }
@@ -5522,7 +5722,24 @@ function IntakeFormApp() {
             <div><strong>3</strong><span>We contact you about the next step</span></div>
           </div>
           <p className="guided-urgent-note">If you have an urgent query, an INZ deadline, or an immediate visa issue, please contact us directly at <a href="mailto:immigration@turnerhopkins.co.nz">immigration@turnerhopkins.co.nz</a>.</p>
-          <button className="btn dark" type="button" onClick={() => { setForm(makeBlankIntakePayload()); setApplicantCvFile(null); setPartnerCvFile(null); setCvState({ applicantCv: { status: 'idle', message: '' }, partnerCv: { status: 'idle', message: '' } }); setSubmissionReceipt(null); setSubmissionStatus(''); setEmailError(''); submissionKeyRef.current = makeIntakeSubmissionKey(); setSubmitted(false); setStep(1); }}>Start another questionnaire</button>
+          <button className="btn dark" type="button" onClick={() => { setForm(makeBlankIntakePayload()); setApplicantCvFile(null); setPartnerCvFile(null); setCvState({ applicantCv: { status: 'idle', message: '' }, partnerCv: { status: 'idle', message: '' } }); setSubmissionReceipt(null); setSubmissionStatus(''); setEmailError(''); setDraftResumeToken(''); draftResumeTokenRef.current = ''; setDraftUploads({}); setDraftSavedAt(''); setPaused(false); setPauseEmailSent(false); try { localStorage.removeItem(intakeDraftStorageKey); } catch {} submissionKeyRef.current = makeIntakeSubmissionKey(); setSubmitted(false); setStep(1); }}>Start another questionnaire</button>
+        </main>
+      </div>
+    );
+  }
+
+  if (paused) {
+    return (
+      <div className="intake-public-shell public-form-shell guided-intake-shell" ref={intakeShellRef}>
+        <main className="intake-public-card public-form-card intake-thanks-card guided-thanks-card intake-pause-card">
+          <FileCheck2 size={42} className="portal-lock" />
+          <h1>Your progress is saved.</h1>
+          <p className="muted">You can close this page and return to the same assessment later.</p>
+          <div className="intake-resume-confirmation">
+            <strong>{pauseEmailSent ? `We sent a secure continuation link to ${form.email}.` : 'Your assessment is saved securely.'}</strong>
+            <span>{pauseEmailSent ? 'Use that link on any device to continue where you left off. The link is valid for 30 days.' : 'If the email could not be sent, you can continue now and try saving again.'}</span>
+          </div>
+          <div className="guided-submit-bar intake-pause-actions"><button className="btn ghost" type="button" onClick={() => setPaused(false)}>Continue now</button><a className="btn dark" href="https://www.turnerhopkinsimmigration.co.nz/" target="_top" rel="noreferrer">Return to Turner Hopkins</a></div>
         </main>
       </div>
     );
@@ -5539,6 +5756,14 @@ function IntakeFormApp() {
             <p>Answer the guided questions below so our advisers can understand your circumstances and the best next step.</p>
           </div>
         </div>
+
+        {localRecovery && (
+          <div className="intake-recovery-banner">
+            <div><strong>You have an unfinished assessment on this device.</strong><span>Continue where you left off, or start fresh.</span></div>
+            <div><button className="btn ghost" type="button" onClick={discardLocalAssessment}>Start fresh</button><button className="btn dark" type="button" onClick={restoreLocalAssessment}>Continue assessment</button></div>
+          </div>
+        )}
+        {resumeLoading && <div className="intake-recovery-banner loading"><div><strong>Loading your saved assessment…</strong><span>Please wait a moment.</span></div></div>}
 
         <div className="guided-step-tabs" aria-label="Intake stages">
           {steps.map((item) => (
@@ -5630,7 +5855,8 @@ function IntakeFormApp() {
                 <IntakeField label="Date of birth" type="date" value={form.dateOfBirth} onChange={(v) => setField('dateOfBirth', v)} />
                 <div className="span-2"><IntakeField label="Current physical address" value={form.physicalAddress} onChange={(v) => setField('physicalAddress', v)} placeholder="Street address, suburb, city and country" /></div>
               </div>
-              <IntakeFileField label="Upload CV" file={applicantCvFile} onChange={(file) => handleCvFile('applicantCv', file)} status={cvState.applicantCv.status} statusMessage={cvState.applicantCv.message} locked={Boolean(submissionReceipt?.uploadedKinds?.includes('applicantCv'))} />
+              <p className="intake-draft-disclosure"><FileCheck2 size={15} />Once you have entered your name and email, we securely save your progress for up to 30 days so you can continue later. You can also choose <strong>Save &amp; finish later</strong> to have a secure continuation link emailed to you.</p>
+              <IntakeFileField label="Upload CV" file={applicantCvFile} storedUpload={draftUploads.applicantCv} onChange={(file) => handleCvFile('applicantCv', file)} onRemoveStored={() => removeDraftCv('applicantCv').catch((err) => setError(err.message || String(err)))} status={cvState.applicantCv.status} statusMessage={cvState.applicantCv.message} locked={Boolean(submissionReceipt?.uploadedKinds?.includes('applicantCv'))} />
             </IntakeSection>
           )}
 
@@ -5745,7 +5971,7 @@ function IntakeFormApp() {
                   <IntakeTextarea label="Partner employment details" value={form.partnerEmploymentDetails} onChange={(v) => setField('partnerEmploymentDetails', v)} rows={3} />
                   <IntakeTextarea label="Partner previous work history" value={form.partnerPreviousWorkHistory} onChange={(v) => setField('partnerPreviousWorkHistory', v)} rows={3} />
                   <IntakeTextarea label="Partner qualification details" value={form.partnerQualificationDetails} onChange={(v) => setField('partnerQualificationDetails', v)} rows={3} />
-                  <IntakeFileField label="Upload partner CV" file={partnerCvFile} onChange={(file) => handleCvFile('partnerCv', file)} status={cvState.partnerCv.status} statusMessage={cvState.partnerCv.message} locked={Boolean(submissionReceipt?.uploadedKinds?.includes('partnerCv'))} />
+                  <IntakeFileField label="Upload partner CV" file={partnerCvFile} storedUpload={draftUploads.partnerCv} onChange={(file) => handleCvFile('partnerCv', file)} onRemoveStored={() => removeDraftCv('partnerCv').catch((err) => setError(err.message || String(err)))} status={cvState.partnerCv.status} statusMessage={cvState.partnerCv.message} locked={Boolean(submissionReceipt?.uploadedKinds?.includes('partnerCv'))} />
                 </div>
               )}
               {hasChildren && (
@@ -5849,14 +6075,15 @@ function IntakeFormApp() {
             </IntakeSection>
           )}
 
-          {submissionStatus && <div className={`intake-submission-status ${submissionReceipt ? 'saved' : ''}`} role="status"><FileCheck2 size={17} /><span>{submissionStatus}</span></div>}
-          <div className="guided-submit-bar">
-            <button className="btn ghost" type="button" onClick={previousStep} disabled={step === 1 || submitting}>Back</button>
+          {submissionStatus && <div className={`intake-submission-status ${submissionReceipt || draftResumeToken ? 'saved' : ''}`} role="status"><FileCheck2 size={17} /><span>{submissionStatus}</span></div>}
+          {draftSavedAt && !submissionStatus && <div className="intake-draft-save-note"><FileCheck2 size={14} />Progress saved securely</div>}
+          <div className="guided-submit-bar guided-submit-bar-resume">
+            <div className="guided-submit-left"><button className="btn ghost" type="button" onClick={previousStep} disabled={step === 1 || submitting || draftSaving}>Back</button>{step >= 2 && <button className="btn ghost intake-save-later" type="button" onClick={saveAndFinishLater} disabled={submitting || draftSaving}>{draftSaving ? 'Saving…' : 'Save & finish later'}</button>}</div>
             <span>{completedSteps} of {steps.length} stages completed</span>
             {step < steps.length ? (
-              <button className="btn dark" type="button" onClick={nextStep} disabled={submitting}>Next</button>
+              <button className="btn dark" type="button" onClick={nextStep} disabled={submitting || draftSaving}>Next</button>
             ) : (
-              <button className="btn dark" type="submit" disabled={submitting}>{submitting ? (submissionReceipt ? 'Uploading...' : 'Submitting...') : (submissionReceipt ? 'Retry CV upload' : 'Submit questionnaire')}</button>
+              <button className="btn dark" type="submit" disabled={submitting || draftSaving}>{submitting ? (submissionReceipt ? 'Uploading...' : 'Submitting...') : (submissionReceipt ? 'Retry CV upload' : 'Submit questionnaire')}</button>
             )}
           </div>
         </form>
@@ -7309,7 +7536,7 @@ function RelatedEnquiryPanel({ matches = [] }) {
 }
 
 
-function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', identityUser = null, canExportContacts = false, statuses, seminars = [], seminarRegistrations = [], feedbackSubmissions = [], saveIntakeEnquiry, deleteIntakeEnquiry, archiveIntakeEnquiries, restoreIntakeEnquiry, permanentlyDeleteIntakeEnquiry, isAdmin = false, convertIntakeToClient, sendIntakeOutcomeEmail, sendIntakeCvRequestEmail, sendIntakeResultsToAdviser, sendContactIntakeInviteEmail, sendContactUnableToAssistEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saveFeedbackSubmission, deleteFeedbackSubmission, saving, openClientRecord, confirmAction, refreshIntakeData, intakeRefreshing = false, lastIntakeRefreshAt = '' }) {
+function IntakeWorkspace({ enquiries, intakeDrafts = [], advisers, dashboardAdviserFilter = 'all', identityUser = null, canExportContacts = false, statuses, seminars = [], seminarRegistrations = [], feedbackSubmissions = [], saveIntakeEnquiry, deleteIntakeEnquiry, archiveIntakeEnquiries, restoreIntakeEnquiry, permanentlyDeleteIntakeEnquiry, isAdmin = false, convertIntakeToClient, sendIntakeOutcomeEmail, sendIntakeCvRequestEmail, sendIntakeResultsToAdviser, sendIntakeDraftResumeEmail, deleteIntakeDraft, sendContactIntakeInviteEmail, sendContactUnableToAssistEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saveFeedbackSubmission, deleteFeedbackSubmission, saving, openClientRecord, confirmAction, refreshIntakeData, intakeRefreshing = false, lastIntakeRefreshAt = '' }) {
   const askConfirm = confirmAction || (async ({ message }) => window.confirm(message || 'Continue?'));
   const simplifiedStatuses = (statuses || INTAKE_STATUSES).filter((status) => INTAKE_STATUSES.includes(status));
   const [workspaceTab, setWorkspaceTab] = useState('contact');
@@ -7387,6 +7614,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
     .sort((a, b) => intakeSortTime(b) - intakeSortTime(a));
   const normalisedSeminarRegistrations = (seminarRegistrations || [])
     .map(normaliseSeminarRegistration);
+  const activeIntakeDrafts = (intakeDrafts || []).map(normaliseIntakeDraft).filter((item) => item.status === 'Draft').sort((a, b) => intakeSortTime(b) - intakeSortTime(a));
 
   const relatedEnquirySources = useMemo(() => {
     const contacts = contactEnquiries.map((item) => makeEnquiryMatchRecord('contact', item));
@@ -7465,6 +7693,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
   const activeSeminar = (seminars || []).find((item) => item.status === 'Active') || (seminars || [])[0] || null;
   const newSeminarRegistrationCount = (seminarRegistrations || []).filter((item) => item.status === 'New').length;
   const newFeedbackCount = normalisedFeedbackSubmissions.filter((item) => item.status === 'New').length;
+  const incompleteAssessmentCount = activeIntakeDrafts.length;
   const flaggedCount = intakeEnquiries.filter((item) => hasAnyIntakeFlag(item.flags)).length;
   const expandedItem = expandedId ? intakeEnquiries.find((item) => item.id === expandedId) : null;
   const draftDirty = Boolean(draft && expandedItem && JSON.stringify(intakeCompareSnapshot(draft)) !== JSON.stringify(intakeCompareSnapshot(expandedItem)));
@@ -7835,6 +8064,9 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
         <button type="button" className={workspaceTab === 'feedback' ? 'active' : ''} onClick={() => { setWorkspaceTab('feedback'); setFeedbackStatusFilter('New'); }}>
           <span>New feedback</span><strong>{newFeedbackCount}</strong><small>Website submissions</small>
         </button>
+        <button type="button" className={workspaceTab === 'drafts' ? 'active' : ''} onClick={() => setWorkspaceTab('drafts')}>
+          <span>Incomplete assessments</span><strong>{incompleteAssessmentCount}</strong><small>Saved to finish later</small>
+        </button>
         <button type="button" className={workspaceTab === 'archive' ? 'active' : ''} onClick={() => setWorkspaceTab('archive')}>
           <span>Archived enquiries</span><strong>{archivedEnquiries.length}</strong><small>Retained history</small>
         </button>
@@ -7846,6 +8078,7 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
           <button type="button" className={workspaceTab === 'intake' ? 'active' : ''} onClick={() => setWorkspaceTab('intake')}><ClipboardList size={16} />Intake <span>{newIntakeCount}</span></button>
           <button type="button" className={workspaceTab === 'seminars' ? 'active' : ''} onClick={() => setWorkspaceTab('seminars')}><CalendarDays size={16} />Seminars <span>{newSeminarRegistrationCount}</span></button>
           <button type="button" className={workspaceTab === 'feedback' ? 'active' : ''} onClick={() => setWorkspaceTab('feedback')}><MessageSquare size={16} />Feedback <span>{newFeedbackCount}</span></button>
+          <button type="button" className={workspaceTab === 'drafts' ? 'active' : ''} onClick={() => setWorkspaceTab('drafts')}><Clock size={16} />Incomplete <span>{incompleteAssessmentCount}</span></button>
           <button type="button" className={workspaceTab === 'archive' ? 'active' : ''} onClick={() => setWorkspaceTab('archive')}><Archive size={16} />Archive <span>{archivedEnquiries.length}</span></button>
         </div>
 
@@ -7860,6 +8093,8 @@ function IntakeWorkspace({ enquiries, advisers, dashboardAdviserFilter = 'all', 
             sendSeminarRegistrationEmail={sendSeminarRegistrationEmail}
             saving={saving}
           />
+        ) : workspaceTab === 'drafts' ? (
+          <IncompleteAssessmentPanel drafts={activeIntakeDrafts} saving={saving} isAdmin={isAdmin} onResend={sendIntakeDraftResumeEmail} onDelete={deleteIntakeDraft} />
         ) : (
           <>
         <div className="intake-inbox-toolbar enquiries-toolbar">
@@ -8555,6 +8790,31 @@ function intakeCompareSnapshot(item = {}) {
   };
 }
 
+function IncompleteAssessmentPanel({ drafts = [], saving = false, isAdmin = false, onResend, onDelete }) {
+  const [sendingId, setSendingId] = useState('');
+  const [notice, setNotice] = useState('');
+  async function resend(item) {
+    setSendingId(item.id); setNotice('');
+    try { await onResend?.(item.id); setNotice(`Continuation link sent to ${item.email}.`); }
+    catch (err) { setNotice(err.message || 'The continuation email could not be sent.'); }
+    finally { setSendingId(''); }
+  }
+  return <div className="incomplete-assessment-panel">
+    <div className="enquiries-queue-heading"><div><span className="eyebrow">Saved for later</span><h2>Incomplete assessments</h2><p className="muted">These drafts are separate from New Intake and expire after 30 days of inactivity. Resending a link creates a fresh secure continuation token.</p></div><span className="enquiries-shown-count">{drafts.length} saved</span></div>
+    {notice && <div className="success-banner compact">{notice}</div>}
+    <div className="incomplete-assessment-list">
+      {drafts.map((item) => <article key={item.id} className="incomplete-assessment-card">
+        <div className="incomplete-assessment-person"><strong>{[item.firstName,item.lastName].filter(Boolean).join(' ') || 'Unnamed applicant'}</strong><span>{item.email || 'No email'}</span></div>
+        <div className="incomplete-assessment-progress"><span>Progress</span><strong>{item.progressPercent}% · Step {item.currentStep} of 8</strong><div><i style={{width:`${Math.max(4,item.progressPercent)}%`}} /></div></div>
+        <div><span className="field-caption">Last active</span><strong>{item.updatedAt ? formatPortalDateTime(item.updatedAt) : 'Not recorded'}</strong><small>{item.resumeEmailSentAt ? `Link sent ${formatPortalDateTime(item.resumeEmailSentAt)}` : 'No continuation email sent yet'}</small></div>
+        <div><span className="field-caption">Expires</span><strong>{item.expiresAt ? formatPortalDateTime(item.expiresAt) : '30 days'}</strong><small>{Object.keys(item.uploads || {}).length ? `${Object.keys(item.uploads || {}).length} CV file${Object.keys(item.uploads || {}).length === 1 ? '' : 's'} saved` : 'No CV stored'}</small></div>
+        <div className="incomplete-assessment-actions"><button className="btn dark" type="button" disabled={saving || sendingId === item.id} onClick={() => resend(item)}><Mail size={15}/>{sendingId === item.id ? 'Sending…' : 'Send resume link'}</button>{isAdmin && <button className="btn danger" type="button" disabled={saving} onClick={() => onDelete?.(item.id)}><Trash2 size={15}/>Delete</button>}</div>
+      </article>)}
+      {!drafts.length && <div className="empty-state slim"><FileCheck2 size={34}/><h2>No incomplete assessments</h2><p>Saved assessment drafts will appear here without affecting the New Intake queue.</p></div>}
+    </div>
+  </div>;
+}
+
 function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, setDraftPayloadField, onSave, onSaveAndClose, onClose, onDelete, onConvert, sendIntakeOutcomeEmail, sendIntakeCvRequestEmail, sendIntakeResultsToAdviser, downloadIntakeUpload, openClientRecord, relatedMatches = [], confirmAction }) {
   const askConfirm = confirmAction || (async ({ message }) => window.confirm(message || 'Continue?'));
   const applicantName = [draft.firstName, draft.lastName].filter(Boolean).join(' ') || 'Unnamed enquiry';
@@ -9217,14 +9477,31 @@ function IntakeSelect({ label, value, onChange, options, required = false }) {
   return <label className="field"><span>{label}{required ? ' *' : ''}</span><select value={value || ''} required={required} onChange={(event) => onChange(event.target.value)}><option value="">Select...</option>{normalised.map((option, index) => <option key={`${option.value || option.label}-${index}`} value={option.value} disabled={Boolean(option.disabled)}>{option.label}</option>)}</select></label>;
 }
 
-function IntakeFileField({ label, file, onChange, status = 'idle', statusMessage = '', locked = false }) {
+function IntakeFileField({ label, file, storedUpload = null, onChange, onRemoveStored, status = 'idle', statusMessage = '', locked = false }) {
   const inputId = `intake-file-${label.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
+  const displayed = file || storedUpload;
+  const displayedName = file?.name || storedUpload?.fileName || '';
+  const displayedSize = file?.size || storedUpload?.fileSize || 0;
   return (
     <div className={`intake-file-field ${status === 'error' ? 'has-error' : ''}`}>
-      <label className="field" htmlFor={inputId}><span>{label}</span><input id={inputId} type="file" accept={INTAKE_CV_ACCEPT} disabled={locked} onChange={(event) => { const accepted = onChange(event.target.files?.[0] || null); if (accepted === false) event.currentTarget.value = ''; }} /></label>
-      <p className="muted">PDF, DOC or DOCX only. Maximum 5 MB. One file only.</p>
-      {status !== 'idle' && statusMessage && <div className={`intake-upload-status ${status}`} role={status === 'error' ? 'alert' : 'status'}>{status === 'uploaded' || status === 'ready' ? <FileCheck2 size={16} /> : status === 'uploading' ? <Upload size={16} /> : <AlertTriangle size={16} />}<span>{statusMessage}</span></div>}
-      {file && <div className="intake-upload-pill"><FileText size={15} /><span>{file.name} · {formatFileSize(file.size)}</span>{locked ? <strong className="intake-upload-locked">Uploaded</strong> : <button type="button" className="btn mini" onClick={() => onChange(null)}>Remove</button>}</div>}
+      <label className="field" htmlFor={inputId}>
+        <span>{label}</span>
+        <input id={inputId} type="file" accept={INTAKE_CV_ACCEPT} disabled={locked} onChange={(event) => { const accepted = onChange(event.target.files?.[0] || null); if (accepted === false) event.currentTarget.value = ''; }} />
+      </label>
+      <p className="muted">PDF, DOC or DOCX only. Maximum 5 MB. One file only. Saved CVs return with your assessment.</p>
+      {status !== 'idle' && statusMessage && (
+        <div className={`intake-upload-status ${status}`} role={status === 'error' ? 'alert' : 'status'}>
+          {status === 'uploaded' || status === 'ready' ? <FileCheck2 size={16} /> : status === 'uploading' ? <Upload size={16} /> : <AlertTriangle size={16} />}
+          <span>{statusMessage}</span>
+        </div>
+      )}
+      {displayed && (
+        <div className="intake-upload-pill">
+          <FileText size={15} />
+          <span>{displayedName} · {formatFileSize(displayedSize)}</span>
+          {locked ? <strong className="intake-upload-locked">Uploaded</strong> : storedUpload ? <button type="button" className="btn mini" onClick={() => onRemoveStored?.()}>Remove</button> : <button type="button" className="btn mini" onClick={() => onChange(null)}>Remove</button>}
+        </div>
+      )}
     </div>
   );
 }
@@ -18152,6 +18429,14 @@ function normaliseSimplifiedIntakeStatus(value) {
   return 'New';
 }
 
+function normaliseIntakeDraft(entry = {}) {
+  return {
+    id: entry.id || '', status: entry.status || 'Draft', firstName: entry.firstName || entry.applicant_first_name || '', lastName: entry.lastName || entry.applicant_last_name || '', email: entry.email || '',
+    currentStep: Number(entry.currentStep || entry.current_step || 2), progressPercent: Number(entry.progressPercent || entry.progress_percent || 0), payload: entry.payload || entry.raw_payload || {}, uploads: entry.uploads || entry.uploaded_files || {},
+    expiresAt: entry.expiresAt || entry.expires_at || '', resumeEmailSentAt: entry.resumeEmailSentAt || entry.resume_email_sent_at || '', submittedIntakeId: entry.submittedIntakeId || entry.submitted_intake_id || '', createdAt: entry.createdAt || entry.created_at || '', updatedAt: entry.updatedAt || entry.updated_at || '',
+  };
+}
+
 function normaliseIntakeEnquiry(entry = {}) {
   const status = normaliseSimplifiedIntakeStatus(entry.status);
   return {
@@ -18487,6 +18772,7 @@ function normaliseData(body) {
     agreementTemplateLibrary: body.agreementTemplateLibrary && typeof body.agreementTemplateLibrary === 'object' ? body.agreementTemplateLibrary : {},
     agreementTemplateVersions: (body.agreementTemplateVersions || []).map(normaliseAgreementTemplateVersion),
     intakeEnquiries: (body.intakeEnquiries || []).map(normaliseIntakeEnquiry),
+    intakeDrafts: (body.intakeDrafts || []).map(normaliseIntakeDraft),
     intakeStatuses: body.intakeStatuses || INTAKE_STATUSES,
     seminars: (body.seminars || []).map(normaliseSeminar),
     seminarRegistrations: (body.seminarRegistrations || []).map(normaliseSeminarRegistration),
@@ -18532,6 +18818,7 @@ function mergePartialCrmResponse(current = emptyData, body = {}) {
   if (body.calendarEntry) next.calendarEntries = upsertCrmItem(current.calendarEntries || [], normaliseCalendarEntry(body.calendarEntry));
   if (body.libraryEntry) next.libraryEntries = upsertCrmItem(current.libraryEntries || [], normaliseLibraryEntry(body.libraryEntry));
   if (body.intakeEnquiry) next.intakeEnquiries = upsertCrmItem(current.intakeEnquiries || [], normaliseIntakeEnquiry(body.intakeEnquiry));
+  if (body.intakeDraft) next.intakeDrafts = upsertCrmItem(current.intakeDrafts || [], normaliseIntakeDraft(body.intakeDraft));
   if (Array.isArray(body.updatedIntakeEnquiries)) {
     let rows = current.intakeEnquiries || [];
     body.updatedIntakeEnquiries.map(normaliseIntakeEnquiry).forEach((item) => { rows = upsertCrmItem(rows, item); });
@@ -18574,6 +18861,7 @@ function mergePartialCrmResponse(current = emptyData, body = {}) {
   if (body.deletedCalendarEntryId) next.calendarEntries = (current.calendarEntries || []).filter((item) => item.id !== body.deletedCalendarEntryId);
   if (body.deletedLibraryEntryId) next.libraryEntries = (current.libraryEntries || []).filter((item) => item.id !== body.deletedLibraryEntryId);
   if (body.deletedIntakeEnquiryId) next.intakeEnquiries = (current.intakeEnquiries || []).filter((item) => item.id !== body.deletedIntakeEnquiryId);
+  if (body.deletedIntakeDraftId) next.intakeDrafts = (current.intakeDrafts || []).filter((item) => item.id !== body.deletedIntakeDraftId);
   if (body.deletedInstructionSetId) next.instructionSets = (current.instructionSets || []).filter((item) => item.id !== body.deletedInstructionSetId);
   if (body.deletedAgreementSetId) next.agreementSets = (current.agreementSets || []).filter((item) => item.id !== body.deletedAgreementSetId);
   if (body.deletedClientId) next.clients = (current.clients || []).filter((item) => item.id !== body.deletedClientId);

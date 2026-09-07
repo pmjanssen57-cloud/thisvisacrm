@@ -1,12 +1,9 @@
-THiS CRM v0.17.16 validation
+THiS CRM v0.17.17 validation
 
-- App.jsx parses successfully as JSX.
-- All Netlify .mjs function files pass Node syntax checking.
-- PWA validation passes.
-- All existing database migration files are byte-for-byte unchanged from v0.17.15.
-- No new database migration, dependency or environment variable.
-- Startup load sequencing ignores stale request failures.
-- Latest successful load explicitly clears the CRM error state.
-- Empty database UI requires a confirmed successful CRM response and no load error.
-- Initial network/5xx load failures receive one short automatic retry.
-- Existing loaded data is preserved if a later reload fails.
+Validation completed before packaging:
+- App.jsx JSX parse check.
+- All Netlify .mjs functions syntax checked with Node.
+- PWA validation script.
+- package.json parse/version check.
+- Existing v0.17.16 migrations verified unchanged; one new additive intake_drafts migration added.
+- ZIP integrity test.

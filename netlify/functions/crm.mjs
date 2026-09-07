@@ -288,6 +288,26 @@ Please review this in THiS CRM > Enquiries & Intake > Seminar Registrations.`,
     placeholders: ['registrantFullName', 'registrantEmail', 'seminarTitle', 'seminarDateTime', 'presenterName', 'dateOfBirth', 'citizenshipCountry', 'residenceCountry', 'registrantTimezone', 'partnershipStatus', 'highestQualification', 'currentOccupation', 'englishAbility', 'workHistory', 'healthCharacterIssues', 'submitted', 'registrationId'],
   },
   {
+    key: 'assessment_resume_link',
+    name: 'Assessment form - continue later',
+    description: 'Sent to an applicant when a partially completed assessment is saved for later.',
+    subject: 'Continue your Turner Hopkins assessment',
+    bodyText: `Hi {{firstName}},
+
+Your Turner Hopkins immigration assessment has been saved, so you do not need to start again.
+
+Continue your assessment here:
+{{resumeUrl}}
+
+Your saved assessment is currently {{progressPercent}}% complete and the secure continuation link will remain available until {{expiresDate}}.
+
+For your privacy, please do not forward this link to anyone else. If you did not request this email, you can simply ignore it.
+
+Kind regards,
+Turner Hopkins Immigration Specialists`,
+    placeholders: ['firstName', 'applicantName', 'resumeUrl', 'progressPercent', 'expiresDate'],
+  },
+  {
     key: 'assessment_form_internal_notification',
     name: 'Assessment form - internal notification',
     description: 'Internal notification sent when a full assessment form is submitted through the public assessment page.',
@@ -478,7 +498,8 @@ async function handleCrmEvent(event) {
       const intakeEnquiries = since
         ? await readIntakeEnquiryUpdates(since)
         : await readIntakeEnquiries();
-      return json({ intakeEnquiries, refreshedAt, mode: since ? 'delta' : 'full' });
+      const intakeDrafts = await readActiveIntakeDrafts();
+      return json({ intakeEnquiries, intakeDrafts, refreshedAt, mode: since ? 'delta' : 'full' });
     }
 
     await ensureSchema();
@@ -713,6 +734,17 @@ async function handleCrmEvent(event) {
     if (action === 'sendIntakeResultsToAdviser') {
       const emailLog = await sendIntakeResultsToAdviser(body.intake || {}, body.summary || {}, auth.user);
       return json({ emailLog, emailConfig: getEmailConfigStatus() });
+    }
+
+    if (action === 'sendIntakeDraftResumeEmail') {
+      const result = await sendIntakeDraftResumeEmail(body.draftId, auth.user);
+      return json({ intakeDraft: result.draft, emailLog: result.emailLog, emailConfig: getEmailConfigStatus() });
+    }
+
+    if (action === 'deleteIntakeDraft') {
+      requireAdminAccess(accessContext, 'Incomplete assessment deletion');
+      await deleteIntakeDraft(body.draftId);
+      return json({ deletedIntakeDraftId: body.draftId });
     }
 
     if (action === 'sendContactIntakeInviteEmail') {
@@ -1292,6 +1324,27 @@ async function ensureSchema() {
   await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_enquiries_updated_at ON intake_enquiries(updated_at ASC)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_enquiries_assigned_adviser ON intake_enquiries(assigned_adviser_id)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_enquiries_email ON intake_enquiries(LOWER(email))`;
+  await database.sql`
+    CREATE TABLE IF NOT EXISTS intake_drafts (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      resume_token_hash TEXT NOT NULL UNIQUE,
+      status TEXT NOT NULL DEFAULT 'Draft',
+      applicant_first_name TEXT,
+      applicant_last_name TEXT,
+      email TEXT NOT NULL,
+      current_step INTEGER NOT NULL DEFAULT 2,
+      progress_percent INTEGER NOT NULL DEFAULT 0,
+      raw_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+      uploaded_files JSONB NOT NULL DEFAULT '{}'::jsonb,
+      expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '30 days'),
+      resume_email_sent_at TIMESTAMPTZ,
+      submitted_intake_id UUID,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_drafts_status_updated ON intake_drafts(status, updated_at DESC)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_drafts_email ON intake_drafts(LOWER(email))`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_drafts_expires_at ON intake_drafts(expires_at)`;
   await database.sql`
     CREATE TABLE IF NOT EXISTS seminars (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -2424,6 +2477,31 @@ async function ensureConsultationBookingSchema(database = db()) {
   }
 }
 
+async function readActiveIntakeDrafts(database = db()) {
+  const rows = await database.sql`SELECT id, status, applicant_first_name, applicant_last_name, email, current_step, progress_percent, raw_payload, uploaded_files, expires_at, resume_email_sent_at, submitted_intake_id, created_at, updated_at FROM intake_drafts WHERE status = 'Draft' AND expires_at > NOW() ORDER BY updated_at DESC LIMIT 250`;
+  return rows.map(mapIntakeDraftFromDb);
+}
+
+async function pruneExpiredIntakeDrafts(database = db()) {
+  const rows = await database.sql`SELECT id, uploaded_files FROM intake_drafts WHERE (status = 'Draft' AND expires_at <= NOW()) OR (status = 'Submitted' AND updated_at < NOW() - INTERVAL '30 days') ORDER BY updated_at ASC LIMIT 50`;
+  if (!rows.length) return;
+  const store = getStore({ name: 'intake-uploads', consistency: 'strong' });
+  for (const row of rows) {
+    // Submitted drafts may reference the same Blob keys now attached to the live intake
+    // record, so only purge Blob files for genuinely abandoned/expired drafts.
+    const statusRows = await database.sql`SELECT status FROM intake_drafts WHERE id=${row.id} LIMIT 1`;
+    const status = statusRows[0]?.status || 'Draft';
+    if (status === 'Draft') {
+      const uploads = row.uploaded_files && typeof row.uploaded_files === 'object' ? row.uploaded_files : {};
+      for (const item of Object.values(uploads)) {
+        if (!item?.blobKey) continue;
+        try { await store.delete(item.blobKey); } catch (error) { console.warn('Unable to prune expired assessment draft upload', error?.message || error); }
+      }
+    }
+    await database.sql`DELETE FROM intake_drafts WHERE id=${row.id}`;
+  }
+}
+
 async function readIntakeEnquiries(database = db()) {
   const rows = await database.sql`SELECT id, status, assigned_adviser_id, applicant_first_name, applicant_last_name, email, phone, current_location, citizenship, date_of_birth, current_visa_type, current_visa_expiry, target_pathway, urgency, flags, raw_payload, adviser_assessment_notes, recommended_pathway, consultation_outcome, converted_client_id, created_at, updated_at FROM intake_enquiries ORDER BY created_at DESC`;
   return rows.map(mapIntakeEnquiryFromDb);
@@ -2849,8 +2927,9 @@ async function invalidateAllCrmReferences() {
 async function readCrmData() {
   const database = db();
   await pruneOldEmailNotifications(database);
+  await pruneExpiredIntakeDrafts(database);
   const referencePromise = readCachedCrmReferences(database);
-  const [clients, stages, deadlines, billing, personalTasks, calendarEntries, libraryEntries, portalMessages, portalDocuments, intakeEnquiries, seminars, seminarRegistrations, feedbackSubmissions, emailLogs, bookingAvailability, bookingBlocks, bookingLinks, consultationBookings, instructionSets, instructionTemplateVersions, agreementSets, agreementTemplateVersions, notificationRecipientSettings] = await Promise.all([
+  const [clients, stages, deadlines, billing, personalTasks, calendarEntries, libraryEntries, portalMessages, portalDocuments, intakeEnquiries, intakeDrafts, seminars, seminarRegistrations, feedbackSubmissions, emailLogs, bookingAvailability, bookingBlocks, bookingLinks, consultationBookings, instructionSets, instructionTemplateVersions, agreementSets, agreementTemplateVersions, notificationRecipientSettings] = await Promise.all([
     database.sql`SELECT id, first_name, last_name, email, phone, nationality, date_of_birth, location, sharepoint_folder_url, one_law_client_number, matter_name, case_strategy, case_type, primary_adviser_id, backup_adviser_id, priority, client_status, next_action, next_action_due, next_action_log, matter_status, matter_review_date, matter_activity, portal_enabled, portal_email, portal_status_update, portal_next_step, portal_visible_document_ids, portal_visible_deadline_ids, portal_visible_appointment_ids, portal_visible_billing_ids, portal_resource_settings, portal_access_code_hash, portal_last_published_at, portal_last_accessed_at, notes, family_members, document_checklist FROM clients ORDER BY updated_at DESC`,
     database.sql`SELECT id, client_id, stage_key, stage_label, mandatory, applied, completed, completed_date, sort_order FROM client_stages ORDER BY sort_order ASC`,
     database.sql`SELECT id, client_id, deadline_type, deadline_date, note, action_status, review_date FROM client_deadlines ORDER BY deadline_date ASC NULLS LAST`,
@@ -2861,6 +2940,7 @@ async function readCrmData() {
     database.sql`SELECT id, client_id, portal_email, message_type, title, message, status, created_at FROM client_portal_messages ORDER BY created_at DESC`,
     database.sql`SELECT id, client_id, title, category, description, file_name, file_type, file_size, blob_key, visible_to_client, uploaded_by, uploaded_at FROM client_portal_documents ORDER BY uploaded_at DESC`,
     database.sql`SELECT id, status, assigned_adviser_id, applicant_first_name, applicant_last_name, email, phone, current_location, citizenship, date_of_birth, current_visa_type, current_visa_expiry, target_pathway, urgency, flags, raw_payload, adviser_assessment_notes, recommended_pathway, consultation_outcome, converted_client_id, created_at, updated_at FROM intake_enquiries ORDER BY created_at DESC`,
+    database.sql`SELECT id, status, applicant_first_name, applicant_last_name, email, current_step, progress_percent, raw_payload, uploaded_files, expires_at, resume_email_sent_at, submitted_intake_id, created_at, updated_at FROM intake_drafts WHERE status = 'Draft' AND expires_at > NOW() ORDER BY updated_at DESC LIMIT 250`,
     database.sql`SELECT id, title, seminar_date, seminar_time, timezone, presenter_name, zoom_link, zoom_password, status, registration_open, internal_notes, created_at, updated_at FROM seminars ORDER BY seminar_date DESC NULLS LAST, created_at DESC`,
     database.sql`SELECT id, seminar_id, status, full_name, date_of_birth, citizenship_country, residence_country, timezone, email, partnership_status, highest_qualification, current_occupation, work_history, health_character_issues, english_ability, raw_payload, reviewed_by, approved_at, declined_at, created_at, updated_at FROM seminar_registrations ORDER BY created_at DESC`,
     database.sql`SELECT id, status, first_name, last_name, email, phone, adviser_name, application_type, overall_rating, recommendation_rating, service_strengths, improvement_suggestions, permission_to_contact, permission_to_use_feedback, raw_payload, reviewed_by, created_at, updated_at FROM feedback_submissions ORDER BY created_at DESC`,
@@ -2892,6 +2972,7 @@ async function readCrmData() {
     agreementTemplateLibrary: references.agreementTemplateLibrary,
     agreementTemplateVersions: Array.isArray(agreementTemplateVersions) ? agreementTemplateVersions.map(mapAgreementTemplateVersionFromDb) : [],
     intakeEnquiries: intakeEnquiries.map(mapIntakeEnquiryFromDb),
+    intakeDrafts: intakeDrafts.map(mapIntakeDraftFromDb),
     intakeStatuses: INTAKE_STATUSES,
     seminars: seminars.map(mapSeminarFromDb),
     seminarRegistrations: seminarRegistrations.map(mapSeminarRegistrationFromDb),
@@ -3345,6 +3426,92 @@ function mapLibraryEntryFromDb(row) {
   };
 }
 
+
+
+function mapIntakeDraftFromDb(row = {}) {
+  return {
+    id: row.id || '',
+    status: row.status || 'Draft',
+    firstName: row.applicant_first_name || '',
+    lastName: row.applicant_last_name || '',
+    email: row.email || '',
+    currentStep: Number(row.current_step || 2),
+    progressPercent: Number(row.progress_percent || 0),
+    payload: row.raw_payload && typeof row.raw_payload === 'object' ? row.raw_payload : {},
+    uploads: row.uploaded_files && typeof row.uploaded_files === 'object' ? row.uploaded_files : {},
+    expiresAt: row.expires_at || '',
+    resumeEmailSentAt: row.resume_email_sent_at || '',
+    submittedIntakeId: row.submitted_intake_id || '',
+    createdAt: row.created_at || '',
+    updatedAt: row.updated_at || '',
+  };
+}
+
+function crmIntakeResumeToken() {
+  return crypto.randomBytes(32).toString('base64url');
+}
+
+function crmIntakeResumeTokenHash(token = '') {
+  return crypto.createHash('sha256').update(String(token || ''), 'utf8').digest('hex');
+}
+
+function crmIntakeResumeUrl(token = '') {
+  const base = String(process.env.PUBLIC_INTAKE_FORM_URL || 'https://www.turnerhopkinsimmigration.co.nz/assessment').trim() || 'https://www.turnerhopkinsimmigration.co.nz/assessment';
+  try { const url = new URL(base); url.searchParams.set('resume', token); return url.toString(); }
+  catch { return `${base}${base.includes('?') ? '&' : '?'}resume=${encodeURIComponent(token)}`; }
+}
+
+async function sendIntakeDraftResumeEmail(draftId = '', authUser = null) {
+  const database = db();
+  const rows = await database.sql`SELECT id, status, applicant_first_name, applicant_last_name, email, current_step, progress_percent, raw_payload, uploaded_files, expires_at, resume_email_sent_at, submitted_intake_id, created_at, updated_at FROM intake_drafts WHERE id = ${nullableUuidValue(draftId)} LIMIT 1`;
+  const row = rows[0];
+  if (!row || row.status !== 'Draft') throw new Error('The incomplete assessment was not found.');
+  const email = String(row.email || '').trim().toLowerCase();
+  if (!isValidEmailAddress(email)) throw new Error('The incomplete assessment does not have a valid email address.');
+  const token = crmIntakeResumeToken();
+  const hash = crmIntakeResumeTokenHash(token);
+  const [refreshed] = await database.sql`UPDATE intake_drafts SET resume_token_hash = ${hash}, expires_at = NOW() + INTERVAL '30 days', updated_at = NOW() WHERE id = ${row.id} RETURNING id, status, applicant_first_name, applicant_last_name, email, current_step, progress_percent, raw_payload, uploaded_files, expires_at, resume_email_sent_at, submitted_intake_id, created_at, updated_at`;
+  const resumeUrl = crmIntakeResumeUrl(token);
+  const expiresDate = refreshed.expires_at ? new Date(refreshed.expires_at).toLocaleDateString('en-NZ', { timeZone: 'Pacific/Auckland', day: 'numeric', month: 'long', year: 'numeric' }) : '30 days from now';
+  const context = {
+    firstName: refreshed.applicant_first_name || 'there',
+    applicantName: [refreshed.applicant_first_name, refreshed.applicant_last_name].filter(Boolean).join(' ') || 'Applicant',
+    resumeUrl,
+    progressPercent: Number(refreshed.progress_percent || 0),
+    expiresDate,
+  };
+  const emailDraft = await buildEmailFromTemplate('assessment_resume_link', context, { subject: 'Continue your Turner Hopkins assessment', bodyText: `Hi ${context.firstName},\n\nContinue your saved assessment here: ${resumeUrl}` });
+  const config = requireMicrosoftEmailConfig();
+  await ensureEmailNotificationSchema(database);
+  const [log] = await database.sql`
+    INSERT INTO email_notifications (related_record_type, related_record_id, template_key, from_email, from_name, to_email, subject, body_text, body_html, status, sent_by)
+    VALUES ('intake_draft', ${refreshed.id}, 'assessment_resume_link', ${config.fromEmail}, ${config.fromName}, ${email}, ${emailDraft.subject}, ${emailDraft.bodyText}, ${emailDraft.bodyHtml}, 'Sending', ${authUser?.email || authUser?.name || 'CRM adviser'})
+    RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+  try {
+    const graphToken = await getMicrosoftGraphAccessToken(config);
+    const sent = await sendMicrosoftGraphEmail({ config, token: graphToken, toEmail: email, subject: emailDraft.subject, bodyText: emailDraft.bodyText, bodyHtml: emailDraft.bodyHtml });
+    const [sentLog] = await database.sql`UPDATE email_notifications SET status='Sent', sent_at=NOW(), provider_request_id=${sent.requestId || ''}, updated_at=NOW() WHERE id=${log.id} RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+    const [draft] = await database.sql`UPDATE intake_drafts SET resume_email_sent_at=NOW(), updated_at=NOW() WHERE id=${refreshed.id} RETURNING id, status, applicant_first_name, applicant_last_name, email, current_step, progress_percent, raw_payload, uploaded_files, expires_at, resume_email_sent_at, submitted_intake_id, created_at, updated_at`;
+    return { draft: mapIntakeDraftFromDb(draft), emailLog: mapEmailLogFromDb(sentLog) };
+  } catch (error) {
+    const message = String(error?.message || error).slice(0,1000);
+    await database.sql`UPDATE email_notifications SET status='Failed', failed_at=NOW(), failure_message=${message}, updated_at=NOW() WHERE id=${log.id}`;
+    throw error;
+  }
+}
+
+async function deleteIntakeDraft(draftId = '') {
+  const id = nullableUuidValue(draftId);
+  if (!id) throw new Error('Incomplete assessment ID is required.');
+  const rows = await db().sql`SELECT uploaded_files FROM intake_drafts WHERE id=${id} LIMIT 1`;
+  const uploads = rows[0]?.uploaded_files && typeof rows[0].uploaded_files === 'object' ? rows[0].uploaded_files : {};
+  const store = getStore({ name: 'intake-uploads', consistency: 'strong' });
+  for (const item of Object.values(uploads)) {
+    if (!item?.blobKey) continue;
+    try { await store.delete(item.blobKey); } catch (error) { console.warn('Unable to delete incomplete assessment upload', error?.message || error); }
+  }
+  await db().sql`DELETE FROM intake_drafts WHERE id=${id}`;
+}
 
 function mapIntakeEnquiryFromDb(row = {}) {
   return {
