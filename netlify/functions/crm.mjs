@@ -3463,7 +3463,7 @@ function crmIntakeResumeUrl(token = '') {
 
 async function sendIntakeDraftResumeEmail(draftId = '', authUser = null) {
   const database = db();
-  const rows = await database.sql`SELECT id, status, applicant_first_name, applicant_last_name, email, current_step, progress_percent, raw_payload, uploaded_files, expires_at, resume_email_sent_at, submitted_intake_id, created_at, updated_at FROM intake_drafts WHERE id = ${nullableUuidValue(draftId)} LIMIT 1`;
+  const rows = await database.sql`SELECT id, status, applicant_first_name, applicant_last_name, email, current_step, progress_percent, raw_payload, uploaded_files, expires_at, resume_email_sent_at, submitted_intake_id, created_at, updated_at FROM intake_drafts WHERE id = ${nullableUuid(draftId)} LIMIT 1`;
   const row = rows[0];
   if (!row || row.status !== 'Draft') throw new Error('The incomplete assessment was not found.');
   const email = String(row.email || '').trim().toLowerCase();
@@ -3501,7 +3501,7 @@ async function sendIntakeDraftResumeEmail(draftId = '', authUser = null) {
 }
 
 async function deleteIntakeDraft(draftId = '') {
-  const id = nullableUuidValue(draftId);
+  const id = nullableUuid(draftId);
   if (!id) throw new Error('Incomplete assessment ID is required.');
   const rows = await db().sql`SELECT uploaded_files FROM intake_drafts WHERE id=${id} LIMIT 1`;
   const uploads = rows[0]?.uploaded_files && typeof rows[0].uploaded_files === 'object' ? rows[0].uploaded_files : {};

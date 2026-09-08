@@ -1,0 +1,5 @@
+THiS CRM v0.17.18 rollback
+
+Redeploy THiS-CRM-v0.17.17-Assessment-Draft-Resume.zip.
+No schema rollback is required.
+The v0.17.17 Squarespace assessment embed remains compatible.

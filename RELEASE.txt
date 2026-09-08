@@ -1,5 +1,15 @@
-THiS CRM v0.17.17 - Assessment Draft & Resume
+THiS CRM v0.17.18 - Incomplete Assessment Actions Hotfix
 
-Adds secure assessment-form autosave, Save & finish later, email continuation links, resume-on-any-device, draft CV persistence, same-device recovery, CRM incomplete-assessment management, editable continuation email template and Squarespace resume-token forwarding.
+Baseline
+- Built directly from v0.17.17 Assessment Draft & Resume.
+- Retains assessment draft/resume, Squarespace resume-token passthrough, CRM incomplete-assessment workspace, CV draft retention and all v0.17.17 functionality.
 
-One additive migration: 202609080001_add_intake_drafts.sql.
+Fix
+- Corrects two CRM draft-action calls that referenced the non-existent helper nullableUuidValue().
+- Uses the existing nullableUuid() helper for secure UUID validation.
+- Fixes Delete incomplete assessment.
+- Fixes staff Send resume link for an incomplete assessment.
+
+Database
+- No new migration.
+- All 44 migrations from v0.17.17 are unchanged.

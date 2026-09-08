@@ -1,9 +1,9 @@
-THiS CRM v0.17.17 validation
+THiS CRM v0.17.18 validation
 
-Validation completed before packaging:
-- App.jsx JSX parse check.
-- All Netlify .mjs functions syntax checked with Node.
-- PWA validation script.
-- package.json parse/version check.
-- Existing v0.17.16 migrations verified unchanged; one new additive intake_drafts migration added.
-- ZIP integrity test.
+- App.jsx parses successfully as JSX.
+- All Netlify .mjs functions pass Node syntax checking.
+- netlify/functions/crm.mjs contains no remaining nullableUuidValue() references.
+- The existing nullableUuid() UUID validator is used for incomplete-assessment draft actions.
+- scripts/validate-pwa.mjs passes.
+- All 44 database migration files are byte-for-byte unchanged from v0.17.17.
+- No new migration, environment variable or dependency is introduced.
