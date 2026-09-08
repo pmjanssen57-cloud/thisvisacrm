@@ -564,6 +564,8 @@ function normalisePayload(input = {}) {
     phone: clean(input.phone),
     preferredContactMethod: clean(input.preferredContactMethod) || 'Email',
     citizenship: clean(input.citizenship),
+    hasSecondCitizenship: clean(input.hasSecondCitizenship),
+    secondCitizenship: clean(input.secondCitizenship),
     dateOfBirth: clean(input.dateOfBirth),
     dateOfBirthAge: calculateAge(input.dateOfBirth),
     consentToContact: Boolean(input.consentToContact),

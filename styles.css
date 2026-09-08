@@ -18937,3 +18937,47 @@ body.festive-mode-active {
 }
 .intake-draft-disclosure { display:flex; align-items:flex-start; gap:8px; margin:12px 0 14px; padding:10px 12px; border-radius:11px; background:#f5faf8; color:#5d716c; font-size:.82rem; line-height:1.45; }
 .intake-draft-disclosure svg { flex:0 0 auto; color:#25815f; margin-top:2px; }
+
+
+/* v0.17.19 assessment review polish */
+.guided-review-summary {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 20px;
+}
+.guided-review-section {
+  border: 1px solid #d6e5df;
+  border-radius: 18px;
+  background: #fbfdfc;
+  overflow: hidden;
+}
+.guided-review-section[open] {
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(0,55,54,.055);
+}
+.guided-review-section summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  color: #003736;
+}
+.guided-review-section summary::-webkit-details-marker { display: none; }
+.guided-review-section summary > span:first-child { min-width: 0; }
+.guided-review-section summary strong { display: block; font-size: 1rem; }
+.guided-review-section summary small { display: block; color: #64748b; margin-top: 2px; font-size: .82rem; font-weight: 700; }
+.guided-review-chevron { color: #2f6f65; font-size: 1.2rem; transition: transform .18s ease; }
+.guided-review-section[open] .guided-review-chevron { transform: rotate(180deg); }
+.guided-review-section-body { border-top: 1px solid #e4eee9; padding: 14px 16px 16px; }
+.guided-review-section-actions { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+.guided-review-nested { margin-top: 12px; padding-top: 12px; border-top: 1px solid #e7efec; }
+.guided-review-nested h3 { margin: 0 0 9px; color: #315f58; font-size: .92rem; }
+@media (max-width: 720px) {
+  .guided-review-section summary { padding: 13px 14px; }
+  .guided-review-section-body { padding: 12px 14px 14px; }
+  .guided-review-section-actions { justify-content: stretch; }
+  .guided-review-section-actions .btn { width: 100%; }
+}

@@ -1,9 +1,19 @@
-# THiS CRM v0.17.18 - Incomplete Assessment Actions Hotfix
+# THiS CRM v0.17.19 - Assessment Form Review & Validation Polish
 
-This is a focused hotfix over v0.17.17.
+This release continues from v0.17.18 and focuses on the public assessment experience.
 
-The incomplete-assessment CRM actions were calling `nullableUuidValue()`, but the CRM function defines the UUID helper as `nullableUuid()`. This caused the CRM function error shown when deleting a saved assessment draft and could also affect staff resending a continuation link.
+## Changes
 
-v0.17.18 corrects both references. No database migration, environment-variable change, Squarespace embed change or assessment-form change is required.
+- Name validation feedback now clears immediately after the applicant supplies both names.
+- Applicant details now ask whether the person holds another citizenship and, if yes, capture the second citizenship.
+- Review & Send now presents a comprehensive grouped review of the completed questionnaire instead of only name and goal fields. Each group can be expanded and includes an Edit action back to the relevant assessment stage.
+- CV selections/saved draft uploads are shown in the final review.
+- The internal submitted questionnaire view includes second-citizenship information.
 
-Rollback: redeploy v0.17.17.
+## Squarespace promotional pop-up
+
+The promotional pop-up is controlled by Squarespace rather than the embedded intake application. In Squarespace use **Promotional pop-up > Display & timing > Pages** and limit the pop-up to pages other than the Assessment page. The existing v0.17.17 resume-aware iframe embed remains valid.
+
+## Database
+
+No schema change or new migration. All 44 existing migrations are unchanged.

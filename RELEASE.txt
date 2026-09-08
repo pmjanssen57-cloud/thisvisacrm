@@ -1,15 +1,16 @@
-THiS CRM v0.17.18 - Incomplete Assessment Actions Hotfix
+THiS CRM v0.17.19 - Assessment Form Review & Validation Polish
 
-Baseline
-- Built directly from v0.17.17 Assessment Draft & Resume.
-- Retains assessment draft/resume, Squarespace resume-token passthrough, CRM incomplete-assessment workspace, CV draft retention and all v0.17.17 functionality.
+Assessment form improvements
+- Clears the missing-name validation message as soon as both first and last names are entered.
+- Adds a second-citizenship question to the applicant details step.
+- The final Review & Send step now shows the full questionnaire in grouped expandable sections, with direct Edit links back to the relevant stage.
+- Applicant and partner CV status is included in the final review where a file is saved/selected.
+- Submitted CRM questionnaire review also displays second-citizenship answers.
 
-Fix
-- Corrects two CRM draft-action calls that referenced the non-existent helper nullableUuidValue().
-- Uses the existing nullableUuid() helper for secure UUID validation.
-- Fixes Delete incomplete assessment.
-- Fixes staff Send resume link for an incomplete assessment.
+Promotional pop-up
+- The promotional pop-up reported during testing is a Squarespace site-level feature, not part of the CRM intake form. Exclude the Assessment page under Squarespace Promotional pop-up > Display & timing > Pages.
 
-Database
-- No new migration.
-- All 44 migrations from v0.17.17 are unchanged.
+Database and deployment
+- No new database migration.
+- All existing 44 migration files are unchanged from v0.17.18.
+- Existing v0.17.17+ Squarespace resume-token embed remains compatible and does not need replacing for this release.

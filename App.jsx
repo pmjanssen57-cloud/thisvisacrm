@@ -5331,6 +5331,11 @@ function IntakeFormApp() {
   function setField(name, value) {
     if (name === 'consentToContact' || name === 'privacyAcknowledged') setConsentAttention(false);
     if (name === 'email' && emailError) setEmailError('');
+    if (name === 'firstName' || name === 'lastName') {
+      const nextFirstName = String(name === 'firstName' ? value : form.firstName || '').trim();
+      const nextLastName = String(name === 'lastName' ? value : form.lastName || '').trim();
+      if (nextFirstName && nextLastName && /first name|last name|name before continuing/i.test(error || '')) setError('');
+    }
     if (name === 'hasPartner' && value !== 'Yes') setPartnerCvFile(null);
     setForm((current) => {
       const next = { ...current, [name]: value };
@@ -5356,6 +5361,7 @@ function IntakeFormApp() {
         next.previouslyHeldNzVisa = '';
       }
       if (name === 'dateOfBirth') next.dateOfBirthAge = calculateAge(value) ?? '';
+      if (name === 'hasSecondCitizenship' && value !== 'Yes') next.secondCitizenship = '';
       if (name === 'hasPartner' && value !== 'Yes') {
         next.partnerFullName = '';
         next.partnerDateOfBirth = '';
@@ -5593,7 +5599,7 @@ function IntakeFormApp() {
       validateForm(); setSubmitting(true); setError('');
       if (!receipt) {
         setSubmissionStatus('Saving your questionnaire...');
-        const response = await fetch('/.netlify/functions/intake', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ resumeToken: draftResumeTokenRef.current || draftResumeToken, payload: { ...form, email: String(form.email || '').trim(), intakeSubmissionKey: submissionKeyRef.current, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.17.17-assessment-draft-resume' } }) });
+        const response = await fetch('/.netlify/functions/intake', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ resumeToken: draftResumeTokenRef.current || draftResumeToken, payload: { ...form, email: String(form.email || '').trim(), intakeSubmissionKey: submissionKeyRef.current, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.17.19-assessment-review-polish' } }) });
         const body = await readJsonResponse(response);
         if (!response.ok) throw new Error(body.error || 'The questionnaire could not be submitted.');
         receipt = { intakeId: body.intakeId, uploadToken: body.uploadToken, expectedUploads: body.expectedUploads || [], uploadedKinds: body.uploadedKinds || [] };
@@ -5852,6 +5858,8 @@ function IntakeFormApp() {
                 <IntakeField label="Mobile phone" value={form.phone} onChange={(v) => setField('phone', v)} />
                 <IntakeSelect label="Preferred contact method" value={form.preferredContactMethod} onChange={(v) => setField('preferredContactMethod', v)} options={['Email', 'Mobile']} />
                 <IntakeSelect label="Country of citizenship" value={form.citizenship} onChange={(v) => setField('citizenship', v)} options={guidedCountryOptions()} />
+                <IntakeSelect label="Do you hold another citizenship?" value={form.hasSecondCitizenship} onChange={(v) => setField('hasSecondCitizenship', v)} options={INTAKE_YES_NO_ONLY_OPTIONS} />
+                {form.hasSecondCitizenship === 'Yes' && <IntakeSelect label="Second citizenship" value={form.secondCitizenship} onChange={(v) => setField('secondCitizenship', v)} options={guidedCountryOptions()} />}
                 <IntakeField label="Date of birth" type="date" value={form.dateOfBirth} onChange={(v) => setField('dateOfBirth', v)} />
                 <div className="span-2"><IntakeField label="Current physical address" value={form.physicalAddress} onChange={(v) => setField('physicalAddress', v)} placeholder="Street address, suburb, city and country" /></div>
               </div>
@@ -6056,12 +6064,26 @@ function IntakeFormApp() {
           )}
 
           {step === 8 && (
-            <IntakeSection title="Review and send">
-              <div className="guided-review-grid">
-                <div><strong>{form.targetPathway || 'Not selected'}</strong><span>Main goal</span></div>
-                <div><strong>{form.immediateNeed || 'Not recorded'}</strong><span>Immediate need</span></div>
-                <div><strong>{form.longTermGoal || 'Not recorded'}</strong><span>Long-term goal</span></div>
-                <div><strong>{[form.firstName, form.lastName].filter(Boolean).join(' ') || 'Name missing'}</strong><span>Applicant</span></div>
+            <IntakeSection title="Review and send" description="Check the information below before submitting. Open any section to review the answers, or use Edit to return directly to that part of the assessment.">
+              <div className="guided-review-summary">
+                {getIntakeQuestionnaireSections({ rawPayload: {
+                  ...form,
+                  applicantCv: applicantCvFile?.name || draftUploads.applicantCv?.fileName || draftUploads.applicantCv?.name || '',
+                  partnerCv: partnerCvFile?.name || draftUploads.partnerCv?.fileName || draftUploads.partnerCv?.name || '',
+                } }).filter((section) => section.title !== 'Final comments and consent').map((section, index) => {
+                  const editStep = intakePublicReviewStep(section.title);
+                  const answerCount = section.rows.length + (section.panels || []).reduce((sum, panel) => sum + panel.rows.length, 0);
+                  return (
+                    <details className="guided-review-section" key={section.title} open={index === 0}>
+                      <summary><span><strong>{section.title}</strong><small>{answerCount} answer{answerCount === 1 ? '' : 's'} recorded</small></span><span className="guided-review-chevron">⌄</span></summary>
+                      <div className="guided-review-section-body">
+                        <div className="guided-review-section-actions"><button className="btn mini" type="button" onClick={() => jumpTo(editStep)}>Edit this section</button></div>
+                        <IntakeAnswerGrid rows={section.rows} />
+                        {(section.panels || []).map((panel) => <div className="guided-review-nested" key={panel.title}><h3>{panel.title}</h3><IntakeAnswerGrid rows={panel.rows} /></div>)}
+                      </div>
+                    </details>
+                  );
+                })}
               </div>
               <IntakeTextarea label="Anything else we should know?" value={form.additionalInfo} onChange={(v) => setField('additionalInfo', v)} rows={4} />
               <div className={`intake-consent-grid ${consentAttention ? 'needs-attention' : ''}`}>
@@ -9273,6 +9295,23 @@ function IntakeFlagList({ flags = {}, compact = false }) {
   );
 }
 
+function intakePublicReviewStep(title = '') {
+  const map = {
+    'Immigration goal': 1,
+    'Your details': 2,
+    'Current visa situation': 3,
+    'Work and employment': 4,
+    'Qualifications': 5,
+    'Partner details': 6,
+    'Children': 6,
+    'Health and character': 7,
+    'Immigration history': 7,
+    'Funds and investment': 7,
+    'Final comments and consent': 8,
+  };
+  return map[title] || 8;
+}
+
 function IntakeQuestionnaireReview({ record = {}, advisers = [] }) {
   const sections = getIntakeQuestionnaireSections(record);
   return (
@@ -9339,11 +9378,11 @@ function getIntakeQuestionnaireSections(record = {}) {
   const sections = [
     {
       title: 'Your details',
-      rows: intakeRows(payload, ['firstName', 'lastName', 'email', 'phone', 'preferredContactMethod', 'citizenship', 'dateOfBirth', 'dateOfBirthAge', 'physicalAddress', 'applicantCv']),
+      rows: intakeRows(payload, ['firstName', 'lastName', 'email', 'phone', 'preferredContactMethod', 'citizenship', 'hasSecondCitizenship', 'secondCitizenship', 'dateOfBirth', 'dateOfBirthAge', 'physicalAddress', 'applicantCv']),
     },
     {
       title: 'Immigration goal',
-      rows: intakeRows(payload, ['targetPathway', 'desiredTimeframe', 'urgency', 'urgentDeadline', 'helpNeeded']),
+      rows: intakeRows(payload, ['targetPathway', 'immediateNeed', 'longTermGoal', 'desiredTimeframe', 'urgency', 'urgentDeadline', 'helpNeeded']),
     },
     {
       title: 'Current visa situation',
@@ -9359,7 +9398,7 @@ function getIntakeQuestionnaireSections(record = {}) {
     },
     {
       title: 'Qualifications',
-      rows: intakeRows(payload, ['highestQualification', 'qualificationName', 'qualificationInstitution', 'qualificationCountry', 'qualificationYearCompleted', 'qualificationStudyLength', 'taughtInEnglish', 'nzqaAssessed', 'qualificationRelatedToOccupation', 'qualificationDetails']),
+      rows: intakeRows(payload, ['highestQualification', 'qualificationName', 'qualificationInstitution', 'qualificationCountry', 'qualificationYearCompleted', 'qualificationStudyLength', 'taughtInEnglish', 'englishLevel', 'nzqaAssessed', 'qualificationRelatedToOccupation', 'qualificationDetails']),
     },
     {
       title: 'Partner details',
@@ -9376,7 +9415,7 @@ function getIntakeQuestionnaireSections(record = {}) {
     },
     {
       title: 'Health and character',
-      rows: intakeRows(payload, ['healthIssues', 'dependantHealthIssues', 'healthDetails', 'characterConvictions', 'characterPendingCharges', 'deportationRemoval', 'characterDetails']),
+      rows: intakeRows(payload, ['healthIssues', 'dependantHealthIssues', 'healthDetails', 'characterIssues', 'characterConvictions', 'characterPendingCharges', 'deportationRemoval', 'characterDetails']),
     },
     {
       title: 'Immigration history',
@@ -18296,6 +18335,8 @@ function makeBlankIntakePayload() {
     phone: '',
     preferredContactMethod: 'Email',
     citizenship: '',
+    hasSecondCitizenship: '',
+    secondCitizenship: '',
     dateOfBirth: '',
     dateOfBirthAge: '',
     consentToContact: false,
@@ -18473,6 +18514,8 @@ function intakeLabelForKey(key = '') {
     phone: 'Mobile phone',
     preferredContactMethod: 'Preferred contact method',
     citizenship: 'Country of citizenship',
+    hasSecondCitizenship: 'Holds another citizenship',
+    secondCitizenship: 'Second citizenship',
     dateOfBirth: 'Date of birth',
     dateOfBirthAge: 'Age',
     applicantCv: 'Applicant CV',
@@ -18559,6 +18602,7 @@ function intakeLabelForKey(key = '') {
     qualificationYearCompleted: 'Year completed',
     qualificationStudyLength: 'Length of study',
     taughtInEnglish: 'Taught in English',
+    englishLevel: 'English level / test details',
     nzqaAssessed: 'NZQA assessed',
     qualificationRelatedToOccupation: 'Related to occupation',
     qualificationDetails: 'Qualification details',

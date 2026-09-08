@@ -1,0 +1,12 @@
+Squarespace promotional pop-up
+
+The promotional pop-up is controlled by Squarespace and sits outside the Netlify assessment iframe.
+
+To stop it interrupting the assessment:
+1. In Squarespace, open Promotional pop-up.
+2. Open Display & timing.
+3. Under Pages, choose Only certain pages.
+4. Select the pages where the pop-up SHOULD appear and leave the Assessment page out.
+5. Save.
+
+No change to the v0.17.17 resume-aware assessment embed code is required for THiS CRM v0.17.19.
