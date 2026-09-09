@@ -2419,7 +2419,35 @@ export default function App() {
   }
 
   async function saveAdviser(adviser) {
-    await callApi('saveAdviser', { adviser });
+    const originalId = adviser?.id || '';
+    const body = await callApi('saveAdviser', { adviser });
+    if (String(originalId).startsWith('temp-') && body?.adviser?.id && body.adviser.id !== originalId) {
+      setData((current) => ({ ...current, advisers: (current.advisers || []).filter((item) => item.id !== originalId) }));
+    }
+    return body;
+  }
+
+  async function deleteAdviser(adviser) {
+    if (!adviser?.id) return;
+    const label = adviser.name && adviser.name !== 'New adviser' ? adviser.name : 'this unused adviser profile';
+    const confirmed = await askCrmConfirm({
+      title: 'Delete adviser profile?',
+      message: `Permanently delete ${label}?`,
+      confirmLabel: 'Delete profile',
+      tone: 'danger',
+      details: [
+        'Deletion is only allowed when the profile is not referenced by client matters, enquiries, tasks, appointments, agreements or bookings.',
+        'For a genuine former staff member with history, keep the profile and mark it Inactive instead.',
+      ],
+    });
+    if (!confirmed) return;
+    if (String(adviser.id).startsWith('temp-')) {
+      setData((current) => ({ ...current, advisers: (current.advisers || []).filter((item) => item.id !== adviser.id) }));
+      showCrmToast('Unused adviser profile removed.');
+      return;
+    }
+    await callApi('deleteAdviser', { adviserId: adviser.id });
+    showCrmToast('Unused adviser profile deleted.');
   }
 
   async function saveNotificationRecipientSettings(settings) {
@@ -3376,7 +3404,7 @@ export default function App() {
             {tab === 'advisers' && canManageAdvisers && (
               <div className="stack workspace-modern-page advisers-workspace-modern">
                 <NotificationRecipientSettings settings={data.notificationRecipientSettings || []} advisers={data.advisers} onSave={saveNotificationRecipientSettings} saving={saving} />
-                <AdviserProfiles advisers={data.advisers} clients={data.clients} saveAdviser={saveAdviser} saving={saving} />
+                <AdviserProfiles advisers={data.advisers} clients={data.clients} saveAdviser={saveAdviser} deleteAdviser={deleteAdviser} saving={saving} />
               </div>
             )}
 
@@ -5083,7 +5111,6 @@ function IntakeFormApp() {
   const [applicantCvFile, setApplicantCvFile] = useState(null);
   const [partnerCvFile, setPartnerCvFile] = useState(null);
   const [step, setStep] = useState(1);
-  const [transition, setTransition] = useState(null);
   const [showFunds, setShowFunds] = useState(false);
   const [consentAttention, setConsentAttention] = useState(false);
   const [emailError, setEmailError] = useState('');
@@ -5137,15 +5164,6 @@ function IntakeFormApp() {
     { value: 'Not sure yet', icon: 'unsure', title: 'Not sure yet', text: 'Choose this if you are exploring and want us to guide the first step.' },
   ];
 
-  const funFacts = [
-    'Aotearoa New Zealand has more than 15,000 kilometres of coastline — plenty of room for a fresh start.',
-    'Many visa pathways depend on timing. Capturing dates clearly helps advisers avoid unnecessary detours.',
-    'New Zealand has three official languages: English, te reo Māori and New Zealand Sign Language.',
-    'Work and residence pathways often connect. A work visa can sometimes be one step in a longer plan.',
-    'Good evidence matters. Clear answers at the start can make the next advice step much sharper.',
-    'The silver fern has long been a New Zealand symbol — a small marker of the path ahead.',
-    'Some health, character and visa-history issues can still be managed if they are identified early.',
-  ];
 
   useEffect(() => {
     const embedded = window.parent !== window;
@@ -5281,14 +5299,14 @@ function IntakeFormApp() {
       window.removeEventListener('load', postHeight);
       window.removeEventListener('message', handleParentMessage);
     };
-  }, [form, submitted, paused, error, step, transition, showFunds, localRecovery, resumeLoading, draftUploads]);
+  }, [form, submitted, paused, error, step, showFunds, localRecovery, resumeLoading, draftUploads]);
 
   useEffect(() => {
     if (isInvestmentMatter) setShowFunds(true);
   }, [isInvestmentMatter]);
 
   useEffect(() => {
-    if (step !== 1 || !form.targetPathway || transition) return undefined;
+    if (step !== 1 || !form.targetPathway) return undefined;
     if (typeof window === 'undefined' || !window.matchMedia('(max-width: 720px)').matches) return undefined;
     const timeoutId = window.setTimeout(() => {
       const confirmation = document.querySelector('.guided-selection-confirm');
@@ -5297,7 +5315,7 @@ function IntakeFormApp() {
       }
     }, 180);
     return () => window.clearTimeout(timeoutId);
-  }, [form.targetPathway, step, transition]);
+  }, [form.targetPathway, step]);
 
   function scrollElementIntoView(selector, align = 'center') {
     window.setTimeout(() => {
@@ -5599,7 +5617,7 @@ function IntakeFormApp() {
       validateForm(); setSubmitting(true); setError('');
       if (!receipt) {
         setSubmissionStatus('Saving your questionnaire...');
-        const response = await fetch('/.netlify/functions/intake', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ resumeToken: draftResumeTokenRef.current || draftResumeToken, payload: { ...form, email: String(form.email || '').trim(), intakeSubmissionKey: submissionKeyRef.current, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.17.19-assessment-review-polish' } }) });
+        const response = await fetch('/.netlify/functions/intake', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ resumeToken: draftResumeTokenRef.current || draftResumeToken, payload: { ...form, email: String(form.email || '').trim(), intakeSubmissionKey: submissionKeyRef.current, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.17.20-assessment-review-polish' } }) });
         const body = await readJsonResponse(response);
         if (!response.ok) throw new Error(body.error || 'The questionnaire could not be submitted.');
         receipt = { intakeId: body.intakeId, uploadToken: body.uploadToken, expectedUploads: body.expectedUploads || [], uploadedKinds: body.uploadedKinds || [] };
@@ -5655,60 +5673,27 @@ function IntakeFormApp() {
     }
   }
 
-  function scrollFactToCentre() {
-    window.setTimeout(() => {
-      const factCard = document.querySelector('.guided-fact-card');
-      if (!factCard) return;
-      const offset = getOffsetWithinShell(factCard);
-      if (postEmbedScroll(offset, 'center')) return;
-      if (typeof factCard.scrollIntoView === 'function') {
-        factCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }, 80);
-  }
 
   function canLeaveCurrentStep() { if (step === 2) return validateIdentityStep(); return true; }
 
   function jumpTo(targetStep) {
     if (targetStep === step) return;
-    if (targetStep < step) {
-      setStep(targetStep);
-      scrollFormTop();
-      return;
-    }
-    if (!canLeaveCurrentStep()) return;
-    showTransition(targetStep);
+    if (targetStep > step && !canLeaveCurrentStep()) return;
+    setStep(targetStep);
+    scrollFormTop();
   }
 
-  function nextStep() { if (step < steps.length && canLeaveCurrentStep()) showTransition(step + 1); }
+  function nextStep() {
+    if (step >= steps.length || !canLeaveCurrentStep()) return;
+    setStep((current) => Math.min(steps.length, current + 1));
+    scrollFormTop();
+  }
 
   function previousStep() {
     if (step > 1) {
       setStep(step - 1);
       scrollFormTop();
     }
-  }
-
-  function showTransition(targetStep) {
-    const fact = funFacts[(targetStep + step) % funFacts.length];
-    setTransition({ targetStep, fact });
-    scrollFactToCentre();
-    window.setTimeout(() => {
-      setTransition((current) => {
-        if (!current || current.targetStep !== targetStep) return current;
-        setStep(targetStep);
-        scrollFormTop();
-        return null;
-      });
-    }, 4000);
-  }
-
-  function continueNow() {
-    if (!transition) return;
-    const targetStep = transition.targetStep;
-    setTransition(null);
-    setStep(targetStep);
-    scrollFormTop();
   }
 
   const activeStep = steps.find((item) => item.id === step) || steps[0];
@@ -5759,7 +5744,7 @@ function IntakeFormApp() {
           <div>
             <p className="guided-kicker">Turner Hopkins Immigration Specialists</p>
             <h1>Begin your journey with us...</h1>
-            <p>Answer the guided questions below so our advisers can understand your circumstances and the best next step.</p>
+            <p>Answer the questions that apply to your situation. You can save your progress and return at any time.</p>
           </div>
         </div>
 
@@ -5789,26 +5774,7 @@ function IntakeFormApp() {
           <div className="guided-guide-meter"><strong>{activeStep.id} of {steps.length}</strong></div>
         </div>
 
-        <div className="kiwi-journey-map" aria-label="Journey map">
-          <div className="kiwi-map-bg">Aotearoa</div>
-          {steps.map((item) => (
-            <div key={item.id} data-label={item.label} className={`kiwi-map-stop ${step === item.id ? 'current' : ''} ${step > item.id ? 'complete' : ''}`}>
-              <span className="kiwi-dot">{step > item.id ? '✓' : item.id}</span>
-              <strong>{item.label}</strong>
-            </div>
-          ))}
-        </div>
-
-        {transition && (
-          <div className="guided-fact-overlay" role="status">
-            <div className="guided-fact-card">
-              <p className="guided-kicker">Quick Kiwi note</p>
-              <h2>{transition.fact}</h2>
-              <div className="guided-fact-bar"><span /></div>
-              <button type="button" className="btn ghost" onClick={continueNow}>Continue now</button>
-            </div>
-          </div>
-        )}
+        <div className="guided-form-shortcut"><CheckCircle2 size={16} /><span>Move straight through the steps — there are no interstitial pop-ups, and you can save for later at any time.</span></div>
 
         {error && <div className="error-box">{error}</div>}
 
@@ -16547,7 +16513,7 @@ function NotificationRecipientSettings({ settings = [], advisers = [], onSave, s
   );
 }
 
-function AdviserProfiles({ advisers, clients, saveAdviser, saving }) {
+function AdviserProfiles({ advisers, clients, saveAdviser, deleteAdviser, saving }) {
   const [drafts, setDrafts] = useState(advisers);
   const [photoMessages, setPhotoMessages] = useState({});
   const [editingId, setEditingId] = useState('');
@@ -16605,6 +16571,7 @@ function AdviserProfiles({ advisers, clients, saveAdviser, saving }) {
           const backup = clients.filter((client) => client.backupAdviserId === adviser.id && client.clientStatus !== 'Closed').length;
           const photoInputId = `adviser-photo-${adviser.id}`;
           const editing = editingId === adviser.id;
+          const obviouslyUnused = primary === 0 && backup === 0 && !String(adviser.email || '').trim() && (!String(adviser.name || '').trim() || adviser.name === 'New adviser');
           return (
             <div className={`adviser-edit-card ${editing ? 'editing' : 'viewing'}`} key={adviser.id}>
               <div className="adviser-profile-head">
@@ -16617,7 +16584,10 @@ function AdviserProfiles({ advisers, clients, saveAdviser, saving }) {
                   {editing ? <>
                     <button className="btn mini" type="button" onClick={() => cancelEditing(adviser.id)} disabled={saving}>Cancel</button>
                     <button className="btn mini dark" type="button" onClick={() => saveEditing(adviser)} disabled={saving}><Save size={14} />{saving ? 'Saving...' : 'Save adviser'}</button>
-                  </> : <button className="btn mini ghost" type="button" onClick={() => startEditing(adviser.id)}><Pencil size={14} />Edit adviser</button>}
+                  </> : <>
+                    {obviouslyUnused && <button className="btn mini danger" type="button" onClick={() => deleteAdviser?.(adviser)} disabled={saving}><Trash2 size={14} />Remove unused</button>}
+                    <button className="btn mini ghost" type="button" onClick={() => startEditing(adviser.id)}><Pencil size={14} />Edit adviser</button>
+                  </>}
                 </div>
               </div>
               <div className="adviser-profile-summary-strip">
@@ -16644,7 +16614,7 @@ function AdviserProfiles({ advisers, clients, saveAdviser, saving }) {
                   <SelectField label="Portal availability" value={adviser.availability === 'Away' ? 'Away' : 'Available'} onChange={(v) => updateAdviser(adviser.id, { availability: v })} options={ADVISER_AVAILABILITY_OPTIONS} />
                   <SelectField label="CRM status" value={adviser.active ? 'Active' : 'Inactive'} onChange={(v) => updateAdviser(adviser.id, { active: v === 'Active' })} options={['Active', 'Inactive']} />
                 </div>
-                <div className="split bottom adviser-edit-footer"><span>Changes apply only when you select <strong>Save adviser</strong>.</span><div className="button-row"><button className="btn" type="button" onClick={() => cancelEditing(adviser.id)} disabled={saving}>Cancel</button><button className="btn dark" type="button" onClick={() => saveEditing(adviser)} disabled={saving}><Save size={16} />Save adviser</button></div></div>
+                <div className="split bottom adviser-edit-footer"><div className="button-row">{primary === 0 && backup === 0 && <button className="btn danger" type="button" onClick={() => deleteAdviser?.(adviser)} disabled={saving}><Trash2 size={15} />Delete unused profile</button>}<span>Changes apply only when you select <strong>Save adviser</strong>.</span></div><div className="button-row"><button className="btn" type="button" onClick={() => cancelEditing(adviser.id)} disabled={saving}>Cancel</button><button className="btn dark" type="button" onClick={() => saveEditing(adviser)} disabled={saving}><Save size={16} />Save adviser</button></div></div>
               </> : <div className="adviser-view-note"><span>Profile details are locked to prevent accidental changes.</span><button className="btn mini ghost" type="button" onClick={() => startEditing(adviser.id)}><Pencil size={13} />Edit profile</button></div>}
             </div>
           );
@@ -18901,6 +18871,7 @@ function mergePartialCrmResponse(current = emptyData, body = {}) {
     const incomingIds = new Set(incomingLogs.map((item) => item.id));
     next.emailLogs = [...incomingLogs, ...(current.emailLogs || []).filter((item) => !incomingIds.has(item.id))].slice(0, 200);
   }
+  if (body.deletedAdviserId) next.advisers = (current.advisers || []).filter((item) => item.id !== body.deletedAdviserId);
   if (body.deletedPersonalTaskId) next.personalTasks = (current.personalTasks || []).filter((item) => item.id !== body.deletedPersonalTaskId);
   if (body.deletedCalendarEntryId) next.calendarEntries = (current.calendarEntries || []).filter((item) => item.id !== body.deletedCalendarEntryId);
   if (body.deletedLibraryEntryId) next.libraryEntries = (current.libraryEntries || []).filter((item) => item.id !== body.deletedLibraryEntryId);

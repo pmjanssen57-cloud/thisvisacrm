@@ -1,16 +1,26 @@
-THiS CRM v0.17.19 - Assessment Form Review & Validation Polish
+THiS CRM v0.17.20 - Adviser Cleanup + Faster Assessment Flow
 
-Assessment form improvements
-- Clears the missing-name validation message as soon as both first and last names are entered.
-- Adds a second-citizenship question to the applicant details step.
-- The final Review & Send step now shows the full questionnaire in grouped expandable sections, with direct Edit links back to the relevant stage.
-- Applicant and partner CV status is included in the final review where a file is saved/selected.
-- Submitted CRM questionnaire review also displays second-citizenship answers.
+Baseline
+- Built from v0.17.19 Assessment Review & Validation Polish.
+- Retains assessment draft/resume, second citizenship, full final review, My Work workflow, streamlined matter updates and all existing CRM functionality.
 
-Promotional pop-up
-- The promotional pop-up reported during testing is a Squarespace site-level feature, not part of the CRM intake form. Exclude the Assessment page under Squarespace Promotional pop-up > Display & timing > Pages.
+Adviser cleanup
+- Clearly unused New adviser profiles now show Remove unused directly on the adviser card.
+- Fixes the New adviser creation flow so the temporary placeholder is removed after the real adviser profile is saved; this prevents future duplicate blank New adviser cards.
+- Admins can also select Delete unused profile while editing an adviser with no primary or backup matters.
+- Server-side deletion is deliberately conservative: it refuses deletion if the adviser is referenced by client matters, commercial matters, enquiries, tasks, calendar entries, agreements, booking links or bookings.
+- The adviser linked to the current login cannot be deleted.
+- Historical/former advisers should still be marked Inactive rather than deleted.
+- Deleted adviser IDs are removed from website-notification recipient settings.
 
-Database and deployment
-- No new database migration.
-- All existing 44 migration files are unchanged from v0.17.18.
-- Existing v0.17.17+ Squarespace resume-token embed remains compatible and does not need replacing for this release.
+Assessment flow simplification
+- Removes the four-second Kiwi fact/interstitial popup between every assessment stage.
+- Next, Back and stage navigation now move immediately between sections.
+- Removes the duplicate journey-map strip so the form reaches the actual questions sooner.
+- Retains the clear eight-step progress tabs and compact current-step guide.
+- Adds a small reassurance that applicants can move straight through and save for later at any time.
+- No assessment questions or collected data have been removed in this release; this is a low-risk first simplification pass aimed at reducing friction and perceived length.
+
+Database
+- No new migration.
+- All 44 migrations from v0.17.19 remain unchanged.

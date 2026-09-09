@@ -18939,7 +18939,7 @@ body.festive-mode-active {
 .intake-draft-disclosure svg { flex:0 0 auto; color:#25815f; margin-top:2px; }
 
 
-/* v0.17.19 assessment review polish */
+/* v0.17.20 assessment review polish */
 .guided-review-summary {
   display: grid;
   gap: 10px;
@@ -18980,4 +18980,25 @@ body.festive-mode-active {
   .guided-review-section-body { padding: 12px 14px 14px; }
   .guided-review-section-actions { justify-content: stretch; }
   .guided-review-section-actions .btn { width: 100%; }
+}
+
+
+/* v0.17.20 intake flow simplification */
+.guided-form-shortcut {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 12px 0 18px;
+  padding: 10px 12px;
+  border: 1px solid #cfe3da;
+  border-radius: 12px;
+  background: #f5fbf8;
+  color: #46645e;
+  font-size: .9rem;
+}
+.guided-form-shortcut svg { color: #16835f; flex: 0 0 auto; }
+.guided-guide-card { margin-bottom: 12px; }
+@media (max-width: 720px) {
+  .guided-form-shortcut { margin: 8px 0 14px; padding: 9px 10px; font-size: .84rem; }
+  .guided-guide-card { margin-bottom: 8px; }
 }

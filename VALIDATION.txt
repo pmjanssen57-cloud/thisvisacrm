@@ -1,19 +1,12 @@
-THiS CRM v0.17.19 validation
+THiS CRM v0.17.20 validation
 
 Completed checks
 - App.jsx parses successfully as JSX.
 - All Netlify .mjs function files pass Node syntax checking.
-- All public JavaScript files pass Node syntax checking.
-- scripts/validate-pwa.mjs passes.
-- package.json reports version 0.17.19.
-- PWA / Studio / live-chat cache references advance to v0.17.19.
-- All 44 existing database migration files are byte-for-byte unchanged from v0.17.18.
-- No new database migration, dependency or environment variable is introduced.
-
-Assessment form checks
-- Applicant details include a Yes/No second-citizenship question and conditional country selector.
-- Second-citizenship data is normalised server-side for draft saves, resume and final submission.
-- Missing-name validation clears once both names are entered.
-- Review & Send uses grouped expandable questionnaire sections rather than the old four-card summary.
-- Each review section has an Edit action back to the relevant stage.
-- English details, immigration goals, health/character answers and CV status are included where supplied.
+- PWA validation passes.
+- package.json reports version 0.17.20.
+- All 44 database migration files are byte-for-byte unchanged from v0.17.19.
+- No new migration, dependency or environment variable is introduced.
+- Intake transition/interstitial state and rendering have been removed; stage navigation now changes directly.
+- Adviser deletion is server guarded and refuses deletion where meaningful CRM references exist.
+- New adviser temporary placeholders are removed after successful creation to prevent duplicate blank profiles.
