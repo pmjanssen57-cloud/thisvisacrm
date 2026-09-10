@@ -1,12 +1,20 @@
-THiS CRM v0.17.20 validation
+THiS CRM v0.17.21 validation
 
 Completed checks
 - App.jsx parses successfully as JSX.
 - All Netlify .mjs function files pass Node syntax checking.
-- PWA validation passes.
-- package.json reports version 0.17.20.
-- All 44 database migration files are byte-for-byte unchanged from v0.17.19.
+- scripts/validate-pwa.mjs passes.
+- package.json reports version 0.17.21.
+- Public service-worker cache reference advances to v0.17.21.
+- All 44 existing database migration files are byte-for-byte unchanged from v0.17.20.
 - No new migration, dependency or environment variable is introduced.
-- Intake transition/interstitial state and rendering have been removed; stage navigation now changes directly.
-- Adviser deletion is server guarded and refuses deletion where meaningful CRM references exist.
-- New adviser temporary placeholders are removed after successful creation to prevent duplicate blank profiles.
+
+Assessment changes checked
+- Repeated interstitial/pop-up technical wording removed from the assessment UI.
+- Longer-term-goal prompt is only rendered for Work in New Zealand or Not sure yet, not the permanent-residence goal.
+- Partner NZ visa and citizen/resident labels are distinct.
+- Detailed partner work/qualification fields are collapsed by default behind an optional control.
+- Partner CV appears before optional detailed partner work/qualification questions.
+- Save-progress explanation text is wrapped as a single readable content block.
+- Consent checkboxes rely on explicit submit validation rather than browser-required validation, so warnings appear only after a submission attempt.
+- Leaving the final review step clears consent attention/error state.

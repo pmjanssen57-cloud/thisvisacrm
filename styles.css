@@ -19002,3 +19002,21 @@ body.festive-mode-active {
   .guided-form-shortcut { margin: 8px 0 14px; padding: 9px 10px; font-size: .84rem; }
   .guided-guide-card { margin-bottom: 8px; }
 }
+
+
+/* v0.17.21 assessment simplification and friction reduction */
+.guided-form-shortcut strong { color:#174f43; }
+.intake-draft-disclosure > span { min-width:0; display:block; }
+.partner-optional-summary { align-items:stretch; }
+.partner-optional-summary > div:first-child p { margin:4px 0 0; color:#667b76; font-size:.9rem; line-height:1.5; }
+.optional-label { display:inline-flex; margin-left:7px; padding:3px 7px; border-radius:999px; background:#edf5f2; color:#55716a; font-size:.72rem; font-weight:800; vertical-align:middle; }
+.partner-detail-toggle { justify-self:start; }
+.partner-detail-expanded { display:grid; gap:14px; padding-top:4px; }
+@media(max-width:720px){
+  .guided-form-shortcut { align-items:flex-start; line-height:1.45; }
+  .intake-draft-disclosure { display:grid; grid-template-columns:auto minmax(0,1fr); }
+  .guided-submit-left { display:grid; grid-template-columns:minmax(88px,.55fr) minmax(175px,1fr); gap:8px; }
+  .guided-submit-left .btn { width:100%; min-width:0; }
+  .intake-save-later { min-width:175px; }
+  .partner-detail-toggle { width:100%; }
+}

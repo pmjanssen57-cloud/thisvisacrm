@@ -1,0 +1,4 @@
+Rollback THiS CRM v0.17.21
+
+Redeploy THiS CRM v0.17.20 - Adviser Cleanup + Faster Assessment Flow.
+No database rollback is required because v0.17.21 adds no migration.

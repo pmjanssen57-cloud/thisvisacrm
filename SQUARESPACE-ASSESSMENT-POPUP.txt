@@ -1,12 +1,13 @@
-Squarespace promotional pop-up
+Squarespace promotional pop-up - Assessment page
 
-The promotional pop-up is controlled by Squarespace and sits outside the Netlify assessment iframe.
+The SMC promotional pop-up is controlled by Squarespace and sits outside the Netlify assessment iframe, so a CRM deployment cannot reliably disable it.
 
-To stop it interrupting the assessment:
-1. In Squarespace, open Promotional pop-up.
+In Squarespace:
+1. Open Promotional pop-up.
 2. Open Display & timing.
 3. Under Pages, choose Only certain pages.
-4. Select the pages where the pop-up SHOULD appear and leave the Assessment page out.
+4. Select the pages where the pop-up SHOULD appear and leave /assessment out.
 5. Save.
+6. Update the promotional wording on the remaining pages so it no longer describes 24 August 2026 as a future date.
 
-No change to the v0.17.17 resume-aware assessment embed code is required for THiS CRM v0.17.19.
+The resume-aware assessment embed does not need to change for v0.17.21.

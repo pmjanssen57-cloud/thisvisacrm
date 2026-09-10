@@ -1,26 +1,27 @@
-THiS CRM v0.17.20 - Adviser Cleanup + Faster Assessment Flow
+THiS CRM v0.17.21 - Assessment Friction Reduction
 
 Baseline
-- Built from v0.17.19 Assessment Review & Validation Polish.
-- Retains assessment draft/resume, second citizenship, full final review, My Work workflow, streamlined matter updates and all existing CRM functionality.
+- Built from v0.17.20 Adviser Cleanup + Faster Assessment Flow.
+- Retains draft/resume, CV uploads, second citizenship, full final review, adviser cleanup and all CRM functionality.
 
-Adviser cleanup
-- Clearly unused New adviser profiles now show Remove unused directly on the adviser card.
-- Fixes the New adviser creation flow so the temporary placeholder is removed after the real adviser profile is saved; this prevents future duplicate blank New adviser cards.
-- Admins can also select Delete unused profile while editing an adviser with no primary or backup matters.
-- Server-side deletion is deliberately conservative: it refuses deletion if the adviser is referenced by client matters, commercial matters, enquiries, tasks, calendar entries, agreements, booking links or bookings.
-- The adviser linked to the current login cannot be deleted.
-- Historical/former advisers should still be marked Inactive rather than deleted.
-- Deleted adviser IDs are removed from website-notification recipient settings.
+Assessment simplification
+- Removes the technical interstitial/pop-up wording from the repeated stage reminder.
+- The reminder now simply explains that progress saves securely and Save & finish later is available.
+- Removes the redundant longer-term-goal question when the applicant has already selected Live in New Zealand permanently. It remains for Work in New Zealand and Not sure yet, where it adds useful context.
+- Clarifies partner status wording: Partner current New Zealand visa (if any) and Is your partner a New Zealand citizen or resident?
+- Keeps partner identity/relationship questions visible, but collapses detailed partner work and qualification fields behind an optional control.
+- Partner CV upload is presented before the optional detailed work/qualification fields, with clear wording that uploading a CV normally means those details can be left blank.
+- Reworks the save-progress explanation so it stays together as one readable block instead of splitting around the Save & finish later wording.
+- Improves mobile width treatment for Back / Save & finish later controls.
 
-Assessment flow simplification
-- Removes the four-second Kiwi fact/interstitial popup between every assessment stage.
-- Next, Back and stage navigation now move immediately between sections.
-- Removes the duplicate journey-map strip so the form reaches the actual questions sooner.
-- Retains the clear eight-step progress tabs and compact current-step guide.
-- Adds a small reassurance that applicants can move straight through and save for later at any time.
-- No assessment questions or collected data have been removed in this release; this is a low-risk first simplification pass aimed at reducing friction and perceived length.
+Consent behaviour
+- Consent attention styling is only triggered by a deliberate submission attempt.
+- Consent warnings are cleared when the applicant leaves the final review step to edit earlier answers.
+
+Squarespace promotional pop-up
+- The SMC promotional pop-up is controlled by Squarespace, outside the Netlify iframe. It cannot be disabled safely from the CRM build.
+- Exclude /assessment under Squarespace Promotional pop-up -> Display & timing -> Pages, and update the old 24 August 2026 promotional wording where the pop-up continues to run.
 
 Database
 - No new migration.
-- All 44 migrations from v0.17.19 remain unchanged.
+- All 44 existing migrations remain unchanged.

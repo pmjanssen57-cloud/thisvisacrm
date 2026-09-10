@@ -1,17 +1,9 @@
-# THiS CRM v0.17.20 - Adviser Cleanup + Faster Assessment Flow
+# THiS CRM v0.17.21 - Assessment Friction Reduction
 
-This release focuses on two usability improvements.
+This release continues from v0.17.20 and focuses on reducing friction in the public assessment without discarding useful adviser data.
 
-## Remove accidental adviser profiles
+The public assessment now has cleaner consent behaviour, a single readable save-progress explanation, less repetitive goal questioning, clearer partner-status labels, and optional/collapsed partner work and qualification detail. Partner CV upload is offered before those optional fields so applicants do not need to repeat information already contained in a CV.
 
-Blank/unused adviser records can now be permanently removed. The New adviser save flow also now removes its temporary placeholder after the database record is created, preventing new blank duplicate cards from being left behind. The UI shows **Remove unused** for obvious empty `New adviser` cards, and the edit view includes **Delete unused profile** when no client matter is assigned. The server performs a wider history check and refuses deletion if the adviser is referenced anywhere meaningful. Genuine former staff should continue to be marked **Inactive** so historical ownership is preserved.
+The Squarespace promotional pop-up is outside the CRM iframe. Exclude the Assessment page using Squarespace Promotional pop-up -> Display & timing -> Pages.
 
-## Faster assessment navigation
-
-The assessment no longer pauses for the four-second Kiwi fact screen between stages. Moving forward/back is immediate, and the duplicate journey-map display has been removed. The eight-stage progress indicator, branching, draft/resume, CV uploads and full review are retained.
-
-This intentionally changes perceived complexity before removing substantive questions. It gives the team a cleaner basis for measuring whether form completion improves.
-
-## Deployment
-
-No database migration or Squarespace embed change is required.
+No database migration is added. The existing 44 migrations are unchanged.
