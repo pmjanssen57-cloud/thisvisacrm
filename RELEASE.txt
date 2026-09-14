@@ -1,15 +1,13 @@
-THiS CRM v0.17.20 - Agreement Email Routing Reliability
+THiS CRM v0.17.21 - Agreement Issue Preview Hotfix
 
-Agreement Studio
-- Intake/client hydration no longer overwrites adviser name/email or recipient details that have been deliberately edited in the Agreement Studio.
-- The principal client email and principal signatory email are kept in sync while editing.
-- Editing a principal signatory name/email also updates the Client & matter principal details.
-- Other required signatory email edits remain authoritative for issue delivery.
-- Issue Agreement now previews the actual current required-signatory To addresses and the current adviser CC address.
-- Each required signatory continues to receive an individual secure signing link.
-- The Microsoft 365 email log records the same live To/CC routing used for the send.
-- Acceptance confirmation emails continue to use the adviser email stored in the issued Agreement Studio snapshot.
+Built from v0.17.20.
+
+Fixes
+- Removes the obsolete browser-side signing-token generation from the Issue agreement button path. Signing links remain generated securely by the CRM backend only when Send agreement is selected.
+- Wraps the Issue agreement preview in defensive error handling with visible status/toast feedback rather than allowing an uncaught JavaScript error to make the button appear unresponsive.
+- Makes the current To/CC routing visible in the preview exactly as introduced in v0.17.20.
+- Adds a clear Issuing state to Send agreement and restores the button if no confirmation is received.
+- Advances both Agreement Studio HTML and JavaScript cache versions to v0.17.21 so browsers cannot continue using an older Studio shell.
 
 Database
-- No database migration.
-- Existing 44 migrations are unchanged.
+- No migration. Existing 44 migrations are unchanged.

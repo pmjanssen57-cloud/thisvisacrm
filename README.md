@@ -1,7 +1,20 @@
-# THiS CRM v0.17.20 - Agreement Email Routing Reliability
+# THiS CRM v0.17.21 — Agreement Issue Preview Hotfix
 
-This release fixes Agreement Studio email routing for intake/client-linked agreements. Edited adviser details and party email addresses are now preserved and used at issue time instead of being rehydrated back to the original intake/client values.
+This release continues from v0.17.20 and fixes an Agreement Studio issue where selecting **Issue agreement** could appear to do nothing.
 
-The Issue Agreement dialog now shows the exact required-signatory To addresses and current adviser CC address before sending. The principal client email and principal signatory email stay synchronised in both directions.
+## Fixes
 
-No database migration is required. Existing 44 migration files are unchanged.
+- Removes obsolete browser-side secure-token generation from the Issue agreement preview. Secure signing links continue to be generated only by the CRM backend when **Send agreement** is selected.
+- Adds defensive error handling and visible status/toast feedback if the issue preview cannot open.
+- Keeps the v0.17.20 live routing behaviour: required signatory addresses are used for **To** and the currently edited adviser email is used for **CC**.
+- Adds an **Issuing...** state to the final Send agreement action.
+- Sends backend issue failures back into Agreement Studio so the Send button is restored and the failure is shown rather than leaving the interface apparently stuck.
+- Advances the Agreement Studio iframe and script cache-busting versions to v0.17.21.
+
+## Database
+
+No migration is added. All 44 existing migrations are unchanged from v0.17.20.
+
+## Rollback
+
+Redeploy v0.17.20. No database rollback is required.

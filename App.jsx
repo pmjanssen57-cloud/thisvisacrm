@@ -14071,7 +14071,12 @@ function AgreementsWorkspace({
           setLastSigningLinks(body?.signingLinks || []);
           setStudioMessage(body?.emailConfigured === false ? 'Secure links created; email configuration requires attention' : 'Agreement issued');
           iframeRef.current?.contentWindow?.postMessage({ type: 'THIS_AGREEMENT_ISSUED', agreementSet: issued, signingLinks: body?.signingLinks || [], message: body?.emailConfigured === false ? 'Signing links created. Microsoft email is not configured.' : 'Agreement issued successfully.' }, window.location.origin);
-        }).catch((error) => setStudioMessage(error?.message || 'Agreement issue failed'));
+        }).catch((error) => {
+          const messageText = error?.message || 'Agreement issue failed';
+          setStudioMessage(messageText);
+          const sessionStillOpen = studioSessionRef.current.id === sessionId && studioSessionRef.current.active && !studioSessionRef.current.closing;
+          if (sessionStillOpen) iframeRef.current?.contentWindow?.postMessage({ type: 'THIS_AGREEMENT_ISSUE_FAILED', message: messageText }, window.location.origin);
+        });
       }
     }
     window.addEventListener('message', handleAgreementMessage);
@@ -14458,7 +14463,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.14" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.21" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}

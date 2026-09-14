@@ -229,16 +229,40 @@ function bindRepeats(){
 function bindInlineEdits(){if(!editMode)return;$$('#pages .editable').forEach(el=>{el.contentEditable='true';el.addEventListener('blur',()=>{const k=el.dataset.edit,id=el.dataset.id;if(k==='coverHeading')state.template.coverHeading=el.textContent.trim();else if(k==='coverSubtitle')state.template.coverSubtitle=el.textContent.trim();else if(k==='title')state.sections.find(s=>s.id===id).title=el.textContent.trim();else if(k==='number'){const sec=state.sections.find(s=>s.id===id);sec.numberMode='manual';sec.manualNumber=el.textContent.trim();}else if(k==='body'){const fragments=$$('#pages [data-edit="body"]').filter(fragment=>fragment.dataset.id===id);state.sections.find(s=>s.id===id).body=fragments.map(fragment=>fragment.innerHTML).join('')}dirty();renderSectionList();renderContentEditor()});el.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();renderPages()}if(e.key==='Enter'&&e.ctrlKey){e.preventDefault();el.blur()}})})}
 function switchType(type){state.appType=type;const cfg=currentType();state.template.coverSubtitle=cfg.title;state.client.matterNote=defaultMatterDescription(type);state.scope=cfg.scope.map((text,i)=>({id:'s'+Date.now()+i,text,enabled:true}));state.governmentFees=cfg.gov.map((r,i)=>({id:'g'+Date.now()+i,agency:r[0],application:r[1],amount:r[3]}));dirty();renderAll()}
 function openIssue(){
- const routing=issueRouting();
- if(!routing.recipients.length){toast('Add at least one required signatory with a valid email address before issuing');return}
- if(!state.feeConfirmed||!state.clientChecked){toast('Confirm the fees and client details before issuing');return}
- state.token=state.token||crypto.randomUUID().replaceAll('-','').slice(0,24);
- $('#issueTo').textContent=routing.recipients.map(item=>`${item.name||item.role||'Client'} <${item.email}>`).join('; ');
- $('#issueCc').textContent=routing.adviserEmail?(state.client.adviserName?`${state.client.adviserName} <${routing.adviserEmail}>`:routing.adviserEmail):'No adviser copy';
- $('#issueSubject').textContent=state.emailSubject;
- $('#issueBody').textContent=state.emailBody;
- $('#secureLink').textContent='A separate secure signing link will be generated for each required signatory.';
- $('#issueModal').classList.remove('hidden')
+ try{
+  const status=$('#saveStatus');
+  if(status) status.textContent='Checking issue details...';
+  const routing=issueRouting();
+  if(!routing.recipients.length){
+   if(status) status.textContent='Add a valid required signatory before issue';
+   toast('Add at least one required signatory with a valid email address before issuing');
+   return;
+  }
+  if(!state.feeConfirmed||!state.clientChecked){
+   if(status) status.textContent='Complete both pre-issue confirmations';
+   toast('Confirm the fees and client/signatory details before issuing');
+   return;
+  }
+  // Signing tokens are generated securely by the CRM backend when Send agreement
+  // is selected.  Do not depend on browser crypto merely to open the preview.
+  $('#issueTo').textContent=routing.recipients.map(item=>`${item.name||item.role||'Client'} <${item.email}>`).join('; ');
+  $('#issueCc').textContent=routing.adviserEmail?(state.client.adviserName?`${state.client.adviserName} <${routing.adviserEmail}>`:routing.adviserEmail):'No adviser copy';
+  $('#issueSubject').textContent=state.emailSubject||'Your Turner Hopkins engagement agreement';
+  $('#issueBody').textContent=state.emailBody||'';
+  $('#secureLink').textContent='A separate secure signing link will be generated for each required signatory when you select Send agreement.';
+  const modal=$('#issueModal');
+  if(!modal) throw new Error('Issue preview is unavailable. Please reload Agreement Studio and try again.');
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden','false');
+  document.body.classList.add('agreement-issue-open');
+  if(status) status.textContent='Issue preview ready';
+  requestAnimationFrame(()=>modal.querySelector('.closeModal')?.focus());
+ }catch(error){
+  console.error('Agreement issue preview failed',error);
+  const message=error?.message||'The issue preview could not be opened. Please reload Agreement Studio and try again.';
+  const status=$('#saveStatus'); if(status) status.textContent='Issue preview failed';
+  toast(message);
+ }
 }
 function openSigning(){ $('#signHeading').textContent='Review and accept your agreement';$('#signAgreement').textContent=currentType().title;$('#signClient').textContent=fullClient();$('#signVersion').textContent=state.template.version;$('#typedName').value='';['checkRead','checkFees','checkDocs'].forEach(id=>$('#'+id).checked=false);clearSignature();$('#signModal').classList.remove('hidden');setTimeout(initCanvas,50)}
 function initCanvas(){const c=$('#sigCanvas'),ctx=c.getContext('2d');let drawing=false,last=null;function pos(e){const r=c.getBoundingClientRect(),p=e.touches?e.touches[0]:e;return{x:(p.clientX-r.left)*(c.width/r.width),y:(p.clientY-r.top)*(c.height/r.height)}}function start(e){drawing=true;last=pos(e);e.preventDefault()}function move(e){if(!drawing)return;const p=pos(e);ctx.strokeStyle='#063b39';ctx.lineWidth=2.2;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(p.x,p.y);ctx.stroke();last=p;sigDrawn=true;e.preventDefault()}function end(){drawing=false;last=null}c.onmousedown=start;c.onmousemove=move;c.onmouseup=end;c.onmouseleave=end;c.ontouchstart=start;c.ontouchmove=move;c.ontouchend=end}
@@ -262,7 +286,7 @@ function bind(){
  $$('[data-zoom]').forEach(b=>b.onclick=()=>{zoom=b.dataset.zoom==='100'?'':'fit';$$('[data-zoom]').forEach(x=>x.classList.toggle('active',x===b));renderPages()});$('#editTextBtn').onclick=()=>{editMode=!editMode;$('#editTextBtn').classList.toggle('active',editMode);renderPages()};
  $('#saveBtn').onclick=save;$('#printBtn').onclick=printAgreementDocument;$('#exportBtn').onclick=exportData;$('#issueBtn').onclick=openIssue;$('#templateBtn').onclick=()=>{$('#templateSummary').textContent=`Version ${state.template.version}; ${state.sections.length} core sections; ${Object.keys(APP_TYPES).length} application profiles.`;$('#templateModal').classList.remove('hidden')};$('#saveTemplate').onclick=()=>{save();toast('Template draft saved')};$('#publishTemplate').onclick=publishTemplate;
  $$('.closeProfessionalFee').forEach(b=>b.onclick=closeProfessionalFeeEditor);$('#saveProfessionalFee').onclick=commitProfessionalFee;['professionalFeeDescription','professionalFeeAmount','professionalFeeTrigger'].forEach(id=>{$('#'+id).addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();closeProfessionalFeeEditor()}if(event.key==='Enter'&&event.ctrlKey){event.preventDefault();commitProfessionalFee()}})});$$('.closeGovernmentFee').forEach(b=>b.onclick=closeGovernmentFeeEditor);$('#saveGovernmentFee').onclick=commitGovernmentFee;['governmentFeeAgency','governmentFeeApplication','governmentFeeAmount'].forEach(id=>{$('#'+id).addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();closeGovernmentFeeEditor()}if(event.key==='Enter'&&event.ctrlKey){event.preventDefault();commitGovernmentFee()}})});
- $$('.closeModal').forEach(b=>b.onclick=()=>$('#issueModal').classList.add('hidden'));$$('.closeSign').forEach(b=>b.onclick=()=>$('#signModal').classList.add('hidden'));$$('.closeTemplate').forEach(b=>b.onclick=()=>$('#templateModal').classList.add('hidden'));$('#simulateSend').onclick=()=>{state.status='Sent';state.sentAt=new Date().toISOString();save();$('#issueModal').classList.add('hidden');renderAll();openSigning()};$('#clearSig').onclick=clearSignature;$('#acceptAgreement').onclick=acceptAgreement;
+ $$('.closeModal').forEach(b=>b.onclick=()=>{const modal=$('#issueModal');modal.classList.add('hidden');modal.setAttribute('aria-hidden','true');document.body.classList.remove('agreement-issue-open')});$$('.closeSign').forEach(b=>b.onclick=()=>$('#signModal').classList.add('hidden'));$$('.closeTemplate').forEach(b=>b.onclick=()=>$('#templateModal').classList.add('hidden'));$('#simulateSend').onclick=()=>{state.status='Sent';state.sentAt=new Date().toISOString();save();$('#issueModal').classList.add('hidden');renderAll();openSigning()};$('#clearSig').onclick=clearSignature;$('#acceptAgreement').onclick=acceptAgreement;
  $('#saveStatus').onclick=save;$('#saveStatus').style.cursor='pointer';
 }
 if(window.parent!==window){
@@ -567,8 +591,15 @@ If anything needs correcting, or you would like to discuss any part of the agree
     if(message.type==='THIS_AGREEMENT_ISSUED'){
       if(message.agreementSet){ state.status=message.agreementSet.status||'Sent'; state.sentAt=message.agreementSet.issuedAt||new Date().toISOString(); }
       document.querySelector('#issueModal')?.classList.add('hidden');
+      document.body.classList.remove('agreement-issue-open');
+      const sendButton=document.querySelector('#simulateSend'); if(sendButton){sendButton.disabled=false;sendButton.textContent='Send agreement';}
       renderAll();
       toast(message.message||'Agreement issued');
+    }
+    if(message.type==='THIS_AGREEMENT_ISSUE_FAILED'){
+      const sendButton=document.querySelector('#simulateSend'); if(sendButton){sendButton.disabled=false;sendButton.textContent='Send agreement';}
+      const status=document.querySelector('#saveStatus'); if(status) status.textContent='Agreement issue failed';
+      toast(message.message||'Agreement issue failed. Please check the details and try again.');
     }
   });
   window.addEventListener('load',()=>{
@@ -577,7 +608,7 @@ If anything needs correcting, or you would like to discuss any part of the agree
     setCrmPresentation();
     if(window.parent!==window){
       const saveButton=document.querySelector('#saveBtn'); if(saveButton) saveButton.onclick=()=>{ save(); setTimeout(()=>emitSnapshot('save'),20); };
-      const simulate=document.querySelector('#simulateSend'); if(simulate) simulate.onclick=()=>{ const snapshot=currentSnapshot(); post('THIS_AGREEMENT_ISSUE_REQUEST',{snapshot,emailSubject:state.emailSubject,emailBody:state.emailBody,issueRouting:snapshot.issueRouting||{}}); };
+      const simulate=document.querySelector('#simulateSend'); if(simulate) simulate.onclick=()=>{ try{ const snapshot=currentSnapshot(); simulate.disabled=true; simulate.textContent='Issuing...'; post('THIS_AGREEMENT_ISSUE_REQUEST',{snapshot,emailSubject:state.emailSubject,emailBody:state.emailBody,issueRouting:snapshot.issueRouting||{}}); window.setTimeout(()=>{ if(state.status!=='Sent'&&state.status!=='Accepted'){ simulate.disabled=false; simulate.textContent='Send agreement'; } },8000); }catch(error){ console.error('Agreement issue request failed',error); simulate.disabled=false; simulate.textContent='Send agreement'; toast(error?.message||'The agreement could not be issued.'); } };
       const saveTemplate=document.querySelector('#saveTemplate'); if(saveTemplate) saveTemplate.onclick=()=>{save();emitTemplate('save');toast('Template draft sent to CRM')};
       const publishTemplateButton=document.querySelector('#publishTemplate'); if(publishTemplateButton) publishTemplateButton.onclick=()=>{publishTemplate();setTimeout(()=>emitTemplate('publish'),30)};
       const announceReady=()=>{ if(!crmInitialised) post('THIS_AGREEMENT_READY'); };
