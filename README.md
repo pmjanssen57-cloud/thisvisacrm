@@ -1,19 +1,30 @@
-# THiS CRM v0.17.22 — Agreement Routing Scope Hotfix
+# THiS CRM v0.17.23 — Studio Workspace Polish
 
-This release continues from v0.17.21 and fixes the visible **issueRouting is not defined** error when selecting **Issue agreement** in Agreement Studio.
+This release continues from v0.17.22 and gives the Agreement Studio and Instructions Studio workspaces a cleaner, calmer list experience while preserving all existing document-authoring and issue workflows.
 
-## Fixes
+## Studio workspace polish
 
-- Moves the Agreement Studio email-routing helpers into the shared Studio scope so the main **Issue agreement** action can use the same live routing logic as the CRM save/send bridge.
-- Fixes the `issueRouting is not defined` runtime error introduced when the v0.17.20 routing helpers were placed inside the CRM bridge closure while the Issue button remained in the main Studio scope.
-- Also makes the related principal-client/signatory synchronisation helpers available to the main Studio editor, preventing the same scoping problem when editing the principal client name/email or principal signatory.
-- Preserves the v0.17.20/v0.17.21 behaviour: required signatory addresses are authoritative for **To**, the currently edited adviser email is authoritative for **CC**, and secure signing links are generated only by the backend when **Send agreement** is selected.
-- Advances the Agreement Studio iframe/script and PWA cache versions to v0.17.22 so browsers receive the corrected Studio JavaScript.
+- Fixes a legacy CSS/class collision that was causing Studio list rows to inherit old instruction-card styling. This was responsible for the overly small, uppercase, cramped appearance visible in Agreement and Instructions lists.
+- Gives both Studio workspaces a clearer page identity with restrained Agreement/Instructions icons and cleaner heading treatment.
+- Reworks the four summary counters into a single quiet overview strip rather than four competing cards.
+- Tidies the search/filter/saved-view controls into one consistent control rail.
+- Improves list typography, spacing and hierarchy so recipient names, agreement/instruction types, adviser names and metadata are easier to scan.
+- Adds subtle source pills for Client-linked, Intake-linked and Standalone records.
+- Keeps status badges clear without shouting in uppercase.
+- Splits Updated into a compact date/time treatment so timestamps no longer truncate unnecessarily.
+- Agreement rows now use the recipient email as useful secondary information where available, rather than repeating the agreement title beneath the recipient name.
+- Refines row hover, open/delete controls and mobile behaviour without changing the underlying actions.
+
+## Behaviour preserved
+
+- Agreement Studio issue/signing workflow and v0.17.22 To/CC routing fix are unchanged.
+- Instructions Studio creation/editing/template behaviour is unchanged.
+- Adviser list-column preferences and saved views continue to work.
 
 ## Database
 
-No migration is added. All 44 existing migrations are unchanged from v0.17.21.
+No migration is added. All 44 existing migrations are unchanged from v0.17.22.
 
 ## Rollback
 
-Redeploy v0.17.21. No database rollback is required.
+Redeploy v0.17.22. No database rollback is required.

@@ -281,6 +281,17 @@ function formatInstructionDate(value = '') {
   return new Intl.DateTimeFormat('en-NZ', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }).format(date);
 }
 
+function formatStudioUpdatedDate(value = '') {
+  if (!value) return { date: 'Not yet saved', time: '', full: 'Not yet saved' };
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return { date: value, time: '', full: value };
+  return {
+    date: new Intl.DateTimeFormat('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' }).format(date),
+    time: new Intl.DateTimeFormat('en-NZ', { hour: 'numeric', minute: '2-digit' }).format(date),
+    full: formatInstructionDate(value),
+  };
+}
+
 const AGREEMENT_TYPE_OPTIONS = [
   { value: 'smc', label: 'Skilled Migrant Category' },
   { value: 'partnership', label: 'Partnership Visa Pathway' },
@@ -13788,14 +13799,17 @@ function InstructionsWorkspace({
   }
 
   return (
-    <div className="instructions-workspace-page" onPointerDownCapture={(event) => { const button = event.target instanceof Element ? event.target.closest('button') : null; if (button && !button.classList.contains('instruction-set-open')) studioLaunchGuardRef.current = Date.now() + 700; }}>
-      <div className="detail-header instructions-page-header">
-        <div>
-          <span className="eyebrow">THiS document authoring</span>
-          <h1>Instructions Studio</h1>
-          <p>Create client-linked instruction packs or prepare standalone instructions without a client record.</p>
+    <div className="instructions-workspace-page" onPointerDownCapture={(event) => { const button = event.target instanceof Element ? event.target.closest('button') : null; if (button && !button.classList.contains('studio-record-trigger')) studioLaunchGuardRef.current = Date.now() + 700; }}>
+      <div className="detail-header instructions-page-header studio-list-page-header">
+        <div className="studio-page-identity">
+          <span className="studio-page-mark instructions"><BookOpen size={20} /></span>
+          <div>
+            <span className="eyebrow">Studio / Client guidance</span>
+            <h1>Instructions Studio</h1>
+            <p>Create client-linked instruction packs or prepare standalone instructions without a client record.</p>
+          </div>
         </div>
-        <div className="button-row">
+        <div className="button-row studio-create-actions">
           <button className="btn ghost" type="button" onClick={() => openCreate('standalone')}><FileText size={16} />New standalone</button>
           <button className="btn dark" type="button" onClick={() => openCreate('client')} disabled={!savedClients.length}><Plus size={16} />New from client</button>
         </div>
@@ -13831,18 +13845,19 @@ function InstructionsWorkspace({
           const subject = client ? [client.firstName, client.lastName].filter(Boolean).join(' ') : item.standaloneLabel || 'Standalone';
           const adviserId = item.adviserId || client?.primaryAdviserId || '';
           const adviserName = advisers.find((entry) => entry.id === adviserId)?.name || '—';
+          const updated = formatStudioUpdatedDate(item.updatedAt);
           return (
             <article className="studio-record-row" key={item.id}>
-              <button className="studio-record-open instruction-set-open" type="button" onClick={(event) => openInstruction(item, event)}>
+              <button className="studio-record-open studio-record-trigger" type="button" onClick={(event) => openInstruction(item, event)}>
                 <span className="studio-record-primary" data-label="Recipient / reference"><span className="studio-record-icon"><BookOpen size={18} /></span><span><strong>{subject}</strong><small>{item.title}</small></span></span>
                 <span className="studio-record-cell" data-label="Instruction pack">{instructionPackLabel(item.packId)}</span>
-                {instructionColumns.source !== false && <span className="studio-record-cell" data-label="Source">{item.clientId ? 'Client-linked' : 'Standalone'}</span>}
+                {instructionColumns.source !== false && <span className="studio-record-cell" data-label="Source"><span className={`studio-source-pill ${item.clientId ? 'client' : 'standalone'}`}>{item.clientId ? 'Client-linked' : 'Standalone'}</span></span>}
                 {instructionColumns.status !== false && <span className="studio-record-cell" data-label="Status"><span className={`instruction-status ${String(item.status || 'Draft').toLowerCase()}`}>{item.status || 'Draft'}</span></span>}
                 {instructionColumns.adviser !== false && <span className="studio-record-cell studio-record-adviser" data-label="Adviser">{adviserName}</span>}
-                {instructionColumns.updated !== false && <span className="studio-record-cell studio-record-updated" data-label="Updated">{formatInstructionDate(item.updatedAt)}</span>}
+                {instructionColumns.updated !== false && <span className="studio-record-cell studio-record-updated" data-label="Updated" title={updated.full}><strong>{updated.date}</strong>{updated.time && <small>{updated.time}</small>}</span>}
               </button>
               <div className="studio-record-actions">
-                <button className="icon-btn instruction-set-open" type="button" onClick={(event) => openInstruction(item, event)} aria-label={`Open ${item.title}`} title="Open"><ChevronRight size={16} /></button>
+                <button className="icon-btn studio-record-trigger" type="button" onClick={(event) => openInstruction(item, event)} aria-label={`Open ${item.title}`} title="Open"><ChevronRight size={16} /></button>
                 <button className="icon-btn danger" type="button" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); }} onPointerUp={(event) => event.stopPropagation()} onClick={(event) => handleDeleteInstruction(item, event)} aria-label="Delete instruction set"><Trash2 size={15} /></button>
               </div>
             </article>
@@ -14332,14 +14347,17 @@ function AgreementsWorkspace({
   }
 
   return (
-    <div className="instructions-workspace-page agreements-workspace-page" onPointerDownCapture={(event) => { const button = event.target instanceof Element ? event.target.closest('button') : null; if (button && !button.classList.contains('instruction-set-open')) studioLaunchGuardRef.current = Date.now() + 700; }}>
-      <div className="detail-header instructions-page-header">
-        <div>
-          <span className="eyebrow">THiS document authoring</span>
-          <h1>Agreement Studio</h1>
-          <p>Create, issue and monitor client engagement agreements with tailored scope, fees and secure electronic acceptance.</p>
+    <div className="instructions-workspace-page agreements-workspace-page" onPointerDownCapture={(event) => { const button = event.target instanceof Element ? event.target.closest('button') : null; if (button && !button.classList.contains('studio-record-trigger')) studioLaunchGuardRef.current = Date.now() + 700; }}>
+      <div className="detail-header instructions-page-header studio-list-page-header">
+        <div className="studio-page-identity">
+          <span className="studio-page-mark agreement"><FileCheck2 size={20} /></span>
+          <div>
+            <span className="eyebrow">Studio / Client engagement</span>
+            <h1>Agreement Studio</h1>
+            <p>Create, issue and monitor client engagement agreements with tailored scope, fees and secure electronic acceptance.</p>
+          </div>
         </div>
-        <div className="button-row">
+        <div className="button-row studio-create-actions">
           <button className="btn dark" type="button" onClick={() => openCreate('intake')} disabled={!eligibleIntakes.length}><ClipboardList size={16} />New from intake</button>
           <button className="btn ghost" type="button" onClick={() => openCreate('client')} disabled={!savedClients.length}><Plus size={16} />New from client</button>
           <button className="btn ghost" type="button" onClick={() => openCreate('standalone')}><FileText size={16} />New standalone</button>
@@ -14382,18 +14400,21 @@ function AgreementsWorkspace({
           const adviserId = item.adviserId || client?.primaryAdviserId || intake?.assignedAdviserId || '';
           const adviserName = advisers.find((entry) => entry.id === adviserId)?.name || '—';
           const sourceLabel = item.clientId ? 'Client-linked' : item.intakeId ? 'Intake-linked' : 'Standalone';
+          const sourceTone = item.clientId ? 'client' : item.intakeId ? 'intake' : 'standalone';
+          const updated = formatStudioUpdatedDate(item.updatedAt);
+          const secondary = item.recipientEmail || item.title;
           return (
             <article className="studio-record-row" key={item.id}>
-              <button className="studio-record-open instruction-set-open" type="button" onClick={(event) => openAgreement(item, event)}>
-                <span className="studio-record-primary" data-label="Recipient / organisation"><span className="studio-record-icon agreement"><FileCheck2 size={18} /></span><span><strong>{subject}</strong><small>{item.title}</small></span></span>
+              <button className="studio-record-open studio-record-trigger" type="button" onClick={(event) => openAgreement(item, event)}>
+                <span className="studio-record-primary" data-label="Recipient / organisation"><span className="studio-record-icon agreement"><FileCheck2 size={18} /></span><span><strong>{subject}</strong>{secondary && <small>{secondary}</small>}</span></span>
                 <span className="studio-record-cell" data-label="Agreement type">{agreementTypeLabel(item.appType)}</span>
-                {agreementColumns.source !== false && <span className="studio-record-cell" data-label="Source">{sourceLabel}</span>}
+                {agreementColumns.source !== false && <span className="studio-record-cell" data-label="Source"><span className={`studio-source-pill ${sourceTone}`}>{sourceLabel}</span></span>}
                 {agreementColumns.status !== false && <span className="studio-record-cell" data-label="Status"><span className={`instruction-status ${String(item.status || 'Draft').toLowerCase().replaceAll(' ', '-')}`}>{item.status || 'Draft'}</span></span>}
                 {agreementColumns.adviser !== false && <span className="studio-record-cell studio-record-adviser" data-label="Adviser">{adviserName}</span>}
-                {agreementColumns.updated !== false && <span className="studio-record-cell studio-record-updated" data-label="Updated">{formatInstructionDate(item.updatedAt)}</span>}
+                {agreementColumns.updated !== false && <span className="studio-record-cell studio-record-updated" data-label="Updated" title={updated.full}><strong>{updated.date}</strong>{updated.time && <small>{updated.time}</small>}</span>}
               </button>
               <div className="studio-record-actions">
-                <button className="icon-btn instruction-set-open" type="button" onClick={(event) => openAgreement(item, event)} aria-label={`Open ${item.title}`} title="Open"><ChevronRight size={16} /></button>
+                <button className="icon-btn studio-record-trigger" type="button" onClick={(event) => openAgreement(item, event)} aria-label={`Open ${item.title}`} title="Open"><ChevronRight size={16} /></button>
                 <button className="icon-btn danger" type="button" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); }} onPointerUp={(event) => event.stopPropagation()} onClick={(event) => handleDeleteAgreement(item, event)} aria-label="Delete agreement" disabled={item.status === 'Accepted'} title={item.status === 'Accepted' ? 'Accepted agreements are locked' : 'Delete agreement'}><Trash2 size={15} /></button>
               </div>
             </article>

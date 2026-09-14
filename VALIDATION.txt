@@ -1,10 +1,11 @@
-THiS CRM v0.17.22 validation
+THiS CRM v0.17.23 validation
 
-- public/agreement-studio.js passes Node syntax checking.
-- Shared Agreement Studio routing/synchronisation helpers are defined in the main Studio scope and are no longer duplicated inside the CRM bridge closure.
 - App.jsx parses successfully as JSX.
+- Studio list row launch guards now use a neutral studio-record-trigger class rather than the legacy instruction-set-open styling class.
+- Agreement and Instructions workspace source/status/date presentation is implemented in shared CRM list styling only; editor behaviour is unchanged.
 - All Netlify .mjs functions pass Node syntax checking.
 - PWA validation passes.
-- Existing 44 database migrations are byte-for-byte unchanged from v0.17.21.
-- Agreement Studio HTML/iframe and service-worker cache versions advance to v0.17.22.
+- Existing 44 database migrations are byte-for-byte unchanged from v0.17.22.
+- PWA shell cache advances to v0.17.23.
 - No dependency, environment-variable or schema change.
+- A complete Vite production build was not run because node_modules are not included in the supplied deployment baseline.
