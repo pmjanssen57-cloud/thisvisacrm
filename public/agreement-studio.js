@@ -43,6 +43,41 @@ function save(){THIS_LOCAL_STORAGE.setItem('this-agreement-studio-v1',JSON.strin
 function currentType(){return APP_TYPES[state.appType]||APP_TYPES.other}function fullClient(){return state.client.clientName||'Client'}
 function normaliseTemplateSettings(template={}){return {...template,gstTreatment:template.gstTreatment||GST_TREATMENT_DEFAULT,hourlyRate:template.hourlyRate==='NZD$500.00 per hour plus GST'?'NZD$500.00 per hour plus GST where applicable':template.hourlyRate};}
 function defaultMatterDescription(type=state.appType){const cfg=APP_TYPES[type]||APP_TYPES.other;return `${cfg.title} application and related agreed services`}
+function isUsableEmail(value=''){
+ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value||'').trim());
+}
+function principalSignatoryIndex(){
+ const signatories=Array.isArray(state.signatories)?state.signatories:[];
+ let index=signatories.findIndex(item=>/principal|client/i.test(String(item?.role||'')));
+ if(index<0) index=signatories.findIndex(item=>item?.required!==false);
+ return index;
+}
+function syncPrincipalFromClient(){
+ const index=principalSignatoryIndex();
+ if(index<0) return;
+ const principal=state.signatories[index];
+ if(!principal) return;
+ if(state.client?.clientName) principal.name=state.client.clientName;
+ if(state.client?.clientEmail) principal.email=state.client.clientEmail;
+}
+function syncClientFromPrincipal(){
+ const index=principalSignatoryIndex();
+ if(index<0) return;
+ const principal=state.signatories[index];
+ if(!principal) return;
+ if(principal.name) state.client.clientName=principal.name;
+ if(principal.email) state.client.clientEmail=principal.email;
+}
+function issueRouting(){
+ const required=(Array.isArray(state.signatories)?state.signatories:[])
+  .filter(item=>item&&item.required!==false&&isUsableEmail(item.email));
+ if(!required.length&&isUsableEmail(state.client?.clientEmail)){
+  required.push({name:state.client?.clientName||'Client',email:String(state.client.clientEmail).trim(),role:'Principal client',required:true});
+ }
+ const recipients=required;
+ const adviserEmail=isUsableEmail(state.client?.adviserEmail)?String(state.client.adviserEmail).trim():'';
+ return {recipients, adviserEmail};
+}
 function activeSections(){return state.sections.filter(s=>s.enabled)}
 function sectionNumber(id){let n=0;for(const s of state.sections){if(!s.enabled)continue;if(s.numberMode==='auto')n++;if(s.id===id){if(s.numberMode==='none')return '';if(s.numberMode==='manual')return s.manualNumber||'';return String(n).padStart(2,'0')}}return ''}
 function heading(section){const num=sectionNumber(section.id);return `<div class="heading">${num?`<span class="n editable" data-edit="number" data-id="${section.id}">${esc(num)}</span>`:''}<h2 class="editable" data-edit="title" data-id="${section.id}">${esc(section.title)}</h2></div>`}
@@ -438,42 +473,6 @@ If anything needs correcting, or you would like to discuss any part of the agree
     next.template=normaliseTemplateSettings(next.template||{});
     return next;
   }
-  function isUsableEmail(value=''){
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value||'').trim());
-  }
-  function principalSignatoryIndex(){
-    const signatories=Array.isArray(state.signatories)?state.signatories:[];
-    let index=signatories.findIndex(item=>/principal|client/i.test(String(item?.role||'')));
-    if(index<0) index=signatories.findIndex(item=>item?.required!==false);
-    return index;
-  }
-  function syncPrincipalFromClient(){
-    const index=principalSignatoryIndex();
-    if(index<0) return;
-    const principal=state.signatories[index];
-    if(!principal) return;
-    if(state.client?.clientName) principal.name=state.client.clientName;
-    if(state.client?.clientEmail) principal.email=state.client.clientEmail;
-  }
-  function syncClientFromPrincipal(){
-    const index=principalSignatoryIndex();
-    if(index<0) return;
-    const principal=state.signatories[index];
-    if(!principal) return;
-    if(principal.name) state.client.clientName=principal.name;
-    if(principal.email) state.client.clientEmail=principal.email;
-  }
-  function issueRouting(){
-    const required=(Array.isArray(state.signatories)?state.signatories:[])
-      .filter(item=>item&&item.required!==false&&isUsableEmail(item.email));
-    if(!required.length&&isUsableEmail(state.client?.clientEmail)){
-      required.push({name:state.client?.clientName||'Client',email:String(state.client.clientEmail).trim(),role:'Principal client',required:true});
-    }
-    const recipients=required;
-    const adviserEmail=isUsableEmail(state.client?.adviserEmail)?String(state.client.adviserEmail).trim():'';
-    return {recipients, adviserEmail};
-  }
-
   function currentSnapshot(){
     return {
       title:`${state.client.clientName||'Agreement'} - ${currentType().title}`,

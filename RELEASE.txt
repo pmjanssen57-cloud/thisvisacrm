@@ -1,13 +1,12 @@
-THiS CRM v0.17.21 - Agreement Issue Preview Hotfix
+THiS CRM v0.17.22 - Agreement Routing Scope Hotfix
 
-Built from v0.17.20.
+Built from v0.17.21.
 
 Fixes
-- Removes the obsolete browser-side signing-token generation from the Issue agreement button path. Signing links remain generated securely by the CRM backend only when Send agreement is selected.
-- Wraps the Issue agreement preview in defensive error handling with visible status/toast feedback rather than allowing an uncaught JavaScript error to make the button appear unresponsive.
-- Makes the current To/CC routing visible in the preview exactly as introduced in v0.17.20.
-- Adds a clear Issuing state to Send agreement and restores the button if no confirmation is received.
-- Advances both Agreement Studio HTML and JavaScript cache versions to v0.17.21 so browsers cannot continue using an older Studio shell.
+- Fixes the visible "issueRouting is not defined" error when Issue agreement is selected.
+- Moves the shared routing and principal-client/signatory synchronisation helpers out of the CRM-only closure so both the main Agreement Studio UI and CRM bridge use the same functions.
+- Preserves the live To/CC routing introduced in v0.17.20 and the backend-only secure signing-link generation retained in v0.17.21.
+- Advances Agreement Studio HTML/JavaScript and PWA cache versions to v0.17.22 to prevent browsers retaining the faulty Studio script.
 
 Database
 - No migration. Existing 44 migrations are unchanged.

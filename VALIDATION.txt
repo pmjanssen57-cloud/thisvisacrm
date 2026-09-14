@@ -1,9 +1,10 @@
-THiS CRM v0.17.21 validation
+THiS CRM v0.17.22 validation
 
 - public/agreement-studio.js passes Node syntax checking.
+- Shared Agreement Studio routing/synchronisation helpers are defined in the main Studio scope and are no longer duplicated inside the CRM bridge closure.
 - App.jsx parses successfully as JSX.
 - All Netlify .mjs functions pass Node syntax checking.
 - PWA validation passes.
-- Existing 44 database migrations are byte-for-byte unchanged from v0.17.20.
-- Agreement Studio HTML and iframe cache versions advance to v0.17.21.
+- Existing 44 database migrations are byte-for-byte unchanged from v0.17.21.
+- Agreement Studio HTML/iframe and service-worker cache versions advance to v0.17.22.
 - No dependency, environment-variable or schema change.
