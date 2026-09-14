@@ -1,0 +1,5 @@
+THiS CRM v0.17.24 rollback
+
+Rollback target: v0.17.23 — Studio Workspace Polish.
+
+No database migration was added in v0.17.24, so rollback requires only redeploying the v0.17.23 application package. No database rollback is required.

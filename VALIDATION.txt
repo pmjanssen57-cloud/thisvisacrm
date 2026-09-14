@@ -1,11 +1,11 @@
-THiS CRM v0.17.23 validation
+THiS CRM v0.17.24 validation
 
-- App.jsx parses successfully as JSX.
-- Studio list row launch guards now use a neutral studio-record-trigger class rather than the legacy instruction-set-open styling class.
-- Agreement and Instructions workspace source/status/date presentation is implemented in shared CRM list styling only; editor behaviour is unchanged.
+- App.jsx parses successfully as JSX using TypeScript syntactic parsing.
+- The Client details trigger references the defined QuickClientUpdateDrawer component.
+- No remaining QuickClientUpdatePanel references exist.
 - All Netlify .mjs functions pass Node syntax checking.
 - PWA validation passes.
-- Existing 44 database migrations are byte-for-byte unchanged from v0.17.22.
-- PWA shell cache advances to v0.17.23.
+- Existing 44 database migrations are byte-for-byte unchanged from v0.17.23.
+- PWA shell cache advances to v0.17.24.
 - No dependency, environment-variable or schema change.
 - A complete Vite production build was not run because node_modules are not included in the supplied deployment baseline.

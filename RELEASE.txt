@@ -1,15 +1,13 @@
-THiS CRM v0.17.23 - Studio Workspace Polish
+THiS CRM v0.17.24 - Client Details Drawer Hotfix
 
-Built from v0.17.22.
+Built from v0.17.23.
 
 Changes
-- Polishes both Agreement Studio and Instructions Studio list workspaces.
-- Removes a legacy instruction-set-open class collision that was forcing old uppercase/card typography into the newer Studio table rows.
-- Adds cleaner Studio page identity, calmer summary counters and a more coherent search/filter/saved-view control rail.
-- Improves list spacing, typography, source/status pills, updated date/time display and row actions.
-- Agreement list rows show recipient email as useful secondary metadata where available.
-- Preserves Agreement issue/signing/routing behaviour and all Instructions Studio functionality.
-- Advances the PWA shell cache to v0.17.23 so the refreshed App/CSS is picked up cleanly.
+- Fixes the blank page caused by the simplified matter screen referencing QuickClientUpdatePanel, which is not defined.
+- Routes Client details to the existing QuickClientUpdateDrawer component.
+- Preserves all existing quick client edit sections and save behaviour.
+- Preserves the v0.17.23 Studio workspace polish and v0.17.22 Agreement routing hotfix.
+- Advances the PWA shell cache to v0.17.24 so the corrected application shell is picked up cleanly.
 
 Database
 - No migration. Existing 44 migrations are unchanged.
