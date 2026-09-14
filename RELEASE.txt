@@ -1,27 +1,15 @@
-THiS CRM v0.17.21 - Assessment Friction Reduction
+THiS CRM v0.17.20 - Agreement Email Routing Reliability
 
-Baseline
-- Built from v0.17.20 Adviser Cleanup + Faster Assessment Flow.
-- Retains draft/resume, CV uploads, second citizenship, full final review, adviser cleanup and all CRM functionality.
-
-Assessment simplification
-- Removes the technical interstitial/pop-up wording from the repeated stage reminder.
-- The reminder now simply explains that progress saves securely and Save & finish later is available.
-- Removes the redundant longer-term-goal question when the applicant has already selected Live in New Zealand permanently. It remains for Work in New Zealand and Not sure yet, where it adds useful context.
-- Clarifies partner status wording: Partner current New Zealand visa (if any) and Is your partner a New Zealand citizen or resident?
-- Keeps partner identity/relationship questions visible, but collapses detailed partner work and qualification fields behind an optional control.
-- Partner CV upload is presented before the optional detailed work/qualification fields, with clear wording that uploading a CV normally means those details can be left blank.
-- Reworks the save-progress explanation so it stays together as one readable block instead of splitting around the Save & finish later wording.
-- Improves mobile width treatment for Back / Save & finish later controls.
-
-Consent behaviour
-- Consent attention styling is only triggered by a deliberate submission attempt.
-- Consent warnings are cleared when the applicant leaves the final review step to edit earlier answers.
-
-Squarespace promotional pop-up
-- The SMC promotional pop-up is controlled by Squarespace, outside the Netlify iframe. It cannot be disabled safely from the CRM build.
-- Exclude /assessment under Squarespace Promotional pop-up -> Display & timing -> Pages, and update the old 24 August 2026 promotional wording where the pop-up continues to run.
+Agreement Studio
+- Intake/client hydration no longer overwrites adviser name/email or recipient details that have been deliberately edited in the Agreement Studio.
+- The principal client email and principal signatory email are kept in sync while editing.
+- Editing a principal signatory name/email also updates the Client & matter principal details.
+- Other required signatory email edits remain authoritative for issue delivery.
+- Issue Agreement now previews the actual current required-signatory To addresses and the current adviser CC address.
+- Each required signatory continues to receive an individual secure signing link.
+- The Microsoft 365 email log records the same live To/CC routing used for the send.
+- Acceptance confirmation emails continue to use the adviser email stored in the issued Agreement Studio snapshot.
 
 Database
-- No new migration.
-- All 44 existing migrations remain unchanged.
+- No database migration.
+- Existing 44 migrations are unchanged.

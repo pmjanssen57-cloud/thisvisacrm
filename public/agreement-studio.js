@@ -224,11 +224,22 @@ function bindRepeats(){
  $$('[data-scope-row]').forEach(row=>{let i=+row.dataset.scopeRow;row.querySelector('[data-scope-enable]').onchange=e=>{state.scope[i].enabled=e.target.checked;dirty();renderPages()};row.querySelector('[data-scope-text]').oninput=e=>{state.scope[i].text=e.target.value;dirty();renderPages()};row.querySelector('[data-scope-remove]').onclick=()=>{state.scope.splice(i,1);renderAll()}});
  $$('[data-prof-row]').forEach(row=>{let i=+row.dataset.profRow;row.querySelector('[data-prof-edit]').onclick=()=>openProfessionalFeeEditor(state.professionalFees[i]?.id||'');row.querySelector('[data-prof-remove]').onclick=()=>{state.professionalFees.splice(i,1);dirty();renderFees();renderPages()}});
  $$('[data-gov-row]').forEach(row=>{let i=+row.dataset.govRow;row.querySelector('[data-gov-edit]').onclick=()=>openGovernmentFeeEditor(state.governmentFees[i]?.id||'');row.querySelector('[data-gov-remove]').onclick=()=>{state.governmentFees.splice(i,1);dirty();renderFees();renderPages()}});
- $$('[data-sign-row]').forEach(row=>{let i=+row.dataset.signRow;row.querySelectorAll('[data-sf]').forEach(el=>el.oninput=e=>{state.signatories[i][el.dataset.sf]=e.target.value;dirty();renderPages()});const required=row.querySelector('[data-sf-required]');if(required)required.onchange=e=>{state.signatories[i].required=e.target.checked;dirty();renderPages()};const remove=row.querySelector('[data-sign-remove]');if(remove)remove.onclick=()=>{state.signatories.splice(i,1);renderAll()}})
+ $$('[data-sign-row]').forEach(row=>{let i=+row.dataset.signRow;row.querySelectorAll('[data-sf]').forEach(el=>el.oninput=e=>{state.signatories[i][el.dataset.sf]=e.target.value;if(i===principalSignatoryIndex()&&(el.dataset.sf==='email'||el.dataset.sf==='name'))syncClientFromPrincipal();dirty();renderHeader();renderPages()});const required=row.querySelector('[data-sf-required]');if(required)required.onchange=e=>{state.signatories[i].required=e.target.checked;dirty();renderPages()};const remove=row.querySelector('[data-sign-remove]');if(remove)remove.onclick=()=>{state.signatories.splice(i,1);renderAll()}})
 }
 function bindInlineEdits(){if(!editMode)return;$$('#pages .editable').forEach(el=>{el.contentEditable='true';el.addEventListener('blur',()=>{const k=el.dataset.edit,id=el.dataset.id;if(k==='coverHeading')state.template.coverHeading=el.textContent.trim();else if(k==='coverSubtitle')state.template.coverSubtitle=el.textContent.trim();else if(k==='title')state.sections.find(s=>s.id===id).title=el.textContent.trim();else if(k==='number'){const sec=state.sections.find(s=>s.id===id);sec.numberMode='manual';sec.manualNumber=el.textContent.trim();}else if(k==='body'){const fragments=$$('#pages [data-edit="body"]').filter(fragment=>fragment.dataset.id===id);state.sections.find(s=>s.id===id).body=fragments.map(fragment=>fragment.innerHTML).join('')}dirty();renderSectionList();renderContentEditor()});el.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();renderPages()}if(e.key==='Enter'&&e.ctrlKey){e.preventDefault();el.blur()}})})}
 function switchType(type){state.appType=type;const cfg=currentType();state.template.coverSubtitle=cfg.title;state.client.matterNote=defaultMatterDescription(type);state.scope=cfg.scope.map((text,i)=>({id:'s'+Date.now()+i,text,enabled:true}));state.governmentFees=cfg.gov.map((r,i)=>({id:'g'+Date.now()+i,agency:r[0],application:r[1],amount:r[3]}));dirty();renderAll()}
-function openIssue(){if(!state.client.clientEmail){toast('Add a client email before issuing');return}if(!state.feeConfirmed||!state.clientChecked){toast('Confirm the fees and client details before issuing');return}state.token=state.token||crypto.randomUUID().replaceAll('-','').slice(0,24);$('#issueTo').textContent=state.client.clientEmail;$('#issueCc').textContent=state.client.adviserEmail;$('#issueSubject').textContent=state.emailSubject;$('#issueBody').textContent=state.emailBody;$('#secureLink').textContent='https://portal.turnerhopkinsimmigration.co.nz/agreement/'+state.token;$('#issueModal').classList.remove('hidden')}
+function openIssue(){
+ const routing=issueRouting();
+ if(!routing.recipients.length){toast('Add at least one required signatory with a valid email address before issuing');return}
+ if(!state.feeConfirmed||!state.clientChecked){toast('Confirm the fees and client details before issuing');return}
+ state.token=state.token||crypto.randomUUID().replaceAll('-','').slice(0,24);
+ $('#issueTo').textContent=routing.recipients.map(item=>`${item.name||item.role||'Client'} <${item.email}>`).join('; ');
+ $('#issueCc').textContent=routing.adviserEmail?(state.client.adviserName?`${state.client.adviserName} <${routing.adviserEmail}>`:routing.adviserEmail):'No adviser copy';
+ $('#issueSubject').textContent=state.emailSubject;
+ $('#issueBody').textContent=state.emailBody;
+ $('#secureLink').textContent='A separate secure signing link will be generated for each required signatory.';
+ $('#issueModal').classList.remove('hidden')
+}
 function openSigning(){ $('#signHeading').textContent='Review and accept your agreement';$('#signAgreement').textContent=currentType().title;$('#signClient').textContent=fullClient();$('#signVersion').textContent=state.template.version;$('#typedName').value='';['checkRead','checkFees','checkDocs'].forEach(id=>$('#'+id).checked=false);clearSignature();$('#signModal').classList.remove('hidden');setTimeout(initCanvas,50)}
 function initCanvas(){const c=$('#sigCanvas'),ctx=c.getContext('2d');let drawing=false,last=null;function pos(e){const r=c.getBoundingClientRect(),p=e.touches?e.touches[0]:e;return{x:(p.clientX-r.left)*(c.width/r.width),y:(p.clientY-r.top)*(c.height/r.height)}}function start(e){drawing=true;last=pos(e);e.preventDefault()}function move(e){if(!drawing)return;const p=pos(e);ctx.strokeStyle='#063b39';ctx.lineWidth=2.2;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(p.x,p.y);ctx.stroke();last=p;sigDrawn=true;e.preventDefault()}function end(){drawing=false;last=null}c.onmousedown=start;c.onmousemove=move;c.onmouseup=end;c.onmouseleave=end;c.ontouchstart=start;c.ontouchmove=move;c.ontouchend=end}
 function clearSignature(){const c=$('#sigCanvas');if(c){c.getContext('2d').clearRect(0,0,c.width,c.height)}sigDrawn=false}
@@ -241,7 +252,11 @@ function bind(){
  $$('.tab').forEach(t=>t.onclick=()=>{$$('.tab').forEach(x=>x.classList.toggle('active',x===t));$$('.pane').forEach(p=>p.classList.toggle('active',p.id==='pane-'+t.dataset.tab))});
  $('#appType').onchange=e=>switchType(e.target.value);$('#sourceMode').onchange=e=>{state.sourceMode=e.target.value;if(e.target.value==='standalone'){state.client.clientName='Standalone recipient';state.client.partnerName='';state.client.clientEmail='';state.client.matterRef='Standalone agreement'}dirty();renderAll()};
  $('#sectionTitleInput').oninput=e=>{state.sections.find(s=>s.id===state.selectedSection).title=e.target.value;dirty();renderSectionList();renderPages()};$('#sectionBodyInput').oninput=e=>{state.sections.find(s=>s.id===state.selectedSection).body=e.target.value;dirty();renderPages()};$('#numberMode').onchange=e=>{state.sections.find(s=>s.id===state.selectedSection).numberMode=e.target.value;renderContentEditor();dirty();renderAll()};$('#manualNumber').oninput=e=>{state.sections.find(s=>s.id===state.selectedSection).manualNumber=e.target.value;dirty();renderSectionList();renderPages()};
- $$('.matter').forEach(el=>el.oninput=e=>{state.client[el.dataset.key]=e.target.value;dirty();renderHeader();renderPages()});$$('.template').forEach(el=>el.oninput=e=>{if(el.readOnly)return;state.template[el.dataset.key]=e.target.value;dirty();renderPages()});
+ $$('.matter').forEach(el=>el.oninput=e=>{
+  state.client[el.dataset.key]=e.target.value;
+  if(el.dataset.key==='clientEmail'||el.dataset.key==='clientName') syncPrincipalFromClient();
+  dirty();renderHeader();renderPages()
+ });$$('.template').forEach(el=>el.oninput=e=>{if(el.readOnly)return;state.template[el.dataset.key]=e.target.value;dirty();renderPages()});
  $('#addScope').onclick=()=>{state.scope.push({id:'s'+Date.now(),text:'New agreed service',enabled:true});renderMatter();renderPages()};$('#addProfFee').onclick=()=>openProfessionalFeeEditor();$('#addGovFee').onclick=()=>openGovernmentFeeEditor();$('#addSignatory').onclick=()=>{state.signatories.push({id:'sg'+Date.now(),name:'',email:'',role:'Additional signatory',required:true});renderSigning();renderPages()};
  $('#acceptanceText').oninput=e=>{state.acceptanceText=e.target.value;dirty();renderPages()};$('#emailSubject').oninput=e=>{state.emailSubject=e.target.value;dirty()};$('#emailBody').oninput=e=>{state.emailBody=e.target.value;dirty()};$('#feeConfirmed').onchange=e=>{state.feeConfirmed=e.target.checked;dirty()};$('#clientChecked').onchange=e=>{state.clientChecked=e.target.checked;dirty()};
  $$('[data-zoom]').forEach(b=>b.onclick=()=>{zoom=b.dataset.zoom==='100'?'':'fit';$$('[data-zoom]').forEach(x=>x.classList.toggle('active',x===b));renderPages()});$('#editTextBtn').onclick=()=>{editMode=!editMode;$('#editTextBtn').classList.toggle('active',editMode);renderPages()};
@@ -320,9 +335,18 @@ bind();renderAll();
     if(!payload.client) return next;
     const existing=next.client||{};
     const mapped=mapClient(payload.client,payload.advisers||[],next.appType);
+    // CRM/intake data seeds a new agreement, but once an agreement has been edited
+    // the Agreement Studio values are authoritative.  In particular, do not reset
+    // an adviser or recipient email back to the intake/client value when reopening.
     next.client={
-      ...existing,
       ...mapped,
+      ...existing,
+      clientName:existing.clientName||mapped.clientName||'',
+      partnerName:existing.partnerName||mapped.partnerName||'',
+      clientEmail:existing.clientEmail||mapped.clientEmail||'',
+      matterRef:existing.matterRef||mapped.matterRef||'',
+      adviserName:existing.adviserName||mapped.adviserName||'',
+      adviserEmail:existing.adviserEmail||mapped.adviserEmail||'',
       preparedDate:existing.preparedDate||mapped.preparedDate,
       expectedMonths:existing.expectedMonths||mapped.expectedMonths,
       matterNote:existing.matterNote||mapped.matterNote||defaultMatterDescription(next.appType)
@@ -333,15 +357,17 @@ bind();renderAll();
       principal={id:'sg-'+Date.now(),role:'Principal client',required:true};
       signatories.unshift(principal);
     }
-    principal.name=next.client.clientName||principal.name||'';
-    principal.email=next.client.clientEmail||principal.email||'';
+    // Preserve an explicitly edited signatory.  The live editor keeps the
+    // principal client and principal signatory in sync from this point onward.
+    principal.name=principal.name||next.client.clientName||'';
+    principal.email=principal.email||next.client.clientEmail||'';
     if(next.client.partnerName){
       let partner=signatories.find(item=>/partner|second client/i.test(item.role||''));
       if(!partner){
         partner={id:'sg-'+(Date.now()+1),role:'Partner / second client',required:true};
         signatories.push(partner);
       }
-      partner.name=next.client.partnerName;
+      partner.name=partner.name||next.client.partnerName;
     }
     next.signatories=signatories;
     return next;
@@ -388,6 +414,42 @@ If anything needs correcting, or you would like to discuss any part of the agree
     next.template=normaliseTemplateSettings(next.template||{});
     return next;
   }
+  function isUsableEmail(value=''){
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value||'').trim());
+  }
+  function principalSignatoryIndex(){
+    const signatories=Array.isArray(state.signatories)?state.signatories:[];
+    let index=signatories.findIndex(item=>/principal|client/i.test(String(item?.role||'')));
+    if(index<0) index=signatories.findIndex(item=>item?.required!==false);
+    return index;
+  }
+  function syncPrincipalFromClient(){
+    const index=principalSignatoryIndex();
+    if(index<0) return;
+    const principal=state.signatories[index];
+    if(!principal) return;
+    if(state.client?.clientName) principal.name=state.client.clientName;
+    if(state.client?.clientEmail) principal.email=state.client.clientEmail;
+  }
+  function syncClientFromPrincipal(){
+    const index=principalSignatoryIndex();
+    if(index<0) return;
+    const principal=state.signatories[index];
+    if(!principal) return;
+    if(principal.name) state.client.clientName=principal.name;
+    if(principal.email) state.client.clientEmail=principal.email;
+  }
+  function issueRouting(){
+    const required=(Array.isArray(state.signatories)?state.signatories:[])
+      .filter(item=>item&&item.required!==false&&isUsableEmail(item.email));
+    if(!required.length&&isUsableEmail(state.client?.clientEmail)){
+      required.push({name:state.client?.clientName||'Client',email:String(state.client.clientEmail).trim(),role:'Principal client',required:true});
+    }
+    const recipients=required;
+    const adviserEmail=isUsableEmail(state.client?.adviserEmail)?String(state.client.adviserEmail).trim():'';
+    return {recipients, adviserEmail};
+  }
+
   function currentSnapshot(){
     return {
       title:`${state.client.clientName||'Agreement'} - ${currentType().title}`,
@@ -395,9 +457,13 @@ If anything needs correcting, or you would like to discuss any part of the agree
       status:state.status||'Draft',
       studioState:clone(state),
       templateVersion:{version:state.template?.version||'1.0'},
-      recipientEmail:state.client?.clientEmail||'',
+      recipientEmail:issueRouting().recipients[0]?.email||state.client?.clientEmail||'',
       adviserEmail:state.client?.adviserEmail||'',
-      signatories:clone(state.signatories||[])
+      signatories:clone(state.signatories||[]),
+      issueRouting:{
+        toEmails:issueRouting().recipients.map(item=>item.email),
+        ccEmail:issueRouting().adviserEmail
+      }
     };
   }
   function emitSnapshot(reason='save'){ post('THIS_AGREEMENT_SNAPSHOT',{reason,agreementSetId:crmContext.agreementSetId,snapshot:currentSnapshot()}); }
@@ -511,7 +577,7 @@ If anything needs correcting, or you would like to discuss any part of the agree
     setCrmPresentation();
     if(window.parent!==window){
       const saveButton=document.querySelector('#saveBtn'); if(saveButton) saveButton.onclick=()=>{ save(); setTimeout(()=>emitSnapshot('save'),20); };
-      const simulate=document.querySelector('#simulateSend'); if(simulate) simulate.onclick=()=>{ post('THIS_AGREEMENT_ISSUE_REQUEST',{snapshot:currentSnapshot(),emailSubject:state.emailSubject,emailBody:state.emailBody}); };
+      const simulate=document.querySelector('#simulateSend'); if(simulate) simulate.onclick=()=>{ const snapshot=currentSnapshot(); post('THIS_AGREEMENT_ISSUE_REQUEST',{snapshot,emailSubject:state.emailSubject,emailBody:state.emailBody,issueRouting:snapshot.issueRouting||{}}); };
       const saveTemplate=document.querySelector('#saveTemplate'); if(saveTemplate) saveTemplate.onclick=()=>{save();emitTemplate('save');toast('Template draft sent to CRM')};
       const publishTemplateButton=document.querySelector('#publishTemplate'); if(publishTemplateButton) publishTemplateButton.onclick=()=>{publishTemplate();setTimeout(()=>emitTemplate('publish'),30)};
       const announceReady=()=>{ if(!crmInitialised) post('THIS_AGREEMENT_READY'); };

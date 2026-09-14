@@ -1,9 +1,7 @@
-# THiS CRM v0.17.21 - Assessment Friction Reduction
+# THiS CRM v0.17.20 - Agreement Email Routing Reliability
 
-This release continues from v0.17.20 and focuses on reducing friction in the public assessment without discarding useful adviser data.
+This release fixes Agreement Studio email routing for intake/client-linked agreements. Edited adviser details and party email addresses are now preserved and used at issue time instead of being rehydrated back to the original intake/client values.
 
-The public assessment now has cleaner consent behaviour, a single readable save-progress explanation, less repetitive goal questioning, clearer partner-status labels, and optional/collapsed partner work and qualification detail. Partner CV upload is offered before those optional fields so applicants do not need to repeat information already contained in a CV.
+The Issue Agreement dialog now shows the exact required-signatory To addresses and current adviser CC address before sending. The principal client email and principal signatory email stay synchronised in both directions.
 
-The Squarespace promotional pop-up is outside the CRM iframe. Exclude the Assessment page using Squarespace Promotional pop-up -> Display & timing -> Pages.
-
-No database migration is added. The existing 44 migrations are unchanged.
+No database migration is required. Existing 44 migration files are unchanged.

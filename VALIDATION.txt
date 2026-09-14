@@ -1,20 +1,19 @@
-THiS CRM v0.17.21 validation
+THiS CRM v0.17.19 validation
 
 Completed checks
 - App.jsx parses successfully as JSX.
 - All Netlify .mjs function files pass Node syntax checking.
+- All public JavaScript files pass Node syntax checking.
 - scripts/validate-pwa.mjs passes.
-- package.json reports version 0.17.21.
-- Public service-worker cache reference advances to v0.17.21.
-- All 44 existing database migration files are byte-for-byte unchanged from v0.17.20.
-- No new migration, dependency or environment variable is introduced.
+- package.json reports version 0.17.19.
+- PWA / Studio / live-chat cache references advance to v0.17.19.
+- All 44 existing database migration files are byte-for-byte unchanged from v0.17.18.
+- No new database migration, dependency or environment variable is introduced.
 
-Assessment changes checked
-- Repeated interstitial/pop-up technical wording removed from the assessment UI.
-- Longer-term-goal prompt is only rendered for Work in New Zealand or Not sure yet, not the permanent-residence goal.
-- Partner NZ visa and citizen/resident labels are distinct.
-- Detailed partner work/qualification fields are collapsed by default behind an optional control.
-- Partner CV appears before optional detailed partner work/qualification questions.
-- Save-progress explanation text is wrapped as a single readable content block.
-- Consent checkboxes rely on explicit submit validation rather than browser-required validation, so warnings appear only after a submission attempt.
-- Leaving the final review step clears consent attention/error state.
+Assessment form checks
+- Applicant details include a Yes/No second-citizenship question and conditional country selector.
+- Second-citizenship data is normalised server-side for draft saves, resume and final submission.
+- Missing-name validation clears once both names are entered.
+- Review & Send uses grouped expandable questionnaire sections rather than the old four-card summary.
+- Each review section has an Edit action back to the relevant stage.
+- English details, immigration goals, health/character answers and CV status are included where supplied.

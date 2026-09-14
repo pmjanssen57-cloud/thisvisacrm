@@ -2419,35 +2419,7 @@ export default function App() {
   }
 
   async function saveAdviser(adviser) {
-    const originalId = adviser?.id || '';
-    const body = await callApi('saveAdviser', { adviser });
-    if (String(originalId).startsWith('temp-') && body?.adviser?.id && body.adviser.id !== originalId) {
-      setData((current) => ({ ...current, advisers: (current.advisers || []).filter((item) => item.id !== originalId) }));
-    }
-    return body;
-  }
-
-  async function deleteAdviser(adviser) {
-    if (!adviser?.id) return;
-    const label = adviser.name && adviser.name !== 'New adviser' ? adviser.name : 'this unused adviser profile';
-    const confirmed = await askCrmConfirm({
-      title: 'Delete adviser profile?',
-      message: `Permanently delete ${label}?`,
-      confirmLabel: 'Delete profile',
-      tone: 'danger',
-      details: [
-        'Deletion is only allowed when the profile is not referenced by client matters, enquiries, tasks, appointments, agreements or bookings.',
-        'For a genuine former staff member with history, keep the profile and mark it Inactive instead.',
-      ],
-    });
-    if (!confirmed) return;
-    if (String(adviser.id).startsWith('temp-')) {
-      setData((current) => ({ ...current, advisers: (current.advisers || []).filter((item) => item.id !== adviser.id) }));
-      showCrmToast('Unused adviser profile removed.');
-      return;
-    }
-    await callApi('deleteAdviser', { adviserId: adviser.id });
-    showCrmToast('Unused adviser profile deleted.');
+    await callApi('saveAdviser', { adviser });
   }
 
   async function saveNotificationRecipientSettings(settings) {
@@ -3404,7 +3376,7 @@ export default function App() {
             {tab === 'advisers' && canManageAdvisers && (
               <div className="stack workspace-modern-page advisers-workspace-modern">
                 <NotificationRecipientSettings settings={data.notificationRecipientSettings || []} advisers={data.advisers} onSave={saveNotificationRecipientSettings} saving={saving} />
-                <AdviserProfiles advisers={data.advisers} clients={data.clients} saveAdviser={saveAdviser} deleteAdviser={deleteAdviser} saving={saving} />
+                <AdviserProfiles advisers={data.advisers} clients={data.clients} saveAdviser={saveAdviser} saving={saving} />
               </div>
             )}
 
@@ -5111,10 +5083,9 @@ function IntakeFormApp() {
   const [applicantCvFile, setApplicantCvFile] = useState(null);
   const [partnerCvFile, setPartnerCvFile] = useState(null);
   const [step, setStep] = useState(1);
+  const [transition, setTransition] = useState(null);
   const [showFunds, setShowFunds] = useState(false);
   const [consentAttention, setConsentAttention] = useState(false);
-  const [submitAttempted, setSubmitAttempted] = useState(false);
-  const [showPartnerDetails, setShowPartnerDetails] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [cvState, setCvState] = useState({ applicantCv: { status: 'idle', message: '' }, partnerCv: { status: 'idle', message: '' } });
   const [submissionReceipt, setSubmissionReceipt] = useState(null);
@@ -5142,8 +5113,7 @@ function IntakeFormApp() {
   const hasImmigrationHistoryIssue = [form.visaDeclines, form.overstayed, form.falseMisleadingIssue, form.appealOrDeadline].some((value) => value === 'Yes');
   const isInvestmentMatter = form.investmentInterest === 'Yes' || /invest|business/i.test(`${form.targetPathway || ''} ${form.immediateNeed || ''} ${form.longTermGoal || ''}`);
   const isFamilyGoal = /partner|family/i.test(form.targetPathway || '');
-  const showLongTermGoal = form.targetPathway === 'Work in New Zealand' || form.targetPathway === 'Not sure yet';
-  const partnerDetailHasData = [form.partnerCurrentEmploymentStatus, form.partnerOccupation, form.partnerCurrentEmployer, form.partnerEmploymentCountry, form.partnerYearsExperience, form.partnerHighestQualification, form.partnerQualificationName, form.partnerQualificationCountry, form.partnerEmploymentDetails, form.partnerPreviousWorkHistory, form.partnerQualificationDetails].some((value) => String(value || '').trim());
+  const isWorkResidenceGoal = /work|permanent|residence|not sure/i.test(form.targetPathway || '');
 
   const steps = [
     { id: 1, label: 'Goal', title: 'Choose your direction', helper: 'Start with the outcome you want. If work and residence overlap for you, we will capture both.' },
@@ -5167,6 +5137,15 @@ function IntakeFormApp() {
     { value: 'Not sure yet', icon: 'unsure', title: 'Not sure yet', text: 'Choose this if you are exploring and want us to guide the first step.' },
   ];
 
+  const funFacts = [
+    'Aotearoa New Zealand has more than 15,000 kilometres of coastline — plenty of room for a fresh start.',
+    'Many visa pathways depend on timing. Capturing dates clearly helps advisers avoid unnecessary detours.',
+    'New Zealand has three official languages: English, te reo Māori and New Zealand Sign Language.',
+    'Work and residence pathways often connect. A work visa can sometimes be one step in a longer plan.',
+    'Good evidence matters. Clear answers at the start can make the next advice step much sharper.',
+    'The silver fern has long been a New Zealand symbol — a small marker of the path ahead.',
+    'Some health, character and visa-history issues can still be managed if they are identified early.',
+  ];
 
   useEffect(() => {
     const embedded = window.parent !== window;
@@ -5225,14 +5204,6 @@ function IntakeFormApp() {
     initialiseResume();
     return () => { cancelled = true; };
   }, []);
-
-  useEffect(() => {
-    if (step !== steps.length) {
-      setSubmitAttempted(false);
-      setConsentAttention(false);
-      if (/consent|acknowledgement/i.test(error || '')) setError('');
-    }
-  }, [step]);
 
   useEffect(() => {
     if (submitted || paused || resumeLoading) return;
@@ -5310,14 +5281,14 @@ function IntakeFormApp() {
       window.removeEventListener('load', postHeight);
       window.removeEventListener('message', handleParentMessage);
     };
-  }, [form, submitted, paused, error, step, showFunds, localRecovery, resumeLoading, draftUploads]);
+  }, [form, submitted, paused, error, step, transition, showFunds, localRecovery, resumeLoading, draftUploads]);
 
   useEffect(() => {
     if (isInvestmentMatter) setShowFunds(true);
   }, [isInvestmentMatter]);
 
   useEffect(() => {
-    if (step !== 1 || !form.targetPathway) return undefined;
+    if (step !== 1 || !form.targetPathway || transition) return undefined;
     if (typeof window === 'undefined' || !window.matchMedia('(max-width: 720px)').matches) return undefined;
     const timeoutId = window.setTimeout(() => {
       const confirmation = document.querySelector('.guided-selection-confirm');
@@ -5326,7 +5297,7 @@ function IntakeFormApp() {
       }
     }, 180);
     return () => window.clearTimeout(timeoutId);
-  }, [form.targetPathway, step]);
+  }, [form.targetPathway, step, transition]);
 
   function scrollElementIntoView(selector, align = 'center') {
     window.setTimeout(() => {
@@ -5365,12 +5336,12 @@ function IntakeFormApp() {
       const nextLastName = String(name === 'lastName' ? value : form.lastName || '').trim();
       if (nextFirstName && nextLastName && /first name|last name|name before continuing/i.test(error || '')) setError('');
     }
-    if (name === 'hasPartner' && value !== 'Yes') { setPartnerCvFile(null); setShowPartnerDetails(false); }
+    if (name === 'hasPartner' && value !== 'Yes') setPartnerCvFile(null);
     setForm((current) => {
       const next = { ...current, [name]: value };
       if (name === 'targetPathway' && value) {
         next.targetPathway = value;
-        const needsLongTermGoal = /work|not sure/i.test(value);
+        const workResidenceOrUnsure = /work|permanent|residence|not sure/i.test(value);
         if (/work/i.test(value)) next.immediateNeed = 'Work visa or permission to work';
         else if (/permanent|residence/i.test(value)) next.immediateNeed = 'Residence or pathway to residence';
         else if (/resolve|urgent|issue/i.test(value)) next.immediateNeed = 'Urgent visa issue';
@@ -5379,7 +5350,7 @@ function IntakeFormApp() {
         else if (/invest/i.test(value)) next.immediateNeed = 'Investor or business migration help';
         else if (/staff|employer/i.test(value)) next.immediateNeed = 'Employer / migrant staff support';
         else next.immediateNeed = 'Not sure yet';
-        if (!needsLongTermGoal) next.longTermGoal = '';
+        if (!workResidenceOrUnsure) next.longTermGoal = '';
         if (/invest/i.test(value)) next.investmentInterest = 'Yes';
       }
       if (name === 'isInNewZealand' && value === 'Yes') {
@@ -5612,7 +5583,7 @@ function IntakeFormApp() {
 
   function handleInvalid(event) {
     const target = event.target;
-    if (submitAttempted && step === steps.length && target?.closest?.('.intake-consent-grid')) {
+    if (step === steps.length && target?.closest?.('.intake-consent-grid')) {
       event.preventDefault();
       setError('Please confirm the consent and acknowledgement before submitting.');
       setConsentAttention(true);
@@ -5623,13 +5594,12 @@ function IntakeFormApp() {
   async function submit(event) {
     event.preventDefault();
     if (step < steps.length) { nextStep(); return; }
-    setSubmitAttempted(true);
     let receipt = submissionReceipt;
     try {
       validateForm(); setSubmitting(true); setError('');
       if (!receipt) {
         setSubmissionStatus('Saving your questionnaire...');
-        const response = await fetch('/.netlify/functions/intake', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ resumeToken: draftResumeTokenRef.current || draftResumeToken, payload: { ...form, email: String(form.email || '').trim(), intakeSubmissionKey: submissionKeyRef.current, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.17.21-assessment-simplification' } }) });
+        const response = await fetch('/.netlify/functions/intake', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ resumeToken: draftResumeTokenRef.current || draftResumeToken, payload: { ...form, email: String(form.email || '').trim(), intakeSubmissionKey: submissionKeyRef.current, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.17.19-assessment-review-polish' } }) });
         const body = await readJsonResponse(response);
         if (!response.ok) throw new Error(body.error || 'The questionnaire could not be submitted.');
         receipt = { intakeId: body.intakeId, uploadToken: body.uploadToken, expectedUploads: body.expectedUploads || [], uploadedKinds: body.uploadedKinds || [] };
@@ -5685,27 +5655,60 @@ function IntakeFormApp() {
     }
   }
 
+  function scrollFactToCentre() {
+    window.setTimeout(() => {
+      const factCard = document.querySelector('.guided-fact-card');
+      if (!factCard) return;
+      const offset = getOffsetWithinShell(factCard);
+      if (postEmbedScroll(offset, 'center')) return;
+      if (typeof factCard.scrollIntoView === 'function') {
+        factCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 80);
+  }
 
   function canLeaveCurrentStep() { if (step === 2) return validateIdentityStep(); return true; }
 
   function jumpTo(targetStep) {
     if (targetStep === step) return;
-    if (targetStep > step && !canLeaveCurrentStep()) return;
-    setStep(targetStep);
-    scrollFormTop();
+    if (targetStep < step) {
+      setStep(targetStep);
+      scrollFormTop();
+      return;
+    }
+    if (!canLeaveCurrentStep()) return;
+    showTransition(targetStep);
   }
 
-  function nextStep() {
-    if (step >= steps.length || !canLeaveCurrentStep()) return;
-    setStep((current) => Math.min(steps.length, current + 1));
-    scrollFormTop();
-  }
+  function nextStep() { if (step < steps.length && canLeaveCurrentStep()) showTransition(step + 1); }
 
   function previousStep() {
     if (step > 1) {
       setStep(step - 1);
       scrollFormTop();
     }
+  }
+
+  function showTransition(targetStep) {
+    const fact = funFacts[(targetStep + step) % funFacts.length];
+    setTransition({ targetStep, fact });
+    scrollFactToCentre();
+    window.setTimeout(() => {
+      setTransition((current) => {
+        if (!current || current.targetStep !== targetStep) return current;
+        setStep(targetStep);
+        scrollFormTop();
+        return null;
+      });
+    }, 4000);
+  }
+
+  function continueNow() {
+    if (!transition) return;
+    const targetStep = transition.targetStep;
+    setTransition(null);
+    setStep(targetStep);
+    scrollFormTop();
   }
 
   const activeStep = steps.find((item) => item.id === step) || steps[0];
@@ -5756,7 +5759,7 @@ function IntakeFormApp() {
           <div>
             <p className="guided-kicker">Turner Hopkins Immigration Specialists</p>
             <h1>Begin your journey with us...</h1>
-            <p>Answer the questions that apply to your situation. You can save your progress and return at any time.</p>
+            <p>Answer the guided questions below so our advisers can understand your circumstances and the best next step.</p>
           </div>
         </div>
 
@@ -5786,7 +5789,26 @@ function IntakeFormApp() {
           <div className="guided-guide-meter"><strong>{activeStep.id} of {steps.length}</strong></div>
         </div>
 
-        <div className="guided-form-shortcut"><CheckCircle2 size={16} /><span>Your progress saves securely as you go. You can also choose <strong>Save &amp; finish later</strong> at any time.</span></div>
+        <div className="kiwi-journey-map" aria-label="Journey map">
+          <div className="kiwi-map-bg">Aotearoa</div>
+          {steps.map((item) => (
+            <div key={item.id} data-label={item.label} className={`kiwi-map-stop ${step === item.id ? 'current' : ''} ${step > item.id ? 'complete' : ''}`}>
+              <span className="kiwi-dot">{step > item.id ? '✓' : item.id}</span>
+              <strong>{item.label}</strong>
+            </div>
+          ))}
+        </div>
+
+        {transition && (
+          <div className="guided-fact-overlay" role="status">
+            <div className="guided-fact-card">
+              <p className="guided-kicker">Quick Kiwi note</p>
+              <h2>{transition.fact}</h2>
+              <div className="guided-fact-bar"><span /></div>
+              <button type="button" className="btn ghost" onClick={continueNow}>Continue now</button>
+            </div>
+          </div>
+        )}
 
         {error && <div className="error-box">{error}</div>}
 
@@ -5815,10 +5837,10 @@ function IntakeFormApp() {
                   <div className="guided-mobile-continue-cue">Next: continue below ↓</div>
                 </>
               )}
-              {showLongTermGoal && (
+              {isWorkResidenceGoal && (
                 <div className="guided-bridge-panel">
                   <div className="guided-bridge-visual"><span>Work</span><i /> <span>Residence</span></div>
-                  <p>If your immediate goal is work, this helps us understand whether residence is also part of the plan.</p>
+                  <p>Work and residence often connect. Your selected goal tells us your immediate focus; this one question helps us understand the longer-term plan.</p>
                   <div className="form-grid">
                     <IntakeSelect label="What is your longer-term goal?" value={form.longTermGoal} onChange={(v) => setField('longTermGoal', v)} options={['Stay temporarily', 'Live in New Zealand permanently', 'Bring or remain with my partner/family', 'Keep my options open', 'Not sure yet']} />
                   </div>
@@ -5841,7 +5863,7 @@ function IntakeFormApp() {
                 <IntakeField label="Date of birth" type="date" value={form.dateOfBirth} onChange={(v) => setField('dateOfBirth', v)} />
                 <div className="span-2"><IntakeField label="Current physical address" value={form.physicalAddress} onChange={(v) => setField('physicalAddress', v)} placeholder="Street address, suburb, city and country" /></div>
               </div>
-              <div className="intake-draft-disclosure"><FileCheck2 size={15} /><span>Once you have entered your name and email, we securely save your progress for up to 30 days. Choose <strong>Save &amp; finish later</strong> if you would like a secure continuation link emailed to you.</span></div>
+              <p className="intake-draft-disclosure"><FileCheck2 size={15} />Once you have entered your name and email, we securely save your progress for up to 30 days so you can continue later. You can also choose <strong>Save &amp; finish later</strong> to have a secure continuation link emailed to you.</p>
               <IntakeFileField label="Upload CV" file={applicantCvFile} storedUpload={draftUploads.applicantCv} onChange={(file) => handleCvFile('applicantCv', file)} onRemoveStored={() => removeDraftCv('applicantCv').catch((err) => setError(err.message || String(err)))} status={cvState.applicantCv.status} statusMessage={cvState.applicantCv.message} locked={Boolean(submissionReceipt?.uploadedKinds?.includes('applicantCv'))} />
             </IntakeSection>
           )}
@@ -5931,8 +5953,8 @@ function IntakeFormApp() {
                     <IntakeField label="Partner date of birth" type="date" value={form.partnerDateOfBirth} onChange={(v) => setField('partnerDateOfBirth', v)} />
                     <IntakeSelect label="Partner citizenship" value={form.partnerCitizenship} onChange={(v) => setField('partnerCitizenship', v)} options={guidedCountryOptions()} />
                     <IntakeSelect label="Partner current country" value={form.partnerCurrentCountry} onChange={(v) => setField('partnerCurrentCountry', v)} options={guidedCountryOptions()} />
-                    <IntakeField label="Partner's current New Zealand visa (if any)" value={form.partnerVisaStatus} onChange={(v) => setField('partnerVisaStatus', v)} placeholder="e.g. Work Visa, Visitor Visa, no NZ visa" />
-                    <IntakeSelect label="Is your partner a New Zealand citizen or resident?" value={form.partnerNzStatus} onChange={(v) => setField('partnerNzStatus', v)} options={INTAKE_YES_NO_OPTIONS} />
+                    <IntakeField label="Partner visa status" value={form.partnerVisaStatus} onChange={(v) => setField('partnerVisaStatus', v)} />
+                    <IntakeField label="Partner NZ status" value={form.partnerNzStatus} onChange={(v) => setField('partnerNzStatus', v)} />
                     <IntakeSelect label="Are you living together?" value={form.livingTogether} onChange={(v) => setField('livingTogether', v)} options={INTAKE_YES_NO_OPTIONS} />
                     <IntakeField label="Relationship started" type="date" value={form.relationshipStarted} onChange={(v) => setField('relationshipStarted', v)} />
                     <IntakeField label="Started living together" type="date" value={form.startedLivingTogether} onChange={(v) => setField('startedLivingTogether', v)} />
@@ -5942,30 +5964,22 @@ function IntakeFormApp() {
                 </div>
               )}
               {hasPartner && (
-                <div className="intake-nested-panel partner-optional-summary">
-                  <div>
-                    <h3>Partner work and qualifications <span className="optional-label">{partnerDetailHasData ? 'Details saved' : 'Optional'}</span></h3>
-                    <p>If you upload your partner's CV, you can usually leave the detailed work and qualification fields below blank.</p>
+                <div className="intake-nested-panel">
+                  <h3>Partner work and qualifications</h3>
+                  <div className="form-grid">
+                    <IntakeSelect label="Partner employment status" value={form.partnerCurrentEmploymentStatus} onChange={(v) => setField('partnerCurrentEmploymentStatus', v)} options={INTAKE_EMPLOYMENT_STATUS_OPTIONS} />
+                    <IntakeField label="Partner occupation" value={form.partnerOccupation} onChange={(v) => setField('partnerOccupation', v)} />
+                    <IntakeField label="Partner employer / business" value={form.partnerCurrentEmployer} onChange={(v) => setField('partnerCurrentEmployer', v)} />
+                    <IntakeSelect label="Partner employment country" value={form.partnerEmploymentCountry} onChange={(v) => setField('partnerEmploymentCountry', v)} options={guidedCountryOptions()} />
+                    <IntakeField label="Partner years of relevant experience" value={form.partnerYearsExperience} onChange={(v) => setField('partnerYearsExperience', v)} />
+                    <IntakeSelect label="Partner highest qualification" value={form.partnerHighestQualification} onChange={(v) => setField('partnerHighestQualification', v)} options={INTAKE_QUALIFICATION_OPTIONS} />
+                    <IntakeField label="Partner qualification name" value={form.partnerQualificationName} onChange={(v) => setField('partnerQualificationName', v)} />
+                    <IntakeSelect label="Partner qualification country" value={form.partnerQualificationCountry} onChange={(v) => setField('partnerQualificationCountry', v)} options={guidedCountryOptions()} />
                   </div>
+                  <IntakeTextarea label="Partner employment details" value={form.partnerEmploymentDetails} onChange={(v) => setField('partnerEmploymentDetails', v)} rows={3} />
+                  <IntakeTextarea label="Partner previous work history" value={form.partnerPreviousWorkHistory} onChange={(v) => setField('partnerPreviousWorkHistory', v)} rows={3} />
+                  <IntakeTextarea label="Partner qualification details" value={form.partnerQualificationDetails} onChange={(v) => setField('partnerQualificationDetails', v)} rows={3} />
                   <IntakeFileField label="Upload partner CV" file={partnerCvFile} storedUpload={draftUploads.partnerCv} onChange={(file) => handleCvFile('partnerCv', file)} onRemoveStored={() => removeDraftCv('partnerCv').catch((err) => setError(err.message || String(err)))} status={cvState.partnerCv.status} statusMessage={cvState.partnerCv.message} locked={Boolean(submissionReceipt?.uploadedKinds?.includes('partnerCv'))} />
-                  <button className="btn ghost partner-detail-toggle" type="button" onClick={() => setShowPartnerDetails((value) => !value)}>{showPartnerDetails ? 'Hide optional details' : (partnerDetailHasData ? 'Review saved work & qualification details' : 'Add work & qualification details')}</button>
-                  {showPartnerDetails && (
-                    <div className="partner-detail-expanded">
-                      <div className="form-grid">
-                        <IntakeSelect label="Partner employment status" value={form.partnerCurrentEmploymentStatus} onChange={(v) => setField('partnerCurrentEmploymentStatus', v)} options={INTAKE_EMPLOYMENT_STATUS_OPTIONS} />
-                        <IntakeField label="Partner occupation" value={form.partnerOccupation} onChange={(v) => setField('partnerOccupation', v)} />
-                        <IntakeField label="Partner employer / business" value={form.partnerCurrentEmployer} onChange={(v) => setField('partnerCurrentEmployer', v)} />
-                        <IntakeSelect label="Partner employment country" value={form.partnerEmploymentCountry} onChange={(v) => setField('partnerEmploymentCountry', v)} options={guidedCountryOptions()} />
-                        <IntakeField label="Partner years of relevant experience" value={form.partnerYearsExperience} onChange={(v) => setField('partnerYearsExperience', v)} />
-                        <IntakeSelect label="Partner highest qualification" value={form.partnerHighestQualification} onChange={(v) => setField('partnerHighestQualification', v)} options={INTAKE_QUALIFICATION_OPTIONS} />
-                        <IntakeField label="Partner qualification name" value={form.partnerQualificationName} onChange={(v) => setField('partnerQualificationName', v)} />
-                        <IntakeSelect label="Partner qualification country" value={form.partnerQualificationCountry} onChange={(v) => setField('partnerQualificationCountry', v)} options={guidedCountryOptions()} />
-                      </div>
-                      <IntakeTextarea label="Partner employment details" value={form.partnerEmploymentDetails} onChange={(v) => setField('partnerEmploymentDetails', v)} rows={3} />
-                      <IntakeTextarea label="Partner previous work history" value={form.partnerPreviousWorkHistory} onChange={(v) => setField('partnerPreviousWorkHistory', v)} rows={3} />
-                      <IntakeTextarea label="Partner qualification details" value={form.partnerQualificationDetails} onChange={(v) => setField('partnerQualificationDetails', v)} rows={3} />
-                    </div>
-                  )}
                 </div>
               )}
               {hasChildren && (
@@ -6073,8 +6087,8 @@ function IntakeFormApp() {
               </div>
               <IntakeTextarea label="Anything else we should know?" value={form.additionalInfo} onChange={(v) => setField('additionalInfo', v)} rows={4} />
               <div className={`intake-consent-grid ${consentAttention ? 'needs-attention' : ''}`}>
-                <IntakeCheckbox label="I agree Turner Hopkins may contact me about this enquiry." checked={form.consentToContact} onChange={(v) => setField('consentToContact', v)} />
-                <IntakeCheckbox label="I understand this questionnaire is for initial assessment only and does not create an adviser-client relationship." checked={form.privacyAcknowledged} onChange={(v) => setField('privacyAcknowledged', v)} />
+                <IntakeCheckbox label="I agree Turner Hopkins may contact me about this enquiry." checked={form.consentToContact} onChange={(v) => setField('consentToContact', v)} required />
+                <IntakeCheckbox label="I understand this questionnaire is for initial assessment only and does not create an adviser-client relationship." checked={form.privacyAcknowledged} onChange={(v) => setField('privacyAcknowledged', v)} required />
               </div>
               <div className="intake-marketing-consent">
                 <IntakeCheckbox label="Yes, send me occasional New Zealand immigration updates and news from Turner Hopkins. I can unsubscribe at any time." checked={form.marketingConsent} onChange={(v) => setField('marketingConsent', v)} />
@@ -6091,7 +6105,7 @@ function IntakeFormApp() {
             {step < steps.length ? (
               <button className="btn dark" type="button" onClick={nextStep} disabled={submitting || draftSaving}>Next</button>
             ) : (
-              <button className="btn dark" type="submit" onClick={() => setSubmitAttempted(true)} disabled={submitting || draftSaving}>{submitting ? (submissionReceipt ? 'Uploading...' : 'Submitting...') : (submissionReceipt ? 'Retry CV upload' : 'Submit questionnaire')}</button>
+              <button className="btn dark" type="submit" disabled={submitting || draftSaving}>{submitting ? (submissionReceipt ? 'Uploading...' : 'Submitting...') : (submissionReceipt ? 'Retry CV upload' : 'Submit questionnaire')}</button>
             )}
           </div>
         </form>
@@ -9146,8 +9160,8 @@ function IntakeQuestionnaireEditor({ record = {}, onChange, downloadIntakeUpload
             <IntakeField label="Partner date of birth" type="date" value={fieldValue('partnerDateOfBirth')} onChange={(v) => set('partnerDateOfBirth', v)} />
             <IntakeSelect label="Partner citizenship" value={fieldValue('partnerCitizenship')} onChange={(v) => set('partnerCitizenship', v)} options={COUNTRY_OPTIONS} />
             <IntakeSelect label="Partner current country" value={fieldValue('partnerCurrentCountry')} onChange={(v) => set('partnerCurrentCountry', v)} options={COUNTRY_OPTIONS} />
-            <IntakeField label="Partner current New Zealand visa (if any)" value={fieldValue('partnerVisaStatus')} onChange={(v) => set('partnerVisaStatus', v)} />
-            <IntakeSelect label="Is your partner a New Zealand citizen or resident?" value={fieldValue('partnerNzStatus')} onChange={(v) => set('partnerNzStatus', v)} options={INTAKE_YES_NO_OPTIONS} />
+            <IntakeField label="Partner NZ visa status" value={fieldValue('partnerVisaStatus')} onChange={(v) => set('partnerVisaStatus', v)} />
+            <IntakeSelect label="Is your partner a NZ citizen or resident?" value={fieldValue('partnerNzStatus')} onChange={(v) => set('partnerNzStatus', v)} options={INTAKE_YES_NO_OPTIONS} />
             <IntakeSelect label="Are you living together?" value={fieldValue('livingTogether')} onChange={(v) => set('livingTogether', v)} options={INTAKE_YES_NO_OPTIONS} />
             <IntakeField label="Date relationship started" type="date" value={fieldValue('relationshipStarted')} onChange={(v) => set('relationshipStarted', v)} />
             <IntakeField label="Date started living together" type="date" value={fieldValue('startedLivingTogether')} onChange={(v) => set('startedLivingTogether', v)} />
@@ -14043,7 +14057,12 @@ function AgreementsWorkspace({
         setStudioMessage('Issuing secure agreement links...');
         Promise.resolve(saveAgreementSet?.(next)).then((savedBody) => {
           const saved = normaliseAgreementSet(savedBody?.agreementSet || next);
-          return issueAgreementSet?.(saved, { emailSubject: message.emailSubject || '', emailBody: message.emailBody || '', adviserEmail: saved.studioState?.client?.adviserEmail || '' });
+          return issueAgreementSet?.(saved, {
+            emailSubject: message.emailSubject || '',
+            emailBody: message.emailBody || '',
+            adviserEmail: message.issueRouting?.ccEmail || saved.studioState?.client?.adviserEmail || '',
+            recipientEmails: Array.isArray(message.issueRouting?.toEmails) ? message.issueRouting.toEmails : [],
+          });
         }).then((body) => {
           const issued = normaliseAgreementSet(body?.agreementSet || next);
           const sessionStillOpen = studioSessionRef.current.id === sessionId && studioSessionRef.current.active && !studioSessionRef.current.closing;
@@ -16533,7 +16552,7 @@ function NotificationRecipientSettings({ settings = [], advisers = [], onSave, s
   );
 }
 
-function AdviserProfiles({ advisers, clients, saveAdviser, deleteAdviser, saving }) {
+function AdviserProfiles({ advisers, clients, saveAdviser, saving }) {
   const [drafts, setDrafts] = useState(advisers);
   const [photoMessages, setPhotoMessages] = useState({});
   const [editingId, setEditingId] = useState('');
@@ -16591,7 +16610,6 @@ function AdviserProfiles({ advisers, clients, saveAdviser, deleteAdviser, saving
           const backup = clients.filter((client) => client.backupAdviserId === adviser.id && client.clientStatus !== 'Closed').length;
           const photoInputId = `adviser-photo-${adviser.id}`;
           const editing = editingId === adviser.id;
-          const obviouslyUnused = primary === 0 && backup === 0 && !String(adviser.email || '').trim() && (!String(adviser.name || '').trim() || adviser.name === 'New adviser');
           return (
             <div className={`adviser-edit-card ${editing ? 'editing' : 'viewing'}`} key={adviser.id}>
               <div className="adviser-profile-head">
@@ -16604,10 +16622,7 @@ function AdviserProfiles({ advisers, clients, saveAdviser, deleteAdviser, saving
                   {editing ? <>
                     <button className="btn mini" type="button" onClick={() => cancelEditing(adviser.id)} disabled={saving}>Cancel</button>
                     <button className="btn mini dark" type="button" onClick={() => saveEditing(adviser)} disabled={saving}><Save size={14} />{saving ? 'Saving...' : 'Save adviser'}</button>
-                  </> : <>
-                    {obviouslyUnused && <button className="btn mini danger" type="button" onClick={() => deleteAdviser?.(adviser)} disabled={saving}><Trash2 size={14} />Remove unused</button>}
-                    <button className="btn mini ghost" type="button" onClick={() => startEditing(adviser.id)}><Pencil size={14} />Edit adviser</button>
-                  </>}
+                  </> : <button className="btn mini ghost" type="button" onClick={() => startEditing(adviser.id)}><Pencil size={14} />Edit adviser</button>}
                 </div>
               </div>
               <div className="adviser-profile-summary-strip">
@@ -16634,7 +16649,7 @@ function AdviserProfiles({ advisers, clients, saveAdviser, deleteAdviser, saving
                   <SelectField label="Portal availability" value={adviser.availability === 'Away' ? 'Away' : 'Available'} onChange={(v) => updateAdviser(adviser.id, { availability: v })} options={ADVISER_AVAILABILITY_OPTIONS} />
                   <SelectField label="CRM status" value={adviser.active ? 'Active' : 'Inactive'} onChange={(v) => updateAdviser(adviser.id, { active: v === 'Active' })} options={['Active', 'Inactive']} />
                 </div>
-                <div className="split bottom adviser-edit-footer"><div className="button-row">{primary === 0 && backup === 0 && <button className="btn danger" type="button" onClick={() => deleteAdviser?.(adviser)} disabled={saving}><Trash2 size={15} />Delete unused profile</button>}<span>Changes apply only when you select <strong>Save adviser</strong>.</span></div><div className="button-row"><button className="btn" type="button" onClick={() => cancelEditing(adviser.id)} disabled={saving}>Cancel</button><button className="btn dark" type="button" onClick={() => saveEditing(adviser)} disabled={saving}><Save size={16} />Save adviser</button></div></div>
+                <div className="split bottom adviser-edit-footer"><span>Changes apply only when you select <strong>Save adviser</strong>.</span><div className="button-row"><button className="btn" type="button" onClick={() => cancelEditing(adviser.id)} disabled={saving}>Cancel</button><button className="btn dark" type="button" onClick={() => saveEditing(adviser)} disabled={saving}><Save size={16} />Save adviser</button></div></div>
               </> : <div className="adviser-view-note"><span>Profile details are locked to prevent accidental changes.</span><button className="btn mini ghost" type="button" onClick={() => startEditing(adviser.id)}><Pencil size={13} />Edit profile</button></div>}
             </div>
           );
@@ -18532,8 +18547,8 @@ function intakeLabelForKey(key = '') {
     partnerDateOfBirth: 'Partner date of birth',
     partnerCitizenship: 'Partner citizenship',
     partnerCurrentCountry: 'Partner country',
-    partnerVisaStatus: 'Partner current New Zealand visa',
-    partnerNzStatus: 'Partner New Zealand citizen/resident',
+    partnerVisaStatus: 'Partner visa status',
+    partnerNzStatus: 'Partner NZ citizen/resident',
     livingTogether: 'Living together',
     relationshipStarted: 'Relationship started',
     startedLivingTogether: 'Started living together',
@@ -18891,7 +18906,6 @@ function mergePartialCrmResponse(current = emptyData, body = {}) {
     const incomingIds = new Set(incomingLogs.map((item) => item.id));
     next.emailLogs = [...incomingLogs, ...(current.emailLogs || []).filter((item) => !incomingIds.has(item.id))].slice(0, 200);
   }
-  if (body.deletedAdviserId) next.advisers = (current.advisers || []).filter((item) => item.id !== body.deletedAdviserId);
   if (body.deletedPersonalTaskId) next.personalTasks = (current.personalTasks || []).filter((item) => item.id !== body.deletedPersonalTaskId);
   if (body.deletedCalendarEntryId) next.calendarEntries = (current.calendarEntries || []).filter((item) => item.id !== body.deletedCalendarEntryId);
   if (body.deletedLibraryEntryId) next.libraryEntries = (current.libraryEntries || []).filter((item) => item.id !== body.deletedLibraryEntryId);

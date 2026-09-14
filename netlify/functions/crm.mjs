@@ -541,13 +541,6 @@ async function handleCrmEvent(event) {
       return json({ adviser, accessContext: refreshedAccessContext });
     }
 
-    if (action === 'deleteAdviser') {
-      requireAdminAccess(accessContext, 'Adviser management');
-      const deletedAdviserId = await deleteAdviserProfile(body.adviserId, accessContext.adviserId);
-      await invalidateCrmReference(CRM_ADVISER_CACHE_KEY);
-      return json({ deletedAdviserId });
-    }
-
     if (action === 'saveNotificationRecipientSettings') {
       requireAdminAccess(accessContext, 'Notification recipient management');
       const actor = auth.user?.email || auth.user?.name || accessContext.adviserName || 'CRM administrator';
@@ -2746,7 +2739,8 @@ async function issueAgreementSet(input = {}, issue = {}, user = null) {
   const config = configStatus.configured ? requireMicrosoftEmailConfig() : null;
   const graphToken = config ? await getMicrosoftGraphAccessToken(config) : '';
   const actor = user?.email || user?.name || 'CRM adviser';
-  const adviserEmail = String(issue.adviserEmail || studioState?.client?.adviserEmail || '').trim();
+  const adviserEmailCandidate = String(issue.adviserEmail || studioState?.client?.adviserEmail || '').trim();
+  const adviserEmail = isValidEmailAddress(adviserEmailCandidate) ? adviserEmailCandidate : '';
   const baseUrl = String(process.env.URL || process.env.DEPLOY_URL || '').replace(/\/$/, '') || 'https://this-crm.netlify.app';
   const requestedSubject = String(issue.emailSubject || studioState.emailSubject || '').trim();
   const rawBody = String(issue.emailBody || studioState.emailBody || '').trim();
@@ -2806,13 +2800,14 @@ async function issueAgreementSet(input = {}, issue = {}, user = null) {
       bodyHtml = renderedHtml ? editableTemplateBodyHtml(renderedHtml) : editableTemplateEmailHtml(bodyText);
     }
     subject = subject || 'Your Turner Hopkins engagement agreement';
+    const ccEmail = adviserEmail && adviserEmail.toLowerCase() !== email.toLowerCase() ? adviserEmail : '';
     const [emailLog] = await database.sql`
       INSERT INTO email_notifications (related_record_type, related_record_id, client_id, template_key, from_email, from_name, to_email, cc, subject, body_text, body_html, status, sent_by)
-      VALUES ('agreement', ${agreement.id}, ${nullableUuid(agreement.clientId)}, 'agreement_issue', ${configStatus.fromEmail}, ${configStatus.fromName}, ${email}, ${adviserEmail || null}, ${subject}, ${bodyText}, ${bodyHtml}, ${configStatus.configured ? 'Sending' : 'Draft'}, ${actor})
+      VALUES ('agreement', ${agreement.id}, ${nullableUuid(agreement.clientId)}, 'agreement_issue', ${configStatus.fromEmail}, ${configStatus.fromName}, ${email}, ${ccEmail || null}, ${subject}, ${bodyText}, ${bodyHtml}, ${configStatus.configured ? 'Sending' : 'Draft'}, ${actor})
       RETURNING id`;
     if (config && graphToken) {
       try {
-        const sendResult = await sendMicrosoftGraphEmail({ config, token: graphToken, toEmail: email, ccEmail: adviserEmail, replyToEmail: adviserEmail, subject, bodyText, bodyHtml });
+        const sendResult = await sendMicrosoftGraphEmail({ config, token: graphToken, toEmail: email, ccEmail, replyToEmail: adviserEmail, subject, bodyText, bodyHtml });
         await database.sql`UPDATE email_notifications SET status = 'Sent', sent_at = NOW(), provider_request_id = ${sendResult.requestId || ''}, updated_at = NOW() WHERE id = ${emailLog.id}`;
       } catch (error) {
         await database.sql`UPDATE email_notifications SET status = 'Failed', failed_at = NOW(), failure_message = ${String(error?.message || error).slice(0, 1000)}, updated_at = NOW() WHERE id = ${emailLog.id}`;
@@ -3773,54 +3768,6 @@ async function saveAdviser(adviser = {}) {
     RETURNING id, name, role, email, login_email, access_role, profile_photo_url, availability_status, phone, licence, active, preferences
   `;
   return mapAdviserFromDb(rows[0]);
-}
-
-
-async function deleteAdviserProfile(adviserId, currentAdviserId = '') {
-  const database = db();
-  const id = isUuid(adviserId) ? adviserId : null;
-  if (!id) throw new Error('A valid adviser profile is required.');
-  if (String(currentAdviserId || '') === String(id)) {
-    const error = new Error('You cannot delete the adviser profile linked to your current CRM login.');
-    error.statusCode = 400;
-    throw error;
-  }
-
-  const adviserRows = await database.sql`SELECT id, name, email, access_role, active FROM advisers WHERE id = ${id} LIMIT 1`;
-  const adviser = adviserRows[0];
-  if (!adviser) return id;
-
-  if (normaliseCrmAccessRole(adviser.access_role) === 'Admin' && adviser.active !== false) {
-    const otherAdmins = await database.sql`SELECT COUNT(*)::int AS count FROM advisers WHERE access_role = 'Admin' AND active = TRUE AND id <> ${id}`;
-    if (Number(otherAdmins[0]?.count || 0) === 0) {
-      const error = new Error('This is the last active Admin profile. Assign another administrator before deleting it.');
-      error.statusCode = 400;
-      throw error;
-    }
-  }
-
-  const refs = await database.sql`
-    SELECT
-      (SELECT COUNT(*)::int FROM clients WHERE primary_adviser_id = ${id} OR backup_adviser_id = ${id}) AS client_refs,
-      (SELECT COUNT(*)::int FROM commercial_clients WHERE primary_adviser_id = ${id} OR backup_adviser_id = ${id}) AS commercial_refs,
-      (SELECT COUNT(*)::int FROM intake_enquiries WHERE assigned_adviser_id = ${id}) AS intake_refs,
-      (SELECT COUNT(*)::int FROM personal_tasks WHERE adviser_id = ${id}) AS task_refs,
-      (SELECT COUNT(*)::int FROM calendar_entries WHERE adviser_id = ${id}) AS calendar_refs,
-      (SELECT COUNT(*)::int FROM agreement_sets WHERE adviser_id = ${id}) AS agreement_refs,
-      (SELECT COUNT(*)::int FROM consultation_booking_links WHERE adviser_id = ${id}) AS booking_link_refs,
-      (SELECT COUNT(*)::int FROM consultation_bookings WHERE adviser_id = ${id}) AS booking_refs
-  `;
-  const counts = refs[0] || {};
-  const total = Object.values(counts).reduce((sum, value) => sum + Number(value || 0), 0);
-  if (total > 0) {
-    const error = new Error('This adviser profile has CRM history or assigned records and cannot be deleted. Mark it Inactive instead, or reassign the linked records first.');
-    error.statusCode = 409;
-    throw error;
-  }
-
-  await database.sql`UPDATE notification_recipient_settings SET adviser_ids = adviser_ids - ${String(id)}, updated_at = NOW() WHERE adviser_ids ? ${String(id)}`;
-  await database.sql`DELETE FROM advisers WHERE id = ${id}`;
-  return id;
 }
 
 

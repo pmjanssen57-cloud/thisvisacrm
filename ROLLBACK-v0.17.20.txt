@@ -1,4 +1,1 @@
-Rollback THiS CRM v0.17.20
-
-Redeploy THiS CRM v0.17.19 Assessment Review & Validation Polish.
-No database rollback is required because v0.17.20 adds no migration.
+Rollback: redeploy THiS CRM v0.17.19. No database rollback is required.
