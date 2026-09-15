@@ -1,11 +1,10 @@
-THiS CRM v0.17.24 validation
+THiS CRM v0.17.25 validation
 
-- App.jsx parses successfully as JSX using TypeScript syntactic parsing.
-- The Client details trigger references the defined QuickClientUpdateDrawer component.
-- No remaining QuickClientUpdatePanel references exist.
-- All Netlify .mjs functions pass Node syntax checking.
-- PWA validation passes.
-- Existing 44 database migrations are byte-for-byte unchanged from v0.17.23.
-- PWA shell cache advances to v0.17.24.
-- No dependency, environment-variable or schema change.
-- A complete Vite production build was not run because node_modules are not included in the supplied deployment baseline.
+- App.jsx JSX syntax parsed successfully using the TypeScript JSX parser.
+- 22 Netlify .mjs function files passed node --check.
+- 6 public JavaScript files passed node --check.
+- PWA validation passed.
+- PWA shell cache advances to v0.17.25.
+- 44 database migrations confirmed and byte-for-byte unchanged from v0.17.24.
+- Confirmed no code path remains that sets the inter-stage assessment transition pop-up.
+- A full Vite production build was not run because node_modules are not included in the deployment baseline.

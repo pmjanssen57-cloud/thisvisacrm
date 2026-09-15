@@ -5701,17 +5701,11 @@ function IntakeFormApp() {
   }
 
   function showTransition(targetStep) {
-    const fact = funFacts[(targetStep + step) % funFacts.length];
-    setTransition({ targetStep, fact });
-    scrollFactToCentre();
-    window.setTimeout(() => {
-      setTransition((current) => {
-        if (!current || current.targetStep !== targetStep) return current;
-        setStep(targetStep);
-        scrollFormTop();
-        return null;
-      });
-    }, 4000);
+    // Move straight to the next assessment stage. The old four-second
+    // inter-stage fact card added friction and was intended to be removed.
+    setTransition(null);
+    setStep(targetStep);
+    scrollFormTop();
   }
 
   function continueNow() {

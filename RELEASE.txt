@@ -1,13 +1,7 @@
-THiS CRM v0.17.24 - Client Details Drawer Hotfix
+THiS CRM v0.17.25 - Assessment Stage Transition Cleanup
 
-Built from v0.17.23.
-
-Changes
-- Fixes the blank page caused by the simplified matter screen referencing QuickClientUpdatePanel, which is not defined.
-- Routes Client details to the existing QuickClientUpdateDrawer component.
-- Preserves all existing quick client edit sections and save behaviour.
-- Preserves the v0.17.23 Studio workspace polish and v0.17.22 Agreement routing hotfix.
-- Advances the PWA shell cache to v0.17.24 so the corrected application shell is picked up cleanly.
-
-Database
-- No migration. Existing 44 migrations are unchanged.
+- Removes the legacy four-second fact/pop-up card between guided assessment stages.
+- Next and forward stage navigation now move directly to the requested section.
+- Preserves validation, auto-save, save-and-resume, CV uploads and final review.
+- No database migration.
+- Advances the PWA shell cache to v0.17.25.

@@ -1,0 +1,5 @@
+THiS CRM v0.17.25 rollback
+
+Rollback target: v0.17.24 — Client Details Drawer Hotfix.
+
+No database migration was added in v0.17.25, so rollback requires only redeploying the v0.17.24 application package. No database rollback is required.
