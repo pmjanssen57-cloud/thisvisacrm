@@ -1,0 +1,28 @@
+THiS CRM v0.17.26 — Squarespace hand-off
+
+THiS now emits one parent-window message after each successful embedded public form save.
+
+Message type:
+THIS_FORM_SUBMITTED
+
+Allowed parent origins:
+https://www.turnerhopkinsimmigration.co.nz
+https://turnerhopkinsimmigration.co.nz
+
+Form keys:
+contact
+intake
+seminar
+
+Normal message shape:
+{
+  source: "this-crm-<form>",
+  type: "THIS_FORM_SUBMITTED",
+  form: "contact" | "intake" | "seminar",
+  submissionId: "<saved THiS record UUID>",
+  details: { ...short non-personal values only... }
+}
+
+THiS does not contain Google tag IDs, Ads labels or conversion values. Those belong in the Squarespace parent listener.
+
+The existing iframe height messages are unchanged.

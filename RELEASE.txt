@@ -1,7 +1,13 @@
-THiS CRM v0.17.25 - Assessment Stage Transition Cleanup
+THiS CRM v0.17.26 - Public Form Conversion Tracking Bridge
 
-- Removes the legacy four-second fact/pop-up card between guided assessment stages.
-- Next and forward stage navigation now move directly to the requested section.
-- Preserves validation, auto-save, save-and-resume, CV uploads and final review.
+- Adds a shared conversion reporting helper for embedded public THiS forms.
+- Contact enquiries report a successful `contact` submission after the intake record is saved.
+- Eligibility assessments report a successful `intake` submission after the questionnaire record is saved and before CV uploads.
+- Seminar registrations report a successful `seminar` submission after the registration record is saved.
+- Uses the real THiS intake/registration record ID as the submission ID for de-duplication.
+- Sends only short, non-personal controlled values in optional conversion details.
+- Direct visits to Netlify-hosted forms are not reported; only embedded forms notify the Turner Hopkins parent page.
+- Tracking failures cannot interrupt successful form submissions.
+- No Google tag, GA4 ID, Ads ID, conversion label or conversion value is added to THiS; those remain on the Squarespace parent site.
 - No database migration.
-- Advances the PWA shell cache to v0.17.25.
+- Advances the PWA shell cache to v0.17.26.

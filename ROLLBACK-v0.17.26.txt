@@ -1,0 +1,7 @@
+THiS CRM v0.17.26 rollback
+
+Rollback target: v0.17.25 — Assessment Stage Transition Cleanup.
+
+No database migration was added in v0.17.26, so rollback requires only redeploying the v0.17.25 application package. No database rollback is required.
+
+If the Squarespace conversion listener has already been installed, it may remain in place during rollback: v0.17.25 does not emit THIS_FORM_SUBMITTED messages, so the listener will simply receive nothing.

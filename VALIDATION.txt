@@ -1,10 +1,16 @@
-THiS CRM v0.17.25 validation
+THiS CRM v0.17.26 validation
 
-- App.jsx JSX syntax parsed successfully using the TypeScript JSX parser.
+- App.jsx, main.jsx and src/lib/reportConversion.js parsed successfully using the TypeScript JSX/JavaScript parser.
 - 22 Netlify .mjs function files passed node --check.
 - 6 public JavaScript files passed node --check.
+- The new conversion helper also passed node --check when parsed as an ES module.
 - PWA validation passed.
-- PWA shell cache advances to v0.17.25.
-- 44 database migrations confirmed and byte-for-byte unchanged from v0.17.24.
-- Confirmed no code path remains that sets the inter-stage assessment transition pop-up.
+- PWA shell cache advances to v0.17.26.
+- 44 database migrations confirmed and byte-for-byte unchanged from v0.17.25.
+- Confirmed exactly one conversion reporting call for each lead form: contact, intake and seminar.
+- Confirmed assessment Save & finish later does not report a conversion.
+- Confirmed client feedback remains outside conversion tracking.
+- Confirmed direct visits to the Netlify-hosted forms do not report conversions.
+- Confirmed the helper targets only the Turner Hopkins website origins and contains no Google tag IDs, Ads labels or conversion values.
+- Confirmed conversion details are limited to controlled non-personal values used by the three form integrations.
 - A full Vite production build was not run because node_modules are not included in the deployment baseline.

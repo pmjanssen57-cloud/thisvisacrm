@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import { createPortal } from 'react-dom';
 import { acceptInvite, getUser, handleAuthCallback, login, logout, onAuthChange, requestPasswordRecovery, updateUser } from '@netlify/identity';
 import { AlertTriangle, Archive, ArrowUpDown, BookOpen, Building2, Calculator, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Clock, CloudSun, Copy, CreditCard, ClipboardList, Database, DollarSign, Download, ExternalLink, FileCheck2, FileSpreadsheet, FileText, Gift, Globe2, HelpCircle, KeyRound, LayoutDashboard, Link2, ListChecks, LockKeyhole, Mail, MessageSquare, MoreHorizontal, Phone, Pencil, Plus, RefreshCw, RotateCcw, Save, Search, Send, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, UserRound, UsersRound, Wrench, X } from 'lucide-react';
+import { reportConversion } from './src/lib/reportConversion.js';
 
 const BRAND = {
   ink: '#003736',
@@ -5613,6 +5614,13 @@ function IntakeFormApp() {
         const response = await fetch('/.netlify/functions/intake', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ resumeToken: draftResumeTokenRef.current || draftResumeToken, payload: { ...form, email: String(form.email || '').trim(), intakeSubmissionKey: submissionKeyRef.current, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.17.19-assessment-review-polish' } }) });
         const body = await readJsonResponse(response);
         if (!response.ok) throw new Error(body.error || 'The questionnaire could not be submitted.');
+        reportConversion('intake', {
+          submissionId: body.intakeId,
+          details: {
+            visa_pathway: form.targetPathway,
+            applicant_country: form.currentLocation,
+          },
+        });
         receipt = { intakeId: body.intakeId, uploadToken: body.uploadToken, expectedUploads: body.expectedUploads || [], uploadedKinds: body.uploadedKinds || [] };
         setSubmissionReceipt(receipt);
       }
@@ -6208,6 +6216,10 @@ function ContactFormApp() {
       });
       const body = await readJsonResponse(response);
       if (!response.ok) throw new Error(body.error || 'The contact enquiry could not be submitted.');
+      reportConversion('contact', {
+        submissionId: body.intakeId,
+        details: { visa_pathway: form.contactSituation },
+      });
       setSubmitted(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
@@ -6471,6 +6483,10 @@ function SeminarRegistrationFormApp() {
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error || 'The registration could not be submitted.');
+      reportConversion('seminar', {
+        submissionId: body.registrationId,
+        details: { seminar_name: seminar.title },
+      });
       setSubmitted(true);
     } catch (err) {
       setError(err.message || 'The registration could not be submitted.');
