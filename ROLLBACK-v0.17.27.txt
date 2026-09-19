@@ -1,0 +1,5 @@
+THiS CRM v0.17.27 rollback
+
+Rollback target: v0.17.26 - Public Form Conversion Tracking Bridge.
+
+No database migration was added in v0.17.27. Rollback requires only redeploying the v0.17.26 application package. No database rollback is required.

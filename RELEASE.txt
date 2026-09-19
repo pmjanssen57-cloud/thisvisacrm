@@ -1,13 +1,21 @@
-THiS CRM v0.17.26 - Public Form Conversion Tracking Bridge
+THiS CRM v0.17.27 - Agreement PDF Pagination Hotfix
 
-- Adds a shared conversion reporting helper for embedded public THiS forms.
-- Contact enquiries report a successful `contact` submission after the intake record is saved.
-- Eligibility assessments report a successful `intake` submission after the questionnaire record is saved and before CV uploads.
-- Seminar registrations report a successful `seminar` submission after the registration record is saved.
-- Uses the real THiS intake/registration record ID as the submission ID for de-duplication.
-- Sends only short, non-personal controlled values in optional conversion details.
-- Direct visits to Netlify-hosted forms are not reported; only embedded forms notify the Turner Hopkins parent page.
-- Tracking failures cannot interrupt successful form submissions.
-- No Google tag, GA4 ID, Ads ID, conversion label or conversion value is added to THiS; those remain on the Squarespace parent site.
-- No database migration.
-- Advances the PWA shell cache to v0.17.26.
+Purpose
+- Fix Agreement Studio PDFs that were producing large blank/near-blank pages and splitting the bottom of each logical A4 page onto a second physical PDF page.
+
+What changed
+- Agreement print CSS now uses an explicit A4 vertical print margin of 5mm.
+- Each printable agreement page is 286.5mm high, leaving a small safety tolerance inside the 287mm printable height.
+- The Agreement Studio pagination budget is reduced to match the print-safe page height, so content is repaginated before printing rather than spilling across physical PDF pages.
+- The Agreement Studio script cache-busting version is advanced to v0.17.27.
+- The PWA shell cache is advanced to v0.17.27.
+
+What did not change
+- No database schema changes.
+- No new migration.
+- All 44 existing migrations are byte-for-byte unchanged from v0.17.26.
+- v0.17.26 public form conversion tracking remains in place.
+- Agreement content, fee wording, acceptance records, email routing and signing workflow are unchanged.
+
+Rollback
+- Redeploy v0.17.26. No database rollback is required.

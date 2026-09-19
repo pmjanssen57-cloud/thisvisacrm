@@ -1,62 +1,31 @@
-# THiS CRM v0.17.26 — Public Form Conversion Tracking Bridge
+# THiS CRM v0.17.27 - Agreement PDF Pagination Hotfix
 
-This release continues from v0.17.25 and adds the THiS-side bridge required for Squarespace to record GA4 and Google Ads conversions after successful public form submissions.
+This release continues from v0.17.26 and fixes the Agreement Studio print/PDF page model that could produce large blank pages between the actual agreement pages.
 
-## Conversion bridge
+## Problem addressed
 
-A shared helper at `src/lib/reportConversion.js` sends a `THIS_FORM_SUBMITTED` message to the Turner Hopkins parent page only when a THiS form is embedded in an iframe.
+The supplied accepted agreement PDF contained 12 physical PDF pages even though the agreement represented approximately six logical A4 pages. The bottom of each logical page was being fragmented onto a second physical page, producing blank or near-blank pages containing only a page number, a short continuation line, or part of the cover footer.
 
-The helper:
+The print output showed an effective vertical print margin while Agreement Studio was still forcing each `.a4` document container to the full 297mm A4 height. That mismatch caused every full-height agreement page to overflow the browser's printable page area.
 
-- targets only `https://www.turnerhopkinsimmigration.co.nz` and `https://turnerhopkinsimmigration.co.nz`;
-- does not send when a form is opened directly on the Netlify domain;
-- de-duplicates repeated calls within the current app session;
-- uses the saved THiS record ID as the submission ID wherever available;
-- deliberately swallows its own errors so conversion tracking cannot interrupt a successful submission;
-- sends only short controlled values in `details`, never names, email addresses, phone numbers or free-text answers.
+## v0.17.27 fix
 
-## Form integration
+- The print stylesheet now declares A4 with 5mm top and bottom print margins.
+- Agreement page containers print at 286.5mm high, giving a small safety tolerance within the 287mm page content area.
+- The client-side pagination measurement budget is reduced from 1110px to 1070px so sections are moved to the next logical agreement page before they can overflow during printing.
+- Agreement Studio JavaScript cache-busting is advanced to v0.17.27.
+- The PWA shell cache is advanced to v0.17.27.
 
-### Contact form
-
-After `/.netlify/functions/intake` confirms the enquiry was saved, THiS reports:
-
-- form: `contact`
-- submission ID: the returned `intakeId`
-- detail: `visa_pathway` from the contact situation selector
-
-### Eligibility assessment
-
-After the final questionnaire save succeeds, and before any CV upload begins, THiS reports:
-
-- form: `intake`
-- submission ID: the returned `intakeId`
-- details: `visa_pathway` and `applicant_country`
-
-Save-and-finish-later is not reported as a conversion. CV upload retries do not re-save the questionnaire and therefore do not report a second conversion.
-
-### Seminar registration
-
-After `/.netlify/functions/seminar` confirms the registration was saved, THiS reports:
-
-- form: `seminar`
-- submission ID: the returned `registrationId`
-- detail: `seminar_name`
-
-The existing client feedback form remains excluded.
-
-## Squarespace responsibility
-
-THiS does not contain the Google tag or Google Ads conversion configuration. The Turner Hopkins Squarespace site must listen for `THIS_FORM_SUBMITTED` messages from `https://thisvisacrm.netlify.app` and send the corresponding GA4 / Google Ads events. The existing form embed and height messaging remain unchanged.
-
-## PWA/cache
-
-The service-worker shell cache advances to v0.17.26 so deployed clients refresh cleanly.
+The browser preview remains the familiar A4 workspace; this change is specifically about producing stable physical PDF pages when the agreement is printed/saved.
 
 ## Database
 
-No migration is added. All 44 existing migrations are unchanged from v0.17.25.
+No schema change. No migration added. All 44 migrations are unchanged from v0.17.26.
+
+## Preserved functionality
+
+The v0.17.26 conversion tracking bridge is preserved. Agreement content, client/signatory data, acceptance records, signing, email issue routing, fee tables and Studio editing are otherwise unchanged.
 
 ## Rollback
 
-Redeploy v0.17.25. No database rollback is required.
+Redeploy v0.17.26. No database rollback is required.
