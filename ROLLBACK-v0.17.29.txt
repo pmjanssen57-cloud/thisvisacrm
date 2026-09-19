@@ -1,0 +1,10 @@
+THiS CRM v0.17.29 rollback
+
+Application rollback target: v0.17.28 - Safe Adviser Profile Deletion.
+
+IMPORTANT DATABASE RULE
+v0.17.29 adds migration 45. If v0.17.29 has been deployed and the migration has been applied, do not delete, rename or modify that migration file.
+
+The supplied rollback ZIP restores the v0.17.28 application code but retains migration 45 unchanged in netlify/database/migrations. The migration is additive only, and v0.17.28 ignores the extra commercial workflow columns.
+
+Do not attempt to roll the database back by editing historical migration files.

@@ -1,0 +1,41 @@
+THiS CRM v0.17.29 - Unified Client & Commercial Matter Workspace
+
+NORMAL USER FLOW
+
+Clients -> choose Individual or Commercial -> Open -> Update matter / Reschedule -> My Work
+
+CLIENTS REGISTER
+- All clients: individual and commercial together.
+- Individuals: individual immigration clients only.
+- Commercial: employer organisations only.
+- Commercial records are identified by a Commercial badge and building icon.
+
+COMMERCIAL MATTER WORKFLOW
+Commercial clients now share the normal operational matter controls:
+- primary adviser / backup adviser;
+- Needs my attention;
+- Waiting on client;
+- Waiting on INZ;
+- Ready to progress;
+- next action;
+- action/review date;
+- priority;
+- Update matter;
+- Reschedule; and
+- My Work / dashboard workload visibility.
+
+COMMERCIAL-SPECIFIC TOOLS
+Open a commercial client to access:
+- Overview / organisation and accreditation;
+- Workers;
+- Job Checks;
+- Compliance;
+- Documents;
+- Employer Portal; and
+- Activity.
+
+TECHNICAL DESIGN
+Commercial clients remain in the existing commercial_clients table. Existing worker, Job Check, compliance, document, portal-user and audit relationships are preserved. The CRM presents them through the same matter workflow as individual clients rather than migrating commercial data into the individual clients table.
+
+DATABASE
+Migration 45 adds additive workflow columns to commercial_clients. Historical migrations are unchanged.

@@ -19283,3 +19283,46 @@ body.festive-mode-active {
   }
   .matter-workspace-v17 .studio-workspace-modern .instructions-overview-strip > div:last-child { border-bottom: 0; }
 }
+
+/* v0.17.29 - unified individual and commercial client workflow */
+.unified-client-new-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.unified-client-type-filter{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+.unified-client-type-filter button{border:1px solid #d5e2dd;border-radius:999px;background:#fff;color:#4b615d;padding:7px 10px;display:inline-flex;align-items:center;gap:7px;font-size:10px;font-weight:800;cursor:pointer}
+.unified-client-type-filter button b{min-width:20px;padding:2px 6px;border-radius:999px;background:#eef4f1;color:#5f736e;font-size:8.5px;text-align:center}
+.unified-client-type-filter button.active{border-color:#78caaa;background:#edf9f4;color:#0e5548}
+.unified-client-type-filter button.active b{background:#d6f1e5;color:#0c5848}
+.unified-client-name{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.client-type-badge.commercial,.matter-card-commercial-badge{display:inline-flex;align-items:center;gap:4px;border:1px solid #a9dfc9;border-radius:999px;background:#eefaf5;color:#226653;padding:3px 6px;font-size:8px;font-weight:900;letter-spacing:.02em;line-height:1;text-transform:uppercase;font-style:normal;white-space:nowrap}
+.matter-card-commercial-badge{margin-left:6px;vertical-align:middle}
+.commercial-unified-matter{display:grid;gap:14px}
+.commercial-unified-head{padding:16px 18px}
+.commercial-matter-avatar{width:50px;height:50px;border:1px solid #a7dfc7;border-radius:14px;background:#eefaf5;color:#145e4f;display:grid;place-items:center;flex:0 0 auto}
+.commercial-heading-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.commercial-heading-row h1{margin:0}
+.commercial-primary-action .matter-primary-buttons button:disabled{opacity:.48;cursor:not-allowed}
+.unified-commercial-tabs{margin:0;overflow-x:auto;scrollbar-width:thin}
+.commercial-unified-overview-grid{display:grid;grid-template-columns:minmax(320px,.9fr) minmax(520px,1.45fr);gap:14px;align-items:start}
+.commercial-workflow-timeline{margin-top:14px}
+.commercial-activity-stack{display:grid;grid-template-columns:minmax(320px,.9fr) minmax(420px,1.1fr);gap:14px;align-items:start}
+.commercial-workflow-activity{min-width:0}
+.unified-client-register .matter-client-row .client-type-badge{margin-top:5px}
+.unified-client-register .matter-client-row .commercial-row-icon{display:inline-flex;align-items:center;justify-content:center;color:#226653}
+
+@media(max-width:1180px){
+  .commercial-unified-overview-grid,.commercial-activity-stack{grid-template-columns:1fr}
+}
+@media(max-width:760px){
+  .unified-client-new-actions{width:100%;justify-content:stretch}
+  .unified-client-new-actions .btn{flex:1;justify-content:center}
+  .unified-client-type-filter{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+  .unified-client-type-filter button{justify-content:center;padding:8px 6px}
+  .commercial-unified-head{padding:13px}
+  .commercial-unified-head .matter-command-top{align-items:flex-start}
+  .commercial-unified-head .matter-command-actions{width:100%}
+  .commercial-unified-head .matter-command-actions .btn{flex:1;justify-content:center}
+  .commercial-matter-avatar{width:44px;height:44px}
+}
+@media(max-width:520px){
+  .unified-client-type-filter{grid-template-columns:1fr}
+  .unified-client-new-actions{display:grid;grid-template-columns:1fr}
+}

@@ -151,7 +151,7 @@ function normaliseAdviserPreferences(input = {}) {
     name: String(view?.name || 'Saved view'),
   })).filter((view) => view.id && view.name).slice(0, 20);
   return {
-    defaultLandingPage: ['dashboard', 'tasks', 'clients', 'intake', 'calendar', 'commercial', 'billing', 'instructions', 'agreements'].includes(source.defaultLandingPage) ? source.defaultLandingPage : 'dashboard',
+    defaultLandingPage: source.defaultLandingPage === 'commercial' ? 'clients' : (['dashboard', 'tasks', 'clients', 'intake', 'calendar', 'billing', 'instructions', 'agreements'].includes(source.defaultLandingPage) ? source.defaultLandingPage : 'dashboard'),
     density: source.density === 'compact' ? 'compact' : 'standard',
     dashboardWidgets,
     quickActions,
@@ -542,17 +542,17 @@ const SUPPORT_CONTENT = {
   },
   clients: {
     title: 'Clients help',
-    summary: 'The Clients page separates the client profile from the operational work on the file. The Overview now uses expandable profile sections so advisers can review and edit personal, contact, matter, family, strategy and file-reference information without leaving the page.',
+    summary: 'Clients is the single working register for everyone Turner Hopkins acts for. Individual and commercial clients share the same adviser ownership, matter status, next-action and review-date workflow, while commercial records retain their employer-specific tools.',
     sections: [
-      { heading: 'Creating a client', text: 'Click Client in the top bar to open the blank client record, then expand the profile sections you need in Overview. Save each section as you complete it.' },
-      { heading: 'Editing the client record', text: 'Open any profile section directly in the Overview. Make the change in place, then Save section or Cancel. The full profile editor remains available under More for advisers who want the larger editing view.' },
-      { heading: 'Operational workspaces', text: 'Actions, Documents, Stages, Key dates, Billing, Instructions, Agreements and Portal remain separate workspaces because they contain work records rather than basic client profile information.' },
-      { heading: 'Case strategy', text: 'Maintain the Case strategy field inside the unified client editor as the master internal summary of the agreed approach, key immigration issues, evidence gaps, risks and next strategic steps.' },
-      { heading: 'Progress map', text: 'The progress map shows mandatory, optional and custom stages. Select only the stages that apply, add custom stages where a client needs a different pathway, and reorder stages before saving the client record. Skipped stages are shown muted and do not affect progress percentage.' },
-      { heading: 'Deadlines and next action', text: 'Add expiry and filing dates in Key dates. Use Next action and Task due date for internal adviser work that should appear on the dashboard and task lists. Use Timeline to review previous actions, linked appointments, completed stages, document expiries and billing events.' },
-      { heading: 'Closing a client record', text: 'Use More → Close client when the matter has finished. Closing and reopening remain dedicated lifecycle actions rather than ordinary profile fields, so dashboard and task suppression is handled consistently.' },
+      { heading: 'Individual or commercial', text: 'Use the type filters to view all clients, individuals only or commercial clients only. Commercial records are identified with a building icon and Commercial badge rather than being kept in a separate day-to-day workspace.' },
+      { heading: 'Creating a client', text: 'Use New individual for a person or New commercial for an employer organisation. Both records enter the same Clients register and My Work workflow once saved.' },
+      { heading: 'Operational workflow', text: 'Use Update matter and Reschedule to maintain what happened, what happens next, the next action or review date and who has the ball. Commercial clients use the same My Work states as individual matters.' },
+      { heading: 'Individual client records', text: 'Individual clients retain the existing profile, Actions, Documents, Stages, Key dates, Billing, Instructions, Agreements and Portal workspaces. The expandable Overview remains the normal place for profile changes.' },
+      { heading: 'Commercial client records', text: 'Commercial records keep employer details, accreditation, Workers, Job Checks, Compliance, Documents, Portal and Activity inside the client record. These specialist tools sit behind the same operational matter workflow rather than in a separate navigation area.' },
+      { heading: 'Adviser ownership and visibility', text: 'Primary and backup advisers work the same way for both record types. Commercial clients appear in My Work and client workload views according to their operational status and next review or action date.' },
+      { heading: 'Closing a client record', text: 'Use the normal lifecycle controls when a matter finishes. Closed records are suppressed from active operational queues but remain available in the client register for history.' },
     ],
-    tips: ['Use the expandable Overview sections for routine client profile changes; the full profile editor remains available under More when you want the larger view.', 'Keep the case strategy client-specific and practical.', 'Use the citizenship and address fields consistently because they are searchable.'],
+    tips: ['Use All clients for the practice-wide register and the type filters only when you need to narrow the view.', 'Keep every active matter on a clear next action or controlled waiting state with a review date.', 'Use the Commercial badge as the identifier; the workflow itself should remain consistent.'],
   },
   billing: {
     title: 'Billing help',
@@ -631,14 +631,15 @@ const SUPPORT_CONTENT = {
     tips: ['Use intake-linked agreements for prospective clients who have not yet been converted.', 'Review fee descriptions in the preview, not only in the editor.', 'Do not issue until both pre-issue confirmations are complete.', 'Use the Help button inside Agreement Studio for control-by-control guidance.'],
   },
   commercial: {
-    title: 'Commercial help',
-    summary: 'The Commercial workspace manages employer records, accreditation and compliance activity separately from individual immigration clients.',
+    title: 'Commercial client tools help',
+    summary: 'Commercial clients now live in the main Clients register. Their employer-specific accreditation, worker, Job Check, compliance, document and portal tools remain available inside the commercial client record.',
     sections: [
-      { heading: 'Employer records', text: 'Use one commercial record for each employer organisation. Keep key contacts, accreditation details, compliance dates and assigned advisers current.' },
-      { heading: 'Compliance work', text: 'Record accreditation, job-check and migrant-employment obligations as dated tasks so they appear in the wider CRM workload and deadline views.' },
+      { heading: 'Employer records', text: 'Use one commercial record for each employer organisation. Keep legal and trading names, key contacts, accreditation details and assigned advisers current.' },
+      { heading: 'Matter workflow', text: 'Use Update matter and Reschedule exactly as you would for an individual client. The resulting status, next action and review date determine where the commercial client appears in My Work.' },
+      { heading: 'Compliance work', text: 'Use Workers, Job Checks and Compliance for employer-specific operational data. Dated matter actions should still be maintained through the shared matter workflow.' },
       { heading: 'Employer portal', text: 'Publish only the information and documents the employer should see. Review access details and contact information before activating the portal.' },
     ],
-    tips: ['Keep the legal employer name and trading name distinct.', 'Use notes for operational context, not as a substitute for dated compliance tasks.', 'Review accreditation expiry and renewal timing regularly.'],
+    tips: ['Keep the legal employer name and trading name distinct.', 'Use the Commercial badge to distinguish employers without creating a separate workflow.', 'Review accreditation expiry and renewal timing regularly.'],
   },
   bookings: {
     title: 'Bookings help',
@@ -907,6 +908,14 @@ function makeBlankCommercialClient(primaryAdviserId = '') {
     primaryAdviserId,
     backupAdviserId: '',
     clientStatus: 'Active',
+    matterName: '',
+    caseType: 'Commercial / Employer',
+    priority: 'Normal',
+    nextAction: '',
+    nextActionDue: '',
+    matterStatus: 'No current action',
+    matterReviewDate: '',
+    matterActivity: [],
     sharepointFolderUrl: '',
     oneLawClientNumber: '',
     accreditationType: '',
@@ -944,6 +953,14 @@ function normaliseCommercialClient(input = {}) {
     primaryAdviserId: input.primaryAdviserId || input.primary_adviser_id || '',
     backupAdviserId: input.backupAdviserId || input.backup_adviser_id || '',
     clientStatus: input.clientStatus || input.client_status || 'Active',
+    matterName: input.matterName || input.matter_name || '',
+    caseType: input.caseType || input.case_type || 'Commercial / Employer',
+    priority: input.priority || 'Normal',
+    nextAction: input.nextAction || input.next_action || '',
+    nextActionDue: normaliseIsoDate(input.nextActionDue || input.next_action_due),
+    matterStatus: normaliseMatterStatus(input.matterStatus || input.matter_status, input.clientStatus || input.client_status, input.nextAction || input.next_action),
+    matterReviewDate: normaliseIsoDate(input.matterReviewDate || input.matter_review_date),
+    matterActivity: normaliseMatterActivity(input.matterActivity || input.matter_activity),
     sharepointFolderUrl: input.sharepointFolderUrl || input.sharepoint_folder_url || '',
     oneLawClientNumber: input.oneLawClientNumber || input.one_law_client_number || '',
     accreditationType: input.accreditationType || input.accreditation_type || '',
@@ -969,6 +986,44 @@ function normaliseCommercialClient(input = {}) {
       id: item.id || '', recordType: item.recordType || item.record_type || '', recordId: item.recordId || item.record_id || '', action: item.action || '',
       changedBy: item.changedBy || item.changed_by || '', changedByType: item.changedByType || item.changed_by_type || '', summary: item.summary || '', createdAt: item.createdAt || item.created_at || '',
     })) : [],
+  };
+}
+
+function isCommercialMatterRecord(value) {
+  if (!value) return false;
+  if (typeof value === 'string') return value.startsWith('commercial:');
+  return value.clientKind === 'commercial' || value.recordType === 'commercial' || String(value.id || '').startsWith('commercial:');
+}
+
+function commercialMatterSourceId(value) {
+  if (!value) return '';
+  if (typeof value === 'string') return value.startsWith('commercial:') ? value.slice('commercial:'.length) : value;
+  return value.sourceId || (String(value.id || '').startsWith('commercial:') ? String(value.id).slice('commercial:'.length) : value.id) || '';
+}
+
+function commercialAsMatterClient(input = {}) {
+  const client = normaliseCommercialClient(input);
+  const displayName = client.tradingName || client.legalName || 'Commercial client';
+  return {
+    ...client,
+    id: `commercial:${client.id}`,
+    sourceId: client.id,
+    clientKind: 'commercial',
+    recordType: 'commercial',
+    firstName: displayName,
+    lastName: '',
+    email: client.primaryContactEmail || '',
+    phone: client.primaryContactPhone || '',
+    nationality: '',
+    location: client.address || '',
+    caseType: client.caseType || 'Commercial / Employer',
+    matterName: client.matterName || displayName,
+    stages: [],
+    deadlines: [],
+    billing: [],
+    documentChecklist: [],
+    familyMembers: [],
+    nextActionLog: [],
   };
 }
 
@@ -1463,6 +1518,22 @@ export default function App() {
     setMyDayOpen(false);
     setTab('matter');
     return true;
+  }
+
+  function openMatterRecord(recordId) {
+    if (isCommercialMatterRecord(recordId)) {
+      if (tab === 'calendar' && !confirmDiscardCalendarEdits()) return false;
+      const commercialClientId = commercialMatterSourceId(recordId);
+      if (!commercialClientId) return false;
+      setClientEditorDirty(false);
+      setCalendarEditorDirty(false);
+      setSelectedCommercialClientId(commercialClientId);
+      if (!String(commercialClientId).startsWith('temp-')) rememberClient(`commercial:${commercialClientId}`);
+      setMyDayOpen(false);
+      setTab('commercial-matter');
+      return true;
+    }
+    return openClientRecord(recordId);
   }
 
   function refreshData() {
@@ -2292,10 +2363,35 @@ export default function App() {
 
   async function saveCommercialClient(commercialClient) {
     const wasNew = String(commercialClient?.id || '').startsWith('temp-') || !commercialClient?.id;
-    const body = await callApi('saveCommercialClient', { commercialClient });
-    if (body.commercialClient?.id) setSelectedCommercialClientId(body.commercialClient.id);
+    const body = await callApi('saveCommercialClient', { commercialClient }, { skipDataUpdate: true });
+    if (body.commercialClient?.id) {
+      const savedClient = normaliseCommercialClient(body.commercialClient);
+      setData((current) => {
+        const nextClients = [savedClient, ...(current.commercialClients || []).filter((item) => item.id !== savedClient.id && !(wasNew && String(item.id || '').startsWith('temp-commercial-')))];
+        const next = { ...current, commercialClients: nextClients };
+        dataRef.current = next;
+        return next;
+      });
+      setSelectedCommercialClientId(savedClient.id);
+    }
     showCrmToast(wasNew ? 'Commercial client created.' : 'Commercial client saved.');
     return body;
+  }
+
+  async function saveMatterClient(client, options = {}) {
+    if (!isCommercialMatterRecord(client)) return saveClient(client, options);
+    const sourceId = commercialMatterSourceId(client);
+    const existing = (dataRef.current.commercialClients || []).find((item) => item.id === sourceId) || {};
+    const commercialClient = {
+      ...existing,
+      ...client,
+      id: sourceId,
+      legalName: client.legalName || existing.legalName || client.firstName || 'Commercial client',
+      tradingName: client.tradingName ?? existing.tradingName ?? '',
+      primaryContactEmail: client.primaryContactEmail || existing.primaryContactEmail || client.email || '',
+      primaryContactPhone: client.primaryContactPhone || existing.primaryContactPhone || client.phone || '',
+    };
+    return saveCommercialClient(commercialClient);
   }
 
   async function deleteCommercialClient(commercialClientId) {
@@ -2851,7 +2947,7 @@ export default function App() {
     const commercialClient = makeBlankCommercialClient(selectedAdviserId);
     setData((current) => ({ ...current, commercialClients: [commercialClient, ...(current.commercialClients || [])] }));
     setSelectedCommercialClientId(commercialClient.id);
-    setTab('commercial');
+    setTab('commercial-matter');
   }
 
   function addAdviser() {
@@ -2878,6 +2974,12 @@ export default function App() {
 
   const scopedClients = useMemo(() => data.clients.filter((client) => matchesAdviserScope(client, dashboardAdviserFilter)), [data.clients, dashboardAdviserFilter]);
   const scopedCommercialClients = useMemo(() => (data.commercialClients || []).filter((client) => dashboardAdviserFilter === 'all' || client.primaryAdviserId === dashboardAdviserFilter || client.backupAdviserId === dashboardAdviserFilter), [data.commercialClients, dashboardAdviserFilter]);
+  const unifiedMatterClients = useMemo(() => [
+    ...(data.clients || []),
+    ...(data.commercialClients || []).map(commercialAsMatterClient),
+  ], [data.clients, data.commercialClients]);
+  const scopedMatterClients = useMemo(() => unifiedMatterClients.filter((client) => matchesAdviserScope(client, dashboardAdviserFilter)), [unifiedMatterClients, dashboardAdviserFilter]);
+  const activeMatterClients = useMemo(() => scopedMatterClients.filter((client) => client.clientStatus !== 'Closed'), [scopedMatterClients]);
   const selectedCommercialClient = (data.commercialClients || []).find((client) => client.id === selectedCommercialClientId) || scopedCommercialClients[0] || null;
   const scopedPersonalTasks = useMemo(() => data.personalTasks.filter((task) => matchesPersonalTaskScope(task, dashboardAdviserFilter)), [data.personalTasks, dashboardAdviserFilter]);
   const scopedCalendarEntries = useMemo(() => data.calendarEntries.filter((entry) => matchesCalendarEntryScope(entry, dashboardAdviserFilter, data.clients)), [data.calendarEntries, dashboardAdviserFilter, data.clients]);
@@ -3040,9 +3142,9 @@ export default function App() {
       : clientAdviserFilter;
   const filteredClients = useMemo(() => {
     const q = clientQuery.trim().toLowerCase();
-    const sourceClients = clientAdviserFilter === 'unassigned' ? data.clients : scopedClients;
+    const sourceClients = clientAdviserFilter === 'unassigned' ? unifiedMatterClients : scopedMatterClients;
     return sourceClients.filter((client) => {
-      const matchesQuery = !q || [client.firstName, client.lastName, client.email, client.caseType, client.nationality, client.location, client.sharepointFolderUrl, client.oneLawClientNumber, client.caseStrategy, (client.familyMembers || []).map((member) => `${member.name || ''} ${member.nationality || ''}`).join(' ')]
+      const matchesQuery = !q || [client.firstName, client.lastName, client.email, client.caseType, client.nationality, client.location, client.sharepointFolderUrl, client.oneLawClientNumber, client.caseStrategy, client.legalName, client.tradingName, client.primaryContactName, client.nzbn, (client.familyMembers || []).map((member) => `${member.name || ''} ${member.nationality || ''}`).join(' ')]
         .join(' ')
         .toLowerCase()
         .includes(q);
@@ -3054,16 +3156,17 @@ export default function App() {
       const matchesCaseType = caseTypeFilter === 'all' || client.caseType === caseTypeFilter;
       return matchesQuery && matchesAdviser && matchesCaseType;
     });
-  }, [data.clients, scopedClients, clientQuery, clientAdviserFilter, effectiveClientListAdviserId, includeBackupClients, caseTypeFilter]);
+  }, [unifiedMatterClients, scopedMatterClients, clientQuery, clientAdviserFilter, effectiveClientListAdviserId, includeBackupClients, caseTypeFilter]);
 
   useEffect(() => {
     if (tab !== 'clients' || !filteredClients.length) return;
-    if (!filteredClients.some((client) => client.id === selectedClientId)) setSelectedClientId(filteredClients[0].id);
+    const individualRows = filteredClients.filter((client) => !isCommercialMatterRecord(client));
+    if (individualRows.length && !individualRows.some((client) => client.id === selectedClientId)) setSelectedClientId(individualRows[0].id);
   }, [tab, filteredClients, selectedClientId]);
 
   const deadlineRows = useMemo(() => {
     return [
-      ...activeClients.flatMap((client) => [
+      ...activeMatterClients.flatMap((client) => [
         ...(client.deadlines || []).map((deadline) => ({
           id: `${client.id}-${deadline.id}`,
           client,
@@ -3084,10 +3187,10 @@ export default function App() {
       .filter((row) => row.date)
       .map(withDeadlineSignal)
       .sort((a, b) => deadlineSignalSortDate(a).localeCompare(deadlineSignalSortDate(b)) || String(a.date || '').localeCompare(String(b.date || '')));
-  }, [activeClients, scopedCalendarEntries, data.clients]);
+  }, [activeMatterClients, scopedCalendarEntries, data.clients]);
 
-  const taskRows = useMemo(() => buildTaskRows(activeClients, scopedPersonalTasks, data.clients, scopedCalendarEntries)
-    .filter((row) => matchesTaskRowScope(row, dashboardAdviserFilter)), [activeClients, scopedPersonalTasks, data.clients, scopedCalendarEntries, dashboardAdviserFilter]);
+  const taskRows = useMemo(() => buildTaskRows(activeMatterClients, scopedPersonalTasks, data.clients, scopedCalendarEntries)
+    .filter((row) => matchesTaskRowScope(row, dashboardAdviserFilter)), [activeMatterClients, scopedPersonalTasks, data.clients, scopedCalendarEntries, dashboardAdviserFilter]);
 
   const billingRows = useMemo(() => {
     return scopedClients
@@ -3095,7 +3198,7 @@ export default function App() {
       .sort((a, b) => (billingReportingDate(a, a.client) || '9999-12-31').localeCompare(billingReportingDate(b, b.client) || '9999-12-31'));
   }, [scopedClients]);
 
-  const sidebarMyWorkCount = useMemo(() => countDefaultMyWorkItems(data.clients || [], dashboardAdviserFilter), [data.clients, dashboardAdviserFilter]);
+  const sidebarMyWorkCount = useMemo(() => countDefaultMyWorkItems(unifiedMatterClients, dashboardAdviserFilter), [unifiedMatterClients, dashboardAdviserFilter]);
   const sidebarNewEnquiryCount = useMemo(() => countScopedNewEnquiries(data.intakeEnquiries || [], dashboardAdviserFilter), [data.intakeEnquiries, dashboardAdviserFilter]);
 
   function runPersonalQuickAction(actionId) {
@@ -3157,7 +3260,7 @@ export default function App() {
         </div>
         <div className="matter-global-search">
           <Search size={17} />
-          <input value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') switchTab('clients'); }} placeholder="Search clients, OneLaw number, email or matter…" />
+          <input value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') switchTab('clients'); }} placeholder="Search people, companies, OneLaw number, email or matter…" />
         </div>
         <MatterMenuSelect className="matter-scope-menu desktop-only" caption="View" ariaLabel="Adviser view" value={dashboardAdviserFilter} onChange={setDashboardAdviserFilter} options={[{ value: 'all', label: 'All advisers' }, ...data.advisers.filter((item) => item.active !== false).map((item) => ({ value: item.id, label: item.name }))]} />
         <HeaderLocalSnapshot adviser={headerSnapshotAdviser} />
@@ -3226,10 +3329,9 @@ export default function App() {
             <nav className="tabs desktop-tabs main-nav crm-main-nav-polished nav-expanded-row" aria-label="Main CRM navigation">
               <TabButton active={tab === 'dashboard'} onClick={() => switchTab('dashboard')} icon={LayoutDashboard} label="Dashboard" />
               <TabButton active={tab === 'tasks'} onClick={() => switchTab('tasks')} icon={ListChecks} label="Tasks" />
-              <TabButton active={tab === 'clients'} onClick={() => switchTab('clients')} icon={UsersRound} label="Clients" />
+              <TabButton active={['clients', 'matter', 'client-record', 'commercial-matter'].includes(tab)} onClick={() => switchTab('clients')} icon={UsersRound} label="Clients" />
               <TabButton active={tab === 'intake'} onClick={() => switchTab('intake')} icon={ClipboardList} label="Enquiries & Intake" />
               <TabButton active={tab === 'studio'} onClick={() => switchTab('studio')} icon={FileText} label="Studio" />
-              <TabButton active={tab === 'commercial'} onClick={() => switchTab('commercial')} icon={Building2} label="Commercial" />
               <TabButton active={tab === 'billing'} onClick={() => switchTab('billing')} icon={CreditCard} label="Billing" />
               <div className="dropdown-shell main-nav-more-shell">
                 <button className={`tab nav-more-button ${['bookings', 'calendar'].includes(tab) ? 'active' : ''}`} type="button" onClick={() => setMainNavMoreOpen((open) => !open)}><MoreHorizontal size={17} />More <ChevronDown size={14} /></button>
@@ -3341,23 +3443,51 @@ export default function App() {
             )}
 
             {tab === 'work' && (
-              <MatterWorkDashboard clients={activeClients} advisers={data.advisers} scopeAdviserId={dashboardAdviserFilter} openClientRecord={openClientRecord} setTab={switchTab} saveClient={saveClient} saving={saving} actorAdviser={identityAdviser} />
+              <MatterWorkDashboard clients={activeMatterClients} advisers={data.advisers} scopeAdviserId={dashboardAdviserFilter} openClientRecord={openMatterRecord} setTab={switchTab} saveClient={saveMatterClient} saving={saving} actorAdviser={identityAdviser} />
             )}
 
             {tab === 'clients' && (
-              <MatterClientRegister clients={filteredClients} advisers={data.advisers} clientQuery={clientQuery} setClientQuery={setClientQuery} adviserFilter={clientAdviserFilter} setAdviserFilter={setClientAdviserFilter} caseTypeFilter={caseTypeFilter} setCaseTypeFilter={setCaseTypeFilter} caseTypes={data.caseTypes} openClientRecord={openClientRecord} addClient={addClient} />
+              <MatterClientRegister clients={filteredClients} advisers={data.advisers} clientQuery={clientQuery} setClientQuery={setClientQuery} adviserFilter={clientAdviserFilter} setAdviserFilter={setClientAdviserFilter} caseTypeFilter={caseTypeFilter} setCaseTypeFilter={setCaseTypeFilter} caseTypes={Array.from(new Set([...(data.caseTypes || []), 'Commercial / Employer']))} openClientRecord={openMatterRecord} addClient={addClient} addCommercialClient={addCommercialClient} />
             )}
 
             {tab === 'matter' && selectedClient && (
               <MatterCommandCentre client={selectedClient} advisers={data.advisers} caseTypes={data.caseTypes} calendarEntries={data.calendarEntries} saveClient={saveClient} saving={saving} onOpenAdvanced={(section = 'overview') => { setClientRecordInitialSection(section); switchTab('client-record'); }} onBack={() => switchTab('clients')} onReturnToWork={() => switchTab('work')} openInstructionsForClient={openInstructionsForClient} openAgreementsForClient={openAgreementsForClient} />
             )}
 
+            {tab === 'commercial-matter' && selectedCommercialClient && (
+              <CommercialMatterCommandCentre
+                client={selectedCommercialClient}
+                advisers={data.advisers}
+                saveCommercialClient={saveCommercialClient}
+                saveMatterClient={saveMatterClient}
+                deleteCommercialClient={deleteCommercialClient}
+                saveCommercialPortalUser={saveCommercialPortalUser}
+                deleteCommercialPortalUser={deleteCommercialPortalUser}
+                saveCommercialWorker={saveCommercialWorker}
+                importCommercialWorkers={importCommercialWorkers}
+                archiveCommercialWorker={archiveCommercialWorker}
+                saveCommercialJobCheck={saveCommercialJobCheck}
+                archiveCommercialJobCheck={archiveCommercialJobCheck}
+                saveCommercialComplianceItem={saveCommercialComplianceItem}
+                archiveCommercialComplianceItem={archiveCommercialComplianceItem}
+                saveCommercialDocument={saveCommercialDocument}
+                uploadCommercialDocument={uploadCommercialDocument}
+                downloadCommercialDocument={downloadCommercialDocument}
+                deleteCommercialDocument={deleteCommercialDocument}
+                saving={saving}
+                isAdmin={isAdmin}
+                actorAdviser={identityAdviser}
+                onBack={() => switchTab('clients')}
+                onReturnToWork={() => switchTab('work')}
+              />
+            )}
+
             {tab === 'dashboard' && (
-              <Dashboard clients={scopedClients} activeClients={activeClients} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} deadlineRows={deadlineRows} taskRows={taskRows} stageTemplates={data.stageTemplates} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} saveClient={saveClient} saving={saving} intakeEnquiries={data.intakeEnquiries || []} recentClientIds={recentClientIds} preferences={adviserPreferences} />
+              <Dashboard clients={scopedMatterClients} activeClients={activeMatterClients} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} deadlineRows={deadlineRows} taskRows={taskRows} stageTemplates={data.stageTemplates} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openMatterRecord} saveClient={saveMatterClient} saving={saving} intakeEnquiries={data.intakeEnquiries || []} recentClientIds={recentClientIds} preferences={adviserPreferences} />
             )}
 
             {tab === 'tasks' && (
-              <TasksDashboard taskRows={taskRows} personalTasks={scopedPersonalTasks} allClients={data.clients} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} savePersonalTask={savePersonalTask} deletePersonalTask={deletePersonalTask} saveCalendarEntry={saveCalendarEntry} deleteCalendarEntry={deleteCalendarEntry} saving={saving} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openClientRecord} />
+              <TasksDashboard taskRows={taskRows} personalTasks={scopedPersonalTasks} allClients={data.clients} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} savePersonalTask={savePersonalTask} deletePersonalTask={deletePersonalTask} saveCalendarEntry={saveCalendarEntry} deleteCalendarEntry={deleteCalendarEntry} saving={saving} setTab={setTab} setSelectedClientId={setSelectedClientId} openClientRecord={openMatterRecord} />
             )}
 
             {tab === 'calendar' && (
@@ -3415,7 +3545,7 @@ export default function App() {
             {tab === 'advisers' && canManageAdvisers && (
               <div className="stack workspace-modern-page advisers-workspace-modern">
                 <NotificationRecipientSettings settings={data.notificationRecipientSettings || []} advisers={data.advisers} onSave={saveNotificationRecipientSettings} saving={saving} />
-                <AdviserProfiles advisers={data.advisers} clients={data.clients} saveAdviser={saveAdviser} deleteAdviser={deleteAdviser} saving={saving} />
+                <AdviserProfiles advisers={data.advisers} clients={unifiedMatterClients} saveAdviser={saveAdviser} deleteAdviser={deleteAdviser} saving={saving} />
               </div>
             )}
 
@@ -3510,9 +3640,9 @@ export default function App() {
           onLogout={logoutIdentityUser}
           onClose={dismissMyDay}
           festiveActive={festiveActive}
-          clients={scopedClients}
+          clients={scopedMatterClients}
           commercialClients={scopedCommercialClients}
-          activeClients={activeClients}
+          activeClients={activeMatterClients}
           advisers={data.advisers}
           dashboardAdviserFilter={dashboardAdviserFilter}
           setDashboardAdviserFilter={setDashboardAdviserFilter}
@@ -3521,7 +3651,7 @@ export default function App() {
           consultationBookings={data.consultationBookings || []}
           recentClientIds={recentClientIds}
           setTab={switchTab}
-          openClientRecord={openClientRecord}
+          openClientRecord={openMatterRecord}
         />
       )}
       {crmConfirm && <CrmConfirmDialog dialog={crmConfirm} onResolve={resolveCrmConfirm} />}
@@ -3597,7 +3727,7 @@ function MatterActionMenu({ label = 'More', items = [], className = '' }) {
 }
 
 function MatterWorkspaceSidebar({ tab = 'work', onNavigate, adviser = null, isAdmin = false, newEnquiryCount = 0, actionCount = 0 }) {
-  const activeKey = ['matter', 'client-record'].includes(tab) ? 'clients' : tab;
+  const activeKey = ['matter', 'client-record', 'commercial-matter'].includes(tab) ? 'clients' : tab;
   const primary = [
     ['work', LayoutDashboard, 'My Work', actionCount],
     ['clients', UsersRound, 'Clients', 0],
@@ -3607,7 +3737,6 @@ function MatterWorkspaceSidebar({ tab = 'work', onNavigate, adviser = null, isAd
   const practice = [
     ['tasks', ListChecks, 'Tasks', 0],
     ['studio', FileText, 'Studio', 0],
-    ['commercial', Building2, 'Commercial', 0],
     ['billing', CreditCard, 'Billing', 0],
   ];
   const more = [
@@ -3783,7 +3912,7 @@ function MatterKanbanCard({ client, advisers = [], scopeAdviserId = 'all', owner
   const ownerMeta = primary?.name ? `Main · ${primary.name}` : 'Main adviser unassigned';
   return <article className="matter-kanban-card">
     <button className="matter-card-main" type="button" onClick={onOpen} title="Open this matter to review or update its work state">
-      <div className="matter-card-top"><div><strong>{clientName(client)}</strong><small>{client.caseType || 'Matter'}</small></div><span className={`matter-status-pill ${matterStatusClass(status)}`}>{shortMatterStatus(status)}</span></div>
+      <div className="matter-card-top"><div><strong>{clientName(client)}{isCommercialMatterRecord(client) && <i className="matter-card-commercial-badge"><Building2 size={11} />Commercial</i>}</strong><small>{client.caseType || 'Matter'}</small></div><span className={`matter-status-pill ${matterStatusClass(status)}`}>{shortMatterStatus(status)}</span></div>
       {showRole && <div className={`matter-card-owner-role ${isSelectedBackup ? 'backup' : 'main'}`}>{ownerRole} adviser file</div>}
       <div className="matter-card-action"><span>{status.startsWith('Waiting') ? 'Review / waiting for' : 'Next action'}</span><strong>{client.nextAction || (status === 'No current action' ? 'Set the next action' : matterWaitingLabel(status))}</strong></div>
       <div className="matter-card-meta"><span className={diff !== null && diff < 0 ? 'overdue' : ''}>{due ? (diff !== null && diff < 0 ? `Overdue · ${formatRecordDate(due)}` : formatRecordDate(due)) : 'No date'}</span><span>{scopeAdviserId === 'all' ? ownerName : ownerMeta}</span></div>
@@ -3885,10 +4014,14 @@ function quickMoveBoardLabel(status = '') {
   return status || 'Needs my attention';
 }
 
-function MatterClientRegister({ clients = [], advisers = [], clientQuery, setClientQuery, adviserFilter, setAdviserFilter, caseTypeFilter, setCaseTypeFilter, caseTypes = [], openClientRecord, addClient }) {
+function MatterClientRegister({ clients = [], advisers = [], clientQuery, setClientQuery, adviserFilter, setAdviserFilter, caseTypeFilter, setCaseTypeFilter, caseTypes = [], openClientRecord, addClient, addCommercialClient }) {
   const [statusFilter, setStatusFilter] = useState('all');
-  const statusFiltered = clients.filter((client) => {
+  const [typeFilter, setTypeFilter] = useState('all');
+  const visibleRows = clients.filter((client) => {
     const status = normaliseMatterStatus(client.matterStatus, client.clientStatus, client.nextAction);
+    const commercial = isCommercialMatterRecord(client);
+    const matchesType = typeFilter === 'all' || (typeFilter === 'commercial' ? commercial : !commercial);
+    if (!matchesType) return false;
     if (statusFilter === 'all') return true;
     if (statusFilter === 'action') return status === 'Adviser action required';
     if (statusFilter === 'client') return ['Client action required', 'Waiting on third party'].includes(status);
@@ -3897,7 +4030,46 @@ function MatterClientRegister({ clients = [], advisers = [], clientQuery, setCli
     if (statusFilter === 'none') return status === 'No current action';
     return true;
   });
-  return <section className="matter-client-register"><div className="matter-page-head"><div><span className="eyebrow">Matter register</span><h1>Clients</h1><p>See ownership, stage, operating status and the next action without opening every record.</p></div><button className="btn dark" type="button" onClick={addClient}><Plus size={16} />New client</button></div><div className="matter-filter-chips">{[['all','All'],['action','Needs action'],['client','Waiting on client'],['inz','Waiting on INZ'],['ready','Ready to progress'],['none','No next action']].map(([key,label]) => <button key={key} type="button" className={statusFilter === key ? 'active' : ''} onClick={() => setStatusFilter(key)}>{label}</button>)}</div><section className="panel matter-client-table-card"><div className="matter-client-tools"><label><Search size={15} /><input value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} placeholder="Search clients, email, OneLaw number or matter…" /></label><MatterMenuSelect className="matter-filter-menu" ariaLabel="Client adviser filter" value={adviserFilter} onChange={setAdviserFilter} options={[{ value: 'mine', label: 'My clients' }, { value: 'all', label: 'All clients in current view' }, { value: 'unassigned', label: 'Unassigned clients' }, ...advisers.map((adviser) => ({ value: adviser.id, label: adviser.name }))]} /><MatterMenuSelect className="matter-filter-menu" ariaLabel="Matter type filter" value={caseTypeFilter} onChange={setCaseTypeFilter} options={[{ value: 'all', label: 'All matter types' }, ...caseTypes.map((type) => ({ value: type, label: type }))]} /></div><div className="matter-client-table"><div className="matter-client-table-head"><span>Client</span><span>Matter</span><span>Stage</span><span>Status</span><span>Next action / review</span><span>Due</span></div>{statusFiltered.map((client) => { const status=normaliseMatterStatus(client.matterStatus,client.clientStatus,client.nextAction); const due=matterWorkDate(client); const diff=due?dateDiff(due):null; return <button className="matter-client-row" type="button" key={client.id} onClick={() => openClientRecord?.(client.id)}><span><strong>{clientName(client)}</strong><small>{client.oneLawClientNumber ? `OneLaw ${client.oneLawClientNumber}` : client.email || 'No email'}</small></span><span>{client.caseType || 'Matter'}</span><span>{currentStageLabel(client)}</span><span><i className={`matter-status-pill ${matterStatusClass(status)}`}>{status}</i></span><span><strong>{client.nextAction || matterWaitingLabel(status)}</strong></span><span className={diff !== null && diff < 0 ? 'overdue' : ''}>{due ? formatRecordDate(due) : 'No date'}</span></button>})}{!statusFiltered.length && <div className="matter-table-empty">No clients match this view.</div>}</div></section></section>;
+  const typeCounts = {
+    all: clients.length,
+    individual: clients.filter((client) => !isCommercialMatterRecord(client)).length,
+    commercial: clients.filter(isCommercialMatterRecord).length,
+  };
+  return <section className="matter-client-register unified-client-register">
+    <div className="matter-page-head">
+      <div><span className="eyebrow">Matter register</span><h1>Clients</h1><p>Individual and commercial clients now sit in one register with the same ownership, work status, next action and review-date workflow.</p></div>
+      <div className="button-row unified-client-new-actions"><button className="btn" type="button" onClick={addCommercialClient}><Building2 size={16} />New commercial</button><button className="btn dark" type="button" onClick={addClient}><Plus size={16} />New individual</button></div>
+    </div>
+    <div className="unified-client-type-filter" aria-label="Client type filter">
+      {[['all','All clients'],['individual','Individuals'],['commercial','Commercial']].map(([key,label]) => <button key={key} type="button" className={typeFilter === key ? 'active' : ''} onClick={() => setTypeFilter(key)}>{label}<b>{typeCounts[key]}</b></button>)}
+    </div>
+    <div className="matter-filter-chips">{[['all','All statuses'],['action','Needs action'],['client','Waiting on client'],['inz','Waiting on INZ'],['ready','Ready to progress'],['none','No next action']].map(([key,label]) => <button key={key} type="button" className={statusFilter === key ? 'active' : ''} onClick={() => setStatusFilter(key)}>{label}</button>)}</div>
+    <section className="panel matter-client-table-card">
+      <div className="matter-client-tools">
+        <label><Search size={15} /><input value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} placeholder="Search people, companies, email, OneLaw number or matter…" /></label>
+        <MatterMenuSelect className="matter-filter-menu" ariaLabel="Client adviser filter" value={adviserFilter} onChange={setAdviserFilter} options={[{ value: 'mine', label: 'My clients' }, { value: 'all', label: 'All clients in current view' }, { value: 'unassigned', label: 'Unassigned clients' }, ...advisers.map((adviser) => ({ value: adviser.id, label: adviser.name }))]} />
+        <MatterMenuSelect className="matter-filter-menu" ariaLabel="Matter type filter" value={caseTypeFilter} onChange={setCaseTypeFilter} options={[{ value: 'all', label: 'All matter types' }, ...caseTypes.map((type) => ({ value: type, label: type }))]} />
+      </div>
+      <div className="matter-client-table unified-client-table">
+        <div className="matter-client-table-head"><span>Client</span><span>Matter</span><span>Stage / commercial status</span><span>Status</span><span>Next action / review</span><span>Due</span></div>
+        {visibleRows.map((client) => {
+          const status = normaliseMatterStatus(client.matterStatus, client.clientStatus, client.nextAction);
+          const due = matterWorkDate(client);
+          const diff = due ? dateDiff(due) : null;
+          const commercial = isCommercialMatterRecord(client);
+          return <button className={`matter-client-row ${commercial ? 'commercial-row' : ''}`} type="button" key={client.id} onClick={() => openClientRecord?.(client.id)}>
+            <span><strong className="unified-client-name">{clientName(client)}{commercial && <i className="client-type-badge commercial"><Building2 size={12} />Commercial</i>}</strong><small>{client.oneLawClientNumber ? `OneLaw ${client.oneLawClientNumber}` : client.email || (commercial ? 'No primary contact email' : 'No email')}</small></span>
+            <span>{client.matterName || client.caseType || (commercial ? 'Employer immigration' : 'Matter')}<small>{commercial && client.caseType && client.matterName ? client.caseType : ''}</small></span>
+            <span>{currentStageLabel(client)}</span>
+            <span><i className={`matter-status-pill ${matterStatusClass(status)}`}>{status}</i></span>
+            <span><strong>{client.nextAction || matterWaitingLabel(status)}</strong></span>
+            <span className={diff !== null && diff < 0 ? 'overdue' : ''}>{due ? formatRecordDate(due) : 'No date'}</span>
+          </button>;
+        })}
+        {!visibleRows.length && <div className="matter-table-empty">No clients match this view.</div>}
+      </div>
+    </section>
+  </section>;
 }
 
 function MatterCommandCentre({ client, advisers = [], caseTypes = [], calendarEntries = [], saveClient, saving, onOpenAdvanced, onBack, onReturnToWork, openInstructionsForClient, openAgreementsForClient }) {
@@ -4187,6 +4359,96 @@ function clientInitials(client){return [client?.firstName,client?.lastName].filt
 function matterAdviserInitials(adviser){return String(adviser?.name||'TH').split(/\s+/).filter(Boolean).slice(0,2).map((part)=>part.charAt(0)).join('').toUpperCase();}
 
 
+function CommercialMatterCommandCentre({
+  client, advisers = [], saveCommercialClient, saveMatterClient, deleteCommercialClient,
+  saveCommercialPortalUser, deleteCommercialPortalUser, saveCommercialWorker, importCommercialWorkers, archiveCommercialWorker,
+  saveCommercialJobCheck, archiveCommercialJobCheck, saveCommercialComplianceItem, archiveCommercialComplianceItem,
+  saveCommercialDocument, uploadCommercialDocument, downloadCommercialDocument, deleteCommercialDocument,
+  saving = false, isAdmin = false, actorAdviser = null, onBack, onReturnToWork,
+}) {
+  const [section, setSection] = useState('overview');
+  const [updateOpen, setUpdateOpen] = useState(false);
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
+  useEffect(() => setSection('overview'), [client?.id]);
+  if (!client) return null;
+  const matter = commercialAsMatterClient(client);
+  const persisted = isPersistedId(client.id);
+  const primary = advisers.find((item) => item.id === client.primaryAdviserId);
+  const status = normaliseMatterStatus(client.matterStatus, client.clientStatus, client.nextAction);
+  const due = matterWorkDate(matter);
+  const activeWorkers = (client.workers || []).filter((worker) => worker.status === 'Active').length;
+  const openCompliance = (client.complianceItems || []).filter((item) => !['Completed', 'Archived'].includes(item.status)).length;
+  const activity = normaliseMatterActivity(client.matterActivity).slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  const tabs = [
+    ['overview', 'Overview'], ['workers', 'Workers'], ['job-checks', 'Job Checks'], ['compliance', 'Compliance'],
+    ['documents', 'Documents'], ['portal', 'Portal'], ['activity', 'Activity'],
+  ];
+  return <section className="matter-command-centre commercial-unified-matter">
+    <div className="matter-command-head panel commercial-unified-head">
+      <div className="matter-command-top">
+        <div className="matter-identity"><div className="commercial-matter-avatar"><Building2 size={24} /></div><div><div className="commercial-heading-row"><h1>{client.tradingName || client.legalName || 'Commercial client'}</h1><span className="client-type-badge commercial"><Building2 size={12} />Commercial</span></div><p>{client.caseType || 'Commercial / Employer'}{client.oneLawClientNumber ? ` · OneLaw ${client.oneLawClientNumber}` : ''}{primary?.name ? ` · ${primary.name}` : ' · Unassigned'}</p><span>{client.legalName && client.tradingName ? client.legalName : (client.industry || 'Employer immigration client')}</span></div></div>
+        <div className="matter-command-actions simplified"><button className="btn matter-action-back" type="button" onClick={onBack}><ChevronRight size={15} style={{ transform: 'rotate(180deg)' }} />Back to clients</button><button className="btn" type="button" onClick={() => downloadCommercialComplianceReport(client)}><Download size={15} />Compliance report</button></div>
+      </div>
+      <div className="matter-command-strip"><span>Matter status <b>{status}</b></span><span>Accreditation <b>{client.accreditationStatus || 'Not recorded'}</b></span><span>Workers <b>{activeWorkers}</b></span><span>Open compliance <b>{openCompliance}</b></span><span>Portal <b>{client.portalEnabled ? 'Active' : 'Not active'}</b></span></div>
+    </div>
+
+    <section className="matter-primary-action matter-primary-action-streamlined commercial-primary-action">
+      <div><span className="eyebrow">What happens next</span><h2>{persisted ? (client.nextAction || (status === 'No current action' ? 'Set the next action' : matterWaitingLabel(status))) : 'Save the company record first'}</h2><p>{persisted ? `${due ? `${status.startsWith('Waiting') || status === 'Client action required' ? 'Review' : 'Due'} ${formatRecordDate(due)}` : 'No date'}${primary?.name ? ` · ${primary.name}` : ''} · ${status}` : 'Once saved, this commercial client can use Update matter, Reschedule and the normal My Work workflow.'}</p></div>
+      <div className="matter-primary-buttons"><button className="btn dark matter-main-update" type="button" disabled={!persisted} onClick={() => setUpdateOpen(true)}><RefreshCw size={15} />Update matter</button><button className="btn" type="button" disabled={!persisted} onClick={() => setRescheduleOpen(true)}><CalendarDays size={15} />Reschedule</button></div>
+    </section>
+
+    <nav className="commercial-section-tabs unified-commercial-tabs" aria-label="Commercial client sections">{tabs.map(([key, label]) => <button key={key} type="button" className={section === key ? 'active' : ''} onClick={() => setSection(key)}>{label}</button>)}</nav>
+
+    {section === 'overview' && <>
+      <CommercialSummaryCards client={client} />
+      <div className="commercial-unified-overview-grid">
+        <section className="panel matter-overview-card"><span className="eyebrow">Operational workflow</span><h2>Current position</h2><div className="matter-current-position"><div><span>Status</span><b><i className={`matter-status-pill ${matterStatusClass(status)}`}>{status}</i></b></div><div><span>Waiting for</span><b>{matterWaitingLabel(status, primary?.name)}</b></div><div><span>Review / due</span><b>{due ? formatRecordDate(due) : 'No date'}</b></div><div><span>Priority</span><b>{client.priority || 'Normal'}</b></div></div>{matterSafetyWarning(matter) && <div className="matter-safety-box">{matterSafetyWarning(matter)}</div>}<div className="matter-timeline compact commercial-workflow-timeline">{activity.slice(0, 5).map((item) => <div className="matter-timeline-row" key={item.id}><i></i><div><strong>{item.title}</strong><small>{[formatPortalDateTime(item.createdAt), item.createdBy, item.detail].filter(Boolean).join(' · ')}</small></div></div>)}{!activity.length && <p className="muted">No workflow updates recorded yet.</p>}</div></section>
+        <CommercialCompanyEditor client={client} advisers={advisers} saveCommercialClient={saveCommercialClient} deleteCommercialClient={deleteCommercialClient} saving={saving} isAdmin={isAdmin} />
+      </div>
+    </>}
+    {section === 'workers' && <CommercialWorkerRegister client={client} saveWorker={saveCommercialWorker} importWorkers={importCommercialWorkers} archiveWorker={archiveCommercialWorker} saving={saving} />}
+    {section === 'job-checks' && <CommercialJobCheckRegister client={client} saveJobCheck={saveCommercialJobCheck} archiveJobCheck={archiveCommercialJobCheck} saving={saving} />}
+    {section === 'compliance' && <CommercialComplianceRegister client={client} saveItem={saveCommercialComplianceItem} archiveItem={archiveCommercialComplianceItem} saving={saving} />}
+    {section === 'documents' && <CommercialDocumentRegister client={client} saveDocument={saveCommercialDocument} uploadDocument={uploadCommercialDocument} downloadDocument={downloadCommercialDocument} deleteDocument={deleteCommercialDocument} saving={saving} />}
+    {section === 'portal' && <CommercialPortalAccess client={client} saveCommercialClient={saveCommercialClient} savePortalUser={saveCommercialPortalUser} deletePortalUser={deleteCommercialPortalUser} saving={saving} />}
+    {section === 'activity' && <div className="commercial-activity-stack"><section className="panel commercial-workflow-activity"><div className="commercial-panel-head"><div><span>Matter workflow</span><h3>Operational activity</h3><p>Updates created through My Work, Quick Move, Update matter and Reschedule.</p></div></div><div className="matter-timeline">{activity.map((item) => <div className="matter-timeline-row" key={item.id}><i></i><div><strong>{item.title}</strong><small>{[formatPortalDateTime(item.createdAt), item.createdBy, item.detail].filter(Boolean).join(' · ')}</small></div></div>)}{!activity.length && <p className="muted">No operational activity recorded yet.</p>}</div></section><CommercialAuditTrail client={client} /></div>}
+
+    {updateOpen && <CommercialMatterUpdateModal client={matter} adviser={primary || actorAdviser} onClose={() => setUpdateOpen(false)} saveClient={saveMatterClient} saving={saving} onReturnToWork={onReturnToWork} />}
+    {rescheduleOpen && <MatterRescheduleModal client={matter} adviser={primary || actorAdviser} onClose={() => setRescheduleOpen(false)} saveClient={saveMatterClient} saving={saving} />}
+  </section>;
+}
+
+function CommercialMatterUpdateModal({ client, adviser = null, onClose, saveClient, saving = false, onReturnToWork }) {
+  const currentStatus = normaliseMatterStatus(client.matterStatus, client.clientStatus, client.nextAction);
+  const [whatHappened, setWhatHappened] = useState('');
+  const [nextAction, setNextAction] = useState(client.nextAction || '');
+  const [matterStatus, setMatterStatus] = useState(currentStatus === 'No current action' ? 'Adviser action required' : currentStatus);
+  const [actionDate, setActionDate] = useState(matterWorkDate(client) || '');
+  const [error, setError] = useState('');
+  const waiting = ['Client action required', 'Waiting on third party', 'Waiting on INZ'].includes(matterStatus);
+  async function save(returnToWork = false) {
+    const happened = whatHappened.trim();
+    const action = nextAction.trim();
+    if (!happened) { setError('Add a short note about what happened.'); return; }
+    if (matterStatus !== 'Completed' && !action) { setError('Add what happens next before saving.'); return; }
+    if (matterStatus !== 'Completed' && !actionDate) { setError(waiting ? 'Waiting matters need a review date.' : 'Add a due date so the matter stays visible in My Work.'); return; }
+    const activity = [...normaliseMatterActivity(client.matterActivity), makeMatterActivity('update', 'Commercial matter updated', `${happened}${action ? ` Next: ${action}.` : ''}`, adviser?.name || 'Adviser')];
+    const payload = {
+      ...client,
+      clientStatus: matterStatus === 'Completed' ? 'Closed' : (client.clientStatus === 'Closed' ? 'Active' : client.clientStatus),
+      matterStatus,
+      nextAction: matterStatus === 'Completed' ? '' : action,
+      nextActionDue: matterStatus === 'Completed' || waiting ? '' : actionDate,
+      matterReviewDate: matterStatus === 'Completed' ? '' : (waiting ? actionDate : ''),
+      matterActivity: activity,
+    };
+    await saveClient?.(payload, { resetNewClientForm: false });
+    onClose?.();
+    if (returnToWork) onReturnToWork?.();
+  }
+  return <div className="matter-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose?.(); }}><section className="matter-simple-update-modal commercial-update-modal"><div className="matter-modal-head"><div><span className="eyebrow">Update commercial matter</span><h2>Record the update and set the next move</h2><p>The employer record, worker register and compliance data remain unchanged unless you edit them separately.</p></div><button className="btn" type="button" onClick={onClose}><X size={16} /></button></div><div className="matter-modal-body"><label className="field"><span>What happened?</span><textarea autoFocus rows="4" value={whatHappened} onChange={(event) => { setWhatHappened(event.target.value); setError(''); }} placeholder="e.g. Employer supplied updated accreditation information; reviewed job-check position; compliance issue discussed…" /></label><label className="field"><span>What happens next?</span><input value={nextAction} onChange={(event) => { setNextAction(event.target.value); setError(''); }} placeholder="One clear next action" /></label><div className="form-grid two"><label className="field"><span>Who has the ball?</span><select value={matterStatus} onChange={(event) => { setMatterStatus(event.target.value); setError(''); }}>{MATTER_STATUSES.filter((item) => item !== 'No current action').map((item) => <option key={item}>{item}</option>)}</select></label><label className="field"><span>{waiting ? 'Review date' : 'Next action due'}</span><input type="date" value={actionDate} disabled={matterStatus === 'Completed'} onChange={(event) => { setActionDate(event.target.value); setError(''); }} /></label></div><div className="matter-safety-box">Commercial clients use the same operational states as individual matters, so this file will appear in the appropriate My Work column after saving.</div></div><div className="matter-modal-foot matter-simple-update-foot"><span className="validation-message">{error}</span><div><button className="btn" type="button" onClick={onClose}>Cancel</button><button className="btn" type="button" disabled={saving} onClick={() => save(false)}><Save size={15} />{saving ? 'Saving…' : 'Save update'}</button><button className="btn dark" type="button" disabled={saving} onClick={() => save(true)}><CheckCircle2 size={15} />{saving ? 'Saving…' : 'Save & My Work'}</button></div></div></section></div>;
+}
+
 function CommercialClientsWorkspace({
   commercialClients = [], selectedCommercialClient, setSelectedCommercialClientId, advisers = [], saveCommercialClient, deleteCommercialClient,
   saveCommercialPortalUser, deleteCommercialPortalUser, saveCommercialWorker, importCommercialWorkers, archiveCommercialWorker, saveCommercialJobCheck,
@@ -4299,7 +4561,10 @@ function CommercialCompanyEditor({ client, advisers, saveCommercialClient, delet
         <label><span>NZBN</span><input value={draft.nzbn} onChange={(e) => update('nzbn', e.target.value)} /></label>
         <label><span>Company number</span><input value={draft.companyNumber} onChange={(e) => update('companyNumber', e.target.value)} /></label>
         <label><span>Industry</span><input value={draft.industry} onChange={(e) => update('industry', e.target.value)} /></label>
-        <label><span>Status</span><select value={draft.clientStatus} onChange={(e) => update('clientStatus', e.target.value)}><option>Active</option><option>On hold</option><option>Closed</option></select></label>
+        <label><span>Client lifecycle</span><select value={draft.clientStatus} onChange={(e) => update('clientStatus', e.target.value)}><option>Active</option><option>On hold</option><option>Closed</option></select></label>
+        <label><span>Matter name / reference</span><input value={draft.matterName || ''} onChange={(e) => update('matterName', e.target.value)} placeholder="Optional internal matter description" /></label>
+        <label><span>Matter type</span><input value={draft.caseType || 'Commercial / Employer'} onChange={(e) => update('caseType', e.target.value)} /></label>
+        <label><span>Priority</span><select value={draft.priority || 'Normal'} onChange={(e) => update('priority', e.target.value)}><option>Normal</option><option>High</option><option>Urgent</option></select></label>
         <label><span>Primary contact</span><input value={draft.primaryContactName} onChange={(e) => update('primaryContactName', e.target.value)} /></label>
         <label><span>Contact email</span><input type="email" value={draft.primaryContactEmail} onChange={(e) => update('primaryContactEmail', e.target.value)} /></label>
         <label><span>Contact phone</span><input value={draft.primaryContactPhone} onChange={(e) => update('primaryContactPhone', e.target.value)} /></label>
@@ -10472,7 +10737,6 @@ function MobileMoreSheet({ open, onClose, onNavigate, activeTab, onOpenHelp, onO
         </div>
         <div className="mobile-more-grid">
           <button type="button" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => go('dashboard')}><LayoutDashboard size={18} /><span>Dashboard</span></button>
-          <button type="button" className={activeTab === 'commercial' ? 'active' : ''} onClick={() => go('commercial')}><Building2 size={18} /><span>Commercial</span></button>
           <button type="button" className={activeTab === 'studio' ? 'active' : ''} onClick={() => go('studio')}><FileText size={18} /><span>Studio</span></button>
           <button type="button" className={activeTab === 'calendar' ? 'active' : ''} onClick={() => go('calendar')}><CalendarDays size={18} /><span>Calendar</span></button>
           <button type="button" className={activeTab === 'intake' ? 'active' : ''} onClick={() => go('intake')}><ClipboardList size={18} /><span>Enquiries</span></button>
@@ -12257,6 +12521,8 @@ function AdviserLandingPad({ adviser = null, accessRole = 'User', clients = [], 
   const viewLabel = dashboardAdviserFilter === 'all'
     ? 'Whole practice'
     : advisers.find((item) => item.id === dashboardAdviserFilter)?.name || adviser?.name || 'Adviser';
+  const activeIndividualCount = activeClients.filter((client) => !isCommercialMatterRecord(client)).length;
+  const activeCommercialCount = activeClients.filter(isCommercialMatterRecord).length;
 
   function openFocusItem(row) {
     if (row.source === 'calendar-entry') {
@@ -12349,12 +12615,11 @@ function AdviserLandingPad({ adviser = null, accessRole = 'User', clients = [], 
       </div>
 
       <section className="landing-launch-strip" aria-label="CRM shortcuts">
-        <div className="landing-launch-label"><strong>Go straight to</strong><span>{activeClients.length} individual · {commercialClients.filter((client) => client.clientStatus !== 'Closed').length} commercial · {accessRole} access</span></div>
+        <div className="landing-launch-label"><strong>Go straight to</strong><span>{activeIndividualCount} individual · {activeCommercialCount} commercial · {accessRole} access</span></div>
         <div className="landing-launch-buttons">
           <button type="button" onClick={() => setTab('dashboard')}><LayoutDashboard size={17} /><span>Dashboard</span></button>
           <button type="button" onClick={() => setTab('tasks')}><ListChecks size={17} /><span>Tasks</span></button>
           <button type="button" onClick={() => setTab('clients')}><UsersRound size={17} /><span>Clients</span></button>
-          <button type="button" onClick={() => setTab('commercial')}><Building2 size={17} /><span>Commercial</span></button>
           <button type="button" onClick={() => setTab('intake')}><ClipboardList size={17} /><span>Enquiries</span></button>
           <button type="button" onClick={() => setTab('calendar')}><CalendarDays size={17} /><span>Calendar</span></button>
           {accessRole === 'Admin' && <button type="button" className="admin" onClick={() => setTab('backups')}><ShieldCheck size={17} /><span>Admin</span></button>}
@@ -12429,7 +12694,7 @@ function PersonalisationDrawer({ open = false, onClose, preferences, adviser, sa
             <div className="form-grid two">
               <SelectField label="Default landing page" value={draft.defaultLandingPage} onChange={(value) => setDraft((current) => ({ ...current, defaultLandingPage: value }))} options={[
                 { value: 'dashboard', label: 'Dashboard' }, { value: 'tasks', label: 'Tasks' }, { value: 'clients', label: 'Clients' },
-                { value: 'intake', label: 'Enquiries & Intake' }, { value: 'calendar', label: 'Calendar' }, { value: 'commercial', label: 'Commercial' },
+                { value: 'intake', label: 'Enquiries & Intake' }, { value: 'calendar', label: 'Calendar' },
                 { value: 'billing', label: 'Billing' }, { value: 'instructions', label: 'Instructions Studio' }, { value: 'agreements', label: 'Agreement Studio' },
               ]} />
               <SelectField label="Row density" value={draft.density} onChange={(value) => setDraft((current) => ({ ...current, density: value }))} options={[{ value: 'standard', label: 'Standard' }, { value: 'compact', label: 'Compact' }]} />
@@ -12976,8 +13241,8 @@ function AdviserClientWorkloadList({ clients, advisers, workloadAdviserId = '', 
             return (
               <div className={`workload-row-group ${isEditing ? 'editing' : ''} ${row.isBackupMatter ? 'backup-matter' : ''}`} key={row.client.id}>
                 <div className="workload-line">
-                  <span className="workload-client-cell"><span className="workload-client-name"><strong>{row.client.firstName} {row.client.lastName}</strong>{row.isBackupMatter && <span className="client-backup-marker" title="Backup adviser matter" aria-label="Backup adviser matter"><UserRound size={13} /></span>}</span><small>{row.client.email || 'No email'} · {row.client.clientStatus}</small></span>
-                  <span><strong>{row.client.caseType || 'No case type'}</strong><small>{row.currentStage} · {progressPercent(row.client)}% complete</small></span>
+                  <span className="workload-client-cell"><span className="workload-client-name"><strong>{clientName(row.client)}</strong>{isCommercialMatterRecord(row.client) && <span className="client-type-badge commercial"><Building2 size={11} />Commercial</span>}{row.isBackupMatter && <span className="client-backup-marker" title="Backup adviser matter" aria-label="Backup adviser matter"><UserRound size={13} /></span>}</span><small>{row.client.email || (isCommercialMatterRecord(row.client) ? 'No primary contact email' : 'No email')} · {row.client.clientStatus}</small></span>
+                  <span><strong>{row.client.caseType || 'No case type'}</strong><small>{isCommercialMatterRecord(row.client) ? row.currentStage : `${row.currentStage} · ${progressPercent(row.client)}% complete`}</small></span>
                   <span className="workload-action-cell">
                     <span className="workload-action-summary">
                       {row.client.nextActionDue ? <DeadlineBadge diff={row.actionDiff} /> : <b className="badge quiet">No date</b>}
@@ -12989,7 +13254,7 @@ function AdviserClientWorkloadList({ clients, advisers, workloadAdviserId = '', 
                   </span>
                   <span><strong>{row.primary?.name || 'Unassigned'}</strong><small>{row.backup?.name ? `Backup: ${row.backup.name}` : 'No backup'}</small></span>
                   <span className="workload-quick-actions">
-                    <button className="icon-btn" type="button" disabled={!folderLink} onClick={() => window.open(folderLink, '_blank', 'noopener,noreferrer')} aria-label={`Open ${row.client.firstName} ${row.client.lastName} SharePoint folder`} title="Open SharePoint folder"><ExternalLink size={15} /></button>
+                    <button className="icon-btn" type="button" disabled={!folderLink} onClick={() => window.open(folderLink, '_blank', 'noopener,noreferrer')} aria-label={`Open ${clientName(row.client)} SharePoint folder`} title="Open SharePoint folder"><ExternalLink size={15} /></button>
                     <button className="btn ghost mini" type="button" onClick={() => openClientRecord ? openClientRecord(row.client.id) : (setSelectedClientId(row.client.id), setTab('clients'))}>Open</button>
                   </span>
                 </div>
@@ -19589,6 +19854,10 @@ function progressPercent(client) {
 }
 
 function currentStageLabel(client) {
+  if (isCommercialMatterRecord(client)) {
+    if (client.accreditationStatus && client.accreditationStatus !== 'Not recorded') return client.accreditationStatus;
+    return 'Commercial / Employer';
+  }
   const next = appliedStages(client).find((stage) => !stage.completed);
   return next ? next.label : 'All selected stages completed';
 }
@@ -20102,6 +20371,7 @@ function normaliseClientNamePart(value = '') {
 
 function clientName(client) {
   if (!client) return '';
+  if (isCommercialMatterRecord(client)) return client.tradingName || client.legalName || client.firstName || 'Commercial client';
   return [client.lastName, client.firstName].filter(Boolean).map(normaliseClientNamePart).join(' ').trim();
 }
 

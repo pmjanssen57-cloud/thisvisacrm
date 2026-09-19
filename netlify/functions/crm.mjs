@@ -1927,6 +1927,14 @@ function mapCommercialClient(row = {}, portalUsers = [], workers = [], jobChecks
     primaryAdviserId: row.primary_adviser_id || '',
     backupAdviserId: row.backup_adviser_id || '',
     clientStatus: row.client_status || 'Active',
+    matterName: row.matter_name || '',
+    caseType: row.case_type || 'Commercial / Employer',
+    priority: row.priority || 'Normal',
+    nextAction: row.next_action || '',
+    nextActionDue: toDateOnly(row.next_action_due),
+    matterStatus: normaliseMatterStatus(row.matter_status, row.client_status, row.next_action),
+    matterReviewDate: toDateOnly(row.matter_review_date),
+    matterActivity: parseMatterActivity(row.matter_activity),
     sharepointFolderUrl: row.sharepoint_folder_url || '',
     oneLawClientNumber: row.one_law_client_number || '',
     accreditationType: row.accreditation_type || '',
@@ -1953,7 +1961,7 @@ function mapCommercialClient(row = {}, portalUsers = [], workers = [], jobChecks
 
 async function readCommercialClients(database = db()) {
   const [clients, portalUsers, workers, jobChecks, complianceItems, documents, auditLog] = await Promise.all([
-    database.sql`SELECT id, legal_name, trading_name, nzbn, company_number, industry, business_description, address, primary_contact_name, primary_contact_email, primary_contact_phone, primary_adviser_id, backup_adviser_id, client_status, sharepoint_folder_url, one_law_client_number, accreditation_type, accreditation_status, accreditation_approval_date, accreditation_expiry_date, accreditation_renewal_date, accreditation_notes, compliance_summary, internal_notes, portal_enabled, reminder_notifications_enabled, portal_last_accessed_at, created_at, updated_at FROM commercial_clients ORDER BY updated_at DESC, legal_name ASC`,
+    database.sql`SELECT id, legal_name, trading_name, nzbn, company_number, industry, business_description, address, primary_contact_name, primary_contact_email, primary_contact_phone, primary_adviser_id, backup_adviser_id, client_status, matter_name, case_type, priority, next_action, next_action_due, matter_status, matter_review_date, matter_activity, sharepoint_folder_url, one_law_client_number, accreditation_type, accreditation_status, accreditation_approval_date, accreditation_expiry_date, accreditation_renewal_date, accreditation_notes, compliance_summary, internal_notes, portal_enabled, reminder_notifications_enabled, portal_last_accessed_at, created_at, updated_at FROM commercial_clients ORDER BY updated_at DESC, legal_name ASC`,
     database.sql`SELECT id, commercial_client_id, name, email, role, active, access_code_hash, last_accessed_at, created_at, updated_at FROM commercial_portal_users ORDER BY active DESC, name ASC`,
     database.sql`SELECT id, commercial_client_id, full_name, email, phone, job_title, work_location, visa_type, visa_start_date, visa_expiry_date, passport_expiry_date, employment_start_date, employment_end_date, hours_per_week, pay_rate, job_check_reference, job_check_id, visa_conditions, responsible_manager, status, adviser_review_status, employer_notes, internal_notes, created_by, updated_by, created_at, updated_at FROM commercial_workers ORDER BY status ASC, visa_expiry_date ASC NULLS LAST, full_name ASC`,
     database.sql`SELECT id, commercial_client_id, reference_number, role_title, skill_level, work_location, pay_rate_min, pay_rate_max, pay_frequency, positions_approved, positions_used, issue_date, expiry_date, status, employer_notes, internal_notes, adviser_review_status, created_by, updated_by, created_at, updated_at FROM commercial_job_checks ORDER BY status ASC, expiry_date ASC NULLS LAST, role_title ASC`,
@@ -1991,6 +1999,14 @@ async function saveCommercialClient(input = {}, authUser = null) {
     primaryAdviserId: nullableUuid(input.primaryAdviserId || input.primary_adviser_id),
     backupAdviserId: nullableUuid(input.backupAdviserId || input.backup_adviser_id),
     clientStatus: normaliseCommercialStatus(input.clientStatus || input.client_status, ['Active', 'On hold', 'Closed'], 'Active'),
+    matterName: cleanCommercialText(input.matterName || input.matter_name, 1000),
+    caseType: cleanCommercialText(input.caseType || input.case_type, 300) || 'Commercial / Employer',
+    priority: normaliseCommercialStatus(input.priority, ['Normal', 'High', 'Urgent'], 'Normal'),
+    nextAction: cleanCommercialText(input.nextAction || input.next_action, 2400),
+    nextActionDue: nullableDate(input.nextActionDue || input.next_action_due),
+    matterStatus: normaliseMatterStatus(input.matterStatus || input.matter_status, input.clientStatus || input.client_status, input.nextAction || input.next_action),
+    matterReviewDate: nullableDate(input.matterReviewDate || input.matter_review_date),
+    matterActivity: normaliseMatterActivity(input.matterActivity || input.matter_activity),
     sharepointFolderUrl: cleanCommercialText(input.sharepointFolderUrl || input.sharepoint_folder_url, 2000),
     oneLawClientNumber: cleanCommercialText(input.oneLawClientNumber || input.one_law_client_number, 200),
     accreditationType: cleanCommercialText(input.accreditationType || input.accreditation_type, 300),
@@ -2012,6 +2028,8 @@ async function saveCommercialClient(input = {}, authUser = null) {
         industry=${values.industry}, business_description=${values.businessDescription}, address=${values.address},
         primary_contact_name=${values.primaryContactName}, primary_contact_email=${values.primaryContactEmail}, primary_contact_phone=${values.primaryContactPhone},
         primary_adviser_id=${values.primaryAdviserId}, backup_adviser_id=${values.backupAdviserId}, client_status=${values.clientStatus},
+        matter_name=${values.matterName}, case_type=${values.caseType}, priority=${values.priority}, next_action=${values.nextAction},
+        next_action_due=${values.nextActionDue}, matter_status=${values.matterStatus}, matter_review_date=${values.matterReviewDate}, matter_activity=${JSON.stringify(values.matterActivity)}::jsonb,
         sharepoint_folder_url=${values.sharepointFolderUrl}, one_law_client_number=${values.oneLawClientNumber}, accreditation_type=${values.accreditationType},
         accreditation_status=${values.accreditationStatus}, accreditation_approval_date=${values.accreditationApprovalDate}, accreditation_expiry_date=${values.accreditationExpiryDate},
         accreditation_renewal_date=${values.accreditationRenewalDate}, accreditation_notes=${values.accreditationNotes}, compliance_summary=${values.complianceSummary},
@@ -2023,13 +2041,15 @@ async function saveCommercialClient(input = {}, authUser = null) {
       INSERT INTO commercial_clients (
         legal_name, trading_name, nzbn, company_number, industry, business_description, address,
         primary_contact_name, primary_contact_email, primary_contact_phone, primary_adviser_id, backup_adviser_id,
-        client_status, sharepoint_folder_url, one_law_client_number, accreditation_type, accreditation_status,
+        client_status, matter_name, case_type, priority, next_action, next_action_due, matter_status, matter_review_date, matter_activity,
+        sharepoint_folder_url, one_law_client_number, accreditation_type, accreditation_status,
         accreditation_approval_date, accreditation_expiry_date, accreditation_renewal_date, accreditation_notes,
         compliance_summary, internal_notes, portal_enabled, reminder_notifications_enabled
       ) VALUES (
         ${values.legalName}, ${values.tradingName}, ${values.nzbn}, ${values.companyNumber}, ${values.industry}, ${values.businessDescription}, ${values.address},
         ${values.primaryContactName}, ${values.primaryContactEmail}, ${values.primaryContactPhone}, ${values.primaryAdviserId}, ${values.backupAdviserId},
-        ${values.clientStatus}, ${values.sharepointFolderUrl}, ${values.oneLawClientNumber}, ${values.accreditationType}, ${values.accreditationStatus},
+        ${values.clientStatus}, ${values.matterName}, ${values.caseType}, ${values.priority}, ${values.nextAction}, ${values.nextActionDue}, ${values.matterStatus}, ${values.matterReviewDate}, ${JSON.stringify(values.matterActivity)}::jsonb,
+        ${values.sharepointFolderUrl}, ${values.oneLawClientNumber}, ${values.accreditationType}, ${values.accreditationStatus},
         ${values.accreditationApprovalDate}, ${values.accreditationExpiryDate}, ${values.accreditationRenewalDate}, ${values.accreditationNotes},
         ${values.complianceSummary}, ${values.internalNotes}, ${values.portalEnabled}, ${Boolean(values.reminderNotificationsEnabled)}
       ) RETURNING id`;

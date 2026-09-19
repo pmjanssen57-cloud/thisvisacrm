@@ -1,37 +1,68 @@
-# THiS CRM v0.17.28 - Safe Adviser Profile Deletion
+# THiS CRM v0.17.29 - Unified Client & Commercial Matter Workspace
 
-This release continues from v0.17.27 and adds a controlled way for CRM administrators to permanently remove adviser profiles that were created in error.
+This release continues from v0.17.28 and brings commercial employer clients into the same day-to-day Clients and My Work workflow as individual clients, while preserving the specialist commercial data model and employer portal underneath.
 
-## v0.17.28 change
+## v0.17.29 change
 
-Open **Advisers**, select **Edit adviser**, and a **Delete adviser** action is now available at the bottom of the profile editor.
+**Clients is now the working register for everyone Turner Hopkins acts for.**
 
-THiS does not blindly delete adviser records. The server checks the adviser before deletion and blocks removal if the profile is still referenced by CRM data. The check covers:
+The Clients workspace now combines:
 
-- client records, including primary and backup adviser assignments;
-- commercial clients;
-- intake enquiries;
-- agreement sets;
-- personal tasks;
-- calendar entries;
-- consultation availability, blocks, booking links and bookings;
-- live-chat conversations; and
-- notification recipient settings.
+- individual immigration clients; and
+- commercial / employer clients.
 
-If a link exists, THiS reports the relevant categories and counts and leaves the adviser untouched. The appropriate action is then to reassign/remove the link or retain the adviser as **Inactive** for historical continuity.
+Commercial records are identified with a clear **Commercial** badge and building icon rather than being kept in a separate navigation area.
 
-Additional safeguards prevent an administrator deleting the adviser profile mapped to their own login, and preserve the existing rule that at least one active adviser must retain **Admin** access.
+Both record types now share the operational matter workflow:
 
-Unsaved temporary adviser cards can also be discarded without creating or deleting a database record.
+- primary and backup adviser ownership;
+- matter status / who has the ball;
+- next action;
+- next action or review date;
+- priority;
+- Update matter;
+- Reschedule;
+- My Work visibility;
+- dashboard/client workload visibility; and
+- task visibility for dated next actions.
+
+Commercial records retain their specialist sections inside the client record:
+
+- Organisation and accreditation;
+- Workers;
+- Job Checks;
+- Compliance;
+- Documents;
+- Employer Portal; and
+- Activity / audit history.
+
+The former Commercial navigation destination is no longer part of the normal desktop or mobile workspace navigation. Existing commercial data and portal relationships are not moved or rewritten.
 
 ## Database
 
-No schema change. No migration added. The database remains at **44 migrations**, all byte-for-byte unchanged from v0.17.27.
+This release adds **migration 45**:
+
+`202609190001_unify_commercial_matter_workflow.sql`
+
+It adds additive workflow fields to `commercial_clients` only:
+
+- matter name;
+- case type;
+- priority;
+- next action;
+- next action due date;
+- matter status;
+- matter review date; and
+- matter activity.
+
+Two workflow indexes are also added. No historical migration is changed.
+
+Database baseline after deployment: **45 migrations**.
 
 ## Preserved functionality
 
-The v0.17.27 Agreement PDF pagination hotfix and v0.17.26 public form conversion tracking bridge are preserved. No client, matter, Agreement Studio, intake, booking or portal workflow has otherwise been changed.
+The commercial employer portal, worker register, Job Checks, compliance records, document storage and audit history remain on the existing commercial tables. v0.17.28 adviser deletion safeguards, v0.17.27 Agreement PDF pagination and v0.17.26 conversion tracking remain in place.
 
 ## Rollback
 
-Redeploy v0.17.27. No database rollback is required.
+A code rollback package is supplied. Because migration 45 is additive, the rollback package restores the v0.17.28 application code **while retaining migration 45 in the migration set**. Do not delete or modify migration 45 after it has been applied. The older application ignores the additional commercial workflow columns.
