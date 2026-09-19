@@ -1,18 +1,12 @@
-THiS CRM v0.17.29 validation
+THiS CRM v0.17.30 validation
 
-- App.jsx and main.jsx pass JSX syntax parsing using the TypeScript JSX parser.
-- All Netlify .mjs functions pass node --check.
-- All public top-level JavaScript files pass node --check.
-- PWA validation script passes.
-- PWA service-worker shell cache advances to v0.17.29.
-- Database migration count is 45.
-- The first 44 database migrations are byte-for-byte unchanged from v0.17.28.
-- Migration 45 is additive and only extends commercial_clients with shared matter-workflow fields plus indexes.
-- Commercial save/read mapping includes the new workflow fields.
-- Commercial records are represented in the unified Clients/My Work layer without moving existing commercial portal/compliance data.
-- Commercial My Work saves route back to the original commercial client ID.
-- Temporary new-commercial records are replaced by the persisted record after first save.
-- Unsaved commercial records cannot use Update matter or Reschedule until the company is saved.
-- Deployment ZIP integrity checked after packaging.
-
-A full Vite production build is only reported if node_modules are available in the deployment source package.
+- Built from v0.17.29 Unified Client & Commercial Matter Workspace.
+- Database remains at 45 migrations; no migration added.
+- All 45 migration files are byte-for-byte identical to v0.17.29.
+- 22 Netlify .mjs functions passed node --check.
+- 6 public JavaScript files passed node --check.
+- styles.css brace structure is balanced after the modal-shell fix.
+- PWA service-worker shell cache advances to v0.17.30.
+- No JSX source was changed in this hotfix; App.jsx/main.jsx are inherited from the validated v0.17.29 baseline.
+- Full Vite production build not run because node_modules are not present in the source package.
+- Final ZIP integrity test passed.

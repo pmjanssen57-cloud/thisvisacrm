@@ -18792,7 +18792,15 @@ body.festive-mode-active {
 .matter-latest-portal strong { display:block; margin-top:4px; color:#29433f; font-size:10.5px; line-height:1.45; }
 .matter-mobile-update-bar { display:none; }
 
-.matter-simple-update-modal { width:min(760px,96vw); }
+.matter-simple-update-modal {
+  width:min(760px,96vw);
+  max-height:calc(100vh - 44px);
+  overflow-y:auto;
+  border:1px solid #bfcfc9;
+  border-radius:12px;
+  background:#fff;
+  box-shadow:0 28px 80px rgba(7,34,33,.24);
+}
 .matter-simple-update-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 .matter-simple-update-grid .field { margin:0; }
 .matter-simple-update-grid .wide { grid-column:1/-1; }

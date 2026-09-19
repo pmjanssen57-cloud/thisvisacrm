@@ -1,32 +1,8 @@
-THiS CRM v0.17.29 - Unified Client & Commercial Matter Workspace
+THiS CRM v0.17.30 - Commercial Update Matter Modal Hotfix
 
-Purpose
-- Manage individual and commercial clients through one operational Clients / My Work experience without dismantling the specialist employer data model.
+Fixes the transparent/overlapping commercial Update matter modal introduced with the unified commercial matter workflow.
 
-What changed
-- Clients now combines individual and commercial records in one register.
-- Commercial records have a Commercial badge and building icon.
-- Client type filters provide All clients, Individuals and Commercial views.
-- New individual and New commercial actions sit together in the Clients workspace.
-- Commercial clients now use the standard matter workflow fields and My Work states.
-- Commercial matters support Update matter and Reschedule.
-- Commercial matter activity is recorded alongside the existing commercial audit trail.
-- Commercial records now appear in My Work, Dashboard/client workload and dated next-action task views.
-- Adviser workload counts include commercial matters when they are in the operational client view.
-- The separate Commercial destination has been removed from normal desktop/mobile navigation.
-- Employer-specific Workers, Job Checks, Compliance, Documents and Portal tools remain inside the commercial client record.
-- Newly created commercial records are safely reconciled from their temporary browser ID to the saved database ID.
-- Unsaved commercial records must be saved before operational Update matter / Reschedule actions are enabled.
-- Clients and Commercial help text has been updated for the unified model.
-- The PWA shell cache advances to v0.17.29.
+The simple Update matter modal now owns its complete visual shell: white background, border, shadow, max-height and overflow behaviour. This keeps the underlying commercial client record from bleeding through the form and keeps the footer/body usable on smaller screens.
 
-Database
-- One new additive migration: 202609190001_unify_commercial_matter_workflow.sql.
-- Migration count increases from 44 to 45.
-- The prior 44 migrations are unchanged.
-- Existing commercial tables and relationships are preserved.
-
-Rollback
-- Use the supplied v0.17.29-to-v0.17.28 application rollback package.
-- Migration 45 must remain present once applied; the rollback package includes it unchanged.
-- The v0.17.28 application safely ignores the additive workflow columns.
+Database: unchanged at 45 migrations. No migration added. Migration 45 remains unchanged.
+Rollback: restore the v0.17.29 application package; retain all 45 applied migrations.

@@ -1,0 +1,7 @@
+THiS CRM v0.17.30 rollback
+
+Rollback application target: v0.17.29 Unified Client & Commercial Matter Workspace.
+
+Database remains at 45 migrations. v0.17.30 adds no migration.
+If migration 45 from v0.17.29 has already been applied, retain it unchanged during rollback.
+Do not delete, rename or edit any applied migration.
