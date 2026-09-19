@@ -582,7 +582,7 @@ const SUPPORT_CONTENT = {
       { heading: 'Active status', text: 'Use inactive status for advisers who should remain in historical records but should not usually receive new clients.' },
       { heading: 'Login mapping and role', text: 'Use the Login Email field to match a Netlify Identity user to the adviser profile, then assign Admin or User access. The main adviser email can still be used for client communication.' },
     ],
-    tips: ['Match each adviser profile to their Netlify Identity email address.', 'Keep at least one active adviser assigned as Admin.', 'Use clear head-and-shoulders profile photos so clients can identify their adviser in the portal.', 'Avoid deleting advisers if they are linked to historical client records.'],
+    tips: ['Match each adviser profile to their Netlify Identity email address.', 'Keep at least one active adviser assigned as Admin.', 'Use clear head-and-shoulders profile photos so clients can identify their adviser in the portal.', 'Delete adviser profiles only when they were created in error and have no CRM record links. THiS blocks deletion where historical or operational references exist.'],
   },
   backups: {
     title: 'Backup Centre help',
@@ -2434,6 +2434,33 @@ export default function App() {
     await callApi('saveAdviser', { adviser });
   }
 
+  async function deleteAdviser(adviser) {
+    const adviserId = String(adviser?.id || '');
+    const adviserName = String(adviser?.name || 'this adviser').trim() || 'this adviser';
+    const confirmed = await askCrmConfirm({
+      title: 'Delete adviser profile?',
+      message: `Permanently delete ${adviserName}? THiS will refuse the deletion if this adviser is linked to any client, enquiry, agreement, booking, task, calendar entry or other CRM record.`,
+      confirmLabel: 'Delete adviser',
+      tone: 'danger',
+    });
+    if (!confirmed) return null;
+
+    if (!adviserId || adviserId.startsWith('temp-')) {
+      setData((current) => ({ ...current, advisers: (current.advisers || []).filter((item) => item.id !== adviserId) }));
+      showCrmToast('Unsaved adviser profile removed.');
+      return { deletedAdviserId: adviserId };
+    }
+
+    try {
+      const body = await callApi('deleteAdviser', { adviserId });
+      showCrmToast(`${adviserName} has been deleted.`, 'success');
+      return body;
+    } catch (error) {
+      showCrmToast(String(error?.message || 'The adviser profile could not be deleted.').replace(/^CRM function error:\s*/i, ''), 'error');
+      return null;
+    }
+  }
+
   async function saveNotificationRecipientSettings(settings) {
     const body = await callApi('saveNotificationRecipientSettings', { settings });
     showCrmToast('Notification recipients saved.', 'success');
@@ -3388,7 +3415,7 @@ export default function App() {
             {tab === 'advisers' && canManageAdvisers && (
               <div className="stack workspace-modern-page advisers-workspace-modern">
                 <NotificationRecipientSettings settings={data.notificationRecipientSettings || []} advisers={data.advisers} onSave={saveNotificationRecipientSettings} saving={saving} />
-                <AdviserProfiles advisers={data.advisers} clients={data.clients} saveAdviser={saveAdviser} saving={saving} />
+                <AdviserProfiles advisers={data.advisers} clients={data.clients} saveAdviser={saveAdviser} deleteAdviser={deleteAdviser} saving={saving} />
               </div>
             )}
 
@@ -16588,7 +16615,7 @@ function NotificationRecipientSettings({ settings = [], advisers = [], onSave, s
   );
 }
 
-function AdviserProfiles({ advisers, clients, saveAdviser, saving }) {
+function AdviserProfiles({ advisers, clients, saveAdviser, deleteAdviser, saving }) {
   const [drafts, setDrafts] = useState(advisers);
   const [photoMessages, setPhotoMessages] = useState({});
   const [editingId, setEditingId] = useState('');
@@ -16613,6 +16640,11 @@ function AdviserProfiles({ advisers, clients, saveAdviser, saving }) {
   async function saveEditing(adviser) {
     await saveAdviser(adviser);
     setEditingId('');
+  }
+
+  async function deleteEditing(adviser) {
+    const result = await deleteAdviser?.(adviser);
+    if (result?.deletedAdviserId) setEditingId('');
   }
 
   async function handlePhotoFile(adviserId, file) {
@@ -16685,7 +16717,7 @@ function AdviserProfiles({ advisers, clients, saveAdviser, saving }) {
                   <SelectField label="Portal availability" value={adviser.availability === 'Away' ? 'Away' : 'Available'} onChange={(v) => updateAdviser(adviser.id, { availability: v })} options={ADVISER_AVAILABILITY_OPTIONS} />
                   <SelectField label="CRM status" value={adviser.active ? 'Active' : 'Inactive'} onChange={(v) => updateAdviser(adviser.id, { active: v === 'Active' })} options={['Active', 'Inactive']} />
                 </div>
-                <div className="split bottom adviser-edit-footer"><span>Changes apply only when you select <strong>Save adviser</strong>.</span><div className="button-row"><button className="btn" type="button" onClick={() => cancelEditing(adviser.id)} disabled={saving}>Cancel</button><button className="btn dark" type="button" onClick={() => saveEditing(adviser)} disabled={saving}><Save size={16} />Save adviser</button></div></div>
+                <div className="split bottom adviser-edit-footer"><span>Changes apply only when you select <strong>Save adviser</strong>. Delete is available only for profiles with no CRM record links.</span><div className="button-row adviser-edit-footer-actions"><button className="btn danger" type="button" onClick={() => deleteEditing(adviser)} disabled={saving}><Trash2 size={15} />Delete adviser</button><button className="btn" type="button" onClick={() => cancelEditing(adviser.id)} disabled={saving}>Cancel</button><button className="btn dark" type="button" onClick={() => saveEditing(adviser)} disabled={saving}><Save size={16} />Save adviser</button></div></div>
               </> : <div className="adviser-view-note"><span>Profile details are locked to prevent accidental changes.</span><button className="btn mini ghost" type="button" onClick={() => startEditing(adviser.id)}><Pencil size={13} />Edit profile</button></div>}
             </div>
           );
@@ -18897,6 +18929,7 @@ function upsertCrmItem(items = [], item = null) {
 function mergePartialCrmResponse(current = emptyData, body = {}) {
   let next = { ...current };
   if (body.adviser) next.advisers = upsertCrmItem(current.advisers || [], normaliseAdviserFromApi(body.adviser));
+  if (body.deletedAdviserId) next.advisers = (current.advisers || []).filter((item) => item.id !== body.deletedAdviserId);
   if (body.client) next.clients = upsertCrmItem(current.clients || [], normaliseClientFromApi(body.client, current.stageTemplates || DEFAULT_STAGE_TEMPLATES));
   if (body.commercialClient) next.commercialClients = upsertCrmItem(current.commercialClients || [], normaliseCommercialClient(body.commercialClient));
   if (body.personalTask) next.personalTasks = upsertCrmItem(current.personalTasks || [], normalisePersonalTask(body.personalTask));

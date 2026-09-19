@@ -1,12 +1,15 @@
-THiS CRM v0.17.27 validation
+THiS CRM v0.17.28 validation
 
-- public/agreement-studio.js passes node --check.
+- App.jsx and main.jsx pass JSX syntax parsing using the TypeScript JSX parser.
 - All 22 Netlify .mjs functions pass node --check.
 - All 6 public top-level JavaScript files pass node --check.
-- 44 database migrations confirmed and byte-for-byte unchanged from v0.17.26.
-- PWA service-worker shell cache advances to v0.17.27.
-- Agreement Studio script cache-busting query advances to v0.17.27.
-- Print regression check: six logical A4 test pages render as six physical A4 PDF pages using the revised page model, with no interleaved blank pages.
+- PWA validation script passes.
+- PWA service-worker shell cache advances to v0.17.28.
+- 44 database migrations confirmed and byte-for-byte unchanged from v0.17.27.
+- Adviser deletion remains restricted to Admin access at the Netlify function boundary.
+- Server-side deletion checks protect client, commercial client, intake, agreement, task, calendar, consultation booking/configuration, live-chat and notification-recipient references.
+- Self-profile deletion and deletion of the last active Admin adviser are protected.
+- Successful delete responses remove the adviser from the current CRM adviser state.
 - Deployment ZIP integrity checked after packaging.
 
 A full Vite production build was not run because node_modules are not included in the deployment source package.

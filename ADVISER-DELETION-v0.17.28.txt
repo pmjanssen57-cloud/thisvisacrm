@@ -1,0 +1,11 @@
+THiS CRM v0.17.28 - Adviser deletion
+
+Admin workflow
+1. Open Advisers.
+2. Select Edit adviser on the profile to remove.
+3. Select Delete adviser.
+4. Confirm the permanent deletion.
+
+THiS will delete the adviser only when there are no CRM links. If the adviser has historical or operational references, deletion is blocked and the message identifies the linked record types/counts.
+
+For advisers who have handled real work, leave the profile Inactive unless all references have deliberately been reassigned or removed.

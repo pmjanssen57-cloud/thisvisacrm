@@ -1,31 +1,37 @@
-# THiS CRM v0.17.27 - Agreement PDF Pagination Hotfix
+# THiS CRM v0.17.28 - Safe Adviser Profile Deletion
 
-This release continues from v0.17.26 and fixes the Agreement Studio print/PDF page model that could produce large blank pages between the actual agreement pages.
+This release continues from v0.17.27 and adds a controlled way for CRM administrators to permanently remove adviser profiles that were created in error.
 
-## Problem addressed
+## v0.17.28 change
 
-The supplied accepted agreement PDF contained 12 physical PDF pages even though the agreement represented approximately six logical A4 pages. The bottom of each logical page was being fragmented onto a second physical page, producing blank or near-blank pages containing only a page number, a short continuation line, or part of the cover footer.
+Open **Advisers**, select **Edit adviser**, and a **Delete adviser** action is now available at the bottom of the profile editor.
 
-The print output showed an effective vertical print margin while Agreement Studio was still forcing each `.a4` document container to the full 297mm A4 height. That mismatch caused every full-height agreement page to overflow the browser's printable page area.
+THiS does not blindly delete adviser records. The server checks the adviser before deletion and blocks removal if the profile is still referenced by CRM data. The check covers:
 
-## v0.17.27 fix
+- client records, including primary and backup adviser assignments;
+- commercial clients;
+- intake enquiries;
+- agreement sets;
+- personal tasks;
+- calendar entries;
+- consultation availability, blocks, booking links and bookings;
+- live-chat conversations; and
+- notification recipient settings.
 
-- The print stylesheet now declares A4 with 5mm top and bottom print margins.
-- Agreement page containers print at 286.5mm high, giving a small safety tolerance within the 287mm page content area.
-- The client-side pagination measurement budget is reduced from 1110px to 1070px so sections are moved to the next logical agreement page before they can overflow during printing.
-- Agreement Studio JavaScript cache-busting is advanced to v0.17.27.
-- The PWA shell cache is advanced to v0.17.27.
+If a link exists, THiS reports the relevant categories and counts and leaves the adviser untouched. The appropriate action is then to reassign/remove the link or retain the adviser as **Inactive** for historical continuity.
 
-The browser preview remains the familiar A4 workspace; this change is specifically about producing stable physical PDF pages when the agreement is printed/saved.
+Additional safeguards prevent an administrator deleting the adviser profile mapped to their own login, and preserve the existing rule that at least one active adviser must retain **Admin** access.
+
+Unsaved temporary adviser cards can also be discarded without creating or deleting a database record.
 
 ## Database
 
-No schema change. No migration added. All 44 migrations are unchanged from v0.17.26.
+No schema change. No migration added. The database remains at **44 migrations**, all byte-for-byte unchanged from v0.17.27.
 
 ## Preserved functionality
 
-The v0.17.26 conversion tracking bridge is preserved. Agreement content, client/signatory data, acceptance records, signing, email issue routing, fee tables and Studio editing are otherwise unchanged.
+The v0.17.27 Agreement PDF pagination hotfix and v0.17.26 public form conversion tracking bridge are preserved. No client, matter, Agreement Studio, intake, booking or portal workflow has otherwise been changed.
 
 ## Rollback
 
-Redeploy v0.17.26. No database rollback is required.
+Redeploy v0.17.27. No database rollback is required.

@@ -1,21 +1,26 @@
-THiS CRM v0.17.27 - Agreement PDF Pagination Hotfix
+THiS CRM v0.17.28 - Safe Adviser Profile Deletion
 
 Purpose
-- Fix Agreement Studio PDFs that were producing large blank/near-blank pages and splitting the bottom of each logical A4 page onto a second physical PDF page.
+- Allow CRM administrators to permanently remove adviser profiles that were created in error and have no operational or historical CRM links.
 
 What changed
-- Agreement print CSS now uses an explicit A4 vertical print margin of 5mm.
-- Each printable agreement page is 286.5mm high, leaving a small safety tolerance inside the 287mm printable height.
-- The Agreement Studio pagination budget is reduced to match the print-safe page height, so content is repaginated before printing rather than spilling across physical PDF pages.
-- The Agreement Studio script cache-busting version is advanced to v0.17.27.
-- The PWA shell cache is advanced to v0.17.27.
+- Adviser profile editing now includes a Delete adviser action.
+- Deletion requires an explicit danger confirmation.
+- Unsaved temporary adviser profiles can be discarded directly.
+- Saved adviser deletion is performed server-side and remains restricted to CRM administrators.
+- THiS blocks deletion when the adviser is linked to any client, commercial client, intake enquiry, agreement, task, calendar entry, consultation booking/configuration, live-chat conversation or notification recipient setting.
+- Blocked deletion reports the linked record categories and counts so the administrator knows why the profile must remain inactive or be reassigned first.
+- THiS prevents deletion of the adviser profile mapped to the administrator's current login.
+- THiS also preserves the existing safeguard requiring at least one active Admin adviser.
+- Adviser help text now explains the deletion safeguard.
+- The PWA shell cache is advanced to v0.17.28.
 
 What did not change
 - No database schema changes.
 - No new migration.
-- All 44 existing migrations are byte-for-byte unchanged from v0.17.26.
+- All 44 existing migrations are byte-for-byte unchanged from v0.17.27.
+- v0.17.27 Agreement PDF pagination hotfix remains in place.
 - v0.17.26 public form conversion tracking remains in place.
-- Agreement content, fee wording, acceptance records, email routing and signing workflow are unchanged.
 
 Rollback
-- Redeploy v0.17.26. No database rollback is required.
+- Redeploy v0.17.27. No database rollback is required.

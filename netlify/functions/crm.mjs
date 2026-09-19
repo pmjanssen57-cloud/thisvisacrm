@@ -541,6 +541,14 @@ async function handleCrmEvent(event) {
       return json({ adviser, accessContext: refreshedAccessContext });
     }
 
+    if (action === 'deleteAdviser') {
+      requireAdminAccess(accessContext, 'Adviser management');
+      const deletedAdviserId = await deleteAdviser(body.adviserId, accessContext);
+      await invalidateCrmReference(CRM_ADVISER_CACHE_KEY);
+      const refreshedAccessContext = await resolveCrmAccess(auth);
+      return json({ deletedAdviserId, accessContext: refreshedAccessContext });
+    }
+
     if (action === 'saveNotificationRecipientSettings') {
       requireAdminAccess(accessContext, 'Notification recipient management');
       const actor = auth.user?.email || auth.user?.name || accessContext.adviserName || 'CRM administrator';
@@ -3768,6 +3776,86 @@ async function saveAdviser(adviser = {}) {
     RETURNING id, name, role, email, login_email, access_role, profile_photo_url, availability_status, phone, licence, active, preferences
   `;
   return mapAdviserFromDb(rows[0]);
+}
+
+async function deleteAdviser(adviserId, accessContext = {}) {
+  const database = db();
+  const id = isUuid(adviserId) ? adviserId : null;
+  if (!id) {
+    const error = new Error('The adviser profile could not be identified.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (String(accessContext.adviserId || '') === String(id)) {
+    const error = new Error('You cannot delete the adviser profile currently mapped to your own login. Map your login to another administrator profile first.');
+    error.statusCode = 409;
+    throw error;
+  }
+
+  const adviserRows = await database.sql`SELECT id, name, access_role, active FROM advisers WHERE id = ${id} LIMIT 1`;
+  const adviser = adviserRows[0] || null;
+  if (!adviser) {
+    const error = new Error('That adviser profile no longer exists. Refresh the CRM and try again.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (normaliseCrmAccessRole(adviser.access_role) === 'Admin' && adviser.active !== false) {
+    const otherAdmins = await database.sql`SELECT COUNT(*)::int AS count FROM advisers WHERE access_role = 'Admin' AND active = TRUE AND id <> ${id}`;
+    if (Number(otherAdmins[0]?.count || 0) === 0) {
+      const error = new Error('At least one active adviser must retain the Admin role. Assign another administrator before deleting this profile.');
+      error.statusCode = 409;
+      throw error;
+    }
+  }
+
+  const referenceRows = await database.sql`
+    SELECT
+      (SELECT COUNT(*)::int FROM clients WHERE primary_adviser_id = ${id} OR backup_adviser_id = ${id}) AS clients,
+      (SELECT COUNT(*)::int FROM commercial_clients WHERE primary_adviser_id = ${id} OR backup_adviser_id = ${id}) AS commercial_clients,
+      (SELECT COUNT(*)::int FROM intake_enquiries WHERE assigned_adviser_id = ${id}) AS intake_enquiries,
+      (SELECT COUNT(*)::int FROM agreement_sets WHERE adviser_id = ${id}) AS agreements,
+      (SELECT COUNT(*)::int FROM personal_tasks WHERE adviser_id = ${id}) AS personal_tasks,
+      (SELECT COUNT(*)::int FROM calendar_entries WHERE adviser_id = ${id}) AS calendar_entries,
+      (SELECT COUNT(*)::int FROM adviser_booking_availability WHERE adviser_id = ${id}) AS booking_availability,
+      (SELECT COUNT(*)::int FROM adviser_booking_blocks WHERE adviser_id = ${id}) AS booking_blocks,
+      (SELECT COUNT(*)::int FROM consultation_booking_links WHERE adviser_id = ${id}) AS booking_links,
+      (SELECT COUNT(*)::int FROM consultation_bookings WHERE adviser_id = ${id}) AS consultation_bookings,
+      (SELECT COUNT(*)::int FROM live_chat_conversations WHERE assigned_adviser_id = ${id}) AS live_chats,
+      (SELECT COUNT(*)::int FROM notification_recipient_settings WHERE adviser_ids @> CAST(${JSON.stringify([id])} AS jsonb)) AS notification_settings
+  `;
+  const references = referenceRows[0] || {};
+  const labels = [
+    ['clients', 'client record'],
+    ['commercial_clients', 'commercial client'],
+    ['intake_enquiries', 'intake enquiry'],
+    ['agreements', 'agreement'],
+    ['personal_tasks', 'personal task'],
+    ['calendar_entries', 'calendar entry'],
+    ['booking_availability', 'booking availability record'],
+    ['booking_blocks', 'booking block'],
+    ['booking_links', 'booking link'],
+    ['consultation_bookings', 'consultation booking'],
+    ['live_chats', 'live chat conversation'],
+    ['notification_settings', 'notification recipient setting'],
+  ];
+  const linked = labels
+    .map(([key, label]) => ({ key, label, count: Number(references[key] || 0) }))
+    .filter((item) => item.count > 0);
+
+  if (linked.length) {
+    const summary = linked
+      .map((item) => `${item.count} ${item.label}${item.count === 1 ? '' : 's'}`)
+      .join(', ');
+    const error = new Error(`This adviser cannot be deleted because the profile is still linked to ${summary}. Leave the adviser inactive, or remove/reassign those links first.`);
+    error.statusCode = 409;
+    throw error;
+  }
+
+  const deletedRows = await database.sql`DELETE FROM advisers WHERE id = ${id} RETURNING id`;
+  if (!deletedRows[0]?.id) throw new Error('The adviser profile could not be deleted.');
+  return deletedRows[0].id;
 }
 
 

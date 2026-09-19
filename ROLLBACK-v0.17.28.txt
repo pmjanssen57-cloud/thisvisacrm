@@ -1,0 +1,7 @@
+THiS CRM v0.17.28 rollback
+
+Rollback target: v0.17.27 - Agreement PDF Pagination Hotfix.
+
+No database migration was added in v0.17.28. Rollback requires only redeploying the v0.17.27 application package. No database rollback is required.
+
+Note: an adviser profile successfully deleted while v0.17.28 is live is intentionally a permanent data deletion. Rolling back application code does not recreate a profile that was deliberately deleted.
