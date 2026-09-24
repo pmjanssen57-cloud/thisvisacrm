@@ -1,12 +1,17 @@
-THiS CRM v0.17.30 validation
+THiS CRM v0.17.31 validation
 
-- Built from v0.17.29 Unified Client & Commercial Matter Workspace.
-- Database remains at 45 migrations; no migration added.
-- All 45 migration files are byte-for-byte identical to v0.17.29.
-- 22 Netlify .mjs functions passed node --check.
-- 6 public JavaScript files passed node --check.
-- styles.css brace structure is balanced after the modal-shell fix.
-- PWA service-worker shell cache advances to v0.17.30.
-- No JSX source was changed in this hotfix; App.jsx/main.jsx are inherited from the validated v0.17.29 baseline.
-- Full Vite production build not run because node_modules are not present in the source package.
-- Final ZIP integrity test passed.
+- Built from v0.17.30 Commercial Update Matter Modal Hotfix.
+- App.jsx and main.jsx are byte-for-byte unchanged from v0.17.30.
+- Agreement Studio JavaScript passes node --check.
+- Instructions Studio JavaScript passes node --check.
+- All 22 Netlify .mjs functions pass node --check.
+- All 6 public JavaScript files pass node --check.
+- Agreement and Instructions Studio HTML pass Python HTML parser checks.
+- Reorder helper boundary/unit checks pass.
+- Agreement output remains driven by the reordered structured arrays.
+- PWA service-worker shell cache advances to v0.17.31.
+- Studio script query versions advance to v0.17.31 to avoid stale cached studio code.
+- Database remains at 45 migrations.
+- All 45 migration files are byte-for-byte identical to v0.17.30.
+- No new migration.
+- Full Vite production build not run because node_modules is not included in the source package.

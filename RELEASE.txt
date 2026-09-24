@@ -1,8 +1,12 @@
-THiS CRM v0.17.30 - Commercial Update Matter Modal Hotfix
+THiS CRM v0.17.31 - Studio Preset Reordering
 
-Fixes the transparent/overlapping commercial Update matter modal introduced with the unified commercial matter workflow.
+Agreement Studio
+- Reorder scope-of-services items with Up / Down.
+- Reorder professional fee stages with Up / Down.
+- Reorder government fee rows with Up / Down.
 
-The simple Update matter modal now owns its complete visual shell: white background, border, shadow, max-height and overflow behaviour. This keeps the underlying commercial client record from bleeding through the form and keeps the footer/body usable on smaller screens.
+Instructions Studio
+- Reorder included preset instruction sections with Up / Down on the client-specific draft.
+- Published master templates are not changed by client-level reordering.
 
-Database: unchanged at 45 migrations. No migration added. Migration 45 remains unchanged.
-Rollback: restore the v0.17.29 application package; retain all 45 applied migrations.
+Database: unchanged at 45 migrations.

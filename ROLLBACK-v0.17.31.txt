@@ -1,0 +1,4 @@
+THiS CRM v0.17.31 rollback
+
+To roll back the application, deploy the supplied v0.17.30 rollback ZIP.
+Database remains at 45 migrations. v0.17.31 adds no migration.

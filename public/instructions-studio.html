@@ -193,6 +193,12 @@ button { cursor: pointer; }
 .block-row-stack.expanded .block-row-character { border-radius: 11px 11px 0 0; border-bottom-color: #dce8e4; }
 .block-row-copy { cursor: pointer; min-width: 0; }
 .block-row-actions { display: flex; align-items: center; gap: 7px; }
+.block-order-controls-v01731 { display:flex; align-items:center; gap:4px; margin-left:auto; }
+.block-order-button-v01731 { border:1px solid #d6e5e0; background:#fff; color:var(--green); border-radius:7px; padding:4px 7px; font-size:9px; font-weight:850; cursor:pointer; }
+.block-order-button-v01731:hover { background:#eef9f4; border-color:var(--mint-dark); }
+.block-order-button-v01731:disabled { opacity:.35; cursor:not-allowed; background:#f7f9f8; }
+.block-row > .block-order-controls-v01731 { align-self:center; }
+@media (max-width:720px) { .block-order-controls-v01731 { flex-direction:column; gap:3px; } .block-order-button-v01731 { padding:3px 6px; } }
 .police-expand-button {
   border: 1px solid #d6e5e0; background: #f3faf7; color: var(--green); border-radius: 8px;
   min-width: 34px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
@@ -991,6 +997,7 @@ button { cursor: pointer; }
               <label class="field-label">Included sections</label>
               <button class="text-button" id="enable-all-blocks">Include all</button>
             </div>
+            <div class="field-help">Use Up / Down to change the order these sections appear in the client instructions. The wording itself stays unchanged.</div>
             <div id="block-editor" class="block-editor"></div>
             <div id="sub-block-editor-host" hidden></div>
           </div>
@@ -1277,6 +1284,6 @@ button { cursor: pointer; }
 @media screen and (max-width:720px){.master-roadmap-head-v156{display:block}.master-roadmap-head-v156 .button{margin-top:10px;width:100%}.roadmap-step-list-v156{grid-template-columns:1fr}.roadmap-structure-row-v156{align-items:flex-start}}
 </style>
 
-<script src="/instructions-studio.js?v=0.17.20"></script>
+<script src="/instructions-studio.js?v=0.17.31"></script>
 </body>
 </html>

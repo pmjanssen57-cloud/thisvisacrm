@@ -4353,6 +4353,54 @@ bindEvents();
     }, 10);
   });
 
+
+
+  // v0.17.31: adviser-level section reordering. This works on the live client copy,
+  // leaving the published master template unchanged. The saved document state already
+  // preserves doc.blocks order, so no schema change is required.
+  function bindClientSectionOrderingV01731() {
+    const doc = state.docs?.[state.selectedDoc];
+    const host = document.querySelector('#block-editor');
+    if (!doc || !host || state.selectedDoc === 'roadmap') return;
+    host.querySelectorAll('[data-block-index]').forEach(input => {
+      const index = Number(input.dataset.blockIndex);
+      if (!Number.isInteger(index) || !doc.blocks[index]) return;
+      const row = input.closest('.block-row');
+      if (!row || row.querySelector('.block-order-controls-v01731')) return;
+      let actions = row.querySelector('.block-row-actions');
+      if (!actions) {
+        actions = document.createElement('div');
+        actions.className = 'block-order-controls-v01731';
+        row.appendChild(actions);
+      } else {
+        const controls = document.createElement('div');
+        controls.className = 'block-order-controls-v01731';
+        actions.insertBefore(controls, actions.firstChild);
+        actions = controls;
+      }
+      actions.innerHTML = `<button class="block-order-button-v01731" type="button" data-client-block-move="up" ${index === 0 ? 'disabled' : ''}>↑ Up</button><button class="block-order-button-v01731" type="button" data-client-block-move="down" ${index === doc.blocks.length - 1 ? 'disabled' : ''}>↓ Down</button>`;
+      actions.querySelectorAll('[data-client-block-move]').forEach(button => button.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        const direction = button.dataset.clientBlockMove;
+        const target = direction === 'up' ? index - 1 : index + 1;
+        if (target < 0 || target >= doc.blocks.length) return;
+        [doc.blocks[index], doc.blocks[target]] = [doc.blocks[target], doc.blocks[index]];
+        const status = document.querySelector('#save-status');
+        if (status) status.textContent = 'Draft not saved';
+        renderEditor();
+        renderPreview();
+        renderDocumentLists();
+      }));
+    });
+  }
+
+  const renderEditorBeforeV01731 = renderEditor;
+  renderEditor = function() {
+    renderEditorBeforeV01731();
+    bindClientSectionOrderingV01731();
+  };
+
   document.title = 'THiS Instructions Studio - Finished Master Road Maps';
   renderAll();
 })();
