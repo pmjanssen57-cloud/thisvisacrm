@@ -1385,6 +1385,7 @@ export default function App() {
   const [newMenuOpen, setNewMenuOpen] = useState(false);
   const [mainNavMoreOpen, setMainNavMoreOpen] = useState(false);
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
+  const [mobileNewOpen, setMobileNewOpen] = useState(false);
   const [clientEditorDirty, setClientEditorDirty] = useState(false);
   const [calendarEditorDirty, setCalendarEditorDirty] = useState(false);
   const [crmConfirm, setCrmConfirm] = useState(null);
@@ -1467,6 +1468,7 @@ export default function App() {
 
   function openMyDay() {
     setMobileMoreOpen(false);
+    setMobileNewOpen(false);
     setMainNavMoreOpen(false);
     setMyDayOpen(true);
   }
@@ -1482,6 +1484,7 @@ export default function App() {
     }
     if (nextTab === tab) {
       setMobileMoreOpen(false);
+      setMobileNewOpen(false);
       setMainNavMoreOpen(false);
       setMyDayOpen(false);
       return;
@@ -1490,6 +1493,7 @@ export default function App() {
     if (tab === 'clients' && nextTab !== 'clients') setClientEditorDirty(false);
     if (tab === 'calendar' && nextTab !== 'calendar') setCalendarEditorDirty(false);
     setMobileMoreOpen(false);
+    setMobileNewOpen(false);
     setMainNavMoreOpen(false);
     setMyDayOpen(false);
     if (nextTab === 'studio') {
@@ -3302,10 +3306,9 @@ export default function App() {
           </div>
         </div>
         <div className="mobile-header-actions mobile-only">
-          <PwaInstallButton className="btn ghost pwa-install-button mobile-pwa-install" label="Install" />
-          <button className="btn ghost" type="button" onClick={() => switchTab('home')}><CloudSun size={16} />My Day</button>
-          <button className="btn ghost" type="button" onClick={() => setPersonalisationOpen(true)}><SlidersHorizontal size={16} />View</button>
-          <button className={`btn ghost live-chat-mobile-button ${liveChatAttentionCount > 0 ? 'has-waiting' : ''}`} type="button" onClick={() => openChatDrawer()}><MessageSquare size={16} />Chat{liveChatAttentionCount > 0 && <span key={liveChatAttentionCount} className="live-chat-header-badge" aria-live="polite">{liveChatAttentionCount}</span>}</button>
+          <button className="mobile-app-icon-button" type="button" onClick={() => switchTab('clients')} aria-label="Search clients"><Search size={19} /></button>
+          <button className={`mobile-app-icon-button live-chat-mobile-button ${liveChatAttentionCount > 0 ? 'has-waiting' : ''}`} type="button" onClick={() => openChatDrawer()} aria-label="Open live chat"><MessageSquare size={19} />{liveChatAttentionCount > 0 && <span key={liveChatAttentionCount} className="live-chat-header-badge" aria-live="polite">{liveChatAttentionCount}</span>}</button>
+          <button className="mobile-profile-button" type="button" onClick={() => setPersonalisationOpen(true)} aria-label="Open my CRM view settings"><AdviserAvatar adviser={identityAdviser || headerSnapshotAdviser || {}} size="sm" /></button>
         </div>
       </header>
 
@@ -3626,7 +3629,18 @@ export default function App() {
         loadLiveChatSettings={loadLiveChatSettings}
         saveLiveChatSettings={saveLiveChatSettings}
       />
-      <MobileBottomNav activeTab={tab} onNavigate={switchTab} onOpenMore={() => setMobileMoreOpen(true)} />
+      <MobileBottomNav activeTab={tab} homeOpen={myDayOpen} onNavigate={switchTab} onOpenNew={() => { setMobileMoreOpen(false); setMobileNewOpen(true); }} onOpenMore={() => { setMobileNewOpen(false); setMobileMoreOpen(true); }} />
+      <MobileNewSheet
+        open={mobileNewOpen}
+        onClose={() => setMobileNewOpen(false)}
+        onAddClient={() => { setMobileNewOpen(false); addClient(); }}
+        onAddCommercialClient={() => { setMobileNewOpen(false); addCommercialClient(); }}
+        onNewEnquiry={() => { setMobileNewOpen(false); runPersonalQuickAction('new-intake'); }}
+        onNewAgreement={() => { setMobileNewOpen(false); runPersonalQuickAction('new-agreement'); }}
+        onNewInstructions={() => { setMobileNewOpen(false); runPersonalQuickAction('new-instructions'); }}
+        onNewTask={() => { setMobileNewOpen(false); runPersonalQuickAction('new-task'); }}
+        onNewAppointment={() => { setMobileNewOpen(false); runPersonalQuickAction('new-appointment'); }}
+      />
       <MobileMoreSheet
         open={mobileMoreOpen}
         onClose={() => setMobileMoreOpen(false)}
@@ -10720,28 +10734,56 @@ function adviserInitials(value = '') {
 }
 
 
-function MobileBottomNav({ activeTab, onNavigate, onOpenMore }) {
-  const effectiveTab = ['matter', 'client-record'].includes(activeTab) ? 'clients' : activeTab;
-  const navItems = [
-    { tab: 'work', label: 'My Work', icon: LayoutDashboard },
-    { tab: 'clients', label: 'Clients', icon: UsersRound },
-    { tab: 'intake', label: 'Enquiries', icon: ClipboardList },
-    { tab: 'calendar', label: 'Calendar', icon: CalendarDays },
-  ];
-  const moreActive = ['home', 'dashboard', 'tasks', 'commercial', 'studio', 'billing', 'advisers', 'library', 'bookings', 'backups'].includes(effectiveTab);
+function MobileBottomNav({ activeTab, homeOpen = false, onNavigate, onOpenNew, onOpenMore }) {
+  const effectiveTab = ['matter', 'client-record', 'commercial-matter'].includes(activeTab) ? 'clients' : activeTab;
+  const moreActive = !homeOpen && !['work', 'clients'].includes(effectiveTab);
   return (
     <nav className="mobile-bottom-nav" aria-label="Mobile CRM navigation">
-      {navItems.map(({ tab, label, icon: Icon }) => (
-        <button key={tab} type="button" className={effectiveTab === tab ? 'active' : ''} onClick={() => onNavigate(tab)}>
-          <Icon size={18} />
-          <span>{label}</span>
-        </button>
-      ))}
+      <button type="button" className={homeOpen ? 'active' : ''} onClick={() => onNavigate('home')}>
+        <CloudSun size={20} />
+        <span>Home</span>
+      </button>
+      <button type="button" className={!homeOpen && effectiveTab === 'work' ? 'active' : ''} onClick={() => onNavigate('work')}>
+        <LayoutDashboard size={20} />
+        <span>My Work</span>
+      </button>
+      <button type="button" className={!homeOpen && effectiveTab === 'clients' ? 'active' : ''} onClick={() => onNavigate('clients')}>
+        <UsersRound size={20} />
+        <span>Clients</span>
+      </button>
+      <button type="button" className="mobile-new-nav-button" onClick={onOpenNew} aria-label="Create new CRM item">
+        <span className="mobile-new-nav-icon"><Plus size={22} /></span>
+        <span>New</span>
+      </button>
       <button type="button" className={moreActive ? 'active' : ''} onClick={onOpenMore}>
-        <Wrench size={18} />
+        <MoreHorizontal size={20} />
         <span>More</span>
       </button>
     </nav>
+  );
+}
+
+function MobileNewSheet({ open, onClose, onAddClient, onAddCommercialClient, onNewEnquiry, onNewAgreement, onNewInstructions, onNewTask, onNewAppointment }) {
+  return (
+    <>
+      <div className={`mobile-new-overlay ${open ? 'open' : ''}`} onClick={onClose} />
+      <aside className={`mobile-new-sheet ${open ? 'open' : ''}`} aria-hidden={!open} aria-label="Create new CRM item">
+        <div className="mobile-more-handle" />
+        <div className="mobile-more-head">
+          <div><span>Quick create</span><h2>What do you want to add?</h2></div>
+          <button className="icon-btn" type="button" onClick={onClose} aria-label="Close new item menu"><X size={18} /></button>
+        </div>
+        <div className="mobile-new-grid">
+          <button type="button" onClick={onAddClient}><span className="mobile-sheet-icon client"><UsersRound size={20} /></span><span><strong>Individual client</strong><small>Create a new client matter</small></span><ChevronRight size={17} /></button>
+          <button type="button" onClick={onAddCommercialClient}><span className="mobile-sheet-icon commercial"><Building2 size={20} /></span><span><strong>Commercial client</strong><small>Create an employer matter</small></span><ChevronRight size={17} /></button>
+          <button type="button" onClick={onNewEnquiry}><span className="mobile-sheet-icon enquiry"><ClipboardList size={20} /></span><span><strong>Enquiry / intake</strong><small>Open the intake workspace</small></span><ChevronRight size={17} /></button>
+          <button type="button" onClick={onNewAgreement}><span className="mobile-sheet-icon agreement"><FileCheck2 size={20} /></span><span><strong>Agreement</strong><small>Create an engagement agreement</small></span><ChevronRight size={17} /></button>
+          <button type="button" onClick={onNewInstructions}><span className="mobile-sheet-icon instructions"><BookOpen size={20} /></span><span><strong>Instructions</strong><small>Create client instructions</small></span><ChevronRight size={17} /></button>
+          <button type="button" onClick={onNewTask}><span className="mobile-sheet-icon task"><ListChecks size={20} /></span><span><strong>Task</strong><small>Add a task or follow-up</small></span><ChevronRight size={17} /></button>
+          <button type="button" onClick={onNewAppointment}><span className="mobile-sheet-icon appointment"><CalendarDays size={20} /></span><span><strong>Appointment</strong><small>Open the calendar to add one</small></span><ChevronRight size={17} /></button>
+        </div>
+      </aside>
+    </>
   );
 }
 
@@ -10756,26 +10798,33 @@ function MobileMoreSheet({ open, onClose, onNavigate, activeTab, onOpenHelp, onO
       <aside className={`mobile-more-sheet ${open ? 'open' : ''}`} aria-hidden={!open}>
         <div className="mobile-more-handle" />
         <div className="mobile-more-head">
-          <div>
-            <span>Mobile menu</span>
-            <h2>Quick access</h2>
-          </div>
+          <div><span>THiS CRM</span><h2>More</h2></div>
           <button className="icon-btn" type="button" onClick={onClose} aria-label="Close mobile menu"><X size={18} /></button>
         </div>
-        <div className="mobile-more-grid">
-          <button type="button" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => go('dashboard')}><LayoutDashboard size={18} /><span>Dashboard</span></button>
-          <button type="button" className={activeTab === 'studio' ? 'active' : ''} onClick={() => go('studio')}><FileText size={18} /><span>Studio</span></button>
-          <button type="button" className={activeTab === 'calendar' ? 'active' : ''} onClick={() => go('calendar')}><CalendarDays size={18} /><span>Calendar</span></button>
-          <button type="button" className={activeTab === 'intake' ? 'active' : ''} onClick={() => go('intake')}><ClipboardList size={18} /><span>Enquiries</span></button>
-          <button type="button" className={activeTab === 'bookings' ? 'active' : ''} onClick={() => go('bookings')}><CalendarDays size={18} /><span>Bookings</span></button>
-          <button type="button" className={activeTab === 'billing' ? 'active' : ''} onClick={() => go('billing')}><CreditCard size={18} /><span>Billing</span></button>
-          <button type="button" onClick={onOpenTools}><Wrench size={18} /><span>Tools</span></button>
-          <button type="button" onClick={onOpenHelp}><HelpCircle size={18} /><span>Help</span></button>
-          <button type="button" onClick={onRefresh} disabled={loading}><RefreshCw size={18} /><span>Refresh</span></button>
-          <button type="button" onClick={onAddClient}><Plus size={18} /><span>New client</span></button>
-          <button type="button" onClick={onAddCommercialClient}><Building2 size={18} /><span>New commercial</span></button>
-          {canManageAdvisers && <button type="button" onClick={onAddAdviser}><Plus size={18} /><span>New adviser</span></button>}
-          {(identityUser || accessCodeActive) && <button type="button" onClick={onLogout}><LockKeyhole size={18} /><span>Sign out</span></button>}
+        <div className="mobile-more-section">
+          <span className="mobile-more-section-label">Workspaces</span>
+          <div className="mobile-more-grid">
+            <button type="button" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => go('dashboard')}><LayoutDashboard size={18} /><span>Dashboard</span><ChevronRight size={16} /></button>
+            <button type="button" className={activeTab === 'intake' ? 'active' : ''} onClick={() => go('intake')}><ClipboardList size={18} /><span>Enquiries</span><ChevronRight size={16} /></button>
+            <button type="button" className={activeTab === 'calendar' ? 'active' : ''} onClick={() => go('calendar')}><CalendarDays size={18} /><span>Calendar</span><ChevronRight size={16} /></button>
+            <button type="button" className={activeTab === 'tasks' ? 'active' : ''} onClick={() => go('tasks')}><ListChecks size={18} /><span>Tasks</span><ChevronRight size={16} /></button>
+            <button type="button" className={activeTab === 'studio' ? 'active' : ''} onClick={() => go('studio')}><FileText size={18} /><span>Studio</span><ChevronRight size={16} /></button>
+            <button type="button" className={activeTab === 'billing' ? 'active' : ''} onClick={() => go('billing')}><CreditCard size={18} /><span>Billing</span><ChevronRight size={16} /></button>
+            <button type="button" className={activeTab === 'bookings' ? 'active' : ''} onClick={() => go('bookings')}><CalendarDays size={18} /><span>Bookings</span><ChevronRight size={16} /></button>
+            <button type="button" className={activeTab === 'library' ? 'active' : ''} onClick={() => go('library')}><BookOpen size={18} /><span>Library</span><ChevronRight size={16} /></button>
+            {canManageAdvisers && <button type="button" className={activeTab === 'advisers' ? 'active' : ''} onClick={() => go('advisers')}><UserRound size={18} /><span>Advisers</span><ChevronRight size={16} /></button>}
+            {canManageBackups && <button type="button" className={activeTab === 'backups' ? 'active' : ''} onClick={() => go('backups')}><ShieldCheck size={18} /><span>Admin / Backup</span><ChevronRight size={16} /></button>}
+          </div>
+        </div>
+        <div className="mobile-more-section utility">
+          <span className="mobile-more-section-label">App</span>
+          <div className="mobile-more-grid">
+            <button type="button" onClick={onOpenTools}><Wrench size={18} /><span>Tools</span><ChevronRight size={16} /></button>
+            <button type="button" onClick={onOpenHelp}><HelpCircle size={18} /><span>Help</span><ChevronRight size={16} /></button>
+            <button type="button" onClick={onRefresh} disabled={loading}><RefreshCw size={18} /><span>{loading ? 'Refreshing…' : 'Refresh data'}</span><ChevronRight size={16} /></button>
+            <PwaInstallButton className="mobile-more-install" label="Install app" />
+            {(identityUser || accessCodeActive) && <button className="mobile-signout-row" type="button" onClick={onLogout}><LockKeyhole size={18} /><span>Sign out</span><ChevronRight size={16} /></button>}
+          </div>
         </div>
       </aside>
     </>
@@ -14220,7 +14269,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.14" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.34" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -14817,7 +14866,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.33" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.34" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}

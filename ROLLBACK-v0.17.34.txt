@@ -1,0 +1,5 @@
+THiS CRM v0.17.34 rollback
+
+Rollback application target: v0.17.33.
+Database remains at 45 migrations. v0.17.34 adds no migration.
+No migration should be removed or edited when rolling back.

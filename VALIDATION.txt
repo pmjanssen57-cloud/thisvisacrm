@@ -1,34 +1,41 @@
-THiS CRM v0.17.33 validation
+THiS CRM v0.17.34 validation
 
 Baseline
-- Built from v0.17.32 Matter Update Activity Presets.
-- Functional changes are limited to Agreement Studio / agreement issue and acceptance workflows, standalone agreement adviser selection, server-side agreement issue validation, and release/PWA metadata.
-- Instructions Studio is unchanged.
+- Built from v0.17.33 Standalone Adviser & IAA Agreement Compliance Guardrails.
+- Desktop workflow, backend functions, Agreement compliance guardrails and database schema are retained.
+- Functional changes are limited to the responsive/mobile presentation layer, mobile navigation/action sheets, and mobile Studio presentation.
 
 Code checks
-- App.jsx JSX syntax parsed successfully using the TypeScript JSX parser.
-- main.jsx JSX syntax parsed successfully using the TypeScript JSX parser.
+- App.jsx JSX syntax parsed successfully using the TypeScript JSX parser and transpileModule.
+- main.jsx JSX syntax parsed successfully using the TypeScript JSX parser and transpileModule.
 - All 22 Netlify .mjs functions passed node --check.
 - All 6 public JavaScript files passed node --check.
-- Agreement Studio adviser dropdown, explicit licence-type selector, compliance confirmations and issue guards are present.
-- Server-side agreement issue validation mirrors the material pre-issue checks and validates every required signatory.
-- New agreements require client acceptance acknowledgements for Professional Standards and the internal complaints procedure; older agreements without the new compliance state remain backward compatible.
-- Agreement issue emails include the current IAA Professional Standards and Code of Conduct links even when the editable email body is customised.
+- New inline Agreement Studio and Instructions Studio mobile controller scripts passed node --check.
+- styles.css and all inline Studio style blocks parsed successfully with tinycss2.
 
-IAA alignment review
-- Reviewed against the current IAA Code of Conduct professional-practice requirements for clauses 14, 17, 18 and 19 and the current IAA written-agreement guidance.
-- Agreement output records adviser name/licence, licence limitations where applicable, tailored scope, fees, disbursements, payment terms, refund wording, conflict/benefit disclosure, written authority, Professional Standards acknowledgement and internal complaints procedure.
-- Software guardrails do not replace the adviser's professional obligation to provide and explain the required material and accurately tailor each agreement.
+Mobile interaction checks
+- Bottom navigation exposes Home, My Work, Clients, New and More.
+- New uses a dedicated mobile action sheet rather than a desktop dropdown.
+- More separates secondary workspaces from app/help/account controls.
+- Mobile header uses compact client-search, chat and adviser/profile buttons.
+- Mobile text inputs/selects/textareas use 16px controls to avoid browser auto-zoom.
+- Update matter, Reschedule, Quick Move and client quick edit are full-screen mobile workflows with sticky actions.
+- My Work filters/metrics use swipeable controls and matter cards stack vertically.
+- Unified Clients renders as mobile cards rather than a compressed desktop table.
+- Matter Update / Reschedule actions sit above the global bottom navigation.
+- Client-record sections use a sticky horizontal navigator.
+- Agreement Studio exposes Sections / Edit / Preview modes on mobile.
+- Instructions Studio exposes Pack / Edit / Preview modes on mobile.
+- Studio preview scaling is calculated from viewport width so no pinch zoom is required for a fit-width overview.
 
 PWA
 - scripts/validate-pwa.mjs passed.
-- PWA service-worker shell cache advances to v0.17.33.
-- Agreement Studio source/query version advances to v0.17.33.
-- Instructions Studio remains v0.17.31 because it is unchanged.
+- PWA service-worker shell cache advances to v0.17.34.
+- Agreement Studio and Instructions Studio source/query versions advance to v0.17.34.
 
 Database
 - Database schema unchanged at 45 migrations.
-- All 45 historical/applied migration files are byte-for-byte unchanged from v0.17.32.
+- All 45 historical/applied migration files are byte-for-byte unchanged from v0.17.33.
 
 Build note
 - node_modules are not included in the source package, so a full Vite production build was not run or claimed.

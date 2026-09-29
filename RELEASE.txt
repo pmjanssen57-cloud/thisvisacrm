@@ -1,13 +1,12 @@
-THiS CRM v0.17.33 - Standalone Adviser & IAA Agreement Compliance Guardrails
+THiS CRM v0.17.34 - Mobile Experience Rebuild
 
-Agreement Studio
-- Adds an adviser dropdown for standalone agreements.
-- Selecting an adviser automatically fills the CRM adviser email and stored IAA licence number.
-- Requires an explicit licence-type confirmation and supports Full, Provisional and Limited licence agreement wording.
-- Adds conflict / benefit disclosure and likely disbursement records.
-- Adds IAA pre-issue checks and server-side issue validation.
-- Adds the current IAA Professional Standards and Code of Conduct links to agreement issue emails.
-- Strengthens Professional Standards, complaints, authority, refunds and additional-fee wording.
-- Client acceptance records receipt/explanation of Professional Standards and receipt of the internal complaints procedure.
+- Replaces the old compressed-desktop mobile shell with a dedicated phone-first interface.
+- Adds Home / My Work / Clients / New / More bottom navigation.
+- Adds a dedicated mobile quick-create sheet.
+- Converts core mobile workspaces, matter cards and client lists to touch-friendly layouts.
+- Makes major mobile editing workflows full-screen with sticky actions.
+- Prevents iOS/browser input auto-zoom by using mobile-safe control sizing.
+- Adds purpose-built Agreement Studio and Instructions Studio mobile modes with fit-width preview.
+- Preserves desktop behaviour, CRM logic and backend data.
 
 Database: unchanged at 45 migrations.

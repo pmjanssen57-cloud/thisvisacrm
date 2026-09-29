@@ -1,0 +1,22 @@
+THiS CRM mobile experience - v0.17.34
+
+Navigation
+- Home: opens My Day as the mobile home screen.
+- My Work: daily operational queue.
+- Clients: unified individual/commercial client register.
+- New: one-tap create sheet.
+- More: secondary workspaces, tools and account actions.
+
+Interaction rules
+- Primary actions use 44px+ touch targets.
+- Input/select/textarea controls use 16px mobile typography to prevent browser auto-zoom.
+- Desktop modal windows become full-screen mobile workflows.
+- The matter Update / Reschedule action bar sits above the global bottom navigation.
+- Long filter sets and client-record sections use horizontal, swipeable controls rather than compressed grids.
+
+Studio
+- Agreement Studio: Sections / Edit / Preview.
+- Instructions Studio: Pack / Edit / Preview.
+- Preview width is calculated from the current viewport so the user does not need pinch-zoom to see the page.
+
+No database migration is required.
