@@ -1,0 +1,5 @@
+THiS CRM v0.17.33 rollback
+
+Application rollback target: v0.17.32 Matter Update Activity Presets.
+Database remains at 45 migrations. v0.17.33 adds no migration.
+No migration should be removed or modified when rolling back.

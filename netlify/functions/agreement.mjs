@@ -143,6 +143,8 @@ async function acceptAgreement(tokenHash, body, request) {
   const row = rows[0];
   if (!row) throw new Error('This agreement link was not found.');
   if (row.expires_at && new Date(row.expires_at).getTime() < Date.now()) throw new Error('This agreement link has expired.');
+  const modernCompliance = row.studio_state?.compliance && typeof row.studio_state.compliance === 'object';
+  if (modernCompliance && (!declarations.professionalStandards || !declarations.complaintsProcedure || !declarations.significantMattersExplained)) throw new Error('Confirm receipt of the Professional Standards and internal complaints procedure, and that the significant agreement matters were explained, before accepting.');
   if (row.status === 'Accepted') return { ok: true, agreementStatus: await refreshAgreementStatus(row.agreement_id, database) };
   const ipAddress = clean(request.headers.get('x-forwarded-for') || request.headers.get('client-ip') || '', 500);
   const userAgent = clean(request.headers.get('user-agent') || '', 1000);

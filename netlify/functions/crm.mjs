@@ -2747,9 +2747,59 @@ function isDefaultAgreementStudioEmailBody(value = '') {
       && /confirm your acceptance and sign online/i.test(body));
 }
 
+
+function agreementPlaceholderValue(value = '') {
+  const text = String(value || '').trim();
+  return !text || /confirm current|to be confirmed|\bTBC\b|X{2,}|\$X|amount not set/i.test(text);
+}
+
+function agreementComplianceProblems(studioState = {}) {
+  const client = studioState?.client && typeof studioState.client === 'object' ? studioState.client : {};
+  const compliance = studioState?.compliance && typeof studioState.compliance === 'object' ? studioState.compliance : {};
+  const problems = [];
+  if (!String(client.clientName || '').trim()) problems.push('Add the client or organisation name.');
+  if (!String(client.adviserName || '').trim()) problems.push('Select the licensed immigration adviser.');
+  if (!String(client.adviserLicence || '').trim()) problems.push('Add the adviser IAA licence number.');
+  const licenceType = String(compliance.licenceType || '').trim();
+  if (!licenceType) problems.push('Confirm the adviser licence type.');
+  if (licenceType === 'Provisional' && (!String(compliance.supervisorName || '').trim() || !String(compliance.supervisorLicence || '').trim())) problems.push('Add the provisional adviser supervisor name and licence number.');
+  if (licenceType === 'Limited' && !String(compliance.limitedScope || '').trim()) problems.push('Record the matters authorised by the limited licence.');
+  const scope = Array.isArray(studioState.scope) ? studioState.scope : [];
+  if (!scope.some((item) => item && item.enabled !== false && String(item.text || '').trim())) problems.push('Add at least one tailored service to the agreed scope.');
+  const professionalFees = Array.isArray(studioState.professionalFees) ? studioState.professionalFees : [];
+  if (!professionalFees.length) problems.push('Add the professional fee schedule.');
+  professionalFees.forEach((item, index) => {
+    if (!String(item?.description || '').trim() || !String(item?.trigger || '').trim() || agreementPlaceholderValue(item?.amount)) problems.push(`Complete professional fee stage ${index + 1}, including an actual fixed amount and payment milestone.`);
+  });
+  const governmentFees = Array.isArray(studioState.governmentFees) ? studioState.governmentFees : [];
+  governmentFees.forEach((item, index) => {
+    if (!String(item?.agency || '').trim() || !String(item?.application || '').trim() || agreementPlaceholderValue(item?.amount)) problems.push(`Confirm government/disbursement row ${index + 1}, including a current amount or reasonable estimate.`);
+  });
+  if (!String(client.likelyDisbursements || '').trim()) problems.push('Record likely third-party disbursements or confirm that none are presently identified.');
+  if (!String(client.conflictDisclosure || '').trim()) problems.push('Complete the conflict / benefit disclosure.');
+  if (!studioState.feeConfirmed) problems.push('Confirm fees and disbursements have been checked.');
+  if (!studioState.clientChecked) problems.push('Confirm client, signatory and tailored scope details have been checked.');
+  if (!compliance.licenceConfirmed) problems.push('Confirm the adviser licence details have been checked.');
+  if (!compliance.professionalStandardsProvided) problems.push('Confirm the current IAA Professional Standards document has been provided and explained.');
+  if (!compliance.complaintsProcedureProvided) problems.push('Confirm the internal complaints procedure has been provided.');
+  if (!compliance.significantMattersExplained) problems.push('Confirm the significant terms of the agreement have been explained before acceptance.');
+  return [...new Set(problems)];
+}
+
+const AGREEMENT_PROFESSIONAL_STANDARDS_URL = 'https://www.iaa.govt.nz/assets/documents/professional-standards-english.pdf';
+const AGREEMENT_CODE_OF_CONDUCT_URL = 'https://www.iaa.govt.nz/for-advisers/code-of-conduct/';
+
 function buildDefaultAgreementIssueEmailBody(agreement = {}, studioState = {}) {
   const matter = String(studioState?.template?.coverSubtitle || agreement?.title || 'your immigration matter').trim();
-  return `We have prepared your engagement agreement for ${matter}. It sets out the services we will provide, the professional and government fees, the payment stages, and the terms on which we will act for you.\n\nPlease review the agreement carefully using the secure button below. When you are comfortable with the content, you can confirm your acceptance and sign online. The process should only take a few minutes.\n\nIf anything needs correcting, or you would like to discuss any part of the agreement, please reply to this email before accepting it.`;
+  return `We have prepared your engagement agreement for ${matter}. It sets out the services we will provide, the professional and government fees, the payment stages, and the terms on which we will act for you.
+
+Before accepting the agreement, please also review the current New Zealand licensed immigration advisers Professional Standards: ${AGREEMENT_PROFESSIONAL_STANDARDS_URL}
+
+The full Licensed Immigration Advisers Code of Conduct is available here: ${AGREEMENT_CODE_OF_CONDUCT_URL}
+
+Please review the agreement carefully using the secure button below. When you are comfortable with the content, you can confirm your acceptance and sign online. The internal complaints procedure is included in the agreement.
+
+If anything needs correcting, is unclear, or has not yet been explained to you, please reply to this email before accepting it.`;
 }
 
 async function issueAgreementSet(input = {}, issue = {}, user = null) {
@@ -2758,11 +2808,19 @@ async function issueAgreementSet(input = {}, issue = {}, user = null) {
   if (!isUuid(agreement.id)) throw new Error('Save the agreement before issuing it.');
   if (agreement.status === 'Accepted') throw new Error('An accepted agreement cannot be reissued. Create a new agreement or variation.');
   const studioState = normaliseJsonObject(agreement.studioState);
-  if (!studioState.feeConfirmed || !studioState.clientChecked) throw new Error('Confirm the fee schedule and client details before issuing the agreement.');
+  const complianceProblems = agreementComplianceProblems(studioState);
+  if (complianceProblems.length) throw new Error(`Agreement compliance check: ${complianceProblems[0]}`);
   const signatories = Array.isArray(studioState.signatories) ? studioState.signatories.filter(item => item && item.required !== false) : [];
-  const usable = signatories.filter(item => isValidEmailAddress(String(item.email || '').trim()));
-  if (!usable.length && isValidEmailAddress(agreement.recipientEmail)) usable.push({ name: studioState?.client?.clientName || agreement.standaloneLabel || 'Client', email: agreement.recipientEmail, role: 'Client', required: true });
-  if (!usable.length) throw new Error('Add at least one required signatory with a valid email address.');
+  if (!signatories.length && isValidEmailAddress(agreement.recipientEmail)) signatories.push({ name: studioState?.client?.clientName || agreement.standaloneLabel || 'Client', email: agreement.recipientEmail, role: 'Client', required: true });
+  if (!signatories.length) throw new Error('Add at least one required signatory.');
+  const invalidRequired = signatories.find(item => !String(item?.name || '').trim() || !isValidEmailAddress(String(item?.email || '').trim()));
+  if (invalidRequired) throw new Error('Every required signatory must have a legal name and valid email address.');
+  const normaliseSignatoryName = value => String(value || '').trim().toLowerCase();
+  const principalName = normaliseSignatoryName(studioState?.client?.clientName);
+  const partnerName = normaliseSignatoryName(studioState?.client?.partnerName);
+  if (principalName && !signatories.some(item => normaliseSignatoryName(item.name) === principalName)) throw new Error('The principal client must remain a required signatory.');
+  if (partnerName && !signatories.some(item => normaliseSignatoryName(item.name) === partnerName)) throw new Error('The partner / second client must remain a required signatory.');
+  const usable = signatories;
   const configStatus = getEmailConfigStatus();
   const config = configStatus.configured ? requireMicrosoftEmailConfig() : null;
   const graphToken = config ? await getMicrosoftGraphAccessToken(config) : '';
@@ -2827,6 +2885,14 @@ async function issueAgreementSet(input = {}, issue = {}, user = null) {
       bodyText = renderTemplateText(agreementEmailTemplate.bodyText || fallbackBody, context).trim() || fallbackBody;
       bodyHtml = renderedHtml ? editableTemplateBodyHtml(renderedHtml) : editableTemplateEmailHtml(bodyText);
     }
+    const complianceText = [
+      'IAA Professional Standards: ' + AGREEMENT_PROFESSIONAL_STANDARDS_URL,
+      'Licensed Immigration Advisers Code of Conduct: ' + AGREEMENT_CODE_OF_CONDUCT_URL,
+      'The Turner Hopkins internal complaints procedure is included in the agreement. If any significant term has not been explained to you, please contact your adviser before accepting.'
+    ].join('\n');
+    const complianceHtml = `<div style="background:#f6fbf9;border:1px solid #d9e9e3;border-radius:10px;padding:12px 14px;margin:18px 0;font-size:9pt;line-height:1.5;color:#405653"><strong style="color:#003736">Professional standards and complaints information</strong><br><a href="${escapeHtml(AGREEMENT_PROFESSIONAL_STANDARDS_URL)}" style="color:#003736">New Zealand licensed immigration advisers Professional Standards</a><br><a href="${escapeHtml(AGREEMENT_CODE_OF_CONDUCT_URL)}" style="color:#003736">Licensed Immigration Advisers Code of Conduct</a><br><span>The Turner Hopkins internal complaints procedure is included in the agreement. If any significant term has not been explained to you, contact your adviser before accepting.</span></div>`;
+    if (!bodyText.includes(AGREEMENT_PROFESSIONAL_STANDARDS_URL)) bodyText = `${bodyText}\n\n${complianceText}`.trim();
+    if (!bodyHtml.includes(AGREEMENT_PROFESSIONAL_STANDARDS_URL)) bodyHtml = `${bodyHtml}${complianceHtml}`;
     subject = subject || 'Your Turner Hopkins engagement agreement';
     const ccEmail = adviserEmail && adviserEmail.toLowerCase() !== email.toLowerCase() ? adviserEmail : '';
     const [emailLog] = await database.sql`

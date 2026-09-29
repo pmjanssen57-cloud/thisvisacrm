@@ -1,17 +1,34 @@
-THiS CRM v0.17.31 validation
+THiS CRM v0.17.33 validation
 
-- Built from v0.17.30 Commercial Update Matter Modal Hotfix.
-- App.jsx and main.jsx are byte-for-byte unchanged from v0.17.30.
-- Agreement Studio JavaScript passes node --check.
-- Instructions Studio JavaScript passes node --check.
-- All 22 Netlify .mjs functions pass node --check.
-- All 6 public JavaScript files pass node --check.
-- Agreement and Instructions Studio HTML pass Python HTML parser checks.
-- Reorder helper boundary/unit checks pass.
-- Agreement output remains driven by the reordered structured arrays.
-- PWA service-worker shell cache advances to v0.17.31.
-- Studio script query versions advance to v0.17.31 to avoid stale cached studio code.
-- Database remains at 45 migrations.
-- All 45 migration files are byte-for-byte identical to v0.17.30.
-- No new migration.
-- Full Vite production build not run because node_modules is not included in the source package.
+Baseline
+- Built from v0.17.32 Matter Update Activity Presets.
+- Functional changes are limited to Agreement Studio / agreement issue and acceptance workflows, standalone agreement adviser selection, server-side agreement issue validation, and release/PWA metadata.
+- Instructions Studio is unchanged.
+
+Code checks
+- App.jsx JSX syntax parsed successfully using the TypeScript JSX parser.
+- main.jsx JSX syntax parsed successfully using the TypeScript JSX parser.
+- All 22 Netlify .mjs functions passed node --check.
+- All 6 public JavaScript files passed node --check.
+- Agreement Studio adviser dropdown, explicit licence-type selector, compliance confirmations and issue guards are present.
+- Server-side agreement issue validation mirrors the material pre-issue checks and validates every required signatory.
+- New agreements require client acceptance acknowledgements for Professional Standards and the internal complaints procedure; older agreements without the new compliance state remain backward compatible.
+- Agreement issue emails include the current IAA Professional Standards and Code of Conduct links even when the editable email body is customised.
+
+IAA alignment review
+- Reviewed against the current IAA Code of Conduct professional-practice requirements for clauses 14, 17, 18 and 19 and the current IAA written-agreement guidance.
+- Agreement output records adviser name/licence, licence limitations where applicable, tailored scope, fees, disbursements, payment terms, refund wording, conflict/benefit disclosure, written authority, Professional Standards acknowledgement and internal complaints procedure.
+- Software guardrails do not replace the adviser's professional obligation to provide and explain the required material and accurately tailor each agreement.
+
+PWA
+- scripts/validate-pwa.mjs passed.
+- PWA service-worker shell cache advances to v0.17.33.
+- Agreement Studio source/query version advances to v0.17.33.
+- Instructions Studio remains v0.17.31 because it is unchanged.
+
+Database
+- Database schema unchanged at 45 migrations.
+- All 45 historical/applied migration files are byte-for-byte unchanged from v0.17.32.
+
+Build note
+- node_modules are not included in the source package, so a full Vite production build was not run or claimed.

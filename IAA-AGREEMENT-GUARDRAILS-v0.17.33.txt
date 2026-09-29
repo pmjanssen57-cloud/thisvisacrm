@@ -1,0 +1,25 @@
+THiS Agreement Studio - IAA written-agreement guardrails (v0.17.33)
+
+This release adds software checks intended to help advisers meet the current IAA written-agreement requirements.
+
+Before issue THiS requires:
+- client / organisation
+- named adviser and IAA licence number
+- explicit licence type
+- provisional supervisor details where applicable
+- limited licence authorised matters where applicable
+- tailored scope
+- completed professional fee stages and payment milestones
+- current government charges / reasonable estimates where listed
+- likely third-party disbursements or a statement that none are presently identified
+- conflict / benefit disclosure
+- required signatory email(s)
+- confirmations that fees/disbursements and client/scope details were checked
+- confirmation adviser licence details were checked
+- confirmation current IAA Professional Standards were provided and explained
+- confirmation internal complaints procedure was provided
+- confirmation significant terms were explained before acceptance
+
+The agreement records written authority where representation is within scope. Issued emails contain official IAA Professional Standards and Code of Conduct links.
+
+The adviser remains responsible for the underlying professional obligations and the accuracy of the matter-specific content.

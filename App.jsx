@@ -430,17 +430,33 @@ const LIBRARY_STATUSES = ['Current', 'Watch', 'Superseded', 'Archived', 'Accepta
 const LIBRARY_CATEGORIES = ['Work', 'Residence', 'Family', 'Student', 'Visitor', 'Investor', 'Health', 'Character', 'Compliance', 'Forms', 'General'];
 const INTAKE_STATUSES = ['New', 'Contacted', 'Converted', 'Spam / Duplicate'];
 const MATTER_STATUSES = ['Adviser action required', 'Client action required', 'Waiting on INZ', 'Waiting on third party', 'Ready to progress', 'No current action', 'Completed'];
-const MATTER_UPDATE_EVENTS = [
-  'Reviewed documents',
-  'Documents received',
-  'Application prepared',
-  'Application submitted',
-  'INZ update received',
-  'Further information requested',
-  'Response submitted',
-  'Application approved',
-  'Spoke with client',
-  'Other',
+const MATTER_UPDATE_EVENT_GROUPS = [
+  { label: 'Client contact & information', options: [
+    'Reviewed documents / information',
+    'Documents / information received',
+    'Emailed client for documents / update',
+    'Spoke with client',
+    'Advice / update sent to client',
+  ] },
+  { label: 'Preparation & submissions', options: [
+    'Application prepared',
+    'Application submitted',
+    'EOI submitted',
+  ] },
+  { label: 'INZ / process', options: [
+    'INZ update received',
+    'Contacted / followed up with INZ',
+    'Further information / PPI request received',
+    'Response / further information submitted',
+    'EOI selected / invitation received',
+  ] },
+  { label: 'Outcome & closure', options: [
+    'Decision received / application approved',
+    'Matter completed / closed',
+  ] },
+  { label: 'Other', options: [
+    'Other',
+  ] },
 ];
 
 const PORTAL_UPDATE_TEMPLATES = [
@@ -4232,13 +4248,14 @@ function QuickCompleteActionModal({ client, adviser = null, onClose, saveClient,
 }
 
 function GuidedMatterUpdateModal({ client, adviser = null, onClose, saveClient, saving, onReturnToWork }) {
-  const [eventType, setEventType] = useState('Reviewed documents');
+  const [eventType, setEventType] = useState('Reviewed documents / information');
   const suggestion = useMemo(() => buildMatterUpdateSuggestion(client,eventType),[client,eventType]);
   const [matterStatus,setMatterStatus] = useState(suggestion.matterStatus);
   const [nextAction,setNextAction] = useState(suggestion.nextAction);
   const [actionDate,setActionDate] = useState(suggestion.actionDate);
   const [stageId,setStageId] = useState(suggestion.stageId);
   const [note,setNote] = useState('');
+  const [otherEventDetail,setOtherEventDetail] = useState('');
   const [updatePortal,setUpdatePortal] = useState(Boolean(suggestion.portalTemplateKey && client.portalEnabled));
   const [portalTemplateKey,setPortalTemplateKey] = useState(suggestion.portalTemplateKey || '');
   const initialTemplate = PORTAL_UPDATE_TEMPLATES.find((item)=>item.key===suggestion.portalTemplateKey);
@@ -4261,6 +4278,7 @@ function GuidedMatterUpdateModal({ client, adviser = null, onClose, saveClient, 
   }
 
   function validate(){
+    if(eventType==='Other'&&!otherEventDetail.trim()){setError('Add a short description of what happened.');return false}
     if(matterStatus==='No current action'){setError('Choose what happens next or move the file into a controlled waiting state.');return false}
     if(matterStatus!=='Completed'&&!nextAction.trim()){setError('Add what happens next before saving.');return false}
     if(matterStatus!=='Completed'&&!actionDate){setError(waiting?'Add the review date so the file returns to My Work.':'Add the next action date.');return false}
@@ -4270,7 +4288,9 @@ function GuidedMatterUpdateModal({ client, adviser = null, onClose, saveClient, 
 
   async function save(returnToWork=false){
     if(!validate())return;
-    const activity=[...normaliseMatterActivity(client.matterActivity),makeMatterActivity('workflow',suggestion.activityTitle,note.trim()||suggestion.note||suggestion.explanation,adviser?.name||'Adviser')];
+    const standardDetail=note.trim()||suggestion.note||suggestion.explanation;
+    const activityDetail=eventType==='Other'?[otherEventDetail.trim(),note.trim()].filter(Boolean).join(' — '):standardDetail;
+    const activity=[...normaliseMatterActivity(client.matterActivity),makeMatterActivity('workflow',suggestion.activityTitle,activityDetail,adviser?.name||'Adviser')];
     const nextStages=applyMatterStageSelection(client.stages,stageId,matterStatus==='Completed');
     const payload={...client,stages:nextStages,matterStatus,matterReviewDate:waiting?actionDate:'',nextAction:matterStatus==='Completed'?'':nextAction.trim(),nextActionDue:matterStatus==='Completed'||waiting?'':actionDate,matterActivity:activity,portalStatusUpdate:updatePortal&&client.portalEnabled?portalCurrent.trim():client.portalStatusUpdate,portalNextStep:updatePortal&&client.portalEnabled?portalNext.trim():client.portalNextStep,portalPublishNow:Boolean(updatePortal&&client.portalEnabled)};
     await saveClient?.(payload,{resetNewClientForm:false});
@@ -4281,7 +4301,8 @@ function GuidedMatterUpdateModal({ client, adviser = null, onClose, saveClient, 
   return <div className="matter-modal-backdrop" onMouseDown={(event)=>{if(event.target===event.currentTarget)onClose?.()}}><section className="matter-guided-modal matter-simple-update-modal"><div className="matter-modal-head"><div><span className="eyebrow">Simple matter update</span><h2>Update matter</h2><p>Three things matter: what happened, what happens next, and when you want to see the file again.</p></div><button className="btn" type="button" onClick={onClose}><X size={16}/></button></div>
     <div className="matter-modal-body">
       <div className="matter-simple-update-grid">
-        <label className="field wide"><span>What happened?</span><select value={eventType} onChange={(event)=>setEventType(event.target.value)}>{MATTER_UPDATE_EVENTS.map((item)=><option key={item}>{item}</option>)}</select></label>
+        <label className="field wide"><span>What happened?</span><select value={eventType} onChange={(event)=>{setEventType(event.target.value);setError('')}}>{MATTER_UPDATE_EVENT_GROUPS.map((group)=><optgroup key={group.label} label={group.label}>{group.options.map((item)=><option key={item} value={item}>{item}</option>)}</optgroup>)}</select></label>
+        {eventType==='Other'&&<label className="field wide"><span>Describe what happened</span><input autoFocus value={otherEventDetail} onChange={(event)=>{setOtherEventDetail(event.target.value);setError('')}} placeholder="Short description for the matter timeline" /></label>}
         <label className="field wide"><span>What happens next?</span><input value={nextAction} onChange={(event)=>{setNextAction(event.target.value);setError('')}} placeholder="The one thing that should happen next" /></label>
         <label className="field"><span>{waiting?'Review date':'Next action date'}</span><input type="date" value={actionDate} onChange={(event)=>{setActionDate(event.target.value);setError('')}} /></label>
         <label className="field"><span>Who has the ball?</span><select value={matterStatus} onChange={(event)=>{setMatterStatus(event.target.value);setError('')}}><option value="Adviser action required">Adviser — I need to act</option><option value="Client action required">Client — waiting on client</option><option value="Waiting on third party">Third party — waiting externally</option><option value="Waiting on INZ">INZ — waiting on Immigration New Zealand</option><option value="Ready to progress">Ready — no blocker</option><option value="Completed">Completed — close matter workflow</option></select></label>
@@ -4306,16 +4327,22 @@ function buildMatterUpdateSuggestion(client,eventType){
   const plus=(days)=>addDaysIso(todayIso(),days);
   const defaults={stageId:current?.id||'',matterStatus:'Adviser action required',nextAction:client.nextAction||'Set next action',actionDate:plus(2),portalTemplateKey:'',note:'',activityTitle:'Matter updated',activityDetail:'',explanation:'Keep the current stage and confirm the operating status and next action.'};
   const map={
-    'Reviewed documents':{...defaults,nextAction:'Complete final adviser review',activityTitle:'Documents reviewed',note:'Documents reviewed. Record any remaining evidence gaps.',explanation:'This is adviser work within the current stage. Keep ownership with the adviser and move the primary action forward.'},
-    'Documents received':{...defaults,nextAction:'Review newly received documents',actionDate:plus(1),activityTitle:'Documents received',note:'New documents received and ready for adviser review.',explanation:'A client item has arrived. The file should return to adviser action rather than remain in a waiting queue.'},
+    'Reviewed documents / information':{...defaults,nextAction:'Complete remaining review and progress matter',activityTitle:'Documents / information reviewed',note:'Documents or information reviewed. Record any remaining evidence gaps or follow-up required.',explanation:'Keep the current stage and move the matter forward with one clear adviser action.'},
+    'Documents / information received':{...defaults,nextAction:'Review newly received documents / information',actionDate:plus(1),activityTitle:'Documents / information received',note:'New documents or information received and ready for adviser review.',explanation:'A client item has arrived. Return the file to adviser action rather than leaving it in a waiting queue.'},
+    'Emailed client for documents / update':{...defaults,matterStatus:'Client action required',nextAction:'Follow up for requested documents / update',actionDate:plus(5),portalTemplateKey:'waiting-client',activityTitle:'Client contacted for documents / update',note:'Client emailed requesting documents, information or an update.',explanation:'The next move sits with the client, so place the matter in a controlled client-waiting state with a review date.'},
+    'Spoke with client':{...defaults,nextAction:'Complete agreed client follow-up',activityTitle:'Client discussion recorded',note:'Spoke with client. Record the agreed follow-up and any key advice.',explanation:'A client conversation normally changes the next action rather than the immigration stage.'},
+    'Advice / update sent to client':{...defaults,nextAction:'Progress agreed next step',activityTitle:'Advice / update sent to client',note:'Advice or a matter update was sent to the client.',explanation:'Keep the current stage and confirm the next operational action arising from the advice or update.'},
     'Application prepared':{...defaults,stageId:next?.id||current?.id||'',matterStatus:'Ready to progress',nextAction:'Complete final review and lodge application',actionDate:plus(1),portalTemplateKey:'ready-to-lodge',activityTitle:'Application preparation completed',note:'Application preparation completed and ready for final review.',explanation:'Preparation is complete. Move the file to the next stage and surface it as ready to progress.'},
     'Application submitted':{...defaults,stageId:match(/lodg|submit|filed/i,next?.id||current?.id||''),matterStatus:'Waiting on INZ',nextAction:'Review INZ position',actionDate:plus(14),portalTemplateKey:'application-submitted',activityTitle:'Application submitted to Immigration New Zealand',note:'Application submitted to Immigration New Zealand.',explanation:'Lodgement moves the matter into a controlled waiting state with a review date rather than leaving another adviser task.'},
+    'EOI submitted':{...defaults,stageId:match(/eoi|expression|submit|lodg/i,next?.id||current?.id||''),matterStatus:'Waiting on INZ',nextAction:'Review EOI selection / invitation position',actionDate:plus(14),activityTitle:'Expression of Interest submitted',note:'Expression of Interest submitted.',explanation:'Submission moves the matter into a controlled waiting state while preserving a review date for the EOI position.'},
     'INZ update received':{...defaults,matterStatus:'Adviser action required',nextAction:'Review INZ update and advise client',actionDate:plus(1),activityTitle:'INZ update received',note:'Immigration New Zealand update received for adviser review.',explanation:'An INZ event wakes the matter up and returns it to adviser action until assessed.'},
-    'Further information requested':{...defaults,stageId:match(/further|information|rfi|ppi/i,current?.id||''),matterStatus:'Adviser action required',nextAction:'Prepare response to INZ request',actionDate:plus(10),portalTemplateKey:'further-information',activityTitle:'Further information request received from INZ',note:'Further information request received. Review the request and prepare the response.',explanation:'A request from INZ should expose the response deadline, client communication and one clear primary response action.'},
-    'Response submitted':{...defaults,stageId:next?.id||current?.id||'',matterStatus:'Waiting on INZ',nextAction:'Review INZ position after response',actionDate:plus(14),portalTemplateKey:'response-submitted',activityTitle:'Further information response submitted',note:'Requested further information submitted to Immigration New Zealand.',explanation:'The response is filed. Adviser work is complete for now, so the matter returns to a controlled waiting state.'},
-    'Application approved':{...defaults,stageId:stages[stages.length-1]?.id||current?.id||'',matterStatus:'Adviser action required',nextAction:'Send approval information and complete closure',actionDate:todayIso(),portalTemplateKey:'approved',activityTitle:'Application approved',note:'Approval received. Complete client communication, billing and file closure.',explanation:'Approval triggers final communication and closure work rather than making the matter disappear immediately.'},
-    'Spoke with client':{...defaults,nextAction:'Complete agreed client follow-up',activityTitle:'Client discussion recorded',note:'Spoke with client. Record the agreed follow-up and any key advice.',explanation:'A client conversation normally changes the next action rather than the immigration stage.'},
-    'Other':{...defaults,activityTitle:'Matter update recorded',note:'',explanation:'No automatic stage change is assumed. Confirm the operating state and next action.'},
+    'Contacted / followed up with INZ':{...defaults,matterStatus:'Waiting on INZ',nextAction:'Review INZ response / position',actionDate:plus(7),activityTitle:'INZ follow-up recorded',note:'Immigration New Zealand contacted or followed up. Awaiting the next INZ response or position.',explanation:'The follow-up is complete for now, so keep the matter in a controlled INZ waiting state with a review date.'},
+    'Further information / PPI request received':{...defaults,stageId:match(/further|information|rfi|ppi/i,current?.id||''),matterStatus:'Adviser action required',nextAction:'Review request and prepare response',actionDate:plus(10),portalTemplateKey:'further-information',activityTitle:'Further information / PPI request received',note:'Further information or PPI request received. Review the request, deadline and response requirements.',explanation:'An INZ request should expose the response deadline, client communication and one clear primary response action.'},
+    'Response / further information submitted':{...defaults,stageId:next?.id||current?.id||'',matterStatus:'Waiting on INZ',nextAction:'Review INZ position after response',actionDate:plus(14),portalTemplateKey:'response-submitted',activityTitle:'Response / further information submitted',note:'Response or requested further information submitted to Immigration New Zealand.',explanation:'The response is filed. Adviser work is complete for now, so the matter returns to a controlled waiting state.'},
+    'EOI selected / invitation received':{...defaults,stageId:next?.id||current?.id||'',matterStatus:'Adviser action required',nextAction:'Review invitation and commence application preparation',actionDate:plus(2),activityTitle:'EOI selected / invitation received',note:'EOI selected or invitation received. Review requirements and commence the next application stage.',explanation:'Selection or invitation reactivates the matter and should create a clear adviser action for the application stage.'},
+    'Decision received / application approved':{...defaults,matterStatus:'Adviser action required',nextAction:'Review decision, advise client and complete next steps',actionDate:todayIso(),activityTitle:'Decision / approval received',note:'Decision or approval received. Review the outcome, advise the client and complete any final steps.',explanation:'A decision triggers client communication and any final implementation or closure work. The stage is not advanced automatically because the outcome may require further action.'},
+    'Matter completed / closed':{...defaults,stageId:stages[stages.length-1]?.id||current?.id||'',matterStatus:'Completed',nextAction:'',actionDate:'',activityTitle:'Matter workflow completed',note:'Matter completed / closed.',explanation:'This closes the operational workflow for the matter. The client record remains available in the CRM.'},
+    'Other':{...defaults,activityTitle:'Other matter update',note:'',explanation:'No automatic stage change is assumed. Describe what happened, then confirm the operating state and next action.'},
   };
   return map[eventType]||defaults;
 }
@@ -14238,7 +14265,7 @@ function AgreementsWorkspace({
   const [scope, setScope] = useState('all');
   const [createOpen, setCreateOpen] = useState(false);
   const [createMode, setCreateMode] = useState('client');
-  const [createDraft, setCreateDraft] = useState({ clientId: '', intakeId: '', standaloneLabel: '', recipientEmail: '', appType: 'smc', title: '' });
+  const [createDraft, setCreateDraft] = useState({ clientId: '', intakeId: '', adviserId: '', standaloneLabel: '', recipientEmail: '', appType: 'smc', title: '' });
   const [intakeQuery, setIntakeQuery] = useState('');
   const [editorAgreement, setEditorAgreement] = useState(null);
   const [iframeReady, setIframeReady] = useState(false);
@@ -14293,7 +14320,7 @@ function AgreementsWorkspace({
       const appType = agreementTypeFromCaseType(client.caseType);
       const name = [client.firstName, client.lastName].filter(Boolean).join(' ') || 'Client';
       setCreateMode('client');
-      setCreateDraft({ clientId: client.id, intakeId: '', standaloneLabel: '', recipientEmail: client.email || '', appType, title: `${name} - ${agreementTypeLabel(appType)} agreement` });
+      setCreateDraft({ clientId: client.id, intakeId: '', adviserId: client.primaryAdviserId || '', standaloneLabel: '', recipientEmail: client.email || '', appType, title: `${name} - ${agreementTypeLabel(appType)} agreement` });
       setCreateOpen(true);
     }
     onInitialClientHandled?.();
@@ -14334,6 +14361,7 @@ function AgreementsWorkspace({
           appType: message.snapshot.appType || current.appType,
           status: message.snapshot.status || current.status,
           recipientEmail: message.snapshot.recipientEmail || current.recipientEmail,
+          adviserId: message.snapshot.adviserId || current.adviserId || '',
           studioState: message.snapshot.studioState || current.studioState || {},
           templateVersion: message.snapshot.templateVersion || current.templateVersion || {},
         };
@@ -14367,6 +14395,7 @@ function AgreementsWorkspace({
           title: message.snapshot.title || current.title,
           appType: message.snapshot.appType || current.appType,
           recipientEmail: message.snapshot.recipientEmail || current.recipientEmail,
+          adviserId: message.snapshot.adviserId || current.adviserId || '',
           studioState: message.snapshot.studioState || current.studioState || {},
           templateVersion: message.snapshot.templateVersion || current.templateVersion || {},
           status: 'Ready',
@@ -14464,7 +14493,7 @@ function AgreementsWorkspace({
   }, [agreementSets, clients, intakeEnquiries, query, scope]);
 
   function createDraftFromIntake(intake) {
-    if (!intake) return { clientId: '', intakeId: '', standaloneLabel: '', recipientEmail: '', appType: 'other', title: '' };
+    if (!intake) return { clientId: '', intakeId: '', adviserId: '', standaloneLabel: '', recipientEmail: '', appType: 'other', title: '' };
     const payload = intakeAnswerPayload(intake);
     const pathway = intake.recommendedPathway || payload.targetPathway || '';
     const appType = agreementTypeFromCaseType(pathway);
@@ -14472,6 +14501,7 @@ function AgreementsWorkspace({
     return {
       clientId: '',
       intakeId: intake.id || '',
+      adviserId: intake.assignedAdviserId || '',
       standaloneLabel: name,
       recipientEmail: payload.email || intake.email || '',
       appType,
@@ -14483,13 +14513,13 @@ function AgreementsWorkspace({
     setCreateMode(mode);
     setIntakeQuery('');
     if (mode === 'standalone') {
-      setCreateDraft({ clientId: '', intakeId: '', standaloneLabel: '', recipientEmail: '', appType: 'other', title: '' });
+      setCreateDraft({ clientId: '', intakeId: '', adviserId: '', standaloneLabel: '', recipientEmail: '', appType: 'other', title: '' });
     } else if (mode === 'intake') {
       setCreateDraft(createDraftFromIntake(eligibleIntakes[0]));
     } else {
       const client = savedClients[0];
       const appType = agreementTypeFromCaseType(client?.caseType || '');
-      setCreateDraft({ clientId: client?.id || '', intakeId: '', standaloneLabel: '', recipientEmail: client?.email || '', appType, title: '' });
+      setCreateDraft({ clientId: client?.id || '', intakeId: '', adviserId: client?.primaryAdviserId || '', standaloneLabel: '', recipientEmail: client?.email || '', appType, title: '' });
     }
     setCreateOpen(true);
   }
@@ -14498,7 +14528,7 @@ function AgreementsWorkspace({
     const client = clients.find((item) => item.id === clientId);
     const appType = agreementTypeFromCaseType(client?.caseType || '');
     const name = [client?.firstName, client?.lastName].filter(Boolean).join(' ') || 'Client';
-    setCreateDraft((current) => ({ ...current, clientId, intakeId: '', standaloneLabel: '', recipientEmail: client?.email || '', appType, title: `${name} - ${agreementTypeLabel(appType)} agreement` }));
+    setCreateDraft((current) => ({ ...current, clientId, intakeId: '', adviserId: client?.primaryAdviserId || '', standaloneLabel: '', recipientEmail: client?.email || '', appType, title: `${name} - ${agreementTypeLabel(appType)} agreement` }));
   }
 
   function updateCreateIntake(intakeId) {
@@ -14536,7 +14566,7 @@ function AgreementsWorkspace({
       title: createDraft.title.trim() || `${defaultName} - ${agreementTypeLabel(createDraft.appType)} agreement`,
       clientId: createMode === 'client' ? createDraft.clientId : '',
       intakeId: createMode === 'intake' ? createDraft.intakeId : '',
-      adviserId: createMode === 'client' ? client?.primaryAdviserId || '' : createMode === 'intake' ? intake?.assignedAdviserId || '' : '',
+      adviserId: createMode === 'client' ? client?.primaryAdviserId || '' : createMode === 'intake' ? intake?.assignedAdviserId || '' : createDraft.adviserId || '',
       standaloneLabel: createMode === 'intake' ? defaultName : standaloneLabel,
       recipientEmail: createMode === 'client'
         ? client?.email || createDraft.recipientEmail
@@ -14743,13 +14773,14 @@ function AgreementsWorkspace({
                 <>
                   <Field label="Prepared for / reference" value={createDraft.standaloneLabel} onChange={(value) => setCreateDraft((current) => ({ ...current, standaloneLabel: value, title: current.title || `${value} - ${agreementTypeLabel(current.appType)} agreement` }))} placeholder="e.g. Prospective client or employer" />
                   <Field label="Recipient email" value={createDraft.recipientEmail} onChange={(value) => setCreateDraft((current) => ({ ...current, recipientEmail: value }))} type="email" />
+                  <SelectField label="Assigned adviser" value={createDraft.adviserId} onChange={(value) => setCreateDraft((current) => ({ ...current, adviserId: value }))} options={advisers.filter((adviser) => adviser.active !== false).map((adviser) => ({ value: adviser.id, label: adviser.name || adviser.email || 'Adviser' }))} placeholder="Select adviser" />
                 </>
               )}
               <SelectField label="Agreement type" value={createDraft.appType} onChange={updateCreateType} options={AGREEMENT_TYPE_OPTIONS} />
               <Field label="Agreement title" value={createDraft.title} onChange={(value) => setCreateDraft((current) => ({ ...current, title: value }))} />
-              <div className="notice-card"><strong>{createMode === 'client' ? 'Client and adviser details will be inserted automatically.' : createMode === 'intake' ? 'The prospective client details will be inserted from the intake form.' : 'This agreement is independent of a CRM client or intake record.'}</strong><p>{createMode === 'client' ? 'The Agreement Studio will pull the client, partner, case type, email and assigned adviser from the record. Scope, fees and signatories remain editable.' : createMode === 'intake' ? 'The agreement remains linked to the intake form until the person is converted to a client. Applicant, partner, pathway, email and assigned adviser details remain editable.' : 'Enter the recipient, scope, fees and signatories directly in the Agreement Studio.'}</p></div>
+              <div className="notice-card"><strong>{createMode === 'client' ? 'Client and adviser details will be inserted automatically.' : createMode === 'intake' ? 'The prospective client details will be inserted from the intake form.' : 'This agreement is independent of a CRM client or intake record.'}</strong><p>{createMode === 'client' ? 'The Agreement Studio will pull the client, partner, case type, email and assigned adviser from the record. Scope, fees and signatories remain editable.' : createMode === 'intake' ? 'The agreement remains linked to the intake form until the person is converted to a client. Applicant, partner, pathway, email and assigned adviser details remain editable.' : 'Choose the adviser here. Their CRM email and licence number will be carried into the Agreement Studio automatically; scope, fees and signatories remain editable.'}</p></div>
             </div>
-            <div className="modal-actions"><button className="btn ghost" type="button" onClick={() => setCreateOpen(false)}>Cancel</button><button className="btn dark" type="button" onClick={createAgreement} disabled={saving || (createMode === 'client' ? !createDraft.clientId : createMode === 'intake' ? !createDraft.intakeId : !createDraft.standaloneLabel.trim())}><Plus size={16} />Create and open</button></div>
+            <div className="modal-actions"><button className="btn ghost" type="button" onClick={() => setCreateOpen(false)}>Cancel</button><button className="btn dark" type="button" onClick={createAgreement} disabled={saving || (createMode === 'client' ? !createDraft.clientId : createMode === 'intake' ? !createDraft.intakeId : (!createDraft.standaloneLabel.trim() || !createDraft.adviserId))}><Plus size={16} />Create and open</button></div>
           </div>
         </div>
       )}
@@ -14786,7 +14817,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.22" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.33" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}
