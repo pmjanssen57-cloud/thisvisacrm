@@ -1,12 +1,11 @@
-THiS CRM v0.17.34 - Mobile Experience Rebuild
+THiS CRM v0.17.35 - Compact Mobile Status Cards
 
-- Replaces the old compressed-desktop mobile shell with a dedicated phone-first interface.
-- Adds Home / My Work / Clients / New / More bottom navigation.
-- Adds a dedicated mobile quick-create sheet.
-- Converts core mobile workspaces, matter cards and client lists to touch-friendly layouts.
-- Makes major mobile editing workflows full-screen with sticky actions.
-- Prevents iOS/browser input auto-zoom by using mobile-safe control sizing.
-- Adds purpose-built Agreement Studio and Instructions Studio mobile modes with fit-width preview.
-- Preserves desktop behaviour, CRM logic and backend data.
+- Tightens the phone layout introduced in v0.17.34.
+- My Work status metrics now fit as a compact 3 x 2 grid instead of oversized/swipe-heavy cards.
+- Dashboard/task/calendar/billing metric cards remain in a compact two-column layout on phones.
+- Removes the <=480px rule that forced metric cards into one large full-width column.
+- Reduces mobile work-state column, matter-card, status-pill and action-control spacing while retaining touch targets.
+- Keeps 16px form controls and the no-zoom mobile input behaviour from v0.17.34.
+- Desktop layout and CRM workflow are unchanged.
 
 Database: unchanged at 45 migrations.

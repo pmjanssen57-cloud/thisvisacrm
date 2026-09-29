@@ -1,4 +1,4 @@
-const CACHE_NAME = 'this-crm-shell-v0.17.34';
+const CACHE_NAME = 'this-crm-shell-v0.17.35';
 const OFFLINE_URL = '/offline.html';
 const PRECACHE_URLS = [
   OFFLINE_URL,

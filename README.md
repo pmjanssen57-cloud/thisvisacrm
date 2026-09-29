@@ -1,32 +1,17 @@
-# THiS CRM v0.17.34 - Mobile Experience Rebuild
+# THiS CRM v0.17.35 - Compact Mobile Status Cards
 
-This release rebuilds the CRM mobile presentation around a phone-first interaction model while preserving the existing desktop CRM, backend, data model and workflows.
+This is a targeted mobile-density refinement on top of the v0.17.34 mobile rebuild. The CRM logic, desktop interface, backend and database model are unchanged.
 
-## Mobile app shell
-- Compact sticky mobile header with client search, live chat and adviser/profile controls.
-- Bottom app navigation: Home, My Work, Clients, New and More.
-- Dedicated New action sheet for individual clients, commercial clients, enquiries, agreements, instructions, tasks and appointments.
-- Reorganised More sheet for secondary workspaces, tools, help, refresh, install and sign-out.
-- Safe-area support for installed iOS/Android/PWA use.
-
-## Phone-first workspaces
-- My Work uses horizontal scope chips, compact metrics and stacked matter cards rather than a squeezed desktop board.
-- Clients becomes a card-based register on mobile with status, next action and due date visible at a glance.
-- Matter view keeps identity and next action prominent, with Update matter / Reschedule fixed above the app navigation.
-- Forms use 16px controls and full-width layouts to avoid browser auto-zoom.
-- Update matter, Reschedule, Quick Move, client quick edit and other major workflows use full-screen mobile sheets.
-- Client-record section tabs become a sticky horizontal mobile navigator.
-- Dense dashboard/task/calendar/billing grids collapse to mobile cards.
-
-## Agreement and Instructions Studio
-- Mobile editors no longer try to show three desktop columns simultaneously.
-- Agreement Studio gets Sections / Edit / Preview mobile modes.
-- Instructions Studio gets Pack / Edit / Preview mobile modes.
-- Preview scale is calculated to fit the phone width without pinch-zooming.
-- Editor tabs and action bars are touch sized and sticky where appropriate.
+## Mobile changes
+- My Work status summary uses a compact 3 x 2 grid so all six status cards fit naturally at normal phone zoom.
+- Status cards use smaller padding/type while remaining readable.
+- Dashboard, Tasks, Calendar and Billing metric cards stay in a compact two-column layout on phones instead of collapsing to large single-column cards.
+- Matter work-state headers, matter cards, status pills and footer actions use reduced spacing to show more useful information without requiring browser zoom-out.
+- Very narrow phones receive an additional small typography reduction, but controls remain touch friendly.
+- 16px form controls from v0.17.34 remain unchanged so iOS/browser input auto-zoom is still avoided.
 
 ## Desktop
-Desktop layout and normal adviser workflows are retained. The new presentation is applied only to tablet/mobile widths.
+Desktop behaviour and layout are unchanged.
 
 ## Database
 No schema change. Database remains at 45 migrations.

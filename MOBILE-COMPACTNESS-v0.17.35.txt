@@ -1,0 +1,11 @@
+THiS CRM mobile compactness refinement - v0.17.35
+
+Purpose
+Reduce the visual size of mobile status/work cards so the CRM fits naturally at 100% browser zoom.
+
+Changes
+1. My Work six status metrics are displayed in a compact 3 x 2 grid.
+2. General metric cards remain two-across on phones rather than one oversized card per row.
+3. Status/work-state column headers and matter cards use reduced padding and type sizes.
+4. Matter status pills and card footer actions are slightly smaller while remaining touch friendly.
+5. No changes to workflow logic, backend APIs, forms, desktop layout or database.

@@ -20089,13 +20089,112 @@ body.festive-mode-active {
   .matter-work-ownership-options button { flex-basis:145px; }
   .matter-current-position,
   .matter-tool-grid,
-  .client-action-strip-facts,
-  .metric-grid,
-  .metric-grid.three,
-  .metric-grid.four { grid-template-columns:1fr !important; }
+  .client-action-strip-facts { grid-template-columns:1fr !important; }
   .matter-command-actions.simplified,
   .commercial-unified-head .matter-command-actions { grid-template-columns:1fr; }
   .matter-command-actions.simplified .matter-action-back { grid-column:1; }
   .mobile-new-sheet,
   .mobile-more-sheet { max-height:88dvh; }
+}
+
+/* THiS CRM v0.17.35 - compact mobile status cards */
+@media (max-width: 760px) {
+  /* My Work status overview: fit all six cards on-screen in a compact 3 x 2 grid. */
+  .matter-metric-row {
+    display:grid !important;
+    grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+    gap:6px !important;
+    overflow:visible !important;
+    padding:0 !important;
+    margin-bottom:10px !important;
+  }
+  .matter-metric {
+    flex:none !important;
+    min-width:0 !important;
+    min-height:54px !important;
+    padding:7px 8px 7px 9px !important;
+    border-radius:10px !important;
+  }
+  .matter-metric::before { width:2px; }
+  .matter-metric span {
+    display:block;
+    font-size:8.5px !important;
+    line-height:1.16 !important;
+  }
+  .matter-metric strong {
+    margin-top:3px !important;
+    font-size:18px !important;
+    line-height:1 !important;
+  }
+
+  /* Dashboard/task/calendar/billing metric cards: compact two-column phone layout. */
+  .metric-grid,
+  .metric-grid.three,
+  .metric-grid.four {
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    gap:6px !important;
+  }
+  .metric-card,
+  .matter-workspace-v17 .workspace-modern-page .metric-card {
+    min-width:0 !important;
+    min-height:72px !important;
+    padding:9px !important;
+    gap:7px !important;
+    border-radius:11px !important;
+    align-items:flex-start;
+  }
+  .metric-card span,
+  .matter-workspace-v17 .workspace-modern-page .metric-card span {
+    font-size:9px !important;
+    line-height:1.2 !important;
+  }
+  .metric-card strong,
+  .matter-workspace-v17 .workspace-modern-page .metric-card strong {
+    margin:4px 0 0 !important;
+    font-size:20px !important;
+    line-height:1.05 !important;
+    overflow-wrap:anywhere;
+  }
+  .metric-card small,
+  .matter-workspace-v17 .workspace-modern-page .metric-card small {
+    display:none !important;
+  }
+  .metric-card svg,
+  .matter-workspace-v17 .workspace-modern-page .metric-card svg {
+    width:30px !important;
+    height:30px !important;
+    padding:6px !important;
+    border-radius:8px !important;
+    flex:0 0 auto;
+  }
+
+  /* The work-state columns and matter cards remain touch friendly but take less vertical space. */
+  .matter-kanban { gap:7px !important; }
+  .matter-kanban-column { border-radius:11px !important; }
+  .matter-kanban-head { min-height:0 !important; padding:8px 9px !important; }
+  .matter-kanban-head > div > span { font-size:11.5px !important; }
+  .matter-kanban-head > div > small { font-size:8.5px !important; line-height:1.2; }
+  .matter-kanban-head > b { min-width:22px; height:21px; font-size:9px; }
+  .matter-kanban-list { gap:6px !important; padding:6px !important; }
+  .matter-kanban-card { padding:0 !important; border-radius:11px !important; }
+  .matter-card-main { padding:9px 9px 7px !important; }
+  .matter-card-top strong { font-size:12.5px !important; }
+  .matter-card-top small { font-size:9px !important; }
+  .matter-status-pill { padding:3px 6px !important; font-size:8.5px !important; }
+  .matter-card-action { margin-top:7px !important; padding-top:7px !important; }
+  .matter-card-action span { font-size:8px !important; }
+  .matter-card-action strong { margin-top:2px !important; font-size:11px !important; line-height:1.25 !important; }
+  .matter-card-meta { margin-top:7px !important; font-size:8.8px !important; }
+  .matter-card-footer { margin:0 8px !important; padding:5px 0 7px !important; }
+  .matter-card-open-hint,
+  .matter-quick-move-trigger { min-height:34px !important; padding:6px 7px !important; font-size:9.5px !important; }
+}
+
+@media (max-width: 360px) {
+  .matter-metric-row { gap:5px !important; }
+  .matter-metric { padding-left:7px !important; padding-right:6px !important; }
+  .matter-metric span { font-size:8px !important; }
+  .matter-metric strong { font-size:17px !important; }
+  .metric-card strong,
+  .matter-workspace-v17 .workspace-modern-page .metric-card strong { font-size:18px !important; }
 }
