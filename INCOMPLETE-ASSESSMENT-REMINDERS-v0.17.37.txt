@@ -1,0 +1,10 @@
+THiS CRM v0.17.37 - Incomplete Assessment Resume & Reminder Reliability
+
+- Fixes the CRM resume-link action error: ensureEmailNotificationSchema is now defined in crm.mjs.
+- Adds a separate one-time incomplete-assessment reminder email.
+- Reminder email creates a fresh secure continuation token and refreshes the 30-day link expiry.
+- Reminder sent date and sender are stored on the intake_drafts record and shown in CRM.
+- The reminder button is disabled after a successful send.
+- A partial unique email-notification index prevents concurrent duplicate reminder sends.
+- Failed reminder sends remain retryable and restore the previously issued resume token where possible.
+- Staff-sent resume/reminder emails no longer overwrite the applicant's Last active timestamp.

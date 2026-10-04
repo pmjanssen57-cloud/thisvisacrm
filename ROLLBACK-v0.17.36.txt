@@ -1,0 +1,5 @@
+Rollback from THiS CRM v0.17.37 to v0.17.36
+
+Deploy THiS-CRM-v0.17.36-ROLLBACK.zip to restore the v0.17.36 application code.
+
+Important: migration 46 (202610050001_add_intake_draft_reminder_state.sql) remains in the rollback package unchanged. Once a database migration has been applied it must not be deleted or modified. v0.17.36 application code safely ignores the added reminder columns and index.

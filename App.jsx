@@ -2678,6 +2678,12 @@ export default function App() {
     return body;
   }
 
+  async function sendIntakeDraftReminderEmail(draftId) {
+    const body = await callApi('sendIntakeDraftReminderEmail', { draftId });
+    showCrmToast('Incomplete assessment reminder sent.');
+    return body;
+  }
+
   async function deleteIntakeDraft(draftId) {
     const confirmed = await askCrmConfirm({ title: 'Delete incomplete assessment?', message: 'This permanently removes the saved assessment draft and any CV stored with it.', confirmLabel: 'Delete', tone: 'danger' });
     if (!confirmed) return null;
@@ -3432,7 +3438,7 @@ export default function App() {
             )}
 
             {tab === 'intake' && (
-              <IntakeWorkspace enquiries={data.intakeEnquiries || []} intakeDrafts={data.intakeDrafts || []} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} identityUser={identityUser} canExportContacts={canExportContacts} statuses={data.intakeStatuses || INTAKE_STATUSES} seminars={data.seminars || []} seminarRegistrations={data.seminarRegistrations || []} feedbackSubmissions={data.feedbackSubmissions || []} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} archiveIntakeEnquiries={archiveIntakeEnquiries} restoreIntakeEnquiry={restoreIntakeEnquiry} permanentlyDeleteIntakeEnquiry={permanentlyDeleteIntakeEnquiry} isAdmin={isAdmin} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendIntakeCvRequestEmail={sendIntakeCvRequestEmail} sendIntakeResultsToAdviser={sendIntakeResultsToAdviser} sendIntakeDraftResumeEmail={sendIntakeDraftResumeEmail} deleteIntakeDraft={deleteIntakeDraft} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} sendContactUnableToAssistEmail={sendContactUnableToAssistEmail} downloadIntakeUpload={downloadIntakeUpload} saveSeminar={saveSeminar} deleteSeminar={deleteSeminar} saveSeminarRegistration={saveSeminarRegistration} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail} saveFeedbackSubmission={saveFeedbackSubmission} deleteFeedbackSubmission={deleteFeedbackSubmission} saving={saving} openClientRecord={openClientRecord} confirmAction={askCrmConfirm} refreshIntakeData={refreshIntakeData} intakeRefreshing={intakeRefreshing} lastIntakeRefreshAt={lastIntakeRefreshAt} />
+              <IntakeWorkspace enquiries={data.intakeEnquiries || []} intakeDrafts={data.intakeDrafts || []} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} identityUser={identityUser} canExportContacts={canExportContacts} statuses={data.intakeStatuses || INTAKE_STATUSES} seminars={data.seminars || []} seminarRegistrations={data.seminarRegistrations || []} feedbackSubmissions={data.feedbackSubmissions || []} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} archiveIntakeEnquiries={archiveIntakeEnquiries} restoreIntakeEnquiry={restoreIntakeEnquiry} permanentlyDeleteIntakeEnquiry={permanentlyDeleteIntakeEnquiry} isAdmin={isAdmin} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendIntakeCvRequestEmail={sendIntakeCvRequestEmail} sendIntakeResultsToAdviser={sendIntakeResultsToAdviser} sendIntakeDraftResumeEmail={sendIntakeDraftResumeEmail} sendIntakeDraftReminderEmail={sendIntakeDraftReminderEmail} deleteIntakeDraft={deleteIntakeDraft} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} sendContactUnableToAssistEmail={sendContactUnableToAssistEmail} downloadIntakeUpload={downloadIntakeUpload} saveSeminar={saveSeminar} deleteSeminar={deleteSeminar} saveSeminarRegistration={saveSeminarRegistration} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail} saveFeedbackSubmission={saveFeedbackSubmission} deleteFeedbackSubmission={deleteFeedbackSubmission} saving={saving} openClientRecord={openClientRecord} confirmAction={askCrmConfirm} refreshIntakeData={refreshIntakeData} intakeRefreshing={intakeRefreshing} lastIntakeRefreshAt={lastIntakeRefreshAt} />
             )}
 
             {tab === 'bookings' && (
@@ -3885,22 +3891,22 @@ function MatterWorkDashboard({ clients = [], advisers = [], scopeAdviserId = 'al
       <section className="matter-work-filter-panel">
         <div className="matter-work-filter-row ownership">
           <div className="matter-work-filter-label"><UserRound size={17} /><div><strong>Which files?</strong><small>Main adviser is the default for an individual adviser view.</small></div></div>
-          <div className="matter-work-ownership-options" aria-label="My Work adviser role">{ownershipOptions.map((option) => <button key={option.key} type="button" className={ownershipScope === option.key ? 'active' : ''} onClick={() => setOwnershipScope(option.key)}><span>{option.label}</span><small>{option.detail}</small><b>{option.count}</b></button>)}</div>
+          <div className="matter-work-ownership-options" aria-label="My Work adviser role">{ownershipOptions.map((option) => <button key={option.key} type="button" className={ownershipScope === option.key ? 'active' : ''} onClick={() => setOwnershipScope(option.key)}><span data-mobile-label={option.key === 'primary' ? 'Main' : option.key === 'backup' ? 'Backup' : 'All'}>{option.label}</span><small>{option.detail}</small><b>{option.count}</b></button>)}</div>
         </div>
         <div className="matter-work-filter-row dates">
           <div className="matter-work-filter-label"><CalendarDays size={17} /><div><strong>When?</strong><small>Today is deliberately the default so future review dates do not swamp the board.</small></div></div>
-          <div className="matter-work-scope-options" aria-label="My Work date range">{scopeOptions.map((option) => <button key={option.key} type="button" className={dateScope === option.key ? 'active' : ''} onClick={() => setDateScope(option.key)}>{option.label}</button>)}</div>
+          <div className="matter-work-scope-options" aria-label="My Work date range">{scopeOptions.map((option) => <button key={option.key} type="button" data-mobile-label={option.key === 'today' ? 'Today' : option.key === 'week' ? '7 days' : option.key === 'month' ? '30 days' : 'All'} className={dateScope === option.key ? 'active' : ''} onClick={() => setDateScope(option.key)}>{option.label}</button>)}</div>
           <span className="matter-work-scope-count"><b>{shownCount}</b> shown · {ownershipLabel}</span>
         </div>
       </section>
 
       <div className="matter-metric-row">
-        <MatterMetric label="Needs my attention" value={columns[0].rows.length} />
-        <MatterMetric label="Overdue" value={overdue.length} warning={overdue.length > 0} />
-        <MatterMetric label="Due today" value={today.length} />
-        <MatterMetric label="Waiting on client" value={columns[1].rows.length} />
-        <MatterMetric label="Waiting on INZ" value={columns[2].rows.length} />
-        <MatterMetric label="No next action" value={noNext.length} warning={noNext.length > 0} />
+        <MatterMetric label="Needs my attention" mobileLabel="Attention" value={columns[0].rows.length} />
+        <MatterMetric label="Overdue" mobileLabel="Overdue" value={overdue.length} warning={overdue.length > 0} />
+        <MatterMetric label="Due today" mobileLabel="Due today" value={today.length} />
+        <MatterMetric label="Waiting on client" mobileLabel="Client" value={columns[1].rows.length} />
+        <MatterMetric label="Waiting on INZ" mobileLabel="INZ" value={columns[2].rows.length} />
+        <MatterMetric label="No next action" mobileLabel="No action" value={noNext.length} warning={noNext.length > 0} />
       </div>
 
       <section className="matter-board-guide">
@@ -3925,8 +3931,8 @@ function MatterWorkDashboard({ clients = [], advisers = [], scopeAdviserId = 'al
   );
 }
 
-function MatterMetric({ label, value, warning = false }) {
-  return <div className={`matter-metric ${warning ? 'warning' : ''}`}><span>{label}</span><strong>{value}</strong></div>;
+function MatterMetric({ label, mobileLabel = '', value, warning = false }) {
+  return <div className={`matter-metric ${warning ? 'warning' : ''}`}><span data-mobile-label={mobileLabel || label}>{label}</span><strong>{value}</strong></div>;
 }
 
 function MatterKanbanCard({ client, advisers = [], scopeAdviserId = 'all', ownershipScope = 'primary', onOpen, saveClient, saving = false, actorAdviser = null }) {
@@ -7912,7 +7918,7 @@ function RelatedEnquiryPanel({ matches = [] }) {
 }
 
 
-function IntakeWorkspace({ enquiries, intakeDrafts = [], advisers, dashboardAdviserFilter = 'all', identityUser = null, canExportContacts = false, statuses, seminars = [], seminarRegistrations = [], feedbackSubmissions = [], saveIntakeEnquiry, deleteIntakeEnquiry, archiveIntakeEnquiries, restoreIntakeEnquiry, permanentlyDeleteIntakeEnquiry, isAdmin = false, convertIntakeToClient, sendIntakeOutcomeEmail, sendIntakeCvRequestEmail, sendIntakeResultsToAdviser, sendIntakeDraftResumeEmail, deleteIntakeDraft, sendContactIntakeInviteEmail, sendContactUnableToAssistEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saveFeedbackSubmission, deleteFeedbackSubmission, saving, openClientRecord, confirmAction, refreshIntakeData, intakeRefreshing = false, lastIntakeRefreshAt = '' }) {
+function IntakeWorkspace({ enquiries, intakeDrafts = [], advisers, dashboardAdviserFilter = 'all', identityUser = null, canExportContacts = false, statuses, seminars = [], seminarRegistrations = [], feedbackSubmissions = [], saveIntakeEnquiry, deleteIntakeEnquiry, archiveIntakeEnquiries, restoreIntakeEnquiry, permanentlyDeleteIntakeEnquiry, isAdmin = false, convertIntakeToClient, sendIntakeOutcomeEmail, sendIntakeCvRequestEmail, sendIntakeResultsToAdviser, sendIntakeDraftResumeEmail, sendIntakeDraftReminderEmail, deleteIntakeDraft, sendContactIntakeInviteEmail, sendContactUnableToAssistEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saveFeedbackSubmission, deleteFeedbackSubmission, saving, openClientRecord, confirmAction, refreshIntakeData, intakeRefreshing = false, lastIntakeRefreshAt = '' }) {
   const askConfirm = confirmAction || (async ({ message }) => window.confirm(message || 'Continue?'));
   const simplifiedStatuses = (statuses || INTAKE_STATUSES).filter((status) => INTAKE_STATUSES.includes(status));
   const [workspaceTab, setWorkspaceTab] = useState('contact');
@@ -8470,7 +8476,7 @@ function IntakeWorkspace({ enquiries, intakeDrafts = [], advisers, dashboardAdvi
             saving={saving}
           />
         ) : workspaceTab === 'drafts' ? (
-          <IncompleteAssessmentPanel drafts={activeIntakeDrafts} saving={saving} isAdmin={isAdmin} onResend={sendIntakeDraftResumeEmail} onDelete={deleteIntakeDraft} />
+          <IncompleteAssessmentPanel drafts={activeIntakeDrafts} saving={saving} isAdmin={isAdmin} onResend={sendIntakeDraftResumeEmail} onReminder={sendIntakeDraftReminderEmail} onDelete={deleteIntakeDraft} />
         ) : (
           <>
         <div className="intake-inbox-toolbar enquiries-toolbar">
@@ -9166,26 +9172,42 @@ function intakeCompareSnapshot(item = {}) {
   };
 }
 
-function IncompleteAssessmentPanel({ drafts = [], saving = false, isAdmin = false, onResend, onDelete }) {
+function IncompleteAssessmentPanel({ drafts = [], saving = false, isAdmin = false, onResend, onReminder, onDelete }) {
   const [sendingId, setSendingId] = useState('');
+  const [sendingType, setSendingType] = useState('');
   const [notice, setNotice] = useState('');
   async function resend(item) {
-    setSendingId(item.id); setNotice('');
+    setSendingId(item.id); setSendingType('resume'); setNotice('');
     try { await onResend?.(item.id); setNotice(`Continuation link sent to ${item.email}.`); }
     catch (err) { setNotice(err.message || 'The continuation email could not be sent.'); }
-    finally { setSendingId(''); }
+    finally { setSendingId(''); setSendingType(''); }
+  }
+  async function remind(item) {
+    if (item.reminderEmailSentAt) return;
+    setSendingId(item.id); setSendingType('reminder'); setNotice('');
+    try { await onReminder?.(item.id); setNotice(`One-time reminder sent to ${item.email}.`); }
+    catch (err) { setNotice(err.message || 'The reminder email could not be sent.'); }
+    finally { setSendingId(''); setSendingType(''); }
   }
   return <div className="incomplete-assessment-panel">
-    <div className="enquiries-queue-heading"><div><span className="eyebrow">Saved for later</span><h2>Incomplete assessments</h2><p className="muted">These drafts are separate from New Intake and expire after 30 days of inactivity. Resending a link creates a fresh secure continuation token.</p></div><span className="enquiries-shown-count">{drafts.length} saved</span></div>
+    <div className="enquiries-queue-heading"><div><span className="eyebrow">Saved for later</span><h2>Incomplete assessments</h2><p className="muted">These drafts are separate from New Intake and expire after 30 days of inactivity. A resume link can be refreshed at any time; the separate reminder is deliberately limited to one successful send per draft.</p></div><span className="enquiries-shown-count">{drafts.length} saved</span></div>
     {notice && <div className="success-banner compact">{notice}</div>}
     <div className="incomplete-assessment-list">
-      {drafts.map((item) => <article key={item.id} className="incomplete-assessment-card">
-        <div className="incomplete-assessment-person"><strong>{[item.firstName,item.lastName].filter(Boolean).join(' ') || 'Unnamed applicant'}</strong><span>{item.email || 'No email'}</span></div>
-        <div className="incomplete-assessment-progress"><span>Progress</span><strong>{item.progressPercent}% · Step {item.currentStep} of 8</strong><div><i style={{width:`${Math.max(4,item.progressPercent)}%`}} /></div></div>
-        <div><span className="field-caption">Last active</span><strong>{item.updatedAt ? formatPortalDateTime(item.updatedAt) : 'Not recorded'}</strong><small>{item.resumeEmailSentAt ? `Link sent ${formatPortalDateTime(item.resumeEmailSentAt)}` : 'No continuation email sent yet'}</small></div>
-        <div><span className="field-caption">Expires</span><strong>{item.expiresAt ? formatPortalDateTime(item.expiresAt) : '30 days'}</strong><small>{Object.keys(item.uploads || {}).length ? `${Object.keys(item.uploads || {}).length} CV file${Object.keys(item.uploads || {}).length === 1 ? '' : 's'} saved` : 'No CV stored'}</small></div>
-        <div className="incomplete-assessment-actions"><button className="btn dark" type="button" disabled={saving || sendingId === item.id} onClick={() => resend(item)}><Mail size={15}/>{sendingId === item.id ? 'Sending…' : 'Send resume link'}</button>{isAdmin && <button className="btn danger" type="button" disabled={saving} onClick={() => onDelete?.(item.id)}><Trash2 size={15}/>Delete</button>}</div>
-      </article>)}
+      {drafts.map((item) => {
+        const busy = saving || sendingId === item.id;
+        return <article key={item.id} className="incomplete-assessment-card">
+          <div className="incomplete-assessment-person"><strong>{[item.firstName,item.lastName].filter(Boolean).join(' ') || 'Unnamed applicant'}</strong><span>{item.email || 'No email'}</span></div>
+          <div className="incomplete-assessment-progress"><span>Progress</span><strong>{item.progressPercent}% · Step {item.currentStep} of 8</strong><div><i style={{width:`${Math.max(4,item.progressPercent)}%`}} /></div></div>
+          <div><span className="field-caption">Last active</span><strong>{item.updatedAt ? formatPortalDateTime(item.updatedAt) : 'Not recorded'}</strong><small>{item.resumeEmailSentAt ? `Link sent ${formatPortalDateTime(item.resumeEmailSentAt)}` : 'No continuation email sent yet'}</small></div>
+          <div><span className="field-caption">Expires</span><strong>{item.expiresAt ? formatPortalDateTime(item.expiresAt) : '30 days'}</strong><small>{Object.keys(item.uploads || {}).length ? `${Object.keys(item.uploads || {}).length} CV file${Object.keys(item.uploads || {}).length === 1 ? '' : 's'} saved` : 'No CV stored'}</small></div>
+          <div className="incomplete-assessment-reminder"><span className="field-caption">Reminder</span><strong>{item.reminderEmailSentAt ? `Sent ${formatPortalDateTime(item.reminderEmailSentAt)}` : 'Not sent'}</strong><small>{item.reminderEmailSentAt ? (item.reminderEmailSentBy ? `Sent by ${item.reminderEmailSentBy}` : 'One-time reminder completed') : 'Available once for this draft'}</small></div>
+          <div className="incomplete-assessment-actions">
+            <button className="btn dark" type="button" disabled={busy} onClick={() => resend(item)}><Mail size={15}/>{sendingId === item.id && sendingType === 'resume' ? 'Sending…' : 'Send resume link'}</button>
+            <button className="btn ghost" type="button" disabled={busy || Boolean(item.reminderEmailSentAt)} onClick={() => remind(item)}>{item.reminderEmailSentAt ? <CheckCircle2 size={15}/> : <Send size={15}/>} {item.reminderEmailSentAt ? 'Reminder sent' : (sendingId === item.id && sendingType === 'reminder' ? 'Sending…' : 'Send reminder')}</button>
+            {isAdmin && <button className="btn danger" type="button" disabled={busy} onClick={() => onDelete?.(item.id)}><Trash2 size={15}/>Delete</button>}
+          </div>
+        </article>;
+      })}
       {!drafts.length && <div className="empty-state slim"><FileCheck2 size={34}/><h2>No incomplete assessments</h2><p>Saved assessment drafts will appear here without affecting the New Intake queue.</p></div>}
     </div>
   </div>;
@@ -18892,7 +18914,7 @@ function normaliseIntakeDraft(entry = {}) {
   return {
     id: entry.id || '', status: entry.status || 'Draft', firstName: entry.firstName || entry.applicant_first_name || '', lastName: entry.lastName || entry.applicant_last_name || '', email: entry.email || '',
     currentStep: Number(entry.currentStep || entry.current_step || 2), progressPercent: Number(entry.progressPercent || entry.progress_percent || 0), payload: entry.payload || entry.raw_payload || {}, uploads: entry.uploads || entry.uploaded_files || {},
-    expiresAt: entry.expiresAt || entry.expires_at || '', resumeEmailSentAt: entry.resumeEmailSentAt || entry.resume_email_sent_at || '', submittedIntakeId: entry.submittedIntakeId || entry.submitted_intake_id || '', createdAt: entry.createdAt || entry.created_at || '', updatedAt: entry.updatedAt || entry.updated_at || '',
+    expiresAt: entry.expiresAt || entry.expires_at || '', resumeEmailSentAt: entry.resumeEmailSentAt || entry.resume_email_sent_at || '', reminderEmailSentAt: entry.reminderEmailSentAt || entry.reminder_email_sent_at || '', reminderEmailSentBy: entry.reminderEmailSentBy || entry.reminder_email_sent_by || '', submittedIntakeId: entry.submittedIntakeId || entry.submitted_intake_id || '', createdAt: entry.createdAt || entry.created_at || '', updatedAt: entry.updatedAt || entry.updated_at || '',
   };
 }
 

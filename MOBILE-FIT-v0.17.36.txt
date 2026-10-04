@@ -1,0 +1,27 @@
+THiS CRM mobile true-fit refinement - v0.17.36
+
+Purpose
+Real-device screenshots showed that v0.17.35 was still wider than the usable phone viewport in My Work. The scope controls and status grid could be clipped, the fifth bottom-navigation item could fall off-screen, and empty work-state columns retained a desktop minimum height.
+
+Changes
+1. Visual viewport containment
+   - Mobile app shell, layout and My Work are explicitly constrained to 100% viewport width.
+   - Horizontal page overflow is suppressed while intentional internal scrollers elsewhere continue to work.
+
+2. My Work filters
+   - Adviser scope: Main / Backup / All in a three-column segmented control.
+   - Date scope: Today / 7 days / 30 days / All in one four-column row.
+   - Desktop wording remains unchanged.
+
+3. Status metrics
+   - Six metrics remain 3 x 2.
+   - Mobile labels use Attention / Overdue / Due today / Client / INZ / No action.
+
+4. Work states
+   - Mobile work-state columns no longer inherit the 420px desktop minimum height.
+   - Empty states collapse to a concise header and message.
+
+5. Bottom navigation
+   - All five items are forced into minmax(0,1fr) columns with no child minimum width.
+
+No database changes.

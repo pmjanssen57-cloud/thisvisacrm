@@ -1,17 +1,22 @@
-# THiS CRM v0.17.35 - Compact Mobile Status Cards
+# THiS CRM v0.17.37 - Incomplete Assessment Resume & Reminder Reliability
 
-This is a targeted mobile-density refinement on top of the v0.17.34 mobile rebuild. The CRM logic, desktop interface, backend and database model are unchanged.
+This release fixes incomplete-assessment continuation email sending and adds a controlled one-time reminder workflow.
 
-## Mobile changes
-- My Work status summary uses a compact 3 x 2 grid so all six status cards fit naturally at normal phone zoom.
-- Status cards use smaller padding/type while remaining readable.
-- Dashboard, Tasks, Calendar and Billing metric cards stay in a compact two-column layout on phones instead of collapsing to large single-column cards.
-- Matter work-state headers, matter cards, status pills and footer actions use reduced spacing to show more useful information without requiring browser zoom-out.
-- Very narrow phones receive an additional small typography reduction, but controls remain touch friendly.
-- 16px form controls from v0.17.34 remain unchanged so iOS/browser input auto-zoom is still avoided.
+## Incomplete assessments
 
-## Desktop
-Desktop behaviour and layout are unchanged.
+- **Send resume link** works again; the missing CRM email-schema helper has been restored.
+- **Send reminder** sends a separate, encouraging email with a fresh secure continuation link.
+- A successful reminder is marked against the draft with the sent date/time and sender.
+- The reminder action is disabled after the first successful send and is also protected server-side against duplicate sends.
+- Failed reminder attempts remain retryable.
+- Staff email actions no longer change the applicant's displayed **Last active** timestamp.
 
 ## Database
-No schema change. Database remains at 45 migrations.
+
+- 46 migrations total.
+- New migration: `202610050001_add_intake_draft_reminder_state.sql`.
+- All previous 45 migration files are unchanged.
+
+## Rollback
+
+The rollback package restores v0.17.36 application code but retains migration 46. Applied migrations must not be deleted or modified; v0.17.36 safely ignores the added reminder columns/index.

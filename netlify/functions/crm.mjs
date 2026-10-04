@@ -308,6 +308,30 @@ Turner Hopkins Immigration Specialists`,
     placeholders: ['firstName', 'applicantName', 'resumeUrl', 'progressPercent', 'expiresDate'],
   },
   {
+    key: 'assessment_incomplete_reminder',
+    name: 'Assessment form - incomplete reminder',
+    description: 'One-time reminder sent from the CRM to encourage an applicant to resume an incomplete assessment.',
+    subject: 'A quick reminder to finish your Turner Hopkins assessment',
+    bodyText: `Hi {{firstName}},
+
+You recently started a Turner Hopkins immigration assessment and saved it before completing it.
+
+You are currently {{progressPercent}}% through the assessment (step {{currentStep}} of 8), so you can pick up from where you left off rather than starting again.
+
+Continue your assessment here:
+{{resumeUrl}}
+
+Your secure continuation link will remain available until {{expiresDate}}.
+
+Completing the assessment gives our team the information we need to understand your circumstances and identify the most useful next step.
+
+If your plans have changed or you no longer want to continue, you can simply ignore this email.
+
+Kind regards,
+Turner Hopkins Immigration Specialists`,
+    placeholders: ['firstName', 'applicantName', 'resumeUrl', 'progressPercent', 'currentStep', 'expiresDate'],
+  },
+  {
     key: 'assessment_form_internal_notification',
     name: 'Assessment form - internal notification',
     description: 'Internal notification sent when a full assessment form is submitted through the public assessment page.',
@@ -746,6 +770,11 @@ async function handleCrmEvent(event) {
 
     if (action === 'sendIntakeDraftResumeEmail') {
       const result = await sendIntakeDraftResumeEmail(body.draftId, auth.user);
+      return json({ intakeDraft: result.draft, emailLog: result.emailLog, emailConfig: getEmailConfigStatus() });
+    }
+
+    if (action === 'sendIntakeDraftReminderEmail') {
+      const result = await sendIntakeDraftReminderEmail(body.draftId, auth.user);
       return json({ intakeDraft: result.draft, emailLog: result.emailLog, emailConfig: getEmailConfigStatus() });
     }
 
@@ -1346,13 +1375,18 @@ async function ensureSchema() {
       uploaded_files JSONB NOT NULL DEFAULT '{}'::jsonb,
       expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '30 days'),
       resume_email_sent_at TIMESTAMPTZ,
+      reminder_email_sent_at TIMESTAMPTZ,
+      reminder_email_sent_by TEXT,
       submitted_intake_id UUID,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )`;
+  await database.sql`ALTER TABLE intake_drafts ADD COLUMN IF NOT EXISTS reminder_email_sent_at TIMESTAMPTZ`;
+  await database.sql`ALTER TABLE intake_drafts ADD COLUMN IF NOT EXISTS reminder_email_sent_by TEXT`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_drafts_status_updated ON intake_drafts(status, updated_at DESC)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_drafts_email ON intake_drafts(LOWER(email))`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_drafts_expires_at ON intake_drafts(expires_at)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_drafts_reminder_sent ON intake_drafts(reminder_email_sent_at) WHERE reminder_email_sent_at IS NOT NULL`;
   await database.sql`
     CREATE TABLE IF NOT EXISTS seminars (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1450,6 +1484,7 @@ async function ensureSchema() {
     )`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_email_notifications_created_at ON email_notifications(created_at DESC)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_email_notifications_status ON email_notifications(status)`;
+  await database.sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_email_notifications_intake_draft_reminder_once ON email_notifications(related_record_id, template_key) WHERE related_record_type = 'intake_draft' AND template_key = 'assessment_incomplete_reminder' AND status IN ('Sending', 'Sent')`;
 
   await database.sql`
     CREATE TABLE IF NOT EXISTS instruction_sets (
@@ -2506,7 +2541,7 @@ async function ensureConsultationBookingSchema(database = db()) {
 }
 
 async function readActiveIntakeDrafts(database = db()) {
-  const rows = await database.sql`SELECT id, status, applicant_first_name, applicant_last_name, email, current_step, progress_percent, raw_payload, uploaded_files, expires_at, resume_email_sent_at, submitted_intake_id, created_at, updated_at FROM intake_drafts WHERE status = 'Draft' AND expires_at > NOW() ORDER BY updated_at DESC LIMIT 250`;
+  const rows = await database.sql`SELECT id, status, applicant_first_name, applicant_last_name, email, current_step, progress_percent, raw_payload, uploaded_files, expires_at, resume_email_sent_at, reminder_email_sent_at, reminder_email_sent_by, submitted_intake_id, created_at, updated_at FROM intake_drafts WHERE status = 'Draft' AND expires_at > NOW() ORDER BY updated_at DESC LIMIT 250`;
   return rows.map(mapIntakeDraftFromDb);
 }
 
@@ -3036,7 +3071,7 @@ async function readCrmData() {
     database.sql`SELECT id, client_id, portal_email, message_type, title, message, status, created_at FROM client_portal_messages ORDER BY created_at DESC`,
     database.sql`SELECT id, client_id, title, category, description, file_name, file_type, file_size, blob_key, visible_to_client, uploaded_by, uploaded_at FROM client_portal_documents ORDER BY uploaded_at DESC`,
     database.sql`SELECT id, status, assigned_adviser_id, applicant_first_name, applicant_last_name, email, phone, current_location, citizenship, date_of_birth, current_visa_type, current_visa_expiry, target_pathway, urgency, flags, raw_payload, adviser_assessment_notes, recommended_pathway, consultation_outcome, converted_client_id, created_at, updated_at FROM intake_enquiries ORDER BY created_at DESC`,
-    database.sql`SELECT id, status, applicant_first_name, applicant_last_name, email, current_step, progress_percent, raw_payload, uploaded_files, expires_at, resume_email_sent_at, submitted_intake_id, created_at, updated_at FROM intake_drafts WHERE status = 'Draft' AND expires_at > NOW() ORDER BY updated_at DESC LIMIT 250`,
+    database.sql`SELECT id, status, applicant_first_name, applicant_last_name, email, current_step, progress_percent, raw_payload, uploaded_files, expires_at, resume_email_sent_at, reminder_email_sent_at, reminder_email_sent_by, submitted_intake_id, created_at, updated_at FROM intake_drafts WHERE status = 'Draft' AND expires_at > NOW() ORDER BY updated_at DESC LIMIT 250`,
     database.sql`SELECT id, title, seminar_date, seminar_time, timezone, presenter_name, zoom_link, zoom_password, status, registration_open, internal_notes, created_at, updated_at FROM seminars ORDER BY seminar_date DESC NULLS LAST, created_at DESC`,
     database.sql`SELECT id, seminar_id, status, full_name, date_of_birth, citizenship_country, residence_country, timezone, email, partnership_status, highest_qualification, current_occupation, work_history, health_character_issues, english_ability, raw_payload, reviewed_by, approved_at, declined_at, created_at, updated_at FROM seminar_registrations ORDER BY created_at DESC`,
     database.sql`SELECT id, status, first_name, last_name, email, phone, adviser_name, application_type, overall_rating, recommendation_rating, service_strengths, improvement_suggestions, permission_to_contact, permission_to_use_feedback, raw_payload, reviewed_by, created_at, updated_at FROM feedback_submissions ORDER BY created_at DESC`,
@@ -3455,6 +3490,40 @@ function stripHtmlToText(html = '') {
 }
 
 
+async function ensureEmailNotificationSchema(database = db()) {
+  await database.sql`CREATE EXTENSION IF NOT EXISTS pgcrypto`;
+  await database.sql`
+    CREATE TABLE IF NOT EXISTS email_notifications (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      related_record_type TEXT NOT NULL DEFAULT 'test',
+      related_record_id UUID,
+      client_id UUID,
+      intake_id UUID,
+      template_key TEXT NOT NULL DEFAULT 'test',
+      from_email TEXT,
+      from_name TEXT,
+      to_email TEXT NOT NULL,
+      cc TEXT,
+      bcc TEXT,
+      subject TEXT NOT NULL,
+      body_text TEXT,
+      body_html TEXT,
+      status TEXT NOT NULL DEFAULT 'Draft',
+      sent_by TEXT,
+      sent_at TIMESTAMPTZ,
+      failed_at TIMESTAMPTZ,
+      failure_message TEXT,
+      provider TEXT NOT NULL DEFAULT 'microsoft_graph',
+      provider_request_id TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_email_notifications_created_at ON email_notifications(created_at DESC)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_email_notifications_status ON email_notifications(status)`;
+  await database.sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_email_notifications_intake_draft_reminder_once ON email_notifications(related_record_id, template_key) WHERE related_record_type = 'intake_draft' AND template_key = 'assessment_incomplete_reminder' AND status IN ('Sending', 'Sent')`;
+  await ensureEmailTemplateSchema(database);
+}
+
 async function pruneOldEmailNotifications(database = db()) {
   await database.sql`DELETE FROM email_notifications WHERE created_at < NOW() - INTERVAL '60 days'`;
 }
@@ -3537,6 +3606,8 @@ function mapIntakeDraftFromDb(row = {}) {
     uploads: row.uploaded_files && typeof row.uploaded_files === 'object' ? row.uploaded_files : {},
     expiresAt: row.expires_at || '',
     resumeEmailSentAt: row.resume_email_sent_at || '',
+    reminderEmailSentAt: row.reminder_email_sent_at || '',
+    reminderEmailSentBy: row.reminder_email_sent_by || '',
     submittedIntakeId: row.submitted_intake_id || '',
     createdAt: row.created_at || '',
     updatedAt: row.updated_at || '',
@@ -3559,26 +3630,34 @@ function crmIntakeResumeUrl(token = '') {
 
 async function sendIntakeDraftResumeEmail(draftId = '', authUser = null) {
   const database = db();
-  const rows = await database.sql`SELECT id, status, applicant_first_name, applicant_last_name, email, current_step, progress_percent, raw_payload, uploaded_files, expires_at, resume_email_sent_at, submitted_intake_id, created_at, updated_at FROM intake_drafts WHERE id = ${nullableUuid(draftId)} LIMIT 1`;
+  const rows = await database.sql`SELECT id, resume_token_hash, status, applicant_first_name, applicant_last_name, email, current_step, progress_percent, raw_payload, uploaded_files, expires_at, resume_email_sent_at, reminder_email_sent_at, reminder_email_sent_by, submitted_intake_id, created_at, updated_at FROM intake_drafts WHERE id = ${nullableUuid(draftId)} LIMIT 1`;
   const row = rows[0];
   if (!row || row.status !== 'Draft') throw new Error('The incomplete assessment was not found.');
   const email = String(row.email || '').trim().toLowerCase();
   if (!isValidEmailAddress(email)) throw new Error('The incomplete assessment does not have a valid email address.');
+
   const token = crmIntakeResumeToken();
   const hash = crmIntakeResumeTokenHash(token);
-  const [refreshed] = await database.sql`UPDATE intake_drafts SET resume_token_hash = ${hash}, expires_at = NOW() + INTERVAL '30 days', updated_at = NOW() WHERE id = ${row.id} RETURNING id, status, applicant_first_name, applicant_last_name, email, current_step, progress_percent, raw_payload, uploaded_files, expires_at, resume_email_sent_at, submitted_intake_id, created_at, updated_at`;
   const resumeUrl = crmIntakeResumeUrl(token);
-  const expiresDate = refreshed.expires_at ? new Date(refreshed.expires_at).toLocaleDateString('en-NZ', { timeZone: 'Pacific/Auckland', day: 'numeric', month: 'long', year: 'numeric' }) : '30 days from now';
+  const nextExpiry = new Date(Date.now() + (30 * 24 * 60 * 60 * 1000));
+  const expiresDate = nextExpiry.toLocaleDateString('en-NZ', { timeZone: 'Pacific/Auckland', day: 'numeric', month: 'long', year: 'numeric' });
   const context = {
-    firstName: refreshed.applicant_first_name || 'there',
-    applicantName: [refreshed.applicant_first_name, refreshed.applicant_last_name].filter(Boolean).join(' ') || 'Applicant',
+    firstName: row.applicant_first_name || 'there',
+    applicantName: [row.applicant_first_name, row.applicant_last_name].filter(Boolean).join(' ') || 'Applicant',
     resumeUrl,
-    progressPercent: Number(refreshed.progress_percent || 0),
+    progressPercent: Number(row.progress_percent || 0),
     expiresDate,
   };
-  const emailDraft = await buildEmailFromTemplate('assessment_resume_link', context, { subject: 'Continue your Turner Hopkins assessment', bodyText: `Hi ${context.firstName},\n\nContinue your saved assessment here: ${resumeUrl}` });
+  const emailDraft = await buildEmailFromTemplate('assessment_resume_link', context, {
+    subject: 'Continue your Turner Hopkins assessment',
+    bodyText: `Hi ${context.firstName},\n\nContinue your saved assessment here: ${resumeUrl}`,
+  });
   const config = requireMicrosoftEmailConfig();
   await ensureEmailNotificationSchema(database);
+
+  const previousHash = row.resume_token_hash || '';
+  const previousExpiry = row.expires_at || null;
+  const [refreshed] = await database.sql`UPDATE intake_drafts SET resume_token_hash = ${hash}, expires_at = NOW() + INTERVAL '30 days' WHERE id = ${row.id} RETURNING id, status, applicant_first_name, applicant_last_name, email, current_step, progress_percent, raw_payload, uploaded_files, expires_at, resume_email_sent_at, reminder_email_sent_at, reminder_email_sent_by, submitted_intake_id, created_at, updated_at`;
   const [log] = await database.sql`
     INSERT INTO email_notifications (related_record_type, related_record_id, template_key, from_email, from_name, to_email, subject, body_text, body_html, status, sent_by)
     VALUES ('intake_draft', ${refreshed.id}, 'assessment_resume_link', ${config.fromEmail}, ${config.fromName}, ${email}, ${emailDraft.subject}, ${emailDraft.bodyText}, ${emailDraft.bodyHtml}, 'Sending', ${authUser?.email || authUser?.name || 'CRM adviser'})
@@ -3587,11 +3666,84 @@ async function sendIntakeDraftResumeEmail(draftId = '', authUser = null) {
     const graphToken = await getMicrosoftGraphAccessToken(config);
     const sent = await sendMicrosoftGraphEmail({ config, token: graphToken, toEmail: email, subject: emailDraft.subject, bodyText: emailDraft.bodyText, bodyHtml: emailDraft.bodyHtml });
     const [sentLog] = await database.sql`UPDATE email_notifications SET status='Sent', sent_at=NOW(), provider_request_id=${sent.requestId || ''}, updated_at=NOW() WHERE id=${log.id} RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
-    const [draft] = await database.sql`UPDATE intake_drafts SET resume_email_sent_at=NOW(), updated_at=NOW() WHERE id=${refreshed.id} RETURNING id, status, applicant_first_name, applicant_last_name, email, current_step, progress_percent, raw_payload, uploaded_files, expires_at, resume_email_sent_at, submitted_intake_id, created_at, updated_at`;
+    const [draft] = await database.sql`UPDATE intake_drafts SET resume_email_sent_at=NOW() WHERE id=${refreshed.id} RETURNING id, status, applicant_first_name, applicant_last_name, email, current_step, progress_percent, raw_payload, uploaded_files, expires_at, resume_email_sent_at, reminder_email_sent_at, reminder_email_sent_by, submitted_intake_id, created_at, updated_at`;
     return { draft: mapIntakeDraftFromDb(draft), emailLog: mapEmailLogFromDb(sentLog) };
   } catch (error) {
     const message = String(error?.message || error).slice(0,1000);
     await database.sql`UPDATE email_notifications SET status='Failed', failed_at=NOW(), failure_message=${message}, updated_at=NOW() WHERE id=${log.id}`;
+    if (previousHash) {
+      await database.sql`UPDATE intake_drafts SET resume_token_hash=${previousHash}, expires_at=${previousExpiry} WHERE id=${refreshed.id}`;
+    }
+    throw error;
+  }
+}
+
+async function sendIntakeDraftReminderEmail(draftId = '', authUser = null) {
+  const database = db();
+  const rows = await database.sql`SELECT id, resume_token_hash, status, applicant_first_name, applicant_last_name, email, current_step, progress_percent, raw_payload, uploaded_files, expires_at, resume_email_sent_at, reminder_email_sent_at, reminder_email_sent_by, submitted_intake_id, created_at, updated_at FROM intake_drafts WHERE id = ${nullableUuid(draftId)} LIMIT 1`;
+  const row = rows[0];
+  if (!row || row.status !== 'Draft') throw new Error('The incomplete assessment was not found.');
+  if (row.reminder_email_sent_at) {
+    const sentLabel = formatNzDateTime(row.reminder_email_sent_at);
+    throw new Error(`A reminder has already been sent for this assessment${sentLabel ? ` (${sentLabel})` : ''}.`);
+  }
+  const email = String(row.email || '').trim().toLowerCase();
+  if (!isValidEmailAddress(email)) throw new Error('The incomplete assessment does not have a valid email address.');
+
+  const token = crmIntakeResumeToken();
+  const hash = crmIntakeResumeTokenHash(token);
+  const resumeUrl = crmIntakeResumeUrl(token);
+  const nextExpiry = new Date(Date.now() + (30 * 24 * 60 * 60 * 1000));
+  const expiresDate = nextExpiry.toLocaleDateString('en-NZ', { timeZone: 'Pacific/Auckland', day: 'numeric', month: 'long', year: 'numeric' });
+  const context = {
+    firstName: row.applicant_first_name || 'there',
+    applicantName: [row.applicant_first_name, row.applicant_last_name].filter(Boolean).join(' ') || 'Applicant',
+    resumeUrl,
+    progressPercent: Number(row.progress_percent || 0),
+    currentStep: Number(row.current_step || 2),
+    expiresDate,
+  };
+  const emailDraft = await buildEmailFromTemplate('assessment_incomplete_reminder', context, {
+    subject: 'A quick reminder to finish your Turner Hopkins assessment',
+    bodyText: `Hi ${context.firstName},\n\nYou recently started a Turner Hopkins immigration assessment and saved it before completing it.\n\nYou are currently ${context.progressPercent}% through the assessment (step ${context.currentStep} of 8), so you can pick up from where you left off rather than starting again.\n\nContinue your assessment here:\n${resumeUrl}\n\nYour secure continuation link will remain available until ${expiresDate}.\n\nCompleting the assessment gives our team the information we need to understand your circumstances and identify the most useful next step.\n\nIf your plans have changed or you no longer want to continue, you can simply ignore this email.\n\nKind regards,\nTurner Hopkins Immigration Specialists`,
+  });
+  const config = requireMicrosoftEmailConfig();
+  await ensureEmailNotificationSchema(database);
+
+  // Claim the one-time reminder before rotating the continuation token. The partial unique
+  // index makes simultaneous clicks safe: only one request can remain Sending/Sent.
+  let log;
+  try {
+    [log] = await database.sql`
+      INSERT INTO email_notifications (related_record_type, related_record_id, template_key, from_email, from_name, to_email, subject, body_text, body_html, status, sent_by)
+      VALUES ('intake_draft', ${row.id}, 'assessment_incomplete_reminder', ${config.fromEmail}, ${config.fromName}, ${email}, ${emailDraft.subject}, ${emailDraft.bodyText}, ${emailDraft.bodyHtml}, 'Sending', ${authUser?.email || authUser?.name || 'CRM adviser'})
+      RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+  } catch (error) {
+    if (/idx_email_notifications_intake_draft_reminder_once|duplicate key|unique constraint/i.test(String(error?.message || error))) {
+      throw new Error('A reminder is already being sent or has already been sent for this assessment.');
+    }
+    throw error;
+  }
+
+  const previousHash = row.resume_token_hash || '';
+  const previousExpiry = row.expires_at || null;
+  let refreshed;
+  try {
+    [refreshed] = await database.sql`UPDATE intake_drafts SET resume_token_hash = ${hash}, expires_at = NOW() + INTERVAL '30 days' WHERE id = ${row.id} AND reminder_email_sent_at IS NULL RETURNING id, status, applicant_first_name, applicant_last_name, email, current_step, progress_percent, raw_payload, uploaded_files, expires_at, resume_email_sent_at, reminder_email_sent_at, reminder_email_sent_by, submitted_intake_id, created_at, updated_at`;
+    if (!refreshed) throw new Error('A reminder has already been sent for this assessment.');
+
+    const graphToken = await getMicrosoftGraphAccessToken(config);
+    const sent = await sendMicrosoftGraphEmail({ config, token: graphToken, toEmail: email, subject: emailDraft.subject, bodyText: emailDraft.bodyText, bodyHtml: emailDraft.bodyHtml });
+    const sentBy = authUser?.email || authUser?.name || 'CRM adviser';
+    const [sentLog] = await database.sql`UPDATE email_notifications SET status='Sent', sent_at=NOW(), provider_request_id=${sent.requestId || ''}, updated_at=NOW() WHERE id=${log.id} RETURNING id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at`;
+    const [draft] = await database.sql`UPDATE intake_drafts SET resume_email_sent_at=NOW(), reminder_email_sent_at=NOW(), reminder_email_sent_by=${sentBy} WHERE id=${refreshed.id} RETURNING id, status, applicant_first_name, applicant_last_name, email, current_step, progress_percent, raw_payload, uploaded_files, expires_at, resume_email_sent_at, reminder_email_sent_at, reminder_email_sent_by, submitted_intake_id, created_at, updated_at`;
+    return { draft: mapIntakeDraftFromDb(draft), emailLog: mapEmailLogFromDb(sentLog) };
+  } catch (error) {
+    const message = String(error?.message || error).slice(0, 1000);
+    await database.sql`UPDATE email_notifications SET status='Failed', failed_at=NOW(), failure_message=${message}, updated_at=NOW() WHERE id=${log.id}`;
+    if (refreshed && previousHash) {
+      await database.sql`UPDATE intake_drafts SET resume_token_hash=${previousHash}, expires_at=${previousExpiry} WHERE id=${row.id} AND reminder_email_sent_at IS NULL`;
+    }
     throw error;
   }
 }

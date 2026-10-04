@@ -540,13 +540,18 @@ async function ensureIntakeSchema() {
       uploaded_files JSONB NOT NULL DEFAULT '{}'::jsonb,
       expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '30 days'),
       resume_email_sent_at TIMESTAMPTZ,
+      reminder_email_sent_at TIMESTAMPTZ,
+      reminder_email_sent_by TEXT,
       submitted_intake_id UUID,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )`;
+  await database.sql`ALTER TABLE intake_drafts ADD COLUMN IF NOT EXISTS reminder_email_sent_at TIMESTAMPTZ`;
+  await database.sql`ALTER TABLE intake_drafts ADD COLUMN IF NOT EXISTS reminder_email_sent_by TEXT`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_drafts_status_updated ON intake_drafts(status, updated_at DESC)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_drafts_email ON intake_drafts(LOWER(email))`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_drafts_expires_at ON intake_drafts(expires_at)`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_intake_drafts_reminder_sent ON intake_drafts(reminder_email_sent_at) WHERE reminder_email_sent_at IS NOT NULL`;
 }
 
 function normalisePayload(input = {}) {

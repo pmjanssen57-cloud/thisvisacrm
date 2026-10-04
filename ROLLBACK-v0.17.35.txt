@@ -1,0 +1,5 @@
+Rollback from v0.17.36 to v0.17.35
+
+Deploy the supplied THiS-CRM-v0.17.35-ROLLBACK.zip if the v0.17.36 mobile fit changes need to be reversed.
+
+Database remains at 45 migrations in both versions. No migration rollback is required or permitted.
