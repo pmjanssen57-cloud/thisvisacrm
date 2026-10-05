@@ -1,0 +1,18 @@
+THiS CRM v0.17.39 - Inquiries Duplicate Flagging Hotfix
+
+Symptom
+- Opening Inquiries could show a blank screen, particularly when the Incomplete tab was active.
+
+Cause
+- v0.17.38 duplicate-history rendering called `intakeSortTime()` from `IncompleteAssessmentPanel`.
+- `intakeSortTime()` was defined only inside the parent enquiries workspace component, so it was not in scope inside the panel.
+- React hit a runtime ReferenceError while rendering the incomplete-assessment duplicate information.
+
+Fix
+- The panel now uses its own local assessment timestamp sorter.
+- Duplicate draft/submitted-assessment indicators remain unchanged.
+- Resume links and one-time reminders remain unchanged.
+
+Database
+- 46 migrations.
+- No new migration.

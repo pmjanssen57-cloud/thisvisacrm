@@ -1,3 +1,15 @@
+# THiS CRM v0.17.39 - Inquiries Duplicate Flagging Hotfix
+
+## v0.17.39
+
+- Fixes the blank Inquiries/Incomplete Assessments screen introduced by v0.17.38.
+- Root cause: `IncompleteAssessmentPanel` called `intakeSortTime()`, but that helper was scoped inside the parent enquiries workspace and was therefore undefined inside the standalone panel.
+- Adds a local, defensive assessment timestamp sorter for duplicate-history ordering.
+- Retains all v0.17.38 duplicate indicators and v0.17.37 resume/reminder functionality.
+- No database migration. Database remains at 46 migrations.
+
+## Previous changes retained
+
 # THiS CRM v0.17.38 - Incomplete Assessment Duplicate Visibility
 
 ## v0.17.38 - incomplete assessment duplicate visibility

@@ -1,23 +1,17 @@
-THiS CRM v0.17.37 validation
+THiS CRM v0.17.39 validation
 
-Release: Incomplete Assessment Resume & Reminder Reliability
+Release: Inquiries Duplicate Flagging Hotfix
 
 Checks completed:
 - App.jsx parsed/transpiled successfully with the TypeScript JSX parser.
 - main.jsx parsed/transpiled successfully with the TypeScript JSX parser.
 - All 22 Netlify .mjs functions passed `node --check`.
-- All public JavaScript files passed `node --check`.
+- All 6 public JavaScript files passed `node --check`.
 - PWA validation passed via scripts/validate-pwa.mjs.
-- Service-worker cache advanced to v0.17.37.
-- CRM action `sendIntakeDraftResumeEmail` now has a defined `ensureEmailNotificationSchema` helper.
-- New `sendIntakeDraftReminderEmail` action is wired through server, App data update and Incomplete Assessments UI.
-- One-time reminder state is returned by CRM reads and normalised in App.jsx.
-- Reminder email is represented by an editable default email template: assessment_incomplete_reminder.
-- Server-side partial unique index prevents more than one Sending/Sent reminder notification per draft.
-- Failed reminder sends remain retryable and restore the previous resume token where possible.
-- Staff-triggered resume/reminder emails do not overwrite the applicant Last active timestamp.
-- Database migration count: 46.
-- New migration: 202610050001_add_intake_draft_reminder_state.sql.
-- Original 45 migration files are byte-for-byte unchanged from v0.17.36.
+- Service-worker cache advanced to v0.17.39.
+- IncompleteAssessmentPanel no longer relies on the parent-scoped `intakeSortTime()` helper.
+- Duplicate-history sorting was regression-tested with multiple prior submitted assessments.
+- Database migration count remains 46.
+- All 46 migration files are byte-for-byte unchanged from v0.17.38.
 
 A full Vite production build was not run because node_modules are not included in the deployable source package.

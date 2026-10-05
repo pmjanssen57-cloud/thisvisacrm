@@ -1,5 +1,5 @@
-THiS CRM v0.17.37 - Incomplete Assessment Resume & Reminder Reliability
+THiS CRM v0.17.39 - Inquiries Duplicate Flagging Hotfix
 
-Fixes the broken Send resume link action and adds a one-time reminder workflow for incomplete assessments. Each successful reminder is recorded against the draft with sent time/sender and cannot be sent twice. Resume links remain refreshable independently.
+Fixes the blank Inquiries/Incomplete Assessments screen introduced in v0.17.38. The duplicate-assessment panel referenced a sort helper that only existed inside the parent workspace component, causing a runtime ReferenceError when the Incomplete tab rendered. The panel now uses its own safe assessment timestamp sorter.
 
-Database: 46 migrations. New additive migration 202610050001_add_intake_draft_reminder_state.sql. Historical migrations unchanged.
+Database: 46 migrations. No new migration. Historical migrations unchanged.

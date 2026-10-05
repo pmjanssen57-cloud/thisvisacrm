@@ -9191,6 +9191,7 @@ function IncompleteAssessmentPanel({ drafts = [], priorAssessments = [], saving 
   }
   const emailKeyFor = (value) => normaliseEnquiryEmail(value);
   const draftActivityTime = (draft = {}) => Date.parse(draft.updatedAt || draft.createdAt || '') || 0;
+  const assessmentActivityTime = (assessment = {}) => Date.parse(assessment.createdAt || assessment.updatedAt || '') || 0;
   const draftGroups = new Map();
   drafts.forEach((draft) => {
     const key = emailKeyFor(draft.email);
@@ -9222,7 +9223,7 @@ function IncompleteAssessmentPanel({ drafts = [], priorAssessments = [], saving 
         const matchingDrafts = emailKey ? (draftGroups.get(emailKey) || []).filter((draft) => draft.id !== item.id) : [];
         const matchingAssessments = emailKey ? (assessmentGroups.get(emailKey) || []) : [];
         const newestOtherDraft = [...matchingDrafts].sort((a, b) => draftActivityTime(b) - draftActivityTime(a))[0] || null;
-        const latestAssessment = [...matchingAssessments].sort((a, b) => intakeSortTime(b) - intakeSortTime(a))[0] || null;
+        const latestAssessment = [...matchingAssessments].sort((a, b) => assessmentActivityTime(b) - assessmentActivityTime(a))[0] || null;
         const itemTime = draftActivityTime(item);
         const anotherDraftIsNewer = Boolean(newestOtherDraft && draftActivityTime(newestOtherDraft) > itemTime);
         const isFlagged = Boolean(matchingDrafts.length || matchingAssessments.length);
