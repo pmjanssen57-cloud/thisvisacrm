@@ -8476,7 +8476,7 @@ function IntakeWorkspace({ enquiries, intakeDrafts = [], advisers, dashboardAdvi
             saving={saving}
           />
         ) : workspaceTab === 'drafts' ? (
-          <IncompleteAssessmentPanel drafts={activeIntakeDrafts} saving={saving} isAdmin={isAdmin} onResend={sendIntakeDraftResumeEmail} onReminder={sendIntakeDraftReminderEmail} onDelete={deleteIntakeDraft} />
+          <IncompleteAssessmentPanel drafts={activeIntakeDrafts} priorAssessments={normalisedEnquiries.filter((item) => !isContactIntake(item))} saving={saving} isAdmin={isAdmin} onResend={sendIntakeDraftResumeEmail} onReminder={sendIntakeDraftReminderEmail} onDelete={deleteIntakeDraft} />
         ) : (
           <>
         <div className="intake-inbox-toolbar enquiries-toolbar">
@@ -9172,7 +9172,7 @@ function intakeCompareSnapshot(item = {}) {
   };
 }
 
-function IncompleteAssessmentPanel({ drafts = [], saving = false, isAdmin = false, onResend, onReminder, onDelete }) {
+function IncompleteAssessmentPanel({ drafts = [], priorAssessments = [], saving = false, isAdmin = false, onResend, onReminder, onDelete }) {
   const [sendingId, setSendingId] = useState('');
   const [sendingType, setSendingType] = useState('');
   const [notice, setNotice] = useState('');
@@ -9189,14 +9189,45 @@ function IncompleteAssessmentPanel({ drafts = [], saving = false, isAdmin = fals
     catch (err) { setNotice(err.message || 'The reminder email could not be sent.'); }
     finally { setSendingId(''); setSendingType(''); }
   }
+  const emailKeyFor = (value) => normaliseEnquiryEmail(value);
+  const draftActivityTime = (draft = {}) => Date.parse(draft.updatedAt || draft.createdAt || '') || 0;
+  const draftGroups = new Map();
+  drafts.forEach((draft) => {
+    const key = emailKeyFor(draft.email);
+    if (!key) return;
+    const list = draftGroups.get(key) || [];
+    list.push(draft);
+    draftGroups.set(key, list);
+  });
+  const assessmentGroups = new Map();
+  priorAssessments.forEach((assessment) => {
+    const key = emailKeyFor(assessment.email);
+    if (!key) return;
+    const list = assessmentGroups.get(key) || [];
+    list.push(assessment);
+    assessmentGroups.set(key, list);
+  });
+  const flaggedCount = drafts.filter((draft) => {
+    const key = emailKeyFor(draft.email);
+    return Boolean(key && ((draftGroups.get(key) || []).length > 1 || (assessmentGroups.get(key) || []).length));
+  }).length;
+
   return <div className="incomplete-assessment-panel">
-    <div className="enquiries-queue-heading"><div><span className="eyebrow">Saved for later</span><h2>Incomplete assessments</h2><p className="muted">These drafts are separate from New Intake and expire after 30 days of inactivity. A resume link can be refreshed at any time; the separate reminder is deliberately limited to one successful send per draft.</p></div><span className="enquiries-shown-count">{drafts.length} saved</span></div>
+    <div className="enquiries-queue-heading"><div><span className="eyebrow">Saved for later</span><h2>Incomplete assessments</h2><p className="muted">These drafts are separate from New Intake and expire after 30 days of inactivity. Possible duplicates are flagged by matching email so you can review them before deleting anything.</p></div><div className="incomplete-assessment-heading-counts"><span className="enquiries-shown-count">{drafts.length} saved</span>{flaggedCount > 0 && <span className="incomplete-duplicate-count">{flaggedCount} flagged</span>}</div></div>
     {notice && <div className="success-banner compact">{notice}</div>}
     <div className="incomplete-assessment-list">
       {drafts.map((item) => {
         const busy = saving || sendingId === item.id;
-        return <article key={item.id} className="incomplete-assessment-card">
-          <div className="incomplete-assessment-person"><strong>{[item.firstName,item.lastName].filter(Boolean).join(' ') || 'Unnamed applicant'}</strong><span>{item.email || 'No email'}</span></div>
+        const emailKey = emailKeyFor(item.email);
+        const matchingDrafts = emailKey ? (draftGroups.get(emailKey) || []).filter((draft) => draft.id !== item.id) : [];
+        const matchingAssessments = emailKey ? (assessmentGroups.get(emailKey) || []) : [];
+        const newestOtherDraft = [...matchingDrafts].sort((a, b) => draftActivityTime(b) - draftActivityTime(a))[0] || null;
+        const latestAssessment = [...matchingAssessments].sort((a, b) => intakeSortTime(b) - intakeSortTime(a))[0] || null;
+        const itemTime = draftActivityTime(item);
+        const anotherDraftIsNewer = Boolean(newestOtherDraft && draftActivityTime(newestOtherDraft) > itemTime);
+        const isFlagged = Boolean(matchingDrafts.length || matchingAssessments.length);
+        return <article key={item.id} className={`incomplete-assessment-card${isFlagged ? ' has-duplicate-warning' : ''}`}>
+          <div className="incomplete-assessment-person"><strong>{[item.firstName,item.lastName].filter(Boolean).join(' ') || 'Unnamed applicant'}</strong><span>{item.email || 'No email'}</span>{isFlagged && <div className="incomplete-duplicate-flags">{matchingDrafts.length > 0 && <span className="incomplete-duplicate-badge draft"><Copy size={12}/>Possible duplicate · {matchingDrafts.length + 1} active drafts</span>}{matchingAssessments.length > 0 && <span className="incomplete-duplicate-badge previous"><FileCheck2 size={12}/>Previous assessment on file · {matchingAssessments.length}</span>}</div>}{matchingDrafts.length > 0 && <small className="incomplete-duplicate-detail">{anotherDraftIsNewer ? `A newer draft was active ${newestOtherDraft.updatedAt ? formatPortalDateTime(newestOtherDraft.updatedAt) : 'recently'} (${newestOtherDraft.progressPercent}% complete).` : `Another draft exists${newestOtherDraft?.updatedAt ? `, last active ${formatPortalDateTime(newestOtherDraft.updatedAt)}` : ''}${Number.isFinite(Number(newestOtherDraft?.progressPercent)) ? ` (${newestOtherDraft.progressPercent}% complete)` : ''}.`}</small>}{latestAssessment && <small className="incomplete-duplicate-detail">Most recent submitted assessment: {latestAssessment.createdAt ? formatPortalDateTime(latestAssessment.createdAt) : 'date not recorded'}{latestAssessment.status ? ` · ${latestAssessment.status}` : ''}.</small>}</div>
           <div className="incomplete-assessment-progress"><span>Progress</span><strong>{item.progressPercent}% · Step {item.currentStep} of 8</strong><div><i style={{width:`${Math.max(4,item.progressPercent)}%`}} /></div></div>
           <div><span className="field-caption">Last active</span><strong>{item.updatedAt ? formatPortalDateTime(item.updatedAt) : 'Not recorded'}</strong><small>{item.resumeEmailSentAt ? `Link sent ${formatPortalDateTime(item.resumeEmailSentAt)}` : 'No continuation email sent yet'}</small></div>
           <div><span className="field-caption">Expires</span><strong>{item.expiresAt ? formatPortalDateTime(item.expiresAt) : '30 days'}</strong><small>{Object.keys(item.uploads || {}).length ? `${Object.keys(item.uploads || {}).length} CV file${Object.keys(item.uploads || {}).length === 1 ? '' : 's'} saved` : 'No CV stored'}</small></div>

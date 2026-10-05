@@ -1,0 +1,10 @@
+THiS CRM v0.17.38 - Incomplete Assessment Duplicate Visibility
+
+The Incomplete Assessments screen now flags likely duplicate records using the applicant email address.
+
+Possible duplicate: two or more active saved drafts use the same normalised email address.
+Previous assessment on file: the same email appears on an already submitted full assessment in THiS, including archived intake history.
+
+The screen shows the relevant counts and the most recent matching draft/submitted assessment information. These are advisory flags only. No record is automatically merged or deleted.
+
+Database: unchanged at 46 migrations.

@@ -1,4 +1,14 @@
-# THiS CRM v0.17.37 - Incomplete Assessment Resume & Reminder Reliability
+# THiS CRM v0.17.38 - Incomplete Assessment Duplicate Visibility
+
+## v0.17.38 - incomplete assessment duplicate visibility
+
+- Flags active incomplete assessment drafts that share the same normalised email address.
+- Shows the number of active drafts for that applicant and whether another draft is newer.
+- Flags applicants who already have one or more submitted assessments in THiS and shows the most recent submission date/status.
+- Adds a flagged count to the Incomplete Assessments heading so duplicate review is visible at a glance.
+- Matching is deliberately email-based and advisory only; THiS never automatically deletes or merges records.
+- No database migration. Database remains at 46 migrations.
+
 
 This release fixes incomplete-assessment continuation email sending and adds a controlled one-time reminder workflow.
 

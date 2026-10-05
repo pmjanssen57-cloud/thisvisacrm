@@ -20416,3 +20416,15 @@ body.festive-mode-active {
 @media (min-width: 1101px) { .incomplete-assessment-card { grid-template-columns:1.15fr .95fr 1fr .95fr .95fr auto; gap:12px; } }
 .incomplete-assessment-reminder strong { display:block; color:var(--ink); }
 .incomplete-assessment-reminder small { display:block; margin-top:4px; color:var(--muted); }
+
+/* THiS CRM v0.17.38 - incomplete assessment duplicate indicators */
+.incomplete-assessment-heading-counts { display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+.incomplete-duplicate-count { display:inline-flex; align-items:center; min-height:30px; padding:5px 10px; border-radius:999px; background:#fff6e8; border:1px solid #efcf9b; color:#8a5a16; font-size:11px; font-weight:850; white-space:nowrap; }
+.incomplete-assessment-card.has-duplicate-warning { border-color:#e3c58f; box-shadow:inset 3px 0 0 #d89c35; }
+.incomplete-duplicate-flags { display:flex; flex-wrap:wrap; gap:5px; margin-top:7px; }
+.incomplete-duplicate-badge { display:inline-flex; align-items:center; gap:4px; width:max-content; max-width:100%; padding:4px 7px; border-radius:999px; font-size:9.5px; line-height:1.2; font-weight:850; }
+.incomplete-duplicate-badge.draft { background:#fff4df; border:1px solid #ebca8d; color:#865b16; }
+.incomplete-duplicate-badge.previous { background:#eef9f5; border:1px solid #bfe3d5; color:#236a54; }
+.incomplete-duplicate-detail { margin-top:5px !important; color:#7b6750 !important; line-height:1.35; }
+@media (min-width:1101px) { .incomplete-assessment-card { grid-template-columns:1.4fr .9fr .95fr .9fr .9fr auto; } }
+@media (max-width:720px) { .incomplete-assessment-heading-counts { justify-content:flex-start; } }
