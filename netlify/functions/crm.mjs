@@ -561,8 +561,10 @@ async function handleCrmEvent(event) {
       requireAdminAccess(accessContext, 'Adviser management');
       const adviser = await saveAdviser(body.adviser);
       await invalidateCrmReference(CRM_ADVISER_CACHE_KEY);
+      const adviserRows = await db().sql`SELECT id, name, role, email, login_email, access_role, profile_photo_url, availability_status, phone, licence, active, preferences FROM advisers ORDER BY name ASC`;
+      const advisers = adviserRows.map(mapAdviserFromDb);
       const refreshedAccessContext = await resolveCrmAccess(auth);
-      return json({ adviser, accessContext: refreshedAccessContext });
+      return json({ adviser, advisers, accessContext: refreshedAccessContext });
     }
 
     if (action === 'deleteAdviser') {
@@ -2854,7 +2856,7 @@ async function issueAgreementSet(input = {}, issue = {}, user = null) {
   const principalName = normaliseSignatoryName(studioState?.client?.clientName);
   const partnerName = normaliseSignatoryName(studioState?.client?.partnerName);
   if (principalName && !signatories.some(item => normaliseSignatoryName(item.name) === principalName)) throw new Error('The principal client must remain a required signatory.');
-  if (partnerName && !signatories.some(item => normaliseSignatoryName(item.name) === partnerName)) throw new Error('The partner / second client must remain a required signatory.');
+  if (partnerName && !signatories.some(item => normaliseSignatoryName(item.name) === partnerName)) throw new Error('The partner / secondary applicant is recorded as a client in Client & matter. Current IAA guidance requires all clients, including secondary applicants, to accept the written agreement. Keep them as a required signatory, or remove them from Client & matter only if they are not a client to this engagement.');
   const usable = signatories;
   const configStatus = getEmailConfigStatus();
   const config = configStatus.configured ? requireMicrosoftEmailConfig() : null;
@@ -3022,11 +3024,12 @@ async function cachedReference(key, loader) {
 }
 
 async function readCachedCrmReferences(database = db()) {
-  const [advisers, emailTemplates, instructionTemplateLibrary, agreementTemplateLibrary, consultationTypes] = await Promise.all([
-    cachedReference(CRM_ADVISER_CACHE_KEY, async () => {
-      const rows = await database.sql`SELECT id, name, role, email, login_email, access_role, profile_photo_url, availability_status, phone, licence, active, preferences FROM advisers ORDER BY name ASC`;
-      return rows.map(mapAdviserFromDb);
-    }),
+  // Adviser profiles are deliberately read directly from Postgres. The list is tiny,
+  // and profile fields such as the IAA licence number must never be hidden behind a
+  // stale runtime cache after an administrator saves a change.
+  const adviserRows = await database.sql`SELECT id, name, role, email, login_email, access_role, profile_photo_url, availability_status, phone, licence, active, preferences FROM advisers ORDER BY name ASC`;
+  const advisers = adviserRows.map(mapAdviserFromDb);
+  const [emailTemplates, instructionTemplateLibrary, agreementTemplateLibrary, consultationTypes] = await Promise.all([
     cachedReference(CRM_EMAIL_TEMPLATE_CACHE_KEY, async () => getEmailTemplates(database)),
     cachedReference(CRM_INSTRUCTION_LIBRARY_CACHE_KEY, async () => {
       const rows = await database.sql`SELECT library_json FROM instruction_template_library WHERE id = 'master' LIMIT 1`;
@@ -3977,6 +3980,7 @@ async function saveAdviser(adviser = {}) {
   const database = db();
   const id = isUuid(adviser.id) ? adviser.id : null;
   const accessRole = normaliseCrmAccessRole(adviser.accessRole || adviser.access_role);
+  const licence = String(adviser.licence || adviser.license || adviser.liaLicence || adviser.lia_licence || '').trim();
 
   if (id) {
     const currentRows = await database.sql`SELECT id, access_role FROM advisers WHERE id = ${id} LIMIT 1`;
@@ -3998,7 +4002,7 @@ async function saveAdviser(adviser = {}) {
           profile_photo_url = ${normaliseProfilePhotoUrl(adviser.profilePhotoUrl || adviser.profile_photo_url || '')},
           availability_status = ${normaliseAdviserAvailability(adviser.availability || adviser.availabilityStatus || adviser.availability_status)},
           phone = ${adviser.phone || ''},
-          licence = ${adviser.licence || ''},
+          licence = ${licence},
           active = ${adviser.active !== false},
           preferences = ${JSON.stringify(normaliseJsonObject(adviser.preferences))}::jsonb,
           updated_at = NOW()
@@ -4010,7 +4014,7 @@ async function saveAdviser(adviser = {}) {
 
   const rows = await database.sql`
     INSERT INTO advisers (name, role, email, login_email, access_role, profile_photo_url, availability_status, phone, licence, active, preferences)
-    VALUES (${adviser.name || 'New adviser'}, ${adviser.role || 'Licensed Immigration Adviser'}, ${adviser.email || ''}, ${adviser.loginEmail || adviser.login_email || ''}, ${accessRole}, ${normaliseProfilePhotoUrl(adviser.profilePhotoUrl || adviser.profile_photo_url || '')}, ${normaliseAdviserAvailability(adviser.availability || adviser.availabilityStatus || adviser.availability_status)}, ${adviser.phone || ''}, ${adviser.licence || ''}, ${adviser.active !== false}, ${JSON.stringify(normaliseJsonObject(adviser.preferences))}::jsonb)
+    VALUES (${adviser.name || 'New adviser'}, ${adviser.role || 'Licensed Immigration Adviser'}, ${adviser.email || ''}, ${adviser.loginEmail || adviser.login_email || ''}, ${accessRole}, ${normaliseProfilePhotoUrl(adviser.profilePhotoUrl || adviser.profile_photo_url || '')}, ${normaliseAdviserAvailability(adviser.availability || adviser.availabilityStatus || adviser.availability_status)}, ${adviser.phone || ''}, ${licence}, ${adviser.active !== false}, ${JSON.stringify(normaliseJsonObject(adviser.preferences))}::jsonb)
     RETURNING id, name, role, email, login_email, access_role, profile_photo_url, availability_status, phone, licence, active, preferences
   `;
   return mapAdviserFromDb(rows[0]);

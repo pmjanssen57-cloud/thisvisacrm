@@ -54,7 +54,7 @@ function normaliseTemplateSettings(template={}){const adminFee=template.adminFee
 let crmAdvisers=[];
 function normaliseComplianceState(value={}){return {...defaultCompliance(),...(value&&typeof value==='object'?value:{})};}
 function findCrmAdviser(id=''){return crmAdvisers.find(item=>String(item?.id||'')===String(id||''))||null;}
-function seedAdviserDetails(target={},adviser={}){if(!adviser||!Object.keys(adviser).length)return target;return {...target,adviserId:adviser.id||target.adviserId||'',adviserName:adviser.name||target.adviserName||'',adviserEmail:adviser.email||target.adviserEmail||'',adviserLicence:adviser.licence||target.adviserLicence||''};}
+function seedAdviserDetails(target={},adviser={}){if(!adviser||!Object.keys(adviser).length)return target;const licence=adviser.licence||adviser.license||adviser.liaLicence||adviser.lia_licence||'';return {...target,adviserId:adviser.id||target.adviserId||'',adviserName:adviser.name||target.adviserName||'',adviserEmail:adviser.email||target.adviserEmail||'',adviserLicence:licence||target.adviserLicence||''};}
 
 function isLockedIssuedStatus(value=''){return ['Sent','Viewed','Partially signed','Accepted'].includes(String(value||''));}
 function normaliseAcceptanceText(value=''){
@@ -304,7 +304,23 @@ function renderMatter(){
  bindRepeats();
 }
 function renderFees(){$('#profRows').innerHTML=state.professionalFees.map((r,i)=>`<article class="fee-editor-card" data-prof-row="${i}"><div class="fee-editor-number">${i+1}</div><div class="fee-editor-copy"><strong>${esc(r.description||'Untitled payment stage')}</strong><span class="fee-editor-amount">${esc(r.amount||'Amount not set')}</span><p>${esc(r.trigger||'Payment trigger not set')}</p></div><div class="fee-editor-actions"><button class="btn secondary small" type="button" data-prof-move="up" ${i===0?'disabled':''}>↑ Up</button><button class="btn secondary small" type="button" data-prof-move="down" ${i===state.professionalFees.length-1?'disabled':''}>↓ Down</button><button class="btn secondary small" type="button" data-prof-edit>Edit</button><button class="btn danger small" type="button" data-prof-remove>Remove</button></div></article>`).join('');$('#govRows').innerHTML=state.governmentFees.map((r,i)=>`<article class="fee-editor-card" data-gov-row="${i}"><div class="fee-editor-number">${i+1}</div><div class="fee-editor-copy"><strong>${esc(r.agency||'Agency not set')}</strong><span class="fee-editor-amount">${esc(r.amount||'Amount not set')}</span><p>${esc(r.application||'Application type not set')}</p></div><div class="fee-editor-actions"><button class="btn secondary small" type="button" data-gov-move="up" ${i===0?'disabled':''}>↑ Up</button><button class="btn secondary small" type="button" data-gov-move="down" ${i===state.governmentFees.length-1?'disabled':''}>↓ Down</button><button class="btn secondary small" type="button" data-gov-edit>Edit</button><button class="btn danger small" type="button" data-gov-remove>Remove</button></div></article>`).join('');bindRepeats()}
-function renderSigning(){ $('#signatoryRows').innerHTML=state.signatories.map((r,i)=>{const accepted=String(r.status||'').toLowerCase()==='accepted'||Boolean(r.acceptedAt);const viewed=!accepted&&Boolean(r.viewedAt);return `<div class="repeatrow" data-sign-row="${i}"><div class="inlinegrid"><input class="input" data-sf="name" value="${esc(r.name)}" ${accepted?'readonly':''}><input class="input" data-sf="email" value="${esc(r.email)}" ${accepted?'readonly':''}><input class="input" data-sf="role" value="${esc(r.role)}" ${accepted?'readonly':''}></div><label class="checkrow"><input type="checkbox" data-sf-required ${r.required?'checked':''} ${accepted?'disabled':''}>Required signature</label><div class="signatory-audit ${accepted?'accepted':viewed?'viewed':'sent'}"><strong>${accepted?'Accepted':viewed?'Viewed':'Awaiting signature'}</strong>${accepted&&r.typedName?`<span>Signed by ${esc(r.typedName)}</span>`:''}${accepted&&r.acceptedAt?`<span>${esc(formatAcceptedDate(r.acceptedAt))}</span>`:''}${accepted&&r.signatureData?'<span>Electronic signature recorded</span>':''}</div><div class="rowactions">${accepted?'':`<button class="btn danger small" data-sign-remove>Remove</button>`}</div></div>`}).join('');$('#acceptanceText').value=state.acceptanceText;$('#emailSubject').value=state.emailSubject;$('#emailBody').value=state.emailBody;renderComplianceSummary();bindRepeats()}
+function renderSigning(){
+ const norm=value=>String(value||'').trim().toLowerCase();
+ const principalName=norm(state.client?.clientName);
+ const partnerName=norm(state.client?.partnerName);
+ $('#signatoryRows').innerHTML=state.signatories.map((r,i)=>{
+  const accepted=String(r.status||'').toLowerCase()==='accepted'||Boolean(r.acceptedAt);
+  const viewed=!accepted&&Boolean(r.viewedAt);
+  const name=norm(r.name);
+  const principalClient=Boolean(principalName&&name===principalName);
+  const partnerClient=Boolean(partnerName&&name===partnerName);
+  const lockedClient=principalClient||partnerClient;
+  if(lockedClient) r.required=true;
+  const ruleNote=principalClient?'Principal client - acceptance required':partnerClient?'Partner / secondary applicant client - acceptance required under current IAA guidance':'';
+  return `<div class="repeatrow" data-sign-row="${i}"><div class="inlinegrid"><input class="input" data-sf="name" value="${esc(r.name)}" ${accepted||lockedClient?'readonly':''}><input class="input" data-sf="email" value="${esc(r.email)}" ${accepted?'readonly':''}><input class="input" data-sf="role" value="${esc(r.role)}" ${accepted||lockedClient?'readonly':''}></div><label class="checkrow"><input type="checkbox" data-sf-required ${r.required?'checked':''} ${accepted||lockedClient?'disabled':''}>Required signature</label>${ruleNote?`<div class="help" style="margin:-2px 0 8px">${esc(ruleNote)}</div>`:''}<div class="signatory-audit ${accepted?'accepted':viewed?'viewed':'sent'}"><strong>${accepted?'Accepted':viewed?'Viewed':'Awaiting signature'}</strong>${accepted&&r.typedName?`<span>Signed by ${esc(r.typedName)}</span>`:''}${accepted&&r.acceptedAt?`<span>${esc(formatAcceptedDate(r.acceptedAt))}</span>`:''}${accepted&&r.signatureData?'<span>Electronic signature recorded</span>':''}</div><div class="rowactions">${accepted||lockedClient?'':`<button class="btn danger small" data-sign-remove>Remove</button>`}</div></div>`
+ }).join('');
+ $('#acceptanceText').value=state.acceptanceText;$('#emailSubject').value=state.emailSubject;$('#emailBody').value=state.emailBody;renderComplianceSummary();bindRepeats()
+}
 function renderTemplate(){ $$('.template').forEach(el=>el.value=state.template[el.dataset.key]||'');$('#versionHistory').innerHTML=state.templateHistory.slice().reverse().map(h=>`<div class="historyitem"><div><strong>Version ${esc(h.version)}</strong><small>${esc(h.date)} - ${esc(h.note)}</small></div><button class="btn secondary small" disabled>Published</button></div>`).join('')}
 function placeholderValue(value=''){const text=String(value||'').trim();return !text||/confirm current|to be confirmed|\bTBC\b|X{2,}|\$X|amount not set/i.test(text)}
 function complianceProblems(){
@@ -333,7 +349,7 @@ function complianceProblems(){
  required.forEach((item,index)=>{if(!String(item.name||'').trim()||!isUsableEmail(item.email)) problems.push(`Complete required signatory ${index+1} with a legal name and valid email address.`)});
  const norm=value=>String(value||'').trim().toLowerCase();
  if(norm(client.clientName)&&!required.some(item=>norm(item.name)===norm(client.clientName))) problems.push('The principal client must remain a required signatory.');
- if(norm(client.partnerName)&&!required.some(item=>norm(item.name)===norm(client.partnerName))) problems.push('The partner / second client must remain a required signatory.');
+ if(norm(client.partnerName)&&!required.some(item=>norm(item.name)===norm(client.partnerName))) problems.push('The partner / secondary applicant is recorded as a client in Client & matter. Current IAA guidance requires all clients, including secondary applicants, to accept the written agreement.');
  return [...new Set(problems)];
 }
 function renderComplianceSummary(){const el=$('#complianceSummary');if(!el)return;const problems=complianceProblems();el.textContent=problems.length?`${problems.length} item${problems.length===1?'':'s'} still need attention before issue. First: ${problems[0]}`:'IAA pre-issue checks complete. THiS will validate them again when the agreement is issued.';el.style.color=problems.length?'#8a5a00':'#1f6f55'}
@@ -449,8 +465,10 @@ function bind(){
  $('#appType').onchange=e=>switchType(e.target.value);$('#sourceMode').onchange=e=>{state.sourceMode=e.target.value;if(e.target.value==='standalone'){state.client.clientName='Standalone recipient';state.client.partnerName='';state.client.clientEmail='';state.client.matterRef='Standalone agreement'}dirty();renderAll()};
  $('#sectionTitleInput').oninput=e=>{state.sections.find(s=>s.id===state.selectedSection).title=e.target.value;dirty();renderSectionList();renderPages()};$('#sectionBodyInput').oninput=e=>{state.sections.find(s=>s.id===state.selectedSection).body=e.target.value;dirty();renderPages()};$('#numberMode').onchange=e=>{state.sections.find(s=>s.id===state.selectedSection).numberMode=e.target.value;renderContentEditor();dirty();renderAll()};$('#manualNumber').oninput=e=>{state.sections.find(s=>s.id===state.selectedSection).manualNumber=e.target.value;dirty();renderSectionList();renderPages()};
  $$('.matter').forEach(el=>el.oninput=e=>{
-  state.client[el.dataset.key]=e.target.value;
-  if(el.dataset.key==='clientEmail'||el.dataset.key==='clientName') syncPrincipalFromClient();
+  const key=el.dataset.key;
+  state.client[key]=e.target.value;
+  if(key==='clientEmail'||key==='clientName') syncPrincipalFromClient();
+  if(key==='adviserLicence'){state.compliance=normaliseComplianceState(state.compliance);state.compliance.licenceConfirmed=false;}
   dirty();renderHeader();renderSigning();renderPages()
  });
  $('#adviserSelect').onchange=e=>{const adviser=findCrmAdviser(e.target.value)||{};state.client=seedAdviserDetails({...state.client,adviserId:e.target.value||'',adviserName:'',adviserEmail:'',adviserLicence:''},adviser);state.compliance=normaliseComplianceState(state.compliance);state.compliance.licenceConfirmed=false;dirty();renderAll()};
@@ -516,7 +534,7 @@ bind();renderAll();
       adviserId:primary.id||client.primaryAdviserId||'',
       adviserName:primary.name||'',
       adviserEmail:primary.email||'',
-      adviserLicence:primary.licence||'',
+      adviserLicence:primary.licence||primary.license||primary.liaLicence||primary.lia_licence||'',
       preparedDate:new Date().toISOString().slice(0,10),
       expectedMonths:'To be confirmed',
       matterNote:defaultMatterDescription(appType)

@@ -2547,7 +2547,9 @@ export default function App() {
   }
 
   async function saveAdviser(adviser) {
-    await callApi('saveAdviser', { adviser });
+    const body = await callApi('saveAdviser', { adviser });
+    showCrmToast('Adviser profile saved.', 'success');
+    return body;
   }
 
   async function deleteAdviser(adviser) {
@@ -14323,7 +14325,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.34" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.41" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -14920,7 +14922,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.34" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.41" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}
@@ -19272,7 +19274,7 @@ function normalisePortalDocument(doc = {}) {
 
 function normaliseData(body) {
   return {
-    advisers: (body.advisers || []).map((adviser) => ({ ...adviser, loginEmail: adviser.loginEmail || adviser.login_email || '', accessRole: normaliseCrmAccessRole(adviser.accessRole || adviser.access_role), availability: adviser.availability === 'Away' ? 'Away' : 'Available', preferences: normaliseAdviserPreferences(adviser.preferences) })),
+    advisers: (body.advisers || []).map(normaliseAdviserFromApi),
     clients: (body.clients || []).map((client) => normaliseClientFromApi(client, body.stageTemplates || DEFAULT_STAGE_TEMPLATES)),
     commercialClients: (body.commercialClients || []).map(normaliseCommercialClient),
     caseTypes: body.caseTypes || DEFAULT_CASE_TYPES,
@@ -19314,6 +19316,7 @@ function normaliseAdviserFromApi(adviser = {}) {
     loginEmail: adviser.loginEmail || adviser.login_email || '',
     accessRole: normaliseCrmAccessRole(adviser.accessRole || adviser.access_role),
     availability: adviser.availability === 'Away' ? 'Away' : 'Available',
+    licence: adviser.licence || adviser.license || adviser.liaLicence || adviser.lia_licence || '',
     preferences: normaliseAdviserPreferences(adviser.preferences),
   };
 }
@@ -19327,7 +19330,8 @@ function upsertCrmItem(items = [], item = null) {
 
 function mergePartialCrmResponse(current = emptyData, body = {}) {
   let next = { ...current };
-  if (body.adviser) next.advisers = upsertCrmItem(current.advisers || [], normaliseAdviserFromApi(body.adviser));
+  if (Array.isArray(body.advisers)) next.advisers = body.advisers.map(normaliseAdviserFromApi);
+  if (body.adviser) next.advisers = upsertCrmItem(next.advisers || current.advisers || [], normaliseAdviserFromApi(body.adviser));
   if (body.deletedAdviserId) next.advisers = (current.advisers || []).filter((item) => item.id !== body.deletedAdviserId);
   if (body.client) next.clients = upsertCrmItem(current.clients || [], normaliseClientFromApi(body.client, current.stageTemplates || DEFAULT_STAGE_TEMPLATES));
   if (body.commercialClient) next.commercialClients = upsertCrmItem(current.commercialClients || [], normaliseCommercialClient(body.commercialClient));

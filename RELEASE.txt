@@ -1,5 +1,12 @@
-THiS CRM v0.17.39 - Inquiries Duplicate Flagging Hotfix
+THiS CRM v0.17.41 - Mobile Single-Scroll Reliability
 
-Fixes the blank Inquiries/Incomplete Assessments screen introduced in v0.17.38. The duplicate-assessment panel referenced a sort helper that only existed inside the parent workspace component, causing a runtime ReferenceError when the Incomplete tab rendered. The panel now uses its own safe assessment timestamp sorter.
-
-Database: 46 migrations. No new migration. Historical migrations unchanged.
+Changes
+- Mobile scrolling is normalised across the CRM so standard pages use the browser/document as the single vertical scroll owner.
+- Desktop max-height and nested overflow panes are removed on mobile for common lists, dashboards, workload queues, client/commercial lists and email/template lists.
+- Fixed modals, drawers, bottom sheets, client details, live chat and My Day retain exactly one deliberate internal vertical scroller.
+- Instructions Studio Pack/Edit/Preview now scroll as one mobile document rather than nested panel + preview scrollers.
+- Agreement Studio Sections/Edit/Preview uses the same one-scroll model.
+- Horizontal tabs remain swipeable without blocking vertical page gestures.
+- Mobile drawers use dynamic viewport height (100dvh).
+- Desktop behaviour is unchanged.
+- No database migration.

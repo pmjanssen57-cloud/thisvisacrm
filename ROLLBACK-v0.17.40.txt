@@ -1,0 +1,5 @@
+THiS CRM v0.17.41 rollback
+
+To roll back the application, deploy THiS-CRM-v0.17.40-ROLLBACK.zip.
+No database rollback is required because v0.17.41 adds no migration and does not change the schema.
+The database remains at 46 migrations.

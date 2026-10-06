@@ -1,0 +1,13 @@
+THiS CRM v0.17.40 - Adviser Licence Persistence & Agreement Signatory Guardrails
+
+Changes
+- Adviser licence numbers are now read directly from Postgres rather than the small adviser reference cache, eliminating stale licence values after an adviser profile is saved.
+- Saving an adviser returns the refreshed adviser list to the browser, and licence field normalisation accepts legacy licence/license/LIA aliases.
+- Agreement Studio now reliably pulls the adviser licence number from the adviser profile.
+- The Agreement Studio licence number can also be edited for the current agreement only as a controlled fallback; editing it resets the licence-confirmation checkbox.
+- Signatory handling is clearer: principal and partner/secondary-applicant rows that are recorded as clients are visibly locked as required rather than allowing removal and failing only at issue time.
+- Issue validation now explains the current IAA multi-client requirement when a partner/secondary applicant recorded as a client is missing from required signatories.
+- No database migration.
+
+IAA compliance note
+Current IAA guidance states that all clients, whether principal or secondary applicant, must have a written agreement and all parties to the written agreement must accept it. v0.17.40 therefore does not permit a genuine secondary applicant/client to be silently excluded from acceptance.

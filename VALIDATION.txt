@@ -1,17 +1,16 @@
-THiS CRM v0.17.39 validation
+THiS CRM v0.17.41 validation
 
-Release: Inquiries Duplicate Flagging Hotfix
-
-Checks completed:
-- App.jsx parsed/transpiled successfully with the TypeScript JSX parser.
-- main.jsx parsed/transpiled successfully with the TypeScript JSX parser.
-- All 22 Netlify .mjs functions passed `node --check`.
-- All 6 public JavaScript files passed `node --check`.
-- PWA validation passed via scripts/validate-pwa.mjs.
-- Service-worker cache advanced to v0.17.39.
-- IncompleteAssessmentPanel no longer relies on the parent-scoped `intakeSortTime()` helper.
-- Duplicate-history sorting was regression-tested with multiple prior submitted assessments.
-- Database migration count remains 46.
-- All 46 migration files are byte-for-byte unchanged from v0.17.38.
-
-A full Vite production build was not run because node_modules are not included in the deployable source package.
+- Release is based on v0.17.40.
+- Netlify functions: 22 .mjs files passed node --check.
+- Public JavaScript: all top-level .js files passed node --check.
+- Main styles.css parsed successfully with PostCSS.
+- Every embedded <style> block in Agreement Studio and Instructions Studio parsed successfully with PostCSS.
+- PWA validation passed.
+- package.json and manifest.webmanifest parsed successfully.
+- Mobile single-scroll regression assertions passed for the main CRM, Agreement Studio and Instructions Studio.
+- Database migrations: 46; byte-for-byte identical to v0.17.40.
+- Service-worker cache advanced to v0.17.41.
+- Agreement and Instructions Studio iframe/cache-busters advanced to v0.17.41.
+- App.jsx change is limited to two Studio iframe cache-buster string literals; no JSX structure was changed.
+- A full Vite production build was not run because node_modules are not included in the source package.
+- ZIP integrity checked after packaging.

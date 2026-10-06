@@ -20428,3 +20428,122 @@ body.festive-mode-active {
 .incomplete-duplicate-detail { margin-top:5px !important; color:#7b6750 !important; line-height:1.35; }
 @media (min-width:1101px) { .incomplete-assessment-card { grid-template-columns:1.4fr .9fr .95fr .9fr .9fr auto; } }
 @media (max-width:720px) { .incomplete-assessment-heading-counts { justify-content:flex-start; } }
+
+
+/* ========================================================================== */
+/* THiS CRM v0.17.41 - mobile single-scroll reliability                      */
+/* Normal mobile pages use the document as the sole vertical scroll owner.   */
+/* Fixed modals, sheets and drawers retain one explicit internal scroller.    */
+/* ========================================================================== */
+@media (max-width: 820px) {
+  html {
+    width:100%;
+    min-height:100%;
+    overflow-x:clip;
+    overflow-y:auto;
+    overscroll-behavior-y:auto;
+    scroll-padding-top:68px;
+    scroll-padding-bottom:calc(var(--mobile-nav-height) + var(--mobile-safe-bottom) + 18px);
+  }
+  @supports not (overflow-x: clip) {
+    html { overflow-x:hidden; }
+  }
+  body:not(.intake-embed-mode):not(.my-day-overlay-active) {
+    width:100%;
+    min-height:100dvh;
+    height:auto;
+    overflow-x:hidden;
+    overflow-y:auto;
+    overscroll-behavior-y:auto;
+    -webkit-overflow-scrolling:touch;
+    touch-action:pan-y pinch-zoom;
+  }
+  #root,
+  .app-shell,
+  .matter-workspace-v17,
+  .matter-workspace-v17 > .layout,
+  .workspace-modern-page,
+  .matter-work-page,
+  .matter-client-register,
+  .matter-command-centre,
+  .client-record-workspace-modern,
+  .flattened-client-workspace,
+  .commercial-workspace,
+  .commercial-main {
+    height:auto !important;
+    max-height:none !important;
+    overflow:visible !important;
+  }
+  .matter-workspace-v17,
+  .app-shell { min-height:100dvh !important; }
+  .matter-workspace-v17 > .layout { min-height:calc(100dvh - 60px); }
+
+  /* Remove desktop nested vertical scrollers from ordinary mobile pages. */
+  .client-list,
+  .library-list,
+  .workload-scroll,
+  .dashboard-side-column,
+  .action-queue-list,
+  .email-log-table,
+  .email-template-list,
+  .email-template-modal-list,
+  .email-template-modal-editor,
+  .commercial-client-list,
+  .commercial-client-list-scroll {
+    position:static !important;
+    top:auto !important;
+    height:auto !important;
+    max-height:none !important;
+    overflow:visible !important;
+    overscroll-behavior-y:auto !important;
+  }
+
+  /* Horizontal navigation remains horizontally scrollable without trapping vertical swipes. */
+  .client-workspace-tabs,
+  .unified-commercial-tabs,
+  .commercial-section-tabs,
+  .commercial-portal-tabs,
+  .matter-stage-track,
+  .quick-client-update-tabs,
+  .studio-section-switcher,
+  .action-queue-tabs {
+    touch-action:pan-x pan-y;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  /* Fixed surfaces intentionally own their one internal vertical scroll. */
+  .matter-modal-body,
+  .quick-client-update-body,
+  .modal-body,
+  .personalisation-scroll,
+  .client-details-drawer-body,
+  .support-drawer,
+  .tools-drawer,
+  .mobile-more-sheet,
+  .mobile-new-sheet,
+  .live-chat-crm-body,
+  .live-chat-settings-card,
+  .my-day-overlay-body,
+  .record-popout-editor,
+  .library-popout-editor {
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior-y:contain;
+    touch-action:pan-y;
+  }
+
+  /* Mobile drawers use dynamic viewport height and do not create a second page scroller. */
+  .support-drawer,
+  .tools-drawer,
+  .client-details-drawer,
+  .crm-side-drawer,
+  .live-chat-crm-drawer {
+    height:100dvh !important;
+    max-height:100dvh !important;
+  }
+
+  /* Sticky bars remain reachable but no longer require a nested page pane. */
+  .workspace-page-heading,
+  .matter-page-head,
+  .dashboard-heading,
+  .dashboard-compact-heading { scroll-margin-top:72px; }
+}
