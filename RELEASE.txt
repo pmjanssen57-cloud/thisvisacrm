@@ -1,12 +1,12 @@
-THiS CRM v0.17.41 - Mobile Single-Scroll Reliability
+THiS CRM v0.17.42 - Incomplete Assessment Chase View
 
 Changes
-- Mobile scrolling is normalised across the CRM so standard pages use the browser/document as the single vertical scroll owner.
-- Desktop max-height and nested overflow panes are removed on mobile for common lists, dashboards, workload queues, client/commercial lists and email/template lists.
-- Fixed modals, drawers, bottom sheets, client details, live chat and My Day retain exactly one deliberate internal vertical scroller.
-- Instructions Studio Pack/Edit/Preview now scroll as one mobile document rather than nested panel + preview scrollers.
-- Agreement Studio Sections/Edit/Preview uses the same one-scroll model.
-- Horizontal tabs remain swipeable without blocking vertical page gestures.
-- Mobile drawers use dynamic viewport height (100dvh).
-- Desktop behaviour is unchanged.
+- Incomplete Assessments now opens in an operational Chase view with Full list available alongside it.
+- Chase ranking uses existing draft data only: progress, inactivity, reminder state, expiry and duplicate/prior-assessment history.
+- High-priority and worthwhile follow-ups are surfaced separately from duplicate records that should be reviewed before chasing.
+- Summary metrics cover Needs chasing, 50%+ complete, Finished/high priority, Reminder available, Sent/no return, Expiring within 7 days and Duplicates/prior intake.
+- Filter chips allow advisers to narrow the Chase view instantly.
+- Each chase card shows last activity, expiry, reminder status, CV status and available pathway/location/citizenship/current-visa context.
+- Existing reminder/resume/delete actions are retained.
+- No automated chase emails, merges or deletions were added.
 - No database migration.

@@ -1,0 +1,12 @@
+THiS CRM v0.17.42 - Incomplete Assessment Chase View
+
+Purpose
+Turn the Incomplete Assessments area from a passive register into an adviser work queue.
+
+Priority rules
+- Review first: duplicate active drafts or a previously submitted assessment exists for the same normalised email.
+- High priority: appears complete but unsubmitted; 50%+ complete and inactive for at least 2 days; or very close to expiry with no reminder.
+- Worth chasing: 25%+ complete and inactive for at least 3 days; reminder sent with no return for at least 2 days; or an early-stage draft inactive for 5+ days with a reminder still available.
+- Low priority: recent/early-stage drafts that do not yet meet the above triggers.
+
+The ranking is advisory only. THiS does not automatically send, merge or delete records.

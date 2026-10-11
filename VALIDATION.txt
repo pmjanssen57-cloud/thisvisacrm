@@ -1,16 +1,13 @@
-THiS CRM v0.17.41 validation
+THiS CRM v0.17.42 validation
 
-- Release is based on v0.17.40.
-- Netlify functions: 22 .mjs files passed node --check.
-- Public JavaScript: all top-level .js files passed node --check.
-- Main styles.css parsed successfully with PostCSS.
-- Every embedded <style> block in Agreement Studio and Instructions Studio parsed successfully with PostCSS.
-- PWA validation passed.
-- package.json and manifest.webmanifest parsed successfully.
-- Mobile single-scroll regression assertions passed for the main CRM, Agreement Studio and Instructions Studio.
-- Database migrations: 46; byte-for-byte identical to v0.17.40.
-- Service-worker cache advanced to v0.17.41.
-- Agreement and Instructions Studio iframe/cache-busters advanced to v0.17.41.
-- App.jsx change is limited to two Studio iframe cache-buster string literals; no JSX structure was changed.
-- A full Vite production build was not run because node_modules are not included in the source package.
-- ZIP integrity checked after packaging.
+- App.jsx and main.jsx parsed successfully with TypeScript's JSX parser (`tsc --allowJs --jsx react-jsx --noEmit`).
+- 22 Netlify `.mjs` functions passed `node --check`.
+- 6 public `.js` files passed `node --check`.
+- styles.css parsed successfully with PostCSS.
+- PWA validation passed via scripts/validate-pwa.mjs.
+- Database remains at 46 migrations.
+- All 46 migration files are byte-for-byte unchanged from v0.17.41.
+- Service-worker cache advanced to v0.17.42.
+- Agreement and Instructions Studio iframe/cache-busters advanced to v0.17.42; Studio source logic itself is unchanged.
+- Incomplete Assessment Chase view is client-side and uses existing draft payload/reminder/duplicate data; no schema change is required.
+- Full Vite production build was not run because node_modules are not included in the source package.

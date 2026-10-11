@@ -1,0 +1,4 @@
+THiS CRM v0.17.42 rollback
+
+Deploy THiS CRM v0.17.41 to restore the previous Incomplete Assessments register.
+No database rollback is required because v0.17.42 adds no migration and does not change the schema.

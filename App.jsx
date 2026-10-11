@@ -9178,12 +9178,16 @@ function IncompleteAssessmentPanel({ drafts = [], priorAssessments = [], saving 
   const [sendingId, setSendingId] = useState('');
   const [sendingType, setSendingType] = useState('');
   const [notice, setNotice] = useState('');
+  const [viewMode, setViewMode] = useState('chase');
+  const [chaseFilter, setChaseFilter] = useState('all');
+
   async function resend(item) {
     setSendingId(item.id); setSendingType('resume'); setNotice('');
     try { await onResend?.(item.id); setNotice(`Continuation link sent to ${item.email}.`); }
     catch (err) { setNotice(err.message || 'The continuation email could not be sent.'); }
     finally { setSendingId(''); setSendingType(''); }
   }
+
   async function remind(item) {
     if (item.reminderEmailSentAt) return;
     setSendingId(item.id); setSendingType('reminder'); setNotice('');
@@ -9191,9 +9195,13 @@ function IncompleteAssessmentPanel({ drafts = [], priorAssessments = [], saving 
     catch (err) { setNotice(err.message || 'The reminder email could not be sent.'); }
     finally { setSendingId(''); setSendingType(''); }
   }
+
   const emailKeyFor = (value) => normaliseEnquiryEmail(value);
   const draftActivityTime = (draft = {}) => Date.parse(draft.updatedAt || draft.createdAt || '') || 0;
   const assessmentActivityTime = (assessment = {}) => Date.parse(assessment.createdAt || assessment.updatedAt || '') || 0;
+  const now = Date.now();
+  const oneDay = 24 * 60 * 60 * 1000;
+
   const draftGroups = new Map();
   drafts.forEach((draft) => {
     const key = emailKeyFor(draft.email);
@@ -9202,6 +9210,7 @@ function IncompleteAssessmentPanel({ drafts = [], priorAssessments = [], saving 
     list.push(draft);
     draftGroups.set(key, list);
   });
+
   const assessmentGroups = new Map();
   priorAssessments.forEach((assessment) => {
     const key = emailKeyFor(assessment.email);
@@ -9210,27 +9219,256 @@ function IncompleteAssessmentPanel({ drafts = [], priorAssessments = [], saving 
     list.push(assessment);
     assessmentGroups.set(key, list);
   });
-  const flaggedCount = drafts.filter((draft) => {
-    const key = emailKeyFor(draft.email);
-    return Boolean(key && ((draftGroups.get(key) || []).length > 1 || (assessmentGroups.get(key) || []).length));
-  }).length;
+
+  function relativeActivityLabel(timestamp) {
+    const value = Number(timestamp || 0);
+    if (!value) return 'Activity date not recorded';
+    const elapsed = Math.max(0, now - value);
+    const hours = Math.floor(elapsed / (60 * 60 * 1000));
+    const days = Math.floor(elapsed / oneDay);
+    if (hours < 1) return 'Active within the last hour';
+    if (hours < 24) return `Active ${hours} hour${hours === 1 ? '' : 's'} ago`;
+    if (days === 1) return 'Active 1 day ago';
+    return `Active ${days} days ago`;
+  }
+
+  function chaseMetaFor(item) {
+    const emailKey = emailKeyFor(item.email);
+    const matchingDrafts = emailKey ? (draftGroups.get(emailKey) || []).filter((draft) => draft.id !== item.id) : [];
+    const matchingAssessments = emailKey ? (assessmentGroups.get(emailKey) || []) : [];
+    const newestOtherDraft = [...matchingDrafts].sort((a, b) => draftActivityTime(b) - draftActivityTime(a))[0] || null;
+    const latestAssessment = [...matchingAssessments].sort((a, b) => assessmentActivityTime(b) - assessmentActivityTime(a))[0] || null;
+    const itemTime = draftActivityTime(item);
+    const anotherDraftIsNewer = Boolean(newestOtherDraft && draftActivityTime(newestOtherDraft) > itemTime);
+    const isFlagged = Boolean(matchingDrafts.length || matchingAssessments.length);
+    const progress = Math.max(0, Math.min(100, Number(item.progressPercent || 0)));
+    const currentStep = Math.max(1, Number(item.currentStep || 1));
+    const inactiveDays = itemTime ? Math.floor(Math.max(0, now - itemTime) / oneDay) : null;
+    const expiryTime = Date.parse(item.expiresAt || '') || 0;
+    const daysUntilExpiry = expiryTime ? Math.ceil((expiryTime - now) / oneDay) : null;
+    const reminderTime = Date.parse(item.reminderEmailSentAt || '') || 0;
+    const reminderSent = Boolean(reminderTime);
+    const reminderNoReturn = Boolean(reminderSent && (!itemTime || itemTime <= reminderTime + 60000));
+    const daysSinceReminder = reminderTime ? Math.floor(Math.max(0, now - reminderTime) / oneDay) : null;
+    const completeButNotSubmitted = progress >= 100 || (currentStep >= 8 && progress >= 99);
+    const expiringSoon = Number.isFinite(daysUntilExpiry) && daysUntilExpiry >= 0 && daysUntilExpiry <= 7;
+    const fiftyPlus = progress >= 50;
+
+    let priority = 'low';
+    let score = 20;
+    let recommendedAction = 'Leave for now and review again if the applicant becomes inactive.';
+
+    if (isFlagged) {
+      priority = 'review';
+      score = 120;
+      if (matchingAssessments.length) {
+        recommendedAction = 'Review before chasing — a submitted assessment already exists for this email address.';
+      } else if (anotherDraftIsNewer) {
+        recommendedAction = 'Review before chasing — a newer active draft exists and this one may be redundant.';
+      } else {
+        recommendedAction = 'Review the duplicate drafts before sending another reminder or deleting anything.';
+      }
+    } else if (completeButNotSubmitted) {
+      priority = 'high';
+      score = 115;
+      recommendedAction = 'Contact them — the assessment appears complete but has not been submitted.';
+    } else if (progress >= 50 && (inactiveDays === null || inactiveDays >= 2)) {
+      priority = 'high';
+      score = 100 + Math.min(10, inactiveDays || 0);
+      recommendedAction = reminderSent
+        ? 'Worth a personal follow-up — they were well progressed and have not returned after the reminder.'
+        : 'Send the one-time reminder — they are well progressed but have stopped.';
+    } else if (expiringSoon && !reminderSent) {
+      priority = daysUntilExpiry <= 3 ? 'high' : 'medium';
+      score = daysUntilExpiry <= 3 ? 96 : 82;
+      recommendedAction = `Send the reminder — this saved assessment expires in ${Math.max(0, daysUntilExpiry)} day${daysUntilExpiry === 1 ? '' : 's'}.`;
+    } else if (progress >= 25 && (inactiveDays === null || inactiveDays >= 3)) {
+      priority = 'medium';
+      score = 76 + Math.min(10, inactiveDays || 0);
+      recommendedAction = reminderSent
+        ? 'Consider a personal follow-up if the enquiry is worth pursuing.'
+        : 'Send the one-time reminder — enough of the assessment is complete to justify a follow-up.';
+    } else if (reminderNoReturn && (daysSinceReminder || 0) >= 2) {
+      priority = 'medium';
+      score = 68;
+      recommendedAction = 'Reminder already sent with no return — consider a personal follow-up or leave it to expire.';
+    } else if (!reminderSent && (inactiveDays || 0) >= 5) {
+      priority = 'medium';
+      score = 62;
+      recommendedAction = 'A reminder is available, although the applicant is still at an early stage.';
+    } else if (reminderSent) {
+      recommendedAction = 'Reminder sent — give the applicant time to return before chasing again.';
+    }
+
+    const payload = item.payload && typeof item.payload === 'object' ? item.payload : {};
+    const summaryFields = [
+      ['Pathway', payload.targetPathway || payload.immediateNeed || payload.longTermGoal || ''],
+      ['Location', payload.currentLocation || payload.contactLocation || ''],
+      ['Citizenship', payload.citizenship || ''],
+      ['Current visa', payload.currentVisaType || ''],
+    ].filter(([, value]) => String(value || '').trim()).slice(0, 4);
+
+    return {
+      item,
+      emailKey,
+      matchingDrafts,
+      matchingAssessments,
+      newestOtherDraft,
+      latestAssessment,
+      anotherDraftIsNewer,
+      isFlagged,
+      progress,
+      currentStep,
+      inactiveDays,
+      itemTime,
+      daysUntilExpiry,
+      reminderTime,
+      reminderSent,
+      reminderNoReturn,
+      daysSinceReminder,
+      completeButNotSubmitted,
+      expiringSoon,
+      fiftyPlus,
+      priority,
+      score,
+      recommendedAction,
+      summaryFields,
+      cvCount: Object.keys(item.uploads || {}).length,
+      lastActiveLabel: relativeActivityLabel(itemTime),
+    };
+  }
+
+  const enrichedDrafts = drafts.map(chaseMetaFor);
+  const chaseItems = [...enrichedDrafts].sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    if (b.progress !== a.progress) return b.progress - a.progress;
+    return a.itemTime - b.itemTime;
+  });
+
+  const flaggedCount = chaseItems.filter((meta) => meta.isFlagged).length;
+  const chaseNowCount = chaseItems.filter((meta) => meta.priority === 'high' || meta.priority === 'medium').length;
+  const highPriorityCount = chaseItems.filter((meta) => meta.priority === 'high').length;
+  const fiftyPlusCount = chaseItems.filter((meta) => meta.fiftyPlus).length;
+  const completeCount = chaseItems.filter((meta) => meta.completeButNotSubmitted).length;
+  const finishedOrHighCount = chaseItems.filter((meta) => meta.completeButNotSubmitted || meta.priority === 'high').length;
+  const reminderAvailableCount = chaseItems.filter((meta) => !meta.reminderSent).length;
+  const reminderNoReturnCount = chaseItems.filter((meta) => meta.reminderNoReturn).length;
+  const expiringCount = chaseItems.filter((meta) => meta.expiringSoon).length;
+
+  const chaseFilters = [
+    { id: 'all', label: 'All', count: chaseItems.length, test: () => true },
+    { id: 'chase', label: 'Chase now', count: chaseNowCount, test: (meta) => meta.priority === 'high' || meta.priority === 'medium' },
+    { id: 'high', label: 'High / finished', count: finishedOrHighCount, test: (meta) => meta.priority === 'high' || meta.completeButNotSubmitted },
+    { id: 'reminder', label: 'Reminder available', count: reminderAvailableCount, test: (meta) => !meta.reminderSent },
+    { id: 'noReturn', label: 'No return after reminder', count: reminderNoReturnCount, test: (meta) => meta.reminderNoReturn },
+    { id: 'half', label: '50%+', count: fiftyPlusCount, test: (meta) => meta.fiftyPlus },
+    { id: 'expiring', label: 'Expiring', count: expiringCount, test: (meta) => meta.expiringSoon },
+    { id: 'duplicate', label: 'Duplicates', count: flaggedCount, test: (meta) => meta.isFlagged },
+  ];
+  const activeChaseFilter = chaseFilters.find((filter) => filter.id === chaseFilter) || chaseFilters[0];
+  const visibleChaseItems = chaseItems.filter(activeChaseFilter.test);
+
+  const priorityLabels = {
+    high: 'High priority',
+    medium: 'Worth chasing',
+    review: 'Review first',
+    low: 'Low priority',
+  };
 
   return <div className="incomplete-assessment-panel">
-    <div className="enquiries-queue-heading"><div><span className="eyebrow">Saved for later</span><h2>Incomplete assessments</h2><p className="muted">These drafts are separate from New Intake and expire after 30 days of inactivity. Possible duplicates are flagged by matching email so you can review them before deleting anything.</p></div><div className="incomplete-assessment-heading-counts"><span className="enquiries-shown-count">{drafts.length} saved</span>{flaggedCount > 0 && <span className="incomplete-duplicate-count">{flaggedCount} flagged</span>}</div></div>
+    <div className="enquiries-queue-heading">
+      <div>
+        <span className="eyebrow">Saved for later</span>
+        <h2>Incomplete assessments</h2>
+        <p className="muted">Use Chase view to see who is worth following up, or switch to Full list for the complete administrative register. Possible duplicates are matched by email.</p>
+      </div>
+      <div className="incomplete-assessment-heading-counts">
+        <span className="enquiries-shown-count">{drafts.length} saved</span>
+        {chaseNowCount > 0 && <span className="incomplete-chase-count">{chaseNowCount} to chase</span>}
+        {flaggedCount > 0 && <span className="incomplete-duplicate-count">{flaggedCount} flagged</span>}
+      </div>
+    </div>
+
+    <div className="incomplete-assessment-viewbar" aria-label="Incomplete assessment view">
+      <div className="incomplete-assessment-viewtoggle" role="tablist" aria-label="Incomplete assessment views">
+        <button type="button" className={viewMode === 'chase' ? 'active' : ''} onClick={() => setViewMode('chase')}><ListChecks size={15}/>Chase view</button>
+        <button type="button" className={viewMode === 'list' ? 'active' : ''} onClick={() => setViewMode('list')}><ClipboardList size={15}/>Full list</button>
+      </div>
+      <small>{viewMode === 'chase' ? 'Priority is based on progress, inactivity, reminder state, expiry and duplicate history.' : 'Full administrative detail and all actions.'}</small>
+    </div>
+
     {notice && <div className="success-banner compact">{notice}</div>}
-    <div className="incomplete-assessment-list">
-      {drafts.map((item) => {
+
+    {viewMode === 'chase' ? <>
+      <div className="incomplete-chase-metrics" aria-label="Incomplete assessment chase summary">
+        <button type="button" className={chaseFilter === 'chase' ? 'active' : ''} onClick={() => setChaseFilter('chase')}><span>Needs chasing</span><strong>{chaseNowCount}</strong><small>High + worthwhile follow-up</small></button>
+        <button type="button" className={chaseFilter === 'half' ? 'active' : ''} onClick={() => setChaseFilter('half')}><span>50%+ complete</span><strong>{fiftyPlusCount}</strong><small>Meaningful progress made</small></button>
+        <button type="button" className={chaseFilter === 'high' ? 'active' : ''} onClick={() => setChaseFilter('high')}><span>Finished / high priority</span><strong>{finishedOrHighCount}</strong><small>{completeCount} appear complete</small></button>
+        <button type="button" className={chaseFilter === 'reminder' ? 'active' : ''} onClick={() => setChaseFilter('reminder')}><span>Reminder available</span><strong>{reminderAvailableCount}</strong><small>Not yet used</small></button>
+        <button type="button" className={chaseFilter === 'noReturn' ? 'active' : ''} onClick={() => setChaseFilter('noReturn')}><span>Sent, no return</span><strong>{reminderNoReturnCount}</strong><small>Reminder has gone out</small></button>
+        <button type="button" className={chaseFilter === 'expiring' ? 'active' : ''} onClick={() => setChaseFilter('expiring')}><span>Expiring ≤ 7 days</span><strong>{expiringCount}</strong><small>Time-sensitive drafts</small></button>
+        <button type="button" className={chaseFilter === 'duplicate' ? 'active' : ''} onClick={() => setChaseFilter('duplicate')}><span>Duplicates / prior intake</span><strong>{flaggedCount}</strong><small>Review before chasing</small></button>
+      </div>
+
+      <div className="incomplete-chase-filterbar" aria-label="Chase view filters">
+        {chaseFilters.map((filter) => <button key={filter.id} type="button" className={chaseFilter === filter.id ? 'active' : ''} onClick={() => setChaseFilter(filter.id)}>{filter.label}<span>{filter.count}</span></button>)}
+      </div>
+
+      <div className="incomplete-chase-list">
+        {visibleChaseItems.map((meta) => {
+          const item = meta.item;
+          const busy = saving || sendingId === item.id;
+          const applicantName = [item.firstName, item.lastName].filter(Boolean).join(' ') || 'Unnamed applicant';
+          const expiryText = Number.isFinite(meta.daysUntilExpiry)
+            ? (meta.daysUntilExpiry <= 0 ? 'Expires today' : `Expires in ${meta.daysUntilExpiry} day${meta.daysUntilExpiry === 1 ? '' : 's'}`)
+            : 'Expiry not recorded';
+          return <article key={item.id} className={`incomplete-chase-card priority-${meta.priority}${meta.isFlagged ? ' has-duplicate-warning' : ''}`}>
+            <div className="incomplete-chase-card-main">
+              <div className="incomplete-chase-card-heading">
+                <div>
+                  <div className="incomplete-chase-badges">
+                    <span className={`incomplete-chase-priority ${meta.priority}`}>{priorityLabels[meta.priority]}</span>
+                    {meta.completeButNotSubmitted && <span className="incomplete-chase-badge complete"><CheckCircle2 size={12}/>100% / Step 8</span>}
+                    {meta.isFlagged && <span className="incomplete-chase-badge duplicate"><Copy size={12}/>Possible duplicate</span>}
+                  </div>
+                  <h3>{applicantName}</h3>
+                  <p>{item.email || 'No email recorded'}</p>
+                </div>
+                <div className="incomplete-chase-progress-number"><strong>{meta.progress}%</strong><span>Step {meta.currentStep} of 8</span></div>
+              </div>
+
+              <div className="incomplete-chase-facts">
+                <div><span>Last active</span><strong>{meta.lastActiveLabel}</strong><small>{item.updatedAt ? formatPortalDateTime(item.updatedAt) : 'Not recorded'}</small></div>
+                <div><span>Expiry</span><strong>{expiryText}</strong><small>{item.expiresAt ? formatPortalDateTime(item.expiresAt) : '30-day draft window'}</small></div>
+                <div><span>Reminder</span><strong>{meta.reminderSent ? (meta.reminderNoReturn ? 'Sent · no return yet' : 'Sent · applicant returned') : 'Available'}</strong><small>{item.reminderEmailSentAt ? formatPortalDateTime(item.reminderEmailSentAt) : 'One send available'}</small></div>
+                <div><span>CV</span><strong>{meta.cvCount ? `${meta.cvCount} saved` : 'None saved'}</strong><small>{item.resumeEmailSentAt ? `Resume link sent ${formatPortalDateTime(item.resumeEmailSentAt)}` : 'No continuation email yet'}</small></div>
+              </div>
+
+              {meta.summaryFields.length > 0 && <div className="incomplete-chase-summary-fields">{meta.summaryFields.map(([label, value]) => <span key={`${item.id}-${label}`}><small>{label}</small><strong>{formatIntakeValue(value)}</strong></span>)}</div>}
+
+              {meta.isFlagged && <div className="incomplete-chase-review-note">
+                {meta.matchingDrafts.length > 0 && <span><Copy size={13}/>{meta.matchingDrafts.length + 1} active drafts for this email{meta.anotherDraftIsNewer ? ' · a newer draft exists' : ''}.</span>}
+                {meta.latestAssessment && <span><FileCheck2 size={13}/>Submitted assessment on file{meta.latestAssessment.createdAt ? ` · ${formatPortalDateTime(meta.latestAssessment.createdAt)}` : ''}{meta.latestAssessment.status ? ` · ${meta.latestAssessment.status}` : ''}.</span>}
+              </div>}
+
+              <div className={`incomplete-chase-recommendation ${meta.priority}`}><strong>Suggested action</strong><span>{meta.recommendedAction}</span></div>
+            </div>
+
+            <div className="incomplete-chase-actions">
+              {!meta.reminderSent ? <button className="btn dark" type="button" disabled={busy} onClick={() => remind(item)}><Send size={15}/>{sendingId === item.id && sendingType === 'reminder' ? 'Sending…' : 'Send reminder'}</button> : <button className="btn ghost" type="button" disabled><CheckCircle2 size={15}/>Reminder sent</button>}
+              <button className="btn ghost" type="button" disabled={busy} onClick={() => resend(item)}><Mail size={15}/>{sendingId === item.id && sendingType === 'resume' ? 'Sending…' : 'Send resume link'}</button>
+              {isAdmin && <button className="btn danger" type="button" disabled={busy} onClick={() => onDelete?.(item.id)}><Trash2 size={15}/>Delete</button>}
+            </div>
+          </article>;
+        })}
+        {!visibleChaseItems.length && <div className="empty-state slim"><CheckCircle2 size={34}/><h2>Nothing in this chase filter</h2><p>Try another filter or switch to the full list.</p></div>}
+      </div>
+    </> : <div className="incomplete-assessment-list">
+      {enrichedDrafts.map((meta) => {
+        const item = meta.item;
         const busy = saving || sendingId === item.id;
-        const emailKey = emailKeyFor(item.email);
-        const matchingDrafts = emailKey ? (draftGroups.get(emailKey) || []).filter((draft) => draft.id !== item.id) : [];
-        const matchingAssessments = emailKey ? (assessmentGroups.get(emailKey) || []) : [];
-        const newestOtherDraft = [...matchingDrafts].sort((a, b) => draftActivityTime(b) - draftActivityTime(a))[0] || null;
-        const latestAssessment = [...matchingAssessments].sort((a, b) => assessmentActivityTime(b) - assessmentActivityTime(a))[0] || null;
-        const itemTime = draftActivityTime(item);
-        const anotherDraftIsNewer = Boolean(newestOtherDraft && draftActivityTime(newestOtherDraft) > itemTime);
-        const isFlagged = Boolean(matchingDrafts.length || matchingAssessments.length);
-        return <article key={item.id} className={`incomplete-assessment-card${isFlagged ? ' has-duplicate-warning' : ''}`}>
-          <div className="incomplete-assessment-person"><strong>{[item.firstName,item.lastName].filter(Boolean).join(' ') || 'Unnamed applicant'}</strong><span>{item.email || 'No email'}</span>{isFlagged && <div className="incomplete-duplicate-flags">{matchingDrafts.length > 0 && <span className="incomplete-duplicate-badge draft"><Copy size={12}/>Possible duplicate · {matchingDrafts.length + 1} active drafts</span>}{matchingAssessments.length > 0 && <span className="incomplete-duplicate-badge previous"><FileCheck2 size={12}/>Previous assessment on file · {matchingAssessments.length}</span>}</div>}{matchingDrafts.length > 0 && <small className="incomplete-duplicate-detail">{anotherDraftIsNewer ? `A newer draft was active ${newestOtherDraft.updatedAt ? formatPortalDateTime(newestOtherDraft.updatedAt) : 'recently'} (${newestOtherDraft.progressPercent}% complete).` : `Another draft exists${newestOtherDraft?.updatedAt ? `, last active ${formatPortalDateTime(newestOtherDraft.updatedAt)}` : ''}${Number.isFinite(Number(newestOtherDraft?.progressPercent)) ? ` (${newestOtherDraft.progressPercent}% complete)` : ''}.`}</small>}{latestAssessment && <small className="incomplete-duplicate-detail">Most recent submitted assessment: {latestAssessment.createdAt ? formatPortalDateTime(latestAssessment.createdAt) : 'date not recorded'}{latestAssessment.status ? ` · ${latestAssessment.status}` : ''}.</small>}</div>
+        return <article key={item.id} className={`incomplete-assessment-card${meta.isFlagged ? ' has-duplicate-warning' : ''}`}>
+          <div className="incomplete-assessment-person"><strong>{[item.firstName,item.lastName].filter(Boolean).join(' ') || 'Unnamed applicant'}</strong><span>{item.email || 'No email'}</span>{meta.isFlagged && <div className="incomplete-duplicate-flags">{meta.matchingDrafts.length > 0 && <span className="incomplete-duplicate-badge draft"><Copy size={12}/>Possible duplicate · {meta.matchingDrafts.length + 1} active drafts</span>}{meta.matchingAssessments.length > 0 && <span className="incomplete-duplicate-badge previous"><FileCheck2 size={12}/>Previous assessment on file · {meta.matchingAssessments.length}</span>}</div>}{meta.matchingDrafts.length > 0 && <small className="incomplete-duplicate-detail">{meta.anotherDraftIsNewer ? `A newer draft was active ${meta.newestOtherDraft.updatedAt ? formatPortalDateTime(meta.newestOtherDraft.updatedAt) : 'recently'} (${meta.newestOtherDraft.progressPercent}% complete).` : `Another draft exists${meta.newestOtherDraft?.updatedAt ? `, last active ${formatPortalDateTime(meta.newestOtherDraft.updatedAt)}` : ''}${Number.isFinite(Number(meta.newestOtherDraft?.progressPercent)) ? ` (${meta.newestOtherDraft.progressPercent}% complete)` : ''}.`}</small>}{meta.latestAssessment && <small className="incomplete-duplicate-detail">Most recent submitted assessment: {meta.latestAssessment.createdAt ? formatPortalDateTime(meta.latestAssessment.createdAt) : 'date not recorded'}{meta.latestAssessment.status ? ` · ${meta.latestAssessment.status}` : ''}.</small>}</div>
           <div className="incomplete-assessment-progress"><span>Progress</span><strong>{item.progressPercent}% · Step {item.currentStep} of 8</strong><div><i style={{width:`${Math.max(4,item.progressPercent)}%`}} /></div></div>
           <div><span className="field-caption">Last active</span><strong>{item.updatedAt ? formatPortalDateTime(item.updatedAt) : 'Not recorded'}</strong><small>{item.resumeEmailSentAt ? `Link sent ${formatPortalDateTime(item.resumeEmailSentAt)}` : 'No continuation email sent yet'}</small></div>
           <div><span className="field-caption">Expires</span><strong>{item.expiresAt ? formatPortalDateTime(item.expiresAt) : '30 days'}</strong><small>{Object.keys(item.uploads || {}).length ? `${Object.keys(item.uploads || {}).length} CV file${Object.keys(item.uploads || {}).length === 1 ? '' : 's'} saved` : 'No CV stored'}</small></div>
@@ -9243,7 +9481,7 @@ function IncompleteAssessmentPanel({ drafts = [], priorAssessments = [], saving 
         </article>;
       })}
       {!drafts.length && <div className="empty-state slim"><FileCheck2 size={34}/><h2>No incomplete assessments</h2><p>Saved assessment drafts will appear here without affecting the New Intake queue.</p></div>}
-    </div>
+    </div>}
   </div>;
 }
 
@@ -14325,7 +14563,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.41" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.42" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -14922,7 +15160,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.41" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.42" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}

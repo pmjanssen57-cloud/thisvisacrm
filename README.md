@@ -1,15 +1,18 @@
-# THiS CRM v0.17.41 - Mobile Single-Scroll Reliability
+# THiS CRM v0.17.42 - Incomplete Assessment Chase View
 
-This release is based on v0.17.40 and addresses difficult/sticky scrolling across the mobile CRM.
+This release is based on v0.17.41 and adds an operational Chase view to Incomplete Assessments while preserving the existing full register.
 
-## Mobile interaction model
-- Normal CRM pages: one browser/document vertical scroll.
-- Full-screen modal/drawer/sheet workflows: one intentional internal vertical scroll.
-- Instructions Studio and Agreement Studio: one vertical document scroll in each mobile mode; nested editor/preview vertical scrollers are removed.
-- Horizontal tab rails remain horizontally swipeable.
+## Incomplete Assessment Chase View
+- Adds Chase view / Full list switching.
+- Summarises drafts by chase priority, progress, inactivity, reminder state, expiry and duplicate history.
+- Flags assessments that appear complete but have not been submitted.
+- Highlights 50%+ complete drafts, reminder availability, no-return reminders, imminent expiry and duplicate/prior-assessment records.
+- Shows a compact applicant summary from answers already saved (pathway, location, citizenship and current visa where available).
+- Provides suggested follow-up actions without automatically emailing, deleting or merging records.
+- Keeps Send reminder, Send resume link and Admin Delete actions available from Chase view.
 
 ## Database
-No schema change. The database remains at 46 migrations and historical migrations must not be changed.
+No schema change. The database remains at 46 migrations and all historical migrations are unchanged.
 
 ## Rollback
-Deploy the v0.17.40 rollback package. No database rollback is required.
+Deploy the v0.17.41 rollback package. No database rollback is required.

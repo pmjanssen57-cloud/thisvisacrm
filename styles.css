@@ -20547,3 +20547,133 @@ body.festive-mode-active {
   .dashboard-heading,
   .dashboard-compact-heading { scroll-margin-top:72px; }
 }
+
+/* ========================================================================== */
+/* THiS CRM v0.17.42 - incomplete assessment chase view                       */
+/* ========================================================================== */
+.incomplete-assessment-viewbar {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin:14px 0 0;
+  padding:8px 10px;
+  border:1px solid #d7e5e0;
+  border-radius:12px;
+  background:#f8fbfa;
+}
+.incomplete-assessment-viewbar > small { color:#6b7e79; font-size:11px; line-height:1.35; text-align:right; }
+.incomplete-assessment-viewtoggle { display:inline-flex; gap:4px; padding:3px; border:1px solid #d8e5e0; border-radius:10px; background:#fff; }
+.incomplete-assessment-viewtoggle button {
+  display:inline-flex; align-items:center; gap:6px; min-height:34px; padding:6px 10px; border:0; border-radius:8px;
+  background:transparent; color:#58706a; font-size:11px; font-weight:850; cursor:pointer;
+}
+.incomplete-assessment-viewtoggle button.active { background:#003f3a; color:#fff; box-shadow:0 3px 10px rgba(0,55,54,.12); }
+.incomplete-chase-count { display:inline-flex; align-items:center; min-height:30px; padding:5px 10px; border-radius:999px; background:#ecfaf4; border:1px solid #bfe4d6; color:#176c50; font-size:11px; font-weight:850; white-space:nowrap; }
+
+.incomplete-chase-metrics {
+  display:grid;
+  grid-template-columns:repeat(7,minmax(0,1fr));
+  gap:8px;
+  margin-top:14px;
+}
+.incomplete-chase-metrics button {
+  min-width:0; min-height:88px; padding:10px 11px; border:1px solid #d5e2de; border-radius:12px; background:#fff;
+  text-align:left; cursor:pointer; transition:border-color .16s ease, background .16s ease, transform .16s ease;
+}
+.incomplete-chase-metrics button:hover { transform:translateY(-1px); border-color:#abd8c8; }
+.incomplete-chase-metrics button.active { background:#effaf6; border-color:#8fd2bb; box-shadow:inset 0 0 0 1px rgba(85,217,160,.18); }
+.incomplete-chase-metrics span { display:block; color:#61766f; font-size:9px; line-height:1.25; font-weight:850; text-transform:uppercase; letter-spacing:.045em; }
+.incomplete-chase-metrics strong { display:block; margin:4px 0 2px; color:#003f3a; font-size:21px; line-height:1; }
+.incomplete-chase-metrics small { display:block; color:#80918c; font-size:9.5px; line-height:1.25; }
+
+.incomplete-chase-filterbar { display:flex; flex-wrap:wrap; gap:6px; margin:12px 0 0; }
+.incomplete-chase-filterbar button {
+  display:inline-flex; align-items:center; gap:6px; min-height:31px; padding:5px 9px; border:1px solid #d6e3df; border-radius:999px;
+  background:#fff; color:#526a64; font-size:10.5px; font-weight:800; cursor:pointer;
+}
+.incomplete-chase-filterbar button span { display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:0 5px; border-radius:999px; background:#edf4f1; color:#365d53; font-size:9.5px; }
+.incomplete-chase-filterbar button.active { background:#003f3a; border-color:#003f3a; color:#fff; }
+.incomplete-chase-filterbar button.active span { background:rgba(255,255,255,.16); color:#fff; }
+
+.incomplete-chase-list { display:grid; gap:10px; margin-top:12px; }
+.incomplete-chase-card {
+  display:grid; grid-template-columns:minmax(0,1fr) auto; gap:14px; align-items:stretch;
+  border:1px solid #d4e2dd; border-radius:14px; background:#fff; overflow:hidden;
+  box-shadow:0 5px 16px rgba(12,57,49,.035);
+}
+.incomplete-chase-card.priority-high { border-color:#e7b6ad; box-shadow:inset 3px 0 0 #c75d50,0 5px 16px rgba(12,57,49,.035); }
+.incomplete-chase-card.priority-medium { border-color:#e4cf9d; box-shadow:inset 3px 0 0 #d2a437,0 5px 16px rgba(12,57,49,.035); }
+.incomplete-chase-card.priority-review { border-color:#e2c28c; box-shadow:inset 3px 0 0 #c88b2e,0 5px 16px rgba(12,57,49,.035); }
+.incomplete-chase-card.priority-low { box-shadow:inset 3px 0 0 #b8d9cd,0 5px 16px rgba(12,57,49,.035); }
+.incomplete-chase-card-main { min-width:0; padding:13px 14px 12px 16px; }
+.incomplete-chase-card-heading { display:flex; justify-content:space-between; gap:14px; align-items:flex-start; }
+.incomplete-chase-card-heading h3 { margin:6px 0 1px; color:#003f3a; font-size:15px; line-height:1.2; }
+.incomplete-chase-card-heading p { margin:0; color:#6a7d78; font-size:10.5px; overflow-wrap:anywhere; }
+.incomplete-chase-badges { display:flex; flex-wrap:wrap; gap:5px; }
+.incomplete-chase-priority,
+.incomplete-chase-badge { display:inline-flex; align-items:center; gap:4px; width:max-content; max-width:100%; min-height:23px; padding:3px 7px; border-radius:999px; font-size:9px; line-height:1.15; font-weight:900; text-transform:uppercase; letter-spacing:.035em; }
+.incomplete-chase-priority.high { background:#fff0ed; color:#9b382f; border:1px solid #efc1ba; }
+.incomplete-chase-priority.medium { background:#fff8e8; color:#8a6119; border:1px solid #ead4a5; }
+.incomplete-chase-priority.review { background:#fff4df; color:#825514; border:1px solid #e8c887; }
+.incomplete-chase-priority.low { background:#eef8f4; color:#397160; border:1px solid #cfe5dd; }
+.incomplete-chase-badge.complete { background:#eaf8f1; color:#176b50; border:1px solid #bfe2d4; }
+.incomplete-chase-badge.duplicate { background:#fff4df; color:#865b16; border:1px solid #ebca8d; }
+.incomplete-chase-progress-number { flex:0 0 auto; text-align:right; }
+.incomplete-chase-progress-number strong { display:block; color:#003f3a; font-size:22px; line-height:1; }
+.incomplete-chase-progress-number span { display:block; margin-top:4px; color:#6e827c; font-size:9.5px; font-weight:750; }
+
+.incomplete-chase-facts { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-top:12px; }
+.incomplete-chase-facts > div { min-width:0; padding:8px 9px; border-radius:9px; background:#f7faf9; border:1px solid #e2ebe8; }
+.incomplete-chase-facts span { display:block; color:#748983; font-size:8.5px; font-weight:900; text-transform:uppercase; letter-spacing:.055em; }
+.incomplete-chase-facts strong { display:block; margin-top:3px; color:#294d46; font-size:10.5px; line-height:1.25; }
+.incomplete-chase-facts small { display:block; margin-top:3px; color:#7e908b; font-size:9px; line-height:1.3; }
+
+.incomplete-chase-summary-fields { display:flex; flex-wrap:wrap; gap:6px; margin-top:9px; }
+.incomplete-chase-summary-fields > span { display:inline-flex; align-items:baseline; gap:5px; max-width:100%; padding:5px 7px; border-radius:8px; background:#f0f8f5; border:1px solid #d5e8e1; }
+.incomplete-chase-summary-fields small { color:#71847e; font-size:8.5px; font-weight:850; text-transform:uppercase; letter-spacing:.04em; }
+.incomplete-chase-summary-fields strong { color:#31564d; font-size:10px; line-height:1.25; font-weight:780; }
+.incomplete-chase-review-note { display:flex; flex-wrap:wrap; gap:6px 12px; margin-top:9px; padding:8px 10px; border-radius:9px; background:#fff8ec; border:1px solid #ead2a8; color:#76551e; }
+.incomplete-chase-review-note span { display:inline-flex; align-items:flex-start; gap:5px; font-size:9.5px; line-height:1.35; }
+.incomplete-chase-review-note svg { flex:0 0 auto; margin-top:1px; }
+.incomplete-chase-recommendation { display:grid; grid-template-columns:auto minmax(0,1fr); gap:8px; align-items:start; margin-top:9px; padding:8px 10px; border-radius:9px; background:#f5f9f7; color:#405f57; font-size:10px; line-height:1.35; }
+.incomplete-chase-recommendation strong { color:#003f3a; white-space:nowrap; }
+.incomplete-chase-recommendation.high { background:#fff4f1; }
+.incomplete-chase-recommendation.medium { background:#fff9ed; }
+.incomplete-chase-recommendation.review { background:#fff7e9; }
+.incomplete-chase-actions { display:flex; flex-direction:column; justify-content:center; gap:7px; min-width:162px; padding:12px; border-left:1px solid #e0e9e6; background:#fbfdfc; }
+.incomplete-chase-actions .btn { justify-content:flex-start; white-space:nowrap; }
+
+@media (max-width: 1280px) {
+  .incomplete-chase-metrics { grid-template-columns:repeat(4,minmax(0,1fr)); }
+  .incomplete-chase-facts { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+
+@media (max-width: 820px) {
+  .incomplete-assessment-viewbar { align-items:stretch; flex-direction:column; }
+  .incomplete-assessment-viewbar > small { text-align:left; }
+  .incomplete-assessment-viewtoggle { width:100%; }
+  .incomplete-assessment-viewtoggle button { flex:1; justify-content:center; min-height:40px; font-size:12px; }
+  .incomplete-chase-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; }
+  .incomplete-chase-metrics button { min-height:76px; padding:8px 9px; }
+  .incomplete-chase-metrics strong { font-size:19px; }
+  .incomplete-chase-filterbar { flex-wrap:nowrap; overflow-x:auto; padding-bottom:3px; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+  .incomplete-chase-filterbar::-webkit-scrollbar { display:none; }
+  .incomplete-chase-filterbar button { flex:0 0 auto; min-height:36px; font-size:11px; }
+  .incomplete-chase-card { grid-template-columns:1fr; gap:0; }
+  .incomplete-chase-card-main { padding:12px 12px 10px 14px; }
+  .incomplete-chase-facts { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .incomplete-chase-actions { min-width:0; flex-direction:row; flex-wrap:wrap; padding:9px 11px 11px; border-left:0; border-top:1px solid #e0e9e6; }
+  .incomplete-chase-actions .btn { flex:1 1 140px; justify-content:center; min-height:40px; }
+  .incomplete-chase-recommendation { grid-template-columns:1fr; gap:3px; }
+}
+
+@media (max-width: 480px) {
+  .incomplete-chase-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .incomplete-chase-card-heading { gap:8px; }
+  .incomplete-chase-card-heading h3 { font-size:14px; }
+  .incomplete-chase-progress-number strong { font-size:20px; }
+  .incomplete-chase-facts { grid-template-columns:1fr 1fr; gap:5px; }
+  .incomplete-chase-facts > div { padding:7px 8px; }
+  .incomplete-chase-summary-fields > span { width:100%; justify-content:space-between; }
+}
