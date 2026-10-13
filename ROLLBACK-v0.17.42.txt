@@ -1,0 +1,5 @@
+Rollback from v0.17.43 to v0.17.42
+
+Deploy the supplied THiS-CRM-v0.17.42-ROLLBACK.zip.
+Database schema does not change in v0.17.43, so no database rollback is required.
+Do not remove or modify any applied migration.

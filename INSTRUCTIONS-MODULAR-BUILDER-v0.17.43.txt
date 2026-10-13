@@ -1,0 +1,13 @@
+THiS Instructions Studio v0.17.43 - Modular Guide Builder
+
+Authoring model
+1. Choose a starting point for the visa/pathway.
+2. Keep, remove or reorder the sections that suit the client.
+3. Add reusable guidance from the library where the matter needs something extra.
+4. Add a client-specific section where no reusable module fits.
+5. Tailor any section for the individual matter; master wording remains unchanged.
+6. Preview and issue using the existing PDF arrangements.
+
+The reusable library is intentionally a first working set rather than an exhaustive catalogue. It is designed to reduce template proliferation and can be refined as Turner Hopkins identifies the modules used most often.
+
+Database: unchanged at 46 migrations.

@@ -615,7 +615,7 @@ const SUPPORT_CONTENT = {
     summary: 'Studio is the single document-authoring workspace for client instructions and engagement agreements. Nothing opens automatically: choose the document type and source before entering an editor.',
     sections: [
       { heading: 'Agreement Studio', text: 'Create from an intake form for most prospective clients, from an existing client record where the matter is already active, or as a standalone agreement where no CRM link is required.' },
-      { heading: 'Instructions Studio', text: 'Create client-linked instruction packs using the applicant and family information already held in the CRM, or prepare standalone instructions where a client record is not needed.' },
+      { heading: 'Instructions Studio', text: 'Create client-linked guidance from a suitable starting point, then keep, remove, reorder, add or tailor sections for the individual matter. Standalone instructions remain available where no CRM client link is needed.' },
       { heading: 'Document lifecycle', text: 'Each editor is loaded only after you select an action or open an existing draft. Closing an editor returns you to its workspace and fully ends that editor session.' },
       { heading: 'Templates and output', text: 'Administrators can manage reusable templates and published versions within each Studio. Review the clean A4 preview before printing, issuing or publishing client-facing material.' },
     ],
@@ -623,15 +623,15 @@ const SUPPORT_CONTENT = {
   },
   instructions: {
     title: 'Instructions Studio help',
-    summary: 'The Instructions workspace creates client-specific road maps, documentation guides and supporting packs. Drafts can be linked to a client record or created as standalone documents, while master templates remain separately governed and versioned.',
+    summary: 'The Instructions workspace builds client-specific guidance from flexible starting points. Use the reusable guidance library for common themes, add client-specific sections for unusual matters, and tailor wording without changing the governed master templates.',
     sections: [
       { heading: 'Starting a document', text: 'Create from a client when the CRM already holds the applicant and family details. Use a standalone instruction set when no client record is required. Client-linked drafts can also be opened from More sections within the client record.' },
-      { heading: 'Client data and pack selection', text: 'Select the pack that matches the work being undertaken, then review the principal applicant, partner, children, adviser and matter details before editing. The Studio uses this data throughout the cover, application summary and document requirements.' },
-      { heading: 'Sections, numbering and police clearances', text: 'Include, remove or reorder sections as required. Heading numbers can be automatic, manually labelled or hidden. Use the police-clearance selector to add the correct countries and applicant-specific instructions rather than typing generic wording.' },
+      { heading: 'Client data and pack selection', text: 'Choose the closest starting point for the work, then review the client and matter details. The starting point does not lock the guide: sections can be added from the reusable library, removed, reordered or tailored for the individual matter.' },
+      { heading: 'Sections, numbering and police clearances', text: 'Use Guide builder to choose what this client needs. Add reusable guidance from the library, add a client-specific section where nothing standard fits, and tailor any section in plain document-style wording. Existing numbering and police-clearance controls remain available where relevant.' },
       { heading: 'Template governance', text: 'Administrators can edit master templates, save unpublished drafts, publish numbered versions and restore earlier versions. Publishing a template does not silently alter an instruction set already prepared for a client.' },
       { heading: 'Saving and output', text: 'Save work regularly. Use the live A4 preview to check the client-facing result, then print or save the clean document as a PDF. Only publish to the client portal after the wording and client data have been checked.' },
     ],
-    tips: ['Check the client-data tab before editing the wording.', 'Use automatic numbering when steps may be removed or reordered.', 'Treat the live preview as the final client document: internal notes should not appear there.', 'Open Help inside the Studio for a guide to the controls on the current document.'],
+    tips: ['Start with the closest pathway, then add or remove sections rather than searching for a perfect template.', 'Use automatic numbering when steps may be removed or reordered.', 'Treat the live preview as the final client document: internal notes should not appear there.', 'Open Help inside the Studio for a guide to the controls on the current document.'],
   },
   agreements: {
     title: 'Agreement Studio help',
@@ -14096,7 +14096,7 @@ function StudioWorkspace({
           <section className="studio-launch-card instructions">
             <div className="studio-launch-card-head">
               <div className="studio-launch-icon"><BookOpen size={24} /></div>
-              <div><span>Client guidance</span><h2>Instructions Studio</h2><p>Prepare client-specific road maps, documentation guides and reusable instruction packs.</p></div>
+              <div><span>Client guidance</span><h2>Instructions Studio</h2><p>Build flexible client guidance from a starting point, reusable modules and client-specific sections.</p></div>
             </div>
             <div className="studio-launch-metrics">
               <div><strong>{instructionSets.length}</strong><span>Total</span></div>

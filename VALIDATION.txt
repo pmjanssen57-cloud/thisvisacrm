@@ -1,13 +1,16 @@
-THiS CRM v0.17.42 validation
+THiS CRM v0.17.43 validation
 
-- App.jsx and main.jsx parsed successfully with TypeScript's JSX parser (`tsc --allowJs --jsx react-jsx --noEmit`).
-- 22 Netlify `.mjs` functions passed `node --check`.
-- 6 public `.js` files passed `node --check`.
-- styles.css parsed successfully with PostCSS.
-- PWA validation passed via scripts/validate-pwa.mjs.
-- Database remains at 46 migrations.
-- All 46 migration files are byte-for-byte unchanged from v0.17.41.
-- Service-worker cache advanced to v0.17.42.
-- Agreement and Instructions Studio iframe/cache-busters advanced to v0.17.42; Studio source logic itself is unchanged.
-- Incomplete Assessment Chase view is client-side and uses existing draft payload/reminder/duplicate data; no schema change is required.
-- Full Vite production build was not run because node_modules are not included in the source package.
+Release: Modular Instructions Studio Pilot
+
+Checks completed:
+- public/instructions-studio.js node --check: PASS
+- Netlify .mjs functions node --check: PASS (22 files)
+- public JavaScript node --check: PASS (6 files)
+- PWA validation: PASS
+- Modular Instructions Studio CSS parse: PASS
+- Modular builder static checks: PASS
+- Reusable module library: 23 modules with unique client-draft copies
+- Database migrations: 46, byte-for-byte unchanged from v0.17.42
+- Historical/applied migrations modified: NO
+- Full Vite production build: NOT RUN (node_modules unavailable in source package)
+- Browser live-deploy visual QA: NOT RUN in this environment

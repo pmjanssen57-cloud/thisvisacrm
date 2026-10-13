@@ -1,12 +1,15 @@
-THiS CRM v0.17.42 - Incomplete Assessment Chase View
+THiS CRM v0.17.43 - Modular Instructions Studio Pilot
 
 Changes
-- Incomplete Assessments now opens in an operational Chase view with Full list available alongside it.
-- Chase ranking uses existing draft data only: progress, inactivity, reminder state, expiry and duplicate/prior-assessment history.
-- High-priority and worthwhile follow-ups are surfaced separately from duplicate records that should be reviewed before chasing.
-- Summary metrics cover Needs chasing, 50%+ complete, Finished/high priority, Reminder available, Sent/no return, Expiring within 7 days and Duplicates/prior intake.
-- Filter chips allow advisers to narrow the Chase view instantly.
-- Each chase card shows last activity, expiry, reminder status, CV status and available pathway/location/citizenship/current-visa context.
-- Existing reminder/resume/delete actions are retained.
-- No automated chase emails, merges or deletions were added.
+- Reframes Instructions Studio around a modular guide builder while preserving the existing PDF/output design.
+- Existing visa packs are now labelled as starting points rather than rigid template packs.
+- Adds a reusable guidance library with Suggested, Common, Relationship, Work, Residence, Financial and Special situations categories.
+- Advisers can add library sections to an individual client draft without changing the master template.
+- Advisers can add fully client-specific custom sections for unusual cases.
+- Every section can be tailored through a plain document-style editor and restored to its starting wording where applicable.
+- Existing sections, library sections and client-specific sections are visibly identified.
+- Existing section reordering and inclusion controls remain available.
+- New library wording uses a softer, more supportive Turner Hopkins style with What we need from you / Why this helps / Helpful tip patterns.
+- Road Map authoring has been softened and gains the same Add from library / Add custom section controls.
+- Existing template governance, client data, PDF arrangement, CRM save/ready workflow, mobile single-scroll behaviour and output renderer are preserved.
 - No database migration.

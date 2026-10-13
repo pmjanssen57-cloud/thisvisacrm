@@ -4401,6 +4401,456 @@ bindEvents();
     bindClientSectionOrderingV01731();
   };
 
-  document.title = 'THiS Instructions Studio - Finished Master Road Maps';
+
+
+  // v0.17.43 - modular Instructions Studio pilot.
+  // The existing pack and PDF renderer remain authoritative. This layer makes the
+  // adviser workflow modular: choose a starting point, add reusable guidance,
+  // tailor individual sections, add client-specific sections and keep the master
+  // template untouched.
+  const MODULE_LIBRARY_V01743 = [
+    {
+      id:'identity', category:'Common', title:'Passport and identity', note:'A friendly request for current identity documents.',
+      html:`<h3>What we need from you</h3><p>Please send us a clear copy of the photo page of your current passport. If anyone included in the application has changed their name, please also send us the document that explains the change.</p><h3>Why this helps</h3><p>These documents let us make sure the names, dates of birth and passport details used in the application are accurate from the outset.</p><div class="callout"><span class="callout-icon">i</span><p><strong>Helpful tip:</strong> A colour scan or a well-lit photograph is usually fine, provided every corner of the page is visible and the text is easy to read.</p></div>`
+    },
+    {
+      id:'medicals', category:'Common', title:'Medical requirements', note:'General medical guidance that can be tailored once requirements are confirmed.',
+      html:`<h3>What we need from you</h3><p>We will confirm whether Immigration New Zealand needs any medical information from you. If an examination or chest X-ray is required, we will tell you exactly what to arrange and when to do it.</p><h3>Why this helps</h3><p>Medical requirements vary depending on the visa, your age, how long you intend to stay and what has already been provided to Immigration New Zealand.</p><div class="callout"><span class="callout-icon">i</span><p><strong>Helpful tip:</strong> Please do not book a medical simply because you have had one before. We can first check whether it is still valid or whether a different examination is needed.</p></div>`
+    },
+    {
+      id:'police-general', category:'Common', title:'Police certificates', note:'Supportive general guidance before country-specific instructions are added.',
+      html:`<h3>What we need from you</h3><p>We will confirm which police certificates are needed for this application and who needs to provide them. Once that is clear, we can give you the country-specific instructions.</p><h3>Why this helps</h3><p>Police certificate rules depend on age, citizenship and where a person has lived. Getting the right certificate the first time avoids unnecessary delay.</p><div class="callout"><span class="callout-icon">i</span><p><strong>Helpful tip:</strong> If you are unsure about an old country of residence or a period spent overseas, tell us. We can work through the dates with you before you order anything.</p></div>`
+    },
+    {
+      id:'translations', category:'Common', title:'Translations and non-English documents', note:'What to do when evidence is not in English.',
+      html:`<h3>What we need from you</h3><p>Please send us the original-language document first. We will let you know whether a translation is required and what standard it needs to meet.</p><h3>Why this helps</h3><p>Immigration New Zealand needs to be able to understand the evidence being relied on, but not every document needs to be translated in the same way.</p><div class="callout"><span class="callout-icon">i</span><p><strong>Helpful tip:</strong> If you already have a translation, send both versions together so we can check that they match.</p></div>`
+    },
+    {
+      id:'current-status', category:'Common', title:'Your current visa and immigration status', note:'Useful where current status or expiry dates affect the plan.',
+      html:`<h3>What we need from you</h3><p>Please send us a copy of your current New Zealand visa, if you have one, and tell us about any upcoming expiry date, travel plans or change in your circumstances.</p><h3>Why this helps</h3><p>Your current immigration status can affect timing and the order in which we deal with the next steps.</p><div class="callout"><span class="callout-icon">i</span><p><strong>Helpful tip:</strong> If an expiry date is getting close, let us know straight away. We would rather plan early than leave you worrying about it later.</p></div>`
+    },
+    {
+      id:'dependants', category:'Common', title:'Partner and dependent children', note:'General family-member evidence and planning.',
+      html:`<h3>What we need from you</h3><p>If your partner or children are included in the application, please send us their passport details and the documents that confirm the family relationship, such as marriage or birth certificates where relevant.</p><h3>Why this helps</h3><p>It allows us to check who can be included, what evidence each person needs and whether anyone should make a separate application.</p><div class="callout"><span class="callout-icon">i</span><p><strong>Helpful tip:</strong> Family situations are not always straightforward. If a child has another parent, there are custody arrangements, or someone will apply later, tell us and we can map out the best approach.</p></div>`
+    },
+    {
+      id:'inz-requests', category:'Common', title:'If Immigration New Zealand asks for more information', note:'Reassuring guidance about RFIs, PPIs and follow-up requests.',
+      html:`<h3>What happens if INZ comes back with questions?</h3><p>It is quite normal for Immigration New Zealand to ask for clarification or further documents. If that happens, send the request to us straight away. We will review it with you, explain what INZ is asking and work through the response together.</p><div class="callout"><span class="callout-icon">i</span><p><strong>Helpful tip:</strong> Do not feel you need to answer an INZ request on your own. The wording and deadline can matter, and we can help you decide what evidence will be most useful.</p></div>`
+    },
+    {
+      id:'after-lodgement', category:'Common', title:'What happens after we submit', note:'Sets expectations after lodgement without sounding overly formal.',
+      html:`<h3>Once the application is submitted</h3><p>We will confirm when the application has been lodged and keep an eye on it while Immigration New Zealand processes it. We will let you know about any meaningful update and contact you if we need anything further.</p><p>Processing times can move around, so we will avoid giving you false certainty. If there is a sensible point to follow up with INZ, we will do that.</p><div class="callout"><span class="callout-icon">i</span><p><strong>Helpful tip:</strong> Please keep us updated if your passport, address, employment, relationship, travel plans, health or character circumstances change while the application is being processed.</p></div>`
+    },
+    {
+      id:'communication', category:'Common', title:'Keeping in touch with us', note:'A simple communication and document-handling section.',
+      html:`<h3>How we will work together</h3><p>You do not need to have everything perfect before you send it to us. Start with what you have. We can review it, identify any gaps and tell you what would genuinely strengthen the application.</p><p>If you are unsure about a document or something has changed, send us a note rather than guessing. Small issues are usually easier to deal with early.</p>`
+    },
+    {
+      id:'relationship-evidence', category:'Relationship', title:'Relationship evidence', note:'A warmer explanation of genuine and stable relationship evidence.',
+      html:`<h3>What we need from you</h3><p>We will need to show Immigration New Zealand that your relationship is genuine and stable. The strongest applications usually include a sensible mix of evidence showing how the relationship developed and how you share your lives together.</p><p>Useful examples can include joint finances, shared accommodation, correspondence addressed to you both, travel together, photographs over time, and messages or call records where they add useful context.</p><div class="callout"><span class="callout-icon">i</span><p><strong>Helpful tip:</strong> You do not need to send hundreds of photographs or messages. A representative selection across the relationship is usually much more useful. Send us what you have and we can work out together whether anything else would help.</p></div>`
+    },
+    {
+      id:'living-apart', category:'Relationship', title:'Periods living apart', note:'For relationships with periods of separation or different addresses.',
+      html:`<h3>If you have spent time living apart</h3><p>Living apart does not automatically create a problem. We will simply need to explain why you were in different places and show how the relationship continued during that period.</p><p>Please tell us the dates, the reason for the separation and how you stayed in contact. Useful evidence might include travel, messages, calls, financial support or plans to live together again.</p><div class="callout"><span class="callout-icon">i</span><p><strong>Helpful tip:</strong> A short, honest explanation is usually better than trying to make the history look tidier than it was.</p></div>`
+    },
+    {
+      id:'previous-relationships', category:'Relationship', title:'Previous relationships', note:'For previous marriages, partnerships or relationship history relevant to the application.',
+      html:`<h3>Previous relationships</h3><p>Please tell us about any previous marriage or significant partnership that may be relevant to this application. We may need the dates and, where appropriate, documents showing that the earlier relationship ended.</p><p>This is not unusual information for Immigration New Zealand to ask about. We will help you work out what is actually relevant rather than asking you to provide more than is needed.</p>`
+    },
+    {
+      id:'employment-evidence', category:'Work', title:'Employment evidence', note:'Documents that support employment, pay and work history.',
+      html:`<h3>What we need from you</h3><p>Please start by sending us the employment documents you already have - for example your agreement, job description, recent payslips and any relevant employer letter.</p><h3>Why this helps</h3><p>We can then check the role, hours, pay and duties against the immigration requirements and tell you if anything else would be useful.</p><div class="callout"><span class="callout-icon">i</span><p><strong>Helpful tip:</strong> Do not worry if the job description is short or the documents use different job titles. Send them through first and we can assess the overall picture.</p></div>`
+    },
+    {
+      id:'employer-support', category:'Work', title:'Employer support and Job Check', note:'For employer-supported work visa matters.',
+      html:`<h3>Working with your employer</h3><p>Some parts of the immigration process sit with the employer and some sit with you. We will confirm what your employer needs to complete, including any accreditation or Job Check steps that apply, and what we need from you personally.</p><p>If we need information from the employer, we can explain the request clearly so you are not left trying to translate immigration terminology between everyone.</p>`
+    },
+    {
+      id:'role-evidence', category:'Work', title:'Role, duties and remuneration', note:'For cases where the substance of the role matters.',
+      html:`<h3>Showing what the job really involves</h3><p>Where the immigration pathway depends on the nature of the role, we may need more than a job title. We will look at the duties, level of responsibility, hours and remuneration together.</p><p>Please send us the documents you have. If the wording does not fully reflect the real job, we can identify what clarification may be needed from the employer.</p>`
+    },
+    {
+      id:'eoi-ita', category:'Residence', title:'EOI and invitation stage', note:'For pathways involving an expression of interest or invitation to apply.',
+      html:`<h3>Where the EOI fits</h3><p>If your pathway uses an Expression of Interest, we will first make sure the information and claimed points are properly supported. Once the EOI is ready, we will submit it and explain what happens next.</p><p>If an Invitation to Apply is issued, we will then work through the full evidence requirements with you. You do not need to treat the EOI and residence application as two unrelated exercises - we will carry the strategy through from one stage to the next.</p>`
+    },
+    {
+      id:'qualification-experience', category:'Residence', title:'Qualifications and skilled work experience', note:'Evidence of qualifications and work history for residence pathways.',
+      html:`<h3>What we need from you</h3><p>Please send us your qualification documents and the best evidence you have of the work experience we are relying on. That might include employment agreements, job descriptions, employer letters, payslips, tax or earnings records and other records showing the period and nature of the work.</p><h3>Why this helps</h3><p>We can map the evidence against the exact period being claimed and identify any gaps before the application is lodged.</p>`
+    },
+    {
+      id:'funds', category:'Financial', title:'Funds and financial evidence', note:'A supportive general financial-evidence module.',
+      html:`<h3>What we need from you</h3><p>Please send us the financial records you already have for the funds we are relying on. We will review the source, ownership and movement of the money and then tell you what further tracing evidence, if any, is needed.</p><div class="callout"><span class="callout-icon">i</span><p><strong>Helpful tip:</strong> Do not move or restructure funds simply to make the evidence look cleaner without checking with us first. It is usually easier to explain a genuine transaction than to reconstruct a trail after the event.</p></div>`
+    },
+    {
+      id:'sponsorship', category:'Financial', title:'Sponsorship or financial support', note:'For visitor, family and other matters involving another person’s support.',
+      html:`<h3>If someone else is supporting the application</h3><p>Please tell us who will provide the financial or accommodation support and how they are connected to the applicant. We will confirm what evidence is needed from them and whether a formal sponsorship process applies.</p><p>Start with the documents that are easy to obtain. We can then narrow the request rather than asking your sponsor for a long list unnecessarily.</p>`
+    },
+    {
+      id:'previous-decline', category:'Special situations', title:'Previous visa decline or immigration issue', note:'For matters with a previous decline, cancellation or other immigration history.',
+      html:`<h3>Tell us what happened</h3><p>A previous decline or immigration problem does not mean we should assume the worst. Please send us the decision letter or correspondence you have and give us a short explanation of what happened.</p><p>We will review the issue, explain whether it matters to the new application and work out the best way to address it openly.</p><div class="callout"><span class="callout-icon">i</span><p><strong>Helpful tip:</strong> It is usually much better for us to know about an awkward point early than to discover it after the application has been filed.</p></div>`
+    },
+    {
+      id:'character-issue', category:'Special situations', title:'Character issue', note:'For convictions, charges or other matters requiring careful disclosure.',
+      html:`<h3>Working through a character issue</h3><p>Please tell us about the issue in your own words and send us any police, court or other official documents you have. We will then identify what must be disclosed and what supporting explanation or evidence may help.</p><p>These matters can be sensitive. Our job is to make sure the information is accurate, complete and presented in context.</p>`
+    },
+    {
+      id:'health-issue', category:'Special situations', title:'Health issue', note:'For a known health matter or medical follow-up.',
+      html:`<h3>If there is a health issue</h3><p>Please tell us what you know about the condition and send any recent reports you already have. We can then work out whether Immigration New Zealand is likely to need anything further.</p><p>You do not need to commission extra medical reports without guidance. We will try to keep the request focused on what is actually relevant.</p>`
+    },
+    {
+      id:'urgent-travel', category:'Special situations', title:'Urgent travel or time pressure', note:'For deadlines, expiry dates or travel that affects the plan.',
+      html:`<h3>Because timing matters here</h3><p>Please tell us the key date, what needs to happen by then and whether any travel is already booked. We will identify what can realistically be done, what depends on Immigration New Zealand and where we need a backup plan.</p><div class="callout"><span class="callout-icon">i</span><p><strong>Helpful tip:</strong> If the deadline changes, or new travel becomes necessary, tell us straight away so we can revisit the plan.</p></div>`
+    }
+  ];
+
+  const MODULE_RECOMMENDATIONS_V01743 = {
+    pwv:['Relationship','Common'], family:['Relationship','Common'], 'aewv-family':['Relationship','Common'],
+    aewv:['Work','Common'], accreditation:['Work','Common'], smc:['Residence','Work','Common'], parent:['Residence','Common'],
+    investor:['Financial','Common'], visitor:['Financial','Common'], student:['Financial','Common'], citizenship:['Common'], permanent:['Residence','Common']
+  };
+
+  let moduleFilterV01743 = 'Suggested';
+  let moduleSearchV01743 = '';
+  let tailorContextV01743 = null;
+
+  function markBuilderDirtyV01743() {
+    const status = document.querySelector('#save-status');
+    if (status) status.textContent = 'Draft not saved';
+  }
+
+  function currentDocV01743() {
+    return state?.docs?.[state.selectedDoc] || null;
+  }
+
+  function blockSourceLabelV01743(block) {
+    if (block?.customSectionV01743) return 'Client-specific';
+    if (block?.sourceModuleIdV01743) return 'Library';
+    if (block?.clientTailoredV01743) return 'Tailored';
+    return 'Starting point';
+  }
+
+  function rememberBlockBaseV01743(block) {
+    if (!block) return;
+    let source = block.templateHtml !== undefined ? block.templateHtml : (block.html || '');
+    if (activePackId === 'smc' && state.selectedDoc !== 'roadmap' && !block.sourceModuleIdV01743 && !block.customSectionV01743 && !block.clientTailoredV01743) {
+      try { source = smcBlockContent(state.selectedDoc, block.id); } catch {}
+    }
+    if (block.baseHtmlV01743 === undefined) block.baseHtmlV01743 = source;
+    if (block.baseTemplateHtmlV01743 === undefined && block.templateHtml !== undefined) block.baseTemplateHtmlV01743 = block.templateHtml;
+    if (block.baseTitleV01743 === undefined) block.baseTitleV01743 = block.title || '';
+    if (block.baseNoteV01743 === undefined) block.baseNoteV01743 = block.note || '';
+  }
+
+  function ensureModularUiV01743() {
+    if (!document.querySelector('#module-library-modal-v01743')) {
+      document.body.insertAdjacentHTML('beforeend', `
+        <div class="module-modal-v01743" id="module-library-modal-v01743" hidden>
+          <div class="module-modal-card-v01743 module-library-card-v01743" role="dialog" aria-modal="true" aria-labelledby="module-library-title-v01743">
+            <div class="module-modal-head-v01743"><div><span class="eyebrow">Reusable guidance</span><h2 id="module-library-title-v01743">Add from the library</h2><p>Choose only the guidance this client needs. It will be copied into this draft, so you can tailor it without changing the master library.</p></div><button class="module-close-v01743" type="button" data-module-close-v01743 aria-label="Close">×</button></div>
+            <div class="module-library-tools-v01743"><input class="text-input" id="module-library-search-v01743" type="search" placeholder="Search guidance..."><div id="module-category-tabs-v01743" class="module-category-tabs-v01743"></div></div>
+            <div class="module-library-list-v01743" id="module-library-list-v01743"></div>
+          </div>
+        </div>
+        <div class="module-modal-v01743" id="tailor-section-modal-v01743" hidden>
+          <div class="module-modal-card-v01743 tailor-card-v01743" role="dialog" aria-modal="true" aria-labelledby="tailor-title-v01743">
+            <div class="module-modal-head-v01743"><div><span class="eyebrow">Client wording</span><h2 id="tailor-title-v01743">Tailor this section</h2><p>The standard wording is only a starting point. Change what this client needs, then restore it later if you want to go back.</p></div><button class="module-close-v01743" type="button" data-tailor-close-v01743 aria-label="Close">×</button></div>
+            <div class="tailor-fields-v01743"><label><span>Section heading</span><input class="text-input" id="tailor-heading-v01743"></label><label><span>Adviser note</span><input class="text-input" id="tailor-note-v01743" placeholder="Short note shown only in the Studio"></label><label><span>Client wording</span><div class="tailor-editor-v01743" id="tailor-editor-v01743" contenteditable="true" spellcheck="true"></div><small>Edit this as normal document text. Formatting such as headings, paragraphs and lists is retained.</small></label></div>
+            <div class="module-modal-actions-v01743"><button class="button button-secondary" id="tailor-restore-v01743" type="button">Restore standard wording</button><span></span><button class="button button-secondary" data-tailor-close-v01743 type="button">Cancel</button><button class="button button-primary" id="tailor-save-v01743" type="button">Use this wording</button></div>
+          </div>
+        </div>`);
+
+      document.querySelectorAll('[data-module-close-v01743]').forEach(button => button.addEventListener('click', closeModuleLibraryV01743));
+      document.querySelectorAll('[data-tailor-close-v01743]').forEach(button => button.addEventListener('click', closeTailorV01743));
+      document.querySelector('#module-library-modal-v01743')?.addEventListener('click', event => { if (event.target.id === 'module-library-modal-v01743') closeModuleLibraryV01743(); });
+      document.querySelector('#tailor-section-modal-v01743')?.addEventListener('click', event => { if (event.target.id === 'tailor-section-modal-v01743') closeTailorV01743(); });
+      document.querySelector('#module-library-search-v01743')?.addEventListener('input', event => { moduleSearchV01743 = event.target.value || ''; renderModuleLibraryV01743(); });
+      document.querySelector('#tailor-save-v01743')?.addEventListener('click', saveTailorV01743);
+      document.querySelector('#tailor-restore-v01743')?.addEventListener('click', restoreTailorV01743);
+    }
+  }
+
+  function recommendedModuleV01743(module) {
+    const categories = MODULE_RECOMMENDATIONS_V01743[activePackId] || ['Common'];
+    return categories.includes(module.category);
+  }
+
+  function renderModuleLibraryV01743() {
+    ensureModularUiV01743();
+    const doc = currentDocV01743();
+    const tabs = document.querySelector('#module-category-tabs-v01743');
+    const list = document.querySelector('#module-library-list-v01743');
+    if (!tabs || !list || !doc) return;
+    const categories = ['Suggested','Common','Relationship','Work','Residence','Financial','Special situations'];
+    tabs.innerHTML = categories.map(category => `<button type="button" class="${moduleFilterV01743 === category ? 'active' : ''}" data-module-category-v01743="${escapeHtml(category)}">${escapeHtml(category)}</button>`).join('');
+    tabs.querySelectorAll('[data-module-category-v01743]').forEach(button => button.addEventListener('click', () => { moduleFilterV01743 = button.dataset.moduleCategoryV01743; renderModuleLibraryV01743(); }));
+    const needle = moduleSearchV01743.trim().toLowerCase();
+    const matches = MODULE_LIBRARY_V01743.filter(module => {
+      const categoryMatch = moduleFilterV01743 === 'Suggested' ? recommendedModuleV01743(module) : module.category === moduleFilterV01743;
+      const textMatch = !needle || [module.title,module.note,module.category].some(value => String(value || '').toLowerCase().includes(needle));
+      return categoryMatch && textMatch;
+    });
+    list.innerHTML = matches.length ? matches.map(module => {
+      const existing = (doc.blocks || []).some(block => block.sourceModuleIdV01743 === module.id);
+      return `<article class="module-library-item-v01743"><div><span class="module-category-v01743">${escapeHtml(module.category)}</span><strong>${escapeHtml(module.title)}</strong><p>${escapeHtml(module.note)}</p></div><button class="button ${existing ? 'button-secondary' : 'button-primary'} compact-button" type="button" data-add-module-v01743="${escapeHtml(module.id)}" ${existing ? 'disabled' : ''}>${existing ? 'Added' : 'Add section'}</button></article>`;
+    }).join('') : '<div class="module-empty-v01743">No guidance matches this filter.</div>';
+    list.querySelectorAll('[data-add-module-v01743]').forEach(button => button.addEventListener('click', () => addLibraryModuleV01743(button.dataset.addModuleV01743)));
+  }
+
+  function openModuleLibraryV01743() {
+    ensureModularUiV01743();
+    moduleFilterV01743 = 'Suggested';
+    moduleSearchV01743 = '';
+    const search = document.querySelector('#module-library-search-v01743'); if (search) search.value = '';
+    renderModuleLibraryV01743();
+    const modal = document.querySelector('#module-library-modal-v01743'); if (modal) modal.hidden = false;
+  }
+
+  function closeModuleLibraryV01743() {
+    const modal = document.querySelector('#module-library-modal-v01743'); if (modal) modal.hidden = true;
+  }
+
+  function addLibraryModuleV01743(moduleId) {
+    const module = MODULE_LIBRARY_V01743.find(item => item.id === moduleId);
+    const doc = currentDocV01743();
+    if (!module || !doc) return;
+    if ((doc.blocks || []).some(block => block.sourceModuleIdV01743 === module.id)) return;
+    const id = `library-${module.id}-${Date.now()}`;
+    doc.blocks = Array.isArray(doc.blocks) ? doc.blocks : [];
+    doc.blocks.push({
+      id, title:module.title, note:module.note, html:module.html, templateHtml:module.html,
+      enabled:true, shared:false, forcePage:false, sourceModuleIdV01743:module.id,
+      sourceCategoryV01743:module.category, baseHtmlV01743:module.html, baseTitleV01743:module.title,
+      baseNoteV01743:module.note
+    });
+    markBuilderDirtyV01743();
+    renderEditor(); renderPreview(); renderDocumentLists();
+    renderModuleLibraryV01743();
+    showToast(`${module.title} added to this guide`);
+  }
+
+  function addCustomSectionV01743() {
+    const doc = currentDocV01743();
+    if (!doc) return;
+    doc.blocks = Array.isArray(doc.blocks) ? doc.blocks : [];
+    const block = {
+      id:`custom-${Date.now()}`, title:'Client-specific guidance', note:'Written for this client only.', enabled:true, shared:false, forcePage:false,
+      customSectionV01743:true,
+      html:`<h3>What we need from you</h3><p>Start typing the guidance for this client here.</p><h3>Why this helps</h3><p>Add the explanation or context that will make the request easier for the client to understand.</p><div class="callout"><span class="callout-icon">i</span><p><strong>Helpful tip:</strong> Add a practical tip if it will make this step easier.</p></div>`
+    };
+    rememberBlockBaseV01743(block);
+    doc.blocks.push(block);
+    markBuilderDirtyV01743();
+    renderEditor(); renderPreview(); renderDocumentLists();
+    openTailorV01743(doc.blocks.length - 1);
+  }
+
+  function openTailorV01743(index) {
+    ensureModularUiV01743();
+    const doc = currentDocV01743();
+    const block = doc?.blocks?.[Number(index)];
+    if (!block) return;
+    rememberBlockBaseV01743(block);
+    tailorContextV01743 = { docId:state.selectedDoc, blockId:block.id };
+    document.querySelector('#tailor-heading-v01743').value = block.title || '';
+    document.querySelector('#tailor-note-v01743').value = block.note || '';
+    let editorSource = block.templateHtml !== undefined && state.selectedDoc === 'roadmap' ? block.templateHtml : (block.html || '');
+    if (activePackId === 'smc' && state.selectedDoc !== 'roadmap' && !block.sourceModuleIdV01743 && !block.customSectionV01743 && !block.clientTailoredV01743) editorSource = block.baseHtmlV01743 || editorSource;
+    document.querySelector('#tailor-editor-v01743').innerHTML = fillTemplate(editorSource);
+    const restore = document.querySelector('#tailor-restore-v01743');
+    if (restore) restore.style.visibility = block.customSectionV01743 ? 'hidden' : 'visible';
+    const modal = document.querySelector('#tailor-section-modal-v01743'); if (modal) modal.hidden = false;
+  }
+
+  function closeTailorV01743() {
+    const modal = document.querySelector('#tailor-section-modal-v01743'); if (modal) modal.hidden = true;
+    tailorContextV01743 = null;
+  }
+
+  function tailorBlockV01743() {
+    if (!tailorContextV01743) return null;
+    const doc = state?.docs?.[tailorContextV01743.docId];
+    return doc?.blocks?.find(block => block.id === tailorContextV01743.blockId) || null;
+  }
+
+  function saveTailorV01743() {
+    const block = tailorBlockV01743();
+    if (!block) return;
+    rememberBlockBaseV01743(block);
+    block.title = document.querySelector('#tailor-heading-v01743')?.value?.trim() || block.title || 'Guidance';
+    block.note = document.querySelector('#tailor-note-v01743')?.value?.trim() || '';
+    const editor = document.querySelector('#tailor-editor-v01743');
+    block.html = editor?.innerHTML?.trim() || '<p>Please add the client guidance for this section.</p>';
+    if (state.selectedDoc === 'roadmap' && block.templateHtml !== undefined) block.templateHtml = block.html;
+    block.clientTailoredV01743 = true;
+    markBuilderDirtyV01743();
+    closeTailorV01743();
+    renderEditor(); renderPreview(); renderDocumentLists();
+    showToast('Client wording updated');
+  }
+
+  function restoreTailorV01743() {
+    const block = tailorBlockV01743();
+    if (!block || block.customSectionV01743) return;
+    rememberBlockBaseV01743(block);
+    block.title = block.baseTitleV01743 || block.title;
+    block.note = block.baseNoteV01743 || block.note;
+    block.html = block.baseHtmlV01743 || block.html;
+    if (state.selectedDoc === 'roadmap' && block.baseTemplateHtmlV01743 !== undefined) block.templateHtml = block.baseTemplateHtmlV01743;
+    block.clientTailoredV01743 = false;
+    document.querySelector('#tailor-heading-v01743').value = block.title || '';
+    document.querySelector('#tailor-note-v01743').value = block.note || '';
+    document.querySelector('#tailor-editor-v01743').innerHTML = fillTemplate(state.selectedDoc === 'roadmap' && block.templateHtml !== undefined ? block.templateHtml : block.html || '');
+    markBuilderDirtyV01743();
+    renderPreview();
+    showToast('Standard wording restored');
+  }
+
+  function removeAddedSectionV01743(index) {
+    const doc = currentDocV01743();
+    const block = doc?.blocks?.[Number(index)];
+    if (!block || (!block.customSectionV01743 && !block.sourceModuleIdV01743)) return;
+    if (!confirm(`Remove “${block.title}” from this client guide?`)) return;
+    doc.blocks.splice(Number(index), 1);
+    markBuilderDirtyV01743();
+    renderEditor(); renderPreview(); renderDocumentLists();
+  }
+
+  function decorateOrdinaryBlocksV01743() {
+    const doc = currentDocV01743();
+    const host = document.querySelector('#block-editor');
+    if (!doc || !host) return;
+    const section = host.closest('.form-section');
+    const heading = section?.querySelector('.field-heading-row .field-label');
+    if (heading) heading.textContent = 'Choose what this client needs';
+    const help = section?.querySelector('.field-help');
+    if (help) help.textContent = 'Start with the usual sections, then add, remove, reorder or tailor anything that does not quite fit this client.';
+    let toolbar = section?.querySelector('#modular-builder-toolbar-v01743');
+    if (!toolbar) {
+      toolbar = document.createElement('div');
+      toolbar.id = 'modular-builder-toolbar-v01743';
+      toolbar.className = 'modular-builder-toolbar-v01743';
+      host.insertAdjacentElement('beforebegin', toolbar);
+    }
+    toolbar.innerHTML = `<button class="button button-primary compact-button" type="button" id="add-from-library-v01743">+ Add from library</button><button class="button button-secondary compact-button" type="button" id="add-custom-section-v01743">+ Add custom section</button><span>Changes apply only to this client draft.</span>`;
+    toolbar.querySelector('#add-from-library-v01743')?.addEventListener('click', openModuleLibraryV01743);
+    toolbar.querySelector('#add-custom-section-v01743')?.addEventListener('click', addCustomSectionV01743);
+
+    host.querySelectorAll('[data-block-index]').forEach(input => {
+      const index = Number(input.dataset.blockIndex);
+      const block = doc.blocks?.[index];
+      const row = input.closest('.block-row');
+      if (!block || !row) return;
+      const copy = row.querySelector('.block-row-copy') || row.querySelector('span');
+      if (copy && !copy.querySelector('.module-source-pill-v01743')) {
+        const pill = document.createElement('em');
+        pill.className = `module-source-pill-v01743 source-${blockSourceLabelV01743(block).toLowerCase().replace(/[^a-z]+/g,'-')}`;
+        pill.textContent = blockSourceLabelV01743(block);
+        copy.appendChild(pill);
+      }
+      let actions = row.querySelector('.block-row-actions');
+      if (!actions) {
+        actions = document.createElement('div'); actions.className = 'block-row-actions'; row.appendChild(actions);
+      }
+      if (!actions.querySelector('[data-tailor-block-v01743]')) {
+        const tailor = document.createElement('button');
+        tailor.type='button'; tailor.className='block-action-v01743'; tailor.dataset.tailorBlockV01743=String(index); tailor.textContent='Tailor';
+        tailor.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); openTailorV01743(index); });
+        actions.appendChild(tailor);
+      }
+      if ((block.customSectionV01743 || block.sourceModuleIdV01743) && !actions.querySelector('[data-remove-added-v01743]')) {
+        const remove = document.createElement('button');
+        remove.type='button'; remove.className='block-action-v01743 remove'; remove.dataset.removeAddedV01743=String(index); remove.textContent='Remove';
+        remove.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); removeAddedSectionV01743(index); });
+        actions.appendChild(remove);
+      }
+    });
+  }
+
+  function decorateRoadmapBuilderV01743() {
+    if (state.selectedDoc !== 'roadmap') return;
+    const panel = document.querySelector('#master-roadmap-panel-v156');
+    const doc = currentDocV01743();
+    if (!panel || !doc) return;
+    const head = panel.querySelector('.master-roadmap-head-v156');
+    if (head) {
+      const eyebrow = head.querySelector('.eyebrow'); if (eyebrow) eyebrow.textContent = 'Your starting point';
+      const title = head.querySelector('h3'); if (title) title.textContent = 'Start with the THiS Road Map';
+      const copy = head.querySelector('p'); if (copy) copy.innerHTML = 'This gives you a strong first draft. Read it through, then tailor anything that does not quite fit this client.';
+    }
+    if (!panel.querySelector('#roadmap-builder-toolbar-v01743')) {
+      const toolbar = document.createElement('div');
+      toolbar.id='roadmap-builder-toolbar-v01743'; toolbar.className='modular-builder-toolbar-v01743 roadmap-builder-toolbar-v01743';
+      toolbar.innerHTML='<button class="button button-primary compact-button" type="button" data-roadmap-add-library-v01743>+ Add from library</button><button class="button button-secondary compact-button" type="button" data-roadmap-add-custom-v01743>+ Add custom section</button><span>Use only what helps this client.</span>';
+      (panel.querySelector('.master-roadmap-actions-v156') || head)?.insertAdjacentElement('afterend', toolbar);
+      toolbar.querySelector('[data-roadmap-add-library-v01743]')?.addEventListener('click', openModuleLibraryV01743);
+      toolbar.querySelector('[data-roadmap-add-custom-v01743]')?.addEventListener('click', addCustomSectionV01743);
+    }
+    panel.querySelectorAll('[data-roadmap-section-index]').forEach(row => {
+      const index=Number(row.dataset.roadmapSectionIndex); const block=doc.blocks?.[index]; if(!block) return;
+      const copy=row.querySelector('label span');
+      if(copy && !copy.querySelector('.module-source-pill-v01743')) { const pill=document.createElement('em'); pill.className='module-source-pill-v01743'; pill.textContent=blockSourceLabelV01743(block); copy.appendChild(pill); }
+      const actions=row.querySelector(':scope > div'); if(!actions) return;
+      if(!actions.querySelector('[data-roadmap-tailor-v01743]')) { const b=document.createElement('button'); b.type='button'; b.className='text-button roadmap-tailor-v01743'; b.dataset.roadmapTailorV01743=String(index); b.textContent='Tailor'; b.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();openTailorV01743(index);}); actions.appendChild(b); }
+      if((block.customSectionV01743||block.sourceModuleIdV01743)&&!actions.querySelector('[data-roadmap-remove-v01743]')) { const b=document.createElement('button'); b.type='button'; b.className='text-button roadmap-remove-v01743'; b.dataset.roadmapRemoveV01743=String(index); b.textContent='Remove'; b.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();removeAddedSectionV01743(index);}); actions.appendChild(b); }
+    });
+  }
+
+  function decorateStudioLanguageV01743() {
+    const packPanel=document.querySelector('.pack-panel');
+    const eyebrow=packPanel?.querySelector('.panel-heading .eyebrow'); if(eyebrow) eyebrow.textContent='Starting point';
+    const pickerLabel=packPanel?.querySelector('.pack-picker .field-label'); if(pickerLabel) pickerLabel.textContent='Start with';
+    const initial=document.querySelector('#initial-section-label'); if(initial) initial.textContent='Guide sections';
+    const milestone=document.querySelector('#milestone-section-label'); if(milestone && milestone.style.display!=='none') milestone.textContent='Later-stage guidance';
+    const tabs=document.querySelectorAll('.editor-tab');
+    tabs.forEach(tab=>{ if(tab.dataset.tab==='content') tab.textContent='Guide builder'; if(tab.dataset.tab==='client') tab.textContent='Client details'; if(tab.dataset.tab==='pack') tab.textContent='Guide settings'; });
+    const banner=document.querySelector('#prototype-banner'); if(banner && !inlineEditMode) banner.textContent='Check the client details, tailor anything that needs it, then preview before you send.';
+    const subtitle=document.querySelector('.product-subtitle'); if(subtitle) subtitle.textContent='Flexible client guidance builder';
+  }
+
+  const renderDocHtmlBeforeV01743 = renderDocHtml;
+  renderDocHtml = function(id) {
+    const doc = state.docs?.[id];
+    if (activePackId === 'smc' && id !== 'roadmap' && doc && (doc.blocks || []).some(block => block.sourceModuleIdV01743 || block.customSectionV01743 || block.clientTailoredV01743)) {
+      const structuredDoc = {
+        ...doc,
+        caseNote: doc.caseNote || '',
+        blocks: (doc.blocks || []).map(block => ({
+          ...block,
+          html: (block.sourceModuleIdV01743 || block.customSectionV01743 || block.clientTailoredV01743) ? (block.html || '') : smcBlockContent(id, block.id),
+          forcePage: false
+        }))
+      };
+      return renderStructuredDoc(structuredDoc);
+    }
+    return renderDocHtmlBeforeV01743(id);
+  };
+
+  const renderEditorBeforeV01743 = renderEditor;
+  renderEditor = function() {
+    renderEditorBeforeV01743();
+    ensureModularUiV01743();
+    decorateStudioLanguageV01743();
+    if (state.selectedDoc === 'roadmap') decorateRoadmapBuilderV01743();
+    else decorateOrdinaryBlocksV01743();
+  };
+
+  const renderDocumentListsBeforeV01743 = renderDocumentLists;
+  renderDocumentLists = function() {
+    renderDocumentListsBeforeV01743();
+    document.querySelectorAll('.document-card').forEach(card => {
+      const meta=card.querySelector('.document-card-meta'); if(!meta) return;
+      const doc=state.docs?.[card.dataset.doc]; const count=(doc?.blocks||[]).filter(block=>block.enabled).length;
+      if(card.dataset.doc==='roadmap') meta.textContent='A strong starting point - tailor anything that differs';
+      else meta.textContent=`${count} section${count===1?'':'s'} included - add or tailor as needed`;
+    });
+  };
+
+  const renderPackSelectorBeforeV01743 = renderPackSelector;
+  renderPackSelector = function() {
+    renderPackSelectorBeforeV01743();
+    decorateStudioLanguageV01743();
+  };
+
+  document.title = 'THiS Instructions Studio - Modular Guide Builder';
   renderAll();
 })();
