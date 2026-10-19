@@ -1602,6 +1602,8 @@ async function ensureCommercialSchema(database = db()) {
       trading_name TEXT,
       nzbn TEXT,
       company_number TEXT,
+      gst_number TEXT,
+      ird_number TEXT,
       industry TEXT,
       business_description TEXT,
       address TEXT,
@@ -1747,6 +1749,17 @@ async function ensureCommercialSchema(database = db()) {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )`;
   await database.sql`ALTER TABLE commercial_clients ADD COLUMN IF NOT EXISTS reminder_notifications_enabled BOOLEAN NOT NULL DEFAULT TRUE`;
+  await database.sql`ALTER TABLE commercial_clients ADD COLUMN IF NOT EXISTS gst_number TEXT`;
+  await database.sql`ALTER TABLE commercial_clients ADD COLUMN IF NOT EXISTS ird_number TEXT`;
+  await database.sql`CREATE TABLE IF NOT EXISTS employer_accreditation_questionnaires (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(), commercial_client_id UUID REFERENCES commercial_clients(id) ON DELETE SET NULL,
+    status TEXT NOT NULL DEFAULT 'Submitted', contact_first_name TEXT, contact_last_name TEXT, contact_email TEXT NOT NULL, contact_phone TEXT,
+    legal_name TEXT NOT NULL, trading_name TEXT, nzbn TEXT, company_number TEXT, gst_number TEXT, ird_number TEXT,
+    accreditation_application_type TEXT, accreditation_type TEXT, current_accreditation_expiry DATE, business_operation_length TEXT, viability_basis TEXT,
+    key_people JSONB NOT NULL DEFAULT '[]'::jsonb, declarations JSONB NOT NULL DEFAULT '{}'::jsonb, uploaded_files JSONB NOT NULL DEFAULT '[]'::jsonb,
+    duplicate_flags JSONB NOT NULL DEFAULT '{}'::jsonb, raw_payload JSONB NOT NULL DEFAULT '{}'::jsonb, submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_employer_accreditation_questionnaires_client ON employer_accreditation_questionnaires(commercial_client_id, submitted_at DESC)`;
   await database.sql`ALTER TABLE commercial_workers ADD COLUMN IF NOT EXISTS job_check_id UUID`;
   await database.sql`ALTER TABLE commercial_documents ADD COLUMN IF NOT EXISTS blob_key TEXT`;
   await database.sql`ALTER TABLE commercial_documents ADD COLUMN IF NOT EXISTS file_name TEXT`;
@@ -1955,6 +1968,8 @@ function mapCommercialClient(row = {}, portalUsers = [], workers = [], jobChecks
     tradingName: row.trading_name || '',
     nzbn: row.nzbn || '',
     companyNumber: row.company_number || '',
+    gstNumber: row.gst_number || '',
+    irdNumber: row.ird_number || '',
     industry: row.industry || '',
     businessDescription: row.business_description || '',
     address: row.address || '',
@@ -1991,22 +2006,40 @@ function mapCommercialClient(row = {}, portalUsers = [], workers = [], jobChecks
     complianceItems: complianceItems.filter((item) => item.commercial_client_id === row.id).map(mapCommercialComplianceItem),
     documents: documents.filter((item) => item.commercial_client_id === row.id).map(mapCommercialDocument),
     auditLog: auditLog.filter((item) => item.commercial_client_id === row.id).map(mapCommercialAudit),
+    accreditationQuestionnaires: (row.__accreditation_questionnaires || []),
     createdAt: row.created_at || '',
     updatedAt: row.updated_at || '',
   };
 }
 
+function mapEmployerAccreditationQuestionnaire(row = {}) {
+  return {
+    id: row.id || '', status: row.status || 'Submitted', contactFirstName: row.contact_first_name || '', contactLastName: row.contact_last_name || '',
+    contactEmail: row.contact_email || '', contactPhone: row.contact_phone || '', legalName: row.legal_name || '', tradingName: row.trading_name || '',
+    nzbn: row.nzbn || '', companyNumber: row.company_number || '', gstNumber: row.gst_number || '', irdNumber: row.ird_number || '',
+    applicationType: row.accreditation_application_type || '', accreditationType: row.accreditation_type || '', currentAccreditationExpiry: toDateOnly(row.current_accreditation_expiry),
+    businessOperationLength: row.business_operation_length || '', viabilityBasis: row.viability_basis || '', keyPeople: Array.isArray(row.key_people) ? row.key_people : [],
+    declarations: row.declarations && typeof row.declarations === 'object' ? row.declarations : {}, uploadedFiles: Array.isArray(row.uploaded_files) ? row.uploaded_files : [],
+    duplicateFlags: row.duplicate_flags && typeof row.duplicate_flags === 'object' ? row.duplicate_flags : {}, rawPayload: row.raw_payload && typeof row.raw_payload === 'object' ? row.raw_payload : {},
+    submittedAt: row.submitted_at || row.created_at || '', updatedAt: row.updated_at || '',
+  };
+}
+
 async function readCommercialClients(database = db()) {
-  const [clients, portalUsers, workers, jobChecks, complianceItems, documents, auditLog] = await Promise.all([
-    database.sql`SELECT id, legal_name, trading_name, nzbn, company_number, industry, business_description, address, primary_contact_name, primary_contact_email, primary_contact_phone, primary_adviser_id, backup_adviser_id, client_status, matter_name, case_type, priority, next_action, next_action_due, matter_status, matter_review_date, matter_activity, sharepoint_folder_url, one_law_client_number, accreditation_type, accreditation_status, accreditation_approval_date, accreditation_expiry_date, accreditation_renewal_date, accreditation_notes, compliance_summary, internal_notes, portal_enabled, reminder_notifications_enabled, portal_last_accessed_at, created_at, updated_at FROM commercial_clients ORDER BY updated_at DESC, legal_name ASC`,
+  const [clients, portalUsers, workers, jobChecks, complianceItems, documents, auditLog, accreditationQuestionnaires] = await Promise.all([
+    database.sql`SELECT id, legal_name, trading_name, nzbn, company_number, gst_number, ird_number, industry, business_description, address, primary_contact_name, primary_contact_email, primary_contact_phone, primary_adviser_id, backup_adviser_id, client_status, matter_name, case_type, priority, next_action, next_action_due, matter_status, matter_review_date, matter_activity, sharepoint_folder_url, one_law_client_number, accreditation_type, accreditation_status, accreditation_approval_date, accreditation_expiry_date, accreditation_renewal_date, accreditation_notes, compliance_summary, internal_notes, portal_enabled, reminder_notifications_enabled, portal_last_accessed_at, created_at, updated_at FROM commercial_clients ORDER BY updated_at DESC, legal_name ASC`,
     database.sql`SELECT id, commercial_client_id, name, email, role, active, access_code_hash, last_accessed_at, created_at, updated_at FROM commercial_portal_users ORDER BY active DESC, name ASC`,
     database.sql`SELECT id, commercial_client_id, full_name, email, phone, job_title, work_location, visa_type, visa_start_date, visa_expiry_date, passport_expiry_date, employment_start_date, employment_end_date, hours_per_week, pay_rate, job_check_reference, job_check_id, visa_conditions, responsible_manager, status, adviser_review_status, employer_notes, internal_notes, created_by, updated_by, created_at, updated_at FROM commercial_workers ORDER BY status ASC, visa_expiry_date ASC NULLS LAST, full_name ASC`,
     database.sql`SELECT id, commercial_client_id, reference_number, role_title, skill_level, work_location, pay_rate_min, pay_rate_max, pay_frequency, positions_approved, positions_used, issue_date, expiry_date, status, employer_notes, internal_notes, adviser_review_status, created_by, updated_by, created_at, updated_at FROM commercial_job_checks ORDER BY status ASC, expiry_date ASC NULLS LAST, role_title ASC`,
     database.sql`SELECT id, commercial_client_id, worker_id, title, category, status, due_date, completed_date, employer_notes, internal_notes, adviser_review_status, created_by, updated_by, created_at, updated_at FROM commercial_compliance_items ORDER BY status ASC, due_date ASC NULLS LAST, created_at DESC`,
     database.sql`SELECT id, commercial_client_id, worker_id, title, category, document_url, blob_key, file_name, mime_type, size_bytes, uploaded_by_type, expiry_date, notes, visible_to_employer, created_by, created_at, updated_at FROM commercial_documents ORDER BY expiry_date ASC NULLS LAST, created_at DESC`,
     database.sql`SELECT id, commercial_client_id, record_type, record_id, action, changed_by, changed_by_type, summary, changes, created_at FROM commercial_audit_log ORDER BY created_at DESC LIMIT 1000`,
+    database.sql`SELECT id, commercial_client_id, status, contact_first_name, contact_last_name, contact_email, contact_phone, legal_name, trading_name, nzbn, company_number, gst_number, ird_number, accreditation_application_type, accreditation_type, current_accreditation_expiry, business_operation_length, viability_basis, key_people, declarations, uploaded_files, duplicate_flags, raw_payload, submitted_at, created_at, updated_at FROM employer_accreditation_questionnaires ORDER BY submitted_at DESC LIMIT 1000`,
   ]);
-  return clients.map((row) => mapCommercialClient(row, portalUsers, workers, jobChecks, complianceItems, documents, auditLog));
+  return clients.map((row) => {
+    row.__accreditation_questionnaires = accreditationQuestionnaires.filter((item) => item.commercial_client_id === row.id).map(mapEmployerAccreditationQuestionnaire);
+    return mapCommercialClient(row, portalUsers, workers, jobChecks, complianceItems, documents, auditLog);
+  });
 }
 
 async function readCommercialClientById(commercialClientId, database = db()) {
@@ -2027,6 +2060,8 @@ async function saveCommercialClient(input = {}, authUser = null) {
     tradingName: cleanCommercialText(input.tradingName || input.trading_name, 500),
     nzbn: cleanCommercialText(input.nzbn, 100),
     companyNumber: cleanCommercialText(input.companyNumber || input.company_number, 100),
+    gstNumber: cleanCommercialText(input.gstNumber || input.gst_number, 100),
+    irdNumber: cleanCommercialText(input.irdNumber || input.ird_number, 100),
     industry: cleanCommercialText(input.industry, 300),
     businessDescription: cleanCommercialText(input.businessDescription || input.business_description, 6000),
     address: cleanCommercialText(input.address, 2000),
@@ -2061,7 +2096,7 @@ async function saveCommercialClient(input = {}, authUser = null) {
   if (id) {
     await database.sql`
       UPDATE commercial_clients SET
-        legal_name=${values.legalName}, trading_name=${values.tradingName}, nzbn=${values.nzbn}, company_number=${values.companyNumber},
+        legal_name=${values.legalName}, trading_name=${values.tradingName}, nzbn=${values.nzbn}, company_number=${values.companyNumber}, gst_number=${values.gstNumber}, ird_number=${values.irdNumber},
         industry=${values.industry}, business_description=${values.businessDescription}, address=${values.address},
         primary_contact_name=${values.primaryContactName}, primary_contact_email=${values.primaryContactEmail}, primary_contact_phone=${values.primaryContactPhone},
         primary_adviser_id=${values.primaryAdviserId}, backup_adviser_id=${values.backupAdviserId}, client_status=${values.clientStatus},
@@ -2076,14 +2111,14 @@ async function saveCommercialClient(input = {}, authUser = null) {
   } else {
     const rows = await database.sql`
       INSERT INTO commercial_clients (
-        legal_name, trading_name, nzbn, company_number, industry, business_description, address,
+        legal_name, trading_name, nzbn, company_number, gst_number, ird_number, industry, business_description, address,
         primary_contact_name, primary_contact_email, primary_contact_phone, primary_adviser_id, backup_adviser_id,
         client_status, matter_name, case_type, priority, next_action, next_action_due, matter_status, matter_review_date, matter_activity,
         sharepoint_folder_url, one_law_client_number, accreditation_type, accreditation_status,
         accreditation_approval_date, accreditation_expiry_date, accreditation_renewal_date, accreditation_notes,
         compliance_summary, internal_notes, portal_enabled, reminder_notifications_enabled
       ) VALUES (
-        ${values.legalName}, ${values.tradingName}, ${values.nzbn}, ${values.companyNumber}, ${values.industry}, ${values.businessDescription}, ${values.address},
+        ${values.legalName}, ${values.tradingName}, ${values.nzbn}, ${values.companyNumber}, ${values.gstNumber}, ${values.irdNumber}, ${values.industry}, ${values.businessDescription}, ${values.address},
         ${values.primaryContactName}, ${values.primaryContactEmail}, ${values.primaryContactPhone}, ${values.primaryAdviserId}, ${values.backupAdviserId},
         ${values.clientStatus}, ${values.matterName}, ${values.caseType}, ${values.priority}, ${values.nextAction}, ${values.nextActionDue}, ${values.matterStatus}, ${values.matterReviewDate}, ${JSON.stringify(values.matterActivity)}::jsonb,
         ${values.sharepointFolderUrl}, ${values.oneLawClientNumber}, ${values.accreditationType}, ${values.accreditationStatus},

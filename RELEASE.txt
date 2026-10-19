@@ -1,15 +1,17 @@
-THiS CRM v0.17.43 - Modular Instructions Studio Pilot
+THiS CRM v0.17.44 - Employer Accreditation Questionnaire
 
 Changes
-- Reframes Instructions Studio around a modular guide builder while preserving the existing PDF/output design.
-- Existing visa packs are now labelled as starting points rather than rigid template packs.
-- Adds a reusable guidance library with Suggested, Common, Relationship, Work, Residence, Financial and Special situations categories.
-- Advisers can add library sections to an individual client draft without changing the master template.
-- Advisers can add fully client-specific custom sections for unusual cases.
-- Every section can be tailored through a plain document-style editor and restored to its starting wording where applicable.
-- Existing sections, library sections and client-specific sections are visibly identified.
-- Existing section reordering and inclusion controls remain available.
-- New library wording uses a softer, more supportive Turner Hopkins style with What we need from you / Why this helps / Helpful tip patterns.
-- Road Map authoring has been softened and gains the same Add from library / Add custom section controls.
-- Existing template governance, client data, PDF arrangement, CRM save/ready workflow, mobile single-scroll behaviour and output renderer are preserved.
-- No database migration.
+- Adds a public six-step Employer Accreditation Questionnaire at /employer-accreditation, designed for embedding on the Turner Hopkins website.
+- Rebuilds the existing Logiforms employer accreditation questionnaire into the current THiS guided-form style, while updating the questions for the current Standard / High-volume / Triangular accreditation framework.
+- Collects employer contact and business details, NZBN/company number, GST number, IRD number, entity type, business operation length, accreditation application/type, viability basis, workforce/employment practices, settlement support and current compliance declarations.
+- Collects repeatable key-person details including full name, role, date of birth, gender, country of birth, citizenship, passport number, visa status and optional email.
+- Adds conditional questions for partnerships/trusts/sole traders and triangular employment arrangements.
+- Supports secure 30-day draft/resume, Save & finish later, autosave after valid contact details, and retained supporting-document uploads.
+- Supporting documents submitted with the questionnaire are copied into the linked commercial client's Documents register.
+- Submitted questionnaires match an existing commercial client by NZBN first, then contact email + legal name; otherwise a commercial client is created for adviser review.
+- Commercial client records now store GST/IRD numbers and show an Accreditation questionnaire summary/history with declarations, key people, uploads and duplicate indicators.
+- Adds confirmation email to the employer and internal/adviser notification email, both logged in the existing email notification register.
+- Adds duplicate checks by contact email and NZBN.
+- Emits the public conversion bridge event employer_accreditation for the Squarespace/GA4 listener.
+- Includes turner-hopkins-employer-accreditation-embed.html as the Squarespace iframe helper.
+- Adds migration 47 only; the previous 46 migrations are unchanged.

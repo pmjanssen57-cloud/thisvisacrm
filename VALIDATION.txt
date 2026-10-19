@@ -1,16 +1,20 @@
-THiS CRM v0.17.43 validation
+THiS CRM v0.17.44 validation
 
-Release: Modular Instructions Studio Pilot
+Release: Employer Accreditation Questionnaire
 
 Checks completed:
-- public/instructions-studio.js node --check: PASS
-- Netlify .mjs functions node --check: PASS (22 files)
+- App.jsx TypeScript JSX transpile/syntax: PASS
+- main.jsx TypeScript JSX transpile/syntax: PASS
+- Netlify .mjs functions node --check: PASS (23 files)
 - public JavaScript node --check: PASS (6 files)
+- styles.css PostCSS parse: PASS
 - PWA validation: PASS
-- Modular Instructions Studio CSS parse: PASS
-- Modular builder static checks: PASS
-- Reusable module library: 23 modules with unique client-draft copies
-- Database migrations: 46, byte-for-byte unchanged from v0.17.42
+- Employer accreditation Squarespace embed helper static checks: PASS
+- Employer questionnaire regression/static checks: PASS (public route, GST/IRD, key people, secure resume hashing, 30-day draft expiry, uploads, email notifications, commercial summary and conversion event)
+- Database migrations: 47 total
+- Previous 46 migrations byte-for-byte unchanged from v0.17.43: PASS
+- New migration: 202610190001_add_employer_accreditation_questionnaire.sql
 - Historical/applied migrations modified: NO
 - Full Vite production build: NOT RUN (node_modules unavailable in source package)
+- Live deployed email/Database/Blob integration test: NOT RUN in this environment
 - Browser live-deploy visual QA: NOT RUN in this environment

@@ -1,0 +1,25 @@
+THiS CRM v0.17.44 - Employer Accreditation Questionnaire
+
+Website setup
+1. Deploy v0.17.44 to the existing THiS Netlify site.
+2. Create/update the Squarespace page for the questionnaire. Suggested public path: /employer-accreditation-questionnaire.
+3. Paste the contents of turner-hopkins-employer-accreditation-embed.html into the Squarespace code block used for the embedded form.
+4. The helper passes ?resume=TOKEN from Squarespace to the hosted THiS form and dynamically adjusts iframe height.
+
+Hosted THiS form
+https://thisvisacrm.netlify.app/employer-accreditation
+
+Suggested public page
+https://www.turnerhopkinsimmigration.co.nz/employer-accreditation-questionnaire
+
+Email
+- Save & finish later: secure 30-day continuation link to the employer.
+- Submission: confirmation to the employer.
+- Internal: configured employer accreditation notification recipients plus the assigned commercial-client primary adviser where available.
+- Emails are logged in the existing email_notifications table.
+
+Conversion tracking
+Successful submission emits THIS_FORM_SUBMITTED with form=employer_accreditation and the THiS questionnaire ID. The Squarespace tracking listener needs a matching employer_accreditation case if this conversion should be sent to GA4/Google Ads. No Google IDs are stored in THiS.
+
+Database
+Migration 47 adds GST/IRD fields to commercial_clients plus employer accreditation questionnaire/draft tables. Do not modify or remove migration 47 after it has been applied.

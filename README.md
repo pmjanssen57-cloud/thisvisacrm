@@ -1,31 +1,42 @@
-# THiS CRM v0.17.43 - Modular Instructions Studio Pilot
+# THiS CRM v0.17.44 - Employer Accreditation Questionnaire
 
-This release is based on v0.17.42 and reworks the Instructions Studio authoring experience without changing the existing PDF/output design or database schema.
+This release is based on v0.17.43 and adds a public employer accreditation questionnaire that can be embedded on the Turner Hopkins website. It retains the existing commercial-client model and brings submitted accreditation information directly into the commercial client record.
 
-## Modular Instructions Studio
-- Reframes visa/pathway packs as **starting points**, rather than rigid templates.
-- Adds a reusable guidance library grouped into Suggested, Common, Relationship, Work, Residence, Financial and Special situations.
-- Advisers can add a library section to an individual client draft without altering the governed master template.
-- Advisers can create a fully client-specific section for unusual or mixed situations.
-- Every section can be tailored in a document-style wording editor.
-- Standard/library wording can be restored after a client-specific edit.
-- Sections are visibly identified as Starting point, Library, Tailored or Client-specific.
-- Existing include/remove, reordering, numbering, police-clearance and direct-preview editing controls remain available.
-- Road Map authoring uses the same Add from library / Add custom section model.
+## Public questionnaire
+- Hosted THiS route: `/employer-accreditation`.
+- Six guided stages: Contact & business, Accreditation details, Viability & employment practices, Declarations, Key people, Documents & review.
+- Includes GST number, IRD number, NZBN/company number, entity type, current/renewal accreditation details and expected migrant hiring.
+- Uses the current Standard / High-volume / Triangular accreditation structure.
+- Captures business viability, recruitment/employment practices, settlement support and compliance history.
+- Captures repeatable key-person information.
+- Triangular-specific questions only appear when relevant.
 
-## Client-facing language
-The new reusable modules deliberately use a softer Turner Hopkins style. Common patterns include:
-- What we need from you
-- Why this helps
-- Helpful tip
+## Draft and resume
+- Autosaves after valid contact details exist.
+- Save & finish later sends a secure continuation link.
+- Resume links expire after 30 days.
+- Uploaded supporting documents stay attached to the draft and are restored on resume.
+- Up to 12 supporting files, 8 MB each, can be uploaded in PDF, Word, Excel, JPG or PNG format.
 
-The wording is designed to guide and reassure clients rather than read like a compliance checklist. Existing legacy master wording remains available and can be progressively refreshed as the modular library is refined.
+## CRM integration
+- Matches existing commercial clients by NZBN first, then contact email + legal business name.
+- Creates a commercial client when there is no reliable match.
+- Sets a review next action rather than silently treating the questionnaire as completed advice.
+- Saves GST/IRD numbers to the commercial client.
+- Adds an Accreditation questionnaire summary and history to the commercial client record.
+- Copies uploaded questionnaire documents into the commercial client's existing Documents register.
+- Flags prior questionnaire matches by email/NZBN for adviser review.
 
-## Existing output preserved
-The current A4 design, live preview, Separate guides / Single pack / Balanced arrangements, CRM save workflow, template governance and portal-ready workflow remain in place.
+## Email and website integration
+- Employer receives a submission confirmation.
+- Turner Hopkins notification recipients and the assigned primary adviser are notified.
+- Save & finish later sends the employer a resume link.
+- Questionnaire emails are logged through `email_notifications`.
+- Includes `turner-hopkins-employer-accreditation-embed.html` for the Squarespace page.
+- Emits conversion form name `employer_accreditation` through the existing postMessage tracking bridge.
 
 ## Database
-No schema change. The database remains at 46 migrations and all historical migrations are unchanged.
+Schema change: YES. Migration 47 is `202610190001_add_employer_accreditation_questionnaire.sql`. The previous 46 migrations are unchanged.
 
 ## Rollback
-Deploy the v0.17.42 rollback package. No database rollback is required.
+Use the v0.17.43 rollback package supplied with this release. If migration 47 has already been applied, leave it in place; the v0.17.43 application safely ignores the additional tables/columns. Applied migrations must never be removed or rewritten.

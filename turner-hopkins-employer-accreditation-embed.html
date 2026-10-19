@@ -1,0 +1,28 @@
+<!-- THiS CRM v0.17.44 - Employer Accreditation Questionnaire Squarespace embed -->
+<div id="this-employer-accreditation-wrap" style="width:100%;max-width:1180px;margin:0 auto;">
+  <iframe
+    id="this-employer-accreditation-frame"
+    title="Turner Hopkins Employer Accreditation Questionnaire"
+    src="https://thisvisacrm.netlify.app/employer-accreditation"
+    style="display:block;width:100%;min-height:820px;border:0;background:transparent;"
+    loading="eager"
+    referrerpolicy="strict-origin-when-cross-origin"
+  ></iframe>
+</div>
+<script>
+(function () {
+  var frame = document.getElementById('this-employer-accreditation-frame');
+  if (!frame) return;
+  var query = new URLSearchParams(window.location.search);
+  var resume = query.get('resume');
+  if (resume) frame.src = 'https://thisvisacrm.netlify.app/employer-accreditation?resume=' + encodeURIComponent(resume);
+  window.addEventListener('message', function (event) {
+    if (event.origin !== 'https://thisvisacrm.netlify.app') return;
+    var data = event.data || {};
+    if (data.type === 'THIS_EMPLOYER_ACCREDITATION_EMBED_HEIGHT' && data.source === 'this-crm-employer-accreditation') {
+      var height = Math.max(620, Math.min(12000, Number(data.height || 0)));
+      if (height) frame.style.height = height + 'px';
+    }
+  });
+})();
+</script>

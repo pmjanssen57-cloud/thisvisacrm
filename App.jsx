@@ -915,6 +915,8 @@ function makeBlankCommercialClient(primaryAdviserId = '') {
     tradingName: '',
     nzbn: '',
     companyNumber: '',
+    gstNumber: '',
+    irdNumber: '',
     industry: '',
     businessDescription: '',
     address: '',
@@ -951,6 +953,7 @@ function makeBlankCommercialClient(primaryAdviserId = '') {
     complianceItems: [],
     documents: [],
     auditLog: [],
+    accreditationQuestionnaires: [],
   };
 }
 
@@ -962,6 +965,8 @@ function normaliseCommercialClient(input = {}) {
     legalName: input.legalName || input.legal_name || '',
     tradingName: input.tradingName || input.trading_name || '',
     companyNumber: input.companyNumber || input.company_number || '',
+    gstNumber: input.gstNumber || input.gst_number || '',
+    irdNumber: input.irdNumber || input.ird_number || '',
     businessDescription: input.businessDescription || input.business_description || '',
     primaryContactName: input.primaryContactName || input.primary_contact_name || '',
     primaryContactEmail: input.primaryContactEmail || input.primary_contact_email || '',
@@ -1002,6 +1007,7 @@ function normaliseCommercialClient(input = {}) {
       id: item.id || '', recordType: item.recordType || item.record_type || '', recordId: item.recordId || item.record_id || '', action: item.action || '',
       changedBy: item.changedBy || item.changed_by || '', changedByType: item.changedByType || item.changed_by_type || '', summary: item.summary || '', createdAt: item.createdAt || item.created_at || '',
     })) : [],
+    accreditationQuestionnaires: Array.isArray(input.accreditationQuestionnaires) ? input.accreditationQuestionnaires : [],
   };
 }
 
@@ -1335,6 +1341,7 @@ function downloadCommercialComplianceReport(client = {}) {
 }
 
 export default function App() {
+  if (window.location.pathname.startsWith('/employer-accreditation')) return <EmployerAccreditationFormApp />;
   if (window.location.pathname.startsWith('/feedback')) return <FeedbackFormApp />;
   if (window.location.pathname.startsWith('/contact')) return <ContactFormApp />;
   if (window.location.pathname.startsWith('/intake')) return <IntakeFormApp />;
@@ -4609,6 +4616,8 @@ function CommercialCompanyEditor({ client, advisers, saveCommercialClient, delet
         <label><span>Trading name</span><input value={draft.tradingName} onChange={(e) => update('tradingName', e.target.value)} /></label>
         <label><span>NZBN</span><input value={draft.nzbn} onChange={(e) => update('nzbn', e.target.value)} /></label>
         <label><span>Company number</span><input value={draft.companyNumber} onChange={(e) => update('companyNumber', e.target.value)} /></label>
+        <label><span>GST number</span><input value={draft.gstNumber || ''} onChange={(e) => update('gstNumber', e.target.value)} /></label>
+        <label><span>IRD number</span><input value={draft.irdNumber || ''} onChange={(e) => update('irdNumber', e.target.value)} /></label>
         <label><span>Industry</span><input value={draft.industry} onChange={(e) => update('industry', e.target.value)} /></label>
         <label><span>Client lifecycle</span><select value={draft.clientStatus} onChange={(e) => update('clientStatus', e.target.value)}><option>Active</option><option>On hold</option><option>Closed</option></select></label>
         <label><span>Matter name / reference</span><input value={draft.matterName || ''} onChange={(e) => update('matterName', e.target.value)} placeholder="Optional internal matter description" /></label>
@@ -4636,6 +4645,30 @@ function CommercialCompanyEditor({ client, advisers, saveCommercialClient, delet
         <label className="span-2"><span>Compliance summary visible to employer</span><textarea rows="3" value={draft.complianceSummary} onChange={(e) => update('complianceSummary', e.target.value)} /></label>
         <label className="span-2"><span>Internal adviser notes</span><textarea rows="4" value={draft.internalNotes} onChange={(e) => update('internalNotes', e.target.value)} /></label>
       </div>
+      <CommercialAccreditationQuestionnaireSummary client={client} />
+    </section>
+  );
+}
+
+function CommercialAccreditationQuestionnaireSummary({ client }) {
+  const items = Array.isArray(client.accreditationQuestionnaires) ? client.accreditationQuestionnaires : [];
+  if (!items.length) return <div className="commercial-form-divider employer-questionnaire-divider"><span>Accreditation questionnaire</span><small>No employer questionnaire submitted yet.</small></div>;
+  const latest = items[0];
+  const payload = latest.rawPayload || {};
+  const declarations = latest.declarations || {};
+  const disclosed = Object.entries(declarations).filter(([, value]) => value === 'Yes');
+  return (
+    <section className="employer-questionnaire-summary">
+      <div className="commercial-panel-head"><div><span>Employer questionnaire</span><h3>Latest accreditation assessment</h3><p>{latest.submittedAt ? `Submitted ${formatPortalDateTime(latest.submittedAt)}` : 'Submitted questionnaire'}</p></div><span className="status-badge active">{latest.status || 'Submitted'}</span></div>
+      <div className="employer-questionnaire-summary-grid">
+        <article><span>Application</span><strong>{latest.applicationType || 'Not recorded'}</strong><small>{latest.accreditationType || 'Type not recorded'}</small></article>
+        <article><span>Viability</span><strong>{latest.viabilityBasis || 'Not recorded'}</strong><small>{payload.viabilityComments || 'No additional viability comments.'}</small></article>
+        <article><span>Key people</span><strong>{(latest.keyPeople || []).length}</strong><small>{(latest.keyPeople || []).map((person) => person.fullName).filter(Boolean).join(', ') || 'None recorded'}</small></article>
+        <article className={disclosed.length ? 'warning' : ''}><span>Declarations</span><strong>{disclosed.length ? `${disclosed.length} issue${disclosed.length === 1 ? '' : 's'} disclosed` : 'No issues disclosed'}</strong><small>{payload.declarationComments || 'Based on the submitted questionnaire.'}</small></article>
+        <article><span>Supporting files</span><strong>{(latest.uploadedFiles || []).length}</strong><small>{(latest.uploadedFiles || []).map((file) => file.fileName).filter(Boolean).join(', ') || 'No files uploaded'}</small></article>
+        <article><span>Duplicate check</span><strong>{Number(latest.duplicateFlags?.priorQuestionnairesForEmail || 0) + Number(latest.duplicateFlags?.priorQuestionnairesForNzbn || 0) ? 'Prior submission found' : 'No prior form match'}</strong><small>Email and NZBN are checked for earlier submissions.</small></article>
+      </div>
+      {items.length > 1 && <details className="employer-questionnaire-history"><summary>{items.length - 1} earlier questionnaire{items.length === 2 ? '' : 's'}</summary>{items.slice(1).map((item) => <div key={item.id}><strong>{item.applicationType || 'Employer accreditation'}</strong><span>{item.submittedAt ? formatPortalDateTime(item.submittedAt) : 'Date not recorded'}</span></div>)}</details>}
     </section>
   );
 }
@@ -6462,6 +6495,311 @@ function IntakeFormApp() {
               <button className="btn dark" type="submit" disabled={submitting || draftSaving}>{submitting ? (submissionReceipt ? 'Uploading...' : 'Submitting...') : (submissionReceipt ? 'Retry CV upload' : 'Submit questionnaire')}</button>
             )}
           </div>
+        </form>
+      </main>
+    </div>
+  );
+}
+
+
+const EMPLOYER_ACCREDITATION_DECLARATIONS = [
+  ['purchasedRecently', 'Have you purchased the business within the last 12 months?'],
+  ['recentLoss', 'Has the business made a loss within the last 24 months?'],
+  ['thirdPartyPlacement', 'Will the organisation place AEWV employees with a controlling third party?'],
+  ['bankruptcyNap', 'Is the business or any key person bankrupt or subject to a No Asset Procedure?'],
+  ['employerRegistered', 'Is the business registered as an employer with Inland Revenue?'],
+  ['canCoverCosts', 'Is the business in a position to cover salaries, wages and general operating costs?'],
+  ['standDown', 'Is the business or any key person currently subject to an employer or immigration stand-down?'],
+  ['directorBanNz', 'Is any key person currently banned from holding a directorship in New Zealand?'],
+  ['directorBanOther', 'Is any key person currently banned from holding a directorship in another country?'],
+  ['businessOffence', 'In the last five years has any key person been convicted of a business-related offence in New Zealand or overseas?'],
+  ['unlawfulEmployment', 'In the last seven years has the organisation or any key person employed someone who did not have the legal right to work in New Zealand?'],
+  ['trafficking', 'Has the organisation or any key person ever been charged with or convicted of an offence involving trafficking, migrant smuggling or the slave trade?'],
+  ['falseInfo', 'Has the organisation or any key person ever provided false or misleading information to Immigration New Zealand?'],
+  ['investigation', 'Are you aware of any current investigation or issue that could affect employer accreditation?'],
+  ['reestablishedEntity', 'In the last seven years has the organisation been re-established as a new legal entity that is substantially similar to a previous entity?'],
+  ['associatedNonCompliance', 'Is any key person currently or previously involved with another organisation that has not complied with immigration or employment requirements?'],
+];
+
+function blankEmployerKeyPerson() {
+  return { id: `kp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, fullName: '', dateOfBirth: '', gender: '', countryOfBirth: '', citizenship: '', passportNumber: '', role: '', visaStatus: '', email: '' };
+}
+
+function makeBlankEmployerAccreditationPayload() {
+  return {
+    contactFirstName: '', contactLastName: '', contactPhone: '', contactEmail: '', businessOperationLength: '',
+    legalName: '', tradingName: '', nzbn: '', companyNumber: '', gstNumber: '', irdNumber: '', entityType: '', address: '', website: '', industry: '', businessDescription: '',
+    applicationType: '', accreditationType: '', currentAccreditationNumber: '', currentAccreditationExpiry: '', estimatedMigrantHires: '',
+    viabilityBasis: '', viabilityComments: '', workforceTotal: '', migrantWorkforceTotal: '', contractorsUsed: '', fixedTermCasualUsed: '', thirdPartyPlacement: '', recruitmentCostsPassedOn: '', settlementSupportProcess: '', employerModulesCompleted: '', trialPeriodsForAewv: '', nzResidenceRequirementMet: '', employmentPracticeComments: '',
+    triangularHistoryMonths: '', triangularNzResidentPercent: '', triangularMonitoring: '', triangularHealthSafety: '', triangularComplaints: '',
+    declarations: Object.fromEntries(EMPLOYER_ACCREDITATION_DECLARATIONS.map(([key]) => [key, ''])), declarationComments: '',
+    keyPeople: [blankEmployerKeyPerson()], additionalInformation: '', consentToContact: false, privacyAcknowledged: false, declarationConfirmed: false,
+  };
+}
+
+function EmployerAccreditationFormApp() {
+  const [form, setForm] = useState(() => makeBlankEmployerAccreditationPayload());
+  const [step, setStep] = useState(1);
+  const [draftToken, setDraftToken] = useState('');
+  const [draftFiles, setDraftFiles] = useState([]);
+  const [draftSaving, setDraftSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const shellRef = useRef(null);
+  const totalSteps = 6;
+  const embedded = typeof window !== 'undefined' && window.parent !== window;
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const resume = String(params.get('resume') || '').trim();
+    if (!resume) return;
+    let active = true;
+    (async () => {
+      try {
+        const response = await fetch('/.netlify/functions/employer-accreditation?draft=resume', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token: resume }) });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body.error || 'Saved questionnaire could not be loaded.');
+        if (!active) return;
+        setDraftToken(body.draft?.token || resume);
+        setForm((current) => ({ ...current, ...(body.draft?.payload || {}) }));
+        setDraftFiles(Array.isArray(body.draft?.files) ? body.draft.files : []);
+        setStep(Math.max(1, Math.min(totalSteps, Number(body.draft?.currentStep || 1))));
+        setNotice('Your saved employer questionnaire has been restored.');
+      } catch (err) { if (active) setError(err.message || 'Saved questionnaire could not be loaded.'); }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (submitted) return undefined;
+    const ready = form.contactFirstName.trim() && form.contactLastName.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contactEmail.trim());
+    if (!ready || (step === 1 && !draftToken)) return undefined;
+    const timeoutId = window.setTimeout(() => { saveDraft({ silent: true }); }, 1200);
+    return () => window.clearTimeout(timeoutId);
+  }, [form, step, draftToken, submitted]);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('intake-embed-mode', embedded);
+    document.body.classList.toggle('intake-embed-mode', embedded);
+    return () => { document.documentElement.classList.remove('intake-embed-mode'); document.body.classList.remove('intake-embed-mode'); };
+  }, [embedded]);
+
+  useEffect(() => {
+    if (!embedded) return undefined;
+    const shell = shellRef.current;
+    if (!shell) return undefined;
+    let raf = 0;
+    const postHeight = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const height = Math.max(520, Math.ceil(shell.getBoundingClientRect().height + 12));
+        window.parent.postMessage({ type: 'THIS_EMPLOYER_ACCREDITATION_EMBED_HEIGHT', source: 'this-crm-employer-accreditation', height }, '*');
+      });
+    };
+    postHeight();
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(postHeight) : null;
+    observer?.observe(shell);
+    window.addEventListener('resize', postHeight);
+    return () => { cancelAnimationFrame(raf); observer?.disconnect(); window.removeEventListener('resize', postHeight); };
+  }, [embedded, form, step, submitted, error, notice, draftFiles]);
+
+  function update(name, value) { setError(''); setForm((current) => ({ ...current, [name]: value })); }
+  function updateDeclaration(key, value) { setError(''); setForm((current) => ({ ...current, declarations: { ...(current.declarations || {}), [key]: value } })); }
+  function updateKeyPerson(index, field, value) { setForm((current) => ({ ...current, keyPeople: (current.keyPeople || []).map((person, i) => i === index ? { ...person, [field]: value } : person) })); }
+  function addKeyPerson() { setForm((current) => ({ ...current, keyPeople: [...(current.keyPeople || []), blankEmployerKeyPerson()].slice(0, 12) })); }
+  function removeKeyPerson(index) { setForm((current) => ({ ...current, keyPeople: (current.keyPeople || []).filter((_, i) => i !== index) })); }
+
+  async function saveDraft({ sendResumeEmail = false, silent = false } = {}) {
+    if (!form.contactFirstName.trim() || !form.contactLastName.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contactEmail.trim())) {
+      if (!silent) setError('Add the contact first name, last name and a valid email before saving for later.');
+      return null;
+    }
+    if (!silent) setDraftSaving(true);
+    try {
+      const response = await fetch('/.netlify/functions/employer-accreditation?draft=save', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token: draftToken, step, sendResumeEmail, payload: { ...form, submittedVia: 'THiS employer accreditation questionnaire' } }) });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || 'The questionnaire could not be saved.');
+      setDraftToken(body.draft?.token || draftToken);
+      if (Array.isArray(body.draft?.files)) setDraftFiles(body.draft.files);
+      if (!silent) setNotice(sendResumeEmail ? 'Saved. A secure continuation link has been emailed to you.' : 'Progress saved securely.');
+      return body.draft;
+    } catch (err) { if (!silent) setError(err.message || 'The questionnaire could not be saved.'); return null; }
+    finally { if (!silent) setDraftSaving(false); }
+  }
+
+  async function uploadFiles(files) {
+    if (!files?.length) return;
+    let token = draftToken;
+    if (!token) token = (await saveDraft({ silent: true }))?.token || '';
+    if (!token) { setError('Please add the contact name and email before uploading documents.'); return; }
+    setUploading(true); setError('');
+    try {
+      for (const file of Array.from(files).slice(0, 12)) {
+        const params = new URLSearchParams({ draft: 'upload', token, fileName: file.name, category: 'Accreditation supporting document' });
+        const response = await fetch(`/.netlify/functions/employer-accreditation?${params.toString()}`, { method: 'POST', headers: { 'content-type': file.type || 'application/octet-stream' }, body: file });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body.error || `Could not upload ${file.name}.`);
+        setDraftFiles(body.files || []);
+      }
+      setNotice('Supporting documents uploaded and saved with this questionnaire.');
+    } catch (err) { setError(err.message || 'A document could not be uploaded.'); }
+    finally { setUploading(false); }
+  }
+
+  async function removeFile(fileId) {
+    if (!draftToken) return;
+    const response = await fetch('/.netlify/functions/employer-accreditation?draft=remove-upload', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token: draftToken, fileId }) });
+    const body = await response.json().catch(() => ({}));
+    if (response.ok) setDraftFiles(body.files || []); else setError(body.error || 'The document could not be removed.');
+  }
+
+  function validateStep(targetStep = step) {
+    if (targetStep === 1 && (!form.contactFirstName.trim() || !form.contactLastName.trim() || !form.contactEmail.trim() || !form.legalName.trim())) return 'Please complete the contact and core business details before continuing.';
+    if (targetStep === 1 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contactEmail.trim())) return 'Please enter a valid contact email address.';
+    if (targetStep === 2 && (!form.applicationType || !form.accreditationType || !form.gstNumber.trim() || (!form.nzbn.trim() && !form.companyNumber.trim()))) return 'Please complete the accreditation type, GST number and NZBN or company number.';
+    if (targetStep === 3 && !form.viabilityBasis) return 'Please choose the business viability basis that best applies.';
+    if (targetStep === 4 && EMPLOYER_ACCREDITATION_DECLARATIONS.some(([key]) => !form.declarations?.[key])) return 'Please answer every declaration question before continuing.';
+    if (targetStep === 5 && !(form.keyPeople || []).some((person) => person.fullName.trim() && person.role.trim())) return 'Please add at least one key person and their role.';
+    return '';
+  }
+
+  async function nextStep() {
+    const message = validateStep(step);
+    if (message) { setError(message); return; }
+    await saveDraft({ silent: true });
+    setStep((current) => Math.min(totalSteps, current + 1));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  async function submit(event) {
+    event?.preventDefault?.();
+    const message = [1,2,3,4,5].map(validateStep).find(Boolean);
+    if (message) { setError(message); return; }
+    if (!form.consentToContact || !form.privacyAcknowledged || !form.declarationConfirmed) { setError('Please complete the three confirmations before submitting.'); return; }
+    setSubmitting(true); setError(''); setNotice('');
+    try {
+      const response = await fetch('/.netlify/functions/employer-accreditation', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ resumeToken: draftToken, payload: { ...form, submittedVia: 'THiS employer accreditation questionnaire' } }) });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || 'The questionnaire could not be submitted.');
+      reportConversion('employer_accreditation', { submissionId: body.questionnaireId, details: { accreditation_type: form.accreditationType || 'not_recorded', application_type: form.applicationType || 'not_recorded' } });
+      setSubmitted(true);
+    } catch (err) { setError(err.message || 'The questionnaire could not be submitted.'); }
+    finally { setSubmitting(false); }
+  }
+
+  const progress = Math.round((step / totalSteps) * 100);
+  const triangular = form.accreditationType === 'Triangular';
+  const disclosedIssues = EMPLOYER_ACCREDITATION_DECLARATIONS.filter(([key]) => form.declarations?.[key] === 'Yes');
+
+  if (submitted) return (
+    <div className="intake-public-shell public-form-shell employer-accreditation-shell" ref={shellRef}>
+      <main className="intake-public-card public-form-card intake-thanks-card employer-accreditation-card">
+        <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="intake-brand-logo" />
+        <span className="eyebrow">Employer accreditation</span><h1>Thank you - we have received it.</h1>
+        <p>We will review the questionnaire for <strong>{form.legalName}</strong> and contact you if anything needs clarification or further evidence.</p>
+        <div className="intake-recovery-banner"><CheckCircle2 size={20}/><div><strong>No need to submit it again.</strong><span>A confirmation has been sent to {form.contactEmail}.</span></div></div>
+      </main>
+    </div>
+  );
+
+  return (
+    <div className="intake-public-shell public-form-shell guided-intake-shell employer-accreditation-shell" ref={shellRef}>
+      <main className="intake-public-card public-form-card guided-intake-card employer-accreditation-card">
+        <header className="employer-form-head">
+          <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="intake-brand-logo" />
+          <div><span className="eyebrow">Employer questionnaire</span><h1>Employer Accreditation</h1><p>A straightforward way to give us the information we need to assess and prepare your accreditation application. You can save and come back at any time.</p></div>
+        </header>
+        <div className="employer-form-progress"><div><span>Step {step} of {totalSteps}</span><strong>{progress}%</strong></div><div className="employer-progress-track"><span style={{ width: `${progress}%` }} /></div></div>
+        {notice && <div className="intake-recovery-banner"><FileCheck2 size={18}/><div><strong>{notice}</strong></div></div>}
+        {error && <div className="form-error"><AlertTriangle size={18}/><span>{error}</span></div>}
+
+        <form className="intake-form guided-form public-standard-form employer-accreditation-form" onSubmit={submit}>
+          {step === 1 && <IntakeSection title="Contact and business" description="Start with the person we should liaise with and the employer that will hold the accreditation.">
+            <div className="intake-grid two">
+              <IntakeField label="First name" value={form.contactFirstName} onChange={(v)=>update('contactFirstName',v)} required />
+              <IntakeField label="Last name" value={form.contactLastName} onChange={(v)=>update('contactLastName',v)} required />
+              <IntakeField label="Email address" type="email" value={form.contactEmail} onChange={(v)=>update('contactEmail',v)} required />
+              <IntakeField label="Contact number" value={form.contactPhone} onChange={(v)=>update('contactPhone',v)} />
+              <IntakeField label="Legal business name" value={form.legalName} onChange={(v)=>update('legalName',v)} required />
+              <IntakeField label="Trading name" value={form.tradingName} onChange={(v)=>update('tradingName',v)} />
+              <IntakeSelect label="Length of business operation" value={form.businessOperationLength} onChange={(v)=>update('businessOperationLength',v)} options={['Less than 12 months','1 to 2 years','2 to 5 years','More than 5 years']} />
+              <IntakeSelect label="Entity type" value={form.entityType} onChange={(v)=>update('entityType',v)} options={['Company','Partnership','Trust','Sole trader','Other']} />
+              <IntakeField label="Website" value={form.website} onChange={(v)=>update('website',v)} placeholder="https://" />
+              <IntakeField label="Industry" value={form.industry} onChange={(v)=>update('industry',v)} />
+            </div>
+            <IntakeTextarea label="Business address" value={form.address} onChange={(v)=>update('address',v)} rows={2} />
+            <IntakeTextarea label="Brief description of the business" value={form.businessDescription} onChange={(v)=>update('businessDescription',v)} rows={3} />
+          </IntakeSection>}
+
+          {step === 2 && <IntakeSection title="Accreditation details" description="Tell us whether this is a first application, renewal or change of accreditation type.">
+            <div className="intake-grid two">
+              <IntakeField label="NZBN" value={form.nzbn} onChange={(v)=>update('nzbn',v)} />
+              <IntakeField label="Company number" value={form.companyNumber} onChange={(v)=>update('companyNumber',v)} />
+              <IntakeField label="GST number" value={form.gstNumber} onChange={(v)=>update('gstNumber',v)} required />
+              <IntakeField label="IRD number (if different from GST number)" value={form.irdNumber} onChange={(v)=>update('irdNumber',v)} />
+              <IntakeSelect label="What are you applying for?" value={form.applicationType} onChange={(v)=>update('applicationType',v)} options={['First accreditation','Renewal','Change of accreditation type']} required />
+              <IntakeSelect label="Accreditation type" value={form.accreditationType} onChange={(v)=>update('accreditationType',v)} options={['Standard','High-volume','Triangular']} required />
+              {form.applicationType !== 'First accreditation' && <IntakeField label="Current accreditation reference" value={form.currentAccreditationNumber} onChange={(v)=>update('currentAccreditationNumber',v)} />}
+              {form.applicationType !== 'First accreditation' && <IntakeField label="Current accreditation expiry" type="date" value={form.currentAccreditationExpiry} onChange={(v)=>update('currentAccreditationExpiry',v)} />}
+              <IntakeField label="How many migrant workers do you expect to hire?" value={form.estimatedMigrantHires} onChange={(v)=>update('estimatedMigrantHires',v)} />
+              {['Partnership','Trust','Sole trader'].includes(form.entityType) && <IntakeSelect label="Does the relevant sole trader, or at least one partner/trustee, have New Zealand as their primary place of established residence?" value={form.nzResidenceRequirementMet} onChange={(v)=>update('nzResidenceRequirementMet',v)} options={['Yes','No','Not sure']} />}
+            </div>
+            <div className="employer-info-callout"><ShieldCheck size={18}/><p>Standard accreditation is generally for up to 5 migrants; high-volume for 6 or more. Triangular accreditation applies where you remain the direct employer but place workers with controlling third parties.</p></div>
+          </IntakeSection>}
+
+          {step === 3 && <IntakeSection title="Business viability and employment practices" description="We will use this to identify the evidence likely to be needed and any points that should be addressed before filing.">
+            <IntakeSelect label="Which viability basis best applies?" value={form.viabilityBasis} onChange={(v)=>update('viabilityBasis',v)} options={['No loss before depreciation and tax in the last 2 years','Positive cash flow for each month in the last 6 months','Sufficient capital or external investment','Credible business plan for at least the next 2 years']} required />
+            <IntakeTextarea label="Anything we should know about the business finances or viability?" value={form.viabilityComments} onChange={(v)=>update('viabilityComments',v)} rows={3} />
+            <div className="intake-grid two">
+              <IntakeField label="Approximate total workforce" value={form.workforceTotal} onChange={(v)=>update('workforceTotal',v)} />
+              <IntakeField label="Current migrant workforce" value={form.migrantWorkforceTotal} onChange={(v)=>update('migrantWorkforceTotal',v)} />
+              <IntakeSelect label="Do you engage independent contractors?" value={form.contractorsUsed} onChange={(v)=>update('contractorsUsed',v)} options={['Yes','No']} />
+              <IntakeSelect label="Do you use fixed-term or casual employees?" value={form.fixedTermCasualUsed} onChange={(v)=>update('fixedTermCasualUsed',v)} options={['Yes','No']} />
+              <IntakeSelect label="Do you place employees with another business?" value={form.thirdPartyPlacement} onChange={(v)=>update('thirdPartyPlacement',v)} options={['Yes','No']} />
+              <IntakeSelect label="Are any recruitment costs passed on to migrant workers?" value={form.recruitmentCostsPassedOn} onChange={(v)=>update('recruitmentCostsPassedOn',v)} options={['Yes','No']} />
+              <IntakeSelect label="Have the people making AEWV recruitment decisions completed the Employment New Zealand employer modules during the current accreditation period?" value={form.employerModulesCompleted} onChange={(v)=>update('employerModulesCompleted',v)} options={['Yes','No','Not yet / first accreditation']} />
+              <IntakeSelect label="Do your AEWV employment agreements include a trial period?" value={form.trialPeriodsForAewv} onChange={(v)=>update('trialPeriodsForAewv',v)} options={['Yes','No','Not applicable / no AEWV agreements yet']} />
+            </div>
+            <IntakeTextarea label="How do you provide settlement information and support to migrant workers?" value={form.settlementSupportProcess} onChange={(v)=>update('settlementSupportProcess',v)} rows={3} placeholder="A short description is enough - we can work through the detail with you." />
+            <IntakeTextarea label="Other employment or recruitment practices we should know about" value={form.employmentPracticeComments} onChange={(v)=>update('employmentPracticeComments',v)} rows={3} />
+            {triangular && <div className="intake-nested-panel employer-triangular-panel"><h3>Triangular employment</h3><p>These questions only apply because you selected triangular accreditation.</p><div className="intake-grid two">
+              <IntakeField label="Months placing staff in New Zealand" value={form.triangularHistoryMonths} onChange={(v)=>update('triangularHistoryMonths',v)} />
+              <IntakeField label="% NZ citizen/resident staff among placed staff" value={form.triangularNzResidentPercent} onChange={(v)=>update('triangularNzResidentPercent',v)} />
+            </div><IntakeTextarea label="How do you monitor third-party employment conditions?" value={form.triangularMonitoring} onChange={(v)=>update('triangularMonitoring',v)} rows={3}/><IntakeTextarea label="How do you monitor health and safety at third-party sites?" value={form.triangularHealthSafety} onChange={(v)=>update('triangularHealthSafety',v)} rows={3}/><IntakeTextarea label="How are worker complaints or concerns handled?" value={form.triangularComplaints} onChange={(v)=>update('triangularComplaints',v)} rows={3}/></div>}
+          </IntakeSection>}
+
+          {step === 4 && <IntakeSection title="Declarations" description="Please answer each question carefully. A Yes answer does not automatically mean accreditation is unavailable - it simply tells us what we need to review with you.">
+            <div className="employer-declaration-list">{EMPLOYER_ACCREDITATION_DECLARATIONS.map(([key,label]) => <div className="employer-declaration-row" key={key}><span>{label}</span><div><label><input type="radio" name={`decl-${key}`} checked={form.declarations?.[key]==='Yes'} onChange={()=>updateDeclaration(key,'Yes')}/>Yes</label><label><input type="radio" name={`decl-${key}`} checked={form.declarations?.[key]==='No'} onChange={()=>updateDeclaration(key,'No')}/>No</label></div></div>)}</div>
+            <IntakeTextarea label="Comments on any Yes answers" value={form.declarationComments} onChange={(v)=>update('declarationComments',v)} rows={5} placeholder="Give us the background in your own words. We can work through the legal relevance with you." />
+          </IntakeSection>}
+
+          {step === 5 && <IntakeSection title="Key people" description="Add the directors, partners, chief executive, senior managers, trustees, sole trader or other people who influence the business and its employment decisions.">
+            <div className="employer-key-people">{(form.keyPeople || []).map((person,index)=><article className="intake-nested-panel employer-key-person" key={person.id || index}><div className="intake-panel-title-row"><h3>Key person {index+1}</h3>{form.keyPeople.length>1 && <button type="button" className="btn mini ghost" onClick={()=>removeKeyPerson(index)}><Trash2 size={14}/>Remove</button>}</div><div className="intake-grid two">
+              <IntakeField label="Full name" value={person.fullName} onChange={(v)=>updateKeyPerson(index,'fullName',v)} required />
+              <IntakeField label="Role in the organisation" value={person.role} onChange={(v)=>updateKeyPerson(index,'role',v)} required />
+              <IntakeField label="Date of birth" type="date" value={person.dateOfBirth} onChange={(v)=>updateKeyPerson(index,'dateOfBirth',v)} />
+              <IntakeSelect label="Gender" value={person.gender} onChange={(v)=>updateKeyPerson(index,'gender',v)} options={['Female','Male','Another gender','Prefer not to say']} />
+              <IntakeField label="Country of birth" value={person.countryOfBirth} onChange={(v)=>updateKeyPerson(index,'countryOfBirth',v)} />
+              <IntakeField label="Country of citizenship" value={person.citizenship} onChange={(v)=>updateKeyPerson(index,'citizenship',v)} />
+              <IntakeField label="Passport number" value={person.passportNumber} onChange={(v)=>updateKeyPerson(index,'passportNumber',v)} />
+              <IntakeField label="Visa status (if not a NZ citizen)" value={person.visaStatus} onChange={(v)=>updateKeyPerson(index,'visaStatus',v)} />
+              <IntakeField label="Email (optional)" type="email" value={person.email} onChange={(v)=>updateKeyPerson(index,'email',v)} />
+            </div></article>)}</div>
+            <button type="button" className="btn ghost" onClick={addKeyPerson}><Plus size={16}/>Add another key person</button>
+          </IntakeSection>}
+
+          {step === 6 && <IntakeSection title="Documents and review" description="Upload anything you already have. It is fine if some documents are not ready yet - we can tell you what is actually needed after reviewing the questionnaire.">
+            <div className="employer-upload-box"><Upload size={22}/><div><strong>Supporting documents</strong><p>Examples: financial statements, organisation chart, employment agreement/job description templates, recruitment policy, health and safety policy, induction or settlement material.</p></div><label className="btn ghost employer-upload-button">{uploading ? 'Uploading...' : 'Choose files'}<input type="file" multiple disabled={uploading} accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" onChange={(e)=>{uploadFiles(e.target.files);e.currentTarget.value='';}} /></label></div>
+            {!!draftFiles.length && <div className="employer-file-list">{draftFiles.map((file)=><div key={file.fileId}><FileText size={15}/><span>{file.fileName}<small>{file.sizeBytes ? ` · ${formatFileSize(file.sizeBytes)}` : ''}</small></span><button type="button" onClick={()=>removeFile(file.fileId)}><X size={14}/></button></div>)}</div>}
+            <div className="employer-review-grid"><article><span>Business</span><strong>{form.legalName || 'Not recorded'}</strong><small>{form.nzbn ? `NZBN ${form.nzbn}` : form.companyNumber ? `Company ${form.companyNumber}` : 'No NZBN/company number'}</small></article><article><span>Accreditation</span><strong>{form.accreditationType || 'Not selected'}</strong><small>{form.applicationType || 'Application type not selected'}</small></article><article><span>Key people</span><strong>{form.keyPeople.filter((p)=>p.fullName).length}</strong><small>{form.keyPeople.filter((p)=>p.fullName).map((p)=>p.fullName).join(', ') || 'None recorded'}</small></article><article className={disclosedIssues.length ? 'warning' : ''}><span>Declarations</span><strong>{disclosedIssues.length ? `${disclosedIssues.length} Yes answer${disclosedIssues.length===1?'':'s'}` : 'No issues disclosed'}</strong><small>{disclosedIssues.length ? 'We will review these with you.' : 'Based on the answers supplied.'}</small></article></div>
+            <IntakeTextarea label="Anything else you would like us to know?" value={form.additionalInformation} onChange={(v)=>update('additionalInformation',v)} rows={4}/>
+            <div className="intake-consent-grid"><IntakeCheckbox label="I confirm the information supplied is true and complete to the best of my knowledge." checked={form.declarationConfirmed} onChange={(v)=>update('declarationConfirmed',v)} required/><IntakeCheckbox label="I agree that Turner Hopkins may contact me about this employer accreditation matter." checked={form.consentToContact} onChange={(v)=>update('consentToContact',v)} required/><IntakeCheckbox label="I have read and accept the Turner Hopkins privacy statement and understand this information will be used to assess and progress the employer accreditation matter." checked={form.privacyAcknowledged} onChange={(v)=>update('privacyAcknowledged',v)} required/></div>
+          </IntakeSection>}
+
+          <div className="guided-submit-bar employer-submit-bar"><div className="guided-submit-left">{step>1 && <button type="button" className="btn ghost" onClick={()=>setStep((current)=>Math.max(1,current-1))}>Back</button>}{step>=2 && <button type="button" className="btn ghost" disabled={draftSaving} onClick={()=>saveDraft({sendResumeEmail:true})}>{draftSaving?'Saving...':'Save & finish later'}</button>}</div>{step<totalSteps ? <button type="button" className="btn dark" onClick={nextStep}>Continue <ChevronRight size={16}/></button> : <button type="submit" className="btn dark" disabled={submitting||uploading}>{submitting?'Submitting...':'Submit questionnaire'} <Send size={16}/></button>}</div>
         </form>
       </main>
     </div>

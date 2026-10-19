@@ -20677,3 +20677,71 @@ body.festive-mode-active {
   .incomplete-chase-facts > div { padding:7px 8px; }
   .incomplete-chase-summary-fields > span { width:100%; justify-content:space-between; }
 }
+
+/* v0.17.44 - public Employer Accreditation Questionnaire */
+.employer-accreditation-card { max-width: 980px; }
+.employer-form-head { display:grid; grid-template-columns:190px minmax(0,1fr); gap:24px; align-items:center; padding-bottom:22px; border-bottom:1px solid var(--line); margin-bottom:18px; }
+.employer-form-head h1 { margin:4px 0 8px; color:var(--ink); font-size:clamp(30px,4vw,44px); line-height:1.05; }
+.employer-form-head p { margin:0; color:var(--muted); line-height:1.55; }
+.employer-form-progress { margin:0 0 22px; }
+.employer-form-progress > div:first-child { display:flex; justify-content:space-between; gap:12px; margin-bottom:7px; color:var(--muted); font-size:.82rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
+.employer-progress-track { height:8px; border-radius:999px; background:#e9f1ee; overflow:hidden; }
+.employer-progress-track span { display:block; height:100%; background:var(--mint); border-radius:inherit; transition:width .2s ease; }
+.employer-info-callout { display:flex; align-items:flex-start; gap:10px; padding:13px 14px; margin-top:12px; border:1px solid #bcebd7; border-radius:13px; background:#f4fbf8; color:var(--ink); }
+.employer-info-callout p { margin:0; line-height:1.5; }
+.employer-triangular-panel { margin-top:16px; }
+.employer-triangular-panel h3 { margin:0 0 4px; color:var(--ink); }
+.employer-declaration-list { display:grid; gap:8px; margin-bottom:16px; }
+.employer-declaration-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:18px; align-items:center; padding:12px 14px; border:1px solid var(--line); border-radius:12px; background:#fff; }
+.employer-declaration-row > span { color:var(--ink); line-height:1.4; font-weight:650; }
+.employer-declaration-row > div { display:flex; gap:8px; }
+.employer-declaration-row label { display:flex; align-items:center; gap:5px; min-width:62px; padding:7px 9px; border:1px solid var(--line); border-radius:9px; font-weight:700; }
+.employer-declaration-row input { accent-color:var(--ink); }
+.employer-key-people { display:grid; gap:14px; margin-bottom:12px; }
+.employer-key-person { margin:0; }
+.employer-upload-box { display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:14px; align-items:center; padding:16px; border:1px dashed #9bd7c1; border-radius:15px; background:#f8fcfa; margin-bottom:12px; }
+.employer-upload-box p { margin:4px 0 0; color:var(--muted); line-height:1.45; }
+.employer-upload-button { position:relative; overflow:hidden; }
+.employer-upload-button input { position:absolute; inset:0; opacity:0; cursor:pointer; }
+.employer-file-list { display:grid; gap:7px; margin:10px 0 18px; }
+.employer-file-list > div { display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:9px; align-items:center; padding:9px 11px; border:1px solid var(--line); border-radius:10px; background:#fff; }
+.employer-file-list span { min-width:0; overflow-wrap:anywhere; font-weight:650; }
+.employer-file-list small { color:var(--muted); font-weight:500; }
+.employer-file-list button { border:0; background:transparent; color:var(--muted); cursor:pointer; padding:6px; }
+.employer-review-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:12px 0 18px; }
+.employer-review-grid article { padding:12px 14px; border:1px solid var(--line); border-radius:12px; background:#fff; display:grid; gap:3px; }
+.employer-review-grid article.warning { border-color:#f2d38a; background:#fffaf0; }
+.employer-review-grid span { font-size:.72rem; text-transform:uppercase; letter-spacing:.06em; font-weight:800; color:var(--muted); }
+.employer-review-grid strong { color:var(--ink); font-size:1rem; }
+.employer-review-grid small { color:var(--muted); line-height:1.35; }
+.employer-submit-bar { margin-top:20px; }
+
+@media (max-width:720px) {
+  .employer-form-head { grid-template-columns:1fr; gap:12px; }
+  .employer-form-head .intake-brand-logo { width:min(190px,55vw); }
+  .employer-form-head h1 { font-size:2rem; }
+  .employer-declaration-row { grid-template-columns:1fr; gap:9px; }
+  .employer-declaration-row > div { justify-content:flex-start; }
+  .employer-upload-box { grid-template-columns:auto minmax(0,1fr); }
+  .employer-upload-box .employer-upload-button { grid-column:1 / -1; width:100%; justify-content:center; }
+  .employer-review-grid { grid-template-columns:1fr; }
+  .employer-submit-bar { align-items:stretch; gap:8px; }
+  .employer-submit-bar .guided-submit-left { display:grid; grid-template-columns:1fr 1fr; gap:8px; width:100%; }
+  .employer-submit-bar > .btn, .employer-submit-bar .guided-submit-left .btn { min-height:48px; }
+}
+
+/* Employer accreditation questionnaire summary inside commercial client */
+.employer-questionnaire-divider { margin-top:22px; display:flex; align-items:center; justify-content:space-between; gap:14px; }
+.employer-questionnaire-divider small { color:var(--muted); font-weight:500; text-transform:none; letter-spacing:0; }
+.employer-questionnaire-summary { margin-top:22px; padding-top:20px; border-top:1px solid var(--line); }
+.employer-questionnaire-summary-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+.employer-questionnaire-summary-grid article { min-width:0; display:grid; gap:4px; padding:12px 13px; border:1px solid var(--line); border-radius:12px; background:#fbfdfc; }
+.employer-questionnaire-summary-grid article.warning { background:#fffaf0; border-color:#f2d38a; }
+.employer-questionnaire-summary-grid span { color:var(--muted); font-size:.72rem; font-weight:800; letter-spacing:.05em; text-transform:uppercase; }
+.employer-questionnaire-summary-grid strong { color:var(--ink); overflow-wrap:anywhere; }
+.employer-questionnaire-summary-grid small { color:var(--muted); line-height:1.4; overflow-wrap:anywhere; }
+.employer-questionnaire-history { margin-top:12px; padding:10px 12px; border:1px solid var(--line); border-radius:11px; }
+.employer-questionnaire-history summary { cursor:pointer; color:var(--ink); font-weight:750; }
+.employer-questionnaire-history > div { display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-top:1px solid var(--line); }
+.employer-questionnaire-history > div:first-of-type { margin-top:8px; }
+@media (max-width:900px) { .employer-questionnaire-summary-grid { grid-template-columns:1fr; } }

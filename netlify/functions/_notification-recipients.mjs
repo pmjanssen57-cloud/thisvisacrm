@@ -6,6 +6,12 @@ const NOTIFICATION_TYPES = [
     defaultMode: 'configured',
   },
   {
+    key: 'employer_accreditation_internal_notification',
+    label: 'Employer accreditation questionnaires',
+    description: 'A public employer accreditation questionnaire has been submitted.',
+    defaultMode: 'configured',
+  },
+  {
     key: 'contact_form_internal_notification',
     label: 'Contact form submissions',
     description: 'A short website contact form has been submitted.',
@@ -146,7 +152,7 @@ function resolveDefaultSelection(notificationKey, advisers = []) {
 
 function defaultFallbackEmails(notificationKey) {
   let value = '';
-  if (notificationKey === 'assessment_form_internal_notification' || notificationKey === 'contact_form_internal_notification') {
+  if (['assessment_form_internal_notification','contact_form_internal_notification','employer_accreditation_internal_notification'].includes(notificationKey)) {
     value = process.env.INTAKE_NOTIFICATION_RECIPIENTS || 'paul.janssen@turnerhopkins.co.nz,sejoo.han@turnerhopkins.co.nz';
   } else if (notificationKey === 'seminar_new_registration') {
     value = process.env.SEMINAR_NOTIFICATION_RECIPIENTS || process.env.INTAKE_NOTIFICATION_RECIPIENTS || 'paul.janssen@turnerhopkins.co.nz,sejoo.han@turnerhopkins.co.nz';
