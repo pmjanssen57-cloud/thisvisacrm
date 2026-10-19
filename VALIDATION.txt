@@ -1,44 +1,68 @@
-THiS CRM v0.17.45 validation
+THiS CRM v0.17.46 — Validation
 
-PASS — Full Vite 5.4.21 production build, including App.jsx, main.jsx, new review component
-and matching helper. Build completed with the existing large-bundle advisory.
-PASS — Node syntax checks for all 24 Netlify .mjs modules (including shared helpers).
-PASS — Node syntax checks for all 6 public JavaScript files and new source JS.
-PASS — JSX transpile checks for App.jsx, main.jsx and EmployerQuestionnaireInbox.jsx.
-PASS — Embedded JavaScript in root/public HTML parsed.
-PASS — styles.css and public/live-chat.css parsed with PostCSS.
-PASS — Existing PWA validator, manifest, private API cache exclusions, precache paths,
-and service-worker version this-crm-shell-v0.17.45.
-PASS — Public submit handler with local DB/external service substitutes: no commercial
-client creation/mutation or document transfer; repeat submissions retain duplicate flags.
-PASS — Local PostgreSQL attach/create: GST/IRD, accreditation details, key people/raw
-answers/history, document bytes/register and audit; questionnaire marked Processed/linked.
-PASS — Retry and overlapping reviewer preparation resolve to one link/client/audit/register.
-PASS — Invalid mode/target, missing upload and injected SQL failure: no partial client/link.
-PASS — Separate draft listing, submitted draft exclusion, no resume token hashes returned.
-PASS — Match normalization and duplicate history; empty values do not create matches.
-PASS — Headless Edge component fixture: desktop/mobile review, match selection, supporting
-file ID/download action, attach, create, processed link/open client, drafts and search.
-PASS — Desktop/mobile screenshots inspected; action bounds checked at 390px viewport.
-PASS — Browser fixture has no runtime errors.
-PASS — 47 migration files; each byte-for-byte identical to the supplied v0.17.44 ZIP.
-PASS — Both ZIPs fully read with CRC checks; deployment files at ZIP root.
-PASS — Rollback ZIP is byte-for-byte identical to the supplied v0.17.44 ZIP.
+PASS — Vite 5.4.21 production build (local Node 24.19.0). Existing large-chunk advisory remains.
+PASS — JSX/JS transpilation and syntax: all 8 application source entries/modules.
+PASS — Undefined-reference checks on edited application modules: no findings introduced;
+       one unused legacy quick-task calendar reference was corrected.
+PASS — Node syntax checks: all 24 Netlify .mjs modules; all byte-identical to v0.17.45.
+PASS — Node syntax checks: all 7 public JS files.
+PASS — Parsed 5 CSS files, 19 inline style blocks and 14 inline script blocks.
+PASS — PWA validator, manifest, API/Identity cache exclusions, cache version and precache paths.
+PASS — All 47 migration files byte-identical to v0.17.45; no new migration or schema change.
+PASS — Original agreement-studio.js and instructions-studio.js engines byte-identical.
 
-Database/schema status: no new migration; no schema change.
-Existing migration 47 is retained and is required when upgrading an older database.
+BROWSER WORKFLOWS (built application, not an isolated UI mockup)
+PASS — Authenticated app navigation with synthetic Identity/API responses; one global search.
+PASS — Individual matter update; injected save failure retains edits; retry saves successfully.
+PASS — Commercial matter update to Waiting on INZ with review date.
+PASS — Focused client contact editor and saving.
+PASS — Edit documents inside the record, bulk obtained flags, save back to the summary.
+PASS — View/filter preservation when moving between workspaces.
+PASS — Contact side-panel review.
+PASS — Individual intake review and Save & next.
+PASS — Employer review, possible match selection and explicit attach action/link state.
+PASS — Agreement creation, actual iframe initialization, fees tab, edit/preview modes,
+       saving via the original CRM snapshot bridge and closing back to the list.
+PASS — Instructions creation, iframe initialization, preview/edit modes, saving via the
+       original CRM snapshot bridge and closing back to the list.
+PASS — Calendar, billing and practice overview rendering.
+PASS — Task and appointment editor saves through the standard panel footer.
+PASS — Desktop and 390px mobile application layouts; header/action controls stay in bounds.
+PASS — Both Studio mobile edit/preview layouts.
+PASS — Formatted agreement wording roundtrip through the original section state; disabled
+       source fields disable the editor and formatting controls.
+PASS — No browser runtime errors in the exercised workflows.
 
-Test environment/limits:
-- Production build and syntax checks ran on local Node 24.19.0. Deployment retains the
-  baseline Node 20.19.0 pin and dependency versions.
-- PostgreSQL tests used PGlite. Its missing pgcrypto extension loader was skipped and a
-  test-only UUID-backed gen_random_bytes shim let a historical booking default compile.
-  No released SQL file was edited. The actual transfer CTEs ran without substitution.
-- Blob and email services were substituted in local workflow tests. Microsoft 365 was
-  intentionally unconfigured; no real messages were sent. Browser fixtures use synthetic
-  data and mocked callbacks, not a live Identity/Netlify session.
-- No live Netlify/database/blob/Microsoft 365 deployment or integration test was performed.
-- Blob copies precede the atomic DB statement; an interrupted/failed operation can leave
-  an unregistered destination blob. Original evidence is retained and the queue can retry.
+PRINT REGRESSION
+PASS — Representative agreement: 8 printed pages; text, page count and page dimensions
+       match v0.17.45 when generated by the original print handler.
+PASS — Representative instructions: 6 printed pages; same comparison passes.
+       Checks use browser print-media DOM and rendered page images, not PDF-byte comparison.
 
-Detailed test scripts and screenshots are retained in the workspace validation directory.
+EMPLOYER BACKEND REGRESSION
+PASS — Public submissions remain queued without client mutation/creation or document copying.
+PASS — Attach/create transfers, tax/accreditation details, original key people/answers/history,
+       supporting bytes/register, audit and processed link.
+PASS — Retry/overlapping preparation resolves to one client/link/audit/document register.
+PASS — Invalid target/mode, missing upload and injected SQL failure leave no partial link/client.
+PASS — Draft separation, token-hash privacy and duplicate matching/history.
+
+ARCHIVES
+PASS — Release and rollback fully read with ZIP CRC checks; expected deployment files at root.
+PASS — All 47 migrations preserved in both ZIPs.
+PASS — v0.17.45 rollback is byte-for-byte identical to the preceding release ZIP.
+Checksums and release integrity details are supplied beside the ZIPs.
+
+LIMITS
+- Browser workflows use synthetic records and intercepted local API/Identity responses.
+  They do not constitute a live Netlify, database, blob, Microsoft 365 or signing test.
+- Local SQL tests use PGlite. The missing pgcrypto extension loader is skipped, with a
+  test-only UUID-backed gen_random_bytes shim for a historical booking default. Released
+  SQL is not edited. Transfer CTEs execute without substitution; blob/email services are mocked.
+- Tests run on Node 24.19.0. The existing production Node 20.19.0 pin and dependency versions
+  remain unchanged. No production deployment or real email send was performed.
+- Print comparisons cover representative default samples; custom long documents still
+  require normal document review before issue.
+- Session storage remembers view preferences; record edits still require saving.
+
+Detailed harnesses/results and inspected screenshots remain in the workspace validation46 folder.
