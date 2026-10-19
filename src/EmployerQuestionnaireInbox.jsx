@@ -1,5 +1,3 @@
-import { SidePanel } from './ui/SidePanel.jsx';
-import { useWorkspaceState } from './ui/workspace-state.js';
 import React, { useMemo, useState } from 'react';
 import { employerMatchReasons, relatedEmployerQuestionnaires } from './employer-questionnaire-matches.mjs';
 
@@ -29,8 +27,8 @@ export function EmployerQuestionnaireDetails({ questionnaire: q, onDownload }) {
 }
 
 export function EmployerQuestionnaireInbox({ questionnaires = [], drafts = [], clients = [], onProcess, onDownload, onOpenClient, onRefresh, saving }) {
-  const [view,setView] = useWorkspaceState('employers:view','Submitted');
-  const [query,setQuery] = useWorkspaceState('employers:query','');
+  const [view,setView] = useState('Submitted');
+  const [query,setQuery] = useState('');
   const [selectedId,setSelectedId] = useState('');
   const [target,setTarget] = useState('');
   const [busy,setBusy] = useState(false);
@@ -65,7 +63,7 @@ export function EmployerQuestionnaireInbox({ questionnaires = [], drafts = [], c
         {rows.map((q) => {const duplicates=relatedEmployerQuestionnaires(q,questionnaires).length;return <button type="button" className={`employer-queue-card ${q.id === selectedId ? 'selected' : ''}`} key={q.id} onClick={()=>select(q.id)}><strong>{q.legalName}</strong><span>{q.contactEmail} · NZBN {q.nzbn || 'not recorded'}</span><span>{q.applicationType} · {q.accreditationType}</span><small>{q.commercialClientId ? 'Processed / linked' : q.status} · {date(q.submittedAt)}</small>{(duplicates > 0 || Object.values(q.duplicateFlags || {}).some((n)=>Number(n)>0)) && <span className="employer-duplicate-warning">Possible duplicate · {duplicates} related submission(s)</span>}</button>;})}
         {!rows.length && <p>No employer questionnaires match this view.</p>}
       </div>
-      {selected && <SidePanel title={selected.legalName} subtitle="Employer questionnaire review" onClose={()=>select('')} busy={busy || saving} wide><section className="employer-review panel" aria-label="Employer questionnaire review">
+      {selected && <section className="employer-review panel" aria-label="Employer questionnaire review">
         <div className="commercial-panel-head"><div><h3>{selected.legalName}</h3><p>{selected.status} · Submitted {date(selected.submittedAt)}</p></div><button type="button" className="btn" onClick={()=>select('')}>Close review</button></div>
         <EmployerQuestionnaireDetails questionnaire={selected} onDownload={download} />
         <details open={related.length > 0}><summary>Duplicate visibility and submission history ({related.length})</summary><p>Checks compare NZBN, legal/trading name and contact email. Every submission is retained.</p><Answer value={selected.duplicateFlags || {}} />{related.map((q)=><button type="button" className="btn" key={q.id} onClick={()=>{select(q.id);setView('All');}}>{q.legalName} · {date(q.submittedAt)} · {q.commercialClientId ? 'Linked' : q.status}</button>)}</details>
@@ -78,7 +76,7 @@ export function EmployerQuestionnaireInbox({ questionnaires = [], drafts = [], c
           <div className="button-row"><button type="button" className="btn dark" disabled={!target || busy || saving} onClick={()=>process('attach')}>{busy ? 'Processing…' : 'Attach to existing commercial client'}</button><button type="button" className="btn" disabled={busy || saving} onClick={()=>process('create')}>Create commercial client from questionnaire</button></div>
           {matches.length > 0 && <p className="employer-duplicate-warning">Possible matches exist. Creating a client will retain a separate employer record.</p>}
         </div>}
-      </section></SidePanel>}
+      </section>}
     </>}
   </div>;
 }
