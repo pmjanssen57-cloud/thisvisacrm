@@ -1,0 +1,44 @@
+/* Calm precision Studio controls. Document canvas and print typography remain original. */
+@media screen {
+ .calm-studio :is(.topbar,.left,.editor,.pack-panel,.editor-panel,.calm-studio-toolbar,.modal,.modal-card,.studio-help-drawer){font-size:15px;line-height:1.5;}
+ .calm-studio :is(.product-name,.topbar .brand strong){font-size:18px;}
+ .calm-studio .topbar{padding:16px 24px!important;gap:16px;}
+ .calm-studio :is(.topbar .brand img,.brand-lockup img){width:130px;max-height:52px;}
+ .calm-studio :is(.topbar,.left,.editor,.pack-panel,.editor-panel,.modal,.modal-card) :is(button,.btn,.button){font-size:14px;min-height:40px;line-height:1.4;}
+ .calm-studio :is(.btn.primary,.button-primary){background:var(--calm-green)!important;border-color:var(--calm-green)!important;}
+ .calm-studio :is(.left,.editor,.pack-panel,.editor-panel) :is(input:not([type=checkbox]):not([type=radio]),select,textarea){font-size:15px;line-height:1.5;min-height:42px;}
+ .calm-studio :is(.left,.editor,.pack-panel,.editor-panel) :is(.label,.field-label,.section-label,.sectionlabel){font-size:13px;}
+ .calm-studio :is(.sectioncard,.document-item) :is(strong,.document-title){font-size:14px;line-height:1.5;}
+ .calm-studio :is(.tab,.editor-tab){font-size:14px!important;min-height:42px;}
+ .calm-studio :is(.pane,.tab-pane)>p{font-size:14px;}
+ .calm-studio :is(.softbox,.form-section,.fee-editor-card,.client-glance-editor-v154)>summary{font-size:14px;}
+ .calm-studio-toolbar{padding:10px 24px;min-height:56px;}
+ .calm-studio-toolbar button,.calm-studio-more summary{font-size:14px;min-height:40px;line-height:1.5;}
+ .calm-studio .workspace{grid-template-columns:236px minmax(320px,1fr) minmax(340px,1fr)!important;gap:20px!important;padding:24px!important;}
+ .calm-studio :is(.left,.editor,.pack-panel,.editor-panel){top:148px!important;height:calc(100dvh - 174px);}
+ .calm-studio.calm-mode-edit .workspace{grid-template-columns:236px minmax(0,1fr)!important;}
+ .calm-studio-more summary:focus-visible,.calm-studio :is(.calm-studio-toolbar,.calm-richtext-toolbar) button:focus-visible{outline:2px solid #38877a;outline-offset:2px;}
+ .calm-studio .calm-richtext-editor{font-size:16px;line-height:1.65;}
+ @media(max-width:1180px){
+  .calm-studio:not(.calm-mode-preview) .workspace{grid-template-columns:216px minmax(0,1fr)!important;gap:18px!important;padding:20px!important;}
+ }
+ @media(max-width:720px){
+  .calm-studio .topbar{padding:12px 14px!important;gap:12px;}
+  .calm-studio :is(.topbar .brand img,.brand-lockup img){width:100px;max-height:44px;}
+  .calm-studio :is(.product-name,.topbar .brand strong){font-size:17px;}
+  .calm-studio :is(.topbar,.left,.editor,.pack-panel,.editor-panel,.modal,.modal-card) :is(button,.btn,.button){font-size:14px;min-height:44px;}
+  .calm-studio :is(.left,.editor,.pack-panel,.editor-panel,.modal,.modal-card) :is(input:not([type=checkbox]):not([type=radio]),select,textarea){font-size:16px!important;min-height:44px;max-width:100%;}
+  .calm-studio .calm-studio-toolbar{padding:8px 12px;gap:8px;}
+  .calm-studio-toolbar button{font-size:14px;padding:9px 12px;min-height:44px;}
+  .calm-studio :is(.left,.editor,.pack-panel,.editor-panel){top:auto!important;height:auto!important;min-height:0;}
+  .calm-studio:not(.calm-mode-preview) .workspace{display:block!important;padding:14px!important;}
+  .calm-studio .workspace{padding:14px!important;}
+  .calm-studio :is(.tabs,.editor-tabs){top:60px!important;flex-wrap:wrap;overflow:visible;padding:8px;}
+  .calm-studio :is(.tab,.editor-tab){font-size:14px!important;min-height:44px;white-space:normal;}
+  .calm-studio .calm-studio-next{font-size:13px;min-height:44px;}
+  .calm-studio .calm-richtext-toolbar button{min-width:44px;min-height:44px;}
+  .calm-studio :is(.modal,.modal-card){max-height:100dvh!important;padding-bottom:env(safe-area-inset-bottom);}
+  .calm-studio :is(.modalfoot,.modal-actions){flex-wrap:wrap;gap:8px;}
+  .calm-studio :is(.top-actions,.topbar .actions){gap:8px;}
+ }
+}

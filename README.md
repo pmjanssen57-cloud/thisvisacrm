@@ -1,23 +1,17 @@
-# THiS CRM v0.17.45 — Employer questionnaire review
+# THiS CRM v0.17.47 — Calm precision
 
-Based on v0.17.44. Public employer accreditation questionnaires now wait for review in
-**Inquiries → Employer questionnaires**, before being linked to a commercial client.
+Built from v0.17.46 using the approved Calm precision design. Restores the supplied THiS
+logo, Studio name and expanded desktop navigation. Improves readable typography, My Work,
+shared editing panels, public intake/contact/employer forms and both Studio builders.
+Responsive layouts are verified from 320px phone widths to 1920px desktop widths.
 
-- Review submitted employer/contact/tax details and accreditation/viability summary.
-- Inspect all answers, key people, declarations, supporting files and duplicate history.
-- Compare possible matches by NZBN, legal/trading name and contact email.
-- Attach to an existing commercial client, or explicitly create one from the questionnaire.
-- Transfer tax/accreditation details, retained questionnaire history and supporting documents.
-- Keep processed submissions and drafts/in-progress questionnaires in separate views.
+No new migration or schema change. All 47 migrations and 24 Netlify modules are unchanged.
+The employer questionnaire inbox and explicit attach/create workflow are preserved.
+Original builder engines and representative printed document output are unchanged.
 
-**Database:** no new migration or schema change. All 47 migrations from v0.17.44 are
-unchanged. Migration 47 must already be applied or applied as part of upgrading an older
-baseline. No existing links or questionnaire records are removed.
+This is a Netlify source release. Run the existing Netlify build workflow: `yarn build`,
+publish `dist`, functions `netlify/functions`. Keep existing environment variables and
+stores. A static frontend upload alone does not deploy the functions.
 
-This is a Netlify source package. Use the established build deployment with `yarn build`,
-`dist` as the publish directory and `netlify/functions` for functions. Keep existing environment
-variables, database and blob stores. Local dependencies and generated files are not bundled.
-
-See RELEASE.txt for the workflow, deployment and rollback details; VALIDATION.txt for
-verification and limitations. The older versioned guides are retained as historical references;
-RELEASE.txt describes the current employer questionnaire behaviour.
+See RELEASE.txt, VALIDATION.txt and UI-GUIDE-v0.17.47.txt. Earlier version guides are retained
+as historical reference. No production deployment was performed.

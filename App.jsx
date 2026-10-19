@@ -1,3 +1,6 @@
+import { modernWorkspaceHelp } from './src/ui/help.js';
+import { useWorkspaceState, useWorkspaceScroll } from './src/ui/workspace-state.js';
+import { SidePanel } from './src/ui/SidePanel.jsx';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { acceptInvite, getUser, handleAuthCallback, login, logout, onAuthChange, requestPasswordRecovery, updateUser } from '@netlify/identity';
@@ -1355,7 +1358,7 @@ export default function App() {
   const [data, setData] = useState(emptyData);
   const [tab, setTab] = useState('work');
   const [myDayOpen, setMyDayOpen] = useState(false);
-  const [studioSection, setStudioSection] = useState('home');
+  const [studioSection, setStudioSection] = useWorkspaceState('studio:section','agreements');
   const [studioCreateRequest, setStudioCreateRequest] = useState(null);
   const [selectedClientId, setSelectedClientId] = useState('');
   const [clientRecordInitialSection, setClientRecordInitialSection] = useState('overview');
@@ -1364,11 +1367,11 @@ export default function App() {
   const [instructionLaunchSetId, setInstructionLaunchSetId] = useState('');
   const [agreementLaunchClientId, setAgreementLaunchClientId] = useState('');
   const [agreementLaunchSetId, setAgreementLaunchSetId] = useState('');
-  const [clientQuery, setClientQuery] = useState('');
+  const [clientQuery, setClientQuery] = useWorkspaceState('clients:query','');
   const [adviserFilter, setAdviserFilter] = useState('all');
   const [clientAdviserFilter, setClientAdviserFilter] = useState('mine');
   const [includeBackupClients, setIncludeBackupClients] = useState(false);
-  const [caseTypeFilter, setCaseTypeFilter] = useState('all');
+  const [caseTypeFilter, setCaseTypeFilter] = useWorkspaceState('clients:type','all');
   const [dashboardAdviserFilter, setDashboardAdviserFilter] = useState(() => localStorage.getItem('this_crm_dashboard_adviser_filter') || 'all');
   const [accessCode, setAccessCode] = useState('');
   const [pendingCode, setPendingCode] = useState('');
@@ -1380,6 +1383,7 @@ export default function App() {
   const identityScopeAppliedRef = useRef(false);
   const landingPreferenceAppliedRef = useRef(false);
   const [loading, setLoading] = useState(true);
+  useWorkspaceScroll(loading ? 'loading' : tab);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [crmLoadConfirmed, setCrmLoadConfirmed] = useState(false);
@@ -1507,13 +1511,13 @@ export default function App() {
     setMainNavMoreOpen(false);
     setMyDayOpen(false);
     if (nextTab === 'studio') {
-      setStudioSection('home');
+      setStudioSection('agreements');
       setStudioCreateRequest(null);
     }
     setTab(nextTab);
   }
 
-  function openStudio(section = 'home', createMode = '') {
+  function openStudio(section = 'agreements', createMode = '') {
     if (tab !== 'studio' && !confirmDiscardPendingEdits()) return false;
     if (tab === 'clients') setClientEditorDirty(false);
     if (tab === 'calendar') setCalendarEditorDirty(false);
@@ -2238,7 +2242,7 @@ export default function App() {
     identityScopeAppliedRef.current = false;
     setTab('dashboard');
     setMyDayOpen(false);
-    setStudioSection('home');
+    setStudioSection('agreements');
     setStudioCreateRequest(null);
     setChatDrawerOpen(false);
     setChatSelectedId('');
@@ -3238,7 +3242,7 @@ export default function App() {
   }, [scopedClients]);
 
   const sidebarMyWorkCount = useMemo(() => countDefaultMyWorkItems(unifiedMatterClients, dashboardAdviserFilter), [unifiedMatterClients, dashboardAdviserFilter]);
-  const sidebarNewEnquiryCount = useMemo(() => countScopedNewEnquiries(data.intakeEnquiries || [], dashboardAdviserFilter), [data.intakeEnquiries, dashboardAdviserFilter]);
+  const sidebarNewEnquiryCount = useMemo(() => countScopedNewEnquiries(data.intakeEnquiries || [], dashboardAdviserFilter) + (data.employerQuestionnaires || []).filter(q => !q.commercialClientId).length, [data.intakeEnquiries, data.employerQuestionnaires, dashboardAdviserFilter]);
 
   function runPersonalQuickAction(actionId) {
     setNewMenuOpen(false);
@@ -3278,7 +3282,7 @@ export default function App() {
   }
 
   return (
-    <div className={`app-shell matter-workspace-v17 ${festiveActive ? 'festive-mode' : ''} ${adviserPreferences.density === 'compact' ? 'density-compact' : 'density-standard'}`}>
+    <div className={`app-shell matter-workspace-v17 calm-ui ${festiveActive ? 'festive-mode' : ''} ${adviserPreferences.density === 'compact' ? 'density-compact' : 'density-standard'}`}>
       <MatterWorkspaceSidebar
         tab={tab}
         onNavigate={switchTab}
@@ -3286,6 +3290,8 @@ export default function App() {
         isAdmin={isAdmin}
         newEnquiryCount={sidebarNewEnquiryCount}
         actionCount={sidebarMyWorkCount}
+        onSettings={() => setPersonalisationOpen(true)}
+        authControl={<AuthStatus user={identityUser} adviser={identityAdviser} accessRole={currentAccessRole} accessCodeActive={Boolean(accessCode)} onLogout={logoutIdentityUser} />}
       />
       {festiveActive && <FestiveAtmosphere />}
       <header className="topbar">
@@ -3299,15 +3305,15 @@ export default function App() {
         </div>
         <div className="matter-global-search">
           <Search size={17} />
-          <input value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') switchTab('clients'); }} placeholder="Search people, companies, OneLaw number, email or matter…" />
+          <input type="search" aria-label="Search clients and matters" value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') switchTab('clients'); }} placeholder="Search clients, companies or matters…" />
         </div>
         <MatterMenuSelect className="matter-scope-menu desktop-only" caption="View" ariaLabel="Adviser view" value={dashboardAdviserFilter} onChange={setDashboardAdviserFilter} options={[{ value: 'all', label: 'All advisers' }, ...data.advisers.filter((item) => item.active !== false).map((item) => ({ value: item.id, label: item.name }))]} />
-        <HeaderLocalSnapshot adviser={headerSnapshotAdviser} />
-        <AuthStatus user={identityUser} adviser={identityAdviser} accessRole={currentAccessRole} accessCodeActive={Boolean(accessCode)} onLogout={logoutIdentityUser} />
+
+
         <div className="top-actions desktop-only">
-          <PwaInstallButton className="btn ghost compact-action pwa-install-button" label="Install app" />
-          <button className="btn ghost compact-action crm-my-day-link" type="button" onClick={() => switchTab('home')}><CloudSun size={16} />My Day</button>
-          <button className="btn ghost compact-action" type="button" onClick={() => setPersonalisationOpen(true)}><SlidersHorizontal size={16} />Customise</button>
+
+
+
           <button className={`btn ghost compact-action live-chat-header-button ${liveChatAttentionCount > 0 ? 'has-waiting' : ''}`} type="button" onClick={() => openChatDrawer()}><MessageSquare size={16} />Chat{liveChatAttentionCount > 0 && <span key={liveChatAttentionCount} className="live-chat-header-badge" aria-live="polite">{liveChatAttentionCount}</span>}</button>
           <button className="btn ghost compact-action" onClick={() => { setSupportOpen(false); setToolsOpen(true); setNewMenuOpen(false); }}><Wrench size={16} />Tools</button>
           <div className="dropdown-shell new-action-shell">
@@ -3351,37 +3357,6 @@ export default function App() {
 
         {(data.clients.length > 0 || (data.commercialClients || []).length > 0 || data.advisers.length > 0 || data.libraryEntries.length > 0 || data.intakeEnquiries.length > 0 || data.employerQuestionnaires.length > 0 || data.employerQuestionnaireDrafts.length > 0 || data.seminars.length > 0 || data.seminarRegistrations.length > 0 || data.feedbackSubmissions.length > 0 || data.consultationBookings.length > 0 || data.bookingLinks.length > 0 || data.instructionSets.length > 0 || data.agreementSets.length > 0) && (
           <>
-            <ViewToolbar
-              advisers={scopeAdvisers}
-              dashboardAdviserFilter={dashboardAdviserFilter}
-              setDashboardAdviserFilter={setDashboardAdviserFilter}
-              clientQuery={clientQuery}
-              setClientQuery={setClientQuery}
-              matchingClientCount={filteredClients.length}
-              setTab={switchTab}
-              setAdviserFilter={setAdviserFilter}
-              setCaseTypeFilter={setCaseTypeFilter}
-              canViewAllAdvisers={canViewAllAdvisers}
-            />
-            <PersonalQuickActions actions={adviserPreferences.quickActions} onAction={runPersonalQuickAction} />
-            <nav className="tabs desktop-tabs main-nav crm-main-nav-polished nav-expanded-row" aria-label="Main CRM navigation">
-              <TabButton active={tab === 'dashboard'} onClick={() => switchTab('dashboard')} icon={LayoutDashboard} label="Dashboard" />
-              <TabButton active={tab === 'tasks'} onClick={() => switchTab('tasks')} icon={ListChecks} label="Tasks" />
-              <TabButton active={['clients', 'matter', 'client-record', 'commercial-matter'].includes(tab)} onClick={() => switchTab('clients')} icon={UsersRound} label="Clients" />
-              <TabButton active={tab === 'intake'} onClick={() => switchTab('intake')} icon={ClipboardList} label="Enquiries & Intake" />
-              <TabButton active={tab === 'studio'} onClick={() => switchTab('studio')} icon={FileText} label="Studio" />
-              <TabButton active={tab === 'billing'} onClick={() => switchTab('billing')} icon={CreditCard} label="Billing" />
-              <div className="dropdown-shell main-nav-more-shell">
-                <button className={`tab nav-more-button ${['bookings', 'calendar'].includes(tab) ? 'active' : ''}`} type="button" onClick={() => setMainNavMoreOpen((open) => !open)}><MoreHorizontal size={17} />More <ChevronDown size={14} /></button>
-                {mainNavMoreOpen && (
-                  <div className="dropdown-menu nav-more-menu">
-                    <button type="button" className={tab === 'bookings' ? 'active' : ''} onClick={() => switchTab('bookings')}><CalendarDays size={16} /><span><strong>Bookings</strong><small>Availability and consultations</small></span></button>
-                    <button type="button" className={tab === 'calendar' ? 'active' : ''} onClick={() => switchTab('calendar')}><CalendarDays size={16} /><span><strong>Calendar</strong><small>Appointments and dated work</small></span></button>
-                  </div>
-                )}
-              </div>
-            </nav>
-
             {tab === 'studio' && (
               <StudioWorkspace
                 section={studioSection}
@@ -3481,7 +3456,7 @@ export default function App() {
             )}
 
             {tab === 'work' && (
-              <MatterWorkDashboard clients={activeMatterClients} advisers={data.advisers} scopeAdviserId={dashboardAdviserFilter} openClientRecord={openMatterRecord} setTab={switchTab} saveClient={saveMatterClient} saving={saving} actorAdviser={identityAdviser} />
+              <CalmWorkDashboard savePersonalTask={savePersonalTask} quickActions={<PersonalQuickActions actions={adviserPreferences.quickActions} onAction={runPersonalQuickAction} />} calendarEntries={scopedCalendarEntries} clients={activeMatterClients} advisers={data.advisers} scopeAdviserId={dashboardAdviserFilter} openClientRecord={openMatterRecord} setTab={switchTab} saveClient={saveMatterClient} saving={saving} actorAdviser={identityAdviser} />
             )}
 
             {tab === 'clients' && (
@@ -3775,41 +3750,16 @@ function MatterActionMenu({ label = 'More', items = [], className = '' }) {
   );
 }
 
-function MatterWorkspaceSidebar({ tab = 'work', onNavigate, adviser = null, isAdmin = false, newEnquiryCount = 0, actionCount = 0 }) {
-  const activeKey = ['matter', 'client-record', 'commercial-matter'].includes(tab) ? 'clients' : tab;
-  const primary = [
-    ['work', LayoutDashboard, 'My Work', actionCount],
-    ['clients', UsersRound, 'Clients', 0],
-    ['intake', ClipboardList, 'Enquiries', newEnquiryCount],
-    ['calendar', CalendarDays, 'Calendar', 0],
-  ];
-  const practice = [
-    ['tasks', ListChecks, 'Tasks', 0],
-    ['studio', FileText, 'Studio', 0],
-    ['billing', CreditCard, 'Billing', 0],
-  ];
-  const more = [
-    ['home', CloudSun, 'My Day', 0],
-    ['bookings', Clock, 'Bookings', 0],
-    ['library', BookOpen, 'Resources', 0],
-    ['dashboard', LayoutDashboard, 'Legacy dashboard', 0],
-  ];
-  const render = ([key, Icon, label, badge]) => {
-    const badgeTitle = key === 'work' ? 'Main adviser matters due today, overdue or requiring a safety action' : key === 'intake' ? 'New enquiries in the current adviser view' : '';
-    return <button key={key} type="button" className={`${activeKey === key ? 'active' : ''} matter-nav-${key}`.trim()} onClick={() => onNavigate?.(key)}><Icon size={18} /><span>{label}</span>{badge > 0 && <b title={badgeTitle}>{badge}</b>}</button>;
-  };
-  return (
-    <aside className="matter-workspace-sidebar">
-      <div className="matter-sidebar-brand"><img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" /><small>Matter workspace</small></div>
-      <nav className="matter-sidebar-nav" aria-label="Matter workspace navigation">{primary.map(render)}</nav>
-      <div className="matter-sidebar-divider"><span>Practice</span></div>
-      <nav className="matter-sidebar-nav secondary">{practice.map(render)}</nav>
-      <div className="matter-sidebar-divider"><span>More</span></div>
-      <nav className="matter-sidebar-nav secondary">{more.map(render)}{isAdmin && render(['advisers', UserRound, 'Advisers', 0])}{isAdmin && render(['backups', ShieldCheck, 'Admin / Backup', 0])}</nav>
-      <div className="matter-sidebar-profile"><div className="matter-sidebar-avatar">{matterAdviserInitials(adviser)}</div><div><strong>{adviser?.name || 'THiS adviser'}</strong><small>{adviser?.role || 'Adviser workspace'}</small></div></div>
-    </aside>
-  );
-}
+function MatterWorkspaceSidebar({ tab='work', onNavigate, adviser=null, isAdmin=false, newEnquiryCount=0, actionCount=0, onSettings, authControl }) {
+   const active=['matter','client-record','commercial-matter','commercial'].includes(tab)?'clients':tab;
+   const item=(key,Icon,title,count=0)=><button type="button" key={key} className={active===key?'active':''} onClick={()=>onNavigate(key)}><Icon size={18}/><span>{title}</span>{count>0&&<b>{count}</b>}</button>;
+   return <aside className="matter-workspace-sidebar calm-sidebar"><div className="matter-sidebar-brand"><img className="precision-logo" src={LOGO_SRC} alt="THiS — Turner Hopkins Immigration Specialists" /></div>
+     <div className="matter-sidebar-divider precision-workspace-label"><span>Workspace</span></div><nav className="matter-sidebar-nav" aria-label="Main navigation">{item('work',LayoutDashboard,'My Work',actionCount)}{item('clients',UsersRound,'Clients')}{item('intake',ClipboardList,'Enquiries',newEnquiryCount)}{item('calendar',CalendarDays,'Calendar')}</nav>
+     <div className="matter-sidebar-divider"><span>Practice</span></div><nav className="matter-sidebar-nav secondary" aria-label="Practice navigation">{item('studio',FileText,'Studio')}{item('billing',CreditCard,'Billing')}{item('dashboard',ArrowUpDown,'Reports')}</nav>
+     <div className="precision-tools"><div className="matter-sidebar-divider"><span>Tools</span></div><nav className="matter-sidebar-nav secondary" aria-label="More workspaces">{item('tasks',ListChecks,'Personal tasks')}{item('bookings',Clock,'Bookings')}{item('library',BookOpen,'Resources')}{item('home',CloudSun,'Day overview')}{isAdmin&&item('advisers',UserRound,'Advisers')}{isAdmin&&item('backups',ShieldCheck,'Admin & backup')}</nav></div>
+     <div className="calm-sidebar-footer"><button className="calm-settings-button" onClick={onSettings}><SlidersHorizontal size={18}/>Settings & preferences</button><button className="matter-sidebar-profile" onClick={onSettings}><div className="matter-sidebar-avatar">{matterAdviserInitials(adviser)}</div><div><strong>{adviser?.name||'THiS adviser'}</strong><small>{adviser?.role||'Adviser workspace'}</small></div></button>{authControl}</div>
+   </aside>;
+ }
 
 function MatterWorkDashboard({ clients = [], advisers = [], scopeAdviserId = 'all', openClientRecord, setTab, saveClient, saving = false, actorAdviser = null }) {
   const [dateScope, setDateScope] = useState('today');
@@ -4064,8 +4014,8 @@ function quickMoveBoardLabel(status = '') {
 }
 
 function MatterClientRegister({ clients = [], advisers = [], clientQuery, setClientQuery, adviserFilter, setAdviserFilter, caseTypeFilter, setCaseTypeFilter, caseTypes = [], openClientRecord, addClient, addCommercialClient }) {
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [typeFilter, setTypeFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useWorkspaceState('clients:status','all');
+  const [typeFilter, setTypeFilter] = useWorkspaceState('clients:kind','all');
   const visibleRows = clients.filter((client) => {
     const status = normaliseMatterStatus(client.matterStatus, client.clientStatus, client.nextAction);
     const commercial = isCommercialMatterRecord(client);
@@ -4086,7 +4036,7 @@ function MatterClientRegister({ clients = [], advisers = [], clientQuery, setCli
   };
   return <section className="matter-client-register unified-client-register">
     <div className="matter-page-head">
-      <div><span className="eyebrow">Matter register</span><h1>Clients</h1><p>Individual and commercial clients now sit in one register with the same ownership, work status, next action and review-date workflow.</p></div>
+      <div><span className="eyebrow">Matter register</span><h1>Clients</h1><p>People, employers and their next actions.</p></div>
       <div className="button-row unified-client-new-actions"><button className="btn" type="button" onClick={addCommercialClient}><Building2 size={16} />New commercial</button><button className="btn dark" type="button" onClick={addClient}><Plus size={16} />New individual</button></div>
     </div>
     <div className="unified-client-type-filter" aria-label="Client type filter">
@@ -4280,76 +4230,7 @@ function QuickCompleteActionModal({ client, adviser = null, onClose, saveClient,
   return <div className="matter-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose?.(); }}><section className="matter-quick-action-modal complete"><div className="matter-modal-head"><div><span className="eyebrow">Complete current action</span><h2>What happens next?</h2><p><strong>{client.nextAction || 'Current action'}</strong> will be recorded as completed. Choose where the file goes next.</p></div><button className="btn" type="button" onClick={onClose}><X size={16} /></button></div><div className="matter-modal-body matter-quick-action-body"><div className="matter-complete-destinations">{COMPLETE_ACTION_DESTINATIONS.map((item) => <button key={item.key} type="button" className={destination === item.key ? 'active' : ''} onClick={() => setDestination(item.key)}><strong>{item.label}</strong><small>{item.status}</small></button>)}</div>{selected.status !== 'Completed' && <><label className="field"><span>{waiting ? 'Waiting / review action' : 'Next action'}</span><input value={nextAction} onChange={(event) => { setNextAction(event.target.value); setError(''); }} placeholder="What happens next?" /></label><label className="field"><span>{waiting ? 'Review date' : 'Due date'}</span><input type="date" value={actionDate} onChange={(event) => { setActionDate(event.target.value); setError(''); }} /></label></>}<div className="matter-quick-context"><span>Current status</span><strong>{currentStatus}</strong><small>This quick action records completion and the next operating state only. Use Update matter for the normal day-to-day matter update.</small></div></div><div className="matter-modal-foot"><span className="validation-message">{error}</span><div><button className="btn" type="button" onClick={onClose}>Cancel</button><button className="btn dark" type="button" disabled={saving} onClick={save}><CheckCircle2 size={15} />{saving ? 'Saving…' : 'Complete action'}</button></div></div></section></div>;
 }
 
-function GuidedMatterUpdateModal({ client, adviser = null, onClose, saveClient, saving, onReturnToWork }) {
-  const [eventType, setEventType] = useState('Reviewed documents / information');
-  const suggestion = useMemo(() => buildMatterUpdateSuggestion(client,eventType),[client,eventType]);
-  const [matterStatus,setMatterStatus] = useState(suggestion.matterStatus);
-  const [nextAction,setNextAction] = useState(suggestion.nextAction);
-  const [actionDate,setActionDate] = useState(suggestion.actionDate);
-  const [stageId,setStageId] = useState(suggestion.stageId);
-  const [note,setNote] = useState('');
-  const [otherEventDetail,setOtherEventDetail] = useState('');
-  const [updatePortal,setUpdatePortal] = useState(Boolean(suggestion.portalTemplateKey && client.portalEnabled));
-  const [portalTemplateKey,setPortalTemplateKey] = useState(suggestion.portalTemplateKey || '');
-  const initialTemplate = PORTAL_UPDATE_TEMPLATES.find((item)=>item.key===suggestion.portalTemplateKey);
-  const [portalCurrent,setPortalCurrent] = useState(initialTemplate?.current || client.portalStatusUpdate || '');
-  const [portalNext,setPortalNext] = useState(initialTemplate?.next || client.portalNextStep || '');
-  const [error,setError] = useState('');
-  const appliedStages=normaliseStages(client.stages).filter((item)=>item.applied!==false).sort((a,b)=>Number(a.sortOrder||0)-Number(b.sortOrder||0));
-  const waiting=matterStatus.startsWith('Waiting') || matterStatus==='Client action required';
-
-  useEffect(()=>{
-    const next=buildMatterUpdateSuggestion(client,eventType);
-    const template=PORTAL_UPDATE_TEMPLATES.find((item)=>item.key===next.portalTemplateKey);
-    setMatterStatus(next.matterStatus);setNextAction(next.nextAction);setActionDate(next.actionDate);setStageId(next.stageId);setPortalTemplateKey(next.portalTemplateKey||'');setPortalCurrent(template?.current||client.portalStatusUpdate||'');setPortalNext(template?.next||client.portalNextStep||'');setUpdatePortal(Boolean(next.portalTemplateKey&&client.portalEnabled));setNote('');setError('');
-  },[eventType,client.id]);
-
-  function selectPortalTemplate(key){
-    setPortalTemplateKey(key);
-    const template=PORTAL_UPDATE_TEMPLATES.find((item)=>item.key===key);
-    if(template){setPortalCurrent(template.current);setPortalNext(template.next)}
-  }
-
-  function validate(){
-    if(eventType==='Other'&&!otherEventDetail.trim()){setError('Add a short description of what happened.');return false}
-    if(matterStatus==='No current action'){setError('Choose what happens next or move the file into a controlled waiting state.');return false}
-    if(matterStatus!=='Completed'&&!nextAction.trim()){setError('Add what happens next before saving.');return false}
-    if(matterStatus!=='Completed'&&!actionDate){setError(waiting?'Add the review date so the file returns to My Work.':'Add the next action date.');return false}
-    if(updatePortal&&client.portalEnabled&&(!portalCurrent.trim()||!portalNext.trim())){setError('Add both portal update fields, or turn portal publishing off.');return false}
-    setError('');return true;
-  }
-
-  async function save(returnToWork=false){
-    if(!validate())return;
-    const standardDetail=note.trim()||suggestion.note||suggestion.explanation;
-    const activityDetail=eventType==='Other'?[otherEventDetail.trim(),note.trim()].filter(Boolean).join(' — '):standardDetail;
-    const activity=[...normaliseMatterActivity(client.matterActivity),makeMatterActivity('workflow',suggestion.activityTitle,activityDetail,adviser?.name||'Adviser')];
-    const nextStages=applyMatterStageSelection(client.stages,stageId,matterStatus==='Completed');
-    const payload={...client,stages:nextStages,matterStatus,matterReviewDate:waiting?actionDate:'',nextAction:matterStatus==='Completed'?'':nextAction.trim(),nextActionDue:matterStatus==='Completed'||waiting?'':actionDate,matterActivity:activity,portalStatusUpdate:updatePortal&&client.portalEnabled?portalCurrent.trim():client.portalStatusUpdate,portalNextStep:updatePortal&&client.portalEnabled?portalNext.trim():client.portalNextStep,portalPublishNow:Boolean(updatePortal&&client.portalEnabled)};
-    await saveClient?.(payload,{resetNewClientForm:false});
-    onClose?.();
-    if(returnToWork) onReturnToWork?.();
-  }
-
-  return <div className="matter-modal-backdrop" onMouseDown={(event)=>{if(event.target===event.currentTarget)onClose?.()}}><section className="matter-guided-modal matter-simple-update-modal"><div className="matter-modal-head"><div><span className="eyebrow">Simple matter update</span><h2>Update matter</h2><p>Three things matter: what happened, what happens next, and when you want to see the file again.</p></div><button className="btn" type="button" onClick={onClose}><X size={16}/></button></div>
-    <div className="matter-modal-body">
-      <div className="matter-simple-update-grid">
-        <label className="field wide"><span>What happened?</span><select value={eventType} onChange={(event)=>{setEventType(event.target.value);setError('')}}>{MATTER_UPDATE_EVENT_GROUPS.map((group)=><optgroup key={group.label} label={group.label}>{group.options.map((item)=><option key={item} value={item}>{item}</option>)}</optgroup>)}</select></label>
-        {eventType==='Other'&&<label className="field wide"><span>Describe what happened</span><input autoFocus value={otherEventDetail} onChange={(event)=>{setOtherEventDetail(event.target.value);setError('')}} placeholder="Short description for the matter timeline" /></label>}
-        <label className="field wide"><span>What happens next?</span><input value={nextAction} onChange={(event)=>{setNextAction(event.target.value);setError('')}} placeholder="The one thing that should happen next" /></label>
-        <label className="field"><span>{waiting?'Review date':'Next action date'}</span><input type="date" value={actionDate} onChange={(event)=>{setActionDate(event.target.value);setError('')}} /></label>
-        <label className="field"><span>Who has the ball?</span><select value={matterStatus} onChange={(event)=>{setMatterStatus(event.target.value);setError('')}}><option value="Adviser action required">Adviser — I need to act</option><option value="Client action required">Client — waiting on client</option><option value="Waiting on third party">Third party — waiting externally</option><option value="Waiting on INZ">INZ — waiting on Immigration New Zealand</option><option value="Ready to progress">Ready — no blocker</option><option value="Completed">Completed — close matter workflow</option></select></label>
-      </div>
-
-      <div className="matter-simple-suggestion"><Sparkles size={16}/><div><strong>CRM suggestion</strong><span>{suggestion.explanation}</span></div></div>
-
-      <section className={`matter-simple-portal ${updatePortal?'active':''}`}><label className="matter-portal-toggle"><input type="checkbox" checked={updatePortal} disabled={!client.portalEnabled} onChange={(event)=>setUpdatePortal(event.target.checked)}/><span><b>Update client portal</b><small>{client.portalEnabled?'Optional — use the suggested wording or edit it below.':'Portal is not active for this client.'}</small></span></label>{updatePortal&&client.portalEnabled&&<div className="matter-simple-portal-fields"><label className="field"><span>Preset wording</span><select value={portalTemplateKey} onChange={(event)=>selectPortalTemplate(event.target.value)}><option value="">Keep / write my own wording</option>{PORTAL_UPDATE_TEMPLATES.map((item)=><option key={item.key} value={item.key}>{item.label}</option>)}</select></label><label className="field"><span>Current update</span><textarea rows="3" value={portalCurrent} onChange={(event)=>setPortalCurrent(event.target.value)}/></label><label className="field"><span>What happens next for the client</span><textarea rows="3" value={portalNext} onChange={(event)=>setPortalNext(event.target.value)}/></label></div>}</section>
-
-      <details className="matter-advanced-update"><summary><SlidersHorizontal size={15}/>Advanced changes</summary><div className="matter-advanced-update-body"><label className="field"><span>Matter stage</span><select value={stageId} onChange={(event)=>setStageId(event.target.value)}><option value="">Keep current stage</option>{appliedStages.map((item)=><option key={item.id} value={item.id}>{item.label}</option>)}</select></label><label className="field"><span>Internal note</span><textarea rows="4" value={note} onChange={(event)=>setNote(event.target.value)} placeholder="Optional internal detail for the timeline"/></label><p>Documents, billing, key dates and detailed client information remain available from Advanced editing on the matter screen.</p></div></details>
-    </div>
-    <div className="matter-modal-foot matter-simple-update-foot"><span className="validation-message">{error}</span><div><button className="btn" type="button" onClick={onClose}>Cancel</button><button className="btn" type="button" disabled={saving} onClick={()=>save(false)}><Save size={15}/>{saving?'Saving…':'Save update'}</button><button className="btn dark" type="button" disabled={saving} onClick={()=>save(true)}><CheckCircle2 size={15}/>{saving?'Saving…':'Save & My Work'}</button></div></div>
-  </section></div>;
-}
+function GuidedMatterUpdateModal(props) { return <CalmMatterUpdate {...props}/>; }
 
 function buildMatterUpdateSuggestion(client,eventType){
   const stages=normaliseStages(client.stages).filter((item)=>item.applied!==false).sort((a,b)=>Number(a.sortOrder||0)-Number(b.sortOrder||0));
@@ -4478,36 +4359,7 @@ function CommercialMatterCommandCentre({
   </section>;
 }
 
-function CommercialMatterUpdateModal({ client, adviser = null, onClose, saveClient, saving = false, onReturnToWork }) {
-  const currentStatus = normaliseMatterStatus(client.matterStatus, client.clientStatus, client.nextAction);
-  const [whatHappened, setWhatHappened] = useState('');
-  const [nextAction, setNextAction] = useState(client.nextAction || '');
-  const [matterStatus, setMatterStatus] = useState(currentStatus === 'No current action' ? 'Adviser action required' : currentStatus);
-  const [actionDate, setActionDate] = useState(matterWorkDate(client) || '');
-  const [error, setError] = useState('');
-  const waiting = ['Client action required', 'Waiting on third party', 'Waiting on INZ'].includes(matterStatus);
-  async function save(returnToWork = false) {
-    const happened = whatHappened.trim();
-    const action = nextAction.trim();
-    if (!happened) { setError('Add a short note about what happened.'); return; }
-    if (matterStatus !== 'Completed' && !action) { setError('Add what happens next before saving.'); return; }
-    if (matterStatus !== 'Completed' && !actionDate) { setError(waiting ? 'Waiting matters need a review date.' : 'Add a due date so the matter stays visible in My Work.'); return; }
-    const activity = [...normaliseMatterActivity(client.matterActivity), makeMatterActivity('update', 'Commercial matter updated', `${happened}${action ? ` Next: ${action}.` : ''}`, adviser?.name || 'Adviser')];
-    const payload = {
-      ...client,
-      clientStatus: matterStatus === 'Completed' ? 'Closed' : (client.clientStatus === 'Closed' ? 'Active' : client.clientStatus),
-      matterStatus,
-      nextAction: matterStatus === 'Completed' ? '' : action,
-      nextActionDue: matterStatus === 'Completed' || waiting ? '' : actionDate,
-      matterReviewDate: matterStatus === 'Completed' ? '' : (waiting ? actionDate : ''),
-      matterActivity: activity,
-    };
-    await saveClient?.(payload, { resetNewClientForm: false });
-    onClose?.();
-    if (returnToWork) onReturnToWork?.();
-  }
-  return <div className="matter-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose?.(); }}><section className="matter-simple-update-modal commercial-update-modal"><div className="matter-modal-head"><div><span className="eyebrow">Update commercial matter</span><h2>Record the update and set the next move</h2><p>The employer record, worker register and compliance data remain unchanged unless you edit them separately.</p></div><button className="btn" type="button" onClick={onClose}><X size={16} /></button></div><div className="matter-modal-body"><label className="field"><span>What happened?</span><textarea autoFocus rows="4" value={whatHappened} onChange={(event) => { setWhatHappened(event.target.value); setError(''); }} placeholder="e.g. Employer supplied updated accreditation information; reviewed job-check position; compliance issue discussed…" /></label><label className="field"><span>What happens next?</span><input value={nextAction} onChange={(event) => { setNextAction(event.target.value); setError(''); }} placeholder="One clear next action" /></label><div className="form-grid two"><label className="field"><span>Who has the ball?</span><select value={matterStatus} onChange={(event) => { setMatterStatus(event.target.value); setError(''); }}>{MATTER_STATUSES.filter((item) => item !== 'No current action').map((item) => <option key={item}>{item}</option>)}</select></label><label className="field"><span>{waiting ? 'Review date' : 'Next action due'}</span><input type="date" value={actionDate} disabled={matterStatus === 'Completed'} onChange={(event) => { setActionDate(event.target.value); setError(''); }} /></label></div><div className="matter-safety-box">Commercial clients use the same operational states as individual matters, so this file will appear in the appropriate My Work column after saving.</div></div><div className="matter-modal-foot matter-simple-update-foot"><span className="validation-message">{error}</span><div><button className="btn" type="button" onClick={onClose}>Cancel</button><button className="btn" type="button" disabled={saving} onClick={() => save(false)}><Save size={15} />{saving ? 'Saving…' : 'Save update'}</button><button className="btn dark" type="button" disabled={saving} onClick={() => save(true)}><CheckCircle2 size={15} />{saving ? 'Saving…' : 'Save & My Work'}</button></div></div></section></div>;
-}
+function CommercialMatterUpdateModal(props) { return <CalmMatterUpdate {...props} commercial/>; }
 
 function CommercialClientsWorkspace({
   commercialClients = [], selectedCommercialClient, setSelectedCommercialClientId, advisers = [], saveCommercialClient, deleteCommercialClient,
@@ -4718,7 +4570,7 @@ function CommercialWorkerEditor({ worker, jobChecks = [], onSave, onClose, savin
     setDraft((current) => ({ ...current, jobCheckId: value, jobCheckReference: match?.referenceNumber || '' }));
   }
   return (
-    <CommercialEditorModal title={worker.id ? 'Edit worker' : 'Add work visa holder'} eyebrow="Worker register" onClose={onClose}>
+    <CommercialEditorModal saving={saving} title={worker.id ? 'Edit worker' : 'Add work visa holder'} eyebrow="Worker register" onClose={onClose}>
       <div className="commercial-form-grid">
         <label><span>Full name *</span><input value={draft.fullName} onChange={(e) => update('fullName', e.target.value)} /></label>
         <label><span>Status</span><select value={draft.status} onChange={(e) => update('status', e.target.value)}><option>Active</option><option>Upcoming</option><option>Former</option></select></label>
@@ -4756,7 +4608,7 @@ function CommercialWorkerImportModal({ onImport, onClose, saving }) {
     try { const parsed = commercialWorkersFromCsv(await file.text()); if (!parsed.length) throw new Error('No worker rows were found.'); setRows(parsed); }
     catch (err) { setRows([]); setError(err.message || String(err)); }
   }
-  return <CommercialEditorModal title="Import work visa holders" eyebrow="Excel-compatible CSV" onClose={onClose}>
+  return <CommercialEditorModal saving={saving} title="Import work visa holders" eyebrow="Excel-compatible CSV" onClose={onClose}>
     <div className="commercial-import-intro"><FileSpreadsheet size={28} /><div><h3>Import an existing worker register</h3><p>Use the supplied CSV template. Dates should use YYYY-MM-DD. Existing rows with the same email, name and visa expiry are skipped.</p></div></div>
     <div className="commercial-import-actions"><button className="btn ghost" type="button" onClick={downloadCommercialWorkerTemplate}><Download size={16} />Download template</button><label className="btn dark file-button"><Upload size={16} />Choose CSV<input type="file" accept=".csv,text/csv" onChange={chooseFile} /></label></div>
     {fileName && <p className="muted">Selected: {fileName}</p>}{error && <div className="error-banner"><AlertTriangle size={17} />{error}</div>}
@@ -4801,7 +4653,7 @@ function CommercialJobCheckEditor({ jobCheck, onSave, onClose, saving, portalMod
     if (field === 'issueDate') next.expiryDate = addMonthsIso(value, 6);
     return next;
   });
-  return <CommercialEditorModal title={jobCheck.id ? 'Edit Job Check' : 'Add approved Job Check'} eyebrow="Employer compliance" onClose={onClose}>
+  return <CommercialEditorModal saving={saving} title={jobCheck.id ? 'Edit Job Check' : 'Add approved Job Check'} eyebrow="Employer compliance" onClose={onClose}>
     <div className="commercial-form-grid">
       <label><span>Job Check reference *</span><input value={draft.referenceNumber} onChange={(e) => update('referenceNumber', e.target.value)} /></label>
       <label><span>Status</span><select value={draft.status} onChange={(e) => update('status', e.target.value)}>{['Active','Fully used','Withdrawn'].map((value) => <option key={value}>{value}</option>)}</select></label>
@@ -4850,7 +4702,7 @@ function CommercialComplianceRegister({ client, saveItem, archiveItem, saving, p
 function CommercialComplianceEditor({ item, workers, portalMode, saving, onSave, onClose }) {
   const [draft, setDraft] = useState({ ...item });
   const update = (field, value) => setDraft((current) => ({ ...current, [field]: value }));
-  return <CommercialEditorModal title={item.id ? 'Edit compliance item' : 'Add compliance item'} eyebrow="Compliance register" onClose={onClose}>
+  return <CommercialEditorModal saving={saving} title={item.id ? 'Edit compliance item' : 'Add compliance item'} eyebrow="Compliance register" onClose={onClose}>
     <div className="commercial-form-grid">
       <label className="span-2"><span>Title *</span><input value={draft.title} onChange={(e) => update('title', e.target.value)} /></label>
       <label><span>Category</span><select value={draft.category} onChange={(e) => update('category', e.target.value)}>{['General compliance','Accreditation','Migrant employment','Visa entitlement','Pay and hours','Settlement support','Employment agreement','Training','Record keeping','Internal review'].map((v) => <option key={v}>{v}</option>)}</select></label>
@@ -4867,9 +4719,13 @@ function CommercialComplianceEditor({ item, workers, portalMode, saving, onSave,
 
 function CommercialDocumentRegister({ client, saveDocument, uploadDocument, downloadDocument, deleteDocument, saving, portalMode = false, readOnly = false }) {
   const [editing, setEditing] = useState(null);
-  const documents = client.documents || [];
+  const [documentQuery,setDocumentQuery]=useWorkspaceState(`documents:query:${client.id}`,'');
+  const [documentScope,setDocumentScope]=useWorkspaceState(`documents:scope:${client.id}`,'all');
+  const allDocuments=client.documents || [];
+  const documents=allDocuments.filter(d=>[d.title,d.category,d.fileName,d.notes].join(' ').toLowerCase().includes(documentQuery.toLowerCase())).filter(d=>documentScope==='all'||(documentScope==='expiring'?d.expiryDate&&dateDiff(d.expiryDate)<=30:!d.expiryDate));
   return <section className="panel commercial-register-panel">
     <div className="commercial-panel-head"><div><span>Document register</span><h3>Secure compliance documents</h3><p>Upload files directly to secure storage or retain an approved SharePoint link. Direct uploads are limited to 4 MB.</p></div>{!readOnly && <button className="btn dark" disabled={String(client.id).startsWith('temp-')} onClick={() => setEditing(normaliseCommercialDocument({ visibleToEmployer: true }))}><Plus size={16} />Add document</button>}</div>
+    <div className="calm-list-toolbar"><label className="calm-search-field"><Search size={16}/><input aria-label="Search documents" value={documentQuery} onChange={e=>setDocumentQuery(e.target.value)} placeholder="Search documents"/></label><select aria-label="Document filter" value={documentScope} onChange={e=>setDocumentScope(e.target.value)}><option value="all">All documents</option><option value="expiring">Expiring in 30 days / expired</option><option value="undated">No expiry</option></select><span>{documents.length} documents</span></div>
     <div className="commercial-record-list">
       {documents.map((doc) => { const worker = (client.workers || []).find((entry) => entry.id === doc.workerId); return <article className="commercial-record-row document" key={doc.id}>
         <div className="commercial-record-primary"><strong>{doc.title}</strong><span>{doc.category}{worker ? ` · ${worker.fullName}` : ''}</span>{doc.fileName && <small>{doc.fileName}{doc.sizeBytes ? ` · ${formatFileSize(doc.sizeBytes)}` : ''}</small>}</div>
@@ -4894,7 +4750,7 @@ function CommercialDocumentEditor({ document, workers, portalMode, saving, onSav
     setFile(nextFile); setFileError('');
     if (nextFile && !draft.title) update('title', nextFile.name.replace(/\.[^.]+$/, ''));
   }
-  return <CommercialEditorModal title={document.id ? 'Edit document' : 'Add compliance document'} eyebrow="Document register" onClose={onClose}>
+  return <CommercialEditorModal saving={saving} title={document.id ? 'Edit document' : 'Add compliance document'} eyebrow="Document register" onClose={onClose}>
     <div className="commercial-form-grid">
       <label className="span-2"><span>Document title *</span><input value={draft.title} onChange={(e) => update('title', e.target.value)} /></label>
       <label><span>Category</span><select value={draft.category} onChange={(e) => update('category', e.target.value)}>{['Compliance','Accreditation','Visa','Passport','Employment agreement','Job Check','Training','Other'].map((v) => <option key={v}>{v}</option>)}</select></label>
@@ -4936,7 +4792,7 @@ function CommercialPortalUserEditor({ user, saving, onClose, onSave }) {
   const codeLongEnough = !codeEntered || draft.newAccessCode.length >= 8;
   const codesMatch = draft.newAccessCode === draft.confirmAccessCode;
   const codeValid = user.id ? (!codeEntered || (codeLongEnough && codesMatch)) : (codeEntered && codeLongEnough && codesMatch);
-  return <CommercialEditorModal title={user.id ? 'Edit portal user' : 'Add portal user'} eyebrow="Employer portal" onClose={onClose}>
+  return <CommercialEditorModal saving={saving} title={user.id ? 'Edit portal user' : 'Add portal user'} eyebrow="Employer portal" onClose={onClose}>
     <div className="commercial-form-grid">
       <label><span>Name *</span><input value={draft.name} onChange={(e) => update('name', e.target.value)} /></label>
       <label><span>Email *</span><input type="email" autoComplete="email" value={draft.email} onChange={(e) => update('email', e.target.value)} /></label>
@@ -4956,9 +4812,11 @@ function CommercialAuditTrail({ client }) {
   return <section className="panel commercial-register-panel"><div className="commercial-panel-head"><div><span>Audit history</span><h3>Recent activity</h3><p>Changes made by Turner Hopkins and employer portal users.</p></div></div><div className="commercial-audit-list">{(client.auditLog || []).map((item) => <article key={item.id}><span className="commercial-audit-icon"><Clock size={15} /></span><div><strong>{item.summary || `${item.action} ${item.recordType}`}</strong><span>{item.changedByType}{item.changedBy ? ` · ${item.changedBy}` : ''}</span></div><time>{formatDateTime(item.createdAt)}</time></article>)}{!(client.auditLog || []).length && <div className="commercial-empty-mini">No activity has been recorded yet.</div>}</div></section>;
 }
 
-function CommercialEditorModal({ title, eyebrow, onClose, children }) {
-  useEffect(() => { const handler = (event) => { if (event.key === 'Escape') onClose(); }; window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler); }, [onClose]);
-  return <div className="modal-layer commercial-modal-layer" role="dialog" aria-modal="true" aria-label={title}><button className="modal-backdrop" onClick={onClose} aria-label="Close" /><div className="modal-card commercial-modal-card"><div className="modal-head"><div><span>{eyebrow}</span><h2>{title}</h2></div><button className="icon-button" onClick={onClose}><X size={18} /></button></div>{children}</div></div>;
+function CommercialEditorModal({title,eyebrow,onClose,children,saving=false}) {
+  const nodes=React.Children.toArray(children);
+  const actions=nodes.filter(node=>node?.props?.className?.includes('modal-actions'));
+  const content=nodes.filter(node=>!node?.props?.className?.includes('modal-actions'));
+  return <SidePanel title={title} subtitle={eyebrow} onClose={onClose} busy={saving} wide footer={actions.length?actions:null}>{content}</SidePanel>;
 }
 
 function CommercialPortalApp() {
@@ -5075,7 +4933,7 @@ function CommercialPortalOverview({ company, workers = [], jobChecks = [], sessi
 
 function CommercialAccreditationEditor({ draft, setDraft, loading, onClose, onSave }) {
   const update = (field, value) => setDraft((current) => ({ ...current, [field]: value }));
-  return <CommercialEditorModal title="Update accreditation" eyebrow="Employer portal" onClose={onClose}><div className="commercial-form-grid"><label><span>Accreditation type</span><input value={draft.accreditationType || ''} onChange={(e) => update('accreditationType', e.target.value)} /></label><label><span>Status</span><select value={draft.accreditationStatus || 'Not recorded'} onChange={(e) => update('accreditationStatus', e.target.value)}>{['Not recorded','Preparing','Submitted','Accredited','Suspended','Expired'].map((v) => <option key={v}>{v}</option>)}</select></label><label><span>Approval date</span><input type="date" value={draft.accreditationApprovalDate || ''} onChange={(e) => update('accreditationApprovalDate', e.target.value)} /></label><label><span>Expiry date</span><input type="date" value={draft.accreditationExpiryDate || ''} onChange={(e) => update('accreditationExpiryDate', e.target.value)} /></label><label><span>Renewal preparation</span><input type="date" value={draft.accreditationRenewalDate || ''} onChange={(e) => update('accreditationRenewalDate', e.target.value)} /></label><label className="span-2"><span>Accreditation notes</span><textarea rows="4" value={draft.accreditationNotes || ''} onChange={(e) => update('accreditationNotes', e.target.value)} /></label></div><div className="modal-actions"><button className="btn dark" disabled={loading} onClick={onSave}><Save size={16} />Save accreditation</button><button className="btn ghost" onClick={onClose}>Cancel</button></div></CommercialEditorModal>;
+  return <CommercialEditorModal saving={loading} title="Update accreditation" eyebrow="Employer portal" onClose={onClose}><div className="commercial-form-grid"><label><span>Accreditation type</span><input value={draft.accreditationType || ''} onChange={(e) => update('accreditationType', e.target.value)} /></label><label><span>Status</span><select value={draft.accreditationStatus || 'Not recorded'} onChange={(e) => update('accreditationStatus', e.target.value)}>{['Not recorded','Preparing','Submitted','Accredited','Suspended','Expired'].map((v) => <option key={v}>{v}</option>)}</select></label><label><span>Approval date</span><input type="date" value={draft.accreditationApprovalDate || ''} onChange={(e) => update('accreditationApprovalDate', e.target.value)} /></label><label><span>Expiry date</span><input type="date" value={draft.accreditationExpiryDate || ''} onChange={(e) => update('accreditationExpiryDate', e.target.value)} /></label><label><span>Renewal preparation</span><input type="date" value={draft.accreditationRenewalDate || ''} onChange={(e) => update('accreditationRenewalDate', e.target.value)} /></label><label className="span-2"><span>Accreditation notes</span><textarea rows="4" value={draft.accreditationNotes || ''} onChange={(e) => update('accreditationNotes', e.target.value)} /></label></div><div className="modal-actions"><button className="btn dark" disabled={loading} onClick={onSave}><Save size={16} />Save accreditation</button><button className="btn ghost" onClick={onClose}>Cancel</button></div></CommercialEditorModal>;
 }
 
 
@@ -8266,11 +8124,11 @@ function RelatedEnquiryPanel({ matches = [] }) {
 function IntakeWorkspace({ employerQuestionnaires = [], employerQuestionnaireDrafts = [], commercialClients = [], processEmployerQuestionnaire, downloadEmployerUpload, openCommercialClient, enquiries, intakeDrafts = [], advisers, dashboardAdviserFilter = 'all', identityUser = null, canExportContacts = false, statuses, seminars = [], seminarRegistrations = [], feedbackSubmissions = [], saveIntakeEnquiry, deleteIntakeEnquiry, archiveIntakeEnquiries, restoreIntakeEnquiry, permanentlyDeleteIntakeEnquiry, isAdmin = false, convertIntakeToClient, sendIntakeOutcomeEmail, sendIntakeCvRequestEmail, sendIntakeResultsToAdviser, sendIntakeDraftResumeEmail, sendIntakeDraftReminderEmail, deleteIntakeDraft, sendContactIntakeInviteEmail, sendContactUnableToAssistEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saveFeedbackSubmission, deleteFeedbackSubmission, saving, openClientRecord, confirmAction, refreshIntakeData, intakeRefreshing = false, lastIntakeRefreshAt = '' }) {
   const askConfirm = confirmAction || (async ({ message }) => window.confirm(message || 'Continue?'));
   const simplifiedStatuses = (statuses || INTAKE_STATUSES).filter((status) => INTAKE_STATUSES.includes(status));
-  const [workspaceTab, setWorkspaceTab] = useState('contact');
-  const [statusFilter, setStatusFilter] = useState('New');
-  const [contactStatusFilter, setContactStatusFilter] = useState('New');
-  const [feedbackStatusFilter, setFeedbackStatusFilter] = useState('New');
-  const [query, setQuery] = useState('');
+  const [workspaceTab, setWorkspaceTab] = useWorkspaceState('enquiries:section','contact');
+  const [statusFilter, setStatusFilter] = useWorkspaceState('enquiries:statusFilter','New');
+  const [contactStatusFilter, setContactStatusFilter] = useWorkspaceState('enquiries:contactStatusFilter','New');
+  const [feedbackStatusFilter, setFeedbackStatusFilter] = useWorkspaceState('enquiries:feedbackStatusFilter','New');
+  const [query, setQuery] = useWorkspaceState('enquiries:query','');
   const [expandedId, setExpandedId] = useState('');
   const [draft, setDraft] = useState(null);
   const [contactInviteSendingId, setContactInviteSendingId] = useState('');
@@ -8469,6 +8327,11 @@ function IntakeWorkspace({ employerQuestionnaires = [], employerQuestionnaireDra
     });
   }
 
+  async function saveAndNextIntake() {
+    const currentIndex=intakeFiltered.findIndex(item=>item.id===draft?.id);
+    const next=intakeFiltered.slice(currentIndex+1).find(item=>item.id!==draft?.id);
+    try { await saveDraft(); if(next) openIntakeEditor(next); else requestCloseIntakeEditor({force:true}); } catch {}
+  }
   function openIntakeEditor(item) {
     setExpandedId(item.id);
     setDraft(normaliseIntakeEnquiry(item));
@@ -8727,7 +8590,7 @@ function IntakeWorkspace({ employerQuestionnaires = [], employerQuestionnaireDra
       <div className="library-heading intake-heading enquiries-heading enquiries-heading-polished workspace-page-heading bare-heading">
         <div className="enquiries-heading-copy">
           <h1>Enquiries & Intake</h1>
-          <p className="muted">Review contact forms, individual and employer questionnaires, client feedback and seminar registrations separately from active client work.</p>
+          <p className="muted">Review, assign and follow up on new submissions.</p>
         </div>
         {canExportContacts && <details className="enquiries-export-menu">
           <summary className="btn"><Download size={16} />Export contacts</summary>
@@ -8972,7 +8835,7 @@ function IntakeWorkspace({ employerQuestionnaires = [], employerQuestionnaireDra
                       </details>
                     </div>
                   </div>
-                  {isExpanded && (
+                  {isExpanded && <SidePanel title={name} subtitle="Enquiry review" onClose={()=>setExpandedContactId('')} wide>
                     <div className="enquiry-queue-expanded">
                       <div className="contact-review-grid">
                         <div><span>Email</span><strong>{item.email || 'Not provided'}</strong></div>
@@ -8984,7 +8847,7 @@ function IntakeWorkspace({ employerQuestionnaires = [], employerQuestionnaireDra
                       <div className="contact-review-message"><span>Message</span><p>{message}</p></div>
                       <RelatedEnquiryPanel matches={relatedMatches} />
                     </div>
-                  )}
+                  </SidePanel>}
                 </article>
               );
             })}
@@ -9028,7 +8891,7 @@ function IntakeWorkspace({ employerQuestionnaires = [], employerQuestionnaireDra
                       <details className="queue-more-menu"><summary aria-label={`More actions for ${name}`}><MoreHorizontal size={18} /></summary><div><button className="danger" type="button" onClick={() => deleteFeedback(item)} disabled={saving}><Trash2 size={15} />Delete feedback</button></div></details>
                     </div>
                   </div>
-                  {isExpanded && (
+                  {isExpanded && <SidePanel title={name} subtitle="Enquiry review" onClose={()=>setExpandedFeedbackId('')} wide>
                     <div className="enquiry-queue-expanded">
                       <div className="contact-review-grid feedback-review-grid">
                         <div><span>Email</span><strong>{item.email || 'Not provided'}</strong></div>
@@ -9043,7 +8906,7 @@ function IntakeWorkspace({ employerQuestionnaires = [], employerQuestionnaireDra
                       <div className="contact-review-message"><span>What did we do well?</span><p>{item.serviceStrengths || 'No comment recorded.'}</p></div>
                       <div className="contact-review-message"><span>What could we improve?</span><p>{item.improvementSuggestions || 'No comment recorded.'}</p></div>
                     </div>
-                  )}
+                  </SidePanel>}
                 </article>
               );
             })}
@@ -9121,7 +8984,7 @@ function IntakeWorkspace({ employerQuestionnaires = [], employerQuestionnaireDra
       </section>
 
       {draft && expandedId && (
-        <ClientRecordPopoutModal title={intakeTitle} label="Pop-out intake record" ariaLabel="Pop-out intake record editor" onClose={() => requestCloseIntakeEditor()}>
+        <SidePanel title={intakeTitle} subtitle="Assessment review" onClose={() => requestCloseIntakeEditor()} busy={saving} wide footer={<><button className="btn" disabled={saving} onClick={()=>requestCloseIntakeEditor()}>Cancel</button><button className="btn" disabled={saving} onClick={()=>saveAndNextIntake()}>Save & next</button><button className="btn dark" disabled={saving} onClick={()=>saveDraft({close:true})}>{saving?'Saving…':'Save changes'}</button></>}>
           <IntakePopoutEditor
             draft={draft}
             advisers={advisers}
@@ -9141,7 +9004,7 @@ function IntakeWorkspace({ employerQuestionnaires = [], employerQuestionnaireDra
             openClientRecord={openClientRecord}
             relatedMatches={draft ? relatedMatchesFor(isContactIntake(draft) ? 'contact' : 'intake', draft) : []}
           />
-        </ClientRecordPopoutModal>
+        </SidePanel>
       )}
 
       {archiveDetailRecord && (
@@ -9945,12 +9808,13 @@ function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, 
         </div>
         <div className="button-row">
           <button className="btn" type="button" onClick={onClose}><X size={16} />Close</button>
-          <button className="btn danger" type="button" onClick={onDelete} disabled={saving || Boolean(draft.convertedClientId)}><Trash2 size={16} />Delete</button>
+          <details className="calm-create-menu"><summary>More</summary><button className="btn danger" type="button" onClick={onDelete} disabled={saving || Boolean(draft.convertedClientId)}><Trash2 size={16} />Delete enquiry</button></details>
           <button className="btn" type="button" onClick={onSave} disabled={saving}><Save size={16} />Save</button>
           <button className="btn dark" type="button" onClick={onSaveAndClose} disabled={saving}><Save size={16} />Save & close</button>
         </div>
       </div>
 
+      <details className="calm-review-actions"><summary>Actions, communication & documents</summary>
       <div className="intake-popout-support-actions">
         <IntakeFlagList flags={draft.flags} />
         <RelatedEnquiryPanel matches={relatedMatches} />
@@ -9967,6 +9831,8 @@ function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, 
         </div>
         {outcomeMessage && <p className={outcomeMessage.includes('failed') || outcomeMessage.includes('could not') ? 'inline-error' : 'inline-status'}>{outcomeMessage}</p>}
       </div>
+
+</details>
 
       <section className="intake-review-panel">
         <div className="intake-section-heading">
@@ -9985,7 +9851,7 @@ function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, 
         <TextArea label="Adviser assessment notes" value={draft.adviserAssessmentNotes} onChange={(value) => setDraftField('adviserAssessmentNotes', value)} rows={5} />
       </section>
 
-      {isContactIntake(draft) ? <ContactEnquiryEditor record={draft} onChange={setDraftPayloadField} /> : <IntakeQuestionnaireEditor record={draft} onChange={setDraftPayloadField} downloadIntakeUpload={downloadIntakeUpload} />}
+      {isContactIntake(draft) ? <ContactEnquiryEditor record={draft} onChange={setDraftPayloadField} /> : <details className="calm-questionnaire-answers"><summary>View / edit submitted answers</summary><IntakeQuestionnaireEditor record={draft} onChange={setDraftPayloadField} downloadIntakeUpload={downloadIntakeUpload} /></details>}
     </div>
   );
 }
@@ -11376,12 +11242,12 @@ function adviserInitials(value = '') {
 
 function MobileBottomNav({ activeTab, homeOpen = false, onNavigate, onOpenNew, onOpenMore }) {
   const effectiveTab = ['matter', 'client-record', 'commercial-matter'].includes(activeTab) ? 'clients' : activeTab;
-  const moreActive = !homeOpen && !['work', 'clients'].includes(effectiveTab);
+  const moreActive = !homeOpen && !['work', 'clients', 'intake'].includes(effectiveTab);
   return (
     <nav className="mobile-bottom-nav" aria-label="Mobile CRM navigation">
-      <button type="button" className={homeOpen ? 'active' : ''} onClick={() => onNavigate('home')}>
-        <CloudSun size={20} />
-        <span>Home</span>
+      <button type="button" className={!homeOpen && effectiveTab === 'intake' ? 'active' : ''} onClick={() => onNavigate('intake')}>
+        <ClipboardList size={20} />
+        <span>Enquiries</span>
       </button>
       <button type="button" className={!homeOpen && effectiveTab === 'work' ? 'active' : ''} onClick={() => onNavigate('work')}>
         <LayoutDashboard size={20} />
@@ -12933,7 +12799,7 @@ function timeZoneOffsetMs(date, timeZone) {
 }
 
 function SupportDrawer({ open, onOpen, onClose, tab }) {
-  const content = SUPPORT_CONTENT[tab] || SUPPORT_CONTENT.dashboard;
+  const content = modernWorkspaceHelp(tab, SUPPORT_CONTENT);
 
   return (
     <>
@@ -13091,7 +12957,7 @@ function AccessScreen(props) {
         <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="access-logo" />
         <LockKeyhole size={34} />
         <h1>{isInvite ? 'Set your THiS CRM password' : isRecovery ? 'Choose a new password' : 'THiS CRM login'}</h1>
-        <p>{isInvite ? 'Your Netlify Identity invitation has been recognised. Set a password to finish activating your CRM access.' : isRecovery ? 'Enter a new password to complete the reset process.' : 'Access is restricted to invited THiS users only. After login, use the My Day button whenever you want a focused briefing of today’s priorities and direct workspace links.'}</p>
+        <p>{isInvite ? 'Your Netlify Identity invitation has been recognised. Set a password to finish activating your CRM access.' : isRecovery ? 'Enter a new password to complete the reset process.' : 'Sign in to manage your matters, enquiries and documents. My Work brings your next actions together.'}</p>
 
         {isInvite && (
           <form className="access-form" onSubmit={handleInviteSubmit}>
@@ -13491,7 +13357,7 @@ function Dashboard({ clients, activeClients, advisers, dashboardAdviserFilter, d
     .map((message) => ({ client, message })))
     .sort((a, b) => String(b.message.createdAt || '').localeCompare(String(a.message.createdAt || '')));
   const pendingBillingTotal = pendingInvoices.reduce((sum, row) => sum + Number(row.item.amount || 0), 0);
-  const viewTitle = dashboardAdviserFilter === 'all' ? 'Whole-practice dashboard' : `${advisers.find((adviser) => adviser.id === dashboardAdviserFilter)?.name || 'Adviser'} dashboard`;
+  const viewTitle = dashboardAdviserFilter === 'all' ? 'Practice overview' : `${advisers.find((adviser) => adviser.id === dashboardAdviserFilter)?.name || 'Adviser'} overview`;
 
   const widgetContent = {
     summary: (
@@ -13796,7 +13662,7 @@ function QuickTaskPanel({ taskRows, advisers, setTab, setSelectedClientId, openC
 
   function openTask(row) {
     if (row.source === 'calendar-entry' && row.calendarEntry) {
-      setSelectedCalendarEntry(row.calendarEntry);
+      setTab('calendar');
       return;
     }
     if (!row.client) return;
@@ -14465,7 +14331,7 @@ function StudioWorkspace({
   return (
     <div className="studio-workspace-shell workspace-modern-page studio-workspace-modern">
       <div className="studio-workspace-nav">
-        <button className="btn ghost" type="button" onClick={() => onSectionChange?.('home')}><ChevronRight className="studio-back-icon" size={16} />Studio home</button>
+        <button className="btn ghost" type="button" onClick={() => onSectionChange?.('home')}><ChevronRight className="studio-back-icon" size={16} />Overview</button>
         <div className="segmented-filter studio-section-switcher">
           <button type="button" className={section === 'agreements' ? 'active' : ''} onClick={() => onSectionChange?.('agreements')}><FileCheck2 size={15} />Agreements</button>
           <button type="button" className={section === 'instructions' ? 'active' : ''} onClick={() => onSectionChange?.('instructions')}><BookOpen size={15} />Instructions</button>
@@ -14553,8 +14419,8 @@ function InstructionsWorkspace({
   const initialCreateHandledRef = useRef('');
   const studioLaunchGuardRef = useRef(0);
   const deletedInstructionIdsRef = useRef(new Set());
-  const [query, setQuery] = useState('');
-  const [scope, setScope] = useState('all');
+  const [query, setQuery] = useWorkspaceState('InstructionsWorkspace:query','');
+  const [scope, setScope] = useWorkspaceState('InstructionsWorkspace:scope','all');
   const [createOpen, setCreateOpen] = useState(false);
   const [createMode, setCreateMode] = useState('client');
   const [createDraft, setCreateDraft] = useState({ clientId: '', standaloneLabel: '', packId: 'smc', title: '' });
@@ -14823,14 +14689,14 @@ function InstructionsWorkspace({
           <span className="studio-page-mark instructions"><BookOpen size={20} /></span>
           <div>
             <span className="eyebrow">Studio / Client guidance</span>
-            <h1>Instructions Studio</h1>
+            <h1>Instructions</h1>
             <p>Create client-linked instruction packs or prepare standalone instructions without a client record.</p>
           </div>
         </div>
-        <div className="button-row studio-create-actions">
+        <details className="calm-create-menu"><summary className="btn dark"><Plus size={16}/>New instructions<ChevronDown size={14}/></summary><div className="calm-create-options">
           <button className="btn ghost" type="button" onClick={() => openCreate('standalone')}><FileText size={16} />New standalone</button>
           <button className="btn dark" type="button" onClick={() => openCreate('client')} disabled={!savedClients.length}><Plus size={16} />New from client</button>
-        </div>
+        </div></details>
       </div>
 
       <section className="instructions-overview-strip">
@@ -14884,11 +14750,8 @@ function InstructionsWorkspace({
         {!filtered.length && <div className="empty-state compact-empty studio-record-empty"><BookOpen size={32} /><h2>No instruction sets found</h2><p>Create a client-linked or standalone set to begin.</p></div>}
       </div>
 
-      {createOpen && (
-        <div className="record-popout-overlay instruction-create-overlay" role="dialog" aria-modal="true" aria-label="Create instruction set">
-          <div className="instruction-create-card">
-            <div className="record-popout-topbar"><div><span>Instructions Studio</span><strong>{createMode === 'client' ? 'Create from client record' : 'Create standalone instructions'}</strong></div><button className="icon-btn" type="button" onClick={() => setCreateOpen(false)}><X size={18} /></button></div>
-            <div className="instruction-create-body">
+      {createOpen && <SidePanel title="New instructions" subtitle={createMode==='client'?'From a client record':createMode==='intake'?'From an intake form':'Standalone document'} onClose={()=>setCreateOpen(false)} busy={saving}>
+<div className="instruction-create-body">
               {createMode === 'client' ? (
                 <SelectField label="Client" value={createDraft.clientId} onChange={updateCreateClient} options={savedClients.map((client) => ({ value: client.id, label: `${[client.firstName, client.lastName].filter(Boolean).join(' ')} - ${client.caseType || 'No case type'}` }))} />
               ) : (
@@ -14899,9 +14762,7 @@ function InstructionsWorkspace({
               <div className="notice-card"><strong>{createMode === 'client' ? 'Client data will be inserted automatically.' : 'Standalone instructions are not linked to a client.'}</strong><p>{createMode === 'client' ? 'The principal applicant, family members, adviser and case type will be pulled from the CRM record and can then be refined in the Studio.' : 'You can enter the recipient and application details directly in the Studio and save the set independently of any client record.'}</p></div>
             </div>
             <div className="modal-actions"><button className="btn ghost" type="button" onClick={() => setCreateOpen(false)}>Cancel</button><button className="btn dark" type="button" onClick={createInstruction} disabled={saving || (createMode === 'client' ? !createDraft.clientId : !createDraft.standaloneLabel.trim())}><Plus size={16} />Create and open</button></div>
-          </div>
-        </div>
-      )}
+</SidePanel>}
 
       {editorInstruction && (
         <div className="instruction-studio-overlay" role="dialog" aria-modal="true" aria-label="Instructions Studio editor">
@@ -14909,7 +14770,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.42" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.47" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -14950,8 +14811,8 @@ function AgreementsWorkspace({
   const initialCreateHandledRef = useRef('');
   const studioLaunchGuardRef = useRef(0);
   const deletedAgreementIdsRef = useRef(new Set());
-  const [query, setQuery] = useState('');
-  const [scope, setScope] = useState('all');
+  const [query, setQuery] = useWorkspaceState('AgreementsWorkspace:query','');
+  const [scope, setScope] = useWorkspaceState('AgreementsWorkspace:scope','all');
   const [createOpen, setCreateOpen] = useState(false);
   const [createMode, setCreateMode] = useState('client');
   const [createDraft, setCreateDraft] = useState({ clientId: '', intakeId: '', adviserId: '', standaloneLabel: '', recipientEmail: '', appType: 'smc', title: '' });
@@ -15374,15 +15235,15 @@ function AgreementsWorkspace({
           <span className="studio-page-mark agreement"><FileCheck2 size={20} /></span>
           <div>
             <span className="eyebrow">Studio / Client engagement</span>
-            <h1>Agreement Studio</h1>
+            <h1>Agreements</h1>
             <p>Create, issue and monitor client engagement agreements with tailored scope, fees and secure electronic acceptance.</p>
           </div>
         </div>
-        <div className="button-row studio-create-actions">
+        <details className="calm-create-menu"><summary className="btn dark"><Plus size={16}/>New agreement<ChevronDown size={14}/></summary><div className="calm-create-options">
           <button className="btn dark" type="button" onClick={() => openCreate('intake')} disabled={!eligibleIntakes.length}><ClipboardList size={16} />New from intake</button>
           <button className="btn ghost" type="button" onClick={() => openCreate('client')} disabled={!savedClients.length}><Plus size={16} />New from client</button>
           <button className="btn ghost" type="button" onClick={() => openCreate('standalone')}><FileText size={16} />New standalone</button>
-        </div>
+        </div></details>
       </div>
 
       <section className="instructions-overview-strip">
@@ -15444,11 +15305,8 @@ function AgreementsWorkspace({
         {!filtered.length && <div className="empty-state compact-empty studio-record-empty"><FileCheck2 size={32} /><h2>No agreements found</h2><p>Create an agreement from a client, an intake form, or as a standalone matter.</p></div>}
       </div>
 
-      {createOpen && (
-        <div className="record-popout-overlay instruction-create-overlay" role="dialog" aria-modal="true" aria-label="Create agreement">
-          <div className="instruction-create-card">
-            <div className="record-popout-topbar"><div><span>Agreement Studio</span><strong>{createMode === 'client' ? 'Create from client record' : createMode === 'intake' ? 'Create from intake form' : 'Create standalone agreement'}</strong></div><button className="icon-btn" type="button" onClick={() => setCreateOpen(false)}><X size={18} /></button></div>
-            <div className="instruction-create-body">
+      {createOpen && <SidePanel title="New agreement" subtitle={createMode==='client'?'From a client record':createMode==='intake'?'From an intake form':'Standalone document'} onClose={()=>setCreateOpen(false)} busy={saving}>
+<div className="instruction-create-body">
               {createMode === 'client' ? (
                 <SelectField label="Client" value={createDraft.clientId} onChange={updateCreateClient} options={savedClients.map((client) => ({ value: client.id, label: `${[client.firstName, client.lastName].filter(Boolean).join(' ')} - ${client.caseType || 'No case type'}` }))} />
               ) : createMode === 'intake' ? (
@@ -15470,9 +15328,7 @@ function AgreementsWorkspace({
               <div className="notice-card"><strong>{createMode === 'client' ? 'Client and adviser details will be inserted automatically.' : createMode === 'intake' ? 'The prospective client details will be inserted from the intake form.' : 'This agreement is independent of a CRM client or intake record.'}</strong><p>{createMode === 'client' ? 'The Agreement Studio will pull the client, partner, case type, email and assigned adviser from the record. Scope, fees and signatories remain editable.' : createMode === 'intake' ? 'The agreement remains linked to the intake form until the person is converted to a client. Applicant, partner, pathway, email and assigned adviser details remain editable.' : 'Choose the adviser here. Their CRM email and licence number will be carried into the Agreement Studio automatically; scope, fees and signatories remain editable.'}</p></div>
             </div>
             <div className="modal-actions"><button className="btn ghost" type="button" onClick={() => setCreateOpen(false)}>Cancel</button><button className="btn dark" type="button" onClick={createAgreement} disabled={saving || (createMode === 'client' ? !createDraft.clientId : createMode === 'intake' ? !createDraft.intakeId : (!createDraft.standaloneLabel.trim() || !createDraft.adviserId))}><Plus size={16} />Create and open</button></div>
-          </div>
-        </div>
-      )}
+</SidePanel>}
 
       {editorAgreement && (
         <div className="instruction-studio-overlay" role="dialog" aria-modal="true" aria-label="Agreement Studio editor">
@@ -15506,7 +15362,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.42" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.47" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}
@@ -15655,6 +15511,8 @@ function ClientRecordPopoutModal({ title, onClose, children, label = 'Pop-out cl
 function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntries = [], saveClient, updatePortalMessageStatus, uploadPortalDocument, updatePortalDocument, deletePortalDocument, deleteClient, changeClientStatus, instructionSets = [], openInstructionsForClient, agreementSets = [], openAgreementsForClient, saving, onDirtyChange, onOpenPopout, popoutMode = false, initialSection = 'overview', onRequestClose, onBackToClients }) {
   const [draft, setDraft] = useState(client);
   const [activeClientSection, setActiveClientSection] = useState('overview');
+  const [editingSection,setEditingSection]=useState('');
+  const sectionEditable=popoutMode || editingSection===activeClientSection;
   const [showActionLog, setShowActionLog] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
   const [clientActionsOpen, setClientActionsOpen] = useState(false);
@@ -15675,6 +15533,7 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
       setGeneratedPortalCode('');
       previousClientIdRef.current = client.id;
       setActiveClientSection('overview');
+      setEditingSection('');
       setShowActionLog(false);
       setShowTimeline(false);
       setCustomStageLabel('');
@@ -16047,6 +15906,7 @@ The portal is a secure, read-only space where you can check application updates,
       if (!isNewClient && body?.client) setDraft(normaliseClientFromApi(body.client));
       setGeneratedPortalCode('');
       onDirtyChange?.(false);
+      setEditingSection('');
       setStatusMessage(isNewClient ? 'Saved. A blank new client form is ready for the next entry.' : `Saved ${formatTimeNow()}.`);
       return body;
     } catch (err) {
@@ -16075,6 +15935,9 @@ The portal is a secure, read-only space where you can check application updates,
   }
 
   function handleOpenPopout(sectionId = activeClientSection) {
+    if(!popoutMode && ['actions','documents','portal','stages','dates','billing'].includes(sectionId)) {
+      setEditingSection(sectionId);setActiveClientSection(sectionId);return;
+    }
     if (isDirty) {
       setValidationMessage('Save the current changes before opening the pop-out editor, so no unsaved edits are lost.');
       return;
@@ -16145,7 +16008,7 @@ The portal is a secure, read-only space where you can check application updates,
                   ? <button type="button" onClick={() => { setClientActionsOpen(false); onRequestClose?.(); }}><X size={16} />Close editor</button>
                   : activeClientSection === 'overview'
                     ? <button type="button" onClick={() => { setClientActionsOpen(false); openClientDetailsEditor('personal'); }}><ExternalLink size={16} />Open full profile editor</button>
-                    : <button type="button" onClick={() => { setClientActionsOpen(false); handleOpenPopout(activeClientSection); }}><ExternalLink size={16} />Open full editor</button>}
+                    : <button type="button" onClick={() => { setClientActionsOpen(false); handleOpenPopout(activeClientSection); }}><ExternalLink size={16} />Edit section</button>}
                 {draft.clientStatus === 'Closed'
                   ? <button type="button" onClick={() => { setClientActionsOpen(false); handleClientLifecycle('Active'); }} disabled={saving || String(draft.id).startsWith('temp-')}><RefreshCw size={16} />Reopen client</button>
                   : <button type="button" className="warning-option" onClick={() => { setClientActionsOpen(false); handleClientLifecycle('Closed'); }} disabled={saving || String(draft.id).startsWith('temp-')}><CheckCircle2 size={16} />Close client</button>}
@@ -16266,8 +16129,8 @@ The portal is a secure, read-only space where you can check application updates,
 
         {activeClientSection === 'documents' && (
           <div className="client-workspace-section-stack">
-            <ClientWorkspaceIntro title="Documents" description={popoutMode ? "Track required evidence and expiry dates. Portal PDFs and client-facing forms are managed in the Portal section." : "Summary view only. Open the larger editor when you need to change checklist items, dates or obtained status."} />
-            {popoutMode ? (
+            <ClientWorkspaceIntro title="Documents" description={sectionEditable ? "Track required evidence and expiry dates. Portal PDFs and client-facing forms are managed in the Portal section." : "Review required evidence. Choose Edit documents to update the checklist here."} />
+            {sectionEditable ? (
               <DocumentChecklist items={normaliseDocumentChecklist(draft.documentChecklist)} updateItem={updateDocumentItem} addCustomItem={addCustomDocumentItem} removeCustomItem={removeCustomDocumentItem} />
             ) : (
               <DocumentsSummaryPanel documents={requiredDocuments} onEdit={() => handleOpenPopout('documents')} />
@@ -16277,8 +16140,8 @@ The portal is a secure, read-only space where you can check application updates,
 
         {activeClientSection === 'portal' && (
           <div className="client-workspace-section-stack">
-            <ClientWorkspaceIntro title="Client portal" description={popoutMode ? "Manage what the client can see. Internal strategy, file notes and risk comments stay out of the portal." : "Summary view only. Open the larger editor to manage portal publishing, documents, messages and access codes."} />
-            {popoutMode ? (
+            <ClientWorkspaceIntro title="Client portal" description={sectionEditable ? "Manage what the client can see. Internal strategy, file notes and risk comments stay out of the portal." : "Review what the client can see. Choose Edit portal to manage publishing and access."} />
+            {sectionEditable ? (
               <ClientPortalPanel client={draft} advisers={advisers} calendarEntries={calendarEntries} generatedPortalCode={generatedPortalCode} setField={setField} updatePortalSelection={updatePortalSelection} generatePortalAccessCode={generatePortalAccessCode} copyPortalInstructions={copyPortalInstructions} publishPortalUpdate={handlePublishPortalUpdate} updatePortalMessageStatus={updatePortalMessageStatus} uploadPortalDocument={handlePortalDocumentUpload} updatePortalDocument={handlePortalDocumentUpdate} deletePortalDocument={handlePortalDocumentDelete} saving={saving} />
             ) : (
               <PortalSummaryPanel client={draft} documents={requiredDocuments} deadlines={draft.deadlines || []} appointments={linkedAppointments} billing={billingItems} portalNewMessageCount={portalNewMessageCount} visiblePortalPdfCount={visiblePortalPdfCount} onEdit={() => handleOpenPopout('portal')} />
@@ -16288,10 +16151,10 @@ The portal is a secure, read-only space where you can check application updates,
 
         {activeClientSection === 'stages' && (
           <div className="client-workspace-section-stack">
-            <ClientWorkspaceIntro title="Application stages" description={popoutMode ? "Apply, reorder and complete stages so the file progress map stays accurate." : "Summary view only. Open the larger editor to add, remove, reorder or complete stages."} />
+            <ClientWorkspaceIntro title="Application stages" description={sectionEditable ? "Apply, reorder and complete stages so the file progress map stays accurate." : "Review application progress. Choose Edit stages to make changes here."} />
             <div className="progress-card"><span>{currentStage}</span><b>{progressPercent(draft)}%</b><ProgressBar value={progressPercent(draft)} /></div>
             <ProgressMap client={draft} />
-            {popoutMode ? (
+            {sectionEditable ? (
               <section className="sub-panel workspace-panel">
                 <div className="sub-panel-head compact"><div><h2>Stage editor</h2><p className="muted">Mandatory stages always apply. Optional and custom stages can be added, removed or reordered before saving the client.</p></div></div>
                 <div className="stage-add-row"><input value={customStageLabel} onChange={(event) => setCustomStageLabel(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addCustomStage(); } }} placeholder="Add custom application stage" /><button className="btn" type="button" onClick={addCustomStage}><Plus size={16} />Add stage</button></div>
@@ -16316,8 +16179,8 @@ The portal is a secure, read-only space where you can check application updates,
 
         {activeClientSection === 'dates' && (
           <div className="client-workspace-section-stack">
-            <ClientWorkspaceIntro title="Key dates" description={popoutMode ? "Record dates that may affect the application. Tick only the dates that should appear on the adviser dashboard." : "Summary view only. Open the larger editor to add dates or decide which ones belong on the dashboard."} />
-            {popoutMode ? (
+            <ClientWorkspaceIntro title="Key dates" description={sectionEditable ? "Record dates that may affect the application. Tick only the dates that should appear on the adviser dashboard." : "Review key dates. Choose Edit dates to update them here."} />
+            {sectionEditable ? (
               <section className="sub-panel workspace-panel">
                 <div className="sub-panel-head"><div><h2>Client deadline dates</h2><p className="muted">Add the date, then tick “Show on dashboard” only if it needs adviser follow-up.</p></div><button className="btn" onClick={addDeadline}><Plus size={16} />Deadline</button></div>
                 <div className="table-like">
@@ -16346,8 +16209,8 @@ The portal is a secure, read-only space where you can check application updates,
 
         {activeClientSection === 'billing' && (
           <div className="client-workspace-section-stack">
-            <ClientWorkspaceIntro title="Billing" description={popoutMode ? "Record billing milestones, invoice status and client-visible payment items." : "Summary view only. Open the larger editor to maintain billing milestones and invoice details."} />
-            {popoutMode ? (
+            <ClientWorkspaceIntro title="Billing" description={sectionEditable ? "Record billing milestones, invoice status and client-visible payment items." : "Review milestones and invoices. Choose Edit billing to make changes here."} />
+            {sectionEditable ? (
               <section className="sub-panel workspace-panel">
                 <div className="sub-panel-head"><div><h2>Billing and invoicing schedule</h2><p className="muted">Record milestones only. No documents are stored here.</p></div><button className="btn" onClick={addBilling}><Plus size={16} />Milestone</button></div>
                 <div className="table-like">
@@ -16446,7 +16309,7 @@ function DocumentsSummaryPanel({ documents = [], onEdit }) {
   return (
     <section className="sub-panel workspace-panel summary-editor-panel">
       <div className="sub-panel-head compact">
-        <div><h2>Document checklist summary</h2><p className="muted">The detailed checklist editor is available in the pop-out record view.</p></div>
+        <div><h2>Document checklist summary</h2><p className="muted">Review required evidence and update received documents.</p></div>
         <SummaryActionButton onClick={onEdit}>Edit documents</SummaryActionButton>
       </div>
       <div className="summary-metric-row">
@@ -16683,6 +16546,7 @@ function ExpandableClientSection({ title, summary, isOpen, onToggle, children, b
 function DocumentChecklist({ items, updateItem, addCustomItem, removeCustomItem }) {
   const [customItemName, setCustomItemName] = useState('');
   const [showNotRequired, setShowNotRequired] = useState(false);
+  const [selectedDocuments,setSelectedDocuments]=useState([]);
   const includedItems = items.filter((item) => item.applied);
   const notRequiredItems = items.filter((item) => !item.applied);
   const obtainedCount = includedItems.filter((item) => item.obtained).length;
@@ -16695,6 +16559,7 @@ function DocumentChecklist({ items, updateItem, addCustomItem, removeCustomItem 
 
   return (
     <section className="sub-panel document-checklist-panel">
+      <div className="calm-document-bulk"><label><input type="checkbox" checked={includedItems.length>0&&includedItems.every(i=>selectedDocuments.includes(i.id))} onChange={e=>setSelectedDocuments(e.target.checked?includedItems.map(i=>i.id):[])}/>Select required documents</label>{selectedDocuments.length>0&&<><span>{selectedDocuments.length} selected</span><button type="button" className="btn mini" onClick={()=>{selectedDocuments.forEach(id=>updateItem(id,{obtained:true}));setSelectedDocuments([]);}}>Mark obtained</button><button type="button" className="btn mini" onClick={()=>{selectedDocuments.forEach(id=>updateItem(id,{obtained:false}));setSelectedDocuments([]);}}>Mark outstanding</button></>}</div>
       <div className="sub-panel-head">
         <div>
           <h2>Document checklist</h2>
@@ -16712,7 +16577,7 @@ function DocumentChecklist({ items, updateItem, addCustomItem, removeCustomItem 
       <div className="document-checklist-list">
         {visibleItems.map((item) => (
           item.applied ? (
-            <div className="document-checklist-row" key={item.id}>
+            <div className="document-checklist-row" key={item.id}><input type="checkbox" aria-label={`Select ${item.name}`} checked={selectedDocuments.includes(item.id)} onChange={e=>setSelectedDocuments(ids=>e.target.checked?[...ids,item.id]:ids.filter(id=>id!==item.id))}/>
               <label className="doc-include"><input type="checkbox" checked={item.applied} onChange={(event) => updateItem(item.id, { applied: event.target.checked, obtained: event.target.checked ? item.obtained : false })} /><span>Required</span></label>
               <label className="doc-name"><span>Document</span>{item.custom ? <input value={item.name} onChange={(event) => updateItem(item.id, { name: event.target.value })} /> : <strong>{item.name}</strong>}</label>
               <label className="doc-expiry"><span>Expiry date</span><input type="date" value={item.expiryDate || ''} onChange={(event) => updateItem(item.id, { expiryDate: event.target.value })} /></label>
@@ -17021,10 +16886,12 @@ function PersonalTaskModal({ task, allClients, advisers, saving, onClose, onSave
     onClose();
   }
 
-  return (
-    <div className="modal-layer" role="dialog" aria-modal="true" aria-label="Personal task editor">
-      <button className="modal-backdrop" type="button" aria-label="Close personal task editor" onClick={onClose}></button>
-      <form className="modal-card personal-task-editor" onSubmit={saveAndClose}>
+  return <SidePanel title="Personal task" onClose={onClose} busy={saving} dirty={JSON.stringify(draft)!==JSON.stringify(normalisePersonalTask(task))} wide footer={<div className="modal-actions personal-task-modal-actions">
+          <button className="btn ghost" type="button" onClick={onClose}>Close</button>
+          <button className="btn danger" type="button" disabled={saving} onClick={() => onDelete(draft.id)}><Trash2 size={16} />Delete</button>
+          <button className="btn ghost" type="button" disabled={saving || draft.status === 'Completed'} onClick={completeTask}><CheckCircle2 size={16} />Complete & remove from list</button>
+          <button className="btn dark" type="submit" form="calm-task-form" disabled={saving || !draft.title.trim()}><Save size={16} />Save changes</button>
+        </div>}><form id="calm-task-form" className="modal-card personal-task-editor" onSubmit={saveAndClose}>
         <div className="modal-head">
           <div>
             <span>Personal adviser task</span>
@@ -17052,15 +16919,7 @@ function PersonalTaskModal({ task, allClients, advisers, saving, onClose, onSave
           </div>
         )}
 
-        <div className="modal-actions personal-task-modal-actions">
-          <button className="btn ghost" type="button" onClick={onClose}>Close</button>
-          <button className="btn danger" type="button" disabled={saving} onClick={() => onDelete(draft.id)}><Trash2 size={16} />Delete</button>
-          <button className="btn ghost" type="button" disabled={saving || draft.status === 'Completed'} onClick={completeTask}><CheckCircle2 size={16} />Complete & remove from list</button>
-          <button className="btn dark" type="submit" disabled={saving || !draft.title.trim()}><Save size={16} />Save task</button>
-        </div>
-      </form>
-    </div>
-  );
+        </form></SidePanel>;
 }
 
 
@@ -17086,10 +16945,12 @@ function CalendarTaskModal({ entry, allClients, advisers, saving, onClose, onSav
     await onSave({ ...draft, status: 'Completed' });
   }
 
-  return (
-    <div className="modal-layer" role="dialog" aria-modal="true" aria-label="Calendar appointment editor">
-      <button className="modal-backdrop" type="button" aria-label="Close calendar appointment editor" onClick={onClose}></button>
-      <form className="modal-card personal-task-editor calendar-task-editor" onSubmit={saveAndClose}>
+  return <SidePanel title="Appointment" onClose={onClose} busy={saving} dirty={JSON.stringify(draft)!==JSON.stringify(normaliseCalendarEntry(entry))} wide footer={<div className="modal-actions personal-task-modal-actions">
+          <button className="btn ghost" type="button" onClick={onClose}>Close</button>
+          <button className="btn danger" type="button" disabled={saving} onClick={() => onDelete(draft.id)}><Trash2 size={16} />Delete</button>
+          <button className="btn ghost" type="button" disabled={saving || draft.status === 'Completed'} onClick={completeAppointment}><CheckCircle2 size={16} />Complete & remove from list</button>
+          <button className="btn dark" type="submit" form="calm-appointment-form" disabled={saving || !draft.title.trim() || !draft.appointmentDate}><Save size={16} />Save changes</button>
+        </div>}><form id="calm-appointment-form" className="modal-card personal-task-editor calendar-task-editor" onSubmit={saveAndClose}>
         <div className="modal-head">
           <div>
             <span>Calendar appointment</span>
@@ -17129,15 +16990,7 @@ function CalendarTaskModal({ entry, allClients, advisers, saving, onClose, onSav
           </div>
         )}
 
-        <div className="modal-actions personal-task-modal-actions">
-          <button className="btn ghost" type="button" onClick={onClose}>Close</button>
-          <button className="btn danger" type="button" disabled={saving} onClick={() => onDelete(draft.id)}><Trash2 size={16} />Delete</button>
-          <button className="btn ghost" type="button" disabled={saving || draft.status === 'Completed'} onClick={completeAppointment}><CheckCircle2 size={16} />Complete & remove from list</button>
-          <button className="btn dark" type="submit" disabled={saving || !draft.title.trim() || !draft.appointmentDate}><Save size={16} />Save appointment</button>
-        </div>
-      </form>
-    </div>
-  );
+        </form></SidePanel>;
 }
 
 
@@ -17910,7 +17763,7 @@ function QuickClientUpdateDrawer({ client, advisers = [], caseTypes = [], initia
   });
   const [error, setError] = useState('');
   useEffect(() => { setDraft(JSON.parse(JSON.stringify(client))); setSection(initialSection || 'matter'); setError(''); }, [client.id, initialSection]);
-  useEffect(() => { const old=document.body.style.overflow; document.body.style.overflow='hidden'; const key=(event)=>{if(event.key==='Escape')onClose?.()}; window.addEventListener('keydown',key); return ()=>{document.body.style.overflow=old;window.removeEventListener('keydown',key)}; }, [onClose]);
+
   const update=(field,value)=>setDraft((current)=>({...current,[field]:value}));
   const addFamilyMember=(relationship)=>setDraft((current)=>({...current,familyMembers:[...(current.familyMembers||[]),{id:`temp-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,relationship,name:'',nationality:'',dateOfBirth:''}]}));
   const updateFamilyMember=(id,patch)=>setDraft((current)=>({...current,familyMembers:(current.familyMembers||[]).map((member)=>member.id===id?{...member,...patch}:member)}));
@@ -17936,15 +17789,15 @@ function QuickClientUpdateDrawer({ client, advisers = [], caseTypes = [], initia
     }
   }
   const tabs=[['matter','Matter & adviser'],['contact','Contact'],['personal','Personal'],['family','Family'],['other','Other']];
-  return <div className="quick-client-update-backdrop" role="dialog" aria-modal="true" aria-label="Update client" onMouseDown={(event)=>{if(event.target===event.currentTarget)onClose?.()}}><section className="quick-client-update-drawer"><header><div><span className="eyebrow">Client profile</span><h2>Update client</h2><p>Change the information you need without opening the full record editor.</p></div><button className="icon-btn" type="button" onClick={onClose}><X size={18}/></button></header><nav className="quick-client-update-tabs">{tabs.map(([key,label])=><button type="button" key={key} className={section===key?'active':''} onClick={()=>{setSection(key);setError('')}}>{label}</button>)}</nav><div className="quick-client-update-body">
+  const dirty=JSON.stringify(draft)!==JSON.stringify(client);
+  return <SidePanel title="Edit client" subtitle={clientName(client)} onClose={onClose} dirty={dirty} busy={saving} wide footer={<><span className="validation-message" role="status">{error}</span><button className="btn" disabled={saving} onClick={()=>{if(!dirty||window.confirm('Discard unsaved changes?'))onClose?.();}}>Cancel</button><button className="btn dark" disabled={saving} onClick={save}>{saving?'Saving…':'Save changes'}</button></>}><nav className="quick-client-update-tabs">{tabs.map(([key,label])=><button type="button" key={key} className={section===key?'active':''} onClick={()=>{setSection(key);setError('')}}>{label}</button>)}</nav><div className="quick-client-update-body">
     {section==='matter'&&<><div className="quick-update-section-intro"><strong>Matter & adviser</strong><span>Use Update File instead when you are recording a substantive event on the matter.</span></div><div className="form-grid two"><SelectField label="Case type / application type" value={draft.caseType} onChange={(v)=>update('caseType',v)} options={caseTypes} placeholder="Select case type"/><SelectField label="Primary adviser" value={draft.primaryAdviserId} onChange={(v)=>update('primaryAdviserId',v)} options={advisers.map((a)=>({label:`${a.name}${a.active===false?' (inactive)':''}`,value:a.id}))} placeholder="Select primary adviser"/><SelectField label="Backup adviser" value={draft.backupAdviserId} onChange={(v)=>update('backupAdviserId',v)} options={advisers.map((a)=>({label:`${a.name}${a.active===false?' (inactive)':''}`,value:a.id}))} placeholder="No backup adviser"/><SelectField label="Priority" value={draft.priority||'Normal'} onChange={(v)=>update('priority',v)} options={['Normal','High','Urgent']}/><label className="field"><span>Current stage</span><select value={stageId} onChange={(e)=>setStageId(e.target.value)}>{stages.map((stage)=><option key={stage.id} value={stage.id}>{stage.label}</option>)}</select></label><label className="field"><span>Matter status</span><select value={matterStatus} onChange={(e)=>setMatterStatus(e.target.value)}>{MATTER_STATUSES.map((item)=><option key={item}>{item}</option>)}</select></label><label className="field span-2"><span>{waiting?'Review action':'Next action'}</span><input value={draft.nextAction||''} onChange={(e)=>update('nextAction',e.target.value)}/></label><label className="field"><span>{waiting?'Review date':'Next action due'}</span><input type="date" value={actionDate} onChange={(e)=>setActionDate(e.target.value)}/></label><Field label="Matter name / reference" value={draft.matterName||''} onChange={(v)=>update('matterName',v)} placeholder="Optional internal matter description"/></div></>}
     {section==='contact'&&<><div className="quick-update-section-intro"><strong>Contact details</strong><span>The information used when the team needs to contact the client.</span></div><div className="form-grid two"><Field label="Email" value={draft.email} onChange={(v)=>update('email',v)}/><Field label="Phone" value={draft.phone} onChange={(v)=>update('phone',v)}/><LookupField label="Current address" value={draft.location} onChange={(v)=>update('location',v)} options={ADDRESS_LOOKUP_EXAMPLES} listId="quick-client-address-options" placeholder="Start typing the current address"/></div></>}
     {section==='personal'&&<><div className="quick-update-section-intro"><strong>Personal details</strong><span>Core identity information held on the client record.</span></div><div className="form-grid two"><Field label="First name" value={draft.firstName} onChange={(v)=>update('firstName',v)}/><Field label="Last name" value={draft.lastName} onChange={(v)=>update('lastName',v)}/><DateWithAgeField label="Date of birth" value={draft.dateOfBirth} onChange={(v)=>update('dateOfBirth',v)}/><LookupField label="Citizenship" value={draft.nationality} onChange={(v)=>update('nationality',v)} options={COUNTRY_OPTIONS} listId="quick-client-citizenship-options" placeholder="Start typing a country of citizenship"/></div></>}
     {section==='family'&&<><div className="quick-update-section-intro"><strong>Family & dependants</strong><span>Add or correct family details relevant to this matter.</span></div><FamilyDetails members={draft.familyMembers||[]} addFamilyMember={addFamilyMember} updateFamilyMember={updateFamilyMember} removeFamilyMember={removeFamilyMember}/></>}
     {section==='other'&&<><div className="quick-update-section-intro"><strong>Other client information</strong><span>Strategy, internal notes and file references that change less often.</span></div><div className="quick-client-other-grid"><TextArea label="Case strategy / key issues" value={draft.caseStrategy} onChange={(v)=>update('caseStrategy',v)} rows={5}/><TextArea label="Internal notes" value={draft.notes} onChange={(v)=>update('notes',v)} rows={5}/></div><div className="form-grid two"><Field label="OneLaw Client Number" value={draft.oneLawClientNumber||''} onChange={(v)=>update('oneLawClientNumber',v)} placeholder="Internal OneLaw reference"/></div><SharePointFolderPanel value={draft.sharepointFolderUrl||''} onChange={(v)=>update('sharepointFolderUrl',v)}/></>}
-  </div><footer><span className="validation-message">{error}</span><div><button className="btn" type="button" onClick={onClose}>Cancel</button><button className="btn dark" type="button" disabled={saving} onClick={save}><Save size={15}/>{saving?'Saving…':'Save client'}</button></div></footer></section></div>;
+  </div></SidePanel>;
 }
-
 
 function UnifiedClientDetailsEditor({ draft, snapshot, setField, advisers = [], caseTypes = [], addFamilyMember, updateFamilyMember, removeFamilyMember, initialSection = 'personal', saving, validationMessage = '', onSave, onClose }) {
   const [openSection, setOpenSection] = useState(initialSection || 'personal');
@@ -21174,4 +21027,95 @@ function todayIso() {
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD', maximumFractionDigits: 0 }).format(Number(value || 0));
+}
+
+function CalmWorkDashboard({ clients = [], advisers = [], scopeAdviserId = 'all', openClientRecord, setTab, saveClient, savePersonalTask, saving, actorAdviser, calendarEntries = [], quickActions }) {
+  const [range,setRange] = useWorkspaceState('work:range','today');
+  const [ownership,setOwnership] = useWorkspaceState(`work:role:${scopeAdviserId}`,scopeAdviserId==='all'?'all':'primary');
+  const [view,setView] = useWorkspaceState('work:layout','list');
+  const [selectedId,setSelectedId] = useState('');
+  const [newTask,setNewTask] = useState(null);
+  const newTaskInitial = useRef(null);
+  const taskDirty = newTask && JSON.stringify(newTask)!==JSON.stringify(newTaskInitial.current);
+  const [taskError,setTaskError] = useState('');
+  const [taskBusy,setTaskBusy] = useState(false);
+  const selected = clients.find((c)=>c.id===selectedId);
+  const rows = clients.filter((c)=>c.clientStatus!=='Closed' && normaliseMatterStatus(c.matterStatus,c.clientStatus,c.nextAction)!=='Completed')
+    .filter((c)=>scopeAdviserId==='all' || ownership==='all' || (ownership==='primary'?c.primaryAdviserId===scopeAdviserId:c.backupAdviserId===scopeAdviserId));
+  const waiting = (c)=>['Client action required','Waiting on INZ','Waiting on third party'].includes(c.matterStatus);
+  const needsDate = (c)=>!matterWorkDate(c) && (!c.nextAction || waiting(c));
+  const maxDays={today:0,week:7,all:Infinity}[range] ?? 0;
+  const shown=rows.filter((c)=>range==='all'||needsDate(c)||!matterWorkDate(c)||dateDiff(matterWorkDate(c))<=maxDays).sort((a,b)=>matterPriorityScore(a)-matterPriorityScore(b));
+  const attention=shown.filter((c)=>!waiting(c));
+  const pending=rows.filter(waiting).sort((a,b)=>matterPriorityScore(a)-matterPriorityScore(b));
+  const actionRows=rows.filter(c=>!waiting(c));
+  const appointments=calendarEntries.filter(e=>e.status!=='Completed'&&e.status!=='Cancelled'&&e.appointmentDate===todayIso()).sort((a,b)=>(a.startTime||a.appointmentTime||'').localeCompare(b.startTime||b.appointmentTime||''));
+  const initials=c=>clientName(c).split(/\s+/).filter(Boolean).slice(0,2).map(s=>s[0]).join('').toUpperCase();
+  const renderRow=(c)=>{const due=matterWorkDate(c),days=dateDiff(due);return <div className={`calm-work-row ${selectedId===c.id?'selected':''}`} key={c.id}>
+    <button className="calm-work-identity" onClick={()=>openClientRecord(c.id)}><span className="precision-avatar" aria-hidden="true">{initials(c)}</span><span className="precision-identity-copy"><strong>{clientName(c)}</strong><small>{c.caseType || 'Matter'}</small></span></button>
+    <button className="calm-work-next" onClick={()=>setSelectedId(c.id)}><span>{c.nextAction || 'Set the next action'}</span>{waiting(c)&&<small>{matterWaitingLabel(c.matterStatus)}</small>}</button>
+    <span className={`calm-due ${due&&days<0?'overdue':due&&days===0?'today':''}`}>{!due ? (needsDate(c)?'Needs a date':'Unscheduled') : days<0?`${Math.abs(days)}d overdue`:days===0?'Today':days===1?'Tomorrow':formatShortDate(due)}</span>
+    <button className="calm-icon-button" aria-label={`Update ${clientName(c)}`} onClick={()=>setSelectedId(c.id)}><ChevronRight size={17}/></button>
+  </div>;};
+  async function createTask(event){event.preventDefault();if(taskBusy||saving||!newTask?.title?.trim())return;setTaskBusy(true);setTaskError('');try{await savePersonalTask({...newTask,title:newTask.title.trim()});setNewTask(null);}catch(error){setTaskError(error.message||'Unable to save. Your task is still here.');}finally{setTaskBusy(false);}}
+  return <section className="calm-work-page precision-work-page">
+    <div className="calm-page-heading"><div><h1>My Work</h1><p>{new Date().toLocaleDateString('en-NZ',{weekday:'long',day:'numeric',month:'long',timeZone:'Pacific/Auckland'})} · A clear view of what needs you.</p></div>{savePersonalTask&&<button type="button" className="btn dark precision-add-task" onClick={()=>{setTaskError('');const draft=makeBlankPersonalTask(actorAdviser?.id||'');newTaskInitial.current=draft;setNewTask(draft);}}><Plus size={16}/>Add task</button>}</div>
+    <div className="calm-work-summary"><span><strong>{actionRows.filter(c=>matterWorkDate(c)&&dateDiff(matterWorkDate(c))===0).length}</strong> Due today</span><span className="warning"><strong>{actionRows.filter(c=>matterWorkDate(c)&&dateDiff(matterWorkDate(c))<0).length}</strong> Overdue</span><span><strong>{pending.length}</strong> Waiting for others</span></div>
+    <div className="calm-list-toolbar"><div className="calm-segments" aria-label="Work date range">{[['today','Today & overdue'],['week','Next 7 days'],['all','All work']].map(([key,title])=><button key={key} type="button" aria-pressed={range===key} className={range===key?'active':''} onClick={()=>setRange(key)}>{title}</button>)}</div>{scopeAdviserId!=='all'&&<label className="calm-inline-field"><span>Responsibility</span><select aria-label="Responsibility" value={ownership} onChange={e=>setOwnership(e.target.value)}><option value="all">Main & backup</option><option value="primary">Main adviser</option><option value="backup">Backup adviser</option></select></label>}</div>
+    {view==='board'?<MatterWorkDashboard clients={clients} advisers={advisers} scopeAdviserId={scopeAdviserId} openClientRecord={openClientRecord} setTab={setTab} saveClient={saveClient} saving={saving} actorAdviser={actorAdviser}/>:<>
+      <div className="calm-work-table">{attention.length>0&&<div className="calm-work-table-head"><span>Client / matter</span><span>Next action</span><span>Due</span><span/></div>}{attention.map(renderRow)}{!attention.length&&<div className="calm-empty precision-empty"><span className="precision-empty-icon"><CheckCircle2 size={24}/></span><div><strong>{range==='today'?"You're up to date for today":'No actions in this view'}</strong><p>{range==='all'?'Add a client or set a next action to get started.':'Your future actions are ready in All work.'}</p>{range!=='all'&&<button type="button" className="precision-text-button" onClick={()=>setRange('all')}>View upcoming matters <ChevronRight size={15}/></button>}</div></div>}{attention.length>0&&<div className="precision-table-footer"><span>{attention.length} matter{attention.length===1?'':'s'} in this view</span><span>{rows.filter(needsDate).length>0?`${rows.filter(needsDate).length} need a next action or date`:scopeAdviserId==='all'?'All advisers':'Assigned to your view'}</span></div>}</div>
+      <div className="precision-lower-grid"><section className="calm-waiting-list precision-summary-card"><div className="precision-card-heading"><h2>Waiting for others <small>{pending.length}</small></h2></div>{pending.slice(0,4).map(c=><button type="button" className="precision-waiting-row" key={c.id} onClick={()=>setSelectedId(c.id)} aria-label={`Update ${clientName(c)}`}><span className="precision-avatar" aria-hidden="true">{initials(c)}</span><span><strong>{clientName(c)}</strong><small>{c.nextAction||matterWaitingLabel(c.matterStatus)}</small></span><span className="precision-waiting-tag">{matterWaitingLabel(c.matterStatus)}</span></button>)}{!pending.length&&<p className="precision-card-empty">No matters waiting for others.</p>}{pending.length>4&&<details className="precision-more-waiting"><summary>{pending.length-4} more waiting matters</summary>{pending.slice(4).map(renderRow)}</details>}</section>
+      <section className="precision-summary-card precision-appointments"><div className="precision-card-heading"><h2>Today's appointments</h2><button type="button" className="precision-text-button" onClick={()=>setTab('calendar')}>Calendar</button></div>{appointments.slice(0,4).map(e=><button key={e.id} type="button" className="precision-appointment-row" onClick={()=>setTab('calendar')}><time>{e.startTime||e.appointmentTime||'Any time'}</time><span><strong>{e.title||'Appointment'}</strong><small>{e.location||e.appointmentType||'Open in calendar'}</small></span></button>)}{!appointments.length&&<p className="precision-card-empty">No appointments today.<button type="button" className="precision-text-button" onClick={()=>setTab('calendar')}>Open calendar <ChevronRight size={15}/></button></p>}{appointments.length>4&&<button type="button" className="precision-text-button" onClick={()=>setTab('calendar')}>View all {appointments.length} appointments</button>}</section></div>
+    </>}
+    <div className="calm-work-extras"><details><summary>View options</summary><div className="calm-segments"><button type="button" aria-pressed={view==='list'} className={view==='list'?'active':''} onClick={()=>setView('list')}>List</button><button type="button" aria-pressed={view==='board'} className={view==='board'?'active':''} onClick={()=>setView('board')}>Board</button></div><button className="btn" onClick={()=>setTab('tasks')}>Personal tasks</button></details>{quickActions&&<details><summary>My shortcuts</summary>{quickActions}</details>}</div>
+    {newTask&&<SidePanel title="New task" onClose={()=>setNewTask(null)} dirty={!!taskDirty} busy={taskBusy||saving} footer={<><button type="button" className="btn" disabled={taskBusy||saving} onClick={()=>{if(!taskDirty||window.confirm('Discard unsaved changes?'))setNewTask(null);}}>Cancel</button><button type="submit" form="precision-new-task" className="btn dark" disabled={taskBusy||saving||!newTask.title?.trim()}>{taskBusy||saving?'Saving…':'Save task'}</button></>}><form id="precision-new-task" className="calm-form-stack" onSubmit={createTask}><label className="field"><span>Task</span><input required autoFocus value={newTask.title} onChange={e=>setNewTask(t=>({...t,title:e.target.value}))}/></label><label className="field"><span>Due date</span><input type="date" value={newTask.dueDate||''} onChange={e=>setNewTask(t=>({...t,dueDate:e.target.value}))}/></label><label className="field"><span>Adviser</span><select value={newTask.adviserId||''} onChange={e=>setNewTask(t=>({...t,adviserId:e.target.value}))}><option value="">Unassigned</option>{advisers.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label><label className="field"><span>Note</span><textarea rows={3} value={newTask.note||''} onChange={e=>setNewTask(t=>({...t,note:e.target.value}))}/></label>{taskError&&<p role="alert" className="inline-error">{taskError}</p>}</form></SidePanel>}
+    {selected&&(isCommercialMatterRecord(selected)?<CommercialMatterUpdateModal key={selected.id} client={selected} adviser={actorAdviser} onClose={()=>setSelectedId('')} saveClient={saveClient} saving={saving}/>:<GuidedMatterUpdateModal key={selected.id} client={selected} adviser={actorAdviser} onClose={()=>setSelectedId('')} saveClient={saveClient} saving={saving}/>)}
+  </section>;
+}
+
+function CalmMatterUpdate({ client, adviser, onClose, saveClient, saving, onReturnToWork, commercial = false }) {
+  const [eventType,setEventType]=useState('Reviewed documents / information');
+  const [note,setNote]=useState('');
+  const [nextAction,setNextAction]=useState(client.nextAction || '');
+  const [matterStatus,setMatterStatus]=useState(client.matterStatus==='No current action'?'Adviser action required':client.matterStatus || 'Adviser action required');
+  const [actionDate,setActionDate]=useState(matterWorkDate(client)||'');
+  const [stageId,setStageId]=useState('');
+  const [publish,setPublish]=useState(false);
+  const [portalCurrent,setPortalCurrent]=useState(client.portalStatusUpdate || '');
+  const [portalNext,setPortalNext]=useState(client.portalNextStep || '');
+  const [error,setError]=useState('');
+  const [busy,setBusy]=useState(false);
+  const [changed,setChanged]=useState(false);
+  const waiting=['Client action required','Waiting on INZ','Waiting on third party'].includes(matterStatus);
+  const stages=normaliseStages(client.stages).filter(s=>s.applied!==false);
+  function update(setter,value){setter(value);setChanged(true);setError('');}
+  function changeEvent(value){update(setEventType,value);const suggested=buildMatterUpdateSuggestion(client,value);setMatterStatus(suggested.matterStatus);setNextAction(suggested.nextAction);setActionDate(suggested.actionDate);setStageId(suggested.stageId||'');}
+  async function save(){
+    if(busy||saving)return;
+    if(matterStatus!=='Completed'&&(!nextAction.trim()||!actionDate)){setError('Add a next action and '+(waiting?'review date.':'due date.'));return;}
+    if(eventType==='Other'&&!note.trim()){setError('Add a short note about what happened.');return;}
+    if(publish&&(!portalCurrent.trim()||!portalNext.trim())){setError('Complete both client portal fields.');return;}
+    setBusy(true);setError('');
+    try {
+      const activity=[...normaliseMatterActivity(client.matterActivity),makeMatterActivity('workflow',eventType,note.trim()||eventType,adviser?.name||'Adviser')];
+      const payload={...client,matterStatus,nextAction:matterStatus==='Completed'?'':nextAction.trim(),nextActionDue:matterStatus==='Completed'||waiting?'':actionDate,matterReviewDate:matterStatus==='Completed'?'':waiting?actionDate:'',matterActivity:activity};
+      if(commercial) payload.clientStatus=matterStatus==='Completed'?'Closed':client.clientStatus==='Closed'?'Active':client.clientStatus;
+      else {payload.stages=applyMatterStageSelection(client.stages,stageId,matterStatus==='Completed');if(publish){payload.portalStatusUpdate=portalCurrent.trim();payload.portalNextStep=portalNext.trim();payload.portalPublishNow=true;}}
+      await saveClient(payload,{resetNewClientForm:false});onClose?.();onReturnToWork?.();
+    } catch(err){setError(err.message||'Unable to save. Your changes are still here.');setBusy(false);}
+  }
+  return <SidePanel title="Update matter" subtitle={`${clientName(client)} · ${client.caseType || 'Matter'}`} onClose={onClose} dirty={changed} busy={busy||saving} footer={<><button type="button" className="btn" disabled={busy||saving} onClick={()=>{if(!changed||window.confirm('Discard unsaved changes?'))onClose?.();}}>Cancel</button><button type="button" className="btn dark" disabled={busy||saving} onClick={save}>{busy||saving?'Saving…':onReturnToWork?'Save & return to work':'Save changes'}</button></>}>
+    <div className="calm-current-status"><span>Current status</span><strong>{client.matterStatus || 'No current action'}</strong></div>
+    <div className="calm-form-stack">
+      <label className="field"><span>What happened?</span><select aria-label="What happened?" value={eventType} onChange={e=>changeEvent(e.target.value)}>{MATTER_UPDATE_EVENT_GROUPS.map(g=><optgroup key={g.label} label={g.label}>{g.options.map(v=><option key={v}>{v}</option>)}</optgroup>)}</select></label>
+      <label className="field"><span>Internal note</span><textarea rows="3" value={note} onChange={e=>update(setNote,e.target.value)} placeholder="A short record of the update"/></label>
+      <label className="field"><span>Who acts next?</span><select aria-label="Who acts next?" value={matterStatus} onChange={e=>update(setMatterStatus,e.target.value)}>{[['Adviser action required','Adviser'],['Client action required','Client'],['Waiting on third party','Third party'],['Waiting on INZ','Immigration New Zealand'],['Ready to progress','Ready to progress'],['Completed','Completed']].map(([value,title])=><option key={value} value={value}>{title}</option>)}</select></label>
+      <label className="field"><span>Next action</span><input value={nextAction} disabled={matterStatus==='Completed'} onChange={e=>update(setNextAction,e.target.value)} placeholder="One clear next step"/></label>
+      <label className="field"><span>{waiting?'Review date':'Due date'}</span><input type="date" disabled={matterStatus==='Completed'} value={actionDate} onChange={e=>update(setActionDate,e.target.value)}/></label>
+      {waiting&&<p className="calm-field-help">The matter returns to My Work on its review date.</p>}
+      {!commercial&&<details><summary>Matter stage</summary><label className="field"><span>Stage</span><select value={stageId} onChange={e=>update(setStageId,e.target.value)}><option value="">Keep current stage</option>{stages.map(s=><option value={s.id} key={s.id}>{s.label}</option>)}</select></label></details>}
+      {!commercial&&client.portalEnabled&&<><label className="calm-check"><input type="checkbox" checked={publish} onChange={e=>update(setPublish,e.target.checked)}/>Publish an update to the client portal</label>{publish&&<><label className="field"><span>Client update</span><textarea rows="3" value={portalCurrent} onChange={e=>update(setPortalCurrent,e.target.value)}/></label><label className="field"><span>Next step for the client</span><textarea rows="3" value={portalNext} onChange={e=>update(setPortalNext,e.target.value)}/></label></>}</>}
+      {error&&<p className="inline-error" role="alert">{error}</p>}<p className="calm-field-help">Adds an entry to the matter activity.</p>
+    </div>
+  </SidePanel>;
 }

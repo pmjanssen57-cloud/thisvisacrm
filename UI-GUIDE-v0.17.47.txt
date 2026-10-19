@@ -1,0 +1,26 @@
+THiS CRM v0.17.47 — UI guide
+
+Desktop: all navigation labels remain visible. Studio is again named Studio.
+My Work: select a client name to open its record. Select the next action or arrow to update
+without leaving the list. Save returns to the same filtered view. Add task opens a short
+form. Date and responsibility filters remain above the list. Board is under View options.
+Waiting matters are listed separately, including future reviews; today's appointments
+appear beside them. Use Calendar to open the full appointment workspace.
+
+Enquiries: Contacts, Intake, Employer questionnaires and the existing supporting queues
+remain separate. Open a submission to review it in the shared editing panel. Employer
+submissions only link when you choose Attach or Create; duplicates and drafts stay visible.
+
+Clients: the shared style applies to individual and commercial records. Existing focused
+contact editing and in-record document, date, stage, billing and portal editing remain.
+
+Studio: select Agreements or Instructions, then New. Create from an available source,
+edit, save and review. Both builders use the same typography and controls. A4 output
+remains separate from the screen UI. Existing issuing and acceptance safeguards remain.
+
+Mobile: My Work, Clients and Enquiries are in the bottom navigation. More exposes the
+other workspaces; New contains creation actions. Content stacks instead of stretching
+beyond the screen. Editing panels use scrollable content and an accessible action footer.
+In Studio use Sections, Edit and Preview. Public forms use readable, matching controls.
+
+All screenshots supplied with this release use fictional local records.

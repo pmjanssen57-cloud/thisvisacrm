@@ -2,6 +2,9 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
 import './styles.css';
+import './public/calm-theme.css';
+import './src/ui/modern-ui.css';
+import './src/ui/precision-ui.css';
 
 window.__thisPwaInstallPrompt = null;
 
