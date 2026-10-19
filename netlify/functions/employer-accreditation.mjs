@@ -30,8 +30,8 @@ export default async function employerAccreditationHandler(request) {
     const database = db();
     const linkedDraft = token ? await readDraftByToken(token) : null;
     const uploadedFiles = linkedDraft && !isExpired(linkedDraft) ? normaliseFiles(linkedDraft.uploaded_files) : [];
-    const match = await findCommercialMatch(database, payload);
-    const commercialClientId = await upsertCommercialClient(database, payload, match?.id || '');
+    // Public submissions wait for an explicit staff review under Inquiries.
+    const commercialClientId = null;
     const duplicateFlags = await buildDuplicateFlags(database, payload, commercialClientId);
 
     const rows = await database.sql`
@@ -54,8 +54,6 @@ export default async function employerAccreditationHandler(request) {
       await database.sql`UPDATE employer_accreditation_drafts SET status='Submitted', submitted_questionnaire_id=${questionnaireId}, updated_at=NOW() WHERE id=${linkedDraft.id}`;
     }
 
-    await copyUploadsToCommercialDocuments(database, commercialClientId, questionnaireId, uploadedFiles, payload.contactEmail);
-    await recordCommercialAudit(database, commercialClientId, questionnaireId, payload);
     try { await sendSubmissionEmails(database, { questionnaireId, commercialClientId, payload, duplicateFlags, submittedAt: rows[0]?.submitted_at }); }
     catch (error) { console.warn('Employer accreditation email notification failed', error?.message || error); }
 
@@ -223,55 +221,11 @@ function validateSubmission(payload) {
   if (!payload.consentToContact || !payload.privacyAcknowledged || !payload.declarationConfirmed) throw badRequest('Please complete the consent, privacy and declaration confirmations.');
 }
 
-async function findCommercialMatch(database, payload) {
-  if (payload.nzbn) {
-    const rows = await database.sql`SELECT id FROM commercial_clients WHERE BTRIM(COALESCE(nzbn,''))=${payload.nzbn} ORDER BY updated_at DESC LIMIT 1`;
-    if (rows[0]) return rows[0];
-  }
-  const rows = await database.sql`SELECT id FROM commercial_clients WHERE LOWER(BTRIM(COALESCE(primary_contact_email,'')))=${payload.contactEmail} AND LOWER(BTRIM(legal_name))=${payload.legalName.toLowerCase()} ORDER BY updated_at DESC LIMIT 1`;
-  return rows[0] || null;
-}
-
-async function upsertCommercialClient(database, payload, existingId = '') {
-  if (existingId) {
-    await database.sql`UPDATE commercial_clients SET trading_name=COALESCE(NULLIF(${payload.tradingName},''),trading_name), nzbn=COALESCE(NULLIF(${payload.nzbn},''),nzbn), company_number=COALESCE(NULLIF(${payload.companyNumber},''),company_number), gst_number=${payload.gstNumber}, ird_number=${payload.irdNumber}, industry=COALESCE(NULLIF(${payload.industry},''),industry), business_description=COALESCE(NULLIF(${payload.businessDescription},''),business_description), address=COALESCE(NULLIF(${payload.address},''),address), primary_contact_name=${`${payload.contactFirstName} ${payload.contactLastName}`.trim()}, primary_contact_email=${payload.contactEmail}, primary_contact_phone=${payload.contactPhone}, accreditation_type=${payload.accreditationType}, accreditation_status=CASE WHEN accreditation_status IN ('Accredited','Suspended','Expired') THEN accreditation_status ELSE 'Preparing' END, matter_name=COALESCE(NULLIF(matter_name,''),'Employer accreditation'), case_type='Employer Accreditation', next_action='Review employer accreditation questionnaire', matter_status='Adviser action required', updated_at=NOW() WHERE id=${existingId}`;
-    return existingId;
-  }
-  const rows = await database.sql`INSERT INTO commercial_clients (legal_name,trading_name,nzbn,company_number,gst_number,ird_number,industry,business_description,address,primary_contact_name,primary_contact_email,primary_contact_phone,client_status,matter_name,case_type,priority,next_action,matter_status,accreditation_type,accreditation_status) VALUES (${payload.legalName},${payload.tradingName},${payload.nzbn},${payload.companyNumber},${payload.gstNumber},${payload.irdNumber},${payload.industry},${payload.businessDescription},${payload.address},${`${payload.contactFirstName} ${payload.contactLastName}`.trim()},${payload.contactEmail},${payload.contactPhone},'Active','Employer accreditation','Employer Accreditation','Normal','Review employer accreditation questionnaire','Adviser action required',${payload.accreditationType},'Preparing') RETURNING id`;
-  return rows[0]?.id || '';
-}
-
 async function buildDuplicateFlags(database, payload, commercialClientId) {
   const emailRows = await database.sql`SELECT COUNT(*)::int AS count FROM employer_accreditation_questionnaires WHERE LOWER(contact_email)=${payload.contactEmail}`;
   const nzbnRows = payload.nzbn ? await database.sql`SELECT COUNT(*)::int AS count FROM employer_accreditation_questionnaires WHERE nzbn=${payload.nzbn}` : [{ count: 0 }];
-  const clientRows = payload.nzbn ? await database.sql`SELECT COUNT(*)::int AS count FROM commercial_clients WHERE nzbn=${payload.nzbn} AND id<>${commercialClientId}` : [{ count: 0 }];
+  const clientRows = payload.nzbn ? await database.sql`SELECT COUNT(*)::int AS count FROM commercial_clients WHERE nzbn=${payload.nzbn}` : [{ count: 0 }];
   return { priorQuestionnairesForEmail: Number(emailRows[0]?.count || 0), priorQuestionnairesForNzbn: Number(nzbnRows[0]?.count || 0), otherCommercialClientsForNzbn: Number(clientRows[0]?.count || 0) };
-}
-
-async function copyUploadsToCommercialDocuments(database, commercialClientId, questionnaireId, files = [], submittedBy = '') {
-  if (!nullableUuid(commercialClientId) || !files.length) return;
-  const sourceStore = getStore({ name: STORE_NAME, consistency: 'strong' });
-  const targetStore = getStore({ name: 'commercial-documents', consistency: 'strong' });
-  for (const file of files) {
-    if (!file?.blobKey) continue;
-    try {
-      const bytes = await sourceStore.get(file.blobKey, { type: 'arrayBuffer', consistency: 'strong' });
-      if (!bytes) continue;
-      const documentId = crypto.randomUUID();
-      const fileName = safeFileName(file.fileName || 'accreditation-document');
-      const blobKey = `${commercialClientId}/${documentId}-${fileName}`;
-      await targetStore.set(blobKey, bytes, { metadata: { commercialClientId, documentId, fileName, mimeType: file.mimeType || 'application/octet-stream', uploadedBy: submittedBy, uploadedByType: 'Public employer questionnaire', questionnaireId } });
-      await database.sql`INSERT INTO commercial_documents (id, commercial_client_id, title, category, document_url, blob_key, file_name, mime_type, size_bytes, uploaded_by_type, notes, visible_to_employer, created_by)
-        VALUES (${documentId}, ${commercialClientId}, ${fileName}, 'Employer accreditation', '', ${blobKey}, ${fileName}, ${file.mimeType || ''}, ${Number(file.sizeBytes || 0)}, 'Public employer questionnaire', ${`Submitted with employer accreditation questionnaire ${questionnaireId}.`}, TRUE, ${submittedBy})`;
-    } catch (error) {
-      console.warn('Could not copy employer questionnaire upload into commercial documents', error?.message || error);
-    }
-  }
-}
-
-async function recordCommercialAudit(database, commercialClientId, questionnaireId, payload) {
-  if (!nullableUuid(commercialClientId)) return;
-  try { await database.sql`INSERT INTO commercial_audit_log (commercial_client_id,record_type,record_id,action,changed_by,changed_by_type,summary,changes) VALUES (${commercialClientId},'accreditation_questionnaire',${nullableUuid(questionnaireId)},'submitted',${payload.contactEmail},'Public employer form',${`Employer accreditation questionnaire submitted by ${payload.contactFirstName} ${payload.contactLastName}.`},${JSON.stringify({ accreditationType: payload.accreditationType, applicationType: payload.applicationType })}::jsonb)`; } catch {}
 }
 
 async function sendLoggedEmail(database, { relatedRecordType, relatedRecordId = '', templateKey, toEmail, subject, bodyText, sentBy }) {
@@ -317,7 +271,7 @@ async function sendSubmissionEmails(database, { questionnaireId, commercialClien
   const issues = Object.entries(payload.declarations || {}).filter(([, value]) => value === 'Yes').map(([key]) => declarationLabel(key));
   const keyPeople = payload.keyPeople.map((person) => `${person.fullName} - ${person.role || 'role not recorded'}`).join('; ') || 'None recorded';
   const subject = `Employer accreditation questionnaire - ${payload.legalName}`;
-  const bodyText = `A new employer accreditation questionnaire has been submitted.\n\nBusiness: ${payload.legalName}\nContact: ${payload.contactFirstName} ${payload.contactLastName}\nEmail: ${payload.contactEmail}\nNZBN: ${payload.nzbn || 'Not recorded'}\nGST: ${payload.gstNumber || 'Not recorded'}\nApplication: ${payload.applicationType}\nAccreditation type: ${payload.accreditationType}\nViability basis: ${payload.viabilityBasis}\nKey people: ${keyPeople}\nDeclaration issues: ${issues.length ? issues.join('; ') : 'None disclosed'}\nPrior questionnaire matches: email ${duplicateFlags.priorQuestionnairesForEmail}, NZBN ${duplicateFlags.priorQuestionnairesForNzbn}\nSubmitted: ${submittedAt ? new Date(submittedAt).toLocaleString('en-NZ', { timeZone: 'Pacific/Auckland' }) : 'Just now'}\n\nReview this under the commercial client record in THiS CRM.`;
+  const bodyText = `A new employer accreditation questionnaire has been submitted.\n\nBusiness: ${payload.legalName}\nContact: ${payload.contactFirstName} ${payload.contactLastName}\nEmail: ${payload.contactEmail}\nNZBN: ${payload.nzbn || 'Not recorded'}\nGST: ${payload.gstNumber || 'Not recorded'}\nApplication: ${payload.applicationType}\nAccreditation type: ${payload.accreditationType}\nViability basis: ${payload.viabilityBasis}\nKey people: ${keyPeople}\nDeclaration issues: ${issues.length ? issues.join('; ') : 'None disclosed'}\nPrior questionnaire matches: email ${duplicateFlags.priorQuestionnairesForEmail}, NZBN ${duplicateFlags.priorQuestionnairesForNzbn}\nSubmitted: ${submittedAt ? new Date(submittedAt).toLocaleString('en-NZ', { timeZone: 'Pacific/Auckland' }) : 'Just now'}\n\nReview this under Inquiries → Employer questionnaires in THiS CRM.`;
   try { await sendLoggedEmail(database, { relatedRecordType:'employer_accreditation_questionnaire', relatedRecordId:questionnaireId, templateKey:'employer_accreditation_internal_notification', toEmail:recipients, subject, bodyText, sentBy:'Website employer accreditation form' }); }
   catch (error) { console.warn('Employer accreditation internal notification failed', error?.message || error); }
 }

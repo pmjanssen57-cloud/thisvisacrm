@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import { createPortal } from 'react-dom';
 import { acceptInvite, getUser, handleAuthCallback, login, logout, onAuthChange, requestPasswordRecovery, updateUser } from '@netlify/identity';
 import { AlertTriangle, Archive, ArrowUpDown, BookOpen, Building2, Calculator, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Clock, CloudSun, Copy, CreditCard, ClipboardList, Database, DollarSign, Download, ExternalLink, FileCheck2, FileSpreadsheet, FileText, Gift, Globe2, HelpCircle, KeyRound, LayoutDashboard, Link2, ListChecks, LockKeyhole, Mail, MessageSquare, MoreHorizontal, Phone, Pencil, Plus, RefreshCw, RotateCcw, Save, Search, Send, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, UserRound, UsersRound, Wrench, X } from 'lucide-react';
+import { EmployerQuestionnaireInbox, EmployerQuestionnaireDetails } from './src/EmployerQuestionnaireInbox.jsx';
 import { reportConversion } from './src/lib/reportConversion.js';
 
 const BRAND = {
@@ -837,6 +838,8 @@ const emptyData = {
   agreementTemplateVersions: [],
   intakeEnquiries: [],
   intakeDrafts: [],
+  employerQuestionnaires: [],
+  employerQuestionnaireDrafts: [],
   intakeStatuses: INTAKE_STATUSES,
   seminars: [],
   seminarRegistrations: [],
@@ -1785,9 +1788,10 @@ export default function App() {
         }
       }
 
-      const nextData = { ...current, intakeEnquiries: nextIntakes, intakeDrafts: incomingDrafts };
+      const employerQueue = { employerQuestionnaires: body.employerQuestionnaires || [], employerQuestionnaireDrafts: body.employerQuestionnaireDrafts || [] };
+      const nextData = { ...current, ...employerQueue, intakeEnquiries: nextIntakes, intakeDrafts: incomingDrafts };
       dataRef.current = nextData;
-      setData((latest) => ({ ...latest, intakeEnquiries: nextIntakes, intakeDrafts: incomingDrafts }));
+      setData((latest) => ({ ...latest, ...employerQueue, intakeEnquiries: nextIntakes, intakeDrafts: incomingDrafts }));
       const refreshedAt = body.refreshedAt || new Date().toISOString();
       intakeRefreshCursorRef.current = refreshedAt;
       setLastIntakeRefreshAt(refreshedAt);
@@ -3336,7 +3340,7 @@ export default function App() {
         {error && <div className="error-banner"><AlertTriangle size={18} /><span>{error}</span><button className="btn mini" type="button" onClick={() => load(accessCode, identityUser, { preserveExistingData: true })}>Retry</button></div>}
         {loading && <div className="loading-card"><Database size={18} />Loading database-backed CRM data...</div>}
 
-        {!loading && !error && crmLoadConfirmed && !data.clients.length && !(data.commercialClients || []).length && !data.advisers.length && !data.intakeEnquiries.length && !data.seminars.length && !data.seminarRegistrations.length && !data.feedbackSubmissions.length && !data.consultationBookings.length && !data.instructionSets.length && !data.agreementSets.length && (
+        {!loading && !error && crmLoadConfirmed && !data.clients.length && !(data.commercialClients || []).length && !data.advisers.length && !data.intakeEnquiries.length && !data.employerQuestionnaires.length && !data.employerQuestionnaireDrafts.length && !data.seminars.length && !data.seminarRegistrations.length && !data.feedbackSubmissions.length && !data.consultationBookings.length && !data.instructionSets.length && !data.agreementSets.length && (
           <section className="empty-state">
             <Database size={40} />
             <h1>Database is connected, but no CRM records exist yet.</h1>
@@ -3345,7 +3349,7 @@ export default function App() {
           </section>
         )}
 
-        {(data.clients.length > 0 || (data.commercialClients || []).length > 0 || data.advisers.length > 0 || data.libraryEntries.length > 0 || data.intakeEnquiries.length > 0 || data.seminars.length > 0 || data.seminarRegistrations.length > 0 || data.feedbackSubmissions.length > 0 || data.consultationBookings.length > 0 || data.bookingLinks.length > 0 || data.instructionSets.length > 0 || data.agreementSets.length > 0) && (
+        {(data.clients.length > 0 || (data.commercialClients || []).length > 0 || data.advisers.length > 0 || data.libraryEntries.length > 0 || data.intakeEnquiries.length > 0 || data.employerQuestionnaires.length > 0 || data.employerQuestionnaireDrafts.length > 0 || data.seminars.length > 0 || data.seminarRegistrations.length > 0 || data.feedbackSubmissions.length > 0 || data.consultationBookings.length > 0 || data.bookingLinks.length > 0 || data.instructionSets.length > 0 || data.agreementSets.length > 0) && (
           <>
             <ViewToolbar
               advisers={scopeAdvisers}
@@ -3447,7 +3451,7 @@ export default function App() {
             )}
 
             {tab === 'intake' && (
-              <IntakeWorkspace enquiries={data.intakeEnquiries || []} intakeDrafts={data.intakeDrafts || []} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} identityUser={identityUser} canExportContacts={canExportContacts} statuses={data.intakeStatuses || INTAKE_STATUSES} seminars={data.seminars || []} seminarRegistrations={data.seminarRegistrations || []} feedbackSubmissions={data.feedbackSubmissions || []} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} archiveIntakeEnquiries={archiveIntakeEnquiries} restoreIntakeEnquiry={restoreIntakeEnquiry} permanentlyDeleteIntakeEnquiry={permanentlyDeleteIntakeEnquiry} isAdmin={isAdmin} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendIntakeCvRequestEmail={sendIntakeCvRequestEmail} sendIntakeResultsToAdviser={sendIntakeResultsToAdviser} sendIntakeDraftResumeEmail={sendIntakeDraftResumeEmail} sendIntakeDraftReminderEmail={sendIntakeDraftReminderEmail} deleteIntakeDraft={deleteIntakeDraft} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} sendContactUnableToAssistEmail={sendContactUnableToAssistEmail} downloadIntakeUpload={downloadIntakeUpload} saveSeminar={saveSeminar} deleteSeminar={deleteSeminar} saveSeminarRegistration={saveSeminarRegistration} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail} saveFeedbackSubmission={saveFeedbackSubmission} deleteFeedbackSubmission={deleteFeedbackSubmission} saving={saving} openClientRecord={openClientRecord} confirmAction={askCrmConfirm} refreshIntakeData={refreshIntakeData} intakeRefreshing={intakeRefreshing} lastIntakeRefreshAt={lastIntakeRefreshAt} />
+              <IntakeWorkspace employerQuestionnaires={data.employerQuestionnaires || []} employerQuestionnaireDrafts={data.employerQuestionnaireDrafts || []} commercialClients={data.commercialClients || []} processEmployerQuestionnaire={(payload) => callApi('processEmployerQuestionnaire', payload)} downloadEmployerUpload={async (questionnaireId, fileId) => { const body = await callApi('downloadEmployerUpload', { questionnaireId, fileId }, { skipDataUpdate: true }); if (body.upload?.dataBase64) downloadBase64File(body.upload); }} openCommercialClient={(id) => { setDashboardAdviserFilter('all'); openMatterRecord('commercial:' + id); }} enquiries={data.intakeEnquiries || []} intakeDrafts={data.intakeDrafts || []} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} identityUser={identityUser} canExportContacts={canExportContacts} statuses={data.intakeStatuses || INTAKE_STATUSES} seminars={data.seminars || []} seminarRegistrations={data.seminarRegistrations || []} feedbackSubmissions={data.feedbackSubmissions || []} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} archiveIntakeEnquiries={archiveIntakeEnquiries} restoreIntakeEnquiry={restoreIntakeEnquiry} permanentlyDeleteIntakeEnquiry={permanentlyDeleteIntakeEnquiry} isAdmin={isAdmin} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendIntakeCvRequestEmail={sendIntakeCvRequestEmail} sendIntakeResultsToAdviser={sendIntakeResultsToAdviser} sendIntakeDraftResumeEmail={sendIntakeDraftResumeEmail} sendIntakeDraftReminderEmail={sendIntakeDraftReminderEmail} deleteIntakeDraft={deleteIntakeDraft} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} sendContactUnableToAssistEmail={sendContactUnableToAssistEmail} downloadIntakeUpload={downloadIntakeUpload} saveSeminar={saveSeminar} deleteSeminar={deleteSeminar} saveSeminarRegistration={saveSeminarRegistration} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail} saveFeedbackSubmission={saveFeedbackSubmission} deleteFeedbackSubmission={deleteFeedbackSubmission} saving={saving} openClientRecord={openClientRecord} confirmAction={askCrmConfirm} refreshIntakeData={refreshIntakeData} intakeRefreshing={intakeRefreshing} lastIntakeRefreshAt={lastIntakeRefreshAt} />
             )}
 
             {tab === 'bookings' && (
@@ -4660,6 +4664,7 @@ function CommercialAccreditationQuestionnaireSummary({ client }) {
   return (
     <section className="employer-questionnaire-summary">
       <div className="commercial-panel-head"><div><span>Employer questionnaire</span><h3>Latest accreditation assessment</h3><p>{latest.submittedAt ? `Submitted ${formatPortalDateTime(latest.submittedAt)}` : 'Submitted questionnaire'}</p></div><span className="status-badge active">{latest.status || 'Submitted'}</span></div>
+      <details><summary>Full questionnaire details and history ({items.length})</summary>{items.map((item) => <details key={item.id}><summary>{item.applicationType} · {formatPortalDateTime(item.submittedAt)}</summary><EmployerQuestionnaireDetails questionnaire={item} /></details>)}</details>
       <div className="employer-questionnaire-summary-grid">
         <article><span>Application</span><strong>{latest.applicationType || 'Not recorded'}</strong><small>{latest.accreditationType || 'Type not recorded'}</small></article>
         <article><span>Viability</span><strong>{latest.viabilityBasis || 'Not recorded'}</strong><small>{payload.viabilityComments || 'No additional viability comments.'}</small></article>
@@ -8258,7 +8263,7 @@ function RelatedEnquiryPanel({ matches = [] }) {
 }
 
 
-function IntakeWorkspace({ enquiries, intakeDrafts = [], advisers, dashboardAdviserFilter = 'all', identityUser = null, canExportContacts = false, statuses, seminars = [], seminarRegistrations = [], feedbackSubmissions = [], saveIntakeEnquiry, deleteIntakeEnquiry, archiveIntakeEnquiries, restoreIntakeEnquiry, permanentlyDeleteIntakeEnquiry, isAdmin = false, convertIntakeToClient, sendIntakeOutcomeEmail, sendIntakeCvRequestEmail, sendIntakeResultsToAdviser, sendIntakeDraftResumeEmail, sendIntakeDraftReminderEmail, deleteIntakeDraft, sendContactIntakeInviteEmail, sendContactUnableToAssistEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saveFeedbackSubmission, deleteFeedbackSubmission, saving, openClientRecord, confirmAction, refreshIntakeData, intakeRefreshing = false, lastIntakeRefreshAt = '' }) {
+function IntakeWorkspace({ employerQuestionnaires = [], employerQuestionnaireDrafts = [], commercialClients = [], processEmployerQuestionnaire, downloadEmployerUpload, openCommercialClient, enquiries, intakeDrafts = [], advisers, dashboardAdviserFilter = 'all', identityUser = null, canExportContacts = false, statuses, seminars = [], seminarRegistrations = [], feedbackSubmissions = [], saveIntakeEnquiry, deleteIntakeEnquiry, archiveIntakeEnquiries, restoreIntakeEnquiry, permanentlyDeleteIntakeEnquiry, isAdmin = false, convertIntakeToClient, sendIntakeOutcomeEmail, sendIntakeCvRequestEmail, sendIntakeResultsToAdviser, sendIntakeDraftResumeEmail, sendIntakeDraftReminderEmail, deleteIntakeDraft, sendContactIntakeInviteEmail, sendContactUnableToAssistEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saveFeedbackSubmission, deleteFeedbackSubmission, saving, openClientRecord, confirmAction, refreshIntakeData, intakeRefreshing = false, lastIntakeRefreshAt = '' }) {
   const askConfirm = confirmAction || (async ({ message }) => window.confirm(message || 'Continue?'));
   const simplifiedStatuses = (statuses || INTAKE_STATUSES).filter((status) => INTAKE_STATUSES.includes(status));
   const [workspaceTab, setWorkspaceTab] = useState('contact');
@@ -8722,7 +8727,7 @@ function IntakeWorkspace({ enquiries, intakeDrafts = [], advisers, dashboardAdvi
       <div className="library-heading intake-heading enquiries-heading enquiries-heading-polished workspace-page-heading bare-heading">
         <div className="enquiries-heading-copy">
           <h1>Enquiries & Intake</h1>
-          <p className="muted">Review contact forms, assessment questionnaires, client feedback and seminar registrations separately from active client work.</p>
+          <p className="muted">Review contact forms, individual and employer questionnaires, client feedback and seminar registrations separately from active client work.</p>
         </div>
         {canExportContacts && <details className="enquiries-export-menu">
           <summary className="btn"><Download size={16} />Export contacts</summary>
@@ -8796,6 +8801,7 @@ function IntakeWorkspace({ enquiries, intakeDrafts = [], advisers, dashboardAdvi
 
       <section className="intake-inbox-panel enquiries-panel">
         <div className="enquiries-tab-row enquiries-tab-row-lean" role="tablist" aria-label="Enquiries and intake sections">
+          <button type="button" className={workspaceTab === 'employers' ? 'active' : ''} onClick={() => setWorkspaceTab('employers')}><Building2 size={16} />Employer questionnaires <span>{employerQuestionnaires.filter((q) => !q.commercialClientId).length}</span></button>
           <button type="button" className={workspaceTab === 'contact' ? 'active' : ''} onClick={() => setWorkspaceTab('contact')}><MessageSquare size={16} />Contacts <span>{newContactCount}</span></button>
           <button type="button" className={workspaceTab === 'intake' ? 'active' : ''} onClick={() => setWorkspaceTab('intake')}><ClipboardList size={16} />Intake <span>{newIntakeCount}</span></button>
           <button type="button" className={workspaceTab === 'seminars' ? 'active' : ''} onClick={() => setWorkspaceTab('seminars')}><CalendarDays size={16} />Seminars <span>{newSeminarRegistrationCount}</span></button>
@@ -8804,7 +8810,9 @@ function IntakeWorkspace({ enquiries, intakeDrafts = [], advisers, dashboardAdvi
           <button type="button" className={workspaceTab === 'archive' ? 'active' : ''} onClick={() => setWorkspaceTab('archive')}><Archive size={16} />Archive <span>{archivedEnquiries.length}</span></button>
         </div>
 
-        {workspaceTab === 'seminars' ? (
+        {workspaceTab === 'employers' ? (
+          <EmployerQuestionnaireInbox questionnaires={employerQuestionnaires} drafts={employerQuestionnaireDrafts} clients={commercialClients} onProcess={processEmployerQuestionnaire} onDownload={downloadEmployerUpload} onOpenClient={openCommercialClient} onRefresh={refreshIntakeData} saving={saving} />
+        ) : workspaceTab === 'seminars' ? (
           <SeminarManagementPanel
             seminars={seminars || []}
             registrations={seminarRegistrations || []}
@@ -19867,6 +19875,8 @@ function normaliseData(body) {
     agreementTemplateVersions: (body.agreementTemplateVersions || []).map(normaliseAgreementTemplateVersion),
     intakeEnquiries: (body.intakeEnquiries || []).map(normaliseIntakeEnquiry),
     intakeDrafts: (body.intakeDrafts || []).map(normaliseIntakeDraft),
+    employerQuestionnaires: body.employerQuestionnaires || [],
+    employerQuestionnaireDrafts: body.employerQuestionnaireDrafts || [],
     intakeStatuses: body.intakeStatuses || INTAKE_STATUSES,
     seminars: (body.seminars || []).map(normaliseSeminar),
     seminarRegistrations: (body.seminarRegistrations || []).map(normaliseSeminarRegistration),
@@ -19906,6 +19916,8 @@ function upsertCrmItem(items = [], item = null) {
 
 function mergePartialCrmResponse(current = emptyData, body = {}) {
   let next = { ...current };
+  if (Array.isArray(body.employerQuestionnaires)) next.employerQuestionnaires = body.employerQuestionnaires;
+  if (Array.isArray(body.employerQuestionnaireDrafts)) next.employerQuestionnaireDrafts = body.employerQuestionnaireDrafts;
   if (Array.isArray(body.advisers)) next.advisers = body.advisers.map(normaliseAdviserFromApi);
   if (body.adviser) next.advisers = upsertCrmItem(next.advisers || current.advisers || [], normaliseAdviserFromApi(body.adviser));
   if (body.deletedAdviserId) next.advisers = (current.advisers || []).filter((item) => item.id !== body.deletedAdviserId);

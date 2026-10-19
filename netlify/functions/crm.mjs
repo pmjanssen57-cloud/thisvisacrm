@@ -1,3 +1,4 @@
+import { readEmployerQueue, processEmployerQuestionnaire, downloadEmployerUpload } from './_employer-questionnaires.mjs';
 import { getDatabase } from '@netlify/database';
 import { getStore } from '@netlify/blobs';
 import crypto from 'node:crypto';
@@ -523,7 +524,8 @@ async function handleCrmEvent(event) {
         ? await readIntakeEnquiryUpdates(since)
         : await readIntakeEnquiries();
       const intakeDrafts = await readActiveIntakeDrafts();
-      return json({ intakeEnquiries, intakeDrafts, refreshedAt, mode: since ? 'delta' : 'full' });
+      const employerQueue = await readEmployerQueue(db(), mapEmployerAccreditationQuestionnaire);
+      return json({ ...employerQueue, intakeEnquiries, intakeDrafts, refreshedAt, mode: since ? 'delta' : 'full' });
     }
 
     await ensureSchema();
@@ -621,6 +623,15 @@ async function handleCrmEvent(event) {
     if (action === 'deleteLibraryEntry') {
       await deleteLibraryEntry(body.entryId);
       return json({ deletedLibraryEntryId: body.entryId });
+    }
+
+    if (action === 'processEmployerQuestionnaire') {
+      const result = await processEmployerQuestionnaire(db(), body, auth.user?.email || accessContext.adviserName || 'CRM adviser');
+      const queue = await readEmployerQueue(db(), mapEmployerAccreditationQuestionnaire);
+      return json({ ...queue, ...result, commercialClient: await readCommercialClientById(result.commercialClientId) });
+    }
+    if (action === 'downloadEmployerUpload') {
+      return json({ upload: await downloadEmployerUpload(db(), body.questionnaireId, body.fileId) });
     }
 
     if (action === 'saveIntakeEnquiry') {
@@ -1759,6 +1770,25 @@ async function ensureCommercialSchema(database = db()) {
     key_people JSONB NOT NULL DEFAULT '[]'::jsonb, declarations JSONB NOT NULL DEFAULT '{}'::jsonb, uploaded_files JSONB NOT NULL DEFAULT '[]'::jsonb,
     duplicate_flags JSONB NOT NULL DEFAULT '{}'::jsonb, raw_payload JSONB NOT NULL DEFAULT '{}'::jsonb, submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
+  await database.sql`CREATE TABLE IF NOT EXISTS employer_accreditation_drafts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  resume_token_hash TEXT NOT NULL UNIQUE,
+  status TEXT NOT NULL DEFAULT 'Draft',
+  contact_first_name TEXT,
+  contact_last_name TEXT,
+  contact_email TEXT NOT NULL,
+  legal_name TEXT,
+  nzbn TEXT,
+  current_step INTEGER NOT NULL DEFAULT 1,
+  progress_percent INTEGER NOT NULL DEFAULT 0,
+  raw_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+  uploaded_files JSONB NOT NULL DEFAULT '[]'::jsonb,
+  expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '30 days'),
+  resume_email_sent_at TIMESTAMPTZ,
+  submitted_questionnaire_id UUID REFERENCES employer_accreditation_questionnaires(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_employer_accreditation_questionnaires_client ON employer_accreditation_questionnaires(commercial_client_id, submitted_at DESC)`;
   await database.sql`ALTER TABLE commercial_workers ADD COLUMN IF NOT EXISTS job_check_id UUID`;
   await database.sql`ALTER TABLE commercial_documents ADD COLUMN IF NOT EXISTS blob_key TEXT`;
@@ -2014,7 +2044,7 @@ function mapCommercialClient(row = {}, portalUsers = [], workers = [], jobChecks
 
 function mapEmployerAccreditationQuestionnaire(row = {}) {
   return {
-    id: row.id || '', status: row.status || 'Submitted', contactFirstName: row.contact_first_name || '', contactLastName: row.contact_last_name || '',
+    id: row.id || '', commercialClientId: row.commercial_client_id || '', status: row.status || 'Submitted', contactFirstName: row.contact_first_name || '', contactLastName: row.contact_last_name || '',
     contactEmail: row.contact_email || '', contactPhone: row.contact_phone || '', legalName: row.legal_name || '', tradingName: row.trading_name || '',
     nzbn: row.nzbn || '', companyNumber: row.company_number || '', gstNumber: row.gst_number || '', irdNumber: row.ird_number || '',
     applicationType: row.accreditation_application_type || '', accreditationType: row.accreditation_type || '', currentAccreditationExpiry: toDateOnly(row.current_accreditation_expiry),
@@ -2034,7 +2064,7 @@ async function readCommercialClients(database = db()) {
     database.sql`SELECT id, commercial_client_id, worker_id, title, category, status, due_date, completed_date, employer_notes, internal_notes, adviser_review_status, created_by, updated_by, created_at, updated_at FROM commercial_compliance_items ORDER BY status ASC, due_date ASC NULLS LAST, created_at DESC`,
     database.sql`SELECT id, commercial_client_id, worker_id, title, category, document_url, blob_key, file_name, mime_type, size_bytes, uploaded_by_type, expiry_date, notes, visible_to_employer, created_by, created_at, updated_at FROM commercial_documents ORDER BY expiry_date ASC NULLS LAST, created_at DESC`,
     database.sql`SELECT id, commercial_client_id, record_type, record_id, action, changed_by, changed_by_type, summary, changes, created_at FROM commercial_audit_log ORDER BY created_at DESC LIMIT 1000`,
-    database.sql`SELECT id, commercial_client_id, status, contact_first_name, contact_last_name, contact_email, contact_phone, legal_name, trading_name, nzbn, company_number, gst_number, ird_number, accreditation_application_type, accreditation_type, current_accreditation_expiry, business_operation_length, viability_basis, key_people, declarations, uploaded_files, duplicate_flags, raw_payload, submitted_at, created_at, updated_at FROM employer_accreditation_questionnaires ORDER BY submitted_at DESC LIMIT 1000`,
+    database.sql`SELECT id, commercial_client_id, status, contact_first_name, contact_last_name, contact_email, contact_phone, legal_name, trading_name, nzbn, company_number, gst_number, ird_number, accreditation_application_type, accreditation_type, current_accreditation_expiry, business_operation_length, viability_basis, key_people, declarations, uploaded_files, duplicate_flags, raw_payload, submitted_at, created_at, updated_at FROM employer_accreditation_questionnaires ORDER BY submitted_at DESC`,
   ]);
   return clients.map((row) => {
     row.__accreditation_questionnaires = accreditationQuestionnaires.filter((item) => item.commercial_client_id === row.id).map(mapEmployerAccreditationQuestionnaire);
@@ -3126,8 +3156,10 @@ async function readCrmData() {
   ]);
   const references = await referencePromise;
   const commercialClients = await readCommercialClients(database);
+  const employerQueue = await readEmployerQueue(database, mapEmployerAccreditationQuestionnaire);
 
   return {
+    ...employerQueue,
     advisers: references.advisers,
     clients: clients.map((client) => mapClientFromDb(client, stages, deadlines, billing, portalMessages, portalDocuments)),
     commercialClients,

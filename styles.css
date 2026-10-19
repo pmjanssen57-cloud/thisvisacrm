@@ -20745,3 +20745,37 @@ body.festive-mode-active {
 .employer-questionnaire-history > div { display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-top:1px solid var(--line); }
 .employer-questionnaire-history > div:first-of-type { margin-top:8px; }
 @media (max-width:900px) { .employer-questionnaire-summary-grid { grid-template-columns:1fr; } }
+/* Employer questionnaire review queue — v0.17.45 */
+.employer-inquiry-panel { padding: 22px; min-width: 0; }
+.employer-queue-toolbar { display: flex; flex-wrap: wrap; gap: 16px; margin: 18px 0; }
+.employer-queue-toolbar label, .employer-process-actions > label { display: grid; gap: 6px; font-weight: 600; }
+.employer-queue-toolbar input, .employer-queue-toolbar select, .employer-process-actions select { padding: 10px; border: 1px solid #c7d9d6; border-radius: 8px; background: white; color: #003736; max-width: 100%; }
+.employer-queue-list { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,290px),1fr)); gap: 12px; margin-bottom: 22px; }
+.employer-queue-card { display: grid; align-content: start; gap: 7px; padding: 16px; background: #fff; color: #003736; border: 1px solid #d4e2df; border-radius: 12px; text-align: left; overflow-wrap: anywhere; font: inherit; }
+button.employer-queue-card { cursor: pointer; }
+.employer-queue-card.selected { border: 2px solid #00796b; background: #f0f8f6; }
+.employer-queue-card small, .employer-match small { color: #49635f; }
+.employer-review { padding: 20px; min-width: 0; }
+.employer-review details, .employer-review-details details { padding: 12px 0; border-top: 1px solid #d4e2df; }
+.employer-review summary, .employer-review-details summary { cursor: pointer; font-weight: 600; }
+.employer-answer-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,230px),1fr)); gap: 14px; margin: 16px 0; }
+.employer-answer-grid > div { min-width: 0; }
+.employer-answer-grid dt { color: #49635f; font-size: 12px; margin-bottom: 4px; }
+.employer-answer-grid dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.employer-answer-item { padding: 8px 0; border-bottom: 1px solid #edf2f0; }
+.employer-file-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 0; overflow-wrap: anywhere; }
+.employer-process-actions { display: grid; gap: 14px; border-top: 1px solid #d4e2df; padding-top: 20px; margin-top: 18px; }
+.employer-match { display: flex; gap: 12px; padding: 12px; border: 1px solid #d4e2df; border-radius: 8px; }
+.employer-match span { display: grid; gap: 5px; overflow-wrap: anywhere; }
+.employer-duplicate-warning { color: #87510b; font-size: 13px; }
+@media (max-width: 640px) { .employer-inquiry-panel, .employer-review { padding: 12px; } .employer-queue-toolbar > label { width: 100%; } .employer-process-actions .button-row { display: grid; } .employer-process-actions .btn { white-space: normal; } }
+
+.employer-process-actions label.employer-match { display:flex; flex-direction:row; align-items:center; }
+.employer-process-actions label.employer-match input[type=radio] { width:18px; height:18px; flex:0 0 18px; margin:0; }
+.employer-review details > .btn { white-space:normal; max-width:100%; text-align:left; }
+
+.employer-review .employer-process-actions { min-width:0; grid-template-columns:minmax(0,1fr); }
+.employer-process-actions > *, .employer-process-actions label, .employer-process-actions .button-row, .employer-process-actions .employer-match span { min-width:0; max-width:100%; }
+.employer-process-actions .btn { min-width:0; max-width:100%; white-space:normal; overflow-wrap:anywhere; }
+.employer-process-actions select { min-width:0; width:100%; box-sizing:border-box; }
+.employer-process-actions .employer-match small { overflow-wrap:anywhere; }

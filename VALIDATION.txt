@@ -1,20 +1,44 @@
-THiS CRM v0.17.44 validation
+THiS CRM v0.17.45 validation
 
-Release: Employer Accreditation Questionnaire
+PASS — Full Vite 5.4.21 production build, including App.jsx, main.jsx, new review component
+and matching helper. Build completed with the existing large-bundle advisory.
+PASS — Node syntax checks for all 24 Netlify .mjs modules (including shared helpers).
+PASS — Node syntax checks for all 6 public JavaScript files and new source JS.
+PASS — JSX transpile checks for App.jsx, main.jsx and EmployerQuestionnaireInbox.jsx.
+PASS — Embedded JavaScript in root/public HTML parsed.
+PASS — styles.css and public/live-chat.css parsed with PostCSS.
+PASS — Existing PWA validator, manifest, private API cache exclusions, precache paths,
+and service-worker version this-crm-shell-v0.17.45.
+PASS — Public submit handler with local DB/external service substitutes: no commercial
+client creation/mutation or document transfer; repeat submissions retain duplicate flags.
+PASS — Local PostgreSQL attach/create: GST/IRD, accreditation details, key people/raw
+answers/history, document bytes/register and audit; questionnaire marked Processed/linked.
+PASS — Retry and overlapping reviewer preparation resolve to one link/client/audit/register.
+PASS — Invalid mode/target, missing upload and injected SQL failure: no partial client/link.
+PASS — Separate draft listing, submitted draft exclusion, no resume token hashes returned.
+PASS — Match normalization and duplicate history; empty values do not create matches.
+PASS — Headless Edge component fixture: desktop/mobile review, match selection, supporting
+file ID/download action, attach, create, processed link/open client, drafts and search.
+PASS — Desktop/mobile screenshots inspected; action bounds checked at 390px viewport.
+PASS — Browser fixture has no runtime errors.
+PASS — 47 migration files; each byte-for-byte identical to the supplied v0.17.44 ZIP.
+PASS — Both ZIPs fully read with CRC checks; deployment files at ZIP root.
+PASS — Rollback ZIP is byte-for-byte identical to the supplied v0.17.44 ZIP.
 
-Checks completed:
-- App.jsx TypeScript JSX transpile/syntax: PASS
-- main.jsx TypeScript JSX transpile/syntax: PASS
-- Netlify .mjs functions node --check: PASS (23 files)
-- public JavaScript node --check: PASS (6 files)
-- styles.css PostCSS parse: PASS
-- PWA validation: PASS
-- Employer accreditation Squarespace embed helper static checks: PASS
-- Employer questionnaire regression/static checks: PASS (public route, GST/IRD, key people, secure resume hashing, 30-day draft expiry, uploads, email notifications, commercial summary and conversion event)
-- Database migrations: 47 total
-- Previous 46 migrations byte-for-byte unchanged from v0.17.43: PASS
-- New migration: 202610190001_add_employer_accreditation_questionnaire.sql
-- Historical/applied migrations modified: NO
-- Full Vite production build: NOT RUN (node_modules unavailable in source package)
-- Live deployed email/Database/Blob integration test: NOT RUN in this environment
-- Browser live-deploy visual QA: NOT RUN in this environment
+Database/schema status: no new migration; no schema change.
+Existing migration 47 is retained and is required when upgrading an older database.
+
+Test environment/limits:
+- Production build and syntax checks ran on local Node 24.19.0. Deployment retains the
+  baseline Node 20.19.0 pin and dependency versions.
+- PostgreSQL tests used PGlite. Its missing pgcrypto extension loader was skipped and a
+  test-only UUID-backed gen_random_bytes shim let a historical booking default compile.
+  No released SQL file was edited. The actual transfer CTEs ran without substitution.
+- Blob and email services were substituted in local workflow tests. Microsoft 365 was
+  intentionally unconfigured; no real messages were sent. Browser fixtures use synthetic
+  data and mocked callbacks, not a live Identity/Netlify session.
+- No live Netlify/database/blob/Microsoft 365 deployment or integration test was performed.
+- Blob copies precede the atomic DB statement; an interrupted/failed operation can leave
+  an unregistered destination blob. Original evidence is retained and the queue can retry.
+
+Detailed test scripts and screenshots are retained in the workspace validation directory.

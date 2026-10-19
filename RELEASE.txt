@@ -1,17 +1,51 @@
-THiS CRM v0.17.44 - Employer Accreditation Questionnaire
+THiS CRM v0.17.45 — Employer questionnaire review workflow
+Built from the supplied v0.17.44 release.
 
-Changes
-- Adds a public six-step Employer Accreditation Questionnaire at /employer-accreditation, designed for embedding on the Turner Hopkins website.
-- Rebuilds the existing Logiforms employer accreditation questionnaire into the current THiS guided-form style, while updating the questions for the current Standard / High-volume / Triangular accreditation framework.
-- Collects employer contact and business details, NZBN/company number, GST number, IRD number, entity type, business operation length, accreditation application/type, viability basis, workforce/employment practices, settlement support and current compliance declarations.
-- Collects repeatable key-person details including full name, role, date of birth, gender, country of birth, citizenship, passport number, visa status and optional email.
-- Adds conditional questions for partnerships/trusts/sole traders and triangular employment arrangements.
-- Supports secure 30-day draft/resume, Save & finish later, autosave after valid contact details, and retained supporting-document uploads.
-- Supporting documents submitted with the questionnaire are copied into the linked commercial client's Documents register.
-- Submitted questionnaires match an existing commercial client by NZBN first, then contact email + legal name; otherwise a commercial client is created for adviser review.
-- Commercial client records now store GST/IRD numbers and show an Accreditation questionnaire summary/history with declarations, key people, uploads and duplicate indicators.
-- Adds confirmation email to the employer and internal/adviser notification email, both logged in the existing email notification register.
-- Adds duplicate checks by contact email and NZBN.
-- Emits the public conversion bridge event employer_accreditation for the Squarespace/GA4 listener.
-- Includes turner-hopkins-employer-accreditation-embed.html as the Squarespace iframe helper.
-- Adds migration 47 only; the previous 46 migrations are unchanged.
+Public employer accreditation submissions now enter Inquiries / Employer questionnaires.
+They do not attach to or create a commercial client until a staff member chooses an action.
+
+Review includes business/contact/tax details, submission status, accreditation and viability
+summary, complete submitted answers, key people, declarations and supporting downloads.
+Possible commercial matches show separate NZBN, legal/trading business name and contact
+email reasons. Staff can also select any commercial client.
+
+Attach to existing commercial client and Create commercial client from questionnaire:
+- Transfer GST/IRD, NZBN/company number and accreditation type/expiry.
+- Retain the complete questionnaire, key people, declarations and answers as linked history.
+- Copy every uploaded supporting file into the commercial Documents register.
+- Add an audit entry and mark the questionnaire Processed with its client link.
+- Commit client/register/audit/link changes together; a missing upload prevents processing.
+- Repeated processing retains the existing link. All duplicate submissions remain visible.
+Existing client matter ownership/status/next actions are preserved on attach.
+New clients receive an employer accreditation review next action.
+
+Separate views: Submitted, Processed / linked, All, Drafts / in progress.
+Saved and expired drafts remain separate; submitted drafts are excluded from that view.
+Previously linked v0.17.44 questionnaires remain linked and visible in history.
+Internal submission notifications now direct staff to the employer inquiry queue.
+Public form URLs, embeds, recovery links and confirmation/conversion flow remain available.
+
+MIGRATION / SCHEMA STATUS
+No new migration. No schema change from v0.17.44.
+All 47 existing SQL migrations are byte-for-byte unchanged.
+Migration 47 (202610190001_add_employer_accreditation_questionnaire.sql) remains required
+if the target database has not already reached v0.17.44. The CRM runtime ensures the
+same existing draft table is available; it does not introduce a new schema version.
+No live database was connected or modified during this work.
+
+DEPLOYMENT
+This ZIP is a Netlify source release, matching the supplied baseline packaging.
+Extract with package.json, netlify.toml, App.jsx, public, src and netlify at the root.
+Deploy through the existing Netlify build workflow (yarn build; publish dist;
+functions netlify/functions). Dependencies/generated build files are excluded from the ZIP.
+A static drag-and-drop upload of only frontend files does not deploy the functions.
+Keep the existing environment variables and database/blob stores.
+Service-worker cache advances to this-crm-shell-v0.17.45.
+
+ROLLBACK
+THiS-CRM-v0.17.44-ROLLBACK.zip is an exact copy of the supplied v0.17.44 ZIP.
+Redeploy it through the same Netlify build workflow. No database rollback or DROP required.
+Rollback restores v0.17.44 public auto-attach/create behaviour. Questionnaires queued while
+v0.17.45 was active remain in the database, but v0.17.44 has no employer inquiry queue UI;
+redeploy v0.17.45 to review those unprocessed records. Existing processed links are retained.
+See VALIDATION.txt for checks and live-service test limitations.
