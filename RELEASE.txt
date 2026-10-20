@@ -1,52 +1,28 @@
-THiS CRM v0.17.50 — My Work & Matter Journey polish
-20 October 2026. Baseline: confirmed THiS CRM v0.17.49.
+THiS CRM v0.17.52 — Intake review layout fix
+20 October 2026. Baseline: v0.17.51.
 
-MY WORK
-- Every matter row opens the same right-side Update matter drawer, including identity,
-  next-action, date and arrow areas, Today, Next 7 days, All work, waiting/expanded waiting
-  and Board cards. Row activation also works by keyboard.
-- Working snapshot includes the client/matter heading, stage, status, next action/date,
-  responsibility, main/backup adviser and a recorded key date where available.
-- Open full client record is an explicit separate action. Unsaved edits require a discard
-  decision before navigating; opening records makes no data changes.
-- Existing quick update/save, failed-save recovery, portal updates and stage logic remain.
-- Waiting for others has explanatory guidance; existing responsibility tags remain.
-- Today empty state: soft mint treatment, check icon, You're up to date / No actions are
-  due today, with View Next 7 Days and View All Work actions.
-- More prominent timing and weekday/date details in Next 7 days.
-- View options and Shortcuts use compact bordered controls with clear disclosure icons.
+FIX
+After emailing intake results, the review panel previously squeezed review flags,
+action buttons and the confirmation into a single horizontal flex row. The confirmation
+reduced the buttons to a narrow vertical stack with excessive text wrapping.
 
-MATTER JOURNEY
-- Ticked completed stages, prominent current stage, readable labels and clear connectors.
-- Current-stage summary replaces the explanatory prose. Compact desktop stage strip.
-- On smaller screens the strip scrolls within its own area; the current stage is revealed
-  on opening and viewport resizing. Full-page horizontal overflow is avoided.
-- Stage selection, definitions, completion rules and saved data are unchanged.
+The panel now separates these into full-width rows: review flags/related records,
+a responsive action grid, then the confirmation or error. Buttons use two readable
+columns where space permits and one column on phones. Icons keep their width and long
+email addresses wrap inside the message. Status/error messages are announced accessibly.
+The existing footer, email confirmation/send handlers, CV downloads, approval/decline
+actions, client conversion and save controls are preserved.
 
-ENQUIRIES & INTAKE
-Contacts -> Intake -> Employer Forms -> Seminars -> Feedback -> Incomplete -> Archive.
-Consistent tab heights, padding, icon sizing, visible count badges and selected treatment.
-The label change does not alter employer questionnaire records, filters or handling.
-
-PRESERVED FROM v0.17.49
-Employer intake-style assessment reviews, Save & next, notes/status/adviser assignment,
-Print / save PDF, printable HTML download, draft/duplicate visibility, supporting documents
-and explicit Attach/Create workflow. Public submissions still land in the inquiry queue.
-Original agreement/instructions document engines, public forms, emails and portal code.
-Existing ownership, work date filtering/sorting and save payload logic are retained.
-
-MIGRATION / SCHEMA STATUS
-NO NEW MIGRATION. NO SCHEMA CHANGE relative to v0.17.49.
-All 48 migration files are byte-identical to v0.17.49. All 24 Netlify function modules
-are byte-identical. The additive employer review migration introduced in v0.17.49
-(202610200001_add_employer_questionnaire_review.sql) remains included and still applies
-when upgrading an older installation that has not applied it.
+PRESERVED
+Includes the v0.17.51 people-first Instructions Studio and all preceding improvements.
+Instructions Studio script/CSS, both original Studio engines, employer review/report
+modules, all 24 Netlify function modules and all 48 migration files are byte-identical
+to v0.17.51. NO NEW MIGRATION. NO SCHEMA CHANGE.
 
 DEPLOYMENT / ROLLBACK
-Deployable Netlify SOURCE ZIP; use the existing Netlify build workflow, Node 20.19,
-yarn build, publish dist and netlify/functions. Dependencies/dist are intentionally excluded.
-PWA shell cache advanced to v0.17.50; Studio iframe versions advanced as well.
-Rollback ZIP is an exact byte copy of THiS-CRM-v0.17.49.zip. No database rollback is needed
-for the v0.17.50 changes. Existing configuration/data stores must be retained.
-No production deployment, remote database migration or live email was performed.
-See VALIDATION.txt for check coverage and limits.
+Deployable Netlify SOURCE ZIP; use the existing yarn build workflow, publish dist,
+functions netlify/functions and Node 20.19. Preserve settings and data stores.
+PWA cache and Studio asset URLs advance to v0.17.52. No production deployment performed.
+Rollback ZIP is an exact byte copy of THiS-CRM-v0.17.51.zip. No database rollback needed.
+
+See VALIDATION.txt for local check coverage and limits.

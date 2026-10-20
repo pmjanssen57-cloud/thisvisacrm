@@ -1,52 +1,31 @@
-THiS CRM v0.17.50 — verification and limits
+THiS CRM v0.17.52 — verification
 
-PASS — Production Vite build; all 10 application JSX/JS modules transpile.
-PASS — Undefined-reference checks on application/review/report modules: no new findings.
-PASS — All 24 Netlify modules and 7 public JS scripts pass syntax checks.
-PASS — All 7 CSS files, 19 inline style blocks and 14 inline script blocks parse.
-PASS — PWA validation, v0.17.50 cache and precache references.
-PASS — All 48 migrations and all 24 Netlify modules byte-identical to v0.17.49.
-PASS — Original agreement/instructions engines byte-identical to v0.17.49.
+PASS — Built application: email intake results to the assigned adviser through the
+       existing confirmation/send flow, with an intercepted local API response.
+PASS — Success confirmation occupies its own row below all action buttons.
+PASS — Simulated mail rejection displays a readable error; retry succeeds.
+PASS — All seven actions present, including both CV downloads, approval, decline and
+       conversion; buttons retain readable widths/heights with no viewport overflow.
+PASS — Screenshot/geometry checks at 320, 390, 520, 733, 768, 1024 and 1440px.
+       Desktop/tablet and phone screenshots visually inspected.
+PASS — General built CRM interaction suite: My Work update/retry, client/contact edits,
+       intake Save & next, employer attach, both Studio create/save flows, calendar/tasks.
+       Structured people still included in the embedded Instructions Studio save message.
+PASS — General responsive suite: 31 screenshots across CRM/public forms, 320–1920px;
+       no detected page overflow.
+PASS — Vite production build; all 10 application JSX/JS modules transpile.
+PASS — All 24 Netlify modules and 8 public scripts pass syntax checks; 8 CSS files,
+       14 inline script blocks and 19 inline style blocks parse.
+PASS — Application undefined-reference checks; PWA/cache/precache validation.
+PASS — All 48 migration files, all 24 Netlify functions, both Studio document engines
+       and people-first Instructions script/CSS byte-identical to v0.17.51.
+PASS — Source/rollback ZIP CRC, unique/root paths, expected content and version/cache;
+       exact v0.17.51 rollback SHA256; dependencies and generated dist excluded.
 
-BUILT APPLICATION — SYNTHETIC IDENTITY/API DATA, LOCAL EDGE BROWSER
-PASS — My Work identity, next-action and keyboard activation open the same drawer across
-       Today, Next 7 days and All work; waiting including expanded rows and Board cards.
-PASS — Individual/commercial snapshot, key date, responsibility/main adviser; explicit
-       full-record navigation, cancelled discard preserves notes; navigation makes no writes.
-PASS — Individual save/retry and commercial waiting update, contact/client edits,
-       inline document bulk changes, intake save/next, employer attach/create.
-PASS — New empty-state actions preserve date filters and display future work correctly.
-PASS — Six-stage journey completed/current/future states and current-stage visibility at
-       1440, 1024, 768, 390 and 320px, including resizing. Stage labels at least 13px.
-PASS — Enquiry tab order and matching heights, retained employer queue navigation.
-PASS — New snapshot/footer bounds at desktop/tablet/mobile; empty state through 320px.
-PASS — General responsive suite: 31 screenshots, 320–1920px across CRM and public forms;
-       no detected page overflow. New polish suite adds 17 layout captures.
-PASS — Studio agreement/instructions create/edit/save/preview flows. Document page
-       content/count/geometry match v0.17.49; formatting state roundtrip/locking retained.
-
-EMPLOYER WORKFLOW / REPORT REGRESSION
-PASS — Review save/retry/next; saved assessment, dirty-close and revision-conflict recovery;
-       assessment saved before linking; attach/create; evidence download; responsive panel.
-PASS — Print popup/HTML download and blocked-popup fallback; supplied logo loads;
-       submitted/review strings escaped; resume tokens/blob paths excluded.
-PASS — Synthetic A4 PDF generated in Edge (3 pages), rendered by Poppler and all pages
-       visually inspected. QA PDF is not bundled as a client document.
-PASS — Local PGlite PostgreSQL execution of all 48 migrations and employer backend checks:
-       queued submissions/duplicates, attach/create field/history/document transfer,
-       idempotency, rollback on failure, concurrent processing and review revision guards.
-       Historic pgcrypto extension statement uses a test-only shim; release SQL unchanged.
-
-PACKAGE CHECKS
-PASS — Source ZIP CRC, unique/root paths, expected content, version, cache and migration
-       counts; excluded dependencies/dist; ZIP contents match release files.
-PASS — Exact v0.17.49 rollback SHA256; independent checksums supplied.
-
-LIMITS
-No production deployment or live Identity, Microsoft 365 email, external integrations,
-remote database migration or real client data exercised. Browser responses were mocked for
-UI tests; backend behaviour checked separately in local PostgreSQL. PDF used headless Edge;
-physical/browser print dialogs may paginate differently. Mobile checks used resized desktop
-Edge viewports, not physical iOS/Android devices. Node 24 was available locally; deployment
-continues to pin Node 20.19. Existing large-bundle Vite advisory remains. This release changes
-UI only; validation is representative rather than exhaustive for every historical workflow.
+NO NEW MIGRATION OR SCHEMA CHANGE.
+No production deployment, live email or remote database work performed. UI checks use
+synthetic data and intercepted Identity/API responses; no email sent to an actual adviser.
+Mobile checks use Edge viewports rather than physical devices. Studio document output
+and backend/database suites were not repeated because their source is unchanged.
+Local Node 24 used; deployment remains pinned to Node 20.19. Existing large-bundle Vite
+advisory remains. These are representative checks, not exhaustive historical workflow tests.

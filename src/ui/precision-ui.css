@@ -494,3 +494,18 @@
  .calm-ui .precision-empty-actions{margin-left:-56px;padding-top:8px;}
 }
 
+
+/* v0.17.52: intake communications stay readable before and after sending. */
+@media screen {
+ .calm-panel-content .intake-popout-support-actions{display:grid;grid-template-columns:minmax(0,1fr);align-items:start;justify-content:stretch;gap:18px;min-width:0;}
+ .calm-panel-content .intake-popout-support-actions>.intake-flags{min-width:0;width:100%;justify-items:start;}
+ .calm-panel-content .intake-popout-support-actions .intake-flags-head{text-align:left;}
+ .calm-panel-content .intake-popout-support-actions .intake-flags-head small{max-width:none;font-size:13px;line-height:1.5;}
+ .calm-panel-content .intake-popout-support-actions .intake-flag-tags{justify-content:flex-start;flex-wrap:wrap;}
+ .calm-panel-content .intake-popout-support-actions>.button-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));align-items:stretch;gap:10px;width:100%;min-width:0;margin:0;}
+ .calm-panel-content .intake-popout-support-actions>.button-row>.btn{display:flex;align-items:center;justify-content:flex-start;gap:10px;width:100%;min-width:0;min-height:46px;height:auto;padding:12px 14px;font-size:14px;line-height:1.45;white-space:normal;text-align:left;overflow-wrap:anywhere;}
+ .calm-panel-content .intake-popout-support-actions>.button-row>.btn svg{flex:0 0 16px;}
+ .calm-panel-content .intake-popout-support-actions>.inline-status,.calm-panel-content .intake-popout-support-actions>.inline-error{display:block;width:100%;min-width:0;box-sizing:border-box;margin:0;padding:12px 14px;font-size:14px;line-height:1.6;font-weight:500;overflow-wrap:anywhere;word-break:normal;border-radius:8px;}
+ .calm-panel-content .intake-popout-support-actions>.inline-status{color:#16573e;background:#edf7f1;border:1px solid #cce5d6;}
+ .calm-panel-content .intake-popout-support-actions>.inline-error{color:#8a302a;background:#fff3f0;border:1px solid #ecd1ca;}
+}

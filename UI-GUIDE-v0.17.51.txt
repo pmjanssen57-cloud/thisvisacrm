@@ -1,0 +1,25 @@
+THiS CRM v0.17.51 — Instructions Studio quick guide
+
+1. PEOPLE
+Check the imported main applicant/family details, add anyone missing and remove anyone not
+needed in this draft. Select the recipients, or enter a greeting. Continue to introduction.
+
+2. INTRODUCTION
+Choose who the introduction covers. Add a short family note if useful, then tailor the
+existing Road Map wording as before. Expand section controls for person-specific sections.
+
+3. DOCUMENTS
+Choose a section, then open Documents & people. Tick a document and select Required for.
+For a family of four, passports can name everyone while birth certificates name only the
+children. Edit the wording or add another document for a person's different requirements.
+
+4. PREVIEW
+Check the names against every document. Use the existing Save to CRM and Print / save PDF.
+Missing structured selections are flagged before Mark ready. Drafts can still be saved.
+
+Existing saved guides keep their output until Use people-based guide is selected. This is
+an explicit switch: review the suggested selections before issuing the new named layout.
+Removing a person clears structured assignments, but authored wording/notes should still
+be read for references to them. Existing police-country wording has its own applicant fields.
+
+People edits here do not edit the CRM client record. No new database migration is required.

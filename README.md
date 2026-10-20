@@ -1,14 +1,10 @@
-# THiS CRM v0.17.50 — My Work & Matter Journey polish
+# THiS CRM v0.17.52 — Intake review layout fix
 
-Built from the confirmed v0.17.49 release. My Work now opens a shared working drawer
-before the full client record. Includes clearer waiting guidance, a deliberate caught-up
-state, readable dates, polished disclosures, an improved Matter Journey and consistent
-enquiry tabs ordered Contacts, Intake, Employer Forms, Seminars, Feedback, Incomplete, Archive.
+Built from v0.17.51, preserving the people-first Instructions Studio.
+Intake review flags, action buttons and email results now occupy separate rows.
+Buttons use readable responsive columns, and confirmations/errors wrap beneath them.
 
-No new migration or schema change relative to v0.17.49. All 48 existing migrations and
-all 24 Netlify function modules are unchanged. The v0.17.49 review migration is retained.
-
-Use the normal Netlify SOURCE build workflow: yarn build; publish dist; functions
-netlify/functions. This source ZIP must be built by Netlify, not uploaded as a prebuilt
-static deploy. Preserve environment settings and stores. Nothing deployed to production.
-See RELEASE.txt, VALIDATION.txt and UI-GUIDE-v0.17.50.txt. Earlier guides are historical.
+No new migration or schema change. All 48 migrations, 24 Netlify modules and both
+Studio document engines are unchanged. Use the existing Netlify SOURCE build workflow:
+yarn build; publish dist; functions netlify/functions; Node 20.19. Nothing deployed.
+See RELEASE.txt and VALIDATION.txt. Earlier guides remain historical.

@@ -1362,7 +1362,7 @@ function renderStructuredDoc(doc) {
   const introText = v12SafeClientHtml(fillTemplate(doc.intro || ''));
   const introParagraphs = introText.split(/\n\s*\n/).filter(Boolean).map(item => `<p>${item}</p>`).join('');
   const noteText = v12SafeClientHtml(fillTemplate(doc.caseNote || ''));
-  const intro = flowSection(`${numberedHeading(1,'Introduction')}<p>Dear ${escapeHtml(state.client.firstName || 'Client')}</p>${introParagraphs}${noteText?`<div class="callout"><span class="callout-icon">i</span><p>${noteText}</p></div>`:''}`);
+  const intro = flowSection(`${numberedHeading(1,'Introduction')}<p>Dear ${escapeHtml(window.THIS_INSTRUCTION_GREETING?.() || state.client.firstName || 'Client')}</p>${introParagraphs}${noteText?`<div class="callout"><span class="callout-icon">i</span><p>${noteText}</p></div>`:''}`);
   let groups=[]; let current=[intro]; let units=textUnits(intro); const capacity=4300;
   enabled.forEach((block,index)=>{
     const rendered=genericBlockHtml(block,index);
@@ -1508,7 +1508,7 @@ renderStructuredDoc = function(doc) {
   const introText = v12SafeClientHtml(fillTemplate(doc.intro || ''));
   const introParagraphs = introText.split(/\n\s*\n/).filter(Boolean).map(item => `<p>${item}</p>`).join('');
   const noteText = v12SafeClientHtml(fillTemplate(doc.caseNote || ''));
-  const intro = flowSection(`${headingMarkupV13(plan.intro.setting, plan.intro.number, 'Introduction', 'auto')}<p>Dear ${escapeHtml(state.client.firstName || 'Client')}</p>${introParagraphs}${noteText?`<div class="callout"><span class="callout-icon">i</span><p>${noteText}</p></div>`:''}`);
+  const intro = flowSection(`${headingMarkupV13(plan.intro.setting, plan.intro.number, 'Introduction', 'auto')}<p>Dear ${escapeHtml(window.THIS_INSTRUCTION_GREETING?.() || state.client.firstName || 'Client')}</p>${introParagraphs}${noteText?`<div class="callout"><span class="callout-icon">i</span><p>${noteText}</p></div>`:''}`);
   let groups=[]; let current=[intro]; let units=textUnits(intro); const capacity=4300;
   enabled.forEach(block => {
     const rendered = genericBlockHtmlV13(block, plan.blocks[block.id], doc);
@@ -1926,7 +1926,7 @@ renderStructuredDoc = function(doc) {
   pages.push(v12AtAGlancePage(doc,pageNo++));
   const introParagraphs = editedIntroParagraphsV14(doc);
   const noteText = editedCaseNoteV14(doc);
-  const intro = flowSection(`${headingMarkupV13(plan.intro.setting, plan.intro.number, 'Introduction', 'auto')}<p>Dear ${escapeHtml(state.client.firstName || 'Client')}</p>${introParagraphs}${noteText?`<div class="callout"><span class="callout-icon">i</span><p>${noteText}</p></div>`:''}`);
+  const intro = flowSection(`${headingMarkupV13(plan.intro.setting, plan.intro.number, 'Introduction', 'auto')}<p>Dear ${escapeHtml(window.THIS_INSTRUCTION_GREETING?.() || state.client.firstName || 'Client')}</p>${introParagraphs}${noteText?`<div class="callout"><span class="callout-icon">i</span><p>${noteText}</p></div>`:''}`);
   let groups=[]; let current=[intro]; let units=textUnits(intro); const capacity=4300;
   enabled.forEach(block => {
     const rendered = genericBlockHtmlV13(block, plan.blocks[block.id], doc);
@@ -2470,7 +2470,7 @@ bindEvents();
     }
     const introParagraphs = editedIntroParagraphsV14(doc);
     const noteText = editedCaseNoteV14(doc);
-    const intro = flowSection(`${headingMarkupV13(plan.intro.setting, plan.intro.number, 'Introduction', 'auto')}<p>Dear ${escapeHtml(state.client.firstName || 'Client')}</p>${introParagraphs}${noteText ? `<div class="callout"><span class="callout-icon">i</span><p>${noteText}</p></div>` : ''}`);
+    const intro = flowSection(`${headingMarkupV13(plan.intro.setting, plan.intro.number, 'Introduction', 'auto')}<p>Dear ${escapeHtml(window.THIS_INSTRUCTION_GREETING?.() || state.client.firstName || 'Client')}</p>${introParagraphs}${noteText ? `<div class="callout"><span class="callout-icon">i</span><p>${noteText}</p></div>` : ''}`);
     let groups = [];
     let current = [intro];
     let units = textUnits(intro);
@@ -3160,7 +3160,7 @@ bindEvents();
 
   function renderAdviserRoadmap(doc) {
     const draft = ensureAdviserDraft();
-    const opening = `<section class="flow-section guided-opening"><p class="guided-dear">Dear ${escapeHtml(state.client.firstName || 'Client')}</p><p>This guide records our current understanding of your circumstances, the approach we are considering and the matters that need your attention now. It has been prepared and reviewed by your adviser for your particular case.</p></section>`;
+    const opening = `<section class="flow-section guided-opening"><p class="guided-dear">Dear ${escapeHtml(window.THIS_INSTRUCTION_GREETING?.() || state.client.firstName || 'Client')}</p><p>This guide records our current understanding of your circumstances, the approach we are considering and the matters that need your attention now. It has been prepared and reviewed by your adviser for your particular case.</p></section>`;
     const sections = ROADMAP_FIELDS.map((field, index) => ({ field, number: index + 1, value: draft.roadmap[field.key] }));
     const closing = flowSection(signoff(), true);
     return [coverPage(doc), ...paginateSections(sections, doc.label, opening, closing)].join('');
@@ -3181,7 +3181,7 @@ bindEvents();
   function renderAdviserDocuments(doc) {
     const draft = ensureAdviserDraft();
     const enabled = (doc.blocks || []).filter(block => block.enabled);
-    const opening = `<section class="flow-section guided-opening"><p class="guided-dear">Dear ${escapeHtml(state.client.firstName || 'Client')}</p>${contentToHtml(draft.documentOverview, false)}</section>`;
+    const opening = `<section class="flow-section guided-opening"><p class="guided-dear">Dear ${escapeHtml(window.THIS_INSTRUCTION_GREETING?.() || state.client.firstName || 'Client')}</p>${contentToHtml(draft.documentOverview, false)}</section>`;
     const pages = [];
     let pageNo = 1;
     let current = [opening];
@@ -4019,7 +4019,7 @@ bindEvents();
     const pages = [coverPage(doc)];
     let pageNo = 1;
     const introParagraphs = editedIntroParagraphsV14(doc);
-    const intro = flowSection(`${headingMarkupV13(plan.intro.setting, plan.intro.number, 'Introduction', 'auto')}<p>Dear ${escapeHtml(state.client.firstName || 'Client')}</p>${introParagraphs}`);
+    const intro = flowSection(`${headingMarkupV13(plan.intro.setting, plan.intro.number, 'Introduction', 'auto')}<p>Dear ${escapeHtml(window.THIS_INSTRUCTION_GREETING?.() || state.client.firstName || 'Client')}</p>${introParagraphs}`);
     const fragments = [intro];
     enabled.forEach(block => fragments.push(...roadmapBlockFragmentsV156(doc, block, plan.blocks[block.id])));
     fragments.push(flowSection(signoff(), true));
