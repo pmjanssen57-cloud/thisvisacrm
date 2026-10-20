@@ -1,14 +1,14 @@
-# THiS CRM v0.17.49 — Employer questionnaire review
+# THiS CRM v0.17.50 — My Work & Matter Journey polish
 
-Built from v0.17.48. Employer questionnaires now use intake-style assessment triage,
-saved adviser reviews, Save & next, grouped answers, supporting file downloads and a
-branded Print / save PDF report. Download questionnaire saves a printable HTML copy.
-Original answers and explicit commercial-client attach/create behaviour are preserved.
+Built from the confirmed v0.17.49 release. My Work now opens a shared working drawer
+before the full client record. Includes clearer waiting guidance, a deliberate caught-up
+state, readable dates, polished disclosures, an improved Matter Journey and consistent
+enquiry tabs ordered Contacts, Intake, Employer Forms, Seminars, Feedback, Incomplete, Archive.
 
-One new additive migration: 202610200001_add_employer_questionnaire_review.sql.
-It adds separate review JSON and a revision column; all 47 previous migrations are unchanged.
-The existing CRM schema-ensure path applies the same idempotent additions.
+No new migration or schema change relative to v0.17.49. All 48 existing migrations and
+all 24 Netlify function modules are unchanged. The v0.17.49 review migration is retained.
 
-Use the normal Netlify build workflow (`yarn build`; publish `dist`; functions
-`netlify/functions`). Preserve environment settings and stores. No production deployment.
-See RELEASE.txt, VALIDATION.txt and UI-GUIDE-v0.17.49.txt. Earlier guides are historical.
+Use the normal Netlify SOURCE build workflow: yarn build; publish dist; functions
+netlify/functions. This source ZIP must be built by Netlify, not uploaded as a prebuilt
+static deploy. Preserve environment settings and stores. Nothing deployed to production.
+See RELEASE.txt, VALIDATION.txt and UI-GUIDE-v0.17.50.txt. Earlier guides are historical.

@@ -1,0 +1,18 @@
+THiS CRM v0.17.50 — quick guide
+
+My Work: click anywhere on a matter row to open its working drawer. Review the snapshot,
+then scroll to the existing update controls. Save changes records the update as before.
+Use Open full client record when you need the wider file. Cancel a discard prompt to keep
+unsaved edits in the drawer. Waiting rows and Board cards use this same drawer.
+
+The empty Today view offers direct links to Next 7 Days and All Work. Existing date and
+responsibility filters remain. View options switches List/Board; Shortcuts retains actions.
+
+Matter journey: ticks indicate completed stages; the dark green node is current; pale
+nodes are upcoming. On phones swipe the stage strip to see earlier/later stages. The current
+stage also appears in the header. Stage editing and completion rules have not changed.
+
+Enquiries: Contacts, Intake, Employer Forms, Seminars, Feedback, Incomplete, Archive.
+Employer Forms retains the v0.17.49 assessment, save, PDF/download, attach/create workflow.
+
+No new database migration is required when updating from v0.17.49.
