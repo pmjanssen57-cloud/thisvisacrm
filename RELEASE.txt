@@ -1,55 +1,53 @@
-THiS CRM v0.17.47 — Calm precision
-Built from the completed v0.17.46 release, 20 October 2026.
+THiS CRM v0.17.49 — Employer questionnaire review
+Built from completed v0.17.48. 20 October 2026.
 
-INTERFACE
-- Implements the approved Calm precision direction: light sidebar, white workspace,
-  forest-green actions, larger readable typography, clear hierarchy and restrained borders.
-- Restores the supplied THiS logo and the Studio section name.
-- Desktop navigation remains fully expanded, including at tablet/laptop desktop widths.
-- My Work uses clear action counts, client initials, next-action rows and compact empty states.
-- Waiting matters remain visible even when their review dates are in the future.
-- Today's appointments appear alongside waiting matters, using the actual appointment time.
-- Add task opens a focused editing panel, protects unsaved changes and retains failed saves.
-- Existing List/Board views, responsibility/date filters and shortcuts remain available.
-- Shared styling carries through client records, enquiry reviews, task/calendar editing,
-  commercial records, Studio lists and both agreement/instructions builders.
-- Public intake, employer accreditation and contact forms use matching readable controls,
-  spacing, fields and restrained surfaces. The decorative intake journey map is removed
-  from the screen; the guided steps and existing form logic remain available.
+REVIEW WORKFLOW
+Employer questionnaires now use the intake-style review treatment:
+- Structured queue cards with adviser, review status, accreditation and submission details.
+- New / In review / Reviewed filters, separate from Submitted / Processed / linked views.
+- The same wide review panel and persistent Cancel, Save & next, Save changes footer.
+- Assessment triage: review status, assigned adviser, consultation/outcome and notes.
+- Save review independently without creating or attaching a commercial client.
+- Failed saves retain edits; dirty close protection; optimistic revision checks prevent
+  another adviser's saved review being silently overwritten. Refresh/reload allows recovery.
+- Attach/Create actions and possible NZBN/business/email matches remain separate and clear.
+  Local review changes are saved before linking. A newly created commercial client takes
+  the saved assigned adviser; attaching retains the existing client's ownership.
+- Original submitted answers remain unchanged and appear in grouped, readable sections.
+- Supporting files are downloadable from the answer/document view. Related submissions,
+  recorded duplicate warnings and separate draft/in-progress visibility are preserved.
 
-MOBILE
-- Responsive navigation and stacked content with readable labels and touch-friendly actions.
-- Mobile editing panels fill the available visual viewport, including after viewport resizing.
-- Scrollable form content with reachable panel footers and safe-area spacing.
-- Mobile form fields use at least 16px text to avoid focus zoom on common phone browsers.
-- Both builders retain Sections/Edit/Preview modes and fitted document previews.
+PRINT / SAVE PDF / DOWNLOAD
+- Print / save PDF opens a branded report using the browser's print/Save as PDF workflow,
+  consistent with individual intake questionnaires.
+- The report includes the employer answers, key people, declarations, document register,
+  review notes, assigned adviser and submission/link status.
+- It uses the current review; unsaved changes are explicitly labelled in the report.
+- Download questionnaire saves a self-contained printable HTML copy, with the actual THiS
+  logo embedded. It is labelled as a questionnaire download, not a direct PDF download.
+- A blocked print window falls back to a printable HTML download with a visible explanation.
+- Supporting document names are listed; original attachment bytes are downloaded separately.
+- Resume tokens, stored blob paths and technical hashes are excluded from the report.
 
-PRESERVED
-Employer questionnaire inbox, duplicate/draft visibility, matching, explicit attach/create,
-tax/accreditation/key-people/history/document transfers, audit and processed links.
-Original agreement and instructions document engines, output content and print layouts.
-All 24 Netlify function modules remain byte-for-byte identical to v0.17.46.
-
-MIGRATION / SCHEMA STATUS
-No new migration. No schema change from v0.17.46, v0.17.45 or v0.17.44.
-All 47 existing SQL migrations are byte-for-byte unchanged.
-A database already at v0.17.44 or later needs no additional SQL for this release.
-Older databases still require the existing baseline migrations, including
-202610190001_add_employer_accreditation_questionnaire.sql.
-No live database was connected or modified during preparation.
+MIGRATION / SCHEMA STATUS — ONE ADDITIVE MIGRATION
+202610200001_add_employer_questionnaire_review.sql adds two columns to
+employer_accreditation_questionnaires: review JSONB and review_revision INTEGER.
+All 47 previous migrations are byte-for-byte unchanged. Total migrations: 48.
+The CRM's existing startup schema-ensure path applies the same idempotent additions.
+Use the existing migration/deployment process. No live database was changed during build.
+The original submitted answers, supporting uploads and links are not rewritten by Save review.
 
 DEPLOYMENT
-This is a Netlify source release. Extract with package.json, netlify.toml, App.jsx,
-main.jsx, public, src and netlify at the root. Use the existing Netlify build workflow:
-yarn build; publish dist; functions netlify/functions. Keep existing environment settings
-and database/blob stores. A frontend-only static upload does not deploy the functions.
-Local dependencies, test harnesses and generated dist output are excluded from the ZIP.
-PWA cache advances to this-crm-shell-v0.17.47; precision-studio.css is precached.
-No production deployment has been performed.
+Netlify source release, matching the existing packaging. Extract package.json, netlify.toml,
+App.jsx, main.jsx, public, src and netlify at the root. Build yarn build; publish dist;
+functions netlify/functions. Preserve current environment variables and data/blob stores.
+PWA shell cache advances to this-crm-shell-v0.17.49. No production deployment performed.
 
 ROLLBACK
-THiS-CRM-v0.17.46-ROLLBACK.zip is an exact copy of the completed v0.17.46 source ZIP.
-Redeploy using the same Netlify build workflow. No database rollback or SQL deletion.
-Existing records, questionnaire links, documents and agreements remain in the database.
+THiS-CRM-v0.17.48-ROLLBACK.zip is an exact copy of the completed v0.17.48 source ZIP.
+Redeploy through the normal Netlify build process. Leave the two additive columns in place;
+no database rollback or SQL deletion. The older UI does not display saved reviews, but the
+review data remains in the database and returns when v0.17.49 is redeployed.
+Existing questionnaire links and client records remain intact.
 
-See VALIDATION.txt for checks and limitations, and UI-GUIDE-v0.17.47.txt for navigation.
+See VALIDATION.txt and UI-GUIDE-v0.17.49.txt.

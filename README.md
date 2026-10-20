@@ -1,17 +1,14 @@
-# THiS CRM v0.17.47 — Calm precision
+# THiS CRM v0.17.49 — Employer questionnaire review
 
-Built from v0.17.46 using the approved Calm precision design. Restores the supplied THiS
-logo, Studio name and expanded desktop navigation. Improves readable typography, My Work,
-shared editing panels, public intake/contact/employer forms and both Studio builders.
-Responsive layouts are verified from 320px phone widths to 1920px desktop widths.
+Built from v0.17.48. Employer questionnaires now use intake-style assessment triage,
+saved adviser reviews, Save & next, grouped answers, supporting file downloads and a
+branded Print / save PDF report. Download questionnaire saves a printable HTML copy.
+Original answers and explicit commercial-client attach/create behaviour are preserved.
 
-No new migration or schema change. All 47 migrations and 24 Netlify modules are unchanged.
-The employer questionnaire inbox and explicit attach/create workflow are preserved.
-Original builder engines and representative printed document output are unchanged.
+One new additive migration: 202610200001_add_employer_questionnaire_review.sql.
+It adds separate review JSON and a revision column; all 47 previous migrations are unchanged.
+The existing CRM schema-ensure path applies the same idempotent additions.
 
-This is a Netlify source release. Run the existing Netlify build workflow: `yarn build`,
-publish `dist`, functions `netlify/functions`. Keep existing environment variables and
-stores. A static frontend upload alone does not deploy the functions.
-
-See RELEASE.txt, VALIDATION.txt and UI-GUIDE-v0.17.47.txt. Earlier version guides are retained
-as historical reference. No production deployment was performed.
+Use the normal Netlify build workflow (`yarn build`; publish `dist`; functions
+`netlify/functions`). Preserve environment settings and stores. No production deployment.
+See RELEASE.txt, VALIDATION.txt and UI-GUIDE-v0.17.49.txt. Earlier guides are historical.

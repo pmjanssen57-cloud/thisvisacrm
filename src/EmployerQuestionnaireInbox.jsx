@@ -1,84 +1,73 @@
+import React, { useMemo, useState } from 'react';
+import { FileText, Download, ExternalLink, Search, Building2, ChevronRight, RefreshCw } from 'lucide-react';
 import { SidePanel } from './ui/SidePanel.jsx';
 import { useWorkspaceState } from './ui/workspace-state.js';
-import React, { useMemo, useState } from 'react';
 import { employerMatchReasons, relatedEmployerQuestionnaires } from './employer-questionnaire-matches.mjs';
+import { REVIEW_STATUSES, reviewDraft, employerLabel, employerDate, employerSections, printEmployerReport, downloadEmployerReport } from './employer-questionnaire-report.mjs';
 
-const date = (value) => value ? new Date(value).toLocaleString('en-NZ', { timeZone: 'Pacific/Auckland' }) : '—';
-const label = (value) => ({nzbn:'NZBN',gstNumber:'GST number',irdNumber:'IRD number'}[value] || String(value).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase()));
 function Answer({ value }) {
-  if (value == null || value === '') return <span className="muted">Not recorded</span>;
-  if (typeof value === 'boolean') return <>{value ? 'Yes' : 'No'}</>;
-  if (Array.isArray(value)) return value.length ? <div>{value.map((item, i) => <div className="employer-answer-item" key={i}><Answer value={item} /></div>)}</div> : <>None recorded</>;
-  if (typeof value === 'object') return <dl className="employer-answer-grid">{Object.entries(value).map(([key, item]) => <div key={key}><dt>{label(key)}</dt><dd><Answer value={item} /></dd></div>)}</dl>;
-  return <>{String(value)}</>;
+ if(value==null||value==='')return <span className="muted">Not recorded</span>;
+ if(typeof value==='boolean')return <>{value?'Yes':'No'}</>;
+ if(Array.isArray(value))return value.length?<div>{value.map((item,i)=><div className="employer-answer-item" key={i}><Answer value={item}/></div>)}</div>:<>None recorded</>;
+ if(typeof value==='object')return <dl className="employer-answer-grid">{Object.entries(value).filter(([key])=>!/token|hash|blobkey/i.test(key)).map(([key,item])=><div key={key}><dt>{employerLabel(key)}</dt><dd><Answer value={item}/></dd></div>)}</dl>;
+ return <>{String(value)}</>;
 }
-
-export function EmployerQuestionnaireDetails({ questionnaire: q, onDownload }) {
-  return <div className="employer-review-details">
-    <dl className="employer-answer-grid">
-      {Object.entries({ legalName:q.legalName, tradingName:q.tradingName, nzbn:q.nzbn, companyNumber:q.companyNumber, gstNumber:q.gstNumber, irdNumber:q.irdNumber,
-        contact:[q.contactFirstName,q.contactLastName].filter(Boolean).join(' '), email:q.contactEmail, phone:q.contactPhone,
-        application:q.applicationType, accreditationType:q.accreditationType, currentAccreditationExpiry:q.currentAccreditationExpiry,
-        businessOperationLength:q.businessOperationLength, viabilityBasis:q.viabilityBasis }).map(([key,value]) => <div key={key}><dt>{label(key)}</dt><dd><Answer value={value} /></dd></div>)}
-    </dl>
-    <details><summary>Key people ({(q.keyPeople || []).length})</summary><Answer value={q.keyPeople || []} /></details>
-    <details><summary>Compliance declarations</summary><Answer value={q.declarations || {}} /></details>
-    <details><summary>All submitted answers</summary><Answer value={Object.fromEntries(Object.entries(q.rawPayload || {}).filter(([key]) => !['uploadedFiles','resumeToken'].includes(key)))} /></details>
-    <div><h4>Supporting documents ({(q.uploadedFiles || []).length})</h4>{(q.uploadedFiles || []).map((file,i) => <div className="employer-file-row" key={file.fileId || file.id || i}><span>{file.fileName || 'Supporting document'}</span>{onDownload && <button className="btn mini" type="button" onClick={() => onDownload(q.id,file.fileId || file.id)}>Download</button>}</div>)}{!q.uploadedFiles?.length && <p className="muted">No supporting documents supplied.</p>}</div>
-  </div>;
+export function EmployerQuestionnaireDetails({ questionnaire:q, onDownload }) {
+ return <div className="employer-review-details employer-questionnaire-sections">
+  {employerSections(q).map(section=><section className="intake-review-panel" key={section.title}><h3>{section.title}</h3><dl className="employer-answer-grid">{section.fields.map(field=><div key={field.key}><dt>{field.label}</dt><dd><Answer value={field.value}/></dd></div>)}</dl></section>)}
+  <section className="intake-review-panel"><h3>Key people ({(q.keyPeople||[]).length})</h3><Answer value={q.keyPeople||[]}/></section>
+  <section className="intake-review-panel"><h3>Compliance declarations</h3><Answer value={q.declarations||{}}/></section>
+  <section className="intake-review-panel"><h3>Supporting documents ({(q.uploadedFiles||[]).length})</h3>{(q.uploadedFiles||[]).map((file,i)=><div className="employer-file-row" key={file.fileId||file.id||i}><span>{file.fileName||'Supporting document'}</span>{onDownload&&<button className="btn" type="button" onClick={()=>onDownload(q.id,file.fileId||file.id)}><Download size={15}/>Download</button>}</div>)}{!q.uploadedFiles?.length&&<p className="muted">No supporting documents supplied.</p>}</section>
+ </div>;
 }
-
-export function EmployerQuestionnaireInbox({ questionnaires = [], drafts = [], clients = [], onProcess, onDownload, onOpenClient, onRefresh, saving }) {
-  const [view,setView] = useWorkspaceState('employers:view','Submitted');
-  const [query,setQuery] = useWorkspaceState('employers:query','');
-  const [selectedId,setSelectedId] = useState('');
-  const [target,setTarget] = useState('');
-  const [busy,setBusy] = useState(false);
-  const [error,setError] = useState('');
-  const [notice,setNotice] = useState('');
-  const selected = questionnaires.find((q) => q.id === selectedId);
-  const matches = useMemo(() => selected ? clients.map((client) => ({client,reasons:employerMatchReasons(selected,client)})).filter((item) => item.reasons.length).sort((a,b) => Number(b.reasons.includes('NZBN')) - Number(a.reasons.includes('NZBN')) || b.reasons.length-a.reasons.length) : [],[selected,clients]);
-  const related = selected ? relatedEmployerQuestionnaires(selected,questionnaires) : [];
-  const searching = (row) => [row.legalName,row.tradingName,row.nzbn,row.contactEmail,row.contactFirstName,row.contactLastName].join(' ').toLowerCase().includes(query.toLowerCase());
-  const rows = questionnaires.filter((row) => searching(row) && (view === 'All' || (view === 'Submitted' ? !row.commercialClientId : Boolean(row.commercialClientId))));
-  function select(id) {setSelectedId(id);setTarget('');setError('');setNotice('');}
-  async function process(mode) {
-    if (busy || saving || !selected) return;
-    setBusy(true);setError('');setNotice('');
-    try {
-      const result = await onProcess({questionnaireId:selected.id,mode,commercialClientId:target});
-      setNotice(result?.alreadyLinked ? 'This questionnaire was already linked. Its existing link has been retained.' : 'Questionnaire processed. Details, history and supporting documents are now on the commercial client.');
-    } catch (err) {setError(err.message || 'Unable to process the questionnaire.');}
-    finally {setBusy(false);}
-  }
-  async function download(id,fileId) {try {setError('');await onDownload(id,fileId);} catch(err) {setError(err.message || 'Unable to download supporting document.');}}
-  return <div className="employer-inquiry-panel">
-    <div className="commercial-panel-head"><div><h2>Employer questionnaires</h2><p>Review submissions, choose the employer record, then transfer the questionnaire and supporting documents.</p></div><button type="button" className="btn" disabled={busy || saving} onClick={() => onRefresh?.({full:true})}>Refresh</button></div>
-    <div className="employer-queue-toolbar"><label>Show <select aria-label="Show" value={view} onChange={(e) => {setView(e.target.value);select('');}}>{['Submitted','Processed / linked','All','Drafts / in progress'].map((v) => <option key={v}>{v}</option>)}</select></label><label>Search employers <input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Business, NZBN or contact" /></label></div>
-    {error && <p className="error-banner" role="alert">{error}</p>}{notice && <p className="success-banner" role="status">{notice}</p>}
-    {view === 'Drafts / in progress' ? <div className="employer-queue-list">
-      <p className="muted">Saved drafts stay separate until submitted. Expired drafts remain visible for follow-up.</p>
-      {drafts.filter(searching).map((draft) => <article className="employer-queue-card" key={draft.id}><strong>{draft.legalName || 'Business name not yet entered'}</strong><span>{draft.contactFirstName} {draft.contactLastName} · {draft.contactEmail}</span><span>NZBN: {draft.nzbn || 'Not recorded'}</span><span>{new Date(draft.expiresAt) < new Date() ? 'Expired draft' : 'In progress'} · Step {draft.currentStep || 1}/6 · {draft.progressPercent || 0}%</span><small>Last saved {date(draft.updatedAt)} · Resume expires {date(draft.expiresAt)}</small></article>)}
-      {!drafts.filter(searching).length && <p>No saved employer drafts match this view.</p>}
-    </div> : <>
-      <div className="employer-queue-list" aria-label="Employer questionnaire submissions">
-        {rows.map((q) => {const duplicates=relatedEmployerQuestionnaires(q,questionnaires).length;return <button type="button" className={`employer-queue-card ${q.id === selectedId ? 'selected' : ''}`} key={q.id} onClick={()=>select(q.id)}><strong>{q.legalName}</strong><span>{q.contactEmail} · NZBN {q.nzbn || 'not recorded'}</span><span>{q.applicationType} · {q.accreditationType}</span><small>{q.commercialClientId ? 'Processed / linked' : q.status} · {date(q.submittedAt)}</small>{(duplicates > 0 || Object.values(q.duplicateFlags || {}).some((n)=>Number(n)>0)) && <span className="employer-duplicate-warning">Possible duplicate · {duplicates} related submission(s)</span>}</button>;})}
-        {!rows.length && <p>No employer questionnaires match this view.</p>}
-      </div>
-      {selected && <SidePanel title={selected.legalName} subtitle="Employer questionnaire review" onClose={()=>select('')} busy={busy || saving} wide><section className="employer-review panel" aria-label="Employer questionnaire review">
-        <div className="commercial-panel-head"><div><h3>{selected.legalName}</h3><p>{selected.status} · Submitted {date(selected.submittedAt)}</p></div><button type="button" className="btn" onClick={()=>select('')}>Close review</button></div>
-        <EmployerQuestionnaireDetails questionnaire={selected} onDownload={download} />
-        <details open={related.length > 0}><summary>Duplicate visibility and submission history ({related.length})</summary><p>Checks compare NZBN, legal/trading name and contact email. Every submission is retained.</p><Answer value={selected.duplicateFlags || {}} />{related.map((q)=><button type="button" className="btn" key={q.id} onClick={()=>{select(q.id);setView('All');}}>{q.legalName} · {date(q.submittedAt)} · {q.commercialClientId ? 'Linked' : q.status}</button>)}</details>
-        {selected.commercialClientId ? <div className="employer-process-actions"><p>Linked to {clients.find((c)=>c.id===selected.commercialClientId)?.legalName || 'commercial client'}.</p><button type="button" className="btn dark" onClick={()=>onOpenClient(selected.commercialClientId)}>Open commercial client</button></div> : <div className="employer-process-actions">
-          <h4>Possible commercial client matches ({matches.length})</h4>
-          <p>Review each match before attaching. GST/IRD and accreditation details will be transferred; all answers and key people remain in the linked questionnaire history.</p>
-          {matches.map(({client,reasons})=><label className="employer-match" key={client.id}><input type="radio" name="employer-match" checked={target===client.id} onChange={()=>setTarget(client.id)} /><span><strong>{client.legalName}</strong><small>{reasons.join(' · ')} · NZBN {client.nzbn || 'not recorded'} · {client.primaryContactEmail || 'No email'} · {client.clientStatus}</small></span></label>)}
-          {!matches.length && <p className="muted">No possible matches found.</p>}
-          <label>Choose any existing commercial client<select value={target} onChange={(e)=>setTarget(e.target.value)}><option value="">Select commercial client</option>{clients.map((client)=><option key={client.id} value={client.id}>{client.legalName} — {client.nzbn || client.primaryContactEmail || client.id}</option>)}</select></label>
-          <div className="button-row"><button type="button" className="btn dark" disabled={!target || busy || saving} onClick={()=>process('attach')}>{busy ? 'Processing…' : 'Attach to existing commercial client'}</button><button type="button" className="btn" disabled={busy || saving} onClick={()=>process('create')}>Create commercial client from questionnaire</button></div>
-          {matches.length > 0 && <p className="employer-duplicate-warning">Possible matches exist. Creating a client will retain a separate employer record.</p>}
-        </div>}
-      </section></SidePanel>}
-    </>}
-  </div>;
+export function EmployerQuestionnaireInbox({ questionnaires=[], drafts=[], clients=[], advisers=[], onSave, onProcess, onDownload, onOpenClient, onRefresh, saving }) {
+ const [view,setView]=useWorkspaceState('employers:view','Submitted');
+ const [query,setQuery]=useWorkspaceState('employers:query','');
+ const [reviewFilter,setReviewFilter]=useWorkspaceState('employers:reviewFilter','All');
+ const [selectedId,setSelectedId]=useState('');
+ const [draft,setDraft]=useState(null),[original,setOriginal]=useState(null),[revision,setRevision]=useState(0);
+ const [target,setTarget]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
+ const selected=questionnaires.find(q=>q.id===selectedId);
+ const dirty=!!draft&&JSON.stringify(draft)!==JSON.stringify(original);
+ const matches=useMemo(()=>selected?clients.map(client=>({client,reasons:employerMatchReasons(selected,client)})).filter(item=>item.reasons.length).sort((a,b)=>Number(b.reasons.includes('NZBN'))-Number(a.reasons.includes('NZBN'))||b.reasons.length-a.reasons.length):[],[selected,clients]);
+ const related=selected?relatedEmployerQuestionnaires(selected,questionnaires):[];
+ const searching=row=>[row.legalName,row.tradingName,row.nzbn,row.contactEmail,row.contactFirstName,row.contactLastName].join(' ').toLowerCase().includes(query.toLowerCase());
+ const baseRows=questionnaires.filter(row=>searching(row)&&(view==='All'||(view==='Submitted'?!row.commercialClientId:Boolean(row.commercialClientId))));
+ const rows=baseRows.filter(row=>reviewFilter==='All'||reviewDraft(row).status===reviewFilter);
+ function open(id,skipGuard=false){if(!skipGuard&&dirty&&!window.confirm('Discard unsaved review changes?'))return false;const q=questionnaires.find(item=>item.id===id),r=reviewDraft(q);setSelectedId(id);setDraft(q?r:null);setOriginal(q?r:null);setRevision(Number(q?.reviewRevision||0));setTarget('');setError('');setNotice('');return true;}
+ function change(key,value){setDraft(d=>({...d,[key]:value}));setError('');}
+ async function persist(){
+  if(!selected||!draft)throw Error('Choose a questionnaire.');
+  const result=await onSave({questionnaireId:selected.id,review:draft,expectedRevision:revision});
+  const q=result?.employerQuestionnaires?.find(item=>item.id===selected.id);
+  if(!q)throw Error('The saved review was not returned. Refresh before retrying.');
+  const r=reviewDraft(q);setDraft(r);setOriginal(r);setRevision(Number(q.reviewRevision||0));return q;
+ }
+ async function save(mode){if(busy||saving)return;setBusy(true);setError('');try{const currentIndex=rows.findIndex(q=>q.id===selectedId),next=rows[currentIndex+1]?.id;await persist();if(mode==='next'&&next){open(next,true);setNotice('Review saved. Next questionnaire opened.');}else{open('',true);setNotice('Employer review saved.');}}catch(err){setError(err.message||'Unable to save. Your changes are still here.');}finally{setBusy(false);}}
+ async function process(mode){if(busy||saving||!selected)return;setBusy(true);setError('');setNotice('');try{if(dirty)await persist();const result=await onProcess({questionnaireId:selected.id,mode,commercialClientId:target});setNotice(result?.alreadyLinked?'This questionnaire was already linked. Its existing link has been retained.':'Questionnaire processed. Details, history and supporting documents are now on the commercial client.');}catch(err){setError(err.message||'Unable to process. Your review is still here.');}finally{setBusy(false);}}
+ async function download(id,fileId){try{setError('');await onDownload(id,fileId);}catch(err){setError(err.message||'Unable to download supporting document.');}}
+ function exportReport(print){try{setError('');const q={...selected,review:{...selected.review,...draft}},opts={unsaved:dirty};if(print){const result=printEmployerReport(q,advisers,opts);setNotice(result==='downloaded'?'The print window was blocked. A printable HTML copy was downloaded; open it and choose Print / save PDF.':'Print view opened. Choose Save as PDF in your browser’s print dialog.');}else{downloadEmployerReport(q,advisers,opts);setNotice('Printable questionnaire copy downloaded.');}}catch(err){setError(err.message||'Unable to prepare the questionnaire report.');}}
+ async function openLinked(){if(busy||saving)return;setBusy(true);try{if(dirty)await persist();onOpenClient?.(selected.commercialClientId);}catch(err){setError(err.message||'Unable to save review.');}finally{setBusy(false);}}
+ function reloadSaved(){if(dirty&&!window.confirm('Replace your unsaved changes with the latest saved review?'))return;const r=reviewDraft(selected);setDraft(r);setOriginal(r);setRevision(Number(selected?.reviewRevision||0));setError('');setNotice('Saved review loaded.');}
+ return <div className="employer-inquiry-panel employer-intake-workspace">
+  <div className="commercial-panel-head"><div><h2>Employer questionnaires</h2><p>Review accreditation submissions, record your assessment and link them when ready.</p></div><button type="button" className="btn" disabled={busy||saving} onClick={()=>onRefresh?.({full:true})}><RefreshCw size={15}/>Refresh</button></div>
+  <div className="employer-queue-toolbar enquiries-toolbar"><label className="field"><span>Show</span><select aria-label="Show" value={view} onChange={e=>{if(open(''))setView(e.target.value);}}>{['Submitted','Processed / linked','All','Drafts / in progress'].map(v=><option key={v}>{v}</option>)}</select></label><label className="intake-search-field"><span>Search employers</span><div><Search size={16}/><input aria-label="Search employers" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Business, NZBN or contact"/></div></label></div>
+  {view!=='Drafts / in progress'&&<div className="enquiries-status-pills employer-review-filters" aria-label="Employer review status filter">{['All',...REVIEW_STATUSES].map(status=><button key={status} type="button" className={reviewFilter===status?'active':''} onClick={()=>{if(open(''))setReviewFilter(status);}}>{status==='All'?'All reviews':status}<span>{status==='All'?baseRows.length:baseRows.filter(q=>reviewDraft(q).status===status).length}</span></button>)}</div>}
+  {!selected&&error&&<p className="error-banner" role="alert">{error}</p>}{!selected&&notice&&<p className="success-banner" role="status">{notice}</p>}
+  {view==='Drafts / in progress'?<div className="employer-queue-list"><p className="muted">Saved drafts stay separate until submitted. Expired drafts remain visible for follow-up.</p>{drafts.filter(searching).map(q=><article className="employer-queue-card" key={q.id}><strong>{q.legalName||'Business name not yet entered'}</strong><span>{q.contactFirstName} {q.contactLastName} · {q.contactEmail}</span><span>NZBN: {q.nzbn||'Not recorded'}</span><span>{new Date(q.expiresAt)<new Date()?'Expired draft':'In progress'} · Step {q.currentStep||1}/6 · {q.progressPercent||0}%</span><small>Last saved {employerDate(q.updatedAt)} · Resume expires {employerDate(q.expiresAt)}</small></article>)}{!drafts.filter(searching).length&&<p>No saved employer drafts match this view.</p>}</div>:<div className="employer-queue-list enquiry-queue-list" aria-label="Employer questionnaire submissions">
+   {rows.map(q=>{const duplicateCount=relatedEmployerQuestionnaires(q,questionnaires).length,flagged=Object.values(q.duplicateFlags||{}).some(v=>Number(v)>0),r=reviewDraft(q);return <article className="enquiry-queue-card employer-intake-card" key={q.id}><button type="button" className={`employer-queue-card employer-intake-row ${q.id===selectedId?'selected':''}`} onClick={()=>open(q.id)}><span className="enquiry-queue-person"><span className="employer-row-badges"><span className="library-status">{q.commercialClientId?'Processed / linked':r.status}</span>{(duplicateCount>0||flagged)&&<span className="employer-duplicate-warning">{duplicateCount>0?duplicateCount+' related submission'+(duplicateCount===1?'':'s'):'Possible duplicate / match'}</span>}</span><strong>{q.legalName}</strong><small>{q.contactEmail} · NZBN {q.nzbn||'Not recorded'}</small></span><span className="enquiry-queue-cell"><span>Accreditation</span><strong>{q.applicationType||'Application'} · {q.accreditationType||'Not recorded'}</strong><small>{advisers.find(a=>a.id===r.assignedAdviserId)?.name||'Unassigned'}</small></span><span className="enquiry-queue-cell"><span>Submitted</span><strong>{employerDate(q.submittedAt)}</strong><small>Review: {r.status}</small></span><ChevronRight size={17}/></button></article>;})}
+   {!rows.length&&<p>No employer questionnaires match this view.</p>}
+  </div>}
+  {selected&&draft&&<SidePanel title={selected.legalName} subtitle="Employer questionnaire review" onClose={()=>open('',true)} busy={busy||saving} dirty={dirty} wide footer={<><button className="btn" type="button" disabled={busy||saving} onClick={()=>open('')}>Cancel</button><button className="btn" type="button" disabled={busy||saving||!onSave} onClick={()=>save('next')}>Save & next</button><button className="btn dark" type="button" disabled={busy||saving||!onSave} onClick={()=>save('close')}>{busy||saving?'Saving…':'Save changes'}</button></>}>
+   <div className="intake-popout-editor employer-review-editor">
+    <div className="employer-review-summary"><span className="library-status">{selected.commercialClientId?'Processed / linked':selected.status}</span><p>{selected.contactEmail} · NZBN {selected.nzbn||'Not recorded'}</p><small>Submitted {employerDate(selected.submittedAt)}</small></div>
+    <div className="button-row employer-report-tools"><button className="btn" type="button" onClick={()=>exportReport(true)}><FileText size={16}/>Print / save PDF</button><button className="btn" type="button" onClick={()=>exportReport(false)}><Download size={16}/>Download questionnaire</button></div>
+    {error&&<div className="error-banner" role="alert"><p>{error}</p><button className="btn" type="button" disabled={busy||saving} onClick={async()=>{try{await onRefresh?.({full:true});setNotice('Latest data refreshed. Choose Reload saved review to replace your local changes.');}catch(err){setError(err.message);}}}>Refresh latest data</button><button type="button" className="btn" onClick={reloadSaved}>Reload saved review</button></div>}{notice&&<p className="success-banner" role="status">{notice}</p>}
+    <section className="intake-review-panel"><div className="intake-section-heading"><div><h3>Assessment triage</h3></div><p>Save your internal review independently of linking a commercial client.</p></div><div className="form-grid intake-review-grid"><label className="field"><span>Review status</span><select aria-label="Review status" value={draft.status} onChange={e=>change('status',e.target.value)}>{REVIEW_STATUSES.map(v=><option key={v}>{v}</option>)}</select></label><label className="field"><span>Assigned adviser</span><select aria-label="Assigned adviser" value={draft.assignedAdviserId} onChange={e=>change('assignedAdviserId',e.target.value)}><option value="">Unassigned</option>{advisers.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label><label className="field span-2"><span>Consultation / outcome</span><input aria-label="Consultation / outcome" value={draft.outcome} maxLength={2000} onChange={e=>change('outcome',e.target.value)}/></label></div><label className="field"><span>Adviser assessment notes</span><textarea aria-label="Adviser assessment notes" rows={5} maxLength={50000} value={draft.notes} onChange={e=>change('notes',e.target.value)}/></label><p className="calm-field-help">{dirty?'Unsaved review changes':selected.review?.updatedAt?`Last saved ${employerDate(selected.review.updatedAt)}${selected.review.updatedBy?' by '+selected.review.updatedBy:''}`:'No adviser review saved yet.'}</p></section>
+    <section className="intake-review-panel employer-link-section"><h3>Commercial client</h3>{selected.commercialClientId?<><p>Linked to {clients.find(c=>c.id===selected.commercialClientId)?.legalName||'commercial client'}.</p><button type="button" className="btn dark" disabled={busy||saving} onClick={openLinked}><ExternalLink size={16}/>Open commercial client</button></>:<><p>Possible matches ({matches.length}). Review NZBN, business name and contact email before linking.</p>{matches.map(({client,reasons})=><label className="employer-match" key={client.id}><input type="radio" name="employer-match" checked={target===client.id} onChange={()=>setTarget(client.id)}/><span><strong>{client.legalName}</strong><small>{reasons.join(' · ')} · NZBN {client.nzbn||'Not recorded'} · {client.primaryContactEmail||'No email'}</small></span></label>)}{!matches.length&&<p className="muted">No possible matches found.</p>}<label className="field"><span>Choose any existing commercial client</span><select aria-label="Choose any existing commercial client" value={target} onChange={e=>setTarget(e.target.value)}><option value="">Select commercial client</option>{clients.map(c=><option value={c.id} key={c.id}>{c.legalName} — {c.nzbn||c.primaryContactEmail||c.id}</option>)}</select></label><div className="button-row"><button className="btn dark" type="button" disabled={!target||busy||saving} onClick={()=>process('attach')}>Attach to existing commercial client</button><button className="btn" type="button" disabled={busy||saving} onClick={()=>process('create')}><Building2 size={16}/>Create commercial client from questionnaire</button></div>{matches.length>0&&<p className="employer-duplicate-warning">Creating a client retains a separate record even when possible matches exist.</p>}<p className="calm-field-help">Unsaved review changes are saved before linking. Details, history and supporting documents transfer to the client.</p></>}</section>
+    <details className="calm-questionnaire-answers"><summary>View submitted answers & supporting documents</summary><p className="calm-field-help employer-original-note">Original employer answers are retained as submitted. Internal notes are saved in Assessment triage.</p><EmployerQuestionnaireDetails questionnaire={selected} onDownload={download}/></details>
+    <details className="calm-review-actions employer-history" open={related.length>0}><summary>Related submissions & duplicate history ({related.length})</summary><p>Matches compare NZBN, business name and contact email. Every submission is retained.</p>{related.map(q=><button type="button" className="btn" key={q.id} onClick={()=>{if(open(q.id))setView('All');}}>{q.legalName} · {employerDate(q.submittedAt)} · {q.commercialClientId?'Linked':q.status}</button>)}{Object.values(selected.duplicateFlags||{}).some(v=>Number(v)>0)&&<Answer value={selected.duplicateFlags}/>}</details>
+   </div>
+  </SidePanel>}
+ </div>;
 }

@@ -1,0 +1,11 @@
+THiS CRM v0.17.48 — UI guide update
+
+Desktop pages now use the available workspace width. Enquiry cards have less padding,
+more readable text, clearly labelled Send intake actions and higher-contrast count badges.
+On phones the existing stacked records and bottom navigation remain.
+
+Select a contact or intake checkbox to reveal the bulk archive toolbar. Clear deselects
+records and hides that toolbar. Existing archive processing and storage warnings remain.
+
+Other navigation and workflows follow UI-GUIDE-v0.17.47.txt, retained for reference.
+No migration or schema change is required when upgrading from v0.17.47.

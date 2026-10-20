@@ -4,6 +4,29 @@ import { getStore } from '@netlify/blobs';
 const uuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value || ''));
 const fail = (message, statusCode = 400) => Object.assign(new Error(message), { statusCode });
 
+export async function saveEmployerQuestionnaireReview(database, input, actor = 'CRM adviser') {
+  if (!uuid(input.questionnaireId)) throw fail('Choose a questionnaire.');
+  if (!Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 0) throw fail('Refresh the questionnaire before saving.');
+  const review = input.review || {};
+  if (!['New', 'In review', 'Reviewed'].includes(review.status)) throw fail('Choose a valid review status.');
+  const assignedAdviserId = String(review.assignedAdviserId || '');
+  if (assignedAdviserId) {
+    if (!uuid(assignedAdviserId)) throw fail('Choose a valid adviser.');
+    const [adviser] = await database.sql`SELECT id FROM advisers WHERE id=${assignedAdviserId}`;
+    if (!adviser) throw fail('The assigned adviser no longer exists. Refresh and choose again.');
+  }
+  const notes = String(review.notes || ''), outcome = String(review.outcome || '');
+  if (notes.length > 50000 || outcome.length > 2000) throw fail('Review notes or outcome are too long.');
+  const saved = { status: review.status, assignedAdviserId, notes, outcome, updatedBy: actor, updatedAt: new Date().toISOString() };
+  const rows = await database.sql`UPDATE employer_accreditation_questionnaires
+    SET review=${JSON.stringify(saved)}::jsonb,review_revision=review_revision+1,updated_at=NOW()
+    WHERE id=${input.questionnaireId} AND review_revision=${input.expectedRevision} RETURNING *`;
+  if (rows[0]) return rows[0];
+  const [current] = await database.sql`SELECT id FROM employer_accreditation_questionnaires WHERE id=${input.questionnaireId}`;
+  if (!current) throw fail('Questionnaire not found.', 404);
+  throw fail('Another adviser saved this review. Your edits are still here. Reload the saved review before applying your changes.', 409);
+}
+
 export async function readEmployerQueue(database, mapQuestionnaire) {
   const [rows, drafts] = await Promise.all([
     database.sql`SELECT * FROM employer_accreditation_questionnaires ORDER BY submitted_at DESC, id`,
@@ -72,12 +95,13 @@ export async function processEmployerQuestionnaire(database, input, actor = 'CRM
       INSERT INTO commercial_clients (id,legal_name,trading_name,nzbn,company_number,gst_number,ird_number,
         industry,business_description,address,primary_contact_name,primary_contact_email,primary_contact_phone,
         accreditation_type,accreditation_status,accreditation_expiry_date,accreditation_notes,
-        client_status,matter_name,case_type,priority,next_action,matter_status)
+        client_status,matter_name,case_type,priority,next_action,matter_status,primary_adviser_id)
       SELECT ${targetId}::uuid,legal_name,trading_name,nzbn,company_number,gst_number,ird_number,
         ${payload.industry || ''},${payload.businessDescription || ''},${payload.address || ''},
         CONCAT_WS(' ',contact_first_name,contact_last_name),contact_email,contact_phone,
         accreditation_type,'Preparing',current_accreditation_expiry,${summary},
-        'Active','Employer accreditation','Employer Accreditation','Normal','Review employer accreditation questionnaire','Adviser action required' FROM q
+        'Active','Employer accreditation','Employer Accreditation','Normal','Review employer accreditation questionnaire','Adviser action required',
+        NULLIF(review->>'assignedAdviserId','')::uuid FROM q
       ON CONFLICT (id) DO UPDATE SET
         gst_number=COALESCE(NULLIF(EXCLUDED.gst_number,''),commercial_clients.gst_number),
         ird_number=COALESCE(NULLIF(EXCLUDED.ird_number,''),commercial_clients.ird_number),

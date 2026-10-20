@@ -1,0 +1,37 @@
+THiS CRM v0.17.49 — Employer questionnaire guide
+
+Enquiries > Employer questionnaires
+Use Show for submitted, linked, all or separate drafts. Filter saved reviews by New,
+In review or Reviewed. Open an employer to review it in the same panel style as intake.
+
+Assessment triage
+Set Review status and Assigned adviser; record Consultation / outcome and Adviser assessment
+notes. Save changes saves and closes. Save & next saves and opens the next questionnaire
+in the current filtered list, or closes when there is no next item.
+Saving review notes does not create or link a commercial client.
+
+Client linking
+Review possible matches or choose another existing commercial client. Attach transfers the
+original details and supporting documents to that client. Create makes a commercial record
+using the saved assigned adviser. Unsaved review changes are saved before either action.
+After linking, Open commercial client is available. Review notes remain editable.
+
+Answers and documents
+View submitted answers & supporting documents shows the original questionnaire in grouped
+sections. These original answers are retained as submitted; record internal corrections or
+assessment in the review notes. Download original supporting files from their document rows.
+Related submissions & duplicate history keeps prior/parallel submissions visible.
+
+Print / save PDF
+Opens the report in a separate browser window. Choose Save as PDF in the print dialog.
+Download questionnaire saves a printable HTML copy with the logo; open it and print later.
+Both use the current review. Unsaved changes are marked. Attachment names are listed;
+original uploaded files are downloaded separately from the CRM.
+
+If another adviser saves first
+Your local changes remain. Refresh latest data, then Reload saved review to replace your
+local draft with that saved version. Reapply your intended changes and save again.
+
+Migration
+One additive migration adds separate review storage and revision checking. Existing records,
+answers and links remain. All prior migrations stay unchanged.
