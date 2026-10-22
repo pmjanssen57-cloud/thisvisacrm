@@ -14772,7 +14772,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.53" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.54" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -15364,7 +15364,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.53" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.54" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}
@@ -16564,7 +16564,7 @@ function DocumentChecklist({ items, updateItem, addCustomItem, removeCustomItem 
       <div className="s53-control-grid"><label><span>Needed for this application</span><select aria-label={`Required: ${item.name}`} value={item.applied?'yes':'no'} onChange={event=>setRequired(item,event.target.value==='yes')}><option value="yes">Required</option><option value="no">Not required</option></select></label>
         <label><span>Document status</span><select aria-label={`Document status: ${item.name}`} disabled={!item.applied} value={!item.applied?'not-required':item.obtained?'received':'outstanding'} onChange={event=>updateItem(item.id,{obtained:event.target.value==='received'})}>{!item.applied&&<option value="not-required">Not required</option>}<option value="outstanding">Outstanding</option><option value="received">Received</option></select></label>
         {item.applied&&<><label><span>Expiry date <small>(if applicable)</small></span><input type="date" aria-label={`Expiry date: ${item.name}`} value={item.expiryDate||''} onChange={event=>updateItem(item.id,{expiryDate:event.target.value})}/></label>
-        <label><span>Expiry follow-up</span><select aria-label={`Expiry follow-up: ${item.name}`} value={isDashboardDateShown({...item,type:`Document Expiry: ${item.name}`,source:'document-expiry'})?'show':'hide'} onChange={event=>updateItem(item.id,{actionStatus:dashboardActionStatusFromChecked(event.target.value==='show'),reviewDate:''})}><option value="hide">Do not show on dashboard</option><option value="show">Show on dashboard</option></select></label></>}
+        <label><span>Expiry follow-up</span><select aria-label={`Expiry follow-up: ${item.name}`} value={isDashboardDateShown({...item,type:`Document Expiry: ${item.name}`,source:'document-expiry'})?'show':'hide'} onChange={event=>updateItem(item.id,{actionStatus:dashboardActionStatusFromChecked(event.target.value==='show'),reviewDate:''})}><option value="hide">Do not show</option><option value="show">Show on dashboard</option></select></label></>}
       </div>
       {item.applied&&<label className="s53-bulk-item"><input type="checkbox" aria-label={`Select ${item.name} for bulk update`} checked={selectedDocuments.includes(item.id)} onChange={event=>setSelectedDocuments(ids=>event.target.checked?[...ids,item.id]:ids.filter(id=>id!==item.id))}/>Select for bulk update</label>}
     </article>)}{!visibleItems.length&&<p className="muted center">No required documents. Choose Show not required to include an existing item, or add a custom document.</p>}</div>

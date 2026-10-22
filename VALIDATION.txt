@@ -1,33 +1,43 @@
-THiS CRM v0.17.53 — verification
+THiS CRM v0.17.54 — verification
 
-PASS — Built application document tests: separate required/received states; exclusion
-       clears received state and disables status; reinclusion starts outstanding.
-PASS — Custom document add/remove; expiry date/follow-up; bulk received update and save.
-PASS — Core stages remain applied with fixed Required stage display.
-PASS — Optional stage include/complete/exclude/reinclude, automatic completion date and
-       completion/date reset; custom stage addition, completion, date edit, reorder/save.
-PASS — Document/stage editor screenshots and control bounds at 1440, 1024, 768, 390 and
-       320px. No detected page/control overflow. Desktop and mobile controls visually checked.
-PASS — Built CRM interaction suite: My Work update/retry, client/contact edits, document
-       bulk save, intake Save & next, employer attach, both Studio create/save flows,
-       calendar/tasks. Embedded Instructions save still contains structured people.
-PASS — Intake adviser email success/failure/retry and readable action/message layout
-       checked at seven widths, retaining the v0.17.52 fix.
-PASS — General responsive suite: 31 captures across CRM/public forms, 320–1920px.
-PASS — Vite production build; all 10 application JSX/JS modules transpile; application
-       undefined-reference check has no new findings.
-PASS — 24 Netlify modules and 8 public scripts pass syntax checks; 9 CSS files,
-       14 inline script blocks and 19 inline style blocks parse.
-PASS — PWA/cache/precache validation. All 48 migrations and 24 Netlify functions unchanged.
-PASS — Both Studio engines, people-first script/CSS and employer review/report source
-       byte-identical to baseline. No database or document-output change.
-PASS — Source and rollback ZIP CRC, root/unique paths, contents/version and SHA256;
-       exact v0.17.52 rollback, dependencies/generated dist excluded.
+CONTROL FIT AUDIT — 191 SCREEN STATES
+99: individual record sections (overview/actions/documents/stages/dates/billing/instructions/
+    agreements/portal), profile-editor tabs, commercial sections, tasks, bookings, resources,
+    My Day, advisers, admin and personal settings across desktop/tablet/mobile.
+32: agreement matter/content/fees/signing panes and instruction people/introduction/documents/
+    settings at 1440, 1024, 390 and 320px.
+18: built CRM interaction flow captures, including drawer editors and Studio save flows.
+32: general responsive/public form captures, through 1920/1440/1024/768/390/320px.
+10: document and stage editor layouts at five desktop/tablet/mobile widths.
+PASS — No detected navigation label/badge clipping, label/control overlap, button text beyond
+       its button, off-screen controls or selected option width problems at the tested values.
+       Closed disclosures and document canvases are excluded from screen control measurements.
+PASS — Desktop/mobile navigation, forms, Day overview, preferences and Studio screenshots
+       visually inspected after refinement. Source audit reports retained in validation54.
 
-LIMITS
-No production deployment, live email/Identity or remote database work performed. UI tests
-use synthetic data and intercepted API responses. Mobile checks use Edge viewports, not
-physical iOS/Android devices. Database, PDF and Studio output suites were not repeated
-because their source is unchanged; existing record-stage/checklist save payloads were
-exercised through the built UI. Local Node 24 used; deployment pins Node 20.19. Existing
-large-bundle Vite advisory remains. Checks are representative rather than exhaustive.
+FUNCTIONAL / OUTPUT CHECKS
+PASS — Built CRM interaction suite: My Work update/retry, client/contact editing, document
+       bulk save, intake Save & next, employer attach, agreement/instructions create/save,
+       tasks/calendar. Structured people still included in Instructions Studio save payloads.
+PASS — Document required/received/exclusion states, bulk updates, custom add/remove, expiry
+       follow-up; stage core/optional inclusion, completion/date/reset, custom stage/reorder/save.
+PASS — Intake adviser email success/failure/retry and action/status layout at seven widths.
+PASS — Agreement and legacy instruction print sample content, page count and geometry match
+       v0.17.53. Existing formatting state roundtrip/locking tests pass.
+PASS — General responsive/public form tests detect no page overflow in tested states.
+PASS — Vite production build; 10 application JSX/JS modules transpile; no new undefined refs.
+PASS — Syntax: 24 Netlify modules, 8 public JS files, 10 CSS files, 14 inline JS blocks and
+       19 inline styles. PWA/cache/precache validation passes.
+PASS — All 48 migrations, 24 Netlify functions, both Studio engines, people script/CSS and
+       employer review/report modules byte-identical to v0.17.53.
+PASS — ZIP CRC, unique/root paths, content/version, exact rollback SHA256 and checksums.
+
+NO NEW MIGRATION OR SCHEMA CHANGE.
+No production deployment, live email, real Identity or remote database work performed.
+Browser tests use synthetic data and intercepted local API responses. Mobile checks use
+Edge viewports rather than physical iOS/Android devices. The sweep covers shared controls
+and representative rendered states, not every possible conditional field, unusually long
+user-entered value, permission role or public-form answer path. Native select menus still
+behave according to the browser. Outputs were compared in Edge print mode; physical print
+dialogs can vary. Local Node 24 used; deployment pins Node 20.19. The existing Vite large-
+bundle advisory remains. Backend/database suites were not repeated because source is unchanged.

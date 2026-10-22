@@ -1,45 +1,49 @@
-THiS CRM v0.17.53 — Clear document and stage controls
-22 October 2026. Baseline: confirmed v0.17.52.
+THiS CRM v0.17.54 — UI consistency and control fit
+22 October 2026. Baseline: confirmed v0.17.53.
 
-DOCUMENTS
-- Replace the ambiguous inclusion/obtained checkboxes with separate labelled choices:
-  Needed for this application: Required / Not required.
-  Document status: Outstanding / Received.
-- Required and received remain separate states; not-required documents cannot be marked
-  received. Marking a document not required clears the received state as before.
-- A document marked not required stays visible for review by showing not-required items;
-  the existing Hide not required control can collapse them again.
-- Expiry date and Expiry follow-up are labelled independently. The latter uses Show on
-  dashboard / Do not show on dashboard, with the existing date-follow-up mapping.
-- The remaining selection checkboxes are explicitly Select for bulk update. Bulk actions
-  are Mark received / Mark outstanding and apply only to currently required selections.
-- Custom document naming, addition/removal, dates and explicit Save behaviour are retained.
+NAVIGATION / LABELS
+- Client record tabs size to their labels and badges, wrapping into readable rows instead
+  of squeezing text into fixed widths. Overview, Documents, stage percentages and key dates
+  remain visible in full. Profile, commercial, resource and Studio tabs use the same fit rules.
+- Shared medium-weight navigation labels, stable icon widths and non-shrinking count badges.
+- Client snapshot stage/document/date facts wrap naturally rather than showing ellipses.
+- Client status filters wrap within the available width instead of extending off-screen.
 
-STAGES
-- Replace overlapping Applies/Completed checkboxes with labelled applicability and
-  progress choices. Optional/custom stages offer Yes - include stage / No - not applicable.
-- Core stages show Required stage and an always-included explanation.
-- Progress offers Not completed / Completed, or disabled Not applicable when excluded.
-- Completion date appears only when a stage is completed. Existing completion behaviour
-  is preserved: marking completed supplies today's date if blank; undoing completion or
-  excluding a stage clears the completion/date. Existing saved dates are retained.
-- Reordering buttons are clearly separated and named for keyboard/screen-reader users.
-  Remove is offered only for custom stages. Custom naming and explicit Save remain.
+CONTROLS / FORMS
+- Shared screen-only control sizing: readable labels, consistent line spacing, rounded
+  borders, 44px minimum control height, stable icons and wrapping button text.
+- Dropdowns use consistent padding/arrow clearance and fill their form-field space.
+  Native dropdowns remain native; no selection handlers or stored values change.
+- Field labels wrap without overlapping inputs; action groups and panel footers wrap cleanly.
+- Key-date editing uses a responsive labelled grid instead of overflowing narrow columns.
+- Portal wording picker and use-wording action wrap cleanly when space is limited.
+- Commercial portal URL/status/copy controls fit on narrow screens.
+- Dashboard preference widget labels, width selectors and order controls have distinct space.
+- Expiry follow-up's negative option is shortened to Do not show; its stored value is unchanged.
 
-LAYOUT / PRESERVATION
-Each item is a readable card with a distinct name/header and labelled controls. Desktop
-document fields use two columns; phone controls stack with readable type and touch targets.
-The replacement card layout avoids the legacy overlapping grid areas and narrow labels.
-No stage definitions, progress rules, document identifiers, ownership or persistence model
-change. Portal and document output engines remain unchanged.
-Includes v0.17.52 intake-email layout fixes and v0.17.51 people-first Instructions Studio.
+MOBILE / STUDIO
+- Day overview summary cards and action lists fit phone widths; previously a desktop minimum
+  width pushed controls off-screen inside a clipped container.
+- My Day briefing action descriptions wrap inside their controls.
+- Both Studio side panels have enough desktop/tablet width for the standard category/type
+  selectors; editing fields and tabs share the screen control treatment.
+- Mobile type remains readable, with stacked fields and wrapping action areas.
+- New styles are restricted to screen UI; document canvases and print styles remain original.
 
-MIGRATION / DEPLOYMENT
-NO NEW MIGRATION. NO SCHEMA CHANGE relative to v0.17.52.
-All 48 migration files and all 24 Netlify function modules are byte-identical to v0.17.52.
-The previously introduced employer review migration remains included for older installs.
-Deployable Netlify SOURCE ZIP: yarn build; publish dist; functions netlify/functions;
-Node 20.19. Dependencies/dist excluded. Keep environment settings and data stores.
-PWA cache/Studio URLs advance to v0.17.53. Nothing deployed to production.
-Rollback ZIP is an exact copy of v0.17.52. No database rollback is needed.
-See VALIDATION.txt for coverage and limits.
+PRESERVED
+Includes v0.17.53 document/stage controls, v0.17.52 intake-email panel fix, v0.17.51
+people-first Instructions Studio and the preceding employer review/save/PDF workflow.
+No business rules, workflow calculations, ownership, email/API handlers or schema changes.
+Both Studio engines and people script/CSS are byte-identical to baseline. Printed agreement
+and legacy instruction sample text, page count and geometry match the v0.17.53 baseline.
+
+VERIFICATION / DEPLOYMENT
+191 audited screen states across desktop, tablet and phone layouts; representative forms,
+navigation, profile/record sections, adviser/admin/preferences, public forms and Studio panes.
+No detected label/badge clipping, label/control overlap, button-text fit errors or off-screen
+controls in those states. See VALIDATION.txt for scope and verification limits.
+NO NEW MIGRATION. NO SCHEMA CHANGE. All 48 migrations and 24 Netlify modules unchanged.
+Deployable Netlify SOURCE ZIP; yarn build; publish dist; functions netlify/functions;
+Node 20.19. Retain environment settings/data stores. No production deployment performed.
+PWA cache/Studio URLs advance to v0.17.54; shared UI stylesheet is included in precache.
+Rollback ZIP is an exact byte copy of v0.17.53. No database rollback is needed.

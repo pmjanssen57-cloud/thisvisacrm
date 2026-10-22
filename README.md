@@ -1,10 +1,9 @@
-# THiS CRM v0.17.53 — Clear document and stage controls
+# THiS CRM v0.17.54 — UI consistency and control fit
 
-Built from confirmed v0.17.52. Document inclusion and received status now use separate,
-labelled choices. Stages separate applicability, progress and completion date; core
-stages clearly remain required. Layouts no longer depend on the overlapping checkbox grid.
+Built from confirmed v0.17.53. Shared screen control rules clean up labels, navigation
+badges, dropdowns, buttons, editing fields and responsive layouts across the CRM and
+both Studios. Includes all preceding document/stage, intake and people-first work.
 
-Includes the earlier intake-review layout fix and people-first Instructions Studio.
-No migration or schema change. All 48 migrations and 24 Netlify modules are unchanged.
-Use the existing Netlify SOURCE workflow: yarn build; publish dist; functions
-netlify/functions; Node 20.19. Nothing deployed. See RELEASE.txt and VALIDATION.txt.
+No schema change or new migration. All 48 migrations and 24 Netlify functions are unchanged.
+Use the normal Netlify SOURCE workflow: yarn build; publish dist; functions netlify/functions;
+Node 20.19. Nothing deployed. See RELEASE.txt and VALIDATION.txt for changes and limits.

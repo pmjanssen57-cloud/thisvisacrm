@@ -1,9 +1,10 @@
-const CACHE_NAME = 'this-crm-shell-v0.17.53';
+const CACHE_NAME = 'this-crm-shell-v0.17.54';
 const OFFLINE_URL = '/offline.html';
 const PRECACHE_URLS = [
   OFFLINE_URL,
   '/manifest.webmanifest',
   '/calm-theme.css',
+  '/ui-controls.css',
   '/calm-studio.css',
   '/precision-studio.css',
   '/calm-studio.js',
