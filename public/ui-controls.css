@@ -91,3 +91,58 @@
 @media screen and (min-width:721px) and (max-width:1180px){
  .calm-studio:not(.calm-mode-preview) .workspace{grid-template-columns:316px minmax(0,1fr)!important;}
 }
+
+/* Review actions belong to the start of the form, outside its scrolling fields. */
+@media screen {
+  .intake-popout-editor > .intake-popout-actionbar { position:static; top:auto; z-index:auto; }
+  .intake-review-more { position:relative; margin-left:0; }
+  .intake-review-more > summary { min-height:44px; box-sizing:border-box; padding:10px 12px; border:1px solid var(--calm-line,#d6e3df); border-radius:7px; background:#fff; color:#234641; font-size:14px; font-weight:550; line-height:1.45; gap:8px; }
+  .intake-review-more > summary:hover { background:#edf5f2; border-color:#9dbdb3; }
+  .intake-review-more > summary:focus-visible { outline:2px solid #087568; outline-offset:3px; }
+  .intake-review-more > summary svg { flex:none; }
+  .intake-review-more[open] > summary { background:#e8f3ee; border-color:#9dbdb3; }
+  .intake-review-more[open] > summary svg:last-child { transform:rotate(180deg); }
+  .intake-review-more > .btn.danger { position:absolute; right:0; top:calc(100% + 6px); z-index:6; width:max-content; max-width:calc(100vw - 48px); min-width:168px; justify-content:flex-start; background:#fff; color:#a12e37; border:1px solid #e1d4d6; box-shadow:0 8px 24px #173c351a; }
+}
+
+/* Compact fee summaries; editing controls never determine the summary height. */
+@media screen {
+ .calm-studio #pane-fees .fee-editor-list { container-type:inline-size; gap:10px; }
+ .calm-studio #pane-fees .fee-editor-card { grid-template-columns:32px minmax(0,1fr); gap:10px 12px; padding:14px; align-items:start; }
+ .calm-studio #pane-fees .fee-editor-number { width:32px; height:32px; font-weight:650; }
+ .calm-studio #pane-fees .fee-editor-copy { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:start; gap:6px 14px; }
+ .calm-studio #pane-fees .fee-editor-copy strong { font-size:14px; line-height:1.5; font-weight:600; }
+ .calm-studio #pane-fees .fee-editor-copy .fee-editor-amount { margin:0; padding:5px 8px; font-size:12px; line-height:1.5; white-space:normal; overflow-wrap:anywhere; max-width:180px; border-radius:6px; }
+ .calm-studio #pane-fees .fee-editor-copy p { grid-column:1/-1; margin:0; font-size:12px; line-height:1.5; color:#536b65; }
+ .calm-studio #pane-fees .fee-editor-actions { grid-column:2; display:flex; flex-direction:row; flex-wrap:wrap; gap:6px; margin-top:2px; }
+ .calm-studio #pane-fees .fee-editor-actions .btn { min-height:44px; padding:8px 12px; margin:0; font-size:13px; }
+ .calm-studio #pane-fees .fee-editor-actions .btn:disabled { opacity:1; color:#7b8985; background:#f5f7f6; border-color:#e0e7e4; }
+ .calm-studio #pane-fees .rowhead { gap:12px; align-items:center; flex-wrap:wrap; }
+ @container (max-width:420px) {
+  .calm-studio #pane-fees .fee-editor-copy { grid-template-columns:minmax(0,1fr); }
+  .calm-studio #pane-fees .fee-editor-amount { justify-self:start; }
+  .calm-studio #pane-fees .fee-editor-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .calm-studio #pane-fees .fee-editor-actions .btn { width:100%; }
+ }
+}
+
+@media screen {
+ .work-count-help { color:#536b65; font-size:13px; line-height:1.5; margin:0 0 16px; }
+ .work-waiting-filters { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
+ .work-waiting-filters .btn.active { background:#e8f3ee; border-color:#89b6a7; color:#164d42; }
+ .calm-work-page .calm-list-toolbar { flex-wrap:wrap; gap:12px; }
+ .calm-work-page .calm-segments { flex-wrap:wrap; }
+}
+
+@media screen {
+ .enquiry-count-help { color:#536b65; font-size:13px; line-height:1.5; margin:0 0 14px; }
+ .precision-more-waiting .precision-waiting-row { width:100%; box-sizing:border-box; }
+ .precision-waiting-row > span:nth-child(2) { min-width:0; overflow-wrap:anywhere; }
+ .precision-more-waiting { min-width:0; }
+}
+
+@media screen {
+ .precision-lower-grid.precision-schedule-only { grid-template-columns:minmax(0,1fr); }
+ .precision-schedule-only .precision-appointments { max-width:none; }
+ .calm-work-page .calm-work-next small { color:#536b65; line-height:1.5; }
+}

@@ -1,3 +1,4 @@
+import { enquiryAttentionCounts } from './src/inquiry-attention.mjs';
 import { modernWorkspaceHelp } from './src/ui/help.js';
 import { useWorkspaceState, useWorkspaceScroll } from './src/ui/workspace-state.js';
 import { SidePanel } from './src/ui/SidePanel.jsx';
@@ -3241,8 +3242,9 @@ export default function App() {
       .sort((a, b) => (billingReportingDate(a, a.client) || '9999-12-31').localeCompare(billingReportingDate(b, b.client) || '9999-12-31'));
   }, [scopedClients]);
 
-  const sidebarMyWorkCount = useMemo(() => countDefaultMyWorkItems(unifiedMatterClients, dashboardAdviserFilter), [unifiedMatterClients, dashboardAdviserFilter]);
-  const sidebarNewEnquiryCount = useMemo(() => countScopedNewEnquiries(data.intakeEnquiries || [], dashboardAdviserFilter) + (data.employerQuestionnaires || []).filter(q => !q.commercialClientId).length, [data.intakeEnquiries, data.employerQuestionnaires, dashboardAdviserFilter]);
+  const [workOwnership, setWorkOwnership] = useWorkspaceState(`work:role:${dashboardAdviserFilter}`, dashboardAdviserFilter === 'all' ? 'all' : 'primary');
+  const sidebarMyWorkCount = buildMyWorkGroups(activeMatterClients, dashboardAdviserFilter, workOwnership).due.length;
+  const sidebarNewEnquiryCount = buildEnquiryAttention(data.intakeEnquiries, data.employerQuestionnaires, data.seminarRegistrations, data.feedbackSubmissions, dashboardAdviserFilter).total;
 
   function runPersonalQuickAction(actionId) {
     setNewMenuOpen(false);
@@ -3456,7 +3458,7 @@ export default function App() {
             )}
 
             {tab === 'work' && (
-              <CalmWorkDashboard savePersonalTask={savePersonalTask} quickActions={<PersonalQuickActions actions={adviserPreferences.quickActions} onAction={runPersonalQuickAction} />} calendarEntries={scopedCalendarEntries} clients={activeMatterClients} advisers={data.advisers} scopeAdviserId={dashboardAdviserFilter} openClientRecord={openMatterRecord} setTab={switchTab} saveClient={saveMatterClient} saving={saving} actorAdviser={identityAdviser} />
+              <CalmWorkDashboard ownership={workOwnership} setOwnership={setWorkOwnership} savePersonalTask={savePersonalTask} quickActions={<PersonalQuickActions actions={adviserPreferences.quickActions} onAction={runPersonalQuickAction} />} calendarEntries={scopedCalendarEntries} clients={activeMatterClients} advisers={data.advisers} scopeAdviserId={dashboardAdviserFilter} openClientRecord={openMatterRecord} setTab={switchTab} saveClient={saveMatterClient} saving={saving} actorAdviser={identityAdviser} />
             )}
 
             {tab === 'clients' && (
@@ -4267,33 +4269,24 @@ function buildMatterUpdateSuggestion(client,eventType){
 function applyMatterStageSelection(stages=[],stageId='',completeAll=false){const rows=normaliseStages(stages);if(completeAll)return rows.map((stage)=>stage.applied===false?stage:{...stage,completed:true,completedDate:stage.completedDate||todayIso()});if(!stageId)return rows;const applied=rows.filter((item)=>item.applied!==false).sort((a,b)=>Number(a.sortOrder||0)-Number(b.sortOrder||0));const targetIndex=applied.findIndex((item)=>item.id===stageId);if(targetIndex<0)return rows;const before=new Set(applied.slice(0,targetIndex).map((item)=>item.id));return rows.map((stage)=>{if(stage.applied===false)return stage;if(before.has(stage.id))return {...stage,completed:true,completedDate:stage.completedDate||todayIso()};if(stage.id===stageId)return {...stage,completed:false,completedDate:''};return stage;});}
 function makeMatterActivity(type,title,detail,createdBy){return {id:`matter-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,type,title,detail,createdAt:new Date().toISOString(),createdBy};}
 function buildMatterTimeline(client){const activity=normaliseMatterActivity(client.matterActivity);const actionLog=normaliseNextActionLog(client.nextActionLog).map((item)=>({id:item.id,type:'action',title:item.action||'Previous next action',detail:item.replacedByAction?`Completed / replaced by: ${item.replacedByAction}`:'Completed action',createdAt:item.completedAt||item.completedDate,createdBy:''}));return [...activity,...actionLog].sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));}
-function countDefaultMyWorkItems(clients = [], adviserId = 'all') {
-  return (clients || [])
-    .filter((client) => client && client.clientStatus !== 'Closed')
-    .map((client) => ({ ...client, matterStatus: normaliseMatterStatus(client.matterStatus, client.clientStatus, client.nextAction) }))
-    .filter((client) => client.matterStatus !== 'Completed')
-    .filter((client) => adviserId === 'all' || client.primaryAdviserId === adviserId)
-    .filter((client) => {
-      const due = matterWorkDate(client);
-      const safety = client.matterStatus === 'No current action'
-        || (!client.nextAction && !due)
-        || (client.matterStatus.startsWith('Waiting') && !due);
-      if (safety) return true;
-      if (!due) return ['Adviser action required', 'Ready to progress'].includes(client.matterStatus);
-      const diff = dateDiff(due);
-      return diff !== null && diff <= 0;
-    }).length;
+function isMyWorkWaiting(client) {
+  const status = normaliseMatterStatus(client.matterStatus, client.clientStatus, client.nextAction);
+  return status === 'Client action required' || status.startsWith('Waiting');
+}
+function buildMyWorkGroups(clients = [], adviserId = 'all', ownership = 'primary') {
+  const rows = clients.filter(c => c && c.clientStatus !== 'Closed' && normaliseMatterStatus(c.matterStatus,c.clientStatus,c.nextAction) !== 'Completed')
+    .filter(c => adviserId === 'all' || (ownership === 'all' ? matchesAdviserScope(c, adviserId) : ownership === 'backup' ? c.backupAdviserId === adviserId : c.primaryAdviserId === adviserId));
+  const due = rows.filter(c => matterWorkDate(c) && dateDiff(matterWorkDate(c)) !== null && dateDiff(matterWorkDate(c)) <= 0);
+  const unscheduled = rows.filter(c => !matterWorkDate(c) || !String(c.nextAction || '').trim());
+  return { rows, due, unscheduled };
 }
 
-function countScopedNewEnquiries(enquiries = [], adviserScope = 'all') {
-  return (enquiries || [])
-    .map((item) => normaliseIntakeEnquiry(item))
-    .filter((item) => item.status === 'New')
-    .filter((item) => matchesIntakeAdviserScope(item, adviserScope))
-    .length;
+function buildEnquiryAttention(enquiries = [], employers = [], seminars = [], feedback = [], scope = 'all') {
+ const scoped = enquiries.map(normaliseIntakeEnquiry).filter(q=>matchesIntakeAdviserScope(q,scope));
+ return enquiryAttentionCounts({ contacts:scoped.filter(isContactIntake), intakes:scoped.filter(q=>!isContactIntake(q)), employers, seminars:seminars.map(normaliseSeminarRegistration), feedback:feedback.map(normaliseFeedbackSubmission) });
 }
 
-function matterWorkDate(client = {}){const status=normaliseMatterStatus(client.matterStatus,client.clientStatus,client.nextAction);return status.startsWith('Waiting')?(client.matterReviewDate||client.nextActionDue||''):(client.nextActionDue||client.matterReviewDate||'');}
+function matterWorkDate(client = {}){const status=normaliseMatterStatus(client.matterStatus,client.clientStatus,client.nextAction);return (status.startsWith('Waiting')||status==='Client action required')?(client.matterReviewDate||client.nextActionDue||''):(client.nextActionDue||client.matterReviewDate||'');}
 function matterPriorityScore(client){const status=normaliseMatterStatus(client.matterStatus,client.clientStatus,client.nextAction);const due=matterWorkDate(client);const diff=due?dateDiff(due):999;const weight=status==='Adviser action required'?0:status==='Ready to progress'?10:status==='No current action'?5:50;return weight+(diff===null?999:diff);}
 function shortMatterStatus(status){if(status==='Adviser action required')return 'Adviser';if(status==='Client action required')return 'Client';if(status==='Waiting on INZ')return 'INZ';if(status==='Waiting on third party')return 'Third party';if(status==='Ready to progress')return 'Ready';if(status==='No current action')return 'No action';return status;}
 function matterWaitingLabel(status,adviserName=''){if(status==='Waiting on INZ')return 'Immigration New Zealand';if(status==='Client action required')return 'Client';if(status==='Waiting on third party')return 'Third party';if(status==='Ready to progress')return `${adviserName||'Adviser'} to progress`;if(status==='Adviser action required')return `${adviserName||'Adviser'} to act`;if(status==='Completed')return 'Matter completed';return 'No clear next step';}
@@ -8270,17 +8263,18 @@ function IntakeWorkspace({ saveEmployerReview, employerQuestionnaires = [], empl
       .includes(q);
   });
 
+  const attentionCounts = buildEnquiryAttention(enquiries, employerQuestionnaires, seminarRegistrations, feedbackSubmissions, dashboardAdviserFilter);
   const contactCount = contactEnquiries.length;
-  const newContactCount = contactEnquiries.filter((item) => item.status === 'New').length;
+  const newContactCount = attentionCounts.contacts;
   const dealtContactCount = contactEnquiries.filter((item) => item.status === 'Contacted').length;
   const spamContactCount = contactEnquiries.filter((item) => item.status === 'Spam / Duplicate').length;
-  const newIntakeCount = intakeEnquiries.filter((item) => item.status === 'New').length;
+  const newIntakeCount = attentionCounts.intakes;
   const contactedCount = intakeEnquiries.filter((item) => item.status === 'Contacted').length;
   const convertedCount = intakeEnquiries.filter((item) => item.status === 'Converted' || item.convertedClientId).length;
   const spamCount = intakeEnquiries.filter((item) => item.status === 'Spam / Duplicate').length;
   const activeSeminar = (seminars || []).find((item) => item.status === 'Active') || (seminars || [])[0] || null;
-  const newSeminarRegistrationCount = (seminarRegistrations || []).filter((item) => item.status === 'New').length;
-  const newFeedbackCount = normalisedFeedbackSubmissions.filter((item) => item.status === 'New').length;
+  const newSeminarRegistrationCount = attentionCounts.seminars;
+  const newFeedbackCount = attentionCounts.feedback;
   const incompleteAssessmentCount = activeIntakeDrafts.length;
   const flaggedCount = intakeEnquiries.filter((item) => hasAnyIntakeFlag(item.flags)).length;
   const expandedItem = expandedId ? intakeEnquiries.find((item) => item.id === expandedId) : null;
@@ -8665,11 +8659,11 @@ function IntakeWorkspace({ saveEmployerReview, employerQuestionnaires = [], empl
         </button>
       </div>
 
-      <section className="intake-inbox-panel enquiries-panel">
+      <p className="enquiry-count-help">Badges count new contacts, intake, seminar and feedback submissions, plus employer forms needing review. Reviewed employer forms, incomplete drafts and archived records are separate.</p><section className="intake-inbox-panel enquiries-panel">
         <div className="enquiries-tab-row enquiries-tab-row-lean" role="tablist" aria-label="Enquiries and intake sections">
           <button type="button" className={workspaceTab === 'contact' ? 'active' : ''} onClick={() => setWorkspaceTab('contact')}><MessageSquare size={16} />Contacts <span>{newContactCount}</span></button>
 <button type="button" className={workspaceTab === 'intake' ? 'active' : ''} onClick={() => setWorkspaceTab('intake')}><ClipboardList size={16} />Intake <span>{newIntakeCount}</span></button>
-<button type="button" className={workspaceTab === 'employers' ? 'active' : ''} onClick={() => setWorkspaceTab('employers')}><Building2 size={16} />Employer Forms <span>{employerQuestionnaires.filter((q) => !q.commercialClientId).length}</span></button>
+<button type="button" className={workspaceTab === 'employers' ? 'active' : ''} onClick={() => setWorkspaceTab('employers')}><Building2 size={16} />Employer Forms <span>{attentionCounts.employers}</span></button>
 <button type="button" className={workspaceTab === 'seminars' ? 'active' : ''} onClick={() => setWorkspaceTab('seminars')}><CalendarDays size={16} />Seminars <span>{newSeminarRegistrationCount}</span></button>
 <button type="button" className={workspaceTab === 'feedback' ? 'active' : ''} onClick={() => setWorkspaceTab('feedback')}><MessageSquare size={16} />Feedback <span>{newFeedbackCount}</span></button>
 <button type="button" className={workspaceTab === 'drafts' ? 'active' : ''} onClick={() => setWorkspaceTab('drafts')}><Clock size={16} />Incomplete <span>{incompleteAssessmentCount}</span></button>
@@ -9048,7 +9042,7 @@ function SeminarManagementPanel({ seminars = [], registrations = [], relatedSour
   const [selectedSeminarId, setSelectedSeminarId] = useState(activeSeminar?.id || 'new');
   const [seminarDraft, setSeminarDraft] = useState(activeSeminar || makeBlankSeminar());
   const [setupOpen, setSetupOpen] = useState(false);
-  const [registrationSeminarFilter, setRegistrationSeminarFilter] = useState(activeSeminar?.id || 'all');
+  const [registrationSeminarFilter, setRegistrationSeminarFilter] = useState('all');
   const [registrationFilter, setRegistrationFilter] = useState('New');
   const [notice, setNotice] = useState('');
   const [sendingId, setSendingId] = useState('');
@@ -9065,7 +9059,7 @@ function SeminarManagementPanel({ seminars = [], registrations = [], relatedSour
 
   useEffect(() => {
     if (registrationSeminarFilter !== 'all' && !sortedSeminars.some((item) => item.id === registrationSeminarFilter)) {
-      setRegistrationSeminarFilter(activeSeminar?.id || 'all');
+      setRegistrationSeminarFilter('all');
     }
   }, [seminars, registrationSeminarFilter]);
 
@@ -9239,7 +9233,7 @@ function SeminarManagementPanel({ seminars = [], registrations = [], relatedSour
           <small>The public form shows the next active/open seminar. Zoom details remain internal until approval.</small>
         </div>
         <div className="seminar-lean-actions">
-          <span className="enquiries-shown-count">{newCount} new</span>
+          <span className="enquiries-shown-count">{newCount} new across all seminars</span>
           <button className="btn dark" type="button" onClick={openSeminarSetup}><Wrench size={16} />Setup</button>
           <button className="btn" type="button" onClick={startNewSeminar}><Plus size={16} />New seminar</button>
           <button className="btn" type="button" onClick={downloadApprovedRegistrations} disabled={!approvedRegistrations.length} title={approvedRegistrations.length ? `Download ${approvedRegistrations.length} approved registration${approvedRegistrations.length === 1 ? '' : 's'} for the selected seminar view` : 'No approved registrations in the selected seminar view'}><FileSpreadsheet size={16} />Export approved ({approvedRegistrations.length})</button>
@@ -9272,7 +9266,7 @@ function SeminarManagementPanel({ seminars = [], registrations = [], relatedSour
                 <button className="enquiry-queue-summary" type="button" onClick={() => setExpandedRegistrationId(isExpanded ? '' : registration.id)} aria-expanded={isExpanded}>
                   <div className="enquiry-queue-person">
                     <div className="enquiry-queue-badges"><span className={`library-status ${statusClass(registration.status)}`}>{registration.status}</span></div>
-                    <h3>{registration.fullName || 'Unnamed registrant'}</h3>
+                    <h3>{registration.fullName || 'Unnamed registrant'}</h3><small>Seminar: {sortedSeminars.find(seminar=>seminar.id===registration.seminarId)?.title || 'Seminar no longer listed'}</small>
                     <p>{registration.email || 'No email'}</p>
                     <RelatedEnquirySummary matches={relatedMatches} />
                   </div>
@@ -9810,7 +9804,7 @@ function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, 
         </div>
         <div className="button-row">
           <button className="btn" type="button" onClick={onClose}><X size={16} />Close</button>
-          <details className="calm-create-menu"><summary>More</summary><button className="btn danger" type="button" onClick={onDelete} disabled={saving || Boolean(draft.convertedClientId)}><Trash2 size={16} />Delete enquiry</button></details>
+          <details className="calm-create-menu intake-review-more"><summary aria-label="More enquiry actions"><MoreHorizontal size={16} /><span>More</span><ChevronDown size={14} /></summary><button className="btn danger" type="button" onClick={onDelete} disabled={saving || Boolean(draft.convertedClientId)}><Trash2 size={16} />Delete enquiry</button></details>
           <button className="btn" type="button" onClick={onSave} disabled={saving}><Save size={16} />Save</button>
           <button className="btn dark" type="button" onClick={onSaveAndClose} disabled={saving}><Save size={16} />Save & close</button>
         </div>
@@ -14772,7 +14766,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.54" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.59" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -15364,7 +15358,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.54" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.59" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}
@@ -21001,10 +20995,8 @@ function formatCurrency(value) {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD', maximumFractionDigits: 0 }).format(Number(value || 0));
 }
 
-function CalmWorkDashboard({ clients = [], advisers = [], scopeAdviserId = 'all', openClientRecord, setTab, saveClient, savePersonalTask, saving, actorAdviser, calendarEntries = [], quickActions }) {
+function CalmWorkDashboard({ clients = [], advisers = [], scopeAdviserId = 'all', openClientRecord, setTab, saveClient, savePersonalTask, saving, actorAdviser, calendarEntries = [], quickActions, ownership = 'primary', setOwnership }) {
   const [range,setRange] = useWorkspaceState('work:range','today');
-  const [ownership,setOwnership] = useWorkspaceState(`work:role:${scopeAdviserId}`,scopeAdviserId==='all'?'all':'primary');
-  const [view,setView] = useWorkspaceState('work:layout','list');
   const [selectedId,setSelectedId] = useState('');
   const [newTask,setNewTask] = useState(null);
   const newTaskInitial = useRef(null);
@@ -21012,34 +21004,29 @@ function CalmWorkDashboard({ clients = [], advisers = [], scopeAdviserId = 'all'
   const [taskError,setTaskError] = useState('');
   const [taskBusy,setTaskBusy] = useState(false);
   const selected = clients.find((c)=>c.id===selectedId);
-  const rows = clients.filter((c)=>c.clientStatus!=='Closed' && normaliseMatterStatus(c.matterStatus,c.clientStatus,c.nextAction)!=='Completed')
-    .filter((c)=>scopeAdviserId==='all' || ownership==='all' || (ownership==='primary'?c.primaryAdviserId===scopeAdviserId:c.backupAdviserId===scopeAdviserId));
-  const waiting = (c)=>['Client action required','Waiting on INZ','Waiting on third party'].includes(c.matterStatus);
-  const needsDate = (c)=>!matterWorkDate(c) && (!c.nextAction || waiting(c));
-  const maxDays={today:0,week:7,all:Infinity}[range] ?? 0;
-  const shown=rows.filter((c)=>range==='all'||needsDate(c)||!matterWorkDate(c)||dateDiff(matterWorkDate(c))<=maxDays).sort((a,b)=>matterPriorityScore(a)-matterPriorityScore(b));
-  const attention=shown.filter((c)=>!waiting(c));
-  const pending=rows.filter(waiting).sort((a,b)=>matterPriorityScore(a)-matterPriorityScore(b));
-  const actionRows=rows.filter(c=>!waiting(c));
+  const { rows, due, unscheduled } = buildMyWorkGroups(clients, scopeAdviserId, ownership);
+  const waiting = isMyWorkWaiting;
+  const needsDate = c => !matterWorkDate(c) || !String(c.nextAction || '').trim();
+  const attention = (range === 'all' ? rows : range === 'unscheduled' ? unscheduled : range === 'week' ? rows.filter(c => matterWorkDate(c) && dateDiff(matterWorkDate(c)) !== null && dateDiff(matterWorkDate(c)) <= 7) : due).slice().sort((a,b)=>(matterWorkDate(a)||'9999-12-31').localeCompare(matterWorkDate(b)||'9999-12-31')||clientName(a).localeCompare(clientName(b)));
   const appointments=calendarEntries.filter(e=>e.status!=='Completed'&&e.status!=='Cancelled'&&e.appointmentDate===todayIso()).sort((a,b)=>(a.startTime||a.appointmentTime||'').localeCompare(b.startTime||b.appointmentTime||''));
   const initials=c=>clientName(c).split(/\s+/).filter(Boolean).slice(0,2).map(s=>s[0]).join('').toUpperCase();
   const renderRow=(c)=>{const due=matterWorkDate(c),days=dateDiff(due);return <button type="button" className={`calm-work-row ${selectedId===c.id?'selected':''}`} key={c.id} aria-label={`Update ${clientName(c)}`} onClick={()=>setSelectedId(c.id)}>
     <span className="calm-work-identity"><span className="precision-avatar" aria-hidden="true">{initials(c)}</span><span className="precision-identity-copy"><strong>{clientName(c)}</strong><small>{c.caseType || 'Matter'}</small></span></span>
-    <span className="calm-work-next"><span>{c.nextAction || 'Set the next action'}</span>{waiting(c)&&<small>{matterWaitingLabel(c.matterStatus)}</small>}</span>
+    <span className="calm-work-next"><span>{c.nextAction || 'Set the next action'}</span>{waiting(c)&&<small>Review · {matterWaitingLabel(c.matterStatus)}</small>}</span>
     <span className={`calm-due ${due&&days<0?'overdue':due&&days===0?'today':''}`}><strong>{!due ? (needsDate(c)?'Needs a date':'Unscheduled') : days<0?`${Math.abs(days)}d overdue`:days===0?'Today':days===1?'Tomorrow':formatShortDate(due)}</strong>{range==='week'&&due&&<small>{new Date(due+'T12:00:00').toLocaleDateString('en-NZ',{weekday:'short',day:'numeric',month:'short'})}</small>}</span>
     <span className="calm-icon-button" aria-hidden="true"><ChevronRight size={17}/></span>
   </button>;};
   async function createTask(event){event.preventDefault();if(taskBusy||saving||!newTask?.title?.trim())return;setTaskBusy(true);setTaskError('');try{await savePersonalTask({...newTask,title:newTask.title.trim()});setNewTask(null);}catch(error){setTaskError(error.message||'Unable to save. Your task is still here.');}finally{setTaskBusy(false);}}
   return <section className="calm-work-page precision-work-page">
     <div className="calm-page-heading"><div><h1>My Work</h1><p>{new Date().toLocaleDateString('en-NZ',{weekday:'long',day:'numeric',month:'long',timeZone:'Pacific/Auckland'})} · A clear view of what needs you.</p></div>{savePersonalTask&&<button type="button" className="btn dark precision-add-task" onClick={()=>{setTaskError('');const draft=makeBlankPersonalTask(actorAdviser?.id||'');newTaskInitial.current=draft;setNewTask(draft);}}><Plus size={16}/>Add task</button>}</div>
-    <div className="calm-work-summary"><span><strong>{actionRows.filter(c=>matterWorkDate(c)&&dateDiff(matterWorkDate(c))===0).length}</strong> Due today</span><span className="warning"><strong>{actionRows.filter(c=>matterWorkDate(c)&&dateDiff(matterWorkDate(c))<0).length}</strong> Overdue</span><span><strong>{pending.length}</strong> Waiting for others</span></div>
-    <div className="calm-list-toolbar"><div className="calm-segments" aria-label="Work date range">{[['today','Today & overdue'],['week','Next 7 days'],['all','All work']].map(([key,title])=><button key={key} type="button" aria-pressed={range===key} className={range===key?'active':''} onClick={()=>setRange(key)}>{title}</button>)}</div>{scopeAdviserId!=='all'&&<label className="calm-inline-field"><span>Responsibility</span><select aria-label="Responsibility" value={ownership} onChange={e=>setOwnership(e.target.value)}><option value="all">Main & backup</option><option value="primary">Main adviser</option><option value="backup">Backup adviser</option></select></label>}</div>
-    {view==='board'?<MatterWorkDashboard clients={clients} advisers={advisers} scopeAdviserId={scopeAdviserId} openClientRecord={id=>setSelectedId(id)} setTab={setTab} saveClient={saveClient} saving={saving} actorAdviser={actorAdviser}/>:<>
-      <div className="calm-work-table">{attention.length>0&&<div className="calm-work-table-head"><span>Client / matter</span><span>Next action</span><span>Due</span><span/></div>}{attention.map(renderRow)}{!attention.length&&<div className={`calm-empty precision-empty ${range==='today'?'precision-caught-up':''}`}><span className="precision-empty-icon"><CheckCircle2 size={24}/></span><div><strong>{range==='today'?'You’re up to date':'No actions in this view'}</strong><p>{range==='today'?'No actions are due today':range==='all'?'Add a client or set a next action to get started.':'Your future actions are ready in All work.'}</p><div className="precision-empty-actions">{range==='today'&&<button type="button" className="btn" onClick={()=>setRange('week')}>View Next 7 Days</button>}{range!=='all'&&<button type="button" className="btn" onClick={()=>setRange('all')}>View All Work <ChevronRight size={15}/></button>}</div></div></div>}{attention.length>0&&<div className="precision-table-footer"><span>{attention.length} matter{attention.length===1?'':'s'} in this view</span><span>{rows.filter(needsDate).length>0?`${rows.filter(needsDate).length} need a next action or date`:scopeAdviserId==='all'?'All advisers':'Assigned to your view'}</span></div>}</div>
-      <div className="precision-lower-grid"><section className="calm-waiting-list precision-summary-card"><div className="precision-card-heading"><h2>Waiting for others <small>{pending.length}</small></h2></div><p className="precision-waiting-help">Matters where the next action currently sits with the client, INZ, an employer, a third party, or another person.</p>{pending.slice(0,4).map(c=><button type="button" className="precision-waiting-row" key={c.id} onClick={()=>setSelectedId(c.id)} aria-label={`Update ${clientName(c)}`}><span className="precision-avatar" aria-hidden="true">{initials(c)}</span><span><strong>{clientName(c)}</strong><small>{c.nextAction||matterWaitingLabel(c.matterStatus)}</small></span><span className="precision-waiting-tag">{matterWaitingLabel(c.matterStatus)}</span></button>)}{!pending.length&&<p className="precision-card-empty">No matters waiting for others.</p>}{pending.length>4&&<details className="precision-more-waiting"><summary>{pending.length-4} more waiting matters</summary>{pending.slice(4).map(renderRow)}</details>}</section>
+    <div className="calm-work-summary"><span><strong>{rows.filter(c=>matterWorkDate(c)&&dateDiff(matterWorkDate(c))===0).length}</strong> Due today</span><span className="warning"><strong>{rows.filter(c=>matterWorkDate(c)&&dateDiff(matterWorkDate(c))<0).length}</strong> Overdue</span></div>
+    <p className="work-count-help">Actions and reviews appear by date, regardless of who acts next. The My Work badge matches Today & overdue.</p><div className="calm-list-toolbar"><div className="calm-segments" aria-label="Work date range">{[['today','Today & overdue'],['week','Next 7 days'],['all','All work'],['unscheduled',`Needs action / date (${unscheduled.length})`]].map(([key,title])=><button key={key} type="button" aria-pressed={range===key} className={range===key?'active':''} onClick={()=>setRange(key)}>{title}</button>)}</div>{scopeAdviserId!=='all'&&<label className="calm-inline-field"><span>Responsibility</span><select aria-label="Responsibility" value={ownership} onChange={e=>setOwnership(e.target.value)}><option value="all">Main & backup</option><option value="primary">Main adviser</option><option value="backup">Backup adviser</option></select></label>}</div>
+    <>
+      <div className="calm-work-table">{attention.length>0&&<div className="calm-work-table-head"><span>Client / matter</span><span>Next action</span><span>Due</span><span/></div>}{attention.map(renderRow)}{!attention.length&&<div className={`calm-empty precision-empty ${range==='today'?'precision-caught-up':''}`}><span className="precision-empty-icon"><CheckCircle2 size={24}/></span><div><strong>{range==='today'?'Nothing due today or overdue':'No actions in this view'}</strong><p>{range==='today'?'No scheduled actions or reviews are due today or overdue.':range==='all'?'Add a client or set a next action to get started.':range==='unscheduled'?'All matters have a next action and date.':'Your future actions are ready in All work.'}</p><div className="precision-empty-actions">{range==='today'&&<button type="button" className="btn" onClick={()=>setRange('week')}>View Next 7 Days</button>}{range!=='all'&&<button type="button" className="btn" onClick={()=>setRange('all')}>View All Work <ChevronRight size={15}/></button>}</div></div></div>}{attention.length>0&&<div className="precision-table-footer"><span>{attention.length} matter{attention.length===1?'':'s'} in this view</span><span>{unscheduled.length>0?`${unscheduled.length} matter${unscheduled.length===1?' needs':'s need'} an action or date`:scopeAdviserId==='all'?'All advisers':'Assigned to your view'}</span></div>}</div>
+      <div className="precision-lower-grid precision-schedule-only">
       <section className="precision-summary-card precision-appointments"><div className="precision-card-heading"><h2>Today's appointments</h2><button type="button" className="precision-text-button" onClick={()=>setTab('calendar')}>Calendar</button></div>{appointments.slice(0,4).map(e=><button key={e.id} type="button" className="precision-appointment-row" onClick={()=>setTab('calendar')}><time>{e.startTime||e.appointmentTime||'Any time'}</time><span><strong>{e.title||'Appointment'}</strong><small>{e.location||e.appointmentType||'Open in calendar'}</small></span></button>)}{!appointments.length&&<p className="precision-card-empty">No appointments today.<button type="button" className="precision-text-button" onClick={()=>setTab('calendar')}>Open calendar <ChevronRight size={15}/></button></p>}{appointments.length>4&&<button type="button" className="precision-text-button" onClick={()=>setTab('calendar')}>View all {appointments.length} appointments</button>}</section></div>
-    </>}
-    <div className="calm-work-extras"><details><summary><ChevronRight size={16}/>View options</summary><div className="calm-segments"><button type="button" aria-pressed={view==='list'} className={view==='list'?'active':''} onClick={()=>setView('list')}>List</button><button type="button" aria-pressed={view==='board'} className={view==='board'?'active':''} onClick={()=>setView('board')}>Board</button></div><button className="btn" onClick={()=>setTab('tasks')}>Personal tasks</button></details>{quickActions&&<details><summary><ChevronRight size={16}/>Shortcuts</summary>{quickActions}</details>}</div>
+    </>
+    <div className="calm-work-extras"><button type="button" className="btn" onClick={()=>setTab('tasks')}>Personal tasks</button>{quickActions&&<details><summary><ChevronRight size={16}/>Shortcuts</summary>{quickActions}</details>}</div>
     {newTask&&<SidePanel title="New task" onClose={()=>setNewTask(null)} dirty={!!taskDirty} busy={taskBusy||saving} footer={<><button type="button" className="btn" disabled={taskBusy||saving} onClick={()=>{if(!taskDirty||window.confirm('Discard unsaved changes?'))setNewTask(null);}}>Cancel</button><button type="submit" form="precision-new-task" className="btn dark" disabled={taskBusy||saving||!newTask.title?.trim()}>{taskBusy||saving?'Saving…':'Save task'}</button></>}><form id="precision-new-task" className="calm-form-stack" onSubmit={createTask}><label className="field"><span>Task</span><input required autoFocus value={newTask.title} onChange={e=>setNewTask(t=>({...t,title:e.target.value}))}/></label><label className="field"><span>Due date</span><input type="date" value={newTask.dueDate||''} onChange={e=>setNewTask(t=>({...t,dueDate:e.target.value}))}/></label><label className="field"><span>Adviser</span><select value={newTask.adviserId||''} onChange={e=>setNewTask(t=>({...t,adviserId:e.target.value}))}><option value="">Unassigned</option>{advisers.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label><label className="field"><span>Note</span><textarea rows={3} value={newTask.note||''} onChange={e=>setNewTask(t=>({...t,note:e.target.value}))}/></label>{taskError&&<p role="alert" className="inline-error">{taskError}</p>}</form></SidePanel>}
     {selected&&<CalmMatterUpdate key={selected.id} client={selected} adviser={actorAdviser} advisers={advisers} commercial={isCommercialMatterRecord(selected)} onClose={()=>setSelectedId('')} onOpenFullClient={()=>openClientRecord(selected.id)} saveClient={saveClient} saving={saving}/>}
 

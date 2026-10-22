@@ -1,49 +1,15 @@
-THiS CRM v0.17.54 — UI consistency and control fit
-22 October 2026. Baseline: confirmed v0.17.53.
+THiS CRM v0.17.59 — 23 October 2026
 
-NAVIGATION / LABELS
-- Client record tabs size to their labels and badges, wrapping into readable rows instead
-  of squeezing text into fixed widths. Overview, Documents, stage percentages and key dates
-  remain visible in full. Profile, commercial, resource and Studio tabs use the same fit rules.
-- Shared medium-weight navigation labels, stable icon widths and non-shrinking count badges.
-- Client snapshot stage/document/date facts wrap naturally rather than showing ellipses.
-- Client status filters wrap within the available width instead of extending off-screen.
+My Work is now a single scheduled matter queue. Today & overdue includes all due next actions and waiting reviews, regardless of whether the next actor is the adviser, client, INZ or a third party. The sidebar badge and today/overdue totals use the same dates and responsibility scope. Overdue items appear first, then today's items, ordered by date and name rather than status priority.
 
-CONTROLS / FORMS
-- Shared screen-only control sizing: readable labels, consistent line spacing, rounded
-  borders, 44px minimum control height, stable icons and wrapping button text.
-- Dropdowns use consistent padding/arrow clearance and fill their form-field space.
-  Native dropdowns remain native; no selection handlers or stored values change.
-- Field labels wrap without overlapping inputs; action groups and panel footers wrap cleanly.
-- Key-date editing uses a responsive labelled grid instead of overflowing narrow columns.
-- Portal wording picker and use-wording action wrap cleanly when space is limited.
-- Commercial portal URL/status/copy controls fit on narrow screens.
-- Dashboard preference widget labels, width selectors and order controls have distinct space.
-- Expiry follow-up's negative option is shortened to Do not show; its stored value is unchanged.
+The separate waiting section, waiting filters and status-board switch have been removed from My Work. Existing saved board preferences no longer hide the unified list. Status remains context on review rows and in the unchanged matter update controls. Next 7 days and All work also include waiting matters. Needs action / date includes undated matters regardless of status, so they remain accessible without inflating the dated queue. Appointments remain separately accessible below the list, and Personal tasks remains available.
 
-MOBILE / STUDIO
-- Day overview summary cards and action lists fit phone widths; previously a desktop minimum
-  width pushed controls off-screen inside a clipped container.
-- My Day briefing action descriptions wrap inside their controls.
-- Both Studio side panels have enough desktop/tablet width for the standard category/type
-  selectors; editing fields and tabs share the screen control treatment.
-- Mobile type remains readable, with stacked fields and wrapping action areas.
-- New styles are restricted to screen UI; document canvases and print styles remain original.
+Client-action waiting matters now consistently prefer the saved review date over a legacy next-action date, matching INZ/third-party waiting records. Existing next-action dates remain a fallback where no review date exists. Rescheduling a review moves it out of Today & overdue when appropriate and updates the badge; completed/closed records remain excluded. No records are changed just by opening My Work.
 
-PRESERVED
-Includes v0.17.53 document/stage controls, v0.17.52 intake-email panel fix, v0.17.51
-people-first Instructions Studio and the preceding employer review/save/PDF workflow.
-No business rules, workflow calculations, ownership, email/API handlers or schema changes.
-Both Studio engines and people script/CSS are byte-identical to baseline. Printed agreement
-and legacy instruction sample text, page count and geometry match the v0.17.53 baseline.
+Baseline v0.17.58. Enquiry badge fixes and reviewed-employer queue behavior retained. No schema changes or new migrations. All 48 migrations and 24 Netlify modules byte-identical. Studio engines/document generation unchanged.
 
-VERIFICATION / DEPLOYMENT
-191 audited screen states across desktop, tablet and phone layouts; representative forms,
-navigation, profile/record sections, adviser/admin/preferences, public forms and Studio panes.
-No detected label/badge clipping, label/control overlap, button-text fit errors or off-screen
-controls in those states. See VALIDATION.txt for scope and verification limits.
-NO NEW MIGRATION. NO SCHEMA CHANGE. All 48 migrations and 24 Netlify modules unchanged.
-Deployable Netlify SOURCE ZIP; yarn build; publish dist; functions netlify/functions;
-Node 20.19. Retain environment settings/data stores. No production deployment performed.
-PWA cache/Studio URLs advance to v0.17.54; shared UI stylesheet is included in precache.
-Rollback ZIP is an exact byte copy of v0.17.53. No database rollback is needed.
+Validation: production build; application/public/inline JS and JSX syntax; CSS and inline styles; PWA/cache references; migration integrity; ZIP CRC/contents. Synthetic end-to-end coverage includes adviser/client/INZ/third-party due actions and reviews, future/undated work, legacy date fallback, client review-date precedence, main/backup/combined scopes, completed/closed exclusion, badge/list/summary consistency, saved-board preference handling, rescheduling a waiting review and persistence, and an empty scheduled queue. Layouts checked at 1440, 1024, 768, 390 and 320px. Enquiry count/review-transition regression and broader app save/retry/contact/intake/employer-linking/Studio-creation integration checks passed.
+
+Limits: local Edge with synthetic records and intercepted APIs. No production/live email/physical device verification. Full 191-state audit and print comparison not repeated; document engines unchanged. Local Node 24, Netlify pins Node 20.19. Existing build-size advisory remains.
+
+Deployable source ZIP uses normal Netlify build. Rollback ZIP is an exact v0.17.58 release copy. Nothing deployed.

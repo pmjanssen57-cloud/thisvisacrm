@@ -1,3 +1,4 @@
+import { employerNeedsReview } from './inquiry-attention.mjs';
 import React, { useMemo, useState } from 'react';
 import { FileText, Download, ExternalLink, Search, Building2, ChevronRight, RefreshCw } from 'lucide-react';
 import { SidePanel } from './ui/SidePanel.jsx';
@@ -21,7 +22,8 @@ export function EmployerQuestionnaireDetails({ questionnaire:q, onDownload }) {
  </div>;
 }
 export function EmployerQuestionnaireInbox({ questionnaires=[], drafts=[], clients=[], advisers=[], onSave, onProcess, onDownload, onOpenClient, onRefresh, saving }) {
- const [view,setView]=useWorkspaceState('employers:view','Submitted');
+ const [storedView,setView]=useWorkspaceState('employers:view','Needs review');
+ const view=storedView==='Submitted'?'Needs review':storedView;
  const [query,setQuery]=useWorkspaceState('employers:query','');
  const [reviewFilter,setReviewFilter]=useWorkspaceState('employers:reviewFilter','All');
  const [selectedId,setSelectedId]=useState('');
@@ -32,7 +34,7 @@ export function EmployerQuestionnaireInbox({ questionnaires=[], drafts=[], clien
  const matches=useMemo(()=>selected?clients.map(client=>({client,reasons:employerMatchReasons(selected,client)})).filter(item=>item.reasons.length).sort((a,b)=>Number(b.reasons.includes('NZBN'))-Number(a.reasons.includes('NZBN'))||b.reasons.length-a.reasons.length):[],[selected,clients]);
  const related=selected?relatedEmployerQuestionnaires(selected,questionnaires):[];
  const searching=row=>[row.legalName,row.tradingName,row.nzbn,row.contactEmail,row.contactFirstName,row.contactLastName].join(' ').toLowerCase().includes(query.toLowerCase());
- const baseRows=questionnaires.filter(row=>searching(row)&&(view==='All'||(view==='Submitted'?!row.commercialClientId:Boolean(row.commercialClientId))));
+ const baseRows=questionnaires.filter(row=>searching(row)&&(view==='All'||(view==='Needs review'?employerNeedsReview(row):view==='Reviewed'?(!row.commercialClientId&&reviewDraft(row).status==='Reviewed'):Boolean(row.commercialClientId))));
  const rows=baseRows.filter(row=>reviewFilter==='All'||reviewDraft(row).status===reviewFilter);
  function open(id,skipGuard=false){if(!skipGuard&&dirty&&!window.confirm('Discard unsaved review changes?'))return false;const q=questionnaires.find(item=>item.id===id),r=reviewDraft(q);setSelectedId(id);setDraft(q?r:null);setOriginal(q?r:null);setRevision(Number(q?.reviewRevision||0));setTarget('');setError('');setNotice('');return true;}
  function change(key,value){setDraft(d=>({...d,[key]:value}));setError('');}
@@ -50,8 +52,8 @@ export function EmployerQuestionnaireInbox({ questionnaires=[], drafts=[], clien
  async function openLinked(){if(busy||saving)return;setBusy(true);try{if(dirty)await persist();onOpenClient?.(selected.commercialClientId);}catch(err){setError(err.message||'Unable to save review.');}finally{setBusy(false);}}
  function reloadSaved(){if(dirty&&!window.confirm('Replace your unsaved changes with the latest saved review?'))return;const r=reviewDraft(selected);setDraft(r);setOriginal(r);setRevision(Number(selected?.reviewRevision||0));setError('');setNotice('Saved review loaded.');}
  return <div className="employer-inquiry-panel employer-intake-workspace">
-  <div className="commercial-panel-head"><div><h2>Employer questionnaires</h2><p>Review accreditation submissions, record your assessment and link them when ready.</p></div><button type="button" className="btn" disabled={busy||saving} onClick={()=>onRefresh?.({full:true})}><RefreshCw size={15}/>Refresh</button></div>
-  <div className="employer-queue-toolbar enquiries-toolbar"><label className="field"><span>Show</span><select aria-label="Show" value={view} onChange={e=>{if(open(''))setView(e.target.value);}}>{['Submitted','Processed / linked','All','Drafts / in progress'].map(v=><option key={v}>{v}</option>)}</select></label><label className="intake-search-field"><span>Search employers</span><div><Search size={16}/><input aria-label="Search employers" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Business, NZBN or contact"/></div></label></div>
+  <div className="commercial-panel-head"><div><h2>Employer questionnaires</h2><p>Review accreditation submissions and link them when ready. Saved Reviewed forms move out of Needs review; find them under Reviewed or All.</p></div><button type="button" className="btn" disabled={busy||saving} onClick={()=>onRefresh?.({full:true})}><RefreshCw size={15}/>Refresh</button></div>
+  <div className="employer-queue-toolbar enquiries-toolbar"><label className="field"><span>Show</span><select aria-label="Show" value={view} onChange={e=>{if(open(''))setView(e.target.value);}}>{['Needs review','Reviewed','Processed / linked','All','Drafts / in progress'].map(v=><option key={v}>{v}</option>)}</select></label><label className="intake-search-field"><span>Search employers</span><div><Search size={16}/><input aria-label="Search employers" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Business, NZBN or contact"/></div></label></div>
   {view!=='Drafts / in progress'&&<div className="enquiries-status-pills employer-review-filters" aria-label="Employer review status filter">{['All',...REVIEW_STATUSES].map(status=><button key={status} type="button" className={reviewFilter===status?'active':''} onClick={()=>{if(open(''))setReviewFilter(status);}}>{status==='All'?'All reviews':status}<span>{status==='All'?baseRows.length:baseRows.filter(q=>reviewDraft(q).status===status).length}</span></button>)}</div>}
   {!selected&&error&&<p className="error-banner" role="alert">{error}</p>}{!selected&&notice&&<p className="success-banner" role="status">{notice}</p>}
   {view==='Drafts / in progress'?<div className="employer-queue-list"><p className="muted">Saved drafts stay separate until submitted. Expired drafts remain visible for follow-up.</p>{drafts.filter(searching).map(q=><article className="employer-queue-card" key={q.id}><strong>{q.legalName||'Business name not yet entered'}</strong><span>{q.contactFirstName} {q.contactLastName} · {q.contactEmail}</span><span>NZBN: {q.nzbn||'Not recorded'}</span><span>{new Date(q.expiresAt)<new Date()?'Expired draft':'In progress'} · Step {q.currentStep||1}/6 · {q.progressPercent||0}%</span><small>Last saved {employerDate(q.updatedAt)} · Resume expires {employerDate(q.expiresAt)}</small></article>)}{!drafts.filter(searching).length&&<p>No saved employer drafts match this view.</p>}</div>:<div className="employer-queue-list enquiry-queue-list" aria-label="Employer questionnaire submissions">
