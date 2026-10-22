@@ -1,28 +1,45 @@
-THiS CRM v0.17.52 — Intake review layout fix
-20 October 2026. Baseline: v0.17.51.
+THiS CRM v0.17.53 — Clear document and stage controls
+22 October 2026. Baseline: confirmed v0.17.52.
 
-FIX
-After emailing intake results, the review panel previously squeezed review flags,
-action buttons and the confirmation into a single horizontal flex row. The confirmation
-reduced the buttons to a narrow vertical stack with excessive text wrapping.
+DOCUMENTS
+- Replace the ambiguous inclusion/obtained checkboxes with separate labelled choices:
+  Needed for this application: Required / Not required.
+  Document status: Outstanding / Received.
+- Required and received remain separate states; not-required documents cannot be marked
+  received. Marking a document not required clears the received state as before.
+- A document marked not required stays visible for review by showing not-required items;
+  the existing Hide not required control can collapse them again.
+- Expiry date and Expiry follow-up are labelled independently. The latter uses Show on
+  dashboard / Do not show on dashboard, with the existing date-follow-up mapping.
+- The remaining selection checkboxes are explicitly Select for bulk update. Bulk actions
+  are Mark received / Mark outstanding and apply only to currently required selections.
+- Custom document naming, addition/removal, dates and explicit Save behaviour are retained.
 
-The panel now separates these into full-width rows: review flags/related records,
-a responsive action grid, then the confirmation or error. Buttons use two readable
-columns where space permits and one column on phones. Icons keep their width and long
-email addresses wrap inside the message. Status/error messages are announced accessibly.
-The existing footer, email confirmation/send handlers, CV downloads, approval/decline
-actions, client conversion and save controls are preserved.
+STAGES
+- Replace overlapping Applies/Completed checkboxes with labelled applicability and
+  progress choices. Optional/custom stages offer Yes - include stage / No - not applicable.
+- Core stages show Required stage and an always-included explanation.
+- Progress offers Not completed / Completed, or disabled Not applicable when excluded.
+- Completion date appears only when a stage is completed. Existing completion behaviour
+  is preserved: marking completed supplies today's date if blank; undoing completion or
+  excluding a stage clears the completion/date. Existing saved dates are retained.
+- Reordering buttons are clearly separated and named for keyboard/screen-reader users.
+  Remove is offered only for custom stages. Custom naming and explicit Save remain.
 
-PRESERVED
-Includes the v0.17.51 people-first Instructions Studio and all preceding improvements.
-Instructions Studio script/CSS, both original Studio engines, employer review/report
-modules, all 24 Netlify function modules and all 48 migration files are byte-identical
-to v0.17.51. NO NEW MIGRATION. NO SCHEMA CHANGE.
+LAYOUT / PRESERVATION
+Each item is a readable card with a distinct name/header and labelled controls. Desktop
+document fields use two columns; phone controls stack with readable type and touch targets.
+The replacement card layout avoids the legacy overlapping grid areas and narrow labels.
+No stage definitions, progress rules, document identifiers, ownership or persistence model
+change. Portal and document output engines remain unchanged.
+Includes v0.17.52 intake-email layout fixes and v0.17.51 people-first Instructions Studio.
 
-DEPLOYMENT / ROLLBACK
-Deployable Netlify SOURCE ZIP; use the existing yarn build workflow, publish dist,
-functions netlify/functions and Node 20.19. Preserve settings and data stores.
-PWA cache and Studio asset URLs advance to v0.17.52. No production deployment performed.
-Rollback ZIP is an exact byte copy of THiS-CRM-v0.17.51.zip. No database rollback needed.
-
-See VALIDATION.txt for local check coverage and limits.
+MIGRATION / DEPLOYMENT
+NO NEW MIGRATION. NO SCHEMA CHANGE relative to v0.17.52.
+All 48 migration files and all 24 Netlify function modules are byte-identical to v0.17.52.
+The previously introduced employer review migration remains included for older installs.
+Deployable Netlify SOURCE ZIP: yarn build; publish dist; functions netlify/functions;
+Node 20.19. Dependencies/dist excluded. Keep environment settings and data stores.
+PWA cache/Studio URLs advance to v0.17.53. Nothing deployed to production.
+Rollback ZIP is an exact copy of v0.17.52. No database rollback is needed.
+See VALIDATION.txt for coverage and limits.

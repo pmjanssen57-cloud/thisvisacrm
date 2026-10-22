@@ -1,31 +1,33 @@
-THiS CRM v0.17.52 — verification
+THiS CRM v0.17.53 — verification
 
-PASS — Built application: email intake results to the assigned adviser through the
-       existing confirmation/send flow, with an intercepted local API response.
-PASS — Success confirmation occupies its own row below all action buttons.
-PASS — Simulated mail rejection displays a readable error; retry succeeds.
-PASS — All seven actions present, including both CV downloads, approval, decline and
-       conversion; buttons retain readable widths/heights with no viewport overflow.
-PASS — Screenshot/geometry checks at 320, 390, 520, 733, 768, 1024 and 1440px.
-       Desktop/tablet and phone screenshots visually inspected.
-PASS — General built CRM interaction suite: My Work update/retry, client/contact edits,
-       intake Save & next, employer attach, both Studio create/save flows, calendar/tasks.
-       Structured people still included in the embedded Instructions Studio save message.
-PASS — General responsive suite: 31 screenshots across CRM/public forms, 320–1920px;
-       no detected page overflow.
-PASS — Vite production build; all 10 application JSX/JS modules transpile.
-PASS — All 24 Netlify modules and 8 public scripts pass syntax checks; 8 CSS files,
+PASS — Built application document tests: separate required/received states; exclusion
+       clears received state and disables status; reinclusion starts outstanding.
+PASS — Custom document add/remove; expiry date/follow-up; bulk received update and save.
+PASS — Core stages remain applied with fixed Required stage display.
+PASS — Optional stage include/complete/exclude/reinclude, automatic completion date and
+       completion/date reset; custom stage addition, completion, date edit, reorder/save.
+PASS — Document/stage editor screenshots and control bounds at 1440, 1024, 768, 390 and
+       320px. No detected page/control overflow. Desktop and mobile controls visually checked.
+PASS — Built CRM interaction suite: My Work update/retry, client/contact edits, document
+       bulk save, intake Save & next, employer attach, both Studio create/save flows,
+       calendar/tasks. Embedded Instructions save still contains structured people.
+PASS — Intake adviser email success/failure/retry and readable action/message layout
+       checked at seven widths, retaining the v0.17.52 fix.
+PASS — General responsive suite: 31 captures across CRM/public forms, 320–1920px.
+PASS — Vite production build; all 10 application JSX/JS modules transpile; application
+       undefined-reference check has no new findings.
+PASS — 24 Netlify modules and 8 public scripts pass syntax checks; 9 CSS files,
        14 inline script blocks and 19 inline style blocks parse.
-PASS — Application undefined-reference checks; PWA/cache/precache validation.
-PASS — All 48 migration files, all 24 Netlify functions, both Studio document engines
-       and people-first Instructions script/CSS byte-identical to v0.17.51.
-PASS — Source/rollback ZIP CRC, unique/root paths, expected content and version/cache;
-       exact v0.17.51 rollback SHA256; dependencies and generated dist excluded.
+PASS — PWA/cache/precache validation. All 48 migrations and 24 Netlify functions unchanged.
+PASS — Both Studio engines, people-first script/CSS and employer review/report source
+       byte-identical to baseline. No database or document-output change.
+PASS — Source and rollback ZIP CRC, root/unique paths, contents/version and SHA256;
+       exact v0.17.52 rollback, dependencies/generated dist excluded.
 
-NO NEW MIGRATION OR SCHEMA CHANGE.
-No production deployment, live email or remote database work performed. UI checks use
-synthetic data and intercepted Identity/API responses; no email sent to an actual adviser.
-Mobile checks use Edge viewports rather than physical devices. Studio document output
-and backend/database suites were not repeated because their source is unchanged.
-Local Node 24 used; deployment remains pinned to Node 20.19. Existing large-bundle Vite
-advisory remains. These are representative checks, not exhaustive historical workflow tests.
+LIMITS
+No production deployment, live email/Identity or remote database work performed. UI tests
+use synthetic data and intercepted API responses. Mobile checks use Edge viewports, not
+physical iOS/Android devices. Database, PDF and Studio output suites were not repeated
+because their source is unchanged; existing record-stage/checklist save payloads were
+exercised through the built UI. Local Node 24 used; deployment pins Node 20.19. Existing
+large-bundle Vite advisory remains. Checks are representative rather than exhaustive.

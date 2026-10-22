@@ -14772,7 +14772,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.52" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.53" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -15364,7 +15364,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.52" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.53" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}
@@ -16158,18 +16158,18 @@ The portal is a secure, read-only space where you can check application updates,
             <ProgressMap client={draft} />
             {sectionEditable ? (
               <section className="sub-panel workspace-panel">
-                <div className="sub-panel-head compact"><div><h2>Stage editor</h2><p className="muted">Mandatory stages always apply. Optional and custom stages can be added, removed or reordered before saving the client.</p></div></div>
+                <div className="sub-panel-head compact"><div><h2>Stage editor</h2><p className="muted">First choose whether a stage applies, then update its progress. Core stages always apply. Marking a stage not applicable clears its completion and date. Save changes when finished.</p></div></div>
                 <div className="stage-add-row"><input value={customStageLabel} onChange={(event) => setCustomStageLabel(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addCustomStage(); } }} placeholder="Add custom application stage" /><button className="btn" type="button" onClick={addCustomStage}><Plus size={16} />Add stage</button></div>
                 <div className="stage-list">
                   {(draft.stages || []).map((stage, index) => (
-                    <div className={`stage-row stage-row-refined ${stage.custom ? 'custom-stage' : ''}`} key={stage.id}>
-                      <div className="stage-order-controls"><button className="icon-btn" type="button" disabled={index === 0} onClick={() => moveStage(stage.id, -1)}>↑</button><button className="icon-btn" type="button" disabled={index === (draft.stages || []).length - 1} onClick={() => moveStage(stage.id, 1)}>↓</button></div>
-                      <label className="stage-apply-cell"><input type="checkbox" checked={stage.applied} disabled={stage.mandatory} onChange={(event) => updateStage(stage.id, { applied: event.target.checked })} /><span>{stage.mandatory ? 'Mandatory' : 'Applies'}</span></label>
-                      <div className="stage-name-cell"><span>{stage.custom ? <input className="stage-label-input" value={stage.label} onChange={(event) => updateStage(stage.id, { label: event.target.value })} /> : <strong>{stage.label}</strong>}<small>{stage.mandatory ? 'Core stage' : stage.custom ? 'Custom stage' : 'Optional stage'}</small></span></div>
-                      <label className="stage-complete-cell"><input type="checkbox" checked={stage.completed} disabled={!stage.applied} onChange={(event) => updateStage(stage.id, { completed: event.target.checked })} /><span>Completed</span></label>
-                      <input type="date" value={stage.completedDate || ''} disabled={!stage.applied || !stage.completed} onChange={(event) => updateStage(stage.id, { completedDate: event.target.value })} />
-                      <button className="icon-btn" type="button" disabled={!stage.custom} onClick={() => removeCustomStage(stage.id)} title={stage.custom ? 'Remove custom stage' : 'Hard-coded stage cannot be removed'}><Trash2 size={16} /></button>
-                    </div>
+                    <article className={`s53-stage-card ${!stage.applied?'s53-not-required':''}`} key={stage.id}>
+                      <div className="s53-item-heading"><div className="s53-item-name">{stage.custom?<label>Stage name<input value={stage.label} onChange={event=>updateStage(stage.id,{label:event.target.value})}/></label>:<strong>{stage.label}</strong>}<small>{stage.mandatory?'Core stage · always included':stage.custom?'Custom stage':'Optional stage'}</small></div><div className="s53-order"><button className="btn" type="button" aria-label={`Move ${stage.label} up`} disabled={index===0} onClick={()=>moveStage(stage.id,-1)}>↑</button><button className="btn" type="button" aria-label={`Move ${stage.label} down`} disabled={index===(draft.stages||[]).length-1} onClick={()=>moveStage(stage.id,1)}>↓</button>{stage.custom&&<button className="btn" type="button" onClick={()=>removeCustomStage(stage.id)} aria-label={`Remove ${stage.label}`}><Trash2 size={16}/></button>}</div></div>
+                      <div className="s53-control-grid">
+                        {stage.mandatory?<div className="s53-fixed-field"><span>Applies to this matter</span><strong>Required stage</strong><small>This core stage is always included.</small></div>:<label><span>Applies to this matter</span><select aria-label={`Applies to matter: ${stage.label}`} value={stage.applied?'yes':'no'} onChange={event=>updateStage(stage.id,{applied:event.target.value==='yes'})}><option value="yes">Yes — include stage</option><option value="no">No — not applicable</option></select></label>}
+                        <label><span>Progress</span><select aria-label={`Progress: ${stage.label}`} value={!stage.applied?'not-applicable':stage.completed?'completed':'not-completed'} disabled={!stage.applied} onChange={event=>updateStage(stage.id,{completed:event.target.value==='completed'})}>{!stage.applied&&<option value="not-applicable">Not applicable</option>}<option value="not-completed">Not completed</option><option value="completed">Completed</option></select></label>
+                        {stage.applied&&stage.completed?<label><span>Completion date</span><input type="date" aria-label={`Completion date: ${stage.label}`} value={stage.completedDate||''} onChange={event=>updateStage(stage.id,{completedDate:event.target.value})}/></label>:<div className="s53-field-note">{stage.applied?'A completion date is added when you mark this stage completed.':'This stage is excluded from the progress map.'}</div>}
+                      </div>
+                    </article>
                   ))}
                 </div>
               </section>
@@ -16546,59 +16546,29 @@ function ExpandableClientSection({ title, summary, isOpen, onToggle, children, b
 
 
 function DocumentChecklist({ items, updateItem, addCustomItem, removeCustomItem }) {
-  const [customItemName, setCustomItemName] = useState('');
-  const [showNotRequired, setShowNotRequired] = useState(false);
+  const [customItemName,setCustomItemName]=useState('');
+  const [showNotRequired,setShowNotRequired]=useState(false);
   const [selectedDocuments,setSelectedDocuments]=useState([]);
-  const includedItems = items.filter((item) => item.applied);
-  const notRequiredItems = items.filter((item) => !item.applied);
-  const obtainedCount = includedItems.filter((item) => item.obtained).length;
-  const visibleItems = showNotRequired ? items : includedItems;
-
-  function handleAddCustomItem() {
-    const added = addCustomItem(customItemName);
-    if (added !== false) setCustomItemName('');
-  }
-
-  return (
-    <section className="sub-panel document-checklist-panel">
-      <div className="calm-document-bulk"><label><input type="checkbox" checked={includedItems.length>0&&includedItems.every(i=>selectedDocuments.includes(i.id))} onChange={e=>setSelectedDocuments(e.target.checked?includedItems.map(i=>i.id):[])}/>Select required documents</label>{selectedDocuments.length>0&&<><span>{selectedDocuments.length} selected</span><button type="button" className="btn mini" onClick={()=>{selectedDocuments.forEach(id=>updateItem(id,{obtained:true}));setSelectedDocuments([]);}}>Mark obtained</button><button type="button" className="btn mini" onClick={()=>{selectedDocuments.forEach(id=>updateItem(id,{obtained:false}));setSelectedDocuments([]);}}>Mark outstanding</button></>}</div>
-      <div className="sub-panel-head">
-        <div>
-          <h2>Document checklist</h2>
-          <p className="muted">Keep the active checklist lean. Not-required items are hidden unless you choose to review them.</p>
-        </div>
-        <div className="document-checklist-actions">
-          <span className="workload-count">{obtainedCount}/{includedItems.length} obtained</span>
-          {!!notRequiredItems.length && <button className="btn secondary" type="button" onClick={() => setShowNotRequired((value) => !value)}>{showNotRequired ? 'Hide not required' : `Show ${notRequiredItems.length} not required`}</button>}
-        </div>
+  const includedItems=items.filter(item=>item.applied),notRequiredItems=items.filter(item=>!item.applied);
+  const selected=includedItems.filter(item=>selectedDocuments.includes(item.id));
+  const visibleItems=showNotRequired?items:includedItems;
+  function add(){const added=addCustomItem(customItemName);if(added!==false)setCustomItemName('');}
+  function setRequired(item,required){updateItem(item.id,{applied:required,obtained:required?item.obtained:false});if(!required){setSelectedDocuments(ids=>ids.filter(id=>id!==item.id));setShowNotRequired(true);}}
+  function bulk(obtained){selected.forEach(item=>updateItem(item.id,{obtained}));setSelectedDocuments([]);}
+  return <section className="sub-panel document-checklist-panel">
+    <div className="sub-panel-head"><div><h2>Document checklist</h2><p className="muted">Required means the document is needed for this application. Received means it has been obtained. These are separate choices.</p></div><div className="document-checklist-actions"><span className="workload-count">{includedItems.filter(item=>item.obtained).length}/{includedItems.length} received</span>{!!notRequiredItems.length&&<button className="btn secondary" type="button" onClick={()=>setShowNotRequired(value=>!value)}>{showNotRequired?'Hide not required':`Show ${notRequiredItems.length} not required`}</button>}</div></div>
+    <div className="custom-document-add-row"><input aria-label="New document name" value={customItemName} onChange={event=>setCustomItemName(event.target.value)} onKeyDown={event=>{if(event.key==='Enter'){event.preventDefault();add();}}} placeholder="Add custom document item"/><button className="btn" type="button" onClick={add}><Plus size={16}/>Add document</button></div>
+    <div className="calm-document-bulk s53-bulk"><label><input type="checkbox" checked={includedItems.length>0&&selected.length===includedItems.length} onChange={event=>setSelectedDocuments(event.target.checked?includedItems.map(item=>item.id):[])}/>Select required documents for bulk update</label>{selected.length>0&&<><span>{selected.length} selected</span><button type="button" className="btn" onClick={()=>bulk(true)}>Mark received</button><button type="button" className="btn" onClick={()=>bulk(false)}>Mark outstanding</button></>}</div>
+    <div className="s53-document-list">{visibleItems.map(item=><article className={`s53-document-card ${!item.applied?'s53-not-required':''}`} key={item.id}>
+      <div className="s53-item-heading"><div className="s53-item-name">{item.custom?<label>Document name<input aria-label={`Document name: ${item.name}`} value={item.name} onChange={event=>updateItem(item.id,{name:event.target.value})}/></label>:<strong>{item.name}</strong>}<small>{!item.applied?'Not required for this application':item.obtained?'Received':'Outstanding — still to obtain'}</small></div>{item.custom&&<button className="btn" type="button" aria-label={`Remove ${item.name}`} onClick={()=>removeCustomItem(item.id)}><Trash2 size={16}/></button>}</div>
+      <div className="s53-control-grid"><label><span>Needed for this application</span><select aria-label={`Required: ${item.name}`} value={item.applied?'yes':'no'} onChange={event=>setRequired(item,event.target.value==='yes')}><option value="yes">Required</option><option value="no">Not required</option></select></label>
+        <label><span>Document status</span><select aria-label={`Document status: ${item.name}`} disabled={!item.applied} value={!item.applied?'not-required':item.obtained?'received':'outstanding'} onChange={event=>updateItem(item.id,{obtained:event.target.value==='received'})}>{!item.applied&&<option value="not-required">Not required</option>}<option value="outstanding">Outstanding</option><option value="received">Received</option></select></label>
+        {item.applied&&<><label><span>Expiry date <small>(if applicable)</small></span><input type="date" aria-label={`Expiry date: ${item.name}`} value={item.expiryDate||''} onChange={event=>updateItem(item.id,{expiryDate:event.target.value})}/></label>
+        <label><span>Expiry follow-up</span><select aria-label={`Expiry follow-up: ${item.name}`} value={isDashboardDateShown({...item,type:`Document Expiry: ${item.name}`,source:'document-expiry'})?'show':'hide'} onChange={event=>updateItem(item.id,{actionStatus:dashboardActionStatusFromChecked(event.target.value==='show'),reviewDate:''})}><option value="hide">Do not show on dashboard</option><option value="show">Show on dashboard</option></select></label></>}
       </div>
-      <div className="custom-document-add-row">
-        <input value={customItemName} onChange={(event) => setCustomItemName(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); handleAddCustomItem(); } }} placeholder="Add custom document item" />
-        <button className="btn" type="button" onClick={handleAddCustomItem}><Plus size={16} />Add document</button>
-      </div>
-      <div className="document-checklist-list">
-        {visibleItems.map((item) => (
-          item.applied ? (
-            <div className="document-checklist-row" key={item.id}><input type="checkbox" aria-label={`Select ${item.name}`} checked={selectedDocuments.includes(item.id)} onChange={e=>setSelectedDocuments(ids=>e.target.checked?[...ids,item.id]:ids.filter(id=>id!==item.id))}/>
-              <label className="doc-include"><input type="checkbox" checked={item.applied} onChange={(event) => updateItem(item.id, { applied: event.target.checked, obtained: event.target.checked ? item.obtained : false })} /><span>Required</span></label>
-              <label className="doc-name"><span>Document</span>{item.custom ? <input value={item.name} onChange={(event) => updateItem(item.id, { name: event.target.value })} /> : <strong>{item.name}</strong>}</label>
-              <label className="doc-expiry"><span>Expiry date</span><input type="date" value={item.expiryDate || ''} onChange={(event) => updateItem(item.id, { expiryDate: event.target.value })} /></label>
-              <label className="doc-dashboard dashboard-date-toggle"><input type="checkbox" checked={isDashboardDateShown({ ...item, type: `Document Expiry: ${item.name}`, source: 'document-expiry' })} onChange={(event) => updateItem(item.id, { actionStatus: dashboardActionStatusFromChecked(event.target.checked), reviewDate: '' })} /><span>Show on dashboard</span></label>
-              <label className="doc-obtained"><input type="checkbox" checked={item.obtained} onChange={(event) => updateItem(item.id, { obtained: event.target.checked })} /><span>Obtained</span></label>
-              <button className="icon-btn" type="button" disabled={!item.custom} onClick={() => removeCustomItem(item.id)} title={item.custom ? 'Remove custom checklist item' : 'Standard item can be marked not required, not deleted'}><Trash2 size={16} /></button>
-            </div>
-          ) : (
-            <div className="document-checklist-row muted-row document-checklist-row-hidden" key={item.id}>
-              <label className="doc-include"><input type="checkbox" checked={item.applied} onChange={(event) => updateItem(item.id, { applied: event.target.checked })} /><span>Required</span></label>
-              <div className="doc-hidden-name"><span>Document</span><strong>{item.name}</strong><small>Not required for this application</small></div>
-              {item.custom ? <button className="icon-btn" type="button" onClick={() => removeCustomItem(item.id)} title="Remove custom checklist item"><Trash2 size={16} /></button> : <span className="doc-hidden-spacer" aria-hidden="true" />}
-            </div>
-          )
-        ))}
-        {!visibleItems.length && <p className="muted center">No required document items selected yet. Use “Show not required” to add standard items back in.</p>}
-      </div>
-    </section>
-  );
+      {item.applied&&<label className="s53-bulk-item"><input type="checkbox" aria-label={`Select ${item.name} for bulk update`} checked={selectedDocuments.includes(item.id)} onChange={event=>setSelectedDocuments(ids=>event.target.checked?[...ids,item.id]:ids.filter(id=>id!==item.id))}/>Select for bulk update</label>}
+    </article>)}{!visibleItems.length&&<p className="muted center">No required documents. Choose Show not required to include an existing item, or add a custom document.</p>}</div>
+  </section>;
 }
 
 function TasksDashboard({ taskRows, personalTasks, allClients, advisers, dashboardAdviserFilter, savePersonalTask, deletePersonalTask, saveCalendarEntry, deleteCalendarEntry, saving, setTab, setSelectedClientId, openClientRecord }) {

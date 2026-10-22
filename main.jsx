@@ -38,3 +38,5 @@ if ('serviceWorker' in navigator) {
 }
 
 createRoot(document.getElementById('root')).render(<App />);
+
+import './src/ui/checklists.css';

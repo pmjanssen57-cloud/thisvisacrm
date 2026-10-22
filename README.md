@@ -1,10 +1,10 @@
-# THiS CRM v0.17.52 — Intake review layout fix
+# THiS CRM v0.17.53 — Clear document and stage controls
 
-Built from v0.17.51, preserving the people-first Instructions Studio.
-Intake review flags, action buttons and email results now occupy separate rows.
-Buttons use readable responsive columns, and confirmations/errors wrap beneath them.
+Built from confirmed v0.17.52. Document inclusion and received status now use separate,
+labelled choices. Stages separate applicability, progress and completion date; core
+stages clearly remain required. Layouts no longer depend on the overlapping checkbox grid.
 
-No new migration or schema change. All 48 migrations, 24 Netlify modules and both
-Studio document engines are unchanged. Use the existing Netlify SOURCE build workflow:
-yarn build; publish dist; functions netlify/functions; Node 20.19. Nothing deployed.
-See RELEASE.txt and VALIDATION.txt. Earlier guides remain historical.
+Includes the earlier intake-review layout fix and people-first Instructions Studio.
+No migration or schema change. All 48 migrations and 24 Netlify modules are unchanged.
+Use the existing Netlify SOURCE workflow: yarn build; publish dist; functions
+netlify/functions; Node 20.19. Nothing deployed. See RELEASE.txt and VALIDATION.txt.
