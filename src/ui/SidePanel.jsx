@@ -2,7 +2,7 @@ import React, { useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
-export function SidePanel({ title, subtitle, children, footer, onClose, dirty = false, busy = false, wide = false }) {
+export function SidePanel({ title, subtitle, children, footer, onClose, dirty = false, busy = false, wide = false, className = '' }) {
   const ref = useRef(null);
   const titleId = useId();
   const closeRef = useRef(null);
@@ -14,11 +14,13 @@ export function SidePanel({ title, subtitle, children, footer, onClose, dirty = 
   useEffect(() => {
     const previous = document.activeElement;
     const overflow = document.body.style.overflow;
+    const previousReserve = document.body.style.getPropertyValue('--calm-panel-reserve');
     document.body.style.overflow = 'hidden';
     const syncViewport = () => {
       const viewport = window.visualViewport;
       ref.current?.parentElement?.style.setProperty('--calm-panel-height', (viewport?.height || window.innerHeight) + 'px');
       ref.current?.parentElement?.style.setProperty('--calm-panel-top', (viewport?.offsetTop || 0) + 'px');
+      document.body.style.setProperty('--calm-panel-reserve', ((ref.current?.getBoundingClientRect().width || 460) + 32) + 'px');
       document.body.classList.toggle('calm-panel-docked', !wide && window.innerWidth >= 1400);
     };
     syncViewport();
@@ -39,9 +41,9 @@ export function SidePanel({ title, subtitle, children, footer, onClose, dirty = 
       else if (!event.shiftKey && (document.activeElement === last || document.activeElement === panel)) { event.preventDefault(); first.focus(); }
     };
     document.addEventListener('keydown', handler);
-    return () => { document.body.style.overflow = overflow; document.body.classList.remove('calm-panel-docked'); window.removeEventListener('resize', syncViewport); window.visualViewport?.removeEventListener('resize', syncViewport); window.visualViewport?.removeEventListener('scroll', syncViewport); document.removeEventListener('keydown', handler); if (previous?.isConnected) previous.focus(); };
+    return () => { document.body.style.overflow = overflow; if (previousReserve) document.body.style.setProperty('--calm-panel-reserve', previousReserve); else document.body.style.removeProperty('--calm-panel-reserve'); document.body.classList.remove('calm-panel-docked'); window.removeEventListener('resize', syncViewport); window.visualViewport?.removeEventListener('resize', syncViewport); window.visualViewport?.removeEventListener('scroll', syncViewport); document.removeEventListener('keydown', handler); if (previous?.isConnected) previous.focus(); };
   }, []);
-  return createPortal(<div className={`calm-panel-layer ${wide ? 'calm-panel-wide' : ''}`}>
+  return createPortal(<div className={`calm-panel-layer ${wide ? 'calm-panel-wide' : ''} ${className}`}>
     <div className="calm-panel-scrim" onMouseDown={() => closeRef.current?.()} aria-hidden="true" />
     <section ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={titleId} className="calm-side-panel">
       <header className="calm-panel-heading"><div><h2 id={titleId}>{title}</h2>{subtitle && <p>{subtitle}</p>}</div><button type="button" className="calm-icon-button" aria-label="Close panel" disabled={busy} onClick={() => closeRef.current?.()}><X size={19}/></button></header>

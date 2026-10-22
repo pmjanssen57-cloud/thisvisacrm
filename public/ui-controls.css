@@ -146,3 +146,8 @@
  .precision-schedule-only .precision-appointments { max-width:none; }
  .calm-work-page .calm-work-next small { color:#536b65; line-height:1.5; }
 }
+
+@media screen {
+ .calm-panel-matter .calm-side-panel { width:min(640px,100vw); }
+ body.calm-panel-docked .calm-ui > .layout { padding-right:var(--calm-panel-reserve,492px)!important; }
+}

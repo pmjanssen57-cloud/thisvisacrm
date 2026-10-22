@@ -14766,7 +14766,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.59" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.60" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -15358,7 +15358,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.59" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.60" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}
@@ -21065,7 +21065,7 @@ function CalmMatterUpdate({ client, adviser, advisers = [], onClose, onOpenFullC
     } catch(err){setError(err.message||'Unable to save. Your changes are still here.');setBusy(false);}
   }
   const keyDate=(client.deadlines||[]).filter(d=>d.date&&!d.completed&&d.actionStatus!=='Dismissed').sort((a,b)=>String(a.date).localeCompare(String(b.date)))[0]||(client.accreditationExpiryDate?{date:client.accreditationExpiryDate,type:'Accreditation expiry'}:null);
-  return <SidePanel title="Update matter" subtitle={`${clientName(client)} · ${client.caseType || 'Matter'}`} onClose={onClose} dirty={changed} busy={busy||saving} footer={<><button type="button" className="btn" disabled={busy||saving} onClick={()=>{if(!changed||window.confirm('Discard unsaved changes?'))onClose?.();}}>Cancel</button><button type="button" className="btn dark" disabled={busy||saving} onClick={save}>{busy||saving?'Saving…':onReturnToWork?'Save & return to work':'Save changes'}</button></>}>
+  return <SidePanel className="calm-panel-matter" title="Update matter" subtitle={`${clientName(client)} · ${client.caseType || 'Matter'}`} onClose={onClose} dirty={changed} busy={busy||saving} footer={<><button type="button" className="btn" disabled={busy||saving} onClick={()=>{if(!changed||window.confirm('Discard unsaved changes?'))onClose?.();}}>Cancel</button><button type="button" className="btn dark" disabled={busy||saving} onClick={save}>{busy||saving?'Saving…':onReturnToWork?'Save & return to work':'Save changes'}</button></>}>
     {onOpenFullClient&&<section className="matter-working-snapshot" aria-label="Matter snapshot"><h3>Working snapshot</h3><dl>
       <div><dt>Current stage</dt><dd>{currentStageLabel(client)}</dd></div>
       <div><dt>Matter status</dt><dd>{normaliseMatterStatus(client.matterStatus,client.clientStatus,client.nextAction)}</dd></div>
