@@ -221,7 +221,7 @@
   }
 
   async function endConversation() {
-    if (!window.confirm('End this conversation?')) return;
+    if (!(await window.THIS_DIALOG.confirm({message:'End this conversation?'}))) return;
     try {
       const result = await api('/.netlify/functions/chat', { method: 'POST', headers: { 'x-chat-token': session.token }, body: JSON.stringify({ action: 'closeVisitor', token: session.token }) });
       conversation = mergeConversation(result.conversation);

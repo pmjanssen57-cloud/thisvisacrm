@@ -6,9 +6,9 @@ export function SidePanel({ title, subtitle, children, footer, onClose, dirty = 
   const ref = useRef(null);
   const titleId = useId();
   const closeRef = useRef(null);
-  closeRef.current = () => {
+  closeRef.current = async () => {
     if (busy) return;
-    if (dirty && !window.confirm('Discard unsaved changes?')) return;
+    if (dirty && !(await window.THIS_DIALOG.confirm({message:'Discard unsaved changes?'}))) return;
     onClose?.();
   };
   useEffect(() => {

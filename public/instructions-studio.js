@@ -893,10 +893,10 @@ function bindEvents() {
   $$('input[name="outputMode"]').forEach(input=>input.addEventListener('change',event=>{state.outputMode=event.target.value;renderOutputSummary();}));
   $$('.segmented[data-zoom]').forEach(button=>button.addEventListener('click',()=>{ zoomMode=button.dataset.zoom==='100'?'100':'fit'; $$('.segmented[data-zoom]').forEach(item=>item.classList.toggle('active',item===button)); renderPreview(); }));
   $('#toggle-inline-edit').addEventListener('click',()=>{ inlineEditMode=!inlineEditMode; renderPreview(); });
-  $('#reset-inline-edits').addEventListener('click',()=>{
+  $('#reset-inline-edits').addEventListener('click',async ()=>{
     const edits = state.inlineEdits?.[state.selectedDoc] || {};
     if (!Object.keys(edits).length) { showToast('There are no client text edits to reset'); return; }
-    if (confirm('Reset all direct text edits in this guide to the master wording?')) {
+    if ((await window.THIS_DIALOG.confirm({message:'Reset all direct text edits in this guide to the master wording?'}))) {
       state.inlineEdits[state.selectedDoc] = {};
       renderPreview();
       $('#save-status').textContent = 'Draft not saved';
@@ -914,7 +914,7 @@ function bindEvents() {
   $('#cancel-publish').addEventListener('click',closeModal);
   $('#confirm-publish').addEventListener('click',()=>{closeModal();showToast('Instructions marked ready');});
   $('#publish-modal').addEventListener('click',event=>{if(event.target.id==='publish-modal')closeModal();});
-  $('#reset-draft').addEventListener('click',()=>{if(confirm('Reset this instruction draft to its original content?')){THIS_LOCAL_STORAGE.removeItem(STORAGE_KEY);LEGACY_STORAGE_KEYS.forEach(key => THIS_LOCAL_STORAGE.removeItem(key));state=cloneDefault();renderAll();showToast('Instruction draft reset');}});
+  $('#reset-draft').addEventListener('click',async ()=>{if((await window.THIS_DIALOG.confirm({message:'Reset this instruction draft to its original content?'}))){THIS_LOCAL_STORAGE.removeItem(STORAGE_KEY);LEGACY_STORAGE_KEYS.forEach(key => THIS_LOCAL_STORAGE.removeItem(key));state=cloneDefault();renderAll();showToast('Instruction draft reset');}});
 }
 
 
@@ -1111,9 +1111,9 @@ function bindEvents() {
   $('#document-title').addEventListener('input',event=>{state.docs[state.selectedDoc].coverTitle=event.target.value;renderPreview();renderDocumentLists();}); $('#document-intro').addEventListener('input',event=>{state.docs[state.selectedDoc].intro=event.target.value;renderPreview();}); $('#case-note').addEventListener('input',event=>{state.docs[state.selectedDoc].caseNote=event.target.value;renderPreview();}); $('#enable-all-blocks').addEventListener('click',()=>{state.docs[state.selectedDoc].blocks.forEach(block=>block.enabled=true);renderAll();});
   $('#cover-upload').addEventListener('change',event=>{const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{state.docs[state.selectedDoc].hero=reader.result;renderPreview();showToast('Cover image replaced for this draft');};reader.readAsDataURL(file);});
   $('#edit-client-shortcut').addEventListener('click',()=>$('.editor-tab[data-tab="client"]').click()); $$('input[name="outputMode"]').forEach(input=>input.addEventListener('change',event=>{state.outputMode=event.target.value;renderOutputSummary();}));
-  $$('.segmented[data-zoom]').forEach(button=>button.addEventListener('click',()=>{zoomMode=button.dataset.zoom==='100'?'100':'fit';$$('.segmented[data-zoom]').forEach(item=>item.classList.toggle('active',item===button));renderPreview();})); $('#toggle-inline-edit').addEventListener('click',()=>{inlineEditMode=!inlineEditMode;renderPreview();}); $('#reset-inline-edits').addEventListener('click',()=>{const edits=state.inlineEdits?.[state.selectedDoc]||{};if(!Object.keys(edits).length){showToast('There are no client text edits to reset');return;}if(confirm('Reset all direct text edits in this guide to the master wording?')){state.inlineEdits[state.selectedDoc]={};renderPreview();showToast('Client text edits reset');}});
+  $$('.segmented[data-zoom]').forEach(button=>button.addEventListener('click',()=>{zoomMode=button.dataset.zoom==='100'?'100':'fit';$$('.segmented[data-zoom]').forEach(item=>item.classList.toggle('active',item===button));renderPreview();})); $('#toggle-inline-edit').addEventListener('click',()=>{inlineEditMode=!inlineEditMode;renderPreview();}); $('#reset-inline-edits').addEventListener('click',async ()=>{const edits=state.inlineEdits?.[state.selectedDoc]||{};if(!Object.keys(edits).length){showToast('There are no client text edits to reset');return;}if((await window.THIS_DIALOG.confirm({message:'Reset all direct text edits in this guide to the master wording?'}))){state.inlineEdits[state.selectedDoc]={};renderPreview();showToast('Client text edits reset');}});
   $('#issue-name').addEventListener('input',event=>state.issueName=event.target.value); $('#prepared-date').addEventListener('input',event=>{state.preparedDate=event.target.value;renderPreview();}); $('#content-status').addEventListener('change',event=>state.contentStatus=event.target.value); $('#save-draft').addEventListener('click',saveDraft); $('#export-json').addEventListener('click',exportJson); $('#print-pack').addEventListener('click',preparePrint); $('#publish-pack').addEventListener('click',openPublishModal); $('#close-modal').addEventListener('click',closeModal); $('#cancel-publish').addEventListener('click',closeModal); $('#confirm-publish').addEventListener('click',()=>{closeModal();showToast('Instructions marked ready');}); $('#publish-modal').addEventListener('click',event=>{if(event.target.id==='publish-modal')closeModal();});
-  $('#reset-draft').addEventListener('click',()=>{if(confirm(`Reset the ${currentPack().title} sample draft?`)){workspaceDrafts[activePackId]=createPackState(activePackId);state=workspaceDrafts[activePackId];saveWorkspace();renderAll();showToast('Pack draft reset');}});
+  $('#reset-draft').addEventListener('click',async ()=>{if((await window.THIS_DIALOG.confirm({message:`Reset the ${currentPack().title} sample draft?`}))){workspaceDrafts[activePackId]=createPackState(activePackId);state=workspaceDrafts[activePackId];saveWorkspace();renderAll();showToast('Pack draft reset');}});
 }
 
 
@@ -1590,8 +1590,8 @@ function renderNumberingEditorV13() {
     row.querySelector('[data-timeline-mode]').addEventListener('change', event => { target.mode = event.target.value; row.querySelector('[data-timeline-label]').hidden = target.mode !== 'manual'; $('#save-status').textContent='Draft not saved'; renderPreview(); });
     row.querySelector('[data-timeline-label]').addEventListener('input', event => { target.label = event.target.value; $('#save-status').textContent='Draft not saved'; renderPreview(); });
   });
-  if ($('#reset-numbering-v13')) $('#reset-numbering-v13').onclick = () => {
-    if (!confirm('Reset heading and step numbering for this guide?')) return;
+  if ($('#reset-numbering-v13')) $('#reset-numbering-v13').onclick = async () => {
+    if (!(await window.THIS_DIALOG.confirm({message:'Reset heading and step numbering for this guide?'}))) return;
     delete doc.numbering;
     delete doc.timelineSettings;
     ensureDocNumberingV13(doc);
@@ -1778,14 +1778,14 @@ function renderTemplateFormV13() {
   $('#template-form-v13').querySelector('[data-template-number-mode]')?.addEventListener('change', event => { ensureDocNumberingV13(doc); doc.numbering.blocks[block.id].mode = event.target.value; markTemplateDirtyV13(); renderTemplateFormV13(); renderTemplatePreviewV13(); });
   $('#template-form-v13').querySelector('[data-template-number-label]')?.addEventListener('input', event => { ensureDocNumberingV13(doc); doc.numbering.blocks[block.id].label = event.target.value; markTemplateDirtyV13(); renderTemplatePreviewV13(); });
   $('#template-duplicate-block-v13')?.addEventListener('click', () => { const index=doc.blocks.findIndex(item=>item.id===block.id); const copy=cloneV13(block); copy.id=`${block.id}-copy-${Date.now()}`; copy.title=`${block.title} copy`; doc.blocks.splice(index+1,0,copy); ensureDocNumberingV13(doc); templateEditorStateV13.blockId=copy.id; markTemplateDirtyV13(); renderTemplateEditorV13(); });
-  $('#template-delete-block-v13')?.addEventListener('click', () => { if(!confirm(`Delete the section “${block.title}” from the template draft?`)) return; doc.blocks=doc.blocks.filter(item=>item.id!==block.id); delete doc.numbering?.blocks?.[block.id]; delete doc.timelineSettings?.[block.id]; templateEditorStateV13.blockId=doc.blocks[0]?.id||null; markTemplateDirtyV13(); renderTemplateEditorV13(); });
+  $('#template-delete-block-v13')?.addEventListener('click', async () => { if(!(await window.THIS_DIALOG.confirm({message:`Delete the section “${block.title}” from the template draft?`}))) return; doc.blocks=doc.blocks.filter(item=>item.id!==block.id); delete doc.numbering?.blocks?.[block.id]; delete doc.timelineSettings?.[block.id]; templateEditorStateV13.blockId=doc.blocks[0]?.id||null; markTemplateDirtyV13(); renderTemplateEditorV13(); });
 }
 
 function markTemplateDirtyV13() { $('#template-draft-status-v13').textContent='Draft · unsaved'; }
 function renderTemplateVersionsV13() {
   const versions = [...templateEntryV13().versions].reverse();
   $('#template-version-list-v13').innerHTML = versions.map((version,index) => `<div class="template-version-row-v13"><div><strong>${escapeHtml(version.id)}</strong><span>${new Date(version.createdAt).toLocaleString('en-NZ')}</span><small>${escapeHtml(version.note||'No change note')}</small></div><button class="text-button" data-restore-version-v13="${templateEntryV13().versions.length-1-index}">Restore</button></div>`).join('');
-  $('#template-version-list-v13').querySelectorAll('[data-restore-version-v13]').forEach(button => button.addEventListener('click', event => { const version=templateEntryV13().versions[Number(event.currentTarget.dataset.restoreVersionV13)]; if(!confirm(`Restore ${version.id} into the editable draft?`))return; templateEntryV13().draft=cloneV13(version.snapshot); saveTemplateLibraryV13(); renderTemplateEditorV13(); }));
+  $('#template-version-list-v13').querySelectorAll('[data-restore-version-v13]').forEach(button => button.addEventListener('click', async event => { const version=templateEntryV13().versions[Number(event.currentTarget.dataset.restoreVersionV13)]; if(!(await window.THIS_DIALOG.confirm({message:`Restore ${version.id} into the editable draft?`})))return; templateEntryV13().draft=cloneV13(version.snapshot); saveTemplateLibraryV13(); renderTemplateEditorV13(); }));
 }
 function renderTemplatePreviewV13() {
   const packId = templateEditorStateV13.packId;
@@ -1833,7 +1833,7 @@ function useTemplateDraftInSampleV13() {
   closeTemplateEditorV13();
   showToast('Template draft applied to the current sample.');
 }
-function resetTemplateDraftV13() { if(!confirm('Discard draft template changes and return to the published version?'))return; const entry=templateEntryV13(); entry.draft=cloneV13(entry.published); saveTemplateLibraryV13(); renderTemplateEditorV13(); }
+async function resetTemplateDraftV13() { if(!(await window.THIS_DIALOG.confirm({message:'Discard draft template changes and return to the published version?'})))return; const entry=templateEntryV13(); entry.draft=cloneV13(entry.published); saveTemplateLibraryV13(); renderTemplateEditorV13(); }
 function addTemplateBlockV13() { const doc=selectedTemplateDocV13(); const id=`section-${Date.now()}`; doc.blocks.push({id,title:'New section',note:'',templateHtml:'<p>Add the client-facing guidance for this section.</p>',enabled:true,shared:false,forcePage:false}); ensureDocNumberingV13(doc); templateEditorStateV13.blockId=id; markTemplateDirtyV13(); renderTemplateEditorV13(); }
 function moveTemplateBlockV13(blockId,direction) { const doc=selectedTemplateDocV13(); const index=doc.blocks.findIndex(item=>item.id===blockId); const target=direction==='up'?index-1:index+1; if(index<0||target<0||target>=doc.blocks.length)return; [doc.blocks[index],doc.blocks[target]]=[doc.blocks[target],doc.blocks[index]]; markTemplateDirtyV13(); renderTemplateEditorV13(); }
 
@@ -2173,10 +2173,10 @@ function redoTemplateInlineV14() {
   showToast('Direct template edit restored');
 }
 
-function resetTemplateInlineV14() {
+async function resetTemplateInlineV14() {
   const doc = selectedTemplateDocV13();
   if (!doc || templateDirectEditCountV14(doc) === 0) return;
-  if (!confirm('Reset all direct preview text edits in this guide? Structured template wording and settings will remain unchanged.')) return;
+  if (!(await window.THIS_DIALOG.confirm({message:'Reset all direct preview text edits in this guide? Structured template wording and settings will remain unchanged.'}))) return;
   recordTemplateInlineHistoryV14();
   delete doc.directEdits;
   (doc.blocks || []).forEach(block => delete block.directEdits);
@@ -2675,8 +2675,8 @@ bindEvents();
         renderPreview();
       });
     });
-    panel.querySelector('#restore-glance-values-v154')?.addEventListener('click', () => {
-      if (!confirm('Restore all Application at a glance values from the linked client and application data?')) return;
+    panel.querySelector('#restore-glance-values-v154')?.addEventListener('click', async () => {
+      if (!(await window.THIS_DIALOG.confirm({message:'Restore all Application at a glance values from the linked client and application data?'}))) return;
       delete state.glanceValueOverrides?.[docId];
       document.querySelector('#save-status').textContent = 'Draft not saved';
       renderClientForm();
@@ -4127,8 +4127,8 @@ bindEvents();
       renderPreview();
       document.querySelector('#preview-root')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
-    panel.querySelector('#roadmap-restore-v156')?.addEventListener('click', () => {
-      if (!confirm('Restore the Road Map to the current THiS master wording? Client-specific Road Map text edits will be removed.')) return;
+    panel.querySelector('#roadmap-restore-v156')?.addEventListener('click', async () => {
+      if (!(await window.THIS_DIALOG.confirm({message:'Restore the Road Map to the current THiS master wording? Client-specific Road Map text edits will be removed.'}))) return;
       state.docs.roadmap = clone156(packHolderV156(activePackId).docs.roadmap);
       state.inlineEdits = state.inlineEdits || {};
       state.inlineEdits.roadmap = {};
@@ -4705,11 +4705,11 @@ bindEvents();
     showToast('Standard wording restored');
   }
 
-  function removeAddedSectionV01743(index) {
+  async function removeAddedSectionV01743(index) {
     const doc = currentDocV01743();
     const block = doc?.blocks?.[Number(index)];
     if (!block || (!block.customSectionV01743 && !block.sourceModuleIdV01743)) return;
-    if (!confirm(`Remove “${block.title}” from this client guide?`)) return;
+    if (!(await window.THIS_DIALOG.confirm({message:`Remove “${block.title}” from this client guide?`}))) return;
     doc.blocks.splice(Number(index), 1);
     markBuilderDirtyV01743();
     renderEditor(); renderPreview(); renderDocumentLists();
@@ -4760,7 +4760,7 @@ bindEvents();
       if ((block.customSectionV01743 || block.sourceModuleIdV01743) && !actions.querySelector('[data-remove-added-v01743]')) {
         const remove = document.createElement('button');
         remove.type='button'; remove.className='block-action-v01743 remove'; remove.dataset.removeAddedV01743=String(index); remove.textContent='Remove';
-        remove.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); removeAddedSectionV01743(index); });
+        remove.addEventListener('click', async event => { event.preventDefault(); event.stopPropagation(); (await removeAddedSectionV01743(index)); });
         actions.appendChild(remove);
       }
     });
@@ -4791,7 +4791,7 @@ bindEvents();
       if(copy && !copy.querySelector('.module-source-pill-v01743')) { const pill=document.createElement('em'); pill.className='module-source-pill-v01743'; pill.textContent=blockSourceLabelV01743(block); copy.appendChild(pill); }
       const actions=row.querySelector(':scope > div'); if(!actions) return;
       if(!actions.querySelector('[data-roadmap-tailor-v01743]')) { const b=document.createElement('button'); b.type='button'; b.className='text-button roadmap-tailor-v01743'; b.dataset.roadmapTailorV01743=String(index); b.textContent='Tailor'; b.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();openTailorV01743(index);}); actions.appendChild(b); }
-      if((block.customSectionV01743||block.sourceModuleIdV01743)&&!actions.querySelector('[data-roadmap-remove-v01743]')) { const b=document.createElement('button'); b.type='button'; b.className='text-button roadmap-remove-v01743'; b.dataset.roadmapRemoveV01743=String(index); b.textContent='Remove'; b.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();removeAddedSectionV01743(index);}); actions.appendChild(b); }
+      if((block.customSectionV01743||block.sourceModuleIdV01743)&&!actions.querySelector('[data-roadmap-remove-v01743]')) { const b=document.createElement('button'); b.type='button'; b.className='text-button roadmap-remove-v01743'; b.dataset.roadmapRemoveV01743=String(index); b.textContent='Remove'; b.addEventListener('click',async event=>{event.preventDefault();event.stopPropagation();(await removeAddedSectionV01743(index));}); actions.appendChild(b); }
     });
   }
 

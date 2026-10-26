@@ -1,3 +1,5 @@
+import './public/crm-dialog.js';
+import './public/crm-dialog.css';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.jsx';

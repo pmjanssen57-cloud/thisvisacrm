@@ -96,9 +96,9 @@
     if(!Array.isArray(m.sectionPeople[key]))m.sectionPeople[key]=[...m.introIds];
     return m.sectionPeople[key];
   }
-  function removePerson(personId) {
+  async function removePerson(personId) {
     const m=model(),person=m.people.find(p=>p.id===personId);
-    if(!confirm(`Remove ${nameOf(person)} from this instruction set and its document selections?`))return;
+    if(!(await window.THIS_DIALOG.confirm({message:`Remove ${nameOf(person)} from this instruction set and its document selections?`})))return;
     m.people=m.people.filter(p=>p.id!==personId);
     [m.recipientIds,m.introIds,...Object.values(m.sectionPeople),...Object.values(m.requirements).flat().map(r=>r.personIds)].forEach(list=>{for(let i=list.length-1;i>=0;i--)if(list[i]===personId)list.splice(i,1);});
     syncClientNames();dirty(false);renderAll();
@@ -115,7 +115,7 @@
       syncClientNames();dirty();
     }));
     root.querySelectorAll('[data-person-field]').forEach(input=>input.addEventListener('change',()=>{renderPeople();renderEditor();}));
-    root.querySelectorAll('[data-remove-person]').forEach(button=>button.addEventListener('click',()=>removePerson(button.dataset.removePerson)));
+    root.querySelectorAll('[data-remove-person]').forEach(button=>button.addEventListener('click',async ()=>(await removePerson(button.dataset.removePerson))));
     root.querySelectorAll('[data-add-person]').forEach(button=>button.addEventListener('click',()=>{
       const p={id:uid(),name:'',role:button.dataset.addPerson,dateOfBirth:''};m.people.push(p);m.introIds.push(p.id);dirty(false);renderPeople();renderEditor();renderPreview();
       const card=document.querySelector(`[data-person-card="${p.id}"]`);card?.querySelector('input')?.focus();document.querySelector('#s51-change-note').textContent='Person added. Check their name and review the document selections; existing requirements have not been assigned automatically.';
