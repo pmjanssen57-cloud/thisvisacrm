@@ -3624,7 +3624,7 @@ function mapPersonalTaskFromDb(row) {
     clientId: row.client_id || '',
     title: row.title || '',
     dueDate: toDateOnly(row.due_date),
-    status: row.status === 'Completed' ? 'Completed' : 'Open',
+    status: normalisePersonalTaskStatus(row.status),
     note: row.note || '',
   };
 }
@@ -6502,7 +6502,7 @@ function normaliseBillingTriggerType(value) {
 }
 
 function normalisePersonalTaskStatus(value) {
-  return String(value || '').trim() === 'Completed' ? 'Completed' : 'Open';
+  const status=String(value||'').trim();return ['Open','Completed','Silenced'].includes(status)?status:'Open';
 }
 
 function normalisePersonalTaskInput(input = {}) {

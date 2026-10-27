@@ -308,3 +308,46 @@
  .matter-action-history-popup > header,.matter-action-history-body { padding:16px; }
 }
 @media print { .matter-action-history-popup { display:none!important; } }
+
+@media screen {
+ .work-section-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin:24px 0 12px; }
+ .work-section-heading h2 { margin:0; font-size:19px; line-height:1.4; color:#163e36; font-weight:650; }
+ .work-section-heading > span,.work-secondary-toolbar > span { font-size:12px; line-height:1.5; color:#657b71; }
+ .work-secondary-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:12px; border-top:1px solid #dce6df; padding-top:18px; margin-top:24px; }
+ .work-item-list { display:grid; gap:10px; }
+ .work-item-card { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:start; gap:16px; border:1px solid #dce6df; background:white; border-radius:8px; padding:16px; min-width:0; }
+ .work-item-copy { min-width:0; }
+ .work-item-copy h3 { margin:5px 0; font-size:15px; line-height:1.5; font-weight:600; color:#173f37; overflow-wrap:anywhere; }
+ .work-item-copy p { font-size:12px; color:#647b6f; line-height:1.5; margin:5px 0 0; overflow-wrap:anywhere; }
+ .work-item-copy .work-item-note { color:#3f5d50; font-size:13px; white-space:pre-wrap; }
+ .work-kind { display:inline-block; background:#edf5f0; color:#436857; border-radius:5px; padding:3px 7px; font-size:11px; font-weight:600; line-height:1.4; }
+ .date-work-item .work-kind { background:#fff7e6; color:#786328; }
+ .work-quick-actions { display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end; max-width:410px; }
+ .work-quick-actions .btn { min-height:44px; padding:9px 12px; white-space:normal; }
+ .work-section-empty { padding:16px 0; color:#687f71; font-size:13px; margin:0; border-top:1px solid #e0e8e3; }
+ .work-section-help { margin:0 0 14px; font-size:13px; color:#647b6f; line-height:1.5; }
+ .work-reminder-group { border:1px solid #dce6df; border-radius:8px; margin:12px 0; overflow:hidden; min-width:0; }
+ .work-reminder-client { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px; background:#f7faf8; }
+ .work-reminder-client h3 { margin:0; font-size:15px; overflow-wrap:anywhere; }
+ .work-reminder-group .work-item-card { border:0; border-top:1px solid #e1e9e4; border-radius:0; }
+ .work-text-link { border:0; background:none; color:#126453; padding:5px 0 0; font:inherit; text-align:left; text-decoration:underline; cursor:pointer; }
+ .work-expiry-bulk { margin-top:12px; width:100%; }
+ .my-work-client-actions .precision-empty { min-height:80px; padding:20px 14px; justify-content:flex-start; gap:12px; }
+ .my-work-client-actions .precision-empty .precision-empty-actions { display:none; }
+ .my-work-client-actions .precision-empty .precision-empty-icon { width:32px; height:32px; flex:none; }
+ .my-work-client-actions .precision-empty strong { font-size:14px; }
+ .my-work-client-actions .precision-empty p { font-size:12px; margin:4px 0; }
+ .work-task-editor .form-grid.two { grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+ .work-task-editor form { min-width:0; }
+}
+@media screen and (max-width:1024px) {
+ .work-item-card { grid-template-columns:minmax(0,1fr); gap:12px; }
+ .work-quick-actions { justify-content:flex-start; max-width:none; }
+}
+@media screen and (max-width:480px) {
+ .work-quick-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); width:100%; }
+ .work-quick-actions .btn { width:100%; }
+ .work-item-card { padding:14px; }
+ .work-task-editor .form-grid.two { grid-template-columns:minmax(0,1fr); }
+ .work-secondary-toolbar .btn { width:100%; }
+}

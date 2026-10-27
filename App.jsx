@@ -3239,7 +3239,7 @@ export default function App() {
   }, [scopedClients]);
 
   const [workOwnership, setWorkOwnership] = useWorkspaceState(`work:role:${dashboardAdviserFilter}`, dashboardAdviserFilter === 'all' ? 'all' : 'primary');
-  const sidebarMyWorkCount = buildMyWorkGroups(activeMatterClients, dashboardAdviserFilter, workOwnership).due.length;
+  const sidebarMyWorkCount = useMemo(()=>{const groups=buildMyWorkGroups(activeMatterClients,dashboardAdviserFilter,workOwnership),extra=buildMyWorkExtras(groups.rows,data.personalTasks,dashboardAdviserFilter);return groups.due.length+extra.tasks.filter(t=>t.status==='Open'&&t.dueDate&&dateDiff(t.dueDate)<=0).length+extra.reminders.filter(isDashboardActionableDeadlineRow).length;},[activeMatterClients,data.personalTasks,dashboardAdviserFilter,workOwnership]);
   const sidebarNewEnquiryCount = buildEnquiryAttention(data.intakeEnquiries, data.employerQuestionnaires, data.seminarRegistrations, data.feedbackSubmissions, dashboardAdviserFilter).total;
 
   async function runPersonalQuickAction(actionId) {
@@ -3454,7 +3454,7 @@ export default function App() {
             )}
 
             {tab === 'work' && (
-              <CalmWorkDashboard onManageClient={openManageClient} ownership={workOwnership} setOwnership={setWorkOwnership} savePersonalTask={savePersonalTask} quickActions={<PersonalQuickActions actions={adviserPreferences.quickActions} onAction={runPersonalQuickAction} />} calendarEntries={scopedCalendarEntries} clients={activeMatterClients} advisers={data.advisers} scopeAdviserId={dashboardAdviserFilter} openClientRecord={openMatterRecord} setTab={switchTab} saveClient={saveMatterClient} saving={saving} actorAdviser={identityAdviser} />
+              <CalmWorkDashboard personalTasks={data.personalTasks} allClients={unifiedMatterClients} onManageClient={openManageClient} ownership={workOwnership} setOwnership={setWorkOwnership} savePersonalTask={savePersonalTask} quickActions={<PersonalQuickActions actions={adviserPreferences.quickActions} onAction={runPersonalQuickAction} />} calendarEntries={scopedCalendarEntries} clients={activeMatterClients} advisers={data.advisers} scopeAdviserId={dashboardAdviserFilter} openClientRecord={openMatterRecord} setTab={switchTab} saveClient={saveMatterClient} saving={saving} actorAdviser={identityAdviser} />
             )}
 
             {tab === 'clients' && (
@@ -4131,7 +4131,7 @@ function MatterCommandCentre({ client, advisers = [], caseTypes = [], calendarEn
         <div className="matter-identity"><div className="matter-client-avatar">{clientInitials(client)}</div><div><h1>{clientName(client)}</h1><p>{client.caseType || 'Matter'}{client.oneLawClientNumber ? ` · OneLaw ${client.oneLawClientNumber}` : ''}{primary?.name ? ` · ${primary.name}` : ' · Unassigned'}</p><span>{currentStageLabel(client)}</span></div></div>
         <div className="matter-command-actions simplified">
           <button className="btn matter-action-back" type="button" onClick={onBack}><ChevronRight size={15} style={{transform:'rotate(180deg)'}} />Back to clients</button>
-          <button className="btn dark matter-action-client" type="button" onClick={() => onOpenAdvanced?.('file')}><Pencil size={15} />Manage client</button>
+          <button className="btn dark matter-action-client" type="button" onClick={() => onOpenAdvanced?.('file')}><Pencil size={15} />Client record</button>
           <MatterActionMenu className="matter-action-more" label="More" items={advancedItems} />
         </div>
       </div>
@@ -4145,7 +4145,7 @@ function MatterCommandCentre({ client, advisers = [], caseTypes = [], calendarEn
       <div className="matter-primary-buttons"><button className="btn dark matter-main-update" type="button" onClick={() => setUpdateOpen(true)}><RefreshCw size={15} />Update matter</button><button className="btn" type="button" onClick={() => setRescheduleOpen(true)}><CalendarDays size={15} />Reschedule</button></div>
     </section>
 
-    <div className="matter-simple-principle"><Sparkles size={16}/><div><strong>Simple day-to-day workflow</strong><span>Record what happened, set what happens next and when you want to see the file again. Use Manage client for stages, documents and client details.</span></div></div>
+    <div className="matter-simple-principle"><Sparkles size={16}/><div><strong>Simple day-to-day workflow</strong><span>Record what happened, set what happens next and when you want to see the file again. Use Stages & documents or Client details for detailed changes.</span></div></div>
 
     <div className="matter-overview-grid simplified-overview">
       <div>
@@ -4153,7 +4153,7 @@ function MatterCommandCentre({ client, advisers = [], caseTypes = [], calendarEn
         <section className="panel matter-overview-card"><span className="eyebrow">Recent history</span><h2>Latest updates</h2><div className="matter-timeline compact">{activity.length ? activity.slice(0,6).map((item) => <div className="matter-timeline-row" key={item.id}><i></i><div><strong>{item.title}</strong><small>{[formatPortalDateTime(item.createdAt), item.createdBy, item.detail].filter(Boolean).join(' · ')}</small></div></div>) : <p className="muted">No matter activity recorded yet.</p>}</div></section>
       </div>
       <div>
-        <section className="panel matter-overview-card matter-tools-card"><h2>Manage client</h2><p>Open stages, documents and supporting tools directly.</p><div className="matter-tool-grid"><button type="button" onClick={() => onOpenAdvanced?.('documents')}><ListChecks size={17}/><span><b>Documents</b><small>{outstanding.length ? `${outstanding.length} outstanding` : 'Checklist clear'}</small></span></button><button type="button" onClick={() => onOpenAdvanced?.('billing')}><CreditCard size={17}/><span><b>Billing</b><small>{billingItems.length ? `${billingItems.length} milestones` : 'No milestones'}</small></span></button><button type="button" onClick={() => onOpenAdvanced?.('dates')}><CalendarDays size={17}/><span><b>Key dates</b><small>{deadlines[0]?.date ? formatRecordDate(deadlines[0].date) : 'No key dates'}</small></span></button><button type="button" onClick={() => onOpenAdvanced?.('stages')}><ArrowUpDown size={17}/><span><b>Stages</b><small>{currentStageLabel(client)}</small></span></button></div><button className="btn full" type="button" onClick={() => onOpenAdvanced?.('overview')}><Database size={15}/>Manage client details</button></section>
+        <section className="panel matter-overview-card matter-tools-card"><h2>Client record</h2><p>Open stages, documents and supporting tools directly.</p><div className="matter-tool-grid"><button type="button" onClick={() => onOpenAdvanced?.('documents')}><ListChecks size={17}/><span><b>Documents</b><small>{outstanding.length ? `${outstanding.length} outstanding` : 'Checklist clear'}</small></span></button><button type="button" onClick={() => onOpenAdvanced?.('billing')}><CreditCard size={17}/><span><b>Billing</b><small>{billingItems.length ? `${billingItems.length} milestones` : 'No milestones'}</small></span></button><button type="button" onClick={() => onOpenAdvanced?.('dates')}><CalendarDays size={17}/><span><b>Key dates</b><small>{deadlines[0]?.date ? formatRecordDate(deadlines[0].date) : 'No key dates'}</small></span></button><button type="button" onClick={() => onOpenAdvanced?.('stages')}><ArrowUpDown size={17}/><span><b>Stages</b><small>{currentStageLabel(client)}</small></span></button></div><button className="btn full" type="button" onClick={() => onOpenAdvanced?.('overview')}><Database size={15}/>Client details</button></section>
         <section className="panel matter-overview-card matter-portal-summary"><span className="eyebrow">Client portal</span><h2>{client.portalEnabled ? 'Portal ready when you update' : 'Portal not active'}</h2><p>{client.portalEnabled ? 'When you use Update matter, choose whether the update should be published and use the suggested wording or edit it.' : 'Portal publishing stays off until client access is enabled in Advanced editing.'}</p>{client.portalStatusUpdate && <div className="matter-latest-portal"><span>Latest client update</span><strong>{client.portalStatusUpdate}</strong></div>}</section>
       </div>
     </div>
@@ -14786,7 +14786,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.64" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.65" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -15378,7 +15378,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.64" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.65" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}
@@ -15894,7 +15894,7 @@ The portal is a secure, read-only space where you can check application updates,
 
   return (
     <div>
-      <header className="manage-client-heading"><div><button className="btn" type="button" onClick={onBackToClients}><ChevronRight size={15} style={{transform:'rotate(180deg)'}}/>Back to clients</button><h1>{clientName(draft)}</h1><p>Manage client · {draft.caseType||'Choose an application type'}</p></div><div className="manage-client-tools">{[['dates','Key dates'],['billing','Billing'],['portal','Portal'],['studio','Studio']].map(([key,label])=><button type="button" key={key} className={activeClientSection===key?'btn active':'btn'} onClick={()=>chooseSection(key)}>{label}</button>)}<details className="manage-client-more"><summary className="btn">More <ChevronDown size={14}/></summary><div><button type="button" className="btn" onClick={handlePrintClientProfile}>Print client profile</button><button type="button" className="btn" disabled={saving||isDirty||String(draft.id).startsWith('temp-')} onClick={()=>handleClientLifecycle(draft.clientStatus==='Closed'?'Active':'Closed')}>{draft.clientStatus==='Closed'?'Reopen client':'Close client'}</button><button type="button" className="btn danger" disabled={saving||isDirty||String(draft.id).startsWith('temp-')} onClick={()=>deleteClient(draft.id)}>Delete client</button></div></details></div></header>
+      <header className="manage-client-heading"><div><button className="btn" type="button" onClick={onBackToClients}><ChevronRight size={15} style={{transform:'rotate(180deg)'}}/>Back to clients</button><h1>{clientName(draft)}</h1><p>Client record · {draft.caseType||'Choose an application type'}</p></div><div className="manage-client-tools">{[['dates','Key dates'],['billing','Billing'],['portal','Portal'],['studio','Studio']].map(([key,label])=><button type="button" key={key} className={activeClientSection===key?'btn active':'btn'} onClick={()=>chooseSection(key)}>{label}</button>)}<details className="manage-client-more"><summary className="btn">More <ChevronDown size={14}/></summary><div><button type="button" className="btn" onClick={handlePrintClientProfile}>Print client profile</button><button type="button" className="btn" disabled={saving||isDirty||String(draft.id).startsWith('temp-')} onClick={()=>handleClientLifecycle(draft.clientStatus==='Closed'?'Active':'Closed')}>{draft.clientStatus==='Closed'?'Reopen client':'Close client'}</button><button type="button" className="btn danger" disabled={saving||isDirty||String(draft.id).startsWith('temp-')} onClick={()=>deleteClient(draft.id)}>Delete client</button></div></details></div></header>
       {draft.clientStatus === 'Closed' && <div className="client-closed-banner"><CheckCircle2 size={17} /><div><strong>Closed client record</strong><span>Saved dates and linked work remain on file but are excluded from dashboard and task queues until this client is reopened.</span></div></div>}
 
       {showActionLog && <NextActionLogModal client={draft} onClose={() => setShowActionLog(false)} />}
@@ -16592,11 +16592,11 @@ function PersonalTasksPanel({ personalTasks, allClients, advisers, dashboardAdvi
   }, [defaultAdviserId]);
 
   const visiblePersonalTasks = useMemo(() => personalTasks
-    .filter((task) => showCompleted || task.status !== 'Completed')
+    .filter((task) => showCompleted || task.status === 'Open')
     .sort((a, b) => (a.dueDate || '9999-12-31').localeCompare(b.dueDate || '9999-12-31')),
     [personalTasks, showCompleted]);
 
-  const openCount = personalTasks.filter((task) => task.status !== 'Completed').length;
+  const openCount = personalTasks.filter((task) => !['Completed','Silenced'].includes(task.status)).length;
 
   async function submit(event) {
     event.preventDefault();
@@ -16629,7 +16629,7 @@ function PersonalTasksPanel({ personalTasks, allClients, advisers, dashboardAdvi
       {expanded && (
         <>
           <div className="personal-task-options-row">
-            <label className="compact-check"><input type="checkbox" checked={showCompleted} onChange={(event) => setShowCompleted(event.target.checked)} />Show completed</label>
+            <label className="compact-check"><input type="checkbox" checked={showCompleted} onChange={(event) => setShowCompleted(event.target.checked)} />Show completed / silenced</label>
           </div>
 
           <form className="personal-task-form" onSubmit={submit}>
@@ -16654,7 +16654,7 @@ function PersonalTasksPanel({ personalTasks, allClients, advisers, dashboardAdvi
                   <span><strong>{task.title}</strong><small>{task.note || 'No note'}</small></span>
                   <span>{adviser?.name || 'Unassigned'}<small>{client ? `${client.firstName} ${client.lastName}` : 'No linked client'}</small></span>
                   <span><input type="date" value={task.dueDate || ''} onChange={(event) => quickUpdate(task, { dueDate: event.target.value })} /></span>
-                  <span><select value={task.status || 'Open'} onChange={(event) => quickUpdate(task, { status: event.target.value })}><option>Open</option><option>Completed</option></select></span>
+                  <span><select value={task.status || 'Open'} onChange={(event) => quickUpdate(task, { status: event.target.value })}><option>Open</option><option>Completed</option><option>Silenced</option></select></span>
                   <button className="icon-btn" type="button" onClick={() => deletePersonalTask(task.id)} aria-label="Delete personal task"><Trash2 size={16} /></button>
                 </div>
               );
@@ -16706,7 +16706,7 @@ function PersonalTaskModal({ task, allClients, advisers, saving, onClose, onSave
           <label className="field"><span>Task</span><input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} /></label>
           <label className="field"><span>Due date</span><input type="date" value={draft.dueDate || ''} onChange={(event) => setDraft((current) => ({ ...current, dueDate: event.target.value }))} /></label>
           <label className="field"><span>Adviser</span><select value={draft.adviserId} onChange={(event) => setDraft((current) => ({ ...current, adviserId: event.target.value }))}><option value="">Unassigned</option>{advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}</select></label>
-          <label className="field"><span>Status</span><select value={draft.status || 'Open'} onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value }))}><option>Open</option><option>Completed</option></select></label>
+          <label className="field"><span>Status</span><select value={draft.status || 'Open'} onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value }))}><option>Open</option><option>Completed</option><option>Silenced</option></select></label>
           <label className="field"><span>Linked client</span><select value={draft.clientId || ''} onChange={(event) => setDraft((current) => ({ ...current, clientId: event.target.value }))}><option value="">No linked client</option>{allClients.map((client) => <option key={client.id} value={client.id}>{client.firstName} {client.lastName}</option>)}</select></label>
           <label className="field personal-task-editor-note"><span>Note</span><textarea rows={4} value={draft.note || ''} onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))} /></label>
         </div>
@@ -16765,7 +16765,7 @@ function CalendarTaskModal({ entry, allClients, advisers, saving, onClose, onSav
           <label className="field"><span>Title</span><input value={draft.title} onChange={(event) => update('title', event.target.value)} /></label>
           <label className="field"><span>Appointment type</span><select value={draft.appointmentType || APPOINTMENT_TYPES[0]} onChange={(event) => update('appointmentType', event.target.value)}>{APPOINTMENT_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
           <label className="field"><span>Date</span><input type="date" value={draft.appointmentDate || ''} onChange={(event) => update('appointmentDate', event.target.value)} /></label>
-          <label className="field"><span>Status</span><select value={draft.status || 'Open'} onChange={(event) => update('status', event.target.value)}><option>Open</option><option>Completed</option></select></label>
+          <label className="field"><span>Status</span><select value={draft.status || 'Open'} onChange={(event) => update('status', event.target.value)}><option>Open</option><option>Completed</option><option>Silenced</option></select></label>
           <label className="field"><span>Start time</span><input type="time" value={draft.startTime || ''} onChange={(event) => update('startTime', event.target.value)} /></label>
           <label className="field"><span>End time</span><input type="time" value={draft.endTime || ''} onChange={(event) => update('endTime', event.target.value)} /></label>
           <label className="field"><span>Adviser</span><select value={draft.adviserId || ''} onChange={(event) => update('adviserId', event.target.value)}><option value="">Unassigned</option>{advisers.map((adviser) => <option key={adviser.id} value={adviser.id}>{adviser.name}</option>)}</select></label>
@@ -17545,7 +17545,7 @@ function ClientSummaryPanel({ draft, advisers = [], onOpenQuickEditor, onOpenFul
   return (
     <section className="client-summary-panel streamlined-client-summary unified-client-summary inline-client-record" id="client-inline-record">
       <div className="sub-panel-head compact inline-client-record-head">
-        <div><h2>Client details</h2><p className="muted">The core profile at a glance. Use the Edit link beside a section for a quick change; the full editor stays under More for unusual or detailed updates.</p></div>
+        <div><h2>Client details</h2><p className="muted">Keep contact, family and matter details together. Edit the fields here, then save your changes.</p></div>
       </div>
       <div className="client-profile-summary-list">
         {sections.map((section) => { const Icon=section.icon; return <article className="client-profile-summary-row" key={section.id}><span className={`inline-client-record-icon tone-${section.id}`}><Icon size={17}/></span><div><span>{section.title}</span><strong>{section.summary}</strong>{section.detail&&<small>{section.detail}</small>}</div><button className="btn ghost mini" type="button" onClick={() => onOpenQuickEditor?.(section.id)}><Pencil size={13}/>Edit</button></article>; })}
@@ -18838,6 +18838,7 @@ function dashboardActionStatusFromChecked(checked) {
 
 function isDashboardDateShown(row = {}) {
   const status = normaliseDeadlineActionStatus(row.actionStatus || defaultDeadlineActionStatus(row.type, row.source));
+  if (status === 'deferred') return Boolean(row.reviewDate)&&dateDiff(row.reviewDate)!==null&&dateDiff(row.reviewDate)<=0;
   if (status === 'active') return true;
   if (status === 'watching') return defaultDeadlineActionStatus(row.type, row.source) === 'active';
   return false;
@@ -18872,6 +18873,7 @@ function deadlineSignalForRow(row = {}) {
   const critical = String(row.type || '').toLowerCase().includes('ppi') || String(row.type || '').toLowerCase().includes('filing');
   const shown = isDashboardDateShown({ ...row, source });
 
+  if(status==='deferred')return {dashboard:shown?'action':'quiet',status,kind:shown?'review-due':'snoozed',label:shown?'Review due':'Snoozed',reason:shown?'The snoozed reminder is ready for review.':'Quiet until its review date.'};
   if (!shown) return { dashboard: 'quiet', status, kind: 'hidden', label: 'File only', reason: 'Not shown on the adviser dashboard.' };
   if (diff === null || diff === undefined) return { dashboard: 'quiet', status, kind: 'undated', label: 'No date', reason: 'Add a date before it can appear on the dashboard.' };
   if (critical) return { dashboard: 'action', status, kind: diff < 0 ? 'overdue' : 'critical', label: diff < 0 ? 'Overdue' : 'Critical date', reason: 'Shown because this date is marked for the dashboard.' };
@@ -19944,7 +19946,7 @@ function normalisePersonalTask(task = {}) {
     clientId: task.clientId || '',
     title: task.title || '',
     dueDate: task.dueDate || '',
-    status: task.status === 'Completed' ? 'Completed' : 'Open',
+    status: ['Open','Completed','Silenced'].includes(task.status)?task.status:'Open',
     note: task.note || '',
   };
 }
@@ -20703,7 +20705,7 @@ function buildTaskRows(clients, personalTasks = [], allClients = [], calendarEnt
     ].filter(Boolean));
 
   const personalRows = (personalTasks || [])
-    .filter((task) => task.status !== 'Completed')
+    .filter((task) => !['Completed','Silenced'].includes(task.status))
     .map((task) => {
       const linkedClient = allClients.find((client) => client.id === task.clientId) || null;
       if (linkedClient?.clientStatus === 'Closed') return null;
@@ -20843,14 +20845,48 @@ function formatCurrency(value) {
   return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD', maximumFractionDigits: 0 }).format(Number(value || 0));
 }
 
-function CalmWorkDashboard({ clients = [], advisers = [], scopeAdviserId = 'all', openClientRecord, setTab, saveClient, savePersonalTask, saving, actorAdviser, calendarEntries = [], quickActions, ownership = 'primary', setOwnership, onManageClient }) {
+function buildMyWorkExtras(clients = [], personalTasks = [], adviserId = 'all') {
+  const tasks=personalTasks.filter(task=>matchesPersonalTaskScope(task,adviserId));
+  const reminders=buildTaskRows(clients.filter(c=>!isCommercialMatterRecord(c)),[],[],[]).filter(row=>['deadline','document-expiry'].includes(row.source));
+  return {tasks,reminders};
+}
+function workDateAfter(days=7){const date=parseLocalDate(todayIso());date.setDate(date.getDate()+days);return toIsoDate(date);}
+function workTaskInRange(task,range){if(task.status!=='Open')return false;if(range==='all')return true;if(range==='unscheduled')return !task.dueDate;if(!task.dueDate)return false;return dateDiff(task.dueDate)<=(range==='week'?7:0);}
+function workReminderInRange(row,range){const status=normaliseDeadlineActionStatus(row.actionStatus);if(['historical','completed'].includes(status))return false;if(range==='all')return true;if(range==='unscheduled')return false;if(isDashboardActionableDeadlineRow(row))return true;return range==='week'&&status==='deferred'&&row.reviewDate&&dateDiff(row.reviewDate)<=7;}
+function WorkTaskEditor({task,advisers=[],clients=[],saving,onSave,onClose}){
+  const [draft,setDraft]=useState(()=>normalisePersonalTask(task)),[busy,setBusy]=useState(false),[error,setError]=useState('');
+  const dirty=stableStringify(draft)!==stableStringify(normalisePersonalTask(task));
+  function change(key,value){setDraft(current=>({...current,[key]:value}));setError('');}
+  async function save(event){event?.preventDefault();if(busy||saving||!draft.title.trim())return;setBusy(true);setError('');try{await onSave({...draft,title:draft.title.trim()});onClose();}catch(err){setError(err.message||'Unable to save the task. Your changes are still here.');}finally{setBusy(false);}}
+  return <SidePanel className="calm-panel-matter work-task-editor" title="Personal task" subtitle="An internal reminder, separate from client actions" dirty={dirty} busy={busy||saving} onClose={onClose} footer={<><button className="btn" type="button" disabled={busy||saving} onClick={async()=>{if(!dirty||await window.THIS_DIALOG.confirm({message:'Discard unsaved task changes?'}))onClose();}}>Cancel</button><button className="btn dark" type="button" disabled={busy||saving||!draft.title.trim()} onClick={save}>{busy||saving?'Saving…':'Save task'}</button></>}><form className="calm-form-stack" onSubmit={save}><label className="field"><span>Task</span><input aria-label="Task" value={draft.title} onChange={e=>change('title',e.target.value)}/></label><div className="form-grid two"><label className="field"><span>Due date</span><input aria-label="Task due date" type="date" value={draft.dueDate} onChange={e=>change('dueDate',e.target.value)}/></label><label className="field"><span>Status</span><select aria-label="Task status" value={draft.status} onChange={e=>change('status',e.target.value)}>{['Open','Completed','Silenced'].map(status=><option key={status}>{status}</option>)}</select></label></div><label className="field"><span>Adviser</span><select aria-label="Task adviser" value={draft.adviserId} onChange={e=>change('adviserId',e.target.value)}><option value="">Unassigned</option>{advisers.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label><label className="field"><span>Linked client</span><select aria-label="Linked task client" value={draft.clientId} onChange={e=>change('clientId',e.target.value)}><option value="">No linked client</option>{clients.filter(c=>!isCommercialMatterRecord(c)).map(c=><option key={c.id} value={c.id}>{clientName(c)}</option>)}</select></label><label className="field"><span>Notes</span><textarea aria-label="Task notes" rows={4} value={draft.note} onChange={e=>change('note',e.target.value)}/></label>{error&&<p role="alert" className="inline-error">{error}</p>}</form></SidePanel>;
+}
+function WorkSnoozeEditor({title,onSave,onClose,saving}){
+  const [date,setDate]=useState(workDateAfter()),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+  async function save(){if(busy||saving)return;if(!date||dateDiff(date)<=0){setError('Choose a future review date.');return;}setBusy(true);setError('');try{await onSave(date);onClose();}catch(err){setError(err.message||'Unable to snooze. Please retry.');}finally{setBusy(false);}}
+  return <SidePanel title={title} onClose={onClose} busy={busy||saving} footer={<><button type="button" className="btn" disabled={busy||saving} onClick={onClose}>Cancel</button><button type="button" className="btn dark" disabled={busy||saving} onClick={save}>Snooze</button></>}><p className="calm-field-help">This item will return on the date you choose.</p><label className="field"><span>Review again on</span><input aria-label="Review again on" type="date" min={workDateAfter(1)} value={date} onChange={e=>{setDate(e.target.value);setError('');}}/></label>{error&&<p role="alert" className="inline-error">{error}</p>}</SidePanel>;
+}
+function MyWorkTasksAndReminders({clients=[],allClients=[],personalTasks=[],reminders=[],range,advisers=[],savePersonalTask,saveClient,saving,actorAdviser,onManageClient}){
+  const [quiet,setQuiet]=useState(false),[editing,setEditing]=useState(null),[snooze,setSnooze]=useState(null),[error,setError]=useState(''),[pending,setPending]=useState('');
+  const lock=useRef(false);
+  const tasks=personalTasks.filter(task=>quiet?task.status!=='Open':workTaskInRange(task,range)).slice().sort((a,b)=>(a.dueDate||'9999').localeCompare(b.dueDate||'9999'));
+  const dates=reminders.filter(row=>quiet?!isDashboardActionableDeadlineRow(row):workReminderInRange(row,range));
+  const groups=clients.map(client=>({client,rows:dates.filter(row=>row.client.id===client.id)})).filter(group=>group.rows.length);
+  async function run(id,work){if(lock.current||saving)return;lock.current=true;setPending(id);setError('');try{await work();}catch(err){setError(err.message||'Unable to update. Please retry.');}finally{lock.current=false;setPending('');}}
+  async function taskAction(task,status){await run(task.id,async()=>{await savePersonalTask({...task,status});});}
+  function reminderPayload(client,rows,patch,label){const ids=new Set(rows.map(row=>row.id));return {...client,documentChecklist:normaliseDocumentChecklist(client.documentChecklist).map(item=>ids.has(`${client.id}-document-expiry-${item.id}`)?{...item,...patch}:item),deadlines:(client.deadlines||[]).map(item=>ids.has(`${client.id}-${item.id}`)?{...item,...patch}:item),matterActivity:[...normaliseMatterActivity(client.matterActivity),makeMatterActivity('reminder',label,'Recorded dates retained.',actorAdviser?.name||'Adviser')]};}
+  async function reminderAction(row,patch,label){await run(row.id,()=>saveClient(reminderPayload(row.client,[row],patch,label),{resetNewClientForm:false}));}
+  async function silenceDocuments(client){if(!await window.THIS_DIALOG.confirm({title:'Silence document expiry reminders?',message:'Keep all document dates on file and silence their reminders. Visa and other key dates remain unchanged.',confirmLabel:'Silence document expiries'}))return;const rows=reminders.filter(row=>row.client.id===client.id&&row.source==='document-expiry');await run(client.id,()=>saveClient(reminderPayload(client,rows,{actionStatus:'historical',reviewDate:''},'Document expiry reminders silenced'),{resetNewClientForm:false}));}
+  const locked=Boolean(pending)||saving;
+  return <div className="my-work-extras"><div className="work-secondary-toolbar"><button className="btn" type="button" aria-pressed={quiet} onClick={()=>setQuiet(value=>!value)}>{quiet?'Back to active work':'Completed, silenced & future reminders'}</button><span>{quiet?'Retained items can be restored here.':'Quick actions keep the underlying records on file.'}</span></div>{error&&<p className="inline-error" role="alert">{error}</p>}<section aria-label="Personal tasks" id="my-work-personal-tasks"><div className="work-section-heading"><h2>Personal tasks</h2><span>{tasks.length} {quiet?'retained':'in this view'}</span></div><div className="work-item-list">{tasks.map(task=><article className="work-item-card personal-work-item" key={task.id}><div className="work-item-copy"><span className="work-kind">Personal task</span><h3>{task.title}</h3><p>{task.dueDate?formatRecordDate(task.dueDate):'Needs a date'} · {advisers.find(a=>a.id===task.adviserId)?.name||'Unassigned'}{task.status!=='Open'?' · '+task.status:''}</p>{task.note&&<p className="work-item-note">{task.note}</p>}{task.clientId&&<button type="button" className="work-text-link" onClick={()=>onManageClient?.(task.clientId,'details')}>{clientName(allClients.find(c=>c.id===task.clientId)||{})}</button>}</div><div className="work-quick-actions">{task.status==='Open'?<><button className="btn" type="button" disabled={locked} aria-label={`Complete task: ${task.title}`} onClick={()=>taskAction(task,'Completed')}><CheckCircle2 size={15}/>Complete</button><button className="btn" type="button" disabled={locked} aria-label={`Snooze task: ${task.title}`} onClick={()=>setSnooze({task})}>Snooze</button><button className="btn" type="button" disabled={locked} aria-label={`Silence task: ${task.title}`} onClick={()=>taskAction(task,'Silenced')}>Silence</button></>:<button className="btn" type="button" disabled={locked} aria-label={`Restore task: ${task.title}`} onClick={()=>taskAction(task,'Open')}>Restore</button>}<button className="btn" type="button" disabled={locked} aria-label={`Edit task: ${task.title}`} onClick={()=>setEditing(task)}>Edit</button></div></article>)}{!tasks.length&&<p className="work-section-empty">No personal tasks in this view.</p>}</div></section><section aria-label="Date reminders"><div className="work-section-heading"><h2>Date reminders</h2><span>{dates.length} {quiet?'retained':'in this view'}</span></div><p className="work-section-help">Marked dates appear inside their warning window. Complete, snooze or silence reminders without removing the dates.</p>{groups.map(({client,rows})=><section key={client.id} className="work-reminder-group"><div className="work-reminder-client"><h3>{clientName(client)}</h3>{rows.some(row=>row.source==='document-expiry')&&<button className="btn" type="button" disabled={locked} onClick={()=>silenceDocuments(client)}>Silence document expiries</button>}</div>{rows.map(row=><article className="work-item-card date-work-item" key={row.id}><div className="work-item-copy"><span className="work-kind">{row.source==='document-expiry'?'Document expiry':'Key date'}</span><h3>{row.type.replace('Document Expiry: ','')}</h3><p>{formatRecordDate(row.date)}{normaliseDeadlineActionStatus(row.actionStatus)==='deferred'?` · Review ${formatRecordDate(row.reviewDate)}`:''}</p></div><div className="work-quick-actions">{quiet?<><span className="work-reminder-state">{normaliseDeadlineActionStatus(row.actionStatus)==='historical'?'Silenced':normaliseDeadlineActionStatus(row.actionStatus)==='completed'?'Completed':normaliseDeadlineActionStatus(row.actionStatus)==='deferred'?'Snoozed':'Scheduled'}</span>{['historical','completed','deferred','watching'].includes(normaliseDeadlineActionStatus(row.actionStatus))&&<button className="btn" type="button" disabled={locked} aria-label={`Restore reminder: ${row.type}`} onClick={()=>reminderAction(row,{actionStatus:'active',reviewDate:''},'Reminder restored')}>Restore</button>}</>:<><button className="btn" type="button" disabled={locked} aria-label={`Complete reminder: ${row.type}`} onClick={()=>reminderAction(row,{actionStatus:'completed',reviewDate:''},'Reminder completed')}>Complete</button><button className="btn" type="button" disabled={locked} aria-label={`Snooze reminder: ${row.type}`} onClick={()=>setSnooze({row})}>Snooze</button><button className="btn" type="button" disabled={locked} aria-label={`Silence reminder: ${row.type}`} onClick={()=>reminderAction(row,{actionStatus:'historical',reviewDate:''},'Reminder silenced')}>Silence</button></>}<button className="btn" type="button" disabled={locked} onClick={()=>onManageClient?.(client.id,row.source==='document-expiry'?'documents':'dates')}>Open record</button></div></article>)}</section>)}{!dates.length&&<p className="work-section-empty">No date reminders in this view.</p>}</section>{editing&&<WorkTaskEditor task={editing} advisers={advisers} clients={allClients} saving={saving} onSave={savePersonalTask} onClose={()=>setEditing(null)}/>} {snooze&&<WorkSnoozeEditor title={snooze.task?'Snooze task':'Snooze reminder'} saving={saving} onClose={()=>setSnooze(null)} onSave={date=>snooze.task?savePersonalTask({...snooze.task,status:'Open',dueDate:date}):saveClient(reminderPayload(snooze.row.client,[snooze.row],{actionStatus:'deferred',reviewDate:date},'Reminder snoozed'),{resetNewClientForm:false})}/>}</div>;
+}
+
+function CalmWorkDashboard({ clients = [], advisers = [], scopeAdviserId = 'all', openClientRecord, setTab, saveClient, savePersonalTask, saving, actorAdviser, calendarEntries = [], quickActions, ownership = 'primary', setOwnership, onManageClient, personalTasks = [], allClients = [] }) {
   const [range,setRange] = useWorkspaceState('work:range','today');
   const [selectedId,setSelectedId] = useState('');
   const [newTask,setNewTask] = useState(null);
-  const newTaskInitial = useRef(null);
-  const taskDirty = newTask && JSON.stringify(newTask)!==JSON.stringify(newTaskInitial.current);
-  const [taskError,setTaskError] = useState('');
-  const [taskBusy,setTaskBusy] = useState(false);
+  const extras=buildMyWorkExtras(buildMyWorkGroups(clients,scopeAdviserId,ownership).rows,personalTasks,scopeAdviserId);
+  const taskNow=extras.tasks.filter(t=>t.status==='Open'&&t.dueDate&&dateDiff(t.dueDate)<=0);
+  const reminderNow=extras.reminders.filter(isDashboardActionableDeadlineRow);
   const selected = clients.find((c)=>c.id===selectedId);
   const { rows, due, unscheduled } = buildMyWorkGroups(clients, scopeAdviserId, ownership);
   const waiting = isMyWorkWaiting;
@@ -20864,18 +20900,18 @@ function CalmWorkDashboard({ clients = [], advisers = [], scopeAdviserId = 'all'
     <span className={`calm-due ${due&&days<0?'overdue':due&&days===0?'today':''}`}><strong>{!due ? (needsDate(c)?'Needs a date':'Unscheduled') : days<0?`${Math.abs(days)}d overdue`:days===0?'Today':days===1?'Tomorrow':formatShortDate(due)}</strong>{range==='week'&&due&&<small>{new Date(due+'T12:00:00').toLocaleDateString('en-NZ',{weekday:'short',day:'numeric',month:'short'})}</small>}</span>
     <span className="calm-icon-button" aria-hidden="true"><ChevronRight size={17}/></span>
   </button>;};
-  async function createTask(event){event.preventDefault();if(taskBusy||saving||!newTask?.title?.trim())return;setTaskBusy(true);setTaskError('');try{await savePersonalTask({...newTask,title:newTask.title.trim()});setNewTask(null);}catch(error){setTaskError(error.message||'Unable to save. Your task is still here.');}finally{setTaskBusy(false);}}
   return <section className="calm-work-page precision-work-page">
-    <div className="calm-page-heading"><div><h1>My Work</h1><p>{new Date().toLocaleDateString('en-NZ',{weekday:'long',day:'numeric',month:'long',timeZone:'Pacific/Auckland'})} · A clear view of what needs you.</p></div>{savePersonalTask&&<button type="button" className="btn dark precision-add-task" onClick={()=>{setTaskError('');const draft=makeBlankPersonalTask(actorAdviser?.id||'');newTaskInitial.current=draft;setNewTask(draft);}}><Plus size={16}/>Add task</button>}</div>
-    <div className="calm-work-summary"><span><strong>{rows.filter(c=>matterWorkDate(c)&&dateDiff(matterWorkDate(c))===0).length}</strong> Due today</span><span className="warning"><strong>{rows.filter(c=>matterWorkDate(c)&&dateDiff(matterWorkDate(c))<0).length}</strong> Overdue</span></div>
-    <p className="work-count-help">Actions and reviews appear by date, regardless of who acts next. The My Work badge matches Today & overdue.</p><div className="calm-list-toolbar"><div className="calm-segments" aria-label="Work date range">{[['today','Today & overdue'],['week','Next 7 days'],['all','All work'],['unscheduled',`Needs action / date (${unscheduled.length})`]].map(([key,title])=><button key={key} type="button" aria-pressed={range===key} className={range===key?'active':''} onClick={()=>setRange(key)}>{title}</button>)}</div>{scopeAdviserId!=='all'&&<label className="calm-inline-field"><span>Responsibility</span><select aria-label="Responsibility" value={ownership} onChange={e=>setOwnership(e.target.value)}><option value="all">Main & backup</option><option value="primary">Main adviser</option><option value="backup">Backup adviser</option></select></label>}</div>
+    <div className="calm-page-heading"><div><h1>My Work</h1><p>{new Date().toLocaleDateString('en-NZ',{weekday:'long',day:'numeric',month:'long',timeZone:'Pacific/Auckland'})} · A clear view of what needs you.</p></div>{savePersonalTask&&<button type="button" className="btn dark precision-add-task" onClick={()=>{const draft=makeBlankPersonalTask(scopeAdviserId==='all'?(actorAdviser?.id||''):scopeAdviserId);setNewTask(draft);}}><Plus size={16}/>Add task</button>}</div>
+    <div className="calm-work-summary"><span><strong>{due.length}</strong> Client actions</span><span><strong>{taskNow.length}</strong> Personal tasks</span><span><strong>{reminderNow.length}</strong> Date reminders</span></div>
+    <p className="work-count-help">Client actions, personal tasks and date reminders, in one place. The badge counts items ready in Today & overdue.</p><div className="calm-list-toolbar"><div className="calm-segments" aria-label="Work date range">{[['today','Today & overdue'],['week','Next 7 days'],['all','All work'],['unscheduled',`Needs action / date (${unscheduled.length+extras.tasks.filter(t=>t.status==='Open'&&!t.dueDate).length})`]].map(([key,title])=><button key={key} type="button" aria-pressed={range===key} className={range===key?'active':''} onClick={()=>setRange(key)}>{title}</button>)}</div>{scopeAdviserId!=='all'&&<label className="calm-inline-field"><span>Responsibility</span><select aria-label="Responsibility" value={ownership} onChange={e=>setOwnership(e.target.value)}><option value="all">Main & backup</option><option value="primary">Main adviser</option><option value="backup">Backup adviser</option></select></label>}</div>
     <>
-      <div className="calm-work-table">{attention.length>0&&<div className="calm-work-table-head"><span>Client / matter</span><span>Next action</span><span>Due</span><span/></div>}{attention.map(renderRow)}{!attention.length&&<div className={`calm-empty precision-empty ${range==='today'?'precision-caught-up':''}`}><span className="precision-empty-icon"><CheckCircle2 size={24}/></span><div><strong>{range==='today'?'Nothing due today or overdue':'No actions in this view'}</strong><p>{range==='today'?'No scheduled actions or reviews are due today or overdue.':range==='all'?'Add a client or set a next action to get started.':range==='unscheduled'?'All matters have a next action and date.':'Your future actions are ready in All work.'}</p><div className="precision-empty-actions">{range==='today'&&<button type="button" className="btn" onClick={()=>setRange('week')}>View Next 7 Days</button>}{range!=='all'&&<button type="button" className="btn" onClick={()=>setRange('all')}>View All Work <ChevronRight size={15}/></button>}</div></div></div>}{attention.length>0&&<div className="precision-table-footer"><span>{attention.length} matter{attention.length===1?'':'s'} in this view</span><span>{unscheduled.length>0?`${unscheduled.length} matter${unscheduled.length===1?' needs':'s need'} an action or date`:scopeAdviserId==='all'?'All advisers':'Assigned to your view'}</span></div>}</div>
+<section className="my-work-client-actions" aria-label="Client actions"><div className="work-section-heading"><h2>Client actions</h2><span>{attention.length} in this view</span></div><div className="calm-work-table">{attention.length>0&&<div className="calm-work-table-head"><span>Client / matter</span><span>Next action</span><span>Due</span><span/></div>}{attention.map(renderRow)}{!attention.length&&<div className={`calm-empty precision-empty ${range==='today'?'precision-caught-up':''}`}><span className="precision-empty-icon"><CheckCircle2 size={24}/></span><div><strong>No client actions in this view</strong><p>{range==='today'?'No scheduled actions or reviews are due today or overdue.':range==='all'?'Add a client or set a next action to get started.':range==='unscheduled'?'All matters have a next action and date.':'Your future actions are ready in All work.'}</p><div className="precision-empty-actions">{range==='today'&&<button type="button" className="btn" onClick={()=>setRange('week')}>View Next 7 Days</button>}{range!=='all'&&<button type="button" className="btn" onClick={()=>setRange('all')}>View All Work <ChevronRight size={15}/></button>}</div></div></div>}{attention.length>0&&<div className="precision-table-footer"><span>{attention.length} matter{attention.length===1?'':'s'} in this view</span><span>{unscheduled.length>0?`${unscheduled.length} matter${unscheduled.length===1?' needs':'s need'} an action or date`:scopeAdviserId==='all'?'All advisers':'Assigned to your view'}</span></div>}</div>
+      </section><MyWorkTasksAndReminders clients={rows} allClients={allClients} personalTasks={extras.tasks} reminders={extras.reminders} range={range} advisers={advisers} savePersonalTask={savePersonalTask} saveClient={saveClient} saving={saving} actorAdviser={actorAdviser} onManageClient={onManageClient} />
       <div className="precision-lower-grid precision-schedule-only">
       <section className="precision-summary-card precision-appointments"><div className="precision-card-heading"><h2>Today's appointments</h2><button type="button" className="precision-text-button" onClick={()=>setTab('calendar')}>Calendar</button></div>{appointments.slice(0,4).map(e=><button key={e.id} type="button" className="precision-appointment-row" onClick={()=>setTab('calendar')}><time>{e.startTime||e.appointmentTime||'Any time'}</time><span><strong>{e.title||'Appointment'}</strong><small>{e.location||e.appointmentType||'Open in calendar'}</small></span></button>)}{!appointments.length&&<p className="precision-card-empty">No appointments today.<button type="button" className="precision-text-button" onClick={()=>setTab('calendar')}>Open calendar <ChevronRight size={15}/></button></p>}{appointments.length>4&&<button type="button" className="precision-text-button" onClick={()=>setTab('calendar')}>View all {appointments.length} appointments</button>}</section></div>
     </>
     <div className="calm-work-extras"><button type="button" className="btn" onClick={()=>setTab('tasks')}>Personal tasks</button>{quickActions&&<details><summary><ChevronRight size={16}/>Shortcuts</summary>{quickActions}</details>}</div>
-    {newTask&&<SidePanel title="New task" onClose={()=>setNewTask(null)} dirty={!!taskDirty} busy={taskBusy||saving} footer={<><button type="button" className="btn" disabled={taskBusy||saving} onClick={async ()=>{if(!taskDirty||(await window.THIS_DIALOG.confirm({message:'Discard unsaved changes?'})))setNewTask(null);}}>Cancel</button><button type="submit" form="precision-new-task" className="btn dark" disabled={taskBusy||saving||!newTask.title?.trim()}>{taskBusy||saving?'Saving…':'Save task'}</button></>}><form id="precision-new-task" className="calm-form-stack" onSubmit={createTask}><label className="field"><span>Task</span><input required autoFocus value={newTask.title} onChange={e=>setNewTask(t=>({...t,title:e.target.value}))}/></label><label className="field"><span>Due date</span><input type="date" value={newTask.dueDate||''} onChange={e=>setNewTask(t=>({...t,dueDate:e.target.value}))}/></label><label className="field"><span>Adviser</span><select value={newTask.adviserId||''} onChange={e=>setNewTask(t=>({...t,adviserId:e.target.value}))}><option value="">Unassigned</option>{advisers.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label><label className="field"><span>Note</span><textarea rows={3} value={newTask.note||''} onChange={e=>setNewTask(t=>({...t,note:e.target.value}))}/></label>{taskError&&<p role="alert" className="inline-error">{taskError}</p>}</form></SidePanel>}
+    {newTask&&<WorkTaskEditor task={newTask} advisers={advisers} clients={allClients} saving={saving} onSave={savePersonalTask} onClose={()=>setNewTask(null)}/>}
     {selected&&<CalmMatterUpdate key={selected.id} client={selected} adviser={actorAdviser} advisers={advisers} commercial={isCommercialMatterRecord(selected)} onClose={()=>setSelectedId('')} onOpenFullClient={async (section='file')=>onManageClient?onManageClient(selected.id,section):(await openClientRecord(selected.id))} saveClient={saveClient} saving={saving}/>}
 
   </section>;
@@ -20915,6 +20951,12 @@ function CalmMatterUpdate({ client, adviser, advisers = [], onClose, onOpenFullC
     if(dirty&&!(await window.THIS_DIALOG.confirm({title:'Discard unsaved changes?',message:'Discard the unsaved update and open the client record?',confirmLabel:'Discard and continue',tone:'danger'})))return;
     onClose?.();await onOpenFullClient?.(section);
   }
+  async function silenceDocumentExpiries(){
+    if(busy||saving)return;
+    if(dirty){setError('Save or discard your unsaved update before changing document reminders.');return;}
+    if(!(await window.THIS_DIALOG.confirm({title:'Silence document expiry reminders?',message:'Keep the document dates on file and stop their reminders for this client. Visa and other key dates will stay unchanged.',confirmLabel:'Silence document expiries'})))return;
+    setBusy(true);setError('');try{await saveClient({...client,documentChecklist:normaliseDocumentChecklist(client.documentChecklist).map(item=>({...item,actionStatus:'historical',reviewDate:''}))},{resetNewClientForm:false});}catch(err){setError(err.message||'Unable to silence document reminders.');}finally{setBusy(false);}
+  }
   const waiting=['Client action required','Waiting on INZ','Waiting on third party'].includes(matterStatus);
   const stages=normaliseStages(client.stages).filter(s=>s.applied!==false);
   function update(setter,value){setter(value);setChanged(true);setError('');}
@@ -20947,7 +20989,7 @@ function CalmMatterUpdate({ client, adviser, advisers = [], onClose, onOpenFullC
       <div><dt>Main adviser</dt><dd>{advisers.find(a=>a.id===client.primaryAdviserId)?.name||'Unassigned'}</dd></div>
       {client.backupAdviserId&&<div><dt>Backup adviser</dt><dd>{advisers.find(a=>a.id===client.backupAdviserId)?.name||'Not available'}</dd></div>}
       {keyDate&&<div className="snapshot-wide"><dt>Key date · {keyDate.type||'Matter deadline'}</dt><dd>{formatRecordDate(keyDate.date)}{keyDate.note&&<small>{keyDate.note}</small>}</dd></div>}
-    </dl><div className="matter-snapshot-actions"><button type="button" className="btn snapshot-open-client" disabled={busy||saving} onClick={()=>manageSection()}>Manage client <ChevronRight size={16}/></button><button type="button" className="btn" disabled={busy||saving} onClick={()=>setHistoryOpen(true)}><Clock size={16}/>Action history</button>{!commercial&&<button type="button" className="btn" disabled={busy||saving} onClick={()=>manageSection('details')}><Pencil size={16}/>Client details</button>}</div></section>}
+    </dl><div className="matter-snapshot-actions"><button type="button" className="btn snapshot-open-client" disabled={busy||saving} onClick={()=>manageSection()}>Stages & documents <ChevronRight size={16}/></button><button type="button" className="btn" disabled={busy||saving} onClick={()=>setHistoryOpen(true)}><Clock size={16}/>Action history</button>{!commercial&&<button type="button" className="btn" disabled={busy||saving} onClick={()=>manageSection('details')}><Pencil size={16}/>Client details</button>}</div>{!commercial&&normaliseDocumentChecklist(client.documentChecklist).some(item=>item.expiryDate&&!['historical','completed'].includes(normaliseDeadlineActionStatus(item.actionStatus)))&&<button className="btn work-expiry-bulk" type="button" disabled={busy||saving} onClick={silenceDocumentExpiries}>Silence document expiry reminders</button>}</section>}
     {historyOpen&&<MatterActionHistoryPopup client={client} onClose={()=>setHistoryOpen(false)}/>}
     <div className="calm-current-status"><span>Current status</span><strong>{client.matterStatus || 'No current action'}</strong></div>
     <div className="calm-form-stack">
