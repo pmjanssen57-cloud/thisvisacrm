@@ -351,3 +351,46 @@
  .work-task-editor .form-grid.two { grid-template-columns:minmax(0,1fr); }
  .work-secondary-toolbar .btn { width:100%; }
 }
+
+/* v0.17.66: one shared progress header above aligned editing columns. */
+@media screen {
+ .manage-file-jump-container { display:grid; gap:16px; min-width:0; }
+ .manage-file-progress { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:16px; padding:14px 16px; border:1px solid #cbded6; border-radius:8px; background:#f3f9f6; }
+ .manage-client-page .manage-file-progress .progress-card { border:0; padding:0; margin:0; background:transparent; box-shadow:none; }
+ .manage-progress-trigger { min-height:44px; padding:10px 16px; background:#fff; border:1px solid #8db9aa; color:#105a49; font-weight:600; gap:10px; }
+ .manage-progress-trigger:hover { background:#e5f2eb; border-color:#377d65; }
+ .manage-progress-trigger:focus-visible { outline:2px solid #286c57; outline-offset:3px; }
+ .manage-progress-trigger[aria-expanded="true"] > svg:last-child { transform:rotate(180deg); }
+ .manage-progress-content { min-width:0; padding:16px; background:#fff; border:1px solid #dce7e3; border-radius:8px; }
+ .manage-client-page :is(.manage-stage-section,.manage-document-section) { gap:16px; }
+ .manage-client-page :is(.manage-stage-section,.manage-document-section) > .client-workspace-intro { margin:0; }
+ .manage-client-page .document-checklist-panel { padding:18px; border:1px solid #dce7e3; border-radius:8px; background:#fff; box-shadow:none; }
+ .manage-client-page :is(.manage-stage-section > .workspace-panel,.document-checklist-panel) > .sub-panel-head { min-height:48px; margin:0 0 14px; align-items:center; gap:12px; }
+ .manage-client-page :is(.manage-stage-section > .workspace-panel,.document-checklist-panel) > .sub-panel-head p { margin:0; font-size:13px; line-height:1.5; }
+ .manage-client-page :is(.stage-add-row,.custom-document-add-row) { display:flex; gap:8px; padding:0; border:0; background:transparent; margin:0 0 16px; align-items:stretch; }
+ .manage-client-page :is(.stage-add-row,.custom-document-add-row) input { flex:1; min-width:0; min-height:44px; }
+ .manage-client-page :is(.stage-add-row,.custom-document-add-row) .btn { min-height:44px; flex:none; }
+}
+@media screen and (min-width:1600px) {
+ .manage-client-page :is(.manage-stage-section,.manage-document-section) > .client-workspace-intro { min-height:72px; }
+}
+@media screen and (max-width:700px) {
+ .manage-file-progress { grid-template-columns:minmax(0,1fr); gap:12px; padding:14px; }
+ .manage-progress-trigger { width:100%; justify-content:center; }
+ .manage-progress-content,.manage-client-page .document-checklist-panel { padding:12px; }
+ .manage-client-page .custom-document-add-row { flex-wrap:wrap; }
+ .manage-client-page .custom-document-add-row input { flex-basis:180px; }
+}
+@media screen {
+ .manage-client-page :is(.manage-stage-section > .workspace-panel,.manage-document-section > .document-checklist-panel) { margin:0; }
+}
+
+@media screen {
+ .calm-panel-update .calm-side-panel { width:min(760px,100vw); }
+ .calm-panel-update .matter-snapshot-actions { display:grid; grid-template-columns:1.2fr 1fr 1fr; gap:8px; }
+ .calm-panel-update .matter-snapshot-actions .btn { display:flex; align-items:center; justify-content:center; gap:8px; min-height:44px; padding:10px 12px; white-space:nowrap; }
+ .calm-panel-update .matter-snapshot-actions .btn svg { flex:none; }
+}
+@media screen and (max-width:740px) {
+ .calm-panel-update .matter-snapshot-actions { grid-template-columns:minmax(0,1fr); }
+}
