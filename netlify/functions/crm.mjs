@@ -6596,14 +6596,17 @@ function normaliseMatterActivity(value = []) {
     try { rows = JSON.parse(rows); } catch { rows = []; }
   }
   if (!Array.isArray(rows)) return [];
-  return rows.map((item) => ({
+  const normalised = rows.map((item) => ({
     id: String(item?.id || `matter-activity-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`).slice(0, 160),
     type: String(item?.type || 'update').slice(0, 80),
     title: String(item?.title || 'Matter updated').slice(0, 300),
     detail: String(item?.detail || '').slice(0, 2400),
     createdAt: item?.createdAt || item?.created_at || new Date().toISOString(),
     createdBy: String(item?.createdBy || item?.created_by || '').slice(0, 240),
-  })).slice(-250);
+  }));
+  const recent=normalised.slice(-250);
+  const pin=normalised.slice().reverse().find(item=>['pinned-note','pinned-note-cleared'].includes(item.type));
+  return pin&&!recent.includes(pin)?[pin,...normalised.slice(-249)]:recent;
 }
 
 function parseMatterActivity(value) {

@@ -5,7 +5,7 @@ import { SidePanel } from './src/ui/SidePanel.jsx';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { acceptInvite, getUser, handleAuthCallback, login, logout, onAuthChange, requestPasswordRecovery, updateUser } from '@netlify/identity';
-import { AlertTriangle, Archive, ArrowUpDown, BookOpen, Building2, Calculator, CalendarDays, Check, CheckCircle2, ChevronDown, ChevronRight, Clock, CloudSun, Copy, CreditCard, ClipboardList, Database, DollarSign, Download, ExternalLink, FileCheck2, FileSpreadsheet, FileText, Gift, Globe2, HelpCircle, KeyRound, LayoutDashboard, Link2, ListChecks, LockKeyhole, Mail, MessageSquare, MoreHorizontal, Phone, Pencil, Plus, RefreshCw, RotateCcw, Save, Search, Send, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, UserRound, UsersRound, Wrench, X } from 'lucide-react';
+import { AlertTriangle, Archive, ArrowUpDown, BookOpen, Building2, Calculator, CalendarDays, Check, CheckCircle2, ChevronDown, ChevronRight, Clock, CloudSun, Copy, CreditCard, ClipboardList, Database, DollarSign, Download, ExternalLink, FileCheck2, FileSpreadsheet, FileText, Gift, Globe2, HelpCircle, KeyRound, LayoutDashboard, Link2, ListChecks, LockKeyhole, Mail, MessageSquare, MoreHorizontal, Phone, Pencil, Pin, Plus, RefreshCw, RotateCcw, Save, Search, Send, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, UserRound, UsersRound, Wrench, X } from 'lucide-react';
 import { EmployerQuestionnaireInbox, EmployerQuestionnaireDetails } from './src/EmployerQuestionnaireInbox.jsx';
 import { reportConversion } from './src/lib/reportConversion.js';
 
@@ -4288,6 +4288,12 @@ function buildMatterUpdateSuggestion(client,eventType){
 
 function applyMatterStageSelection(stages=[],stageId='',completeAll=false){const rows=normaliseStages(stages);if(completeAll)return rows.map((stage)=>stage.applied===false?stage:{...stage,completed:true,completedDate:stage.completedDate||todayIso()});if(!stageId)return rows;const applied=rows.filter((item)=>item.applied!==false).sort((a,b)=>Number(a.sortOrder||0)-Number(b.sortOrder||0));const targetIndex=applied.findIndex((item)=>item.id===stageId);if(targetIndex<0)return rows;const before=new Set(applied.slice(0,targetIndex).map((item)=>item.id));return rows.map((stage)=>{if(stage.applied===false)return stage;if(before.has(stage.id))return {...stage,completed:true,completedDate:stage.completedDate||todayIso()};if(stage.id===stageId)return {...stage,completed:false,completedDate:''};return stage;});}
 function makeMatterActivity(type,title,detail,createdBy){return {id:`matter-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,type,title,detail,createdAt:new Date().toISOString(),createdBy};}
+function latestPinnedMatterNote(client = {}) {
+  const item = normaliseMatterActivity(client.matterActivity).filter(entry=>['pinned-note','pinned-note-cleared'].includes(entry.type)).at(-1);
+  return item?.type==='pinned-note' && item.detail.trim() ? item : null;
+}
+function pinnedMatterEvent(text, actor) { return makeMatterActivity(text.trim()?'pinned-note':'pinned-note-cleared',text.trim()?'Pinned note updated':'Pinned note removed',text.trim(),actor||'Adviser'); }
+
 function buildMatterTimeline(client){const activity=normaliseMatterActivity(client.matterActivity);const actionLog=normaliseNextActionLog(client.nextActionLog).map((item)=>({id:item.id,type:'action',title:item.action||'Previous next action',detail:item.replacedByAction?`Completed / replaced by: ${item.replacedByAction}`:'Completed action',createdAt:item.completedAt||item.completedDate,createdBy:''}));return [...activity,...actionLog].sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));}
 function isMyWorkWaiting(client) {
   const status = normaliseMatterStatus(client.matterStatus, client.clientStatus, client.nextAction);
@@ -14780,7 +14786,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.63" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.64" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -15372,7 +15378,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.63" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.64" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}
@@ -15928,6 +15934,7 @@ The portal is a secure, read-only space where you can check application updates,
         />
       )}
 
+      {latestPinnedMatterNote(draft)&&<aside className="matter-pinned-note pinned manage-pin-summary"><h3><Pin size={17}/>Pinned note</h3><p className="matter-pin-text">{latestPinnedMatterNote(draft).detail}</p></aside>}
       <div className="manage-client-summary"><button type="button" onClick={()=>focusFile('stages')}><span>Stages</span><strong>{completedStageCount}/{appliedStageCount} complete</strong></button><button type="button" onClick={()=>focusFile('documents')}><span>Documents</span><strong>{outstandingDocuments.length} outstanding</strong></button><div><span>Next action</span><strong>{draft.nextAction||'Not set'}</strong><small>{matterWorkDate(draft)?formatRecordDate(matterWorkDate(draft)):'No date'}</small></div></div>
       <ClientWorkspaceShell sections={workspaceSections} activeSection={activeClientSection} onSelect={chooseSection}>
         {activeClientSection === 'details' && <UnifiedClientDetailsEditor embedded draft={draft} snapshot={client} setField={setField} advisers={advisers} caseTypes={caseTypes} addFamilyMember={addFamilyMember} updateFamilyMember={updateFamilyMember} removeFamilyMember={removeFamilyMember} initialSection="personal" saving={saving} />}
@@ -17595,6 +17602,8 @@ function QuickClientUpdateDrawer({ client, advisers = [], caseTypes = [], initia
 
 function UnifiedClientDetailsEditor({ draft, snapshot, setField, advisers = [], caseTypes = [], addFamilyMember, updateFamilyMember, removeFamilyMember, initialSection = 'personal', saving, validationMessage = '', onSave, onClose, embedded = false }) {
   const [openSection, setOpenSection] = useState(initialSection || 'personal');
+  const [expanded,setExpanded]=useState(['personal','contact','matter','family','strategy','file']);
+  function toggleDetails(id){if(embedded)setExpanded(current=>current.includes(id)?current.filter(key=>key!==id):[...current,id]);else setOpenSection(openSection===id?'':id);}
   const primary = advisers.find((adviser) => adviser.id === draft.primaryAdviserId);
   const backup = advisers.find((adviser) => adviser.id === draft.backupAdviserId);
   const hasChanges = Boolean(snapshot && stableStringify(draft) !== stableStringify(snapshot));
@@ -17659,7 +17668,7 @@ function UnifiedClientDetailsEditor({ draft, snapshot, setField, advisers = [], 
         </div>
 
         }<div className={embedded?"manage-details-body":"client-details-drawer-body"}>
-          <ClientDetailsAccordionSection id="personal" title="Personal details" summary={sections[0].summary} changed={sections[0].changed} open={openSection === 'personal'} onToggle={() => setOpenSection(openSection === 'personal' ? '' : 'personal')}>
+          <ClientDetailsAccordionSection id="personal" title="Personal details" summary={sections[0].summary} changed={sections[0].changed} open={embedded?expanded.includes('personal'):openSection === 'personal'} onToggle={() => toggleDetails('personal')}>
             <div className="form-grid two">
               <Field label="First name" value={draft.firstName} onChange={(v) => setField('firstName', v)} />
               <Field label="Last name" value={draft.lastName} onChange={(v) => setField('lastName', v)} />
@@ -17668,7 +17677,7 @@ function UnifiedClientDetailsEditor({ draft, snapshot, setField, advisers = [], 
             </div>
           </ClientDetailsAccordionSection>
 
-          <ClientDetailsAccordionSection id="contact" title="Contact details" summary={sections[1].summary} changed={sections[1].changed} open={openSection === 'contact'} onToggle={() => setOpenSection(openSection === 'contact' ? '' : 'contact')}>
+          <ClientDetailsAccordionSection id="contact" title="Contact details" summary={sections[1].summary} changed={sections[1].changed} open={embedded?expanded.includes('contact'):openSection === 'contact'} onToggle={() => toggleDetails('contact')}>
             <div className="form-grid two">
               <Field label="Email" value={draft.email} onChange={(v) => setField('email', v)} />
               <Field label="Phone" value={draft.phone} onChange={(v) => setField('phone', v)} />
@@ -17676,7 +17685,7 @@ function UnifiedClientDetailsEditor({ draft, snapshot, setField, advisers = [], 
             </div>
           </ClientDetailsAccordionSection>
 
-          <ClientDetailsAccordionSection id="matter" title="Matter & adviser allocation" summary={sections[2].summary} changed={sections[2].changed} open={openSection === 'matter'} onToggle={() => setOpenSection(openSection === 'matter' ? '' : 'matter')}>
+          <ClientDetailsAccordionSection id="matter" title="Matter & adviser allocation" summary={sections[2].summary} changed={sections[2].changed} open={embedded?expanded.includes('matter'):openSection === 'matter'} onToggle={() => toggleDetails('matter')}>
             <div className="form-grid two">
               <Field label="Matter name / reference" value={draft.matterName || ''} onChange={(v) => setField('matterName', v)} placeholder="Optional internal matter description" />
               <SelectField label="Case type / application type" value={draft.caseType} onChange={(v) => setField('caseType', v)} options={caseTypes} placeholder="Select case type" />
@@ -17687,18 +17696,18 @@ function UnifiedClientDetailsEditor({ draft, snapshot, setField, advisers = [], 
             </div>
           </ClientDetailsAccordionSection>
 
-          <ClientDetailsAccordionSection id="family" title="Family & dependants" summary={sections[3].summary} changed={sections[3].changed} open={openSection === 'family'} onToggle={() => setOpenSection(openSection === 'family' ? '' : 'family')}>
+          <ClientDetailsAccordionSection id="family" title="Family & dependants" summary={sections[3].summary} changed={sections[3].changed} open={embedded?expanded.includes('family'):openSection === 'family'} onToggle={() => toggleDetails('family')}>
             <FamilyDetails members={draft.familyMembers || []} addFamilyMember={addFamilyMember} updateFamilyMember={updateFamilyMember} removeFamilyMember={removeFamilyMember} />
           </ClientDetailsAccordionSection>
 
-          <ClientDetailsAccordionSection id="strategy" title="Case strategy & internal notes" summary={sections[4].summary} changed={sections[4].changed} open={openSection === 'strategy'} onToggle={() => setOpenSection(openSection === 'strategy' ? '' : 'strategy')}>
+          <ClientDetailsAccordionSection id="strategy" title="Case strategy & internal notes" summary={sections[4].summary} changed={sections[4].changed} open={embedded?expanded.includes('strategy'):openSection === 'strategy'} onToggle={() => toggleDetails('strategy')}>
             <div className="unified-client-notes-grid">
               <TextArea label="Case strategy / key issues" value={draft.caseStrategy} onChange={(v) => setField('caseStrategy', v)} rows={8} />
               <TextArea label="Internal notes" value={draft.notes} onChange={(v) => setField('notes', v)} rows={8} />
             </div>
           </ClientDetailsAccordionSection>
 
-          <ClientDetailsAccordionSection id="file" title="File references" summary={sections[5].summary} changed={sections[5].changed} open={openSection === 'file'} onToggle={() => setOpenSection(openSection === 'file' ? '' : 'file')}>
+          <ClientDetailsAccordionSection id="file" title="File references" summary={sections[5].summary} changed={sections[5].changed} open={embedded?expanded.includes('file'):openSection === 'file'} onToggle={() => toggleDetails('file')}>
             <div className="form-grid two">
               <Field label="OneLaw Client Number" value={draft.oneLawClientNumber || ''} onChange={(v) => setField('oneLawClientNumber', v)} placeholder="Internal OneLaw reference" />
             </div>
@@ -18257,6 +18266,13 @@ function profileDate(value) {
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+}
+
+function MatterActionHistoryPopup({ client, onClose }) {
+  const ref=useRef(null);
+  const entries=buildMatterTimeline(client);
+  useEffect(()=>{const previous=document.activeElement,dialog=ref.current;dialog.showModal();return()=>{dialog.close();if(previous?.isConnected)previous.focus({preventScroll:true});};},[]);
+  return createPortal(<dialog ref={ref} role="dialog" aria-label="Action history" className="matter-action-history-popup" onCancel={event=>{event.preventDefault();onClose();}}><header><div><span>Client action history</span><h2>Action history</h2><p>{clientName(client)}</p></div><button type="button" className="btn" aria-label="Close action history" onClick={onClose}><X size={18}/></button></header><div className="matter-action-history-body"><section className="matter-history-current"><span>Current next action</span><strong>{client.nextAction||'No next action set'}</strong><small>{matterWorkDate(client)?formatRecordDate(matterWorkDate(client)):'No date set'}</small></section><p className="calm-field-help">Previous scheduled actions and recorded matter updates, newest first.</p><ol>{entries.map(item=><li key={item.id}><div><strong>{item.title}</strong><time>{item.createdAt?formatPortalDateTime(item.createdAt):'Date not recorded'}</time></div>{item.detail&&<p>{item.detail}</p>}{item.createdBy&&<small>{item.createdBy}</small>}</li>)}</ol>{!entries.length&&<p className="muted">No historical actions have been recorded yet.</p>}</div><footer><button type="button" className="btn" onClick={onClose}>Close history</button></footer></dialog>,document.body);
 }
 
 function NextActionLogModal({ client, onClose }) {
@@ -20060,14 +20076,17 @@ function normaliseMatterActivity(value = []) {
   let input = value;
   if (typeof input === 'string') input = safeJsonParse(input, []);
   if (!Array.isArray(input)) return [];
-  return input.map((item, index) => ({
+  const normalised = input.map((item, index) => ({
     id: String(item?.id || `matter-activity-${Date.now()}-${index}`),
     type: String(item?.type || 'update'),
     title: String(item?.title || 'Matter updated'),
     detail: String(item?.detail || ''),
     createdAt: item?.createdAt || item?.created_at || '',
     createdBy: String(item?.createdBy || item?.created_by || ''),
-  })).slice(-250);
+  }));
+  const recent=normalised.slice(-250);
+  const pin=normalised.slice().reverse().find(item=>['pinned-note','pinned-note-cleared'].includes(item.type));
+  return pin&&!recent.includes(pin)?[pin,...normalised.slice(-249)]:recent;
 }
 
 function matterStatusClass(value = '') {
@@ -20875,18 +20894,40 @@ function CalmMatterUpdate({ client, adviser, advisers = [], onClose, onOpenFullC
   const [error,setError]=useState('');
   const [busy,setBusy]=useState(false);
   const [changed,setChanged]=useState(false);
+  const [historyOpen,setHistoryOpen]=useState(false);
+  const pinned=latestPinnedMatterNote(client);
+  const [pinText,setPinText]=useState(pinned?.detail||'');
+  const [pinEditing,setPinEditing]=useState(false);
+  const [pinDirty,setPinDirty]=useState(false);
+  const [pinError,setPinError]=useState('');
+  const dirty=changed||pinDirty;
+  useEffect(()=>{if(!pinDirty)setPinText(pinned?.detail||'');},[client.id,pinned?.detail]);
+  async function savePin(clear=false){
+    if(busy||saving)return;
+    if(clear&&!(await window.THIS_DIALOG.confirm({title:'Unpin this note?',message:'Remove the pinned note from the working snapshot? Its history will be retained.',confirmLabel:'Unpin note',tone:'danger'})))return;
+    const text=clear?'':pinText.trim();
+    if(!clear&&!text){setPinError('Enter a note to pin.');return;}
+    setBusy(true);setPinError('');
+    try{await saveClient({...client,matterActivity:[...normaliseMatterActivity(client.matterActivity),pinnedMatterEvent(text,adviser?.name)]},{resetNewClientForm:false});setPinText(text);setPinDirty(false);setPinEditing(false);}catch(err){setPinError(err.message||'Unable to save the pinned note. Your text is still here.');}finally{setBusy(false);}
+  }
+  async function manageSection(section='file'){
+    if(busy||saving)return;
+    if(dirty&&!(await window.THIS_DIALOG.confirm({title:'Discard unsaved changes?',message:'Discard the unsaved update and open the client record?',confirmLabel:'Discard and continue',tone:'danger'})))return;
+    onClose?.();await onOpenFullClient?.(section);
+  }
   const waiting=['Client action required','Waiting on INZ','Waiting on third party'].includes(matterStatus);
   const stages=normaliseStages(client.stages).filter(s=>s.applied!==false);
   function update(setter,value){setter(value);setChanged(true);setError('');}
   function changeEvent(value){update(setEventType,value);const suggested=buildMatterUpdateSuggestion(client,value);setMatterStatus(suggested.matterStatus);setNextAction(suggested.nextAction);setActionDate(suggested.actionDate);setStageId(suggested.stageId||'');}
   async function save(){
     if(busy||saving)return;
+    if(pinDirty&&!changed){await savePin();return;}
     if(matterStatus!=='Completed'&&(!nextAction.trim()||!actionDate)){setError('Add a next action and '+(waiting?'review date.':'due date.'));return;}
     if(eventType==='Other'&&!note.trim()){setError('Add a short note about what happened.');return;}
     if(publish&&(!portalCurrent.trim()||!portalNext.trim())){setError('Complete both client portal fields.');return;}
     setBusy(true);setError('');
     try {
-      const activity=[...normaliseMatterActivity(client.matterActivity),makeMatterActivity('workflow',eventType,note.trim()||eventType,adviser?.name||'Adviser')];
+      const activity=[...normaliseMatterActivity(client.matterActivity),makeMatterActivity('workflow',eventType,note.trim()||eventType,adviser?.name||'Adviser'),...(pinDirty?[pinnedMatterEvent(pinText,adviser?.name)]:[])];
       const payload={...client,matterStatus,nextAction:matterStatus==='Completed'?'':nextAction.trim(),nextActionDue:matterStatus==='Completed'||waiting?'':actionDate,matterReviewDate:matterStatus==='Completed'?'':waiting?actionDate:'',matterActivity:activity};
       if(commercial) payload.clientStatus=matterStatus==='Completed'?'Closed':client.clientStatus==='Closed'?'Active':client.clientStatus;
       else {payload.stages=applyMatterStageSelection(client.stages,stageId,matterStatus==='Completed');if(publish){payload.portalStatusUpdate=portalCurrent.trim();payload.portalNextStep=portalNext.trim();payload.portalPublishNow=true;}}
@@ -20894,10 +20935,11 @@ function CalmMatterUpdate({ client, adviser, advisers = [], onClose, onOpenFullC
     } catch(err){setError(err.message||'Unable to save. Your changes are still here.');setBusy(false);}
   }
   const keyDate=(client.deadlines||[]).filter(d=>d.date&&!d.completed&&d.actionStatus!=='Dismissed').sort((a,b)=>String(a.date).localeCompare(String(b.date)))[0]||(client.accreditationExpiryDate?{date:client.accreditationExpiryDate,type:'Accreditation expiry'}:null);
-  return <SidePanel className="calm-panel-matter" title="Update matter" subtitle={`${clientName(client)} · ${client.caseType || 'Matter'}`} onClose={onClose} dirty={changed} busy={busy||saving} footer={<><button type="button" className="btn" disabled={busy||saving} onClick={async ()=>{if(!changed||(await window.THIS_DIALOG.confirm({message:'Discard unsaved changes?'})))onClose?.();}}>Cancel</button><button type="button" className="btn dark" disabled={busy||saving} onClick={save}>{busy||saving?'Saving…':onReturnToWork?'Save & return to work':'Save changes'}</button></>}>
-    {onOpenFullClient&&<section className="matter-working-snapshot" aria-label="Matter snapshot"><h3>Working snapshot</h3><dl>
-      <div><dt>Current stage</dt><dd><button type="button" className="manage-snapshot-link" disabled={busy||saving} onClick={async ()=>{if(!changed||(await window.THIS_DIALOG.confirm({message:'Discard unsaved changes and manage stages?'}))){onClose?.();onOpenFullClient?.('stages');}}}>{currentStageLabel(client)}</button></dd></div>
-      {!commercial&&<div><dt>Documents</dt><dd><button type="button" className="manage-snapshot-link" disabled={busy||saving} onClick={async ()=>{if(!changed||(await window.THIS_DIALOG.confirm({message:'Discard unsaved changes and manage documents?'}))){onClose?.();onOpenFullClient?.('documents');}}}>{normaliseDocumentChecklist(client.documentChecklist).filter(d=>d.applied!==false&&!d.obtained).length} outstanding</button></dd></div>}
+  return <SidePanel className="calm-panel-matter" title="Update matter" subtitle={`${clientName(client)} · ${client.caseType || 'Matter'}`} onClose={onClose} dirty={dirty} busy={busy||saving} footer={<><button type="button" className="btn" disabled={busy||saving} onClick={async ()=>{if(!dirty||(await window.THIS_DIALOG.confirm({message:'Discard unsaved changes?'})))onClose?.();}}>Cancel</button><button type="button" className="btn dark" disabled={busy||saving} onClick={save}>{busy||saving?'Saving…':onReturnToWork?'Save & return to work':'Save changes'}</button></>}>
+    {(pinned||pinEditing)&&<section className={pinned?'matter-pinned-note pinned':'matter-pinned-note'} aria-label="Pinned note"><div className="matter-pin-heading"><h3><Pin size={17} aria-hidden="true"/>Pinned note</h3>{pinned&&!pinEditing&&<div className="button-row"><button className="btn" type="button" disabled={busy||saving} onClick={()=>setPinEditing(true)}>Edit note</button><button className="btn" type="button" disabled={busy||saving} onClick={()=>savePin(true)}>Unpin</button></div>}</div>{pinEditing?<><label className="field"><span>Important note for this matter</span><textarea aria-label="Pinned note text" autoFocus rows={3} maxLength={2000} value={pinText} onChange={event=>{setPinText(event.target.value);setPinDirty(event.target.value.trim()!==(pinned?.detail||''));setPinError('');}}/></label><div className="button-row"><button className="btn dark" type="button" disabled={busy||saving||!pinText.trim()} onClick={()=>savePin()}>Save pin</button><button className="btn" type="button" disabled={busy||saving} onClick={async ()=>{if(pinDirty&&!(await window.THIS_DIALOG.confirm({message:'Discard the unsaved pinned note?'})))return;setPinText(pinned?.detail||'');setPinDirty(false);setPinEditing(false);}}>Cancel note</button></div></>:pinned?<><p className="matter-pin-text">{pinned.detail}</p><small>{pinned.createdBy} · {pinned.createdAt?formatPortalDateTime(pinned.createdAt):''}</small></>:<button type="button" className="btn" disabled={busy||saving} onClick={()=>setPinEditing(true)}><Pin size={16}/>Pin an important note</button>}<p className="calm-field-help">Internal note for advisers working on this matter.</p>{pinError&&<p className="inline-error" role="alert">{pinError}</p>}</section>}
+    {onOpenFullClient&&<section className="matter-working-snapshot" aria-label="Matter snapshot"><div className="matter-snapshot-heading"><h3>Working snapshot</h3>{!pinned&&!pinEditing&&<button className="btn" type="button" disabled={busy||saving} onClick={()=>setPinEditing(true)}><Pin size={16}/>Pin a note</button>}</div><dl>
+      <div><dt>Current stage</dt><dd><button type="button" className="manage-snapshot-link" disabled={busy||saving} onClick={()=>manageSection('stages')}>{currentStageLabel(client)}</button></dd></div>
+      {!commercial&&<div><dt>Documents</dt><dd><button type="button" className="manage-snapshot-link" disabled={busy||saving} onClick={()=>manageSection('documents')}>{normaliseDocumentChecklist(client.documentChecklist).filter(d=>d.applied!==false&&!d.obtained).length} outstanding</button></dd></div>}
       <div><dt>Matter status</dt><dd>{normaliseMatterStatus(client.matterStatus,client.clientStatus,client.nextAction)}</dd></div>
       <div className="snapshot-wide"><dt>Next action</dt><dd>{client.nextAction||'No next action recorded'}</dd></div>
       <div><dt>{['Client action required','Waiting on INZ','Waiting on third party'].includes(client.matterStatus)?'Review date':'Next action date'}</dt><dd>{matterWorkDate(client)?formatRecordDate(matterWorkDate(client)):'Not set'}</dd></div>
@@ -20905,7 +20947,8 @@ function CalmMatterUpdate({ client, adviser, advisers = [], onClose, onOpenFullC
       <div><dt>Main adviser</dt><dd>{advisers.find(a=>a.id===client.primaryAdviserId)?.name||'Unassigned'}</dd></div>
       {client.backupAdviserId&&<div><dt>Backup adviser</dt><dd>{advisers.find(a=>a.id===client.backupAdviserId)?.name||'Not available'}</dd></div>}
       {keyDate&&<div className="snapshot-wide"><dt>Key date · {keyDate.type||'Matter deadline'}</dt><dd>{formatRecordDate(keyDate.date)}{keyDate.note&&<small>{keyDate.note}</small>}</dd></div>}
-    </dl><button type="button" className="btn snapshot-open-client" disabled={busy||saving} onClick={async ()=>{if(!changed||(await window.THIS_DIALOG.confirm({message:'Discard unsaved changes and open the full client record?'}))){onClose?.();onOpenFullClient();}}}>Manage client <ChevronRight size={16}/></button></section>}
+    </dl><div className="matter-snapshot-actions"><button type="button" className="btn snapshot-open-client" disabled={busy||saving} onClick={()=>manageSection()}>Manage client <ChevronRight size={16}/></button><button type="button" className="btn" disabled={busy||saving} onClick={()=>setHistoryOpen(true)}><Clock size={16}/>Action history</button>{!commercial&&<button type="button" className="btn" disabled={busy||saving} onClick={()=>manageSection('details')}><Pencil size={16}/>Client details</button>}</div></section>}
+    {historyOpen&&<MatterActionHistoryPopup client={client} onClose={()=>setHistoryOpen(false)}/>}
     <div className="calm-current-status"><span>Current status</span><strong>{client.matterStatus || 'No current action'}</strong></div>
     <div className="calm-form-stack">
       <label className="field"><span>What happened?</span><select aria-label="What happened?" value={eventType} onChange={e=>changeEvent(e.target.value)}>{MATTER_UPDATE_EVENT_GROUPS.map(g=><optgroup key={g.label} label={g.label}>{g.options.map(v=><option key={v}>{v}</option>)}</optgroup>)}</select></label>
