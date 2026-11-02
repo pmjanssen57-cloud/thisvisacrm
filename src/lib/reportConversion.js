@@ -1,40 +1,33 @@
-// Tells the Turner Hopkins page that embeds a public THiS form that a
-// submission succeeded. The parent page owns the Google tag and records the
-// GA4 / Google Ads conversion there. Do not add Google tags to this app.
-
-const PARENT_ORIGINS = [
-  'https://www.turnerhopkinsimmigration.co.nz',
-  'https://turnerhopkinsimmigration.co.nz',
-];
-
+// Success only: the Squarespace parent owns tracking and top-level navigation.
+// Fixed destinations never include answers, names, emails or resume tokens.
+export const THANK_YOU_PATHS = Object.freeze({
+  "contact": "/contact-thank-you",
+  "seminar": "/seminar-thank-you",
+  "intake": "/thank-you-full-assessment",
+  "feedback": "/feedback-thank-you",
+  "employer_accreditation": "/thank-you-employer"
+});
+const WEBSITE_ORIGIN = 'https://www.turnerhopkinsimmigration.co.nz';
+const PARENT_ORIGINS = [WEBSITE_ORIGIN, 'https://turnerhopkinsimmigration.co.nz'];
 const reported = new Set();
-
 function makeId() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
 }
-
 export function reportConversion(form, { submissionId, details = {} } = {}) {
   try {
-    // Direct visits to the Netlify-hosted form are deliberately not counted.
-    if (typeof window === 'undefined' || window.parent === window) return;
-
+    if (typeof window === 'undefined' || !Object.hasOwn(THANK_YOU_PATHS, form)) return;
     const id = String(submissionId || makeId());
-    const key = `${form}:${id}`;
+    const key = form + ':' + id;
     if (reported.has(key)) return;
     reported.add(key);
-
-    const message = {
-      source: `this-crm-${form}`,
-      type: 'THIS_FORM_SUBMITTED',
-      form,
-      submissionId: id,
-      // Keep details to short, non-personal controlled values only.
-      details,
-    };
-
-    PARENT_ORIGINS.forEach((origin) => window.parent.postMessage(message, origin));
+    if (window.parent === window) {
+      window.location.assign(WEBSITE_ORIGIN + THANK_YOU_PATHS[form]);
+      return;
+    }
+    const message = { source: 'this-crm-' + form, type: 'THIS_FORM_SUBMITTED', form, submissionId: id, details };
+    PARENT_ORIGINS.forEach(origin => window.parent.postMessage(message, origin));
   } catch {
-    // Conversion reporting must never interrupt a successful form submission.
+    // Keep the inline success screen if navigation/reporting is unavailable.
   }
 }

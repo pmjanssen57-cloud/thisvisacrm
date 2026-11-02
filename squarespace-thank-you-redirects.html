@@ -1,0 +1,49 @@
+<script>
+/* Install once in Squarespace Footer Code Injection, after deploying CRM v0.17.71. */
+(function () {
+  'use strict';
+  if (window.__thisThankYouRedirectsInstalled) return;
+  window.__thisThankYouRedirectsInstalled = true;
+  var crmOrigin = 'https://thisvisacrm.netlify.app';
+  var websiteOrigin = 'https://www.turnerhopkinsimmigration.co.nz';
+  var destinations = {
+  "contact": "/contact-thank-you",
+  "seminar": "/seminar-thank-you",
+  "intake": "/thank-you-full-assessment",
+  "feedback": "/feedback-thank-you",
+  "employer_accreditation": "/thank-you-employer"
+};
+  var formRoutes = {
+  "contact": "/contact",
+  "seminar": "/seminar",
+  "intake": "/intake",
+  "feedback": "/feedback",
+  "employer_accreditation": "/employer-accreditation"
+};
+  var navigating = false;
+  var seen = new Set();
+  window.addEventListener('message', function (event) {
+    if (navigating || event.origin !== crmOrigin) return;
+    var data = event.data;
+    if (!data || typeof data !== 'object' || data.type !== 'THIS_FORM_SUBMITTED') return;
+    if (typeof data.form !== 'string' || !Object.prototype.hasOwnProperty.call(destinations, data.form)) return;
+    if (data.source !== 'this-crm-' + data.form || typeof data.submissionId !== 'string' || !data.submissionId || data.submissionId.length > 200) return;
+    var matchingFrame = Array.from(document.querySelectorAll('iframe')).some(function (frame) {
+      if (frame.contentWindow !== event.source) return false;
+      try {
+        var url = new URL(frame.src, window.location.href);
+        return url.origin === crmOrigin && url.pathname.replace(/\/$/, '') === formRoutes[data.form];
+      } catch (_) { return false; }
+    });
+    if (!matchingFrame) return;
+    var key = data.form + ':' + data.submissionId;
+    if (seen.has(key)) return;
+    seen.add(key);
+    navigating = true;
+    // Let existing submission-event listeners finish before leaving this page.
+    window.setTimeout(function () {
+      window.location.assign(websiteOrigin + destinations[data.form]);
+    }, 200);
+  });
+})();
+</script>

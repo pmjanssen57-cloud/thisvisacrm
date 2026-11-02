@@ -5873,13 +5873,6 @@ function IntakeFormApp() {
         const response = await fetch('/.netlify/functions/intake', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ resumeToken: draftResumeTokenRef.current || draftResumeToken, payload: { ...form, email: String(form.email || '').trim(), intakeSubmissionKey: submissionKeyRef.current, submittedVia: 'THiS guided intake journey', intakeVersion: 'v0.17.19-assessment-review-polish' } }) });
         const body = await readJsonResponse(response);
         if (!response.ok) throw new Error(body.error || 'The questionnaire could not be submitted.');
-        reportConversion('intake', {
-          submissionId: body.intakeId,
-          details: {
-            visa_pathway: form.targetPathway,
-            applicant_country: form.currentLocation,
-          },
-        });
         receipt = { intakeId: body.intakeId, uploadToken: body.uploadToken, expectedUploads: body.expectedUploads || [], uploadedKinds: body.uploadedKinds || [] };
         setSubmissionReceipt(receipt);
       }
@@ -5892,6 +5885,7 @@ function IntakeFormApp() {
         catch (uploadError) { updateCvState(item.kind,'error',uploadError.message || `The ${item.label} could not be uploaded.`); uploadError.cvKind=item.kind; uploadError.cvLabel=item.label; throw uploadError; }
         receipt={...receipt,uploadedKinds:[...new Set([...(receipt.uploadedKinds||[]),item.kind])]}; setSubmissionReceipt(receipt); updateCvState(item.kind,'uploaded',`${item.label === 'CV' ? 'CV' : 'Partner CV'} uploaded successfully.`);
       }
+      reportConversion('intake', { submissionId: receipt.intakeId, details: { visa_pathway: form.targetPathway, applicant_country: form.currentLocation } });
       setSubmissionStatus('Questionnaire submitted successfully.');
       try { localStorage.removeItem(intakeDraftStorageKey); } catch {}
       setSubmitted(true); scrollFormTop();
@@ -6918,6 +6912,7 @@ function FeedbackFormApp() {
       });
       const body = await readJsonResponse(response);
       if (!response.ok) throw new Error(body.error || 'Your feedback could not be submitted.');
+      reportConversion('feedback', { submissionId: body.feedbackId });
       setSubmitted(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
@@ -14809,7 +14804,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.70" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.71" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -15401,7 +15396,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.70" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.71" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}
