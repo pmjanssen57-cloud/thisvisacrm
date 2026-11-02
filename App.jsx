@@ -7003,6 +7003,30 @@ function SeminarRegistrationFormApp() {
     privacyAcknowledged: false,
   });
 
+  const seminarShellRef = useRef(null);
+  useEffect(() => {
+    const embedded=window.parent!==window;
+    document.documentElement.classList.toggle('seminar-embed-mode',embedded);
+    document.body.classList.toggle('seminar-embed-mode',embedded);
+    return ()=>{document.documentElement.classList.remove('seminar-embed-mode');document.body.classList.remove('seminar-embed-mode');};
+  },[]);
+  useEffect(() => {
+    const shell=seminarShellRef.current;if(!shell)return undefined;
+    let raf=0,lastHeight=0,closed=false;
+    const measure=()=>{if(closed)return;if(raf)cancelAnimationFrame(raf);raf=requestAnimationFrame(()=>{
+      if(closed)return;
+      shell.querySelectorAll('textarea').forEach(field=>{field.style.height='auto';field.style.height=(field.scrollHeight+2)+'px';});
+      if(window.parent===window)return;
+      const height=Math.ceil(shell.getBoundingClientRect().height+8);
+      if(Math.abs(height-lastHeight)<2)return;lastHeight=height;
+      window.parent.postMessage({type:'THIS_SEMINAR_EMBED_HEIGHT',source:'this-crm-seminar',height},'*');
+    });};
+    const request=event=>{if(event.source===window.parent&&event.data?.type==='THIS_SEMINAR_REQUEST_HEIGHT'){lastHeight=0;measure();}};
+    measure();const observer=typeof ResizeObserver!=='undefined'?new ResizeObserver(measure):null;observer?.observe(shell);const card=shell.querySelector('main');if(card)observer?.observe(card);
+    window.addEventListener('resize',measure);window.addEventListener('message',request);document.fonts?.ready.then(measure);
+    return()=>{closed=true;if(raf)cancelAnimationFrame(raf);observer?.disconnect();window.removeEventListener('resize',measure);window.removeEventListener('message',request);};
+  },[form,loading,seminar,submitted,error]);
+
   useEffect(() => {
     let active = true;
     async function loadSeminar() {
@@ -7061,7 +7085,7 @@ function SeminarRegistrationFormApp() {
 
   if (submitted) {
     return (
-      <div className="intake-public-shell public-form-shell seminar-public-shell">
+      <div ref={seminarShellRef} className="intake-public-shell public-form-shell seminar-public-shell">
         <main className="intake-public-card public-form-card intake-thanks-card">
           <CheckCircle2 size={40} className="portal-lock" />
           <h1>Thank you. Your registration has been received.</h1>
@@ -7072,7 +7096,7 @@ function SeminarRegistrationFormApp() {
   }
 
   return (
-    <div className="intake-public-shell public-form-shell seminar-public-shell">
+    <div ref={seminarShellRef} className="intake-public-shell public-form-shell seminar-public-shell">
       <main className="intake-public-card public-form-card seminar-public-card">
         <div className="intake-public-head compact contact-public-intro public-form-intro">
           <p>Register your interest in the next Turner Hopkins immigration seminar. Registrations are reviewed before Zoom details are issued.</p>
@@ -7113,8 +7137,8 @@ function SeminarRegistrationFormApp() {
                   <IntakeField label="Current occupation" value={form.currentOccupation} onChange={(v) => setField('currentOccupation', v)} required />
                   <IntakeSelect label="English ability" value={form.englishAbility} onChange={(v) => setField('englishAbility', v)} options={SEMINAR_ENGLISH_OPTIONS} required />
                 </div>
-                <IntakeTextarea label="Relevant work history" value={form.workHistory} onChange={(v) => setField('workHistory', v)} rows={4} placeholder="Please summarise your main roles, years of experience, and industry." />
-                <IntakeTextarea label="Any health or character issues" value={form.healthCharacterIssues} onChange={(v) => setField('healthCharacterIssues', v)} rows={4} placeholder="Please mention any health concerns, convictions, charges, visa declines, deportation/removal matters, or write None." />
+                <div className="seminar-notes-grid"><IntakeTextarea label="Relevant work history" value={form.workHistory} onChange={(v) => setField('workHistory', v)} rows={2} placeholder="Please summarise your main roles, years of experience, and industry." />
+                <IntakeTextarea label="Any health or character issues" value={form.healthCharacterIssues} onChange={(v) => setField('healthCharacterIssues', v)} rows={2} placeholder="Please mention any health concerns, convictions, charges, visa declines, deportation/removal matters, or write None." /></div>
               </IntakeSection>
 
               <IntakeSection title="Consent">
@@ -14785,7 +14809,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.69" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.70" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -15377,7 +15401,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.69" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.70" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}
