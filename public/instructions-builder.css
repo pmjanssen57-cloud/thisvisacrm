@@ -1,0 +1,145 @@
+/* Client document composer. All rules are scoped to Instructions Studio. */
+.ib72-studio .calm-studio-toolbar,
+.ib72-studio .workspace > .pack-panel,
+.ib72-studio .workspace > .editor-panel { display:none !important; }
+.ib72-studio.calm-studio .app-shell { height:auto; min-height:100vh; overflow:visible; }
+.ib72-studio.calm-studio .workspace { display:block !important; height:auto !important; min-height:0; overflow:visible !important; padding:24px; background:#f3f7f5; }
+.ib72-studio .workspace > .preview-panel { display:none !important; }
+.ib72-studio.ib72-preview .workspace > .preview-panel,
+.ib72-studio.ib72-split .workspace > .preview-panel { display:flex !important; min-width:0; width:auto; height:auto; min-height:0; margin:0; overflow:hidden; }
+.ib72-studio.ib72-preview .ib72 { display:none; }
+.ib72-studio .ib72-viewbar { display:flex; align-items:center; padding:10px 24px; background:white; border-bottom:1px solid #d6e2dd; }
+.ib72-mobile-tool { display:none !important; }
+.ib72-viewbar > div { display:flex; gap:5px; flex-wrap:wrap; }
+.ib72-viewbar button { min-height:42px; padding:9px 15px; border:0; border-radius:7px; background:transparent; color:#516961; font:inherit; font-size:14px; cursor:pointer; }
+.ib72-viewbar button[aria-pressed=true] { background:#e3f1eb; color:#07584f; font-weight:700; }
+.ib72 { width:100%; max-width:1700px; margin:auto; background:#fff; border:1px solid #d6e2dd; border-radius:12px; color:#203e36; overflow:hidden; }
+.ib72 *, .ib72-dialog * { box-sizing:border-box; }
+.ib72-setup { padding:25px 28px; background:#fafcfb; border-bottom:1px solid #dce7e2; }
+.ib72-setup-title { margin-bottom:20px; }
+.ib72 h1 { margin:4px 0 7px; font-size:25px; line-height:1.25; letter-spacing:-.035em; }
+.ib72 p,.ib72-dialog p { font-size:14px; line-height:1.6; color:#62776f; margin:6px 0 12px; }
+.ib72-eyebrow { color:#58766a; font-size:10px; line-height:1.5; font-weight:750; letter-spacing:.09em; text-transform:uppercase; }
+.ib72-two-fields { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:18px; }
+.ib72 label,.ib72-dialog label { display:grid; gap:7px; font-size:13px; font-weight:650; color:#34554a; min-width:0; }
+.ib72 input:not([type=checkbox]),.ib72 select,.ib72 textarea,
+.ib72-dialog input:not([type=checkbox]),.ib72-dialog select,.ib72-dialog textarea { width:100%; min-width:0; max-width:100%; border:1px solid #cbdcd3; border-radius:7px; background:#fff; color:#234238; min-height:46px; padding:11px 12px; font:inherit; font-size:15px; font-weight:400; line-height:1.45; }
+.ib72 input:focus-visible,.ib72 select:focus-visible,.ib72 textarea:focus-visible,.ib72 button:focus-visible,
+.ib72-wording:focus-visible,.ib72-dialog :focus-visible { outline:3px solid #8acbbb; outline-offset:2px; }
+.ib72 input[type=checkbox],.ib72-dialog input[type=checkbox] { width:18px; height:18px; margin:0; flex:0 0 auto; accent-color:#07594f; }
+.ib72 button,.ib72-dialog button { cursor:pointer; }
+.ib72 .button,.ib72-dialog .button { min-height:42px; padding:10px 13px; border-radius:7px; font-size:13px; line-height:1.4; white-space:normal; }
+.ib72 button:disabled,.ib72-dialog button:disabled { cursor:default; opacity:.5; }
+.ib72-document-bar { display:flex; flex-wrap:wrap; align-items:end; gap:16px; padding:18px 28px; border-bottom:1px solid #dce7e2; }
+.ib72-document-picker { flex:1 1 240px; max-width:450px; }
+.ib72 .ib72-include { display:flex; flex:1 1 240px; gap:9px; align-items:center; min-height:46px; font-size:13px; }
+.ib72-composer { display:grid; grid-template-columns:250px minmax(0,1fr); min-height:600px; }
+.ib72-outline { border-right:1px solid #dce7e2; padding:20px 13px; background:#fbfcfb; }
+.ib72-outline > summary { display:flex; justify-content:space-between; gap:8px; margin:0 7px 15px; font-size:13px; font-weight:750; color:#34554a; list-style:none; pointer-events:none; }
+.ib72-outline > summary::-webkit-details-marker { display:none; }
+.ib72-outline > summary span { font-size:11px; font-weight:400; color:#6a7e75; white-space:nowrap; }
+.ib72-section { display:flex; width:100%; text-align:left; align-items:flex-start; gap:10px; border:1px solid transparent; border-radius:8px; background:none; padding:12px 10px; margin:2px 0; min-height:68px; color:#315247; }
+.ib72-section.selected { background:#e8f3ed; border-color:#bcdacd; color:#07584f; }
+.ib72-section:hover { background:#eff6f2; }
+.ib72-section-number { font-size:10px; color:#6d8579; padding-top:3px; min-width:18px; }
+.ib72-section strong { display:block; font-size:13px; font-weight:650; line-height:1.45; overflow-wrap:anywhere; }
+.ib72-section small { display:block; font-size:11px; color:#708579; line-height:1.5; margin-top:3px; }
+.ib72-add-actions { display:grid; gap:9px; border-bottom:1px solid #dae6de; padding:0 5px 16px; margin:0 0 14px; }
+.ib72-link { border:0; background:none; color:#07685b; font:inherit; font-size:13px; font-weight:600; text-decoration:underline; text-underline-offset:3px; padding:6px 0; min-height:38px; }
+.ib72-section-editor { padding:26px 28px; min-width:0; }
+.ib72-editor-head { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:14px; margin-bottom:22px; }
+.ib72 h2 { font-size:22px; line-height:1.3; letter-spacing:-.025em; margin:5px 0 0; overflow-wrap:anywhere; }
+.ib72 h3,.ib72-dialog h3 { font-size:16px; margin:12px 0 7px; line-height:1.4; }
+.ib72-block-actions,.ib72-actions { display:flex; flex-wrap:wrap; gap:7px; align-items:center; }
+.ib72-block-actions .button { padding:8px 11px; font-size:12px; }
+.ib72 .ib72-wording-label { margin:22px 0 8px; }
+.ib72-format { display:flex; flex-wrap:wrap; gap:3px; padding:7px; background:#f5f8f6; border:1px solid #cadcd2; border-bottom:0; border-radius:8px 8px 0 0; }
+.ib72-format button { border:0; background:transparent; color:#36584b; padding:7px 9px; min-height:36px; border-radius:5px; font-size:12px; }
+.ib72-format button:hover { background:#dfeee5; }
+.ib72-wording { min-height:320px; padding:22px 24px; border:1px solid #cadcd2; border-radius:0 0 8px 8px; color:#244138; font:400 15px/1.75 Arial,sans-serif; overflow-wrap:anywhere; overflow-x:auto; }
+.ib72-wording p { color:inherit; font:inherit; margin:0 0 14px; }
+.ib72-wording h3 { font:700 18px/1.4 Arial,sans-serif; margin:20px 0 10px; }
+.ib72-wording table { width:100%; border-collapse:collapse; margin:12px 0; table-layout:fixed; }
+.ib72-wording td,.ib72-wording th { border:1px solid #cedfd4; padding:10px; vertical-align:top; overflow-wrap:anywhere; text-align:left; }
+.ib72-wording th { background:#eaf4ee; }
+.ib72-wording .callout { display:flex; align-items:flex-start; gap:12px; padding:15px; border-left:3px solid #1e8874; border-radius:5px; background:#edf7f1; margin:14px 0; }
+.ib72-wording .callout p { margin:0; }
+.ib72-wording-footer { display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap; margin:9px 0 20px; color:#708579; font-size:12px; }
+.ib72-help { color:#6b8075; font-size:12px !important; line-height:1.6; margin:12px 0 !important; }
+.ib72-family { padding:17px; margin-top:20px; border:1px solid #cde2d6; background:#f6fbf8; border-radius:9px; }
+.ib72-person-row { display:grid; grid-template-columns:minmax(0,1fr) 145px 100px; gap:12px; align-items:end; margin:14px 0; }
+.ib72-main-person { padding:13px 0; font-size:11px; color:#617b6b; }
+.ib72-text-danger { color:#a23e35; font-size:12px; background:none; border:0; text-align:left; min-height:42px; text-decoration:underline; text-underline-offset:3px; }
+.ib72-evidence { border:1px solid #cddfd4; border-radius:9px; padding:15px 17px; margin-top:22px; }
+.ib72-evidence > summary { cursor:pointer; font-size:14px; font-weight:700; line-height:1.5; }
+.ib72-evidence > summary span { float:right; border-radius:12px; background:#e5f1e9; padding:0 8px; font-size:12px; }
+.ib72-request { border-top:1px solid #d6e5dc; padding:18px 0; display:grid; gap:13px; }
+.ib72-request fieldset { min-width:0; padding:0; border:0; margin:0; }
+.ib72-request legend { font-size:12px; font-weight:650; margin-bottom:8px; }
+.ib72-person-choices { display:flex; flex-wrap:wrap; gap:9px; }
+.ib72 .ib72-person-choice { display:flex; align-items:center; gap:8px; padding:9px 11px; min-height:42px; border:1px solid #ccded2; border-radius:7px; font-weight:400; background:#fff; max-width:100%; }
+.ib72-person-choice span { overflow-wrap:anywhere; }
+.ib72-review { padding:12px 28px; background:#fff6df; border-bottom:1px solid #ead4a3; color:#765c28; font-size:13px; line-height:1.6; }
+.ib72-review[hidden] { display:none; }
+.ib72-dialog { color:#27473b; width:min(840px,calc(100vw - 32px)); max-width:none; max-height:88vh; padding:25px; border:1px solid #c7dccf; border-radius:13px; box-shadow:0 20px 80px #143e3429; overflow:auto; }
+.ib72-dialog::backdrop { background:#193a3659; }
+.ib72-dialog-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:14px; margin-bottom:19px; }
+.ib72-dialog h2 { font-size:24px; margin:5px 0; }
+.ib72-library-tools { display:grid; grid-template-columns:minmax(0,1fr) 210px; gap:14px; margin-bottom:18px; }
+.ib72-library-item { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:16px; padding:17px 0; border-top:1px solid #dbe6df; }
+.ib72-library-item p { font-size:13px; margin-bottom:0; }
+.ib72-library-item h3 { margin:3px 0 5px; }
+.ib72-settings { width:min(580px,calc(100vw - 32px)); }
+#ib72-settings-body { display:grid; gap:18px; margin-bottom:20px; }
+.ib72-studio .preview-panel .preview-scroller { height:auto; min-height:500px; overflow:auto; padding:20px; }
+.ib72-studio .preview-panel .preview-root { margin:auto; }
+@media(min-width:1400px) {
+  .ib72-studio.ib72-split.calm-studio .workspace { display:grid !important; grid-template-columns:minmax(0,1.55fr) minmax(0,1fr); gap:20px; align-items:start; }
+  .ib72-split .ib72-composer { grid-template-columns:205px minmax(0,1fr); }
+  .ib72-split .ib72-section-editor { padding:22px; }
+}
+@media(max-width:1399px) {
+  .ib72-studio.ib72-split .workspace > .preview-panel { margin-top:22px; }
+}
+@media(max-width:1000px) {
+  .ib72-composer { grid-template-columns:215px minmax(0,1fr); }
+  .ib72-section-editor { padding:21px; }
+  .ib72-person-row { grid-template-columns:minmax(0,1fr) 120px; }
+  .ib72-person-row > button,.ib72-main-person { grid-column:1/-1; padding:0; min-height:30px; }
+}
+@media(max-width:759px) {
+  .ib72-studio .calm-studio-more .ib72-mobile-tool { display:block !important; }
+  .ib72 button,.ib72-dialog button { min-height:44px; }
+  .ib72-studio.calm-studio .workspace { padding:12px !important; }
+  .ib72-studio .ib72-viewbar { padding:9px 12px; }
+  .ib72-viewbar button { padding:8px 11px; font-size:13px; min-height:44px; }
+  .ib72-setup { padding:20px 17px; }
+  .ib72 h1 { font-size:22px; }
+  .ib72-two-fields,.ib72-library-tools { grid-template-columns:1fr; gap:15px; }
+  .ib72-document-bar { padding:16px 17px; gap:12px; }
+  .ib72 .ib72-include { flex-basis:100%; }
+  .ib72-document-picker { flex-basis:100%; max-width:none; }
+  .ib72-composer { display:block; min-height:0; }
+  .ib72-outline { border-right:0; border-bottom:1px solid #dce7e2; padding:16px 12px; }
+  .ib72-outline > summary { pointer-events:auto; cursor:pointer; margin:0 5px; min-height:30px; align-items:center; }
+  .ib72-outline[open] > summary { margin-bottom:12px; }
+  .ib72-outline > summary::after { content:'⌄'; font-size:18px; }
+  .ib72-section-editor { padding:21px 17px; }
+  .ib72 h2 { font-size:21px; }
+  .ib72-editor-head { margin-bottom:18px; }
+  .ib72-block-actions { gap:6px; }
+  .ib72-block-actions .button { min-height:44px; font-size:12px; padding:9px 10px; }
+  .ib72 input:not([type=checkbox]),.ib72 select,.ib72 textarea,.ib72-dialog input:not([type=checkbox]),.ib72-dialog select,.ib72-dialog textarea { font-size:16px; }
+  .ib72-wording { padding:17px; min-height:300px; font-size:16px; }
+  .ib72-format button { min-height:42px; padding:7px 10px; }
+  .ib72-family { padding:13px; }
+  .ib72-person-row { grid-template-columns:1fr; gap:10px; }
+  .ib72-actions .button { width:100%; }
+  .ib72-dialog { padding:20px 17px; width:calc(100vw - 24px); }
+  .ib72-library-item { grid-template-columns:1fr; gap:10px; }
+  .ib72-library-item > button { justify-self:start; }
+  .ib72-review { padding:12px 17px; }
+}
+@media print {
+  .ib72,.ib72-viewbar,.ib72-dialog { display:none !important; }
+}

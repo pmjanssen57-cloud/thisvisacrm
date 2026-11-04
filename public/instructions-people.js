@@ -44,7 +44,7 @@
     if(!m.introIds.length)issues.push('Choose who the introduction covers.');
     if(!m.recipientText?.trim()&&!m.recipientIds.length)issues.push('Choose a recipient or enter a greeting.');
     Object.entries(state.docs||{}).filter(([docId,doc])=>docId==='documents'&&doc.enabled).forEach(([docId,doc])=>{
-      (doc.blocks||[]).filter(block=>block.enabled).forEach(block=>{
+      (doc.blocks||[]).filter(block=>block.enabled&&!block.builder72NoEvidence).forEach(block=>{
         const selected=requirements(docId,block).filter(r=>r.enabled);
         if(!selected.length||selected.some(r=>!r.title.trim()||!r.personIds.length))issues.push(`Check documents and people for ${block.title}.`);
       });
@@ -183,7 +183,7 @@
   const oldEditor=renderEditor;
   renderEditor=function(){const expanded=[...document.querySelectorAll('.s51-requirements[open]')].map(node=>node.dataset.s51Block);oldEditor();document.querySelectorAll('.s51-requirements,.s51-section-scope,.s51-output-mode').forEach(node=>node.remove());renderIntroControls();renderRequirements();document.querySelectorAll('.s51-requirements').forEach(node=>{if(expanded.includes(node.dataset.s51Block))node.open=true;});if(!model()?.enabled){const notice=document.createElement('div');notice.className='s51-output-mode s51-legacy';notice.innerHTML='<strong>This guide keeps its existing output.</strong><p>Enable the people-based layout to include the selections below in the introduction and documentation guide.</p><button type="button" class="button button-secondary">Use people-based guide</button>';document.querySelector('#tab-content .selected-document-header')?.after(notice);notice.querySelector('button').addEventListener('click',()=>{model().enabled=true;syncClientNames();dirty(false);renderAll();});}renderSteps();};
   const oldIntro=editedIntroParagraphsV14;
-  editedIntroParagraphsV14=function(doc){const original=oldIntro(doc);if(!model()?.enabled||window.__THIS_TEMPLATE_PREVIEW_V156__||!['roadmap','documents'].includes(renderingDoc))return original;const m=model();return `<div class="s51-generated s51-introduction"><strong>${m.introIds.length>1?'Your instruction guide — people included':'Your instruction guide'}</strong><div>This guide covers ${esc(names(m.introIds)||'the applicants to be confirmed')}.</div>${m.introductionNote?`<div class="s51-intro-person-note">${esc(m.introductionNote).replace(/\n/g,'<br>')}</div>`:''}</div>`+original;};
+  editedIntroParagraphsV14=function(doc){const original=oldIntro(doc);if(state.builder72?.simpleIntro)return original;if(!model()?.enabled||window.__THIS_TEMPLATE_PREVIEW_V156__||!['roadmap','documents'].includes(renderingDoc))return original;const m=model();return `<div class="s51-generated s51-introduction"><strong>${m.introIds.length>1?'Your instruction guide — people included':'Your instruction guide'}</strong><div>This guide covers ${esc(names(m.introIds)||'the applicants to be confirmed')}.</div>${m.introductionNote?`<div class="s51-intro-person-note">${esc(m.introductionNote).replace(/\n/g,'<br>')}</div>`:''}</div>`+original;};
   function noteParts(note) {
     let remaining=String(note||'');const parts=[];
     while(remaining.length>1100){let cut=remaining.lastIndexOf(' ',1100);if(cut<500)cut=1100;parts.push(remaining.slice(0,cut));remaining=remaining.slice(cut).trimStart();}
@@ -191,6 +191,7 @@
   }
   const oldBlock=genericBlockHtmlV13;
   genericBlockHtmlV13=function(block,plan,doc){
+    if(block.builder72NoEvidence)return oldBlock(block,plan,doc);
     if(!model()?.enabled||renderingDoc!=='documents'||window.__THIS_TEMPLATE_PREVIEW_V156__)return oldBlock(block,plan,doc);
     const selected=requirements(renderingDoc,block).filter(r=>r.enabled);
     const bodyTemplate=document.createElement('template');bodyTemplate.innerHTML=oldBlock(block,plan,doc);

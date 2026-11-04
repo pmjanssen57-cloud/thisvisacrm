@@ -268,7 +268,8 @@ function mergeDefaults(base, saved) {
   const merged = { ...base, ...saved, inlineEdits: { ...(base.inlineEdits || {}), ...(saved.inlineEdits || {}) }, glanceValueOverrides: { ...(base.glanceValueOverrides || {}), ...(saved.glanceValueOverrides || {}) }, client: { ...base.client, ...(saved.client || {}) }, policeClearances: Array.isArray(saved.policeClearances) ? saved.policeClearances : base.policeClearances, docs: { ...base.docs } };
   Object.keys(base.docs).forEach(id => {
     merged.docs[id] = { ...base.docs[id], ...(saved.docs?.[id] || {}) };
-    merged.docs[id].blocks = (saved.docs?.[id]?.blocks || base.docs[id].blocks).map((block, index) => ({ ...base.docs[id].blocks[index], ...block }));
+    const defaultsById = new Map((base.docs[id].blocks || []).map(block => [block.id, block]));
+    merged.docs[id].blocks = (saved.docs?.[id]?.blocks || base.docs[id].blocks).map(block => ({ ...(defaultsById.get(block.id) || {}), ...block }));
   });
   return merged;
 }
@@ -1906,6 +1907,7 @@ compactDocV13 = function(doc) {
 };
 
 function editedIntroParagraphsV14(doc) {
+  if (doc.builder72RichIntro) return v12SafeClientHtml(fillTemplate(doc.intro || ''));
   const introText = v12SafeClientHtml(fillTemplate(doc.intro || ''));
   const chunks = introText.split(/\n\s*\n/).filter(Boolean);
   const edits = doc.directEdits?.intro || {};
@@ -4502,6 +4504,8 @@ bindEvents();
       html:`<h3>Because timing matters here</h3><p>Please tell us the key date, what needs to happen by then and whether any travel is already booked. We will identify what can realistically be done, what depends on Immigration New Zealand and where we need a backup plan.</p><div class="callout"><span class="callout-icon">i</span><p><strong>Helpful tip:</strong> If the deadline changes, or new travel becomes necessary, tell us straight away so we can revisit the plan.</p></div>`
     }
   ];
+
+  window.THIS_INSTRUCTION_BLOCK_LIBRARY = () => structuredClone(MODULE_LIBRARY_V01743);
 
   const MODULE_RECOMMENDATIONS_V01743 = {
     pwv:['Relationship','Common'], family:['Relationship','Common'], 'aewv-family':['Relationship','Common'],

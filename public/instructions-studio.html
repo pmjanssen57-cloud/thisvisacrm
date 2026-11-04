@@ -2,8 +2,8 @@
 <!-- Self-contained build: styles, scripts and images are embedded so this file can be opened directly. -->
 <html lang="en">
 <head>
-<link rel="stylesheet" href="/crm-dialog.css?v=0.17.70">
-<script src="/crm-dialog.js?v=0.17.70"></script>
+<link rel="stylesheet" href="/crm-dialog.css?v=0.17.72">
+<script src="/crm-dialog.js?v=0.17.72"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>THiS Instructions Studio - Modular Guide Builder</title>
@@ -919,11 +919,12 @@ button { cursor: pointer; }
 }
 </style>
 
-<link rel="stylesheet" href="/calm-theme.css?v=0.17.70">
-<link rel="stylesheet" href="/calm-studio.css?v=0.17.70">
-<script src="/calm-studio.js?v=0.17.70" defer></script>
-<link rel="stylesheet" href="/precision-studio.css?v=0.17.70">
-<link rel="stylesheet" href="/ui-controls.css?v=0.17.70">
+<link rel="stylesheet" href="/calm-theme.css?v=0.17.72">
+<link rel="stylesheet" href="/calm-studio.css?v=0.17.72">
+<script src="/calm-studio.js?v=0.17.72" defer></script>
+<link rel="stylesheet" href="/precision-studio.css?v=0.17.72">
+<link rel="stylesheet" href="/ui-controls.css?v=0.17.72">
+<link rel="stylesheet" href="/instructions-builder.css?v=0.17.72">
 </head>
 <body>
   <div class="app-shell">
@@ -1142,14 +1143,13 @@ button { cursor: pointer; }
 <aside class="studio-help-drawer" id="studio-help-drawer" aria-hidden="true" aria-label="Instructions Studio help">
   <div class="studio-help-head"><div><span>Document support</span><h2>Instructions Studio help</h2></div><button class="studio-help-close" id="studio-help-close" type="button" aria-label="Close help">×</button></div>
   <div class="studio-help-body">
-    <p class="studio-help-summary">Work through People, Introduction, Documents and Preview. The linked client and family details provide a starting point; the adviser confirms the people, wording and document selections. Changes to people here stay in this instruction draft.</p>
-    <section class="studio-help-section"><h3>1. Confirm the people and recipients</h3><p>Add the main applicant, partner, children or other people. Check names and optional birth dates. Choose who receives the instructions separately from who is included in the application.</p></section>
-    <section class="studio-help-section"><h3>2. Tailor the introduction</h3><p>Select the people covered by the introduction and add any family-specific context. Keep or tailor the existing Road Map wording. Individual sections can apply to a different selection of people.</p></section>
-    <section class="studio-help-section"><h3>3. Select the evidence deliberately</h3><p>In the Documentation Guide, include only sections that apply. Insert standard guidance only when useful, then tailor it. Select and review every police-clearance country rather than relying on assessment data.</p></section>
-    <section class="studio-help-section"><h3>4. Keep the document simple</h3><p>Focus on what the client needs to understand and do now. Avoid copying the assessment, adding unnecessary process detail or leaving drafting prompts and unconfirmed conclusions in the document.</p></section>
-    <section class="studio-help-section"><h3>5. Templates and versions</h3><p>Administrators can use Template library to edit the reusable master pack, save a draft, publish a new version or restore an earlier version. Existing client documents do not change automatically when a template is updated.</p></section>
-    <section class="studio-help-section"><h3>6. Complete the adviser review</h3><p>Resolve every pre-issue warning, read the complete A4 preview and confirm that the pack reflects your advice and the client’s current circumstances before printing or marking it ready.</p></section>
-    <div class="studio-help-tips"><strong>Before you finish</strong><ul><li>Make sure each narrative section is specific to this client.</li><li>Remove evidence sections that do not apply.</li><li>Check police-country instructions and time-sensitive requirements.</li><li>Remove all brackets, prompts, placeholders and internal notes.</li></ul></div>
+    <p class="studio-help-summary">Enter the client name and visa category, then build a tailored document from editable blocks. Work on the introduction / road map or documentation guide in the same workspace.</p>
+    <section class="studio-help-section"><h3>Start with the client and category</h3><p>The name and category populate the cover and starting introduction. Each category supplies usual starting blocks for adviser review. Changing category replaces the active starting draft, so save first if you need to keep the current content.</p></section>
+    <section class="studio-help-section"><h3>Build and tailor the document</h3><p>Choose a section in Document sections. Edit the heading and wording directly, use the formatting controls for lists, tables and callouts, then move, duplicate or remove blocks as needed. Add block searches the starting sections and guidance library. Write a custom block adds your own guidance.</p></section>
+    <section class="studio-help-section"><h3>Add family only when useful</h3><p>Family / people adds a block listing the people included. Add a partner, children or another person there. Details from the linked client are available when supplied. These edits stay in this instruction draft.</p></section>
+    <section class="studio-help-section"><h3>Make document requests specific</h3><p>In a documentation block, open Documents requested &amp; who needs them. Add or remove individual requests, select the people required to provide each item, and refine its instructions. A passport request can cover different people from a birth certificate request.</p></section>
+    <section class="studio-help-section"><h3>Review, save and prepare the PDF</h3><p>Use Preview or Edit &amp; preview to read the A4 document. Output settings controls the date, adviser, cover image and PDF arrangement. Include this guide in output determines which guides are printed. Save to CRM keeps the current draft; Print / save PDF prepares the output; Mark ready follows the existing adviser review process.</p></section>
+    <div class="studio-help-tips"><strong>Before issue</strong><ul><li>Check every block against your advice and the client’s facts.</li><li>Remove sections that do not apply.</li><li>Confirm current policy, country instructions and time-sensitive requirements.</li><li>Check names, document assignments, placeholders and the full PDF.</li></ul></div>
     <div class="studio-help-foot">This guidance relates to the current Studio screen. The main CRM Help window explains how drafts are created, stored and accessed from client records.</div>
   </div>
 </aside>
@@ -1360,9 +1360,10 @@ button { cursor: pointer; }
   .guided-section-heading{grid-template-columns:36px minmax(0,1fr)!important}.guided-snippet-row{flex-direction:column;align-items:stretch}.block-order-controls-v01731{flex-direction:row!important;flex-wrap:wrap}
 }
 </style>
-<script src="/instructions-studio.js?v=0.17.70"></script>
-<script src="/instructions-people.js?v=0.17.70"></script>
-<link rel="stylesheet" href="/instructions-people.css?v=0.17.70">
+<script src="/instructions-studio.js?v=0.17.72"></script>
+<script src="/instructions-people.js?v=0.17.72"></script>
+<script src="/instructions-builder.js?v=0.17.72"></script>
+<link rel="stylesheet" href="/instructions-people.css?v=0.17.72">
 <script>
 (function(){
   function initMobileInstructions(){
