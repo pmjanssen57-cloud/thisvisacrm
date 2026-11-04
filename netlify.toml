@@ -78,3 +78,8 @@
   for = "/live-chat.html"
   [headers.values]
     Cache-Control = "no-cache, no-store, must-revalidate"
+
+# Both UTC hours cover 3pm Pacific/Auckland across daylight saving.
+# The function gates on NZ local time; repeat ticks recover failed dispatches.
+[functions."overdue-digest"]
+  schedule = "*/10 2,3 * * *"
