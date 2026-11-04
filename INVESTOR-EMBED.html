@@ -1,0 +1,20 @@
+<!-- Deploy CRM v0.17.74 first. Paste this into the new Squarespace page's HTML Code block. -->
+<div class="this-investor-embed" style="width:100%;min-width:0;">
+  <iframe src="https://thisvisacrm.netlify.app/contact?variant=investor" title="Investor enquiry — Turner Hopkins Immigration" width="100%" height="1250" style="display:block;width:100%;border:0;background:transparent;"></iframe>
+</div>
+<script>
+(function () {
+  var script = document.currentScript;
+  var wrapper = script && script.previousElementSibling;
+  var frame = wrapper && wrapper.querySelector('iframe');
+  if (!frame) return;
+  window.addEventListener('message', function (event) {
+    if (event.origin !== 'https://thisvisacrm.netlify.app' || event.source !== frame.contentWindow) return;
+    var message = event.data;
+    if (!message || message.type !== 'THIS_INTAKE_EMBED_HEIGHT' || message.source !== 'this-crm-intake') return;
+    var height = message.height;
+    if (typeof height !== 'number' || !Number.isFinite(height) || height < 100 || height > 20000) return;
+    frame.style.height = Math.ceil(height) + 'px';
+  });
+})();
+</script>

@@ -6686,9 +6686,14 @@ function EmployerAccreditationFormApp() {
 }
 
 function ContactFormApp() {
+  const isInvestor = new URLSearchParams(window.location.search).get('variant') === 'investor';
   const contactShellRef = useRef(null);
   const [form, setForm] = useState({
-    contactSituation: '',
+    contactSituation: isInvestor ? 'Investor enquiry' : '',
+    investorInvestmentRange: '',
+    investorTimeframe: '',
+    investorFamily: '',
+    investorHelp: '',
     firstName: '',
     lastName: '',
     email: '',
@@ -6705,9 +6710,11 @@ function ContactFormApp() {
     const embedded = window.parent !== window;
     document.documentElement.classList.toggle('intake-embed-mode', embedded);
     document.body.classList.toggle('intake-embed-mode', embedded);
+    document.body.classList.toggle('investor-contact-embed', embedded && isInvestor);
     return () => {
       document.documentElement.classList.remove('intake-embed-mode');
       document.body.classList.remove('intake-embed-mode');
+      document.body.classList.remove('investor-contact-embed');
     };
   }, []);
 
@@ -6758,6 +6765,7 @@ function ContactFormApp() {
       const submitPayload = {
         ...form,
         formType: 'contact',
+        contactVariant: isInvestor ? 'investor' : 'standard',
         targetPathway: form.contactSituation,
         currentLocation: form.contactLocation,
         preferredContactMethod: 'Email',
@@ -6794,7 +6802,7 @@ function ContactFormApp() {
           <CheckCircle2 size={40} className="portal-lock" />
           <h1>Thank you. Your message has been received.</h1>
           <p className="muted">Turner Hopkins will review your enquiry and come back to you if we can assist. This contact form is for initial enquiries only and does not create an adviser-client relationship.</p>
-          <button className="btn dark" type="button" onClick={() => { setForm({ contactSituation: '', firstName: '', lastName: '', email: '', phone: '', contactLocation: '', bestTimeToCall: '', helpNeeded: '' }); setSubmitted(false); }}>Send another question</button>
+          <button className="btn dark" type="button" onClick={() => { setForm({ contactSituation: isInvestor ? 'Investor enquiry' : '', investorInvestmentRange: '', investorTimeframe: '', investorFamily: '', investorHelp: '', firstName: '', lastName: '', email: '', phone: '', contactLocation: '', bestTimeToCall: '', helpNeeded: '' }); setSubmitted(false); }}>Send another question</button>
         </main>
       </div>
     );
@@ -6804,11 +6812,11 @@ function ContactFormApp() {
     <div className="intake-public-shell public-form-shell contact-public-shell" ref={contactShellRef}>
       <main className="intake-public-card public-form-card contact-public-card">
         <div className="intake-public-head compact contact-public-intro public-form-intro">
-          <p>Send us a short enquiry and our team will review how we may be able to assist.</p>
+          {isInvestor ? <><h1>Explore your investment pathway</h1><p>Tell us a little about your plans for New Zealand. Our team will review how we may be able to assist.</p></> : <p>Send us a short enquiry and our team will review how we may be able to assist.</p>}
         </div>
         {error && <div className="error-banner"><AlertTriangle size={18} />{error}</div>}
         <form className="intake-form contact-form public-standard-form" onSubmit={submit}>
-          <IntakeSelect label="Your situation" value={form.contactSituation} onChange={(v) => setField('contactSituation', v)} options={CONTACT_SITUATION_OPTIONS} required />
+          {!isInvestor && <IntakeSelect label="Your situation" value={form.contactSituation} onChange={(v) => setField('contactSituation', v)} options={CONTACT_SITUATION_OPTIONS} required />}
           <div className="form-grid">
             <IntakeField label="First Name" value={form.firstName} onChange={(v) => setField('firstName', v)} required />
             <IntakeField label="Last Name" value={form.lastName} onChange={(v) => setField('lastName', v)} required />
@@ -6817,7 +6825,13 @@ function ContactFormApp() {
             <IntakeField label="Where are you located? (if outside NZ)" value={form.contactLocation} onChange={(v) => setField('contactLocation', v)} />
             <IntakeField label="Best time to call (if needed)?" value={form.bestTimeToCall} onChange={(v) => setField('bestTimeToCall', v)} />
           </div>
-          <IntakeTextarea label="How can we help?" value={form.helpNeeded} onChange={(v) => setField('helpNeeded', v)} rows={6} placeholder="Please describe the assistance you need, with as much detail as possible." />
+          {isInvestor && <fieldset className="investor-plans"><legend>Your investment plans</legend><p className="muted small">Broad estimates are enough. You do not need to provide financial documents.</p><div className="form-grid">
+            <IntakeSelect label="Investment range (NZD)" value={form.investorInvestmentRange} onChange={(v) => setField('investorInvestmentRange', v)} options={['Under $5 million', '$5–10 million', '$10 million or more', 'Not sure yet']} required />
+            <IntakeSelect label="When are you considering moving or investing?" value={form.investorTimeframe} onChange={(v) => setField('investorTimeframe', v)} options={['Within 6 months', '6–12 months', '1–2 years', 'Exploring options / not sure']} required />
+            <IntakeSelect label="Who would be included?" value={form.investorFamily} onChange={(v) => setField('investorFamily', v)} options={['Just me', 'Me and my partner', 'Me and my children', 'Me, my partner and children', 'Not sure yet']} required />
+            <IntakeSelect label="What would you like help with?" value={form.investorHelp} onChange={(v) => setField('investorHelp', v)} options={['Understanding eligibility', 'Comparing investment pathways', 'Planning a move to New Zealand', 'An existing application', 'Something else / not sure']} required />
+          </div></fieldset>}
+          <IntakeTextarea label={isInvestor ? 'Anything else we should know? (optional)' : 'How can we help?'} value={form.helpNeeded} onChange={(v) => setField('helpNeeded', v)} rows={isInvestor ? 3 : 6} placeholder={isInvestor ? 'Share any questions or details about your plans.' : 'Please describe the assistance you need, with as much detail as possible.'} />
           <p className="muted small">By submitting this form, you agree that Turner Hopkins may contact you about this enquiry. This is an initial enquiry only and does not create an adviser-client relationship.</p>
           <div className="intake-submit-bar">
             <button className="btn dark" type="submit" disabled={submitting}>{submitting ? 'Sending...' : 'Send enquiry'}</button>
@@ -8167,6 +8181,7 @@ function IntakeWorkspace({ saveEmployerReview, employerQuestionnaires = [], empl
   const simplifiedStatuses = (statuses || INTAKE_STATUSES).filter((status) => INTAKE_STATUSES.includes(status));
   const [workspaceTab, setWorkspaceTab] = useWorkspaceState('enquiries:section','contact');
   const [statusFilter, setStatusFilter] = useWorkspaceState('enquiries:statusFilter','New');
+  const [contactVariantFilter, setContactVariantFilter] = useState('All');
   const [contactStatusFilter, setContactStatusFilter] = useWorkspaceState('enquiries:contactStatusFilter','New');
   const [feedbackStatusFilter, setFeedbackStatusFilter] = useWorkspaceState('enquiries:feedbackStatusFilter','New');
   const [query, setQuery] = useWorkspaceState('enquiries:query','');
@@ -8253,13 +8268,15 @@ function IntakeWorkspace({ saveEmployerReview, employerQuestionnaires = [], empl
     return buildRelatedEnquiryMatches(makeEnquiryMatchRecord(type, item), relatedEnquirySources);
   }
 
-  const contactFiltered = contactEnquiries.filter((item) => {
+  const contactTypeEnquiries = contactEnquiries.filter(item => contactVariantFilter === 'All' || intakeAnswerPayload(item).contactVariant === 'investor');
+  const contactFiltered = contactTypeEnquiries.filter((item) => {
     const q = query.trim().toLowerCase();
     const matchesStatus = contactStatusFilter === 'All' || item.status === contactStatusFilter;
     if (!matchesStatus) return false;
-    if (!q) return true;
     const payload = intakeAnswerPayload(item);
-    return [item.firstName, item.lastName, item.email, item.phone, item.targetPathway, item.currentLocation, payload.contactSituation, payload.contactLocation, payload.bestTimeToCall, payload.helpNeeded]
+    if (contactVariantFilter === 'Investor' && payload.contactVariant !== 'investor') return false;
+    if (!q) return true;
+    return [item.firstName, item.lastName, item.email, item.phone, item.targetPathway, item.currentLocation, payload.contactSituation, payload.contactLocation, payload.bestTimeToCall, payload.helpNeeded, payload.contactVariant, payload.investorInvestmentRange, payload.investorTimeframe, payload.investorFamily, payload.investorHelp]
       .join(' ')
       .toLowerCase()
       .includes(q);
@@ -8404,6 +8421,7 @@ function IntakeWorkspace({ saveEmployerReview, employerQuestionnaires = [], empl
     setQuery('');
     setStatusFilter('New');
     setContactStatusFilter('New');
+    setContactVariantFilter('All');
     setFeedbackStatusFilter('New');
     setArchiveKindFilter('All');
     setSelectedArchiveIds([]);
@@ -8736,12 +8754,13 @@ function IntakeWorkspace({ saveEmployerReview, employerQuestionnaires = [], empl
             <span>Search</span>
             <div><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={workspaceTab === 'contact' ? 'Name, email, phone, message...' : workspaceTab === 'feedback' ? 'Name, email, adviser, comments...' : workspaceTab === 'archive' ? 'Search archived contacts and intake forms...' : 'Name, email, phone, pathway, visa...'} /></div>
           </label>
+          {workspaceTab === 'contact' && <label className="investor-contact-filter"><span>Enquiry type</span><select value={contactVariantFilter} onChange={event => setContactVariantFilter(event.target.value)}><option value="All">All contacts</option><option value="Investor">Investor enquiries</option></select></label>}
           {workspaceTab === 'contact' && (
             <div className="enquiries-status-pills" aria-label="Contact form status filter">
               {contactStatusOptions.map((status) => (
                 <button key={status.value} type="button" className={contactStatusFilter === status.value ? 'active' : ''} onClick={() => setContactStatusFilter(status.value)}>
                   {status.label}
-                  <span>{status.value === 'All' ? contactEnquiries.length : contactEnquiries.filter((item) => item.status === status.value).length}</span>
+                  <span>{status.value === 'All' ? contactTypeEnquiries.length : contactTypeEnquiries.filter((item) => item.status === status.value).length}</span>
                 </button>
               ))}
             </div>
@@ -8825,6 +8844,7 @@ function IntakeWorkspace({ saveEmployerReview, employerQuestionnaires = [], empl
                         <div className="enquiry-queue-badges">
                           <span className={`library-status ${statusClass(item.status)}`}>{contactStatusLabel(item.status)}</span>
                           <span className="recommended-action-chip">{intakeRecommendedAction(item, 'contact')}</span>
+                          {payload.contactVariant === 'investor' && <span className="investor-enquiry-badge">Investor enquiry</span>}
                         </div>
                         <h3>{name}</h3>
                         <p>{item.email || 'No email'}{item.phone ? ` · ${item.phone}` : ''}</p>
@@ -8882,6 +8902,7 @@ function IntakeWorkspace({ saveEmployerReview, employerQuestionnaires = [], empl
                         <div><span>Location</span><strong>{location}</strong></div>
                         <div><span>Best time to call</span><strong>{bestTime}</strong></div>
                       </div>
+                      {payload.contactVariant === 'investor' && <section className="investor-review-summary"><h3>Investor enquiry</h3><dl className="contact-review-grid">{[['Investment range (NZD)', payload.investorInvestmentRange], ['Timeframe', payload.investorTimeframe], ['People included', payload.investorFamily], ['Help requested', payload.investorHelp]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value || 'Not recorded'}</dd></div>)}</dl></section>}
                       <div className="contact-review-message"><span>Message</span><p>{message}</p></div>
                       <RelatedEnquiryPanel matches={relatedMatches} />
                     </div>
@@ -14804,7 +14825,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.73" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.74" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -15396,7 +15417,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.73" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.74" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}
