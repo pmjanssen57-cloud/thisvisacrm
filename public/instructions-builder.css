@@ -6,7 +6,7 @@
 .ib72-studio.calm-studio .workspace { display:block !important; height:auto !important; min-height:0; overflow:visible !important; padding:24px; background:#f3f7f5; }
 .ib72-studio .workspace > .preview-panel { display:none !important; }
 .ib72-studio.ib72-preview .workspace > .preview-panel,
-.ib72-studio.ib72-split .workspace > .preview-panel { display:flex !important; min-width:0; width:auto; height:auto; min-height:0; margin:0; overflow:hidden; }
+.ib72-studio.ib72-split .workspace > .preview-panel { display:flex !important; flex-direction:column !important; min-width:0; width:auto; height:auto; min-height:0; margin:0; overflow:hidden; }
 .ib72-studio.ib72-preview .ib72 { display:none; }
 .ib72-studio .ib72-viewbar { display:flex; align-items:center; padding:10px 24px; background:white; border-bottom:1px solid #d6e2dd; }
 .ib72-mobile-tool { display:none !important; }
@@ -93,12 +93,14 @@
 #ib72-settings-body { display:grid; gap:18px; margin-bottom:20px; }
 .ib72-studio .preview-panel .preview-scroller { height:auto; min-height:500px; overflow:auto; padding:20px; }
 .ib72-studio .preview-panel .preview-root { margin:auto; }
-@media(min-width:1400px) {
-  .ib72-studio.ib72-split.calm-studio .workspace { display:grid !important; grid-template-columns:minmax(0,1.55fr) minmax(0,1fr); gap:20px; align-items:start; }
-  .ib72-split .ib72-composer { grid-template-columns:205px minmax(0,1fr); }
+@media(min-width:1180px) {
+  .ib72-studio.ib72-split.calm-studio .workspace { display:grid !important; grid-template-columns:minmax(0,1.45fr) minmax(0,1fr) !important; gap:20px; align-items:start; }
+  .ib72-split .ib72-composer { grid-template-columns:185px minmax(0,1fr); }
   .ib72-split .ib72-section-editor { padding:22px; }
+  .ib72-studio.ib72-split .workspace > .preview-panel { position:sticky; top:100px; height:calc(100dvh - 190px); max-height:calc(100dvh - 120px); }
+  .ib72-studio.ib72-split .preview-panel .preview-scroller { flex:1; height:0 !important; min-height:0 !important; overflow:auto !important; }
 }
-@media(max-width:1399px) {
+@media(max-width:1179px) {
   .ib72-studio.ib72-split .workspace > .preview-panel { margin-top:22px; }
 }
 @media(max-width:1000px) {
@@ -143,3 +145,5 @@
 @media print {
   .ib72,.ib72-viewbar,.ib72-dialog { display:none !important; }
 }
+
+.ib72-studio .preview-panel .prototype-banner {background:#edf6f1;border-color:#d5e5db;color:#4d6b5b;font-size:12px;line-height:1.5;}

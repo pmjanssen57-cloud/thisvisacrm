@@ -4,6 +4,7 @@
   const esc = escapeHtml;
   const uid = () => crypto.randomUUID();
   let mounted = false, previewTimer = 0, initTimer = 0, contextKey = '', pendingInit = false;
+  let previewSelectionKey = '';
   let view = 'edit', libraryFilter = 'all', librarySearch = '', libraryItems = [];
   const doc = () => state.docs[state.selectedDoc];
   const meta = () => (state.builder72 ||= {version:1, selected:{}, originals:{}});
@@ -12,6 +13,7 @@
   const block = () => (doc().blocks || []).find(b => b.id === selection());
   const node = id => document.getElementById(id);
   const name = () => fullName();
+  const defaultView = () => innerWidth >= 1180 ? 'split' : 'edit';
 
   function safeHtml(value) {
     const t = document.createElement('template'); t.innerHTML = String(value || '');
@@ -36,6 +38,7 @@
   function setSelection(id) { meta().selected ||= {}; meta().selected[state.selectedDoc] = id; }
   function setView(next) {
     view = next;
+    if(next==='split')previewSelectionKey='';
     document.body.classList.toggle('ib72-preview', view === 'preview');
     document.body.classList.toggle('ib72-split', view === 'split');
     document.querySelectorAll('[data-ib-view]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.ibView === view)));
@@ -45,6 +48,17 @@
   function introSource() {
     const d=doc();if(d.builder72RichIntro)return safeHtml(fillTemplate(d.intro || ''));
     return String(d.intro || '').split(/\n\s*\n/).filter(Boolean).map((text,index)=>'<p>'+(d.directEdits?.intro?.['paragraph-'+index] ?? v12SafeClientHtml(fillTemplate(text)))+'</p>').join('');
+  }
+  function syncPreviewSelection() {
+    if(view!=='split')return;
+    const scroller=document.querySelector('.preview-scroller');if(!scroller?.clientWidth)return;
+    const title=selection()==='intro'?'':block()?.title || '';
+    const key=state.selectedDoc+':'+selection()+':'+title;if(key===previewSelectionKey)return;
+    if(!title){scroller.scrollTop=0;previewSelectionKey=key;return;}
+    const normal=value=>value.replace(/\s+/g,' ').trim().toLowerCase();
+    const heading=[...document.querySelectorAll('#preview-root .flow-section h2')].find(h=>normal(h.textContent)===normal(title));
+    if(!heading)return;
+    scroller.scrollTop+=heading.getBoundingClientRect().top-scroller.getBoundingClientRect().top-24;previewSelectionKey=key;
   }
   function updateName(value) {
     const parts = value.trim().split(/\s+/); state.client.firstName = parts.shift() || ''; state.client.lastName = parts.join(' ');
@@ -92,7 +106,7 @@
       state = freshStarter(activePackId, facts, family); workspaceDrafts[activePackId] = state;
     }
     pendingInit = false; meta();
-    renderAll(); setView('edit');
+    renderAll(); setView(defaultView());
   }
   function sourceHtml(b, docId = state.selectedDoc) {
     let html;
@@ -196,6 +210,7 @@
       host.insertAdjacentHTML('beforeend',countryEditor(b));
       bindFamily(host); bindEvidence(host,b); bindCountries(host,b);
     }
+    requestAnimationFrame(syncPreviewSelection);
     if(b){const included=doc().blocks.filter(x=>x.enabled),i=included.indexOf(b);host.querySelector('[data-ib-block-action="up"]').disabled=i===0;host.querySelector('[data-ib-block-action="down"]').disabled=i===included.length-1;}
   }
   function bindFamily(host) {
@@ -339,6 +354,13 @@
   }
   // New drafts print the blocks the adviser can see and edit. Keep implicit legacy
   // panels for saved older drafts, whose output must remain unchanged.
+  const previousPreview = renderPreview;
+  renderPreview = function(){
+    const scroller=document.querySelector('.preview-scroller'),top=scroller?.scrollTop || 0;
+    previousPreview();if(scroller)scroller.scrollTop=top;
+    const banner=node('prototype-banner');if(banner)banner.textContent='Live preview — changes appear as you edit. Review the complete document before issue.';
+    requestAnimationFrame(syncPreviewSelection);
+  };
   const previousEnhancement = v12RequirementEnhancement;
   v12RequirementEnhancement = function(b,d){return state.builder72?.simpleIntro ? '' : previousEnhancement(b,d);};
   const previousGlancePage = v12AtAGlancePage;
@@ -380,7 +402,7 @@
       // Existing save reads these controls and the CRM bridge snapshots the same state.
       node('issue-name').value=state.issueName;node('prepared-date').value=state.preparedDate;flush();
     },true);
-    renderAll();setView('edit');document.title='THiS Instructions Studio — Client document builder';
+    renderAll();setView(defaultView());document.title='THiS Instructions Studio — Client document builder';
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(mount,0));else setTimeout(mount,0);
 })();
