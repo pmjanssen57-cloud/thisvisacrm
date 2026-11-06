@@ -52,11 +52,11 @@
   function syncPreviewSelection() {
     if(view!=='split')return;
     const scroller=document.querySelector('.preview-scroller');if(!scroller?.clientWidth)return;
-    const title=selection()==='intro'?'':block()?.title || '';
+    const title=selection()==='signoff'?'Adviser sign-off':selection()==='intro'?'':block()?.title || '';
     const key=state.selectedDoc+':'+selection()+':'+title;if(key===previewSelectionKey)return;
     if(!title){scroller.scrollTop=0;previewSelectionKey=key;return;}
     const normal=value=>value.replace(/\s+/g,' ').trim().toLowerCase();
-    const heading=[...document.querySelectorAll('#preview-root .flow-section h2')].find(h=>normal(h.textContent)===normal(title));
+    const heading=selection()==='signoff'?document.querySelector('#preview-root .adviser-signoff'):[...document.querySelectorAll('#preview-root .flow-section h2')].find(h=>normal(h.textContent)===normal(title));
     if(!heading)return;
     scroller.scrollTop+=heading.getBoundingClientRect().top-scroller.getBoundingClientRect().top-24;previewSelectionKey=key;
   }
@@ -139,6 +139,7 @@
   function outline() {
     const host = node('ib72-outline-list'); if (!host) return;
     host.innerHTML = `<button type="button" class="ib72-section ${selection()==='intro'?'selected':''}" data-ib-select="intro"><span class="ib72-section-number">01</span><span><strong>Header & introduction</strong><small>Client name, heading and opening wording</small></span></button>` + doc().blocks.filter(b=>b.enabled).map((b,i)=>`<button type="button" class="ib72-section ${selection()===b.id?'selected':''}" data-ib-select="${esc(b.id)}"><span class="ib72-section-number">${String(i+2).padStart(2,'0')}</span><span><strong>${esc(b.title)}</strong><small>${b.familyBlock72?'People included':b.clientTailoredV01743?'Tailored for this client':b.customSectionV01743?'Custom block':'Starting block'}</small></span></button>`).join('');
+    host.insertAdjacentHTML('beforeend',`<button type="button" class="ib72-section ${selection()==='signoff'?'selected':''}" data-ib-select="signoff"><span class="ib72-section-number">✓</span><span><strong>Adviser sign-off</strong><small>Name, closing and presentation</small></span></button>`);
     host.querySelectorAll('[data-ib-select]').forEach(b=>b.addEventListener('click',()=>{setSelection(b.dataset.ibSelect);outline();sectionEditor();if(innerWidth<760)node('ib72-outline').open=false;}));
     const count = node('ib72-section-count'); if (count) count.textContent = `${doc().blocks.filter(b=>b.enabled).length + 1} sections`;
   }
@@ -183,6 +184,7 @@
   }
   function sectionEditor() {
     const host = node('ib72-section-editor'); if (!host) return;
+    if(selection()==='signoff'){signoffEditor76(host);requestAnimationFrame(syncPreviewSelection);return;}
     const b = block(), intro = selection()==='intro';
     if (!intro && (!b || !b.enabled)) { setSelection('intro'); outline(); sectionEditor(); return; }
     const body = intro ? introSource() : b.familyBlock72 ? b.familyNote72 || '<p>Add any family-specific guidance here.</p>' : sourceHtml(b);
@@ -190,7 +192,7 @@
     const editor = node('ib72-wording');
     editor.addEventListener('input',()=>{
       if (intro) { doc().intro = safeHtml(editor.innerHTML); doc().builder72RichIntro=true; doc().directEdits ||= {}; doc().directEdits.intro = {}; markDirty(); }
-      else writeBlock(editor.innerHTML);
+      else {writeBlock(editor.innerHTML);visualPanel76();}
     });
     editor.addEventListener('paste',e=>{e.preventDefault();const html=e.clipboardData.getData('text/html');document.execCommand('insertHTML',false,html?safeHtml(html):esc(e.clipboardData.getData('text/plain')).replace(/\n/g,'<br>'));editor.dispatchEvent(new Event('input'));});
     host.querySelectorAll('[data-ib-format]').forEach(button=>{
@@ -210,9 +212,64 @@
       host.insertAdjacentHTML('beforeend',countryEditor(b));
       bindFamily(host); bindEvidence(host,b); bindCountries(host,b);
     }
+    if(b&&!b.familyBlock72)visualPanel76();
     requestAnimationFrame(syncPreviewSelection);
     if(b){const included=doc().blocks.filter(x=>x.enabled),i=included.indexOf(b);host.querySelector('[data-ib-block-action="up"]').disabled=i===0;host.querySelector('[data-ib-block-action="down"]').disabled=i===included.length-1;}
   }
+  // Individual visual elements retain their existing HTML, so old drafts need no conversion.
+  const visualSelector76='.timeline-item,.strategy-card,.test-card,.callout';
+  let visualKey76='', visualIndex76=0;
+  function visualNodes76(root){return [...root.querySelectorAll(visualSelector76)].filter(e=>!e.parentElement.closest(visualSelector76));}
+  function visualKind76(e){return e.matches('.timeline-item')?'Step':e.matches('.callout')?'Callout':'Card';}
+  function renumber76(root){root.querySelectorAll('.timeline,.strategy-grid,.test-grid').forEach(group=>{[...group.children].filter(e=>e.matches(visualSelector76)).forEach((e,i)=>{if(e.matches('.timeline-item')){e.classList.remove('ib76-item-compact','ib76-item-roomy');if(group.classList.contains('ib76-spacing-compact'))e.classList.add('ib76-item-compact');if(group.classList.contains('ib76-spacing-roomy'))e.classList.add('ib76-item-roomy');}const badge=e.querySelector('.timeline-step,.card-number');if(badge)badge.textContent=e.matches('.timeline-item')?'Step '+(i+1):String(i+1);});});}
+  function commitVisual76(root){renumber76(root);node('ib72-wording').innerHTML=safeHtml(root.innerHTML);writeBlock(root.innerHTML);visualPanel76();}
+  function visualRoot76(){const root=document.createElement('div');root.innerHTML=node('ib72-wording').innerHTML;return root;}
+  function visualPanel76(){
+    const editor=node('ib72-wording'),b=block();if(!editor||!b||b.familyBlock72)return;
+    let panel=node('ib76-elements');if(!panel){panel=document.createElement('section');panel.id='ib76-elements';panel.className='ib76-elements';editor.closest('#ib72-section-editor').querySelector('.ib72-wording-label').before(panel);}
+    const key=state.selectedDoc+':'+b.id;if(key!==visualKey76){visualKey76=key;visualIndex76=0;}
+    const root=visualRoot76(),items=visualNodes76(root);visualIndex76=Math.max(0,Math.min(visualIndex76,items.length-1));const selected=items[visualIndex76];
+    const title=selected?.querySelector('h3,h4')?.textContent||'',summary=selected?.querySelector('p')?.textContent||'',timing=selected?.querySelector('.time-pill')?.textContent||'';
+    panel.innerHTML=`<div class="ib76-elements-head"><div><h3>Elements & layout</h3><p class="ib72-help">Choose an individual step, card or callout to duplicate, move or tailor it. The full wording editor below remains available.</p></div></div><div class="ib76-add-row">${['step','card','callout'].map(kind=>`<button type="button" class="button button-secondary" data-ib76-add="${kind}">+ Add ${kind}</button>`).join('')}</div><div class="ib72-two-fields"><label>Card arrangement<select id="ib76-layout"><option value="original">Original layout</option><option value="stacked">One column</option><option value="two">Two columns</option></select></label><label>Element spacing<select id="ib76-spacing"><option value="original">Original spacing</option><option value="compact">Compact</option><option value="roomy">Roomy</option></select></label></div>${items.length?`<div class="ib76-element-list" role="group" aria-label="Visual elements">${items.map((e,i)=>`<button type="button" data-ib76-select="${i}" aria-pressed="${i===visualIndex76}"><span>${visualKind76(e)} ${i+1}</span><strong>${esc((e.querySelector('h3,h4,p')?.textContent||'Untitled element').slice(0,100))}</strong></button>`).join('')}</div><div class="ib76-element-editor"><div class="ib76-element-actions"><strong>${visualKind76(selected)} ${visualIndex76+1}</strong><button type="button" class="button button-secondary" data-ib76-action="up">Move up</button><button type="button" class="button button-secondary" data-ib76-action="down">Move down</button><button type="button" class="button button-secondary" data-ib76-action="duplicate">Duplicate element</button><button type="button" class="button button-secondary" data-ib76-action="remove">Remove element</button></div><label>Element heading<input id="ib76-title" value="${esc(title)}"></label><label>First paragraph<textarea id="ib76-summary" rows="3">${esc(summary)}</textarea></label><p class="ib72-help">Additional paragraphs and rich formatting can be edited in Client wording below.</p>${selected.matches('.timeline-item')?`<label>Time estimate <small>(optional)</small><input id="ib76-timing" value="${esc(timing)}"></label>`:''}<div class="ib72-two-fields"><label>Element appearance<select id="ib76-surface"><option value="original">Original appearance</option><option value="soft">Soft card</option><option value="outline">Outlined</option><option value="minimal">Minimal</option></select></label><label>Accent colour<select id="ib76-accent"><option value="original">Original accent</option><option value="teal">Deep teal</option><option value="mint">Mint</option><option value="neutral">Neutral</option></select></label></div><label class="ib76-check"><input id="ib76-number" type="checkbox" ${selected.classList.contains('ib76-no-number')?'':'checked'}>Show step / card number</label></div>`:'<p class="ib72-help">No steps or cards in this block yet. Add one above, or continue editing the text.</p>'}`;
+    for(const kind of ['layout','spacing']){const prefix='ib76-'+kind+'-',container=root.querySelector('[class*="'+prefix+'"]');node('ib76-'+kind).value=container?[...container.classList].find(c=>c.startsWith(prefix)).slice(prefix.length):'original';node('ib76-'+kind).onchange=e=>{const r=visualRoot76();const groupSelector=kind==='layout'?'.strategy-grid,.test-grid':'.timeline,.strategy-grid,.test-grid';r.querySelectorAll(groupSelector).forEach(group=>{[...group.classList].filter(c=>c.startsWith(prefix)).forEach(c=>group.classList.remove(c));if(e.target.value!=='original')group.classList.add(prefix+e.target.value);});commitVisual76(r);};}
+    panel.querySelectorAll('[data-ib76-select]').forEach(button=>button.onclick=()=>{visualIndex76=Number(button.dataset.ib76Select);visualPanel76();});
+    panel.querySelectorAll('[data-ib76-add]').forEach(button=>button.onclick=()=>{const r=visualRoot76(),kind=button.dataset.ib76Add;let group;
+      if(kind==='callout'){r.insertAdjacentHTML('beforeend','<div class="callout"><span class="callout-icon">i</span><p>Important guidance for this client.</p></div>');}
+      else {const selector=kind==='step'?'.timeline':'.strategy-grid';group=r.querySelector(selector);if(!group){group=document.createElement('div');group.className=selector.slice(1);r.append(group);}group.insertAdjacentHTML('beforeend',kind==='step'?'<div class="timeline-item"><span class="timeline-step">Step</span><div><h3>New step</h3><p>Describe this step for the client.</p><span class="time-pill">Time estimate</span></div></div>':'<div class="strategy-card"><span class="card-number">1</span><h3>New card</h3><p>Add tailored guidance for this client.</p></div>');}
+      const added=kind==='callout'?r.lastElementChild:group.lastElementChild;visualIndex76=visualNodes76(r).indexOf(added);commitVisual76(r);});
+    if(!selected)return;
+    const siblings=[...selected.parentElement.children].filter(e=>e.matches(visualSelector76));panel.querySelector('[data-ib76-action="up"]').disabled=siblings.indexOf(selected)===0;panel.querySelector('[data-ib76-action="down"]').disabled=siblings.indexOf(selected)===siblings.length-1;
+    panel.querySelectorAll('[data-ib76-action]').forEach(button=>button.onclick=async()=>{const action=button.dataset.ib76Action;if(action==='remove'&&!await window.THIS_DIALOG.confirm({title:'Remove this element?',message:'This removes only the selected element from this client draft.',confirmLabel:'Remove element',tone:'danger'}))return;const r=visualRoot76(),e=visualNodes76(r)[visualIndex76];if(!e)return;const peers=[...e.parentElement.children].filter(x=>x.matches(visualSelector76)),i=peers.indexOf(e);let target=e;if(action==='duplicate'){target=e.cloneNode(true);target.removeAttribute('id');target.querySelectorAll('[id]').forEach(x=>x.removeAttribute('id'));e.after(target);}else if(action==='remove'){target=peers[i+1]||peers[i-1];e.remove();}else if(action==='up'&&i>0)peers[i-1].before(e);else if(action==='down'&&i<peers.length-1)peers[i+1].after(e);visualIndex76=Math.max(0,visualNodes76(r).indexOf(target));commitVisual76(r);});
+    const patch=(fn)=>{const r=visualRoot76(),e=visualNodes76(r)[visualIndex76];if(!e)return;fn(e);node('ib72-wording').innerHTML=safeHtml(r.innerHTML);writeBlock(r.innerHTML);};
+    node('ib76-title').oninput=e=>patch(item=>{let heading=item.querySelector('h3,h4');if(!heading){heading=document.createElement('h3');(item.matches('.timeline-item')?item.querySelector('div'):item).prepend(heading);}heading.textContent=e.target.value;const button=panel.querySelector('[data-ib76-select="'+visualIndex76+'"] strong');if(button)button.textContent=e.target.value||'Untitled element';});
+    node('ib76-summary').oninput=e=>patch(item=>{let p=item.querySelector('p');if(!p){p=document.createElement('p');(item.matches('.timeline-item')?item.querySelector('div'):item).append(p);}p.textContent=e.target.value;});
+    node('ib76-timing')?.addEventListener('input',e=>patch(item=>{let t=item.querySelector('.time-pill');if(!t){t=document.createElement('span');t.className='time-pill';item.querySelector('div').append(t);}t.textContent=e.target.value;if(!e.target.value.trim())t.remove();}));
+    for(const kind of ['surface','accent']){const prefix='ib76-'+kind+'-';node('ib76-'+kind).value=[...selected.classList].find(c=>c.startsWith(prefix))?.slice(prefix.length)||'original';node('ib76-'+kind).onchange=e=>patch(item=>{[...item.classList].filter(c=>c.startsWith(prefix)).forEach(c=>item.classList.remove(c));if(e.target.value!=='original')item.classList.add(prefix+e.target.value);});}
+    node('ib76-number').onchange=e=>patch(item=>item.classList.toggle('ib76-no-number',!e.target.checked));
+  }
+
+  function balanceSignoff76(html){
+    if(!html.includes('ib76-signoff'))return html;
+    const root=document.createElement('div');root.innerHTML=html;const pages=[...root.querySelectorAll('.pdf-content-page')];
+    const last=pages.at(-1),previous=pages.at(-2),body=last?.querySelector('.pdf-page-inner'),prior=previous?.querySelector('.pdf-page-inner');
+    if(!body||!prior||body.children.length!==1||!body.querySelector('.ib76-signoff'))return html;
+    const closing=body.firstElementChild,measure=document.createElement('div');measure.className='s51-measure';measure.style.cssText='position:absolute;left:-20000px;top:0;width:794px;visibility:hidden;pointer-events:none';document.body.append(measure);
+    const fits=(page)=>{measure.innerHTML=page.outerHTML;const el=measure.firstElementChild;el.style.cssText='width:210mm!important;height:296mm!important;min-height:296mm!important;max-width:210mm!important';const inner=el.querySelector('.pdf-page-inner'),footer=el.querySelector('.page-footer');return [...inner.children].every(child=>child.getBoundingClientRect().bottom<=footer.getBoundingClientRect().top-12);};
+    try{prior.append(closing);if(fits(previous)){last.remove();return root.innerHTML;}body.append(closing);if(prior.children.length>1){const section=prior.lastElementChild;body.prepend(section);if(!fits(last))prior.append(section);}return root.innerHTML;}finally{measure.remove();}
+  }
+
+  function signoffHtml76(){
+    const settings=state.builder76Signoff||{};if(settings.enabled===false)return '';
+    const adviser=String(state.client.adviser||'').trim(),licence=String(state.client.adviserLicence||'').trim(),role=settings.role??'Licensed Immigration Adviser',organisation=settings.organisation??'Turner Hopkins Immigration Specialists';
+    return `<div class="adviser-signoff ib76-signoff ib76-signoff-${['simple','card','line'].includes(settings.style)?settings.style:'simple'}">${settings.closing!==''?`<p class="ib76-signoff-closing">${esc(settings.closing??'Kind regards,')}</p>`:''}<strong>${esc(adviser||organisation||'Your adviser')}</strong>${adviser&&role?`<span>${esc(role)}${licence?' · Licence '+esc(licence):''}</span>`:adviser&&licence?`<span>Licence ${esc(licence)}</span>`:''}${adviser&&organisation?`<span>${esc(organisation)}</span>`:''}${settings.contact?`<span>${esc(settings.contact)}</span>`:''}</div>`;
+  }
+  function signoffEditor76(host){
+    const settings=state.builder76Signoff||{};host.innerHTML=`<div class="ib72-editor-head"><div><span class="ib72-eyebrow">Closing details</span><h2>Adviser sign-off</h2></div></div><p class="ib72-help">Applies to this instruction pack. Blank licence details are omitted. If no adviser name is entered, the organisation is used.</p><label class="ib76-check"><input id="ib76-signoff-enabled" type="checkbox" ${settings.enabled===false?'':'checked'}>Include adviser sign-off</label><label>Closing line<input id="ib76-signoff-closing" value="${esc(settings.closing??'Kind regards,')}"></label><label>Adviser name<input id="ib76-signoff-name" value="${esc(state.client.adviser||'')}"></label><label>Role<input id="ib76-signoff-role" value="${esc(settings.role??'Licensed Immigration Adviser')}"></label><label>Licence number <small>(optional)</small><input id="ib76-signoff-licence" value="${esc(state.client.adviserLicence||'')}"></label><label>Organisation<input id="ib76-signoff-organisation" value="${esc(settings.organisation??'Turner Hopkins Immigration Specialists')}"></label><label>Contact line <small>(optional)</small><input id="ib76-signoff-contact" value="${esc(settings.contact||'')}"></label><label>Presentation<select id="ib76-signoff-style"><option value="simple">Clean and simple</option><option value="card">Soft card</option><option value="line">Accent line</option></select></label><div id="ib76-signoff-sample" class="ib76-signoff-sample">${signoffHtml76()}</div>`;
+    node('ib76-signoff-style').value=settings.style||'simple';for(const key of ['enabled','closing','name','role','licence','organisation','contact','style'])node('ib76-signoff-'+key).addEventListener(key==='enabled'||key==='style'?'change':'input',e=>{state.builder76Signoff||={};if(key==='name')state.client.adviser=e.target.value;else if(key==='licence')state.client.adviserLicence=e.target.value;else state.builder76Signoff[key]=key==='enabled'?e.target.checked:e.target.value;node('ib76-signoff-sample').innerHTML=signoffHtml76();markDirty();});
+  }
+  signoff = signoffHtml76;
+  function refreshSignoffs76(html){if(!html.includes('adviser-signoff'))return html;const root=document.createElement('div');root.innerHTML=html;root.querySelectorAll('.adviser-signoff').forEach(e=>{const replacement=document.createElement('template');replacement.innerHTML=signoffHtml76();e.replaceWith(replacement.content);});return root.innerHTML;}
+
   function bindFamily(host) {
     host.querySelectorAll('[data-ib-person-name]').forEach(input=>input.addEventListener('input',()=>{
       const p=people().people.find(p=>p.id===input.dataset.ibPersonName);p.name=input.value;
@@ -369,12 +426,12 @@
   v12NextThreeSection = function(d,p){return state.builder72?.simpleIntro ? '' : previousNextSteps(d,p);};
   const previousRawBlock = rawBlockHtmlV13;
   rawBlockHtmlV13 = function(b){
-    const html=previousRawBlock(b);
+    const html=refreshSignoffs76(previousRawBlock(b));
     if(b.builder72CountryGuidance)return withoutCountryInstructions(fillTemplate(html))+(state.policeClearances.length?renderPoliceSubBlocks():'');
     return state.builder72?.simpleIntro ? fillTemplate(html) : html;
   };
   const previousRenderDoc = renderDocHtml;
-  renderDocHtml = function(id){const previous=state.selectedDoc;try{state.selectedDoc=id;return previousRenderDoc(id);}finally{state.selectedDoc=previous;}};
+  renderDocHtml = function(id){const previous=state.selectedDoc;try{state.selectedDoc=id;return balanceSignoff76(previousRenderDoc(id));}finally{state.selectedDoc=previous;}};
   const previousRender = renderAll;
   renderAll = function(){Object.values(state.docs || {}).forEach(d=>{if(d.builder72CoverImage)d.hero=d.builder72CoverImage;});previousRender();renderBuilder();};
   const previousInit = window.__THIS_STUDIO_INIT__;
