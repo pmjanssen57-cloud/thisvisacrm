@@ -411,6 +411,16 @@
   }
   // New drafts print the blocks the adviser can see and edit. Keep implicit legacy
   // panels for saved older drafts, whose output must remain unchanged.
+  const previousPreparePrint77 = preparePrint;
+  preparePrint = function(){
+    if(window.parent === window)return previousPreparePrint77();
+    const target=window.open('about:blank','_blank','width=1100,height=900,scrollbars=yes,resizable=yes');
+    if(!target){showToast('Allow the print window to open, then choose Print / save PDF again.');return;}
+    const root=node('print-root'),ids=Object.keys(state.docs).filter(id=>state.docs[id]?.enabled);
+    root.innerHTML=ids.map(id=>`<div class="print-document" data-doc-id="${id}">${renderDocHtml(id)}</div>`).join('');
+    root.querySelectorAll('.print-document').forEach(container=>applyInlineEdits(container,container.dataset.docId,false));
+    window.THIS_INSTRUCTIONS_PRINT_WINDOW(target,root.innerHTML,state.issueName||'THiS instructions');
+  };
   const previousPreview = renderPreview;
   renderPreview = function(){
     const scroller=document.querySelector('.preview-scroller'),top=scroller?.scrollTop || 0;
@@ -458,6 +468,7 @@
       if(e.target.closest('#print-pack,#publish-pack,#confirm-publish')&&(updateReview()||[]).length){e.preventDefault();e.stopImmediatePropagation();setView('edit');node('ib72-review').scrollIntoView({block:'center'});showToast('Check the highlighted details before preparing the document.');return;}
       // Existing save reads these controls and the CRM bridge snapshots the same state.
       node('issue-name').value=state.issueName;node('prepared-date').value=state.preparedDate;flush();
+      if(e.target.closest('#print-pack')&&window.parent!==window){e.preventDefault();e.stopImmediatePropagation();preparePrint();}
     },true);
     renderAll();setView(defaultView());document.title='THiS Instructions Studio — Client document builder';
   }
