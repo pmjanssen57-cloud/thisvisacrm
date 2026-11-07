@@ -1,6 +1,10 @@
-const CACHE_NAME = 'this-crm-shell-v0.17.77';
+const CACHE_NAME = 'this-crm-shell-v0.17.78';
 const OFFLINE_URL = '/offline.html';
 const PRECACHE_URLS = [
+  '/fonts/website/montserrat-400.ttf',
+  '/fonts/website/montserrat-500.ttf',
+  '/fonts/website/montserrat-600.ttf',
+  '/fonts/website/montserrat-700.ttf',
   OFFLINE_URL,
   '/manifest.webmanifest',
   '/calm-theme.css',

@@ -1,0 +1,42 @@
+<!-- Add after the existing Visa Quick Check code, or in that page's Header Code Injection. Keep the original form and script. -->
+<style id="this-quick-check-site-refresh">
+/* THiS public Visa Quick Check: presentation only, keep the existing checker code. */
+#this-smc-quick-check{--ink:#042d2d;--mint:#dff6ed;--pale:#f3faf6;--line:#d3e1da;--muted:#526c64;--text:#163d36;--shadow:none;font-family:Montserrat,Arial,sans-serif!important;color:var(--text);line-height:1.6}
+#this-smc-quick-check #sr-shell{padding:8px!important;width:100%;max-width:1040px;container-type:inline-size}
+#this-smc-quick-check .sr-card{padding:28px!important;border:1px solid var(--line)!important;border-radius:12px!important;background:#fff!important;box-shadow:none!important}
+#this-smc-quick-check .sr-card:before{display:none!important}
+#this-smc-quick-check :is(h1,h2,h3){color:var(--ink)!important;letter-spacing:-.025em!important;text-transform:none!important;font-family:inherit!important;font-weight:600!important}
+#this-smc-quick-check h1{font-size:clamp(26px,3vw,34px)!important;line-height:1.18!important;margin:0 0 12px!important}
+#this-smc-quick-check h2{font-size:21px!important;line-height:1.3!important}#this-smc-quick-check h3{font-size:18px!important;line-height:1.35!important}
+#this-smc-quick-check :is(p,small){color:var(--muted);line-height:1.6}#this-smc-quick-check p{font-size:15px!important}
+#this-smc-quick-check :is(button,input,select,textarea){font-family:inherit!important}
+#this-smc-quick-check :is(.sr-hero,.vp-entry-hero){background:none!important;border:0!important;border-bottom:1px solid var(--line)!important;border-radius:0!important;padding:0 0 22px!important;margin-bottom:22px!important;box-shadow:none!important}
+#this-smc-quick-check .sr-kicker{font-size:11px!important;font-weight:600!important;letter-spacing:.07em!important;color:#396453!important}
+#this-smc-quick-check :is(.sr-notice,.sr-inline-panel,.sr-guide,.sr-cta){background:#f0faf5!important;border:1px solid #c8e2d4!important;border-radius:8px!important;box-shadow:none!important;padding:16px!important}
+#this-smc-quick-check :is(.sr-section,.sr-occupation-browser){border:1px solid var(--line)!important;border-radius:9px!important;box-shadow:none!important;background:#fff!important;padding:20px!important}
+#this-smc-quick-check :is(.sr-btn,.vp-home-btn,.sr-text-btn){min-height:48px!important;padding:12px 18px!important;border:1px solid #b8dfcf!important;border-radius:6px!important;box-shadow:none!important;background:#dff6ed!important;color:#042d2d!important;font-size:14px!important;font-weight:600!important;line-height:1.4!important;letter-spacing:0!important;text-transform:none!important}
+#this-smc-quick-check :is(.sr-btn.secondary,.vp-home-btn,.sr-text-btn){background:#fff!important;border-color:#bdcfc5!important;color:#16493c!important}
+#this-smc-quick-check :is(.vp-route-card,.sr-choice,.sr-category-card,.sr-occupation-option,.vp-choice){border:1px solid #c5d8cb!important;background:#fff!important;border-radius:9px!important;box-shadow:none!important;color:#163f31!important}
+#this-smc-quick-check :is(.vp-route-card,.sr-choice,.vp-choice){padding:18px!important;min-height:48px}
+#this-smc-quick-check :is(.sr-choice.selected,.sr-category-card.selected,.sr-occupation-option.selected,.vp-choice.selected){background:#e9f8f0!important;border-color:#34785c!important;box-shadow:inset 0 0 0 1px #34785c!important}
+#this-smc-quick-check .vp-route-card:hover{background:#f1faf5!important;border-color:#639e85!important}
+#this-smc-quick-check :is(.vp-route-card strong,.sr-choice strong,.vp-choice strong){font-size:16px!important;font-weight:600!important}
+#this-smc-quick-check :is(.vp-route-icon,.cat-icon,.sr-choice .icon){background:#edf8f1!important;color:#27684e!important;border-radius:8px!important;box-shadow:none!important}
+#this-smc-quick-check :is(.sr-input,.sr-select,input:not([type=checkbox]):not([type=radio]),textarea){width:100%;min-width:0;min-height:48px!important;border:1px solid #b9cec3!important;border-radius:7px!important;background:white!important;color:#163d36!important;font-size:16px!important;font-weight:400!important;line-height:1.45!important;padding:12px 13px!important;box-shadow:none!important}
+#this-smc-quick-check .sr-field label{font-size:13px!important;line-height:1.5!important;font-weight:600!important;letter-spacing:0!important;text-transform:none!important;color:#244a3e!important}
+#this-smc-quick-check :is(input,select,textarea,button,a):focus-visible{outline:3px solid #2a7058!important;outline-offset:3px!important}
+#this-smc-quick-check :is(.sr-tab,.vp-alt-tab){border-radius:7px!important;box-shadow:none!important;font-size:12px!important;font-weight:500!important;min-height:48px}
+#this-smc-quick-check :is(.sr-tab.active,.vp-alt-tab.active){background:#dff6ed!important;border-color:#639e85!important;color:#103f2f!important}
+#this-smc-quick-check .sr-actions{position:static!important;background:#fff!important;border:0!important;border-top:1px solid var(--line)!important;box-shadow:none!important;border-radius:0!important;margin-top:20px!important;padding:16px 0 0!important;gap:12px!important}
+#this-smc-quick-check .sr-validation{background:#fff6f2!important;color:#822b20!important;border-color:#d29b91!important;border-radius:7px!important}
+#this-smc-quick-check .vp-route-grid{gap:14px!important}
+#this-smc-quick-check :is(.sr-grid,.sr-choice-grid,.vp-choice-grid){gap:16px!important;min-width:0}
+@container(max-width:640px){#this-smc-quick-check :is(.vp-route-grid,.sr-grid,.sr-grid.three,.sr-choice-grid,.sr-choice-grid.three,.sr-choice-grid.four,.vp-choice-grid,.vp-choice-grid.two,.sr-category-grid){grid-template-columns:minmax(0,1fr)!important}#this-smc-quick-check .sr-actions{display:flex!important;flex-direction:column;align-items:stretch}#this-smc-quick-check .sr-actions .sr-btn{width:100%}#this-smc-quick-check .sr-tabs{display:flex;flex-wrap:wrap}#this-smc-quick-check .sr-tab{flex:1 1 100px}}
+@media(max-width:720px){#this-smc-quick-check .sr-card{padding:20px!important;border-radius:10px!important}#this-smc-quick-check .sr-section{padding:16px!important}#this-smc-quick-check .sr-guide{grid-template-columns:40px minmax(0,1fr)!important;gap:12px}#this-smc-quick-check .sr-guide-meter{grid-column:1/-1}}
+@media(prefers-reduced-motion:reduce){#this-smc-quick-check *{animation:none!important;transition:none!important}}
+
+#this-smc-quick-check .sr-inline-panel.warn{background:#fff8e8!important;border-color:#d7bd7f!important;color:#77551b!important}
+@container(max-width:640px){#this-smc-quick-check .sr-guide{grid-template-columns:40px minmax(0,1fr)!important;gap:12px}#this-smc-quick-check .sr-guide-meter{grid-column:1/-1}}
+#this-smc-quick-check :is(.sr-card,.vp-entry,.sr-step,.vp-step,.preFade){animation:none!important;opacity:1!important;transform:none!important}
+
+</style>

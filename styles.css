@@ -20797,3 +20797,60 @@ button.employer-queue-card { cursor: pointer; }
 @media(max-width:480px){.investor-review-summary .contact-review-grid{grid-template-columns:minmax(0,1fr)}}
 
 body.investor-contact-embed{padding:0!important}
+
+/* Public website forms: shared refreshed site language, scoped away from CRM screens. */
+@font-face{font-family:'THiS Website';src:url('/fonts/website/montserrat-400.ttf') format('truetype');font-weight:400;font-display:swap}
+@font-face{font-family:'THiS Website';src:url('/fonts/website/montserrat-500.ttf') format('truetype');font-weight:500;font-display:swap}
+@font-face{font-family:'THiS Website';src:url('/fonts/website/montserrat-600.ttf') format('truetype');font-weight:600;font-display:swap}
+@font-face{font-family:'THiS Website';src:url('/fonts/website/montserrat-700.ttf') format('truetype');font-weight:700;font-display:swap}
+.website-form-refresh.public-form-shell{--ink:#042d2d;--mint:#dff6ed;--pale:#f3faf6;--line:#d3e1da;--text:#163d36;--muted:#526c64;font-family:'THiS Website',Montserrat,Arial,sans-serif!important;font-size:15px;line-height:1.6;background:#fbf8f1!important;padding:24px 16px!important;color:var(--text)}
+body:has(.website-form-refresh.public-form-shell){padding:0!important;background:#fbf8f1!important}
+.website-form-refresh.public-form-shell :is(button,input,select,textarea){font-family:inherit!important}
+.website-form-refresh.public-form-shell .public-form-card{width:100%;border:1px solid var(--line)!important;border-radius:12px!important;background:#fff!important;box-shadow:none!important;padding:28px!important;overflow:visible}
+.website-form-refresh.public-form-shell .public-form-card:before,.website-form-refresh.public-form-shell .public-form-intro:before{display:none!important}
+.website-form-refresh.public-form-shell :is(h1,h2,h3){color:var(--ink)!important;letter-spacing:-.025em!important;text-transform:none!important;font-weight:600!important}
+.website-form-refresh.public-form-shell h1{font-size:clamp(26px,3.2vw,34px)!important;line-height:1.18!important;margin:0 0 12px!important}
+.website-form-refresh.public-form-shell h2{font-size:21px!important;line-height:1.3!important;margin:0 0 8px!important}.website-form-refresh.public-form-shell h3{font-size:17px!important;line-height:1.35!important}
+.website-form-refresh.public-form-shell :is(p,.muted){color:var(--muted);line-height:1.6}
+.website-form-refresh.public-form-shell :is(.public-form-intro,.guided-hero,.employer-form-head){background:none!important;border:0!important;border-bottom:1px solid var(--line)!important;border-radius:0!important;padding:0 0 22px!important;margin:0 0 22px!important;box-shadow:none!important;gap:20px}
+.website-form-refresh.public-form-shell :is(.guided-hero,.employer-form-head){display:grid;grid-template-columns:145px minmax(0,1fr);align-items:center}
+.website-form-refresh.public-form-shell .intake-brand-logo{width:145px!important;max-width:100%!important;margin:0!important;object-fit:contain}
+.website-form-refresh.public-form-shell :is(.guided-kicker,.eyebrow){font-size:11px!important;line-height:1.5;letter-spacing:.07em!important;font-weight:600!important;color:#396453!important}
+.website-form-refresh.public-form-shell .public-form-intro p{margin:0!important;font-size:15px!important}
+.website-form-refresh.public-form-shell :is(.intake-section,.investor-plans){min-width:0;border:1px solid var(--line)!important;border-radius:9px!important;padding:22px!important;background:white!important;box-shadow:none!important;margin:0 0 18px!important}
+.website-form-refresh.public-form-shell :is(.field,.intake-textarea){min-width:0;gap:7px!important}
+.website-form-refresh.public-form-shell :is(.field>span,.intake-textarea>span,.intake-file-field>label){font-size:13px!important;line-height:1.5!important;color:#244a3e!important;font-weight:600!important;letter-spacing:0!important;text-transform:none!important}
+.website-form-refresh.public-form-shell :is(input:not([type=checkbox]):not([type=radio]):not([type=file]),select,textarea){width:100%;min-width:0;min-height:48px!important;font-size:16px!important;line-height:1.45!important;font-weight:400!important;color:#163d36!important;background:#fff!important;border:1px solid #b9cec3!important;border-radius:7px!important;padding:12px 13px!important;box-shadow:none!important;letter-spacing:0!important}
+.website-form-refresh.public-form-shell textarea{min-height:108px!important;resize:vertical}
+.website-form-refresh.public-form-shell :is(input,textarea)::placeholder{color:#667b72!important;opacity:1}
+.website-form-refresh.public-form-shell :is(input,select,textarea):focus-visible,.website-form-refresh.public-form-shell button:focus-visible{outline:3px solid #2a7058!important;outline-offset:3px!important;border-color:#2a7058!important;box-shadow:none!important}
+.website-form-refresh.public-form-shell :is(.form-grid,.intake-grid){gap:18px 20px!important;align-items:start}
+.website-form-refresh.public-form-shell .btn{min-height:48px!important;padding:12px 18px!important;border:1px solid #bdcfc5!important;border-radius:6px!important;background:#fff!important;color:#16493c!important;font-size:14px!important;font-weight:600!important;line-height:1.4!important;letter-spacing:0!important;text-transform:none!important;box-shadow:none!important;white-space:normal}
+.website-form-refresh.public-form-shell .btn.dark{background:#dff6ed!important;border-color:#b8dfcf!important;color:#042d2d!important}
+.website-form-refresh.public-form-shell .btn.dark:hover:not(:disabled){background:#c9eddf!important;border-color:#6baf94!important}.website-form-refresh.public-form-shell .btn.ghost:hover:not(:disabled){background:#f1f8f4!important}
+.website-form-refresh.public-form-shell :is(.intake-checkbox,.intake-check){display:flex;align-items:flex-start;gap:10px;border:1px solid var(--line)!important;border-radius:7px!important;padding:12px 14px!important;background:#f5faf7!important;font-size:13px!important;font-weight:500!important;line-height:1.6!important;min-height:48px}
+.website-form-refresh.public-form-shell :is(input[type=checkbox],input[type=radio]){width:18px;height:18px;flex:0 0 18px;margin:3px 0 0!important;accent-color:#175f49}
+.website-form-refresh.public-form-shell :is(.guided-guide-card,.guided-selection-confirm,.guided-bridge-panel,.intake-recovery-banner,.employer-info-callout,.public-form-summary,.intake-submission-status){background:#f0faf5!important;border:1px solid #c8e2d4!important;border-radius:8px!important;box-shadow:none!important;color:#194b39}
+.website-form-refresh.public-form-shell .guided-guide-card{padding:18px!important;margin-bottom:20px!important}
+.website-form-refresh.public-form-shell .guided-guide-number{background:#dff6ed!important;color:#164d3b!important;border-radius:9px!important;border:1px solid #c7e4d6!important;box-shadow:none!important}
+.website-form-refresh.public-form-shell :is(.guided-step-tabs,.guided-hero,.employer-form-head){min-width:0}
+.website-form-refresh.public-form-shell .guided-step-tabs{display:flex;flex-wrap:wrap;gap:7px!important;margin-bottom:20px!important}
+.website-form-refresh.public-form-shell .guided-step-tab{flex:1 1 110px;min-width:0;min-height:48px;border:1px solid var(--line)!important;border-radius:7px!important;background:#fff!important;color:#486355!important;font-size:12px!important;font-weight:500!important;box-shadow:none!important}
+.website-form-refresh.public-form-shell .guided-step-tab.active{background:#dff6ed!important;border-color:#639e85!important;color:#103f2f!important;font-weight:600!important}.website-form-refresh.public-form-shell .guided-step-tab.done{background:#f0f8f3!important;color:#315b47!important}
+.website-form-refresh.public-form-shell .guided-step-tab>span{background:#eef5f0!important;color:#194c38!important;border-color:#c5ddce!important}
+.website-form-refresh.public-form-shell :is(.guided-goal-card,.guided-option-card){border:1px solid #c5d8cb!important;background:white!important;border-radius:9px!important;box-shadow:none!important;padding:18px!important;min-height:110px;transition:border-color .12s,background .12s}
+.website-form-refresh.public-form-shell .guided-goal-card strong{font-size:16px!important;font-weight:600!important;color:#163f31!important}.website-form-refresh.public-form-shell .guided-goal-card small{font-size:13px!important;color:#526c5c!important;line-height:1.55!important}
+.website-form-refresh.public-form-shell .guided-goal-card.selected{background:#e9f8f0!important;border:2px solid #34785c!important;padding:17px!important}.website-form-refresh.public-form-shell .guided-goal-card.muted-choice{opacity:1!important}
+.website-form-refresh.public-form-shell .guided-goal-icon{background:#edf8f1!important;color:#27684e!important;box-shadow:none!important;border-radius:8px!important}
+.website-form-refresh.public-form-shell :is(.guided-submit-bar,.intake-submit-bar,.employer-form-actions){position:static!important;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:16px 0 0!important;margin-top:20px!important;border:0!important;border-top:1px solid var(--line)!important;border-radius:0!important;background:white!important;box-shadow:none!important}
+.website-form-refresh.public-form-shell :is(.guided-submit-left,.employer-form-actions>div){display:flex;gap:10px;flex-wrap:wrap}.website-form-refresh.public-form-shell :is(.guided-submit-bar>span,.intake-section-description,.small){font-size:13px!important;font-weight:400!important;color:#526c64!important}
+.website-form-refresh.public-form-shell :is(.error-banner,.error-box,.form-error){border:1px solid #d29b91!important;border-left:4px solid #a23828!important;background:#fff6f2!important;color:#822b20!important;border-radius:7px!important;padding:13px 16px!important;font-size:14px!important;line-height:1.55}
+.website-form-refresh.public-form-shell .success-banner{background:#edf9f1!important;border-color:#96bba6!important;color:#174e35!important}
+body.intake-embed-mode .website-form-refresh.public-form-shell{background:transparent!important;min-height:0!important;padding:8px!important}
+@media(max-width:720px){.website-form-refresh.public-form-shell{padding:12px!important}.website-form-refresh.public-form-shell .public-form-card{padding:20px!important;border-radius:10px!important}.website-form-refresh.public-form-shell :is(.guided-hero,.employer-form-head){grid-template-columns:minmax(0,1fr)!important;gap:16px}.website-form-refresh.public-form-shell .intake-brand-logo{width:132px!important}.website-form-refresh.public-form-shell :is(.form-grid,.intake-grid.two){grid-template-columns:minmax(0,1fr)!important}.website-form-refresh.public-form-shell :is(.intake-section,.investor-plans){padding:16px!important}.website-form-refresh.public-form-shell .guided-step-tab{flex:1 1 96px}.website-form-refresh.public-form-shell :is(.guided-submit-left,.employer-form-actions>div){width:100%}.website-form-refresh.public-form-shell :is(.guided-submit-bar,.intake-submit-bar,.employer-form-actions)>.btn.dark{width:100%}.website-form-refresh.public-form-shell .employer-declaration-row{grid-template-columns:minmax(0,1fr)!important;gap:10px}.website-form-refresh.public-form-shell .employer-declaration-row>div{justify-content:flex-start;flex-wrap:wrap}}
+@media(prefers-reduced-motion:reduce){.website-form-refresh.public-form-shell *{animation:none!important;transition:none!important}}
+.website-form-refresh.public-form-shell .field{display:grid!important;margin:0!important}
+.website-form-refresh.public-form-shell .intake-grid.two{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 20px!important}
+.website-form-refresh.public-form-shell .intake-section{animation:none!important;opacity:1!important;transform:none!important}
+@media(max-width:720px){.website-form-refresh.public-form-shell .intake-grid.two{grid-template-columns:minmax(0,1fr)!important}}
+.website-form-refresh.public-form-shell .intake-thanks-card .portal-lock{color:#2e7657!important}

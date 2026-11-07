@@ -5983,7 +5983,7 @@ function IntakeFormApp() {
 
   if (submitted) {
     return (
-      <div className="intake-public-shell public-form-shell guided-intake-shell" ref={intakeShellRef}>
+      <div className="intake-public-shell public-form-shell website-form-refresh guided-intake-shell" ref={intakeShellRef}>
         <main className="intake-public-card public-form-card intake-thanks-card guided-thanks-card">
           <CheckCircle2 size={42} className="portal-lock" />
           <h1>Your information has been sent.</h1>
@@ -6002,7 +6002,7 @@ function IntakeFormApp() {
 
   if (paused) {
     return (
-      <div className="intake-public-shell public-form-shell guided-intake-shell" ref={intakeShellRef}>
+      <div className="intake-public-shell public-form-shell website-form-refresh guided-intake-shell" ref={intakeShellRef}>
         <main className="intake-public-card public-form-card intake-thanks-card guided-thanks-card intake-pause-card">
           <FileCheck2 size={42} className="portal-lock" />
           <h1>Your progress is saved.</h1>
@@ -6018,7 +6018,7 @@ function IntakeFormApp() {
   }
 
   return (
-    <div className="intake-public-shell public-form-shell guided-intake-shell" ref={intakeShellRef}>
+    <div className="intake-public-shell public-form-shell website-form-refresh guided-intake-shell" ref={intakeShellRef}>
       <main className="intake-public-card public-form-card guided-intake-card">
         <div className="guided-hero">
           <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="intake-brand-logo" />
@@ -6574,7 +6574,7 @@ function EmployerAccreditationFormApp() {
   const disclosedIssues = EMPLOYER_ACCREDITATION_DECLARATIONS.filter(([key]) => form.declarations?.[key] === 'Yes');
 
   if (submitted) return (
-    <div className="intake-public-shell public-form-shell employer-accreditation-shell" ref={shellRef}>
+    <div className="intake-public-shell public-form-shell website-form-refresh employer-accreditation-shell" ref={shellRef}>
       <main className="intake-public-card public-form-card intake-thanks-card employer-accreditation-card">
         <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="intake-brand-logo" />
         <span className="eyebrow">Employer accreditation</span><h1>Thank you - we have received it.</h1>
@@ -6585,7 +6585,7 @@ function EmployerAccreditationFormApp() {
   );
 
   return (
-    <div className="intake-public-shell public-form-shell guided-intake-shell employer-accreditation-shell" ref={shellRef}>
+    <div className="intake-public-shell public-form-shell website-form-refresh guided-intake-shell employer-accreditation-shell" ref={shellRef}>
       <main className="intake-public-card public-form-card guided-intake-card employer-accreditation-card">
         <header className="employer-form-head">
           <img src={LOGO_SRC} alt="Turner Hopkins Immigration Specialists" className="intake-brand-logo" />
@@ -6797,7 +6797,7 @@ function ContactFormApp() {
 
   if (submitted) {
     return (
-      <div className="intake-public-shell public-form-shell" ref={contactShellRef}>
+      <div className="intake-public-shell public-form-shell website-form-refresh" ref={contactShellRef}>
         <main className="intake-public-card public-form-card intake-thanks-card">
           <CheckCircle2 size={40} className="portal-lock" />
           <h1>Thank you. Your message has been received.</h1>
@@ -6809,7 +6809,7 @@ function ContactFormApp() {
   }
 
   return (
-    <div className="intake-public-shell public-form-shell contact-public-shell" ref={contactShellRef}>
+    <div className="intake-public-shell public-form-shell website-form-refresh contact-public-shell" ref={contactShellRef}>
       <main className="intake-public-card public-form-card contact-public-card">
         <div className="intake-public-head compact contact-public-intro public-form-intro">
           {isInvestor ? <><h1>Explore your investment pathway</h1><p>Tell us a little about your plans for New Zealand. Our team will review how we may be able to assist.</p></> : <p>Send us a short enquiry and our team will review how we may be able to assist.</p>}
@@ -14825,7 +14825,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.77" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.78" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -15417,7 +15417,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.77" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.78" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}

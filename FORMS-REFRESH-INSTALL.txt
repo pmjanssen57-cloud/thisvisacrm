@@ -1,0 +1,9 @@
+THiS website forms refresh — installation
+
+1. Deploy THiS-CRM-v0.17.78.zip with the existing Netlify source-build process (yarn build, publish dist). Refresh the public form pages afterwards. Contact (including Investor), assessment/intake and employer questionnaire inherit the update automatically. Keep their current iframe URLs, embed height listeners, conversion listeners and thank-you redirect footer code.
+
+2. Visa Quick Check is separate Squarespace code. Open the existing HTML Code block on https://www.turnerhopkinsimmigration.co.nz/contact/visa-quick-check. Keep the original checker HTML, questions, data and JavaScript. Append the ENTIRE contents of THiS-Quick-Check-Site-Refresh.txt BELOW that existing code, in the same block. Alternatively put that style snippet in this page's Advanced > Page Header Code Injection. Do not paste the entire CRM stylesheet into Squarespace. The snippet targets only #this-smc-quick-check and does not change other sections or forms.
+
+3. Check the published page at desktop and mobile widths. The style preview supplied is local verification, not an already published site change. Existing Squarespace section/grid height is not adjusted by the snippet. No new thank-you URL, tracking code, form action or conversion setup is needed.
+
+Rollback: deploy the exact v0.17.77 rollback ZIP for the three CRM forms. Separately remove the added <style id="this-quick-check-site-refresh">...</style> from Squarespace to restore the old Quick Check appearance. The original checker script remains intact. No database action is needed.
