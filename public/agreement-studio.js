@@ -39,11 +39,98 @@ const CORE_SECTIONS=[
 {id:'payment',title:'Payment',note:'Invoices, payment methods and overdue accounts.',body:`<p>Once the agreement has been accepted, we will begin the work required for the first agreed stage and issue the relevant invoice.</p><p>Payment can be made by direct credit or by secure credit-card payment using the invoice details provided by our accounts team. We do not store or retain credit-card details.</p><p>Unless otherwise agreed, overdue invoices may attract interest at the rate shown in this agreement. Unpaid amounts may be referred for recovery, and the reasonable costs of recovery may be added where the agreement and applicable law permit.</p>`},
 {id:'remember',title:'Remember THiS',note:'Closing and contact wording.',body:`<p>We are here to assist you. If you have questions about this agreement or the immigration process discussed with you, please contact us before accepting the agreement.</p><p>We look forward to working closely with you to achieve your immigration objectives.</p>`}
 ];
-const defaultState=()=>({status:'Draft',selectedSection:'introduction',complianceVersion:IAA_COMPLIANCE_VERSION,appType:'smc',sourceMode:'linked',client:{clientName:'Amelia Chen',partnerName:'David Chen',clientEmail:'amelia.chen@example.com',matterRef:'SMC-2026-0148',adviserId:'',adviserName:'Paul Janssen',adviserEmail:'paul@turnerhopkinsimmigration.co.nz',adviserLicence:'',preparedDate:'2026-08-04',expectedMonths:'18 months',matterNote:'The agreed pathway includes qualification assessment, temporary visa planning and an SMC Residence application.',conflictDisclosure:DEFAULT_CONFLICT_DISCLOSURE,likelyDisbursements:DEFAULT_DISBURSEMENTS},template:{coverHeading:'AGREEMENT',coverSubtitle:'Skilled Migrant Category (SMC)',adminFee:'6.9% general office administration charge',gstTreatment:GST_TREATMENT_DEFAULT,hourlyRate:'NZD$500.00 per hour plus GST where applicable',interestRate:'1.5% per month, compounding monthly',version:'1.0'},sections:CORE_SECTIONS.map((s,i)=>({...s,enabled:true,numberMode:'auto',manualNumber:String(i+1)})),scope:APP_TYPES.smc.scope.map((text,i)=>({id:'s'+i,text,enabled:true})),professionalFees:[
+function serviceSuggestions(type){return window.THIS_AGREEMENT_SERVICES.profiles[type]||window.THIS_AGREEMENT_SERVICES.profiles.other;}
+function suggestedGovernmentFees(type){
+ const rows=(APP_TYPES[type]||APP_TYPES.other).gov;
+ const selected=type==='smc'?rows.filter(r=>r[1]==='Resident Visa'):type==='accreditation'?rows.filter(r=>r[1]==='Employer Accreditation'):type==='partnership'?rows.slice(0,1):type==='parent'?rows.filter(r=>r[1]==='Parent Resident Visa'):rows;
+ return selected.map((r,i)=>({id:'g'+Date.now()+i,agency:r[0],application:r[1],amount:'Confirm current'}));
+}
+function applyServiceSuggestions(next,type){
+ next.serviceProfileVersion=1;
+ next.scope=serviceSuggestions(type).map((item,i)=>({id:'scope-'+Date.now()+'-'+i,serviceKey:item.key,text:item.text,enabled:true}));
+ next.professionalFees=serviceSuggestions(type).map((item,i)=>({id:'fee-'+Date.now()+'-'+i,description:item.title,amount:'',trigger:item.trigger,scopeIds:[next.scope[i].id]}));
+ next.governmentFees=suggestedGovernmentFees(type);
+ return next;
+}
+function linkedServiceText(row){return (row.scopeIds||[]).map(id=>{const item=state.scope.find(s=>s.id===id);return item&&item.enabled?item.text:'[Service removed or excluded — update this payment]';}).join(' ');}
+function serviceCoverageProblems(){
+ const problems=[];
+ for(const row of state.professionalFees||[])if((row.scopeIds||[]).some(id=>!state.scope.some(s=>s.id===id&&s.enabled)))problems.push('Update payment links for a service that has been removed or excluded.');
+ if(state.serviceProfileVersion)for(const item of state.scope.filter(s=>s.enabled))if(!state.professionalFees.some(row=>(row.scopeIds||[]).includes(item.id)))problems.push('Link every included service to a payment. One payment can cover several services.');
+ return [...new Set(problems)];
+}
+function serviceDialog(title,body,actions){
+ const previous=document.activeElement;
+ const dialog=document.createElement('dialog');dialog.className='agreement-service-dialog';
+ dialog.innerHTML=`<div class="service-dialog-head"><h2 id="service-dialog-title">${esc(title)}</h2><button class="btn secondary small" type="button" data-service-close aria-label="Close services dialog">Close</button></div><div class="service-dialog-body">${body}</div><div class="service-dialog-actions"></div>`;
+ dialog.setAttribute('aria-labelledby','service-dialog-title');document.body.append(dialog);
+ const close=()=>{dialog.close();dialog.remove();if(previous?.isConnected)previous.focus();};
+ dialog.querySelector('[data-service-close]').onclick=close;dialog.addEventListener('cancel',e=>{e.preventDefault();close();});
+ actions.forEach(action=>{const button=document.createElement('button');button.type='button';button.className='btn '+(action.primary?'primary':'secondary');button.textContent=action.label;button.onclick=()=>{close();action.run?.();};dialog.querySelector('.service-dialog-actions').append(button);});
+ dialog.showModal();return {dialog,close};
+}
+function editableServices(){if(isLockedIssuedStatus(state.status)){toast('Issued agreements are preserved. Create a new draft to change services.');return false;}return true;}
+function requestSuggestedServices(type=state.appType,changingType=false){
+ if(!editableServices()){$('#appType').value=state.appType;return;}
+ $('#appType').value=state.appType;
+ serviceDialog(changingType?'Change agreement type':'Load suggested services',`<p>${changingType?'Choose how to handle the current services.':'This replaces the current scope, professional payments and government cost rows.'} Existing descriptions, amounts and payment milestones will be replaced if you load suggestions.</p><p><strong>${esc(APP_TYPES[type].title)}</strong></p><ul>${serviceSuggestions(type).map(s=>`<li>${esc(s.title)}</li>`).join('')}</ul><p>Fee amounts start blank. Review services, payment milestones and government charges before issue.</p>`,[
+ {label:'Cancel'},
+ ...(changingType?[{label:'Keep my services',run:()=>{state.appType=type;state.template.coverSubtitle=currentType().title;dirty();renderAll();toast('Agreement type changed. Review your retained scope, costs and matter description.');}}]:[]),
+ {label:'Load suggested services',primary:true,run:()=>{state.appType=type;state.template.coverSubtitle=currentType().title;state.client.matterNote=defaultMatterDescription(type);applyServiceSuggestions(state,type);dirty();renderAll();toast('Suggested services loaded. Add fee amounts and tailor the scope.');}}
+ ]);
+}
+function addSuggestedService(item){
+ if(!editableServices())return;
+ const id='scope-'+Date.now()+'-'+Math.random().toString(36).slice(2,7);
+ state.scope.push({id,serviceKey:item.key,text:item.text,enabled:true});
+ state.professionalFees.push({id:'fee-'+id,description:item.title,amount:'',trigger:item.trigger,scopeIds:[id]});
+ dirty();renderAll();toast('Service and payment added. Review the fee and any related government charge.');
+}
+function openServiceLibrary(){
+ if(!editableServices())return;
+ const items=[...serviceSuggestions(state.appType),...window.THIS_AGREEMENT_SERVICES.optional].filter((s,i,all)=>all.findIndex(t=>t.key===s.key)===i);
+ const {dialog,close}=serviceDialog('Add a service',`<p>Choose a starting point, then tailor the wording. Each addition includes an editable payment with a blank amount. Government charges are reviewed separately.</p><label class="label" for="service-search">Find a service</label><input id="service-search" class="input" type="search" placeholder="Search services"><div class="service-library-list">${items.map((item,i)=>`<article class="service-library-item" data-library-item="${i}"><div><strong>${esc(item.title)}</strong><p>${esc(item.text)}</p></div><button class="btn secondary small" data-library-add="${i}">Add</button></article>`).join('')}</div>`,[{label:'Add custom service',primary:true,run:()=>addSuggestedService({key:'custom',title:'Custom agreed service',text:'Describe the specific work, people and limits of this service.',trigger:'Specify the agreed payment milestone'})}]);
+ dialog.querySelector('#service-search').oninput=e=>dialog.querySelectorAll('[data-library-item]').forEach(el=>{el.hidden=!el.textContent.toLowerCase().includes(e.target.value.toLowerCase());});
+ dialog.querySelectorAll('[data-library-add]').forEach(button=>button.onclick=()=>{const item=items[+button.dataset.libraryAdd];close();addSuggestedService(item);});
+}
+function duplicateProfessionalService(index){
+ if(!editableServices())return;
+ const row=state.professionalFees[index];if(!row)return;
+ const copy=JSON.parse(JSON.stringify(row));copy.id='fee-copy-'+Date.now();copy.description+=' (copy)';copy.amount='';
+ copy.scopeIds=(row.scopeIds||[]).map(id=>{const original=state.scope.find(s=>s.id===id);if(!original)return id;const item={...original,id:'scope-copy-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),text:original.text+' (copy — tailor for the additional work)'};state.scope.push(item);return item.id;});
+ state.professionalFees.splice(index+1,0,copy);dirty();renderAll();toast('Duplicated service. Tailor the work and enter its fee.');
+}
+function removeProfessionalService(index){
+ if(!editableServices())return;
+ const row=state.professionalFees[index];if(!row)return;
+ const remove=(withServices)=>{
+  if(withServices){const unshared=(row.scopeIds||[]).filter(id=>!state.professionalFees.some((other,i)=>i!==index&&(other.scopeIds||[]).includes(id)));state.scope=state.scope.filter(item=>!unshared.includes(item.id));}
+  state.professionalFees.splice(index,1);dirty();renderAll();
+ };
+ if(!(row.scopeIds||[]).length){remove(false);return;}
+ serviceDialog('Remove service or payment',`<p><strong>${esc(row.description)}</strong></p><p>Remove the service and its payment together, or remove only the payment when combining work into another fee. Services also covered by another payment remain in the scope.</p>`,[{label:'Cancel'},{label:'Remove payment only',run:()=>remove(false)},{label:'Remove service and payment',primary:true,run:()=>remove(true)}]);
+}
+function renderServiceLinks(row){
+ let field=$('#professionalFeeScopeLinks');if(!field){field=document.createElement('fieldset');field.id='professionalFeeScopeLinks';field.className='service-payment-links';$('#professionalFeeDescription').closest('.field').after(field);}
+ field.innerHTML=`<legend>Services covered by this payment</legend><p class="help">Select several services to combine them into one payment. Edit the payment wording above to describe the combined work.</p>${state.scope.filter(s=>s.enabled).map(s=>`<label><input type="checkbox" value="${esc(s.id)}" ${(row?.scopeIds||[]).includes(s.id)?'checked':''}> <span>${esc(s.text)}</span></label>`).join('')}`;
+}
+function renderServiceTools(){
+ if(isLockedIssuedStatus(state.status))return;
+ for(const [id,target] of [['feeServiceTools','#profRows'],['scopeServiceTools','#scopeRows']]){
+  let bar=$('#'+id);if(!bar){bar=document.createElement('div');bar.id=id;bar.className='service-tools';$(target).before(bar);}
+  bar.innerHTML=`<button class="btn secondary small" type="button" data-service-library>Add service</button><button class="btn secondary small" type="button" data-service-reset>Load suggested services</button><span class="help">${esc(currentType().short)} · tailor the work and link it to payments</span>`;
+  bar.querySelector('[data-service-library]').onclick=openServiceLibrary;bar.querySelector('[data-service-reset]').onclick=()=>requestSuggestedServices();
+ }
+ let notice=$('#serviceCoverageNotice');if(!notice){notice=document.createElement('div');notice.id='serviceCoverageNotice';notice.className='notice';$('#profRows').before(notice);}
+ const problems=serviceCoverageProblems();notice.hidden=!problems.length;notice.textContent=problems.join(' ');
+}
+
+const legacyDefaultState=()=>({status:'Draft',selectedSection:'introduction',complianceVersion:IAA_COMPLIANCE_VERSION,appType:'smc',sourceMode:'linked',client:{clientName:'Amelia Chen',partnerName:'David Chen',clientEmail:'amelia.chen@example.com',matterRef:'SMC-2026-0148',adviserId:'',adviserName:'Paul Janssen',adviserEmail:'paul@turnerhopkinsimmigration.co.nz',adviserLicence:'',preparedDate:'2026-08-04',expectedMonths:'18 months',matterNote:'The agreed pathway includes qualification assessment, temporary visa planning and an SMC Residence application.',conflictDisclosure:DEFAULT_CONFLICT_DISCLOSURE,likelyDisbursements:DEFAULT_DISBURSEMENTS},template:{coverHeading:'AGREEMENT',coverSubtitle:'Skilled Migrant Category (SMC)',adminFee:'6.9% general office administration charge',gstTreatment:GST_TREATMENT_DEFAULT,hourlyRate:'NZD$500.00 per hour plus GST where applicable',interestRate:'1.5% per month, compounding monthly',version:'1.0'},sections:CORE_SECTIONS.map((s,i)=>({...s,enabled:true,numberMode:'auto',manualNumber:String(i+1)})),scope:APP_TYPES.smc.scope.map((text,i)=>({id:'s'+i,text,enabled:true})),professionalFees:[
 {id:'p1',description:'Initial engagement, strategy and detailed written instructions',amount:'NZD$X,XXX.00',trigger:'Payable to commence the process'},
 {id:'p2',description:'Qualification assessment and pathway preparation',amount:'NZD$X,XXX.00',trigger:'Payable when the IQA or agreed preliminary stage is ready to begin'},
 {id:'p3',description:'Temporary visa application stage',amount:'NZD$X,XXX.00',trigger:'Payable when the agreed temporary visa application is ready to prepare'},
 {id:'p4',description:'Residence application preparation and submission',amount:'NZD$X,XXX.00',trigger:'Payable when the Residence application is ready to prepare'}],governmentFees:APP_TYPES.smc.gov.map((r,i)=>({id:'g'+i,agency:r[0],application:r[1],amount:r[3]})),signatories:[{id:'sg1',name:'Amelia Chen',email:'amelia.chen@example.com',role:'Principal client',required:true},{id:'sg2',name:'David Chen',email:'david.chen@example.com',role:'Partner / second client',required:true}],compliance:defaultCompliance(),acceptanceText:CURRENT_ACCEPTANCE_TEXT,emailSubject:'Your Turner Hopkins engagement agreement',emailBody:'We have prepared your Turner Hopkins engagement agreement. It sets out the services we will provide, the professional and government fees, the payment stages, and the terms on which we will act for you.\n\nPlease review it carefully using the secure link in this email. When you are comfortable with the content, you can confirm your acceptance and sign online.\n\nIf anything needs correcting, or you would like to discuss any part of the agreement, please reply to this email before accepting it.',templateHistory:[{version:'1.0',date:'4 August 2026',note:'Initial reusable master engagement agreement'}],sentAt:'',acceptedAt:'',acceptedBy:'',token:''});
+const defaultState=()=>applyServiceSuggestions(legacyDefaultState(),'smc');
 const THIS_LOCAL_STORAGE=(()=>{try{const storage=window['local'+'Storage'];const probe='__this_agreement_storage_probe__';storage.getItem(probe);return storage;}catch(error){console.warn('Browser storage is unavailable; CRM persistence will be used instead.',error);return{getItem(){return null},setItem(){},removeItem(){},clear(){}}}})();
 const THIS_SESSION_STORAGE=(()=>{try{return window['session'+'Storage'];}catch(error){return{getItem(){return null},setItem(){},removeItem(){},clear(){}}}})();
 let state=(()=>{try{return JSON.parse(THIS_LOCAL_STORAGE.getItem('this-agreement-studio-v1')||'null')||defaultState();}catch(error){console.warn('Unable to load the browser agreement draft; starting from the CRM payload.',error);return defaultState();}})();let editMode=false,zoom='fit',sigDrawn=false,editingProfessionalFeeId='',editingGovernmentFeeId='';
@@ -151,7 +238,7 @@ function printAgreementDocument(){
  Promise.all([fonts,...images]).then(()=>requestAnimationFrame(()=>requestAnimationFrame(()=>{window.focus();window.print()})));
 }
 function scopeList(){return state.scope.filter(x=>x.enabled).map(x=>`<div class="scopeitem"><span class="dot"></span><div>${esc(x.text)}</div></div>`).join('')}
-function professionalTable(){return `<table class="feetable"><thead><tr><th>Payment</th><th>Professional service</th><th>When payable</th><th style="text-align:right">Amount</th></tr></thead><tbody>${state.professionalFees.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.description)}</td><td>${esc(r.trigger)}</td><td class="amount">${esc(r.amount)}</td></tr>`).join('')}</tbody></table>`}
+function professionalTable(){return `<table class="feetable"><thead><tr><th>Payment</th><th>Professional service</th><th>When payable</th><th style="text-align:right">Amount</th></tr></thead><tbody>${state.professionalFees.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.description)}${(r.scopeIds||[]).length?`<div class="service-fee-scope">${esc(linkedServiceText(r))}</div>`:''}</td><td>${esc(r.trigger)}</td><td class="amount">${esc(r.amount)}</td></tr>`).join('')}</tbody></table>`}
 function govTable(){return `<table class="feetable"><thead><tr><th>Agency</th><th>Application type</th><th style="text-align:right">Amount</th></tr></thead><tbody>${state.governmentFees.length?state.governmentFees.map(r=>`<tr><td>${esc(r.agency)}</td><td>${esc(r.application)}</td><td class="amount">${esc(r.amount)}</td></tr>`).join(''):`<tr><td colspan="3">No government fees have been added.</td></tr>`}</tbody></table>`}
 function safeSignatureData(value=''){const text=String(value||'');return /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(text)?text:''}
 function formatAcceptedDate(value=''){if(!value)return'';const date=new Date(value);if(Number.isNaN(date.getTime()))return String(value);return new Intl.DateTimeFormat('en-NZ',{day:'numeric',month:'long',year:'numeric',hour:'numeric',minute:'2-digit',timeZone:'Pacific/Auckland'}).format(date)}
@@ -303,7 +390,7 @@ function renderMatter(){
  $('#scopeRows').innerHTML=state.scope.map((r,i)=>`<div class="repeatrow" data-scope-row="${i}"><div class="checkrow"><input type="checkbox" data-scope-enable ${r.enabled?'checked':''}><input class="input" data-scope-text value="${esc(r.text)}"></div><div class="rowactions"><div class="reorder-actions"><button class="btn secondary small" type="button" data-scope-move="up" ${i===0?'disabled':''}>↑ Up</button><button class="btn secondary small" type="button" data-scope-move="down" ${i===state.scope.length-1?'disabled':''}>↓ Down</button></div><button class="btn danger small" type="button" data-scope-remove>Remove</button></div></div>`).join('');
  bindRepeats();
 }
-function renderFees(){$('#profRows').innerHTML=state.professionalFees.map((r,i)=>`<article class="fee-editor-card" data-prof-row="${i}"><div class="fee-editor-number">${i+1}</div><div class="fee-editor-copy"><strong>${esc(r.description||'Untitled payment stage')}</strong><span class="fee-editor-amount">${esc(r.amount||'Amount not set')}</span><p>${esc(r.trigger||'Payment trigger not set')}</p></div><div class="fee-editor-actions"><button class="btn secondary small" type="button" data-prof-move="up" ${i===0?'disabled':''}>↑ Up</button><button class="btn secondary small" type="button" data-prof-move="down" ${i===state.professionalFees.length-1?'disabled':''}>↓ Down</button><button class="btn secondary small" type="button" data-prof-edit>Edit</button><button class="btn danger small" type="button" data-prof-remove>Remove</button></div></article>`).join('');$('#govRows').innerHTML=state.governmentFees.map((r,i)=>`<article class="fee-editor-card" data-gov-row="${i}"><div class="fee-editor-number">${i+1}</div><div class="fee-editor-copy"><strong>${esc(r.agency||'Agency not set')}</strong><span class="fee-editor-amount">${esc(r.amount||'Amount not set')}</span><p>${esc(r.application||'Application type not set')}</p></div><div class="fee-editor-actions"><button class="btn secondary small" type="button" data-gov-move="up" ${i===0?'disabled':''}>↑ Up</button><button class="btn secondary small" type="button" data-gov-move="down" ${i===state.governmentFees.length-1?'disabled':''}>↓ Down</button><button class="btn secondary small" type="button" data-gov-edit>Edit</button><button class="btn danger small" type="button" data-gov-remove>Remove</button></div></article>`).join('');bindRepeats()}
+function renderFees(){$('#profRows').innerHTML=state.professionalFees.map((r,i)=>`<article class="fee-editor-card" data-prof-row="${i}"><div class="fee-editor-number">${i+1}</div><div class="fee-editor-copy"><strong>${esc(r.description||'Untitled payment stage')}</strong><span class="fee-editor-amount">${esc(r.amount||'Amount not set')}</span><p>${esc(r.trigger||'Payment trigger not set')}</p>${(r.scopeIds||[]).length?`<p class="service-fee-scope">Covers: ${esc(linkedServiceText(r))}</p>`:''}</div><div class="fee-editor-actions"><button class="btn secondary small" type="button" data-prof-move="up" ${i===0?'disabled':''}>↑ Up</button><button class="btn secondary small" type="button" data-prof-move="down" ${i===state.professionalFees.length-1?'disabled':''}>↓ Down</button><button class="btn secondary small" type="button" data-prof-edit>Edit</button><button class="btn secondary small" type="button" data-prof-duplicate>Duplicate</button><button class="btn danger small" type="button" data-prof-remove>Remove</button></div></article>`).join('');$('#govRows').innerHTML=state.governmentFees.map((r,i)=>`<article class="fee-editor-card" data-gov-row="${i}"><div class="fee-editor-number">${i+1}</div><div class="fee-editor-copy"><strong>${esc(r.agency||'Agency not set')}</strong><span class="fee-editor-amount">${esc(r.amount||'Amount not set')}</span><p>${esc(r.application||'Application type not set')}</p></div><div class="fee-editor-actions"><button class="btn secondary small" type="button" data-gov-move="up" ${i===0?'disabled':''}>↑ Up</button><button class="btn secondary small" type="button" data-gov-move="down" ${i===state.governmentFees.length-1?'disabled':''}>↓ Down</button><button class="btn secondary small" type="button" data-gov-edit>Edit</button><button class="btn danger small" type="button" data-gov-remove>Remove</button></div></article>`).join('');bindRepeats()}
 function renderSigning(){
  const norm=value=>String(value||'').trim().toLowerCase();
  const principalName=norm(state.client?.clientName);
@@ -350,11 +437,11 @@ function complianceProblems(){
  const norm=value=>String(value||'').trim().toLowerCase();
  if(norm(client.clientName)&&!required.some(item=>norm(item.name)===norm(client.clientName))) problems.push('The principal client must remain a required signatory.');
  if(norm(client.partnerName)&&!required.some(item=>norm(item.name)===norm(client.partnerName))) problems.push('The partner / secondary applicant is recorded as a client in Client & matter. Current IAA guidance requires all clients, including secondary applicants, to accept the written agreement.');
- return [...new Set(problems)];
+ return [...new Set([...problems,...serviceCoverageProblems()])];
 }
 function renderComplianceSummary(){const el=$('#complianceSummary');if(!el)return;const problems=complianceProblems();el.textContent=problems.length?`${problems.length} item${problems.length===1?'':'s'} still need attention before issue. First: ${problems[0]}`:'IAA pre-issue checks complete. THiS will validate them again when the agreement is issued.';el.style.color=problems.length?'#8a5a00':'#1f6f55'}
 function renderHeader(){const t=currentType();state.compliance=normaliseComplianceState(state.compliance);$('#leftTitle').textContent=t.title;$('#summaryName').textContent=fullClient();$('#summaryMatter').textContent=t.short+' engagement agreement';$('#statusPill').textContent=state.status;$('#feeConfirmed').checked=!!state.feeConfirmed;$('#clientChecked').checked=!!state.clientChecked;$('#licenceConfirmed').checked=!!state.compliance.licenceConfirmed;$('#professionalStandardsProvided').checked=!!state.compliance.professionalStandardsProvided;$('#complaintsProcedureProvided').checked=!!(state.compliance.complaintsProcedureProvided&&state.compliance.significantMattersExplained);$('#sourceMode').value=state.sourceMode;$('#appType').value=state.appType}
-function renderAll(){renderHeader();renderSectionList();renderContentEditor();renderMatter();renderFees();renderSigning();renderTemplate();renderPages()}
+function renderAll(){renderHeader();renderSectionList();renderContentEditor();renderMatter();renderFees();renderSigning();renderTemplate();renderServiceTools();renderPages()}
 function dirty(){$('#saveStatus').textContent='Draft not saved'}
 function openProfessionalFeeEditor(id=''){
  editingProfessionalFeeId=id;
@@ -363,6 +450,7 @@ function openProfessionalFeeEditor(id=''){
  $('#professionalFeeDescription').value=row?.description||'';
  $('#professionalFeeAmount').value=row?.amount||'';
  $('#professionalFeeTrigger').value=row?.trigger||'';
+ renderServiceLinks(row);
  $('#professionalFeeModal').classList.remove('hidden');
  setTimeout(()=>$('#professionalFeeDescription')?.focus(),40);
 }
@@ -374,11 +462,12 @@ function commitProfessionalFee(){
  if(!description){toast('Add a professional service description');$('#professionalFeeDescription').focus();return}
  if(!amount){toast('Add the payment amount');$('#professionalFeeAmount').focus();return}
  if(!trigger){toast('Add when the payment is payable');$('#professionalFeeTrigger').focus();return}
+ const scopeIds=$$('#professionalFeeScopeLinks input:checked').map(input=>input.value);
  if(editingProfessionalFeeId){
   const row=state.professionalFees.find(item=>item.id===editingProfessionalFeeId);
-  if(row) Object.assign(row,{description,amount,trigger});
- }else state.professionalFees.push({id:'p'+Date.now(),description,amount,trigger});
- dirty();closeProfessionalFeeEditor();renderFees();renderPages();
+  if(row) Object.assign(row,{description,amount,trigger,scopeIds});
+ }else state.professionalFees.push({id:'p'+Date.now(),description,amount,trigger,scopeIds});
+ dirty();closeProfessionalFeeEditor();renderAll();
 }
 function openGovernmentFeeEditor(id=''){
  editingGovernmentFeeId=id;
@@ -405,13 +494,13 @@ function commitGovernmentFee(){
  dirty();closeGovernmentFeeEditor();renderFees();renderPages();
 }
 function bindRepeats(){
- $$('[data-scope-row]').forEach(row=>{let i=+row.dataset.scopeRow;row.querySelector('[data-scope-enable]').onchange=e=>{state.scope[i].enabled=e.target.checked;dirty();renderPages()};row.querySelector('[data-scope-text]').oninput=e=>{state.scope[i].text=e.target.value;dirty();renderPages()};row.querySelectorAll('[data-scope-move]').forEach(button=>button.onclick=()=>{if(moveOrderedItem(state.scope,i,button.dataset.scopeMove)){dirty();renderMatter();renderPages()}});row.querySelector('[data-scope-remove]').onclick=()=>{state.scope.splice(i,1);dirty();renderAll()}});
- $$('[data-prof-row]').forEach(row=>{let i=+row.dataset.profRow;row.querySelectorAll('[data-prof-move]').forEach(button=>button.onclick=()=>{if(moveOrderedItem(state.professionalFees,i,button.dataset.profMove)){dirty();renderFees();renderPages()}});row.querySelector('[data-prof-edit]').onclick=()=>openProfessionalFeeEditor(state.professionalFees[i]?.id||'');row.querySelector('[data-prof-remove]').onclick=()=>{state.professionalFees.splice(i,1);dirty();renderFees();renderPages()}});
+ $$('[data-scope-row]').forEach(row=>{let i=+row.dataset.scopeRow;row.querySelector('[data-scope-enable]').onchange=e=>{state.scope[i].enabled=e.target.checked;dirty();renderFees();renderServiceTools();renderPages()};row.querySelector('[data-scope-text]').oninput=e=>{state.scope[i].text=e.target.value;dirty();renderFees();renderServiceTools();renderPages()};row.querySelectorAll('[data-scope-move]').forEach(button=>button.onclick=()=>{if(moveOrderedItem(state.scope,i,button.dataset.scopeMove)){dirty();renderMatter();renderPages()}});row.querySelector('[data-scope-remove]').onclick=()=>{state.scope.splice(i,1);dirty();renderAll()}});
+ $$('[data-prof-row]').forEach(row=>{let i=+row.dataset.profRow;row.querySelectorAll('[data-prof-move]').forEach(button=>button.onclick=()=>{if(moveOrderedItem(state.professionalFees,i,button.dataset.profMove)){dirty();renderFees();renderPages()}});row.querySelector('[data-prof-edit]').onclick=()=>openProfessionalFeeEditor(state.professionalFees[i]?.id||'');row.querySelector('[data-prof-duplicate]').onclick=()=>duplicateProfessionalService(i);row.querySelector('[data-prof-remove]').onclick=()=>removeProfessionalService(i)});
  $$('[data-gov-row]').forEach(row=>{let i=+row.dataset.govRow;row.querySelectorAll('[data-gov-move]').forEach(button=>button.onclick=()=>{if(moveOrderedItem(state.governmentFees,i,button.dataset.govMove)){dirty();renderFees();renderPages()}});row.querySelector('[data-gov-edit]').onclick=()=>openGovernmentFeeEditor(state.governmentFees[i]?.id||'');row.querySelector('[data-gov-remove]').onclick=()=>{state.governmentFees.splice(i,1);dirty();renderFees();renderPages()}});
  $$('[data-sign-row]').forEach(row=>{let i=+row.dataset.signRow;row.querySelectorAll('[data-sf]').forEach(el=>el.oninput=e=>{state.signatories[i][el.dataset.sf]=e.target.value;if(i===principalSignatoryIndex()&&(el.dataset.sf==='email'||el.dataset.sf==='name'))syncClientFromPrincipal();dirty();renderHeader();renderPages()});const required=row.querySelector('[data-sf-required]');if(required)required.onchange=e=>{state.signatories[i].required=e.target.checked;dirty();renderPages()};const remove=row.querySelector('[data-sign-remove]');if(remove)remove.onclick=()=>{state.signatories.splice(i,1);renderAll()}})
 }
 function bindInlineEdits(){if(!editMode)return;$$('#pages .editable').forEach(el=>{el.contentEditable='true';el.addEventListener('blur',()=>{const k=el.dataset.edit,id=el.dataset.id;if(k==='coverHeading')state.template.coverHeading=el.textContent.trim();else if(k==='coverSubtitle')state.template.coverSubtitle=el.textContent.trim();else if(k==='title')state.sections.find(s=>s.id===id).title=el.textContent.trim();else if(k==='number'){const sec=state.sections.find(s=>s.id===id);sec.numberMode='manual';sec.manualNumber=el.textContent.trim();}else if(k==='body'){const fragments=$$('#pages [data-edit="body"]').filter(fragment=>fragment.dataset.id===id);state.sections.find(s=>s.id===id).body=fragments.map(fragment=>fragment.innerHTML).join('')}dirty();renderSectionList();renderContentEditor()});el.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();renderPages()}if(e.key==='Enter'&&e.ctrlKey){e.preventDefault();el.blur()}})})}
-function switchType(type){state.appType=type;const cfg=currentType();state.template.coverSubtitle=cfg.title;state.client.matterNote=defaultMatterDescription(type);state.scope=cfg.scope.map((text,i)=>({id:'s'+Date.now()+i,text,enabled:true}));state.governmentFees=cfg.gov.map((r,i)=>({id:'g'+Date.now()+i,agency:r[0],application:r[1],amount:r[3]}));dirty();renderAll()}
+function switchType(type){if(type!==state.appType)requestSuggestedServices(type,true);}
 function openIssue(){
  try{
   const status=$('#saveStatus');
@@ -475,7 +564,7 @@ function bind(){
  $('#adviserLicenceType').onchange=e=>{state.compliance=normaliseComplianceState(state.compliance);state.compliance.licenceType=e.target.value;state.compliance.licenceConfirmed=false;dirty();renderMatter();renderHeader();renderSigning();renderPages()};
  $$('.compliance-field').forEach(el=>el.oninput=e=>{state.compliance=normaliseComplianceState(state.compliance);state.compliance[el.dataset.complianceKey]=e.target.value;state.compliance.licenceConfirmed=false;dirty();renderHeader();renderSigning();renderPages()});
  $$('.template').forEach(el=>el.oninput=e=>{if(el.readOnly)return;state.template[el.dataset.key]=e.target.value;dirty();renderPages()});
- $('#addScope').onclick=()=>{state.scope.push({id:'s'+Date.now(),text:'New agreed service',enabled:true});renderMatter();renderPages()};$('#addProfFee').onclick=()=>openProfessionalFeeEditor();$('#addGovFee').onclick=()=>openGovernmentFeeEditor();$('#addSignatory').onclick=()=>{state.signatories.push({id:'sg'+Date.now(),name:'',email:'',role:'Additional signatory',required:true});renderSigning();renderPages()};
+ $('#addScope').onclick=()=>addSuggestedService({key:'custom',title:'Custom agreed service',text:'Describe the specific work, people and limits of this service.',trigger:'Specify the agreed payment milestone'});$('#addProfFee').onclick=()=>openProfessionalFeeEditor();$('#addGovFee').onclick=()=>openGovernmentFeeEditor();$('#addSignatory').onclick=()=>{state.signatories.push({id:'sg'+Date.now(),name:'',email:'',role:'Additional signatory',required:true});renderSigning();renderPages()};
  $('#acceptanceText').oninput=e=>{state.acceptanceText=e.target.value;dirty();renderPages()};$('#emailSubject').oninput=e=>{state.emailSubject=e.target.value;dirty()};$('#emailBody').oninput=e=>{state.emailBody=e.target.value;dirty()};$('#feeConfirmed').onchange=e=>{state.feeConfirmed=e.target.checked;dirty();renderSigning()};$('#clientChecked').onchange=e=>{state.clientChecked=e.target.checked;dirty();renderSigning()};$('#licenceConfirmed').onchange=e=>{state.compliance=normaliseComplianceState(state.compliance);state.compliance.licenceConfirmed=e.target.checked;dirty();renderSigning()};$('#professionalStandardsProvided').onchange=e=>{state.compliance=normaliseComplianceState(state.compliance);state.compliance.professionalStandardsProvided=e.target.checked;dirty();renderSigning()};$('#complaintsProcedureProvided').onchange=e=>{state.compliance=normaliseComplianceState(state.compliance);state.compliance.complaintsProcedureProvided=e.target.checked;state.compliance.significantMattersExplained=e.target.checked;dirty();renderSigning()};
  $$('[data-zoom]').forEach(b=>b.onclick=()=>{zoom=b.dataset.zoom==='100'?'':'fit';$$('[data-zoom]').forEach(x=>x.classList.toggle('active',x===b));renderPages()});$('#editTextBtn').onclick=()=>{editMode=!editMode;$('#editTextBtn').classList.toggle('active',editMode);renderPages()};
  $('#saveBtn').onclick=save;$('#printBtn').onclick=printAgreementDocument;$('#exportBtn').onclick=exportData;$('#issueBtn').onclick=openIssue;$('#templateBtn').onclick=()=>{$('#templateSummary').textContent=`Version ${state.template.version}; ${state.sections.length} core sections; ${Object.keys(APP_TYPES).length} application profiles.`;$('#templateModal').classList.remove('hidden')};$('#saveTemplate').onclick=()=>{save();toast('Template draft saved')};$('#publishTemplate').onclick=publishTemplate;
@@ -543,7 +632,7 @@ bind();renderAll();
   function applyMasterTemplate(next,library){
     const master=library&&typeof library==='object'?library.masterState:null;
     if(!master||typeof master!=='object') return next;
-    const preserved={client:next.client,appType:next.appType,sourceMode:next.sourceMode,status:next.status,sentAt:next.sentAt,acceptedAt:next.acceptedAt,acceptedBy:next.acceptedBy,token:next.token,scope:next.scope,governmentFees:next.governmentFees,professionalFees:next.professionalFees,signatories:next.signatories,emailSubject:next.emailSubject,emailBody:next.emailBody};
+    const preserved={serviceProfileVersion:next.serviceProfileVersion,client:next.client,appType:next.appType,sourceMode:next.sourceMode,status:next.status,sentAt:next.sentAt,acceptedAt:next.acceptedAt,acceptedBy:next.acceptedBy,token:next.token,scope:next.scope,governmentFees:next.governmentFees,professionalFees:next.professionalFees,signatories:next.signatories,emailSubject:next.emailSubject,emailBody:next.emailBody};
     const merged={...clone(next),...clone(master),...preserved};
     merged.client={...(master.client||{}),...preserved.client};
     return merged;
@@ -617,8 +706,7 @@ bind();renderAll();
     next.appType=payload.agreementSet?.appType||appTypeFromCaseType(payload.client?.caseType||'');
     if(!APP_TYPES[next.appType]) next.appType='other';
     next.template.coverSubtitle=APP_TYPES[next.appType].title;
-    next.scope=APP_TYPES[next.appType].scope.map((text,i)=>({id:'s'+Date.now()+i,text,enabled:true}));
-    next.governmentFees=APP_TYPES[next.appType].gov.map((r,i)=>({id:'g'+Date.now()+i,agency:r[0],application:r[1],amount:r[3]}));
+    applyServiceSuggestions(next,next.appType);
     next.client=mapClient(payload.client||{},payload.advisers||[],next.appType);
     next.sourceMode=payload.intake?'intake':payload.client?'linked':'standalone';
     if(!payload.client&&payload.agreementSet?.standaloneLabel){
@@ -638,6 +726,7 @@ Please review it carefully using the secure link in this email. When you are com
 
 If anything needs correcting, or you would like to discuss any part of the agreement, please reply to this email before accepting it.`;
     next=hydrateLinkedClient(applyMasterTemplate(next,payload.templateLibrary||{}),payload);
+    next.template.coverSubtitle=APP_TYPES[next.appType].title;
     next=normaliseMandatoryAgreementContent(next);
     next.template=normaliseTemplateSettings(next.template||{});
     next.compliance=normaliseComplianceState(next.compliance);
