@@ -179,3 +179,16 @@
 .ib72-library-item>[data-remove-wording81]{grid-column:1/-1;justify-self:end;min-height:40px}
 #ib81-common-request{margin-right:8px;margin-bottom:8px}
 #ib81-wording-text{border:1px solid #cbdcd3;border-radius:8px;padding:14px;min-height:220px;max-height:360px;overflow:auto;font-size:14px;line-height:1.65;overflow-wrap:anywhere;background:white}
+
+/* v0.17.82: document people, branded closing and measured section rhythm. */
+:is(#preview-root,#print-root,.s51-measure,#ib72-wording) .ib82-people-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:4px 0 20px;padding:0}
+:is(#preview-root,#print-root,.s51-measure,#ib72-wording) .ib82-person{display:flex;align-items:center;gap:12px;min-width:0;min-height:78px;padding:14px 16px;border:1px solid #d6e5df;border-radius:10px;background:#f8fbfa;box-sizing:border-box;break-inside:avoid;page-break-inside:avoid}
+:is(#preview-root,#print-root,.s51-measure,#ib72-wording) .ib82-person-main{background:#edf8f3;border-color:#b9dfcf;border-left:4px solid #159b76;padding-left:13px}
+:is(#preview-root,#print-root,.s51-measure,#ib72-wording) .ib82-person-initials{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border-radius:50%;background:#e4f0eb;color:#07584d;font-size:12px;font-weight:700;line-height:1}
+:is(#preview-root,#print-root,.s51-measure,#ib72-wording) .ib82-person-main .ib82-person-initials{background:#d5ede2}
+:is(#preview-root,#print-root,.s51-measure,#ib72-wording) .ib82-person-details{display:flex;flex-direction:column;align-items:flex-start;gap:7px;min-width:0;flex:1}
+:is(#preview-root,#print-root,.s51-measure,#ib72-wording) .ib82-person-details strong{font-size:14px;line-height:1.4;font-weight:650;color:#133e36;overflow-wrap:anywhere}
+:is(#preview-root,#print-root,.s51-measure,#ib72-wording) .ib82-person-role{display:inline-block;max-width:100%;padding:3px 9px;border:1px solid #d4e5dc;border-radius:20px;background:#fff;color:#3b6457;font-size:12px;font-weight:600;line-height:1.35;box-sizing:border-box;overflow-wrap:anywhere}
+.ib82-signoff-logo{display:block!important;flex:none!important;align-self:flex-start;width:144px!important;height:64px!important;max-width:100%!important;object-fit:contain;object-position:left center;margin:13px 0 0!important}
+:is(#preview-root,#print-root,.s51-measure) .flow-section+.flow-section{margin-top:27px!important;padding-top:28px!important}
+:is(#preview-root,#print-root,.s51-measure) .number-heading{margin-bottom:18px!important}

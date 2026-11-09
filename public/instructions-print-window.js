@@ -3,7 +3,11 @@
   'use strict';
   window.THIS_INSTRUCTIONS_PRINT_WINDOW = function(target, html, title) {
     const esc=value=>String(value||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    const styles=[...document.querySelectorAll('style,link[rel="stylesheet"]')].map(e=>e.outerHTML).join('\n');
+    const styles=[...document.querySelectorAll('style,link[rel="stylesheet"]')].map(e=>{
+      if(e.tagName==='STYLE')return e.outerHTML;
+      try{if(e.sheet?.cssRules?.length)return `<style data-print-source="${esc(e.href)}">${[...e.sheet.cssRules].map(rule=>rule.cssText).join('\n')}</style>`;}catch{}
+      return e.outerHTML;
+    }).join('\n');
     const finalStyles=`
       html,body{margin:0!important;padding:0!important;background:#e8eeeb!important}
       .this-print-toolbar{position:sticky;top:0;z-index:10000;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:14px 20px;background:white;border-bottom:1px solid #d3e1da;font:14px Arial,sans-serif;color:#153e34}
@@ -31,14 +35,20 @@
     target.document.close();
     target.document.getElementById('this-instructions-close').addEventListener('click',()=>target.close());
     const button=target.document.getElementById('this-instructions-print');button.addEventListener('click',()=>{target.focus();target.print();});
-    const assets=[...target.document.querySelectorAll('link[rel="stylesheet"]')].map(link=>link.sheet?Promise.resolve():new Promise(resolve=>{link.addEventListener('load',resolve,{once:true});link.addEventListener('error',resolve,{once:true});}));
-    const images=[...target.document.images].map(img=>img.complete?Promise.resolve():new Promise(resolve=>{img.addEventListener('load',resolve,{once:true});img.addEventListener('error',resolve,{once:true});}));
-    Promise.race([Promise.all([...assets,...images,target.document.fonts?.ready||Promise.resolve()]),new Promise(resolve=>setTimeout(resolve,10000))]).then(()=>{
+    const loaded=target.document.readyState==='complete'?Promise.resolve():new Promise(resolve=>{const check=setInterval(()=>{if(target.closed||target.document.readyState==='complete'){clearInterval(check);resolve();}},25);});
+    const assets=[...target.document.querySelectorAll('link[rel="stylesheet"]')].map(link=>link.sheet?Promise.resolve():new Promise((resolve,reject)=>{link.addEventListener('load',resolve,{once:true});link.addEventListener('error',()=>reject(new Error('A stylesheet could not be loaded.')),{once:true});}));
+    const images=[...target.document.images].map(img=>img.complete?(img.naturalWidth?Promise.resolve():Promise.reject(new Error('An image could not be loaded.'))):new Promise((resolve,reject)=>{img.addEventListener('load',()=>img.naturalWidth?resolve():reject(new Error('An image could not be loaded.')),{once:true});img.addEventListener('error',()=>reject(new Error('An image could not be loaded.')),{once:true});}));
+    const waiting=setTimeout(()=>{if(!target.closed)target.document.getElementById('this-print-status').textContent='Still preparing document assets…';},10000);
+    Promise.all([loaded,...assets,...images]).then(async()=>{
       if(target.closed)return;
+      void target.document.body.offsetHeight;
+      await target.document.fonts?.ready;
+      if(target.closed)return;
+      clearTimeout(waiting);
       const count=target.document.querySelectorAll('.pdf-page').length;
       target.document.getElementById('this-print-status').textContent=`${count} document page${count===1?'':'s'} · A4 print layout ready`;
       button.disabled=false;
       target.requestAnimationFrame(()=>target.requestAnimationFrame(()=>{if(!target.closed){target.focus();target.print();}}));
-    });
+    }).catch(error=>{clearTimeout(waiting);if(!target.closed)target.document.getElementById('this-print-status').textContent=error.message+' Close this window, refresh the Studio and try again.';});
   };
 })();
