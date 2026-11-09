@@ -98,6 +98,115 @@
     }
     markDirty(false);renderAll();flush();
   }
+  const fillTemplateBefore81=fillTemplate;
+  fillTemplate=function(source){const values=[];const prepared=String(source||'').replace(/{{case81_([A-Za-z]+)}}/g,(match,key)=>{const index=values.length;values.push(key==='applicantName'?(state.client.firstName||state.client.preparedFor||'the applicant'):state.casePlan81?.applied?.facts?.[key]||`[${key}]`);return `__THIS_CASE_VALUE_${index}__`;});let filled=fillTemplateBefore81(prepared);values.forEach((value,index)=>{filled=filled.split(`__THIS_CASE_VALUE_${index}__`).join(esc(value));});return filled;};
+  function caseStatus81(m){return !m.applied?'Optional':JSON.stringify(m.facts)!==JSON.stringify(m.applied.facts)||JSON.stringify(m.options)!==JSON.stringify(m.applied.options)?'Changes to apply':'Plan applied';}
+  let canShareWording81=false;
+  const personalWordingKey81='this-instruction-wording-v81';
+  function model81(){const m=state.casePlan81 ||= {version:1,facts:{pathway:state.client.agreedPathway||state.client.applicationType||PACK_LABELS[activePackId]}};m.facts ||= {};m.options={employment:'secured',iqa:false,registration:false,temporary:false,...(m.options||{})};return m;}
+  function seedFacts81(payload){
+    if(state.casePlan81?.seeded)return;
+    const c=payload.client||{},intake=c.intakeSnapshot?.rawPayload||c.intake?.rawPayload||{},model=model81();
+    model.seeded=true;
+    for(const [key,keys] of Object.entries({employer:['employerName','employer'],role:['jobTitle','occupation'],qualification:['qualificationName','qualification'],institution:['qualificationInstitution','institution']})){
+      for(const source of [state.client||{},c,intake])for(const name of keys)if(!model.facts[key]&&typeof source[name]==='string')model.facts[key]=source[name];
+    }
+  }
+  function casePanel81(){
+    const m=model81(),fields=window.THIS_CASE_PLAN81.fields(activePackId),work=['smc','aewv'].includes(activePackId);
+    const host=document.createElement('details');host.id='ib81-case-panel';host.className='ib81-case-panel';host.open=!!m.open;
+    host.innerHTML=`<summary><span><strong>Case details & plan</strong><small>Enter the facts once, then build matching wording and stages.</small></span><span>${caseStatus81(m)}</span></summary><div class="ib81-case-body"><p class="ib72-help">Use the details you have confirmed with the client. Imported facts are starting values for your review. Changes reach the document when you choose Build / update draft.</p><div class="ib72-two-fields"><label>Agreed pathway<input data-case-fact="pathway" value="${esc(m.facts.pathway||'')}" placeholder="e.g. Green List — Straight to Residence"></label>${fields.map(([key,label])=>`<label>${esc(label)}<input data-case-fact="${key}" value="${esc(m.facts[key]||'')}"></label>`).join('')}</div>${work?`<fieldset class="ib81-options"><legend>Stages included in this plan</legend><label>Employment stage<select data-case-option="employment">${[['secured','Review the role / offer'],['pending','Role or transfer still to be confirmed'],['none','No employment section']].map(([v,l])=>`<option value="${v}" ${m.options.employment===v?'selected':''}>${l}</option>`).join('')}</select></label>${[['iqa','Qualification assessment (IQA)'],['registration','Professional registration'],['temporary','Temporary visa before the main application']].map(([key,label])=>`<label class="ib81-choice"><input type="checkbox" data-case-option="${key}" ${m.options[key]?'checked':''}><span>${label}</span></label>`).join('')}</fieldset>`:''}<label>Why this pathway fits / points to explain <small>(optional)</small><textarea rows="3" data-case-fact="assessment" placeholder="Your assessment, the important facts and any specific condition still to be met.">${esc(m.facts.assessment||'')}</textarea></label><div class="ib81-actions"><button type="button" class="button button-primary" id="ib81-build">Build / update draft</button><button type="button" class="button button-secondary" id="ib81-people">Family / people</button></div><p class="ib72-help">The plan updates standard sections together. You can still edit every paragraph and visual afterwards. Custom blocks and document/person assignments are retained.</p></div>`;
+    node('ib72').querySelector('.ib72-setup').after(host);
+    host.addEventListener('toggle',()=>{m.open=host.open;});
+    host.querySelectorAll('[data-case-fact]').forEach(input=>input.oninput=()=>{m.facts[input.dataset.caseFact]=input.value;host.querySelector('summary>span:last-child').textContent=caseStatus81(m);markDirty(false);});
+    host.querySelectorAll('[data-case-option]').forEach(input=>input.onchange=()=>{m.options[input.dataset.caseOption]=input.type==='checkbox'?input.checked:input.value;host.querySelector('summary>span:last-child').textContent=caseStatus81(m);markDirty(false);});
+    host.querySelector('#ib81-people').onclick=()=>{state.selectedDoc='documents';addFamily();};
+    host.querySelector('#ib81-build').onclick=reviewPlan81;
+  }
+  function dialog81(title,html){
+    const d=document.createElement('dialog');d.className='ib72-dialog ib81-dialog';d.setAttribute('aria-label',title);d.innerHTML=`<div class="ib72-dialog-heading"><h2>${esc(title)}</h2><button type="button" class="button button-secondary" data-close>Close</button></div><div class="ib81-dialog-content">${html}</div>`;
+    const previous=document.activeElement;document.body.append(d);const close=()=>{d.close();d.remove();if(previous?.isConnected)previous.focus();};d.querySelector('[data-close]').onclick=close;d.addEventListener('cancel',e=>{e.preventDefault();close();});d.showModal();return {d,close};
+  }
+  function reviewPlan81(){
+    const m=model81();if(!m.facts.pathway?.trim()){showToast('Name the agreed pathway first.');return;}
+    const plan=window.THIS_CASE_PLAN81.generate(activePackId,m,state.client,people(),window.THIS_INSTRUCTION_STANDARD_WORDING?.roadmaps?.[activePackId]);
+    const {d,close}=dialog81('Review the starting draft',`<p>This will update the introductions and standard plan sections, including their cards and timeline. Current text in those sections will be replaced. Custom blocks, family details, document requests and individual assignments stay in place.</p><p><strong>${esc(m.facts.pathway)}</strong></p>${Object.entries(plan.roadmap).filter(([id])=>['strategy','timeline','employment'].includes(id)).map(([id,html])=>`<details ${id==='strategy'?'open':''}><summary>${esc(id==='strategy'?'Strategy preview':id==='timeline'?'Steps & timeline':'Employment wording')}</summary><div class="ib81-draft-preview">${safeHtml(html)}</div></details>`).join('')}<div class="ib81-actions"><button class="button button-primary" id="ib81-apply">Use this draft</button><button class="button button-secondary" id="ib81-cancel">Keep current document</button></div>`);
+    d.querySelector('#ib81-cancel').onclick=close;
+    d.querySelector('#ib81-apply').onclick=()=>{close();applyPlan81(plan,m);};
+  }
+  function applyPlan81(plan,m){
+    const previous=state.client.agreedPathway||state.client.applicationType;
+    state.client.agreedPathway=m.facts.pathway.trim();
+    Object.entries(m.facts).forEach(([key,value])=>{if(typeof value==='string')state.client['case81_'+key]=value;});
+    for(const [docId,intro] of [['roadmap',plan.intro],['documents',plan.documentsIntro]]){
+      const target=state.docs[docId];if(!target)continue;
+      target.intro=intro.split(esc(m.facts.pathway.trim())).join('{{agreedPathway}}');target.builder72RichIntro=false;target.directEdits ||= {};target.directEdits.intro={};
+      if(!target.coverSubtitle||target.coverSubtitle===previous||target.coverSubtitle===PACK_LABELS[activePackId])target.coverSubtitle=state.client.agreedPathway;
+      const updates=docId==='roadmap'?plan.roadmap:plan.documents;
+      target.blocks.forEach(b=>{
+        if(b.customSectionV01743||b.familyBlock72)return;
+        let replacement=updates[b.id];
+        if(docId==='documents'&&b.id==='skills'&&plan.documents.qualifications)replacement=plan.documents.qualifications+(b.casePlan81OriginalHtml??b.templateHtml??b.html??'');
+        if(replacement){
+          if(b.casePlan81OriginalHtml===undefined)b.casePlan81OriginalHtml=b.templateHtml??b.html??'';
+          b.html=safeHtml(replacement.split(esc(m.facts.pathway.trim())).join('{{agreedPathway}}'));b.templateHtml=b.html;b.casePlan81LastHtml=b.html;b.directEdits={};b.clientTailoredV01743=true;
+        }else if(docId==='documents'&&b.casePlan81LastHtml&&(b.templateHtml??b.html)===b.casePlan81LastHtml){
+          b.html=b.casePlan81OriginalHtml||'';b.templateHtml=b.html;delete b.casePlan81LastHtml;
+        }
+      });
+      if(docId==='roadmap'){
+        const employment=target.blocks.find(b=>b.id==='employment'&&!b.customSectionV01743);if(employment&&['smc','aewv'].includes(activePackId))employment.enabled=!plan.omitEmployment;
+      }
+    }
+    m.applied={facts:structuredClone(m.facts),options:structuredClone(m.options),at:new Date().toISOString()};m.open=true;
+    state.contentStatus='Draft - adviser review required';markDirty(false);renderAll();flush();showToast('Starting draft updated. Review and tailor the document before issue.');
+  }
+  function addCommonRequest81(b){
+    const matches=window.THIS_CASE_PLAN81.requests.filter(r=>r.block===b.id||(b.id==='skills'&&r.block==='qualifications')||(b.id==='birth'&&r.id==='birth'));
+    const {d,close}=dialog81('Add a common document request',`<p>Choose a ready-written request. You can change the wording and people after adding it.</p>${(matches.length?matches:window.THIS_CASE_PLAN81.requests).map(r=>`<article class="ib81-request-preset"><div><strong>${esc(r.title)}</strong><p>${esc(r.note)}</p></div><button type="button" class="button button-secondary" data-request-preset="${r.id}">Add</button></article>`).join('')}`);
+    d.querySelectorAll('[data-request-preset]').forEach(button=>button.onclick=()=>{
+      const r=window.THIS_CASE_PLAN81.requests.find(r=>r.id===button.dataset.requestPreset),m=people();if(!m)return;
+      m.requirements ||= {};const list=m.requirements[`documents:${b.id}`] ||= [];const selected=m.people.filter(p=>p.name?.trim()&&(r.for==='all'||p.role==='Main applicant')).map(p=>p.id);
+      if(b.builder72NoEvidence){list.forEach(r=>r.enabled=false);b.builder72NoEvidence=false;}
+      list.push({id:`requirement-${uid()}`,title:r.title,note:r.note,enabled:true,personIds:selected});b.builder72Evidence=true;m.enabled=true;close();markDirty();sectionEditor();
+    });
+  }
+  function personalWording81(){try{return JSON.parse(THIS_LOCAL_STORAGE.getItem(personalWordingKey81)||'[]').filter(x=>x&&typeof x.title==='string'&&typeof x.html==='string').slice(0,40);}catch{return [];}}
+  function savedWording81(){return [...personalWording81().map(x=>({...x,key:`personal:${x.id}`,scope:'personal'})),...(templateLibraryV13?.reusableWording81||[]).filter(x=>x&&typeof x.html==='string'&&typeof x.title==='string').map(x=>({...x,key:`shared:${x.id}`,scope:'shared'}))].map(x=>({...x,category:'saved',note:x.scope==='shared'?'Team wording':'Personal wording — this browser'}));}
+  async function removeWording81(key){
+    const item=savedWording81().find(x=>x.key===key);if(!item||item.scope==='shared'&&!canShareWording81)return;
+    if(!(await window.THIS_DIALOG.confirm({message:`Remove “${item.title}” from ${item.scope==='shared'?'the team library':'your personal wording library'}? Existing client documents keep their inserted wording.`})))return;
+    if(item.scope==='personal'){
+      try{THIS_LOCAL_STORAGE.setItem(personalWordingKey81,JSON.stringify(personalWording81().filter(x=>x.id!==item.id)));}catch{showToast('Unable to update browser storage.');return;}
+    }else{
+      templateLibraryV13.reusableWording81=(templateLibraryV13.reusableWording81||[]).filter(x=>x.id!==item.id);
+      window.parent.postMessage({source:'this-instructions-studio',type:'THIS_STUDIO_TEMPLATE_LIBRARY',reason:'save',library:structuredClone(templateLibraryV13)},location.origin);
+    }
+    libraryItems=getLibrary();libraryList();
+  }
+  function saveWording81(){
+    const b=block();if(!b)return;let html=sourceHtml(b);
+    const facts=model81().facts;const substitutions=[[name(),'{{preparedFor}}'],[state.client.firstName,'{{firstName}}'],[state.client.agreedPathway,'{{agreedPathway}}'],...Object.entries(facts).filter(([k])=>k!=='assessment').map(([k,v])=>[v,k==='pathway'?'{{agreedPathway}}':`[${k}]`]),...(people()?.people||[]).filter(p=>p.role!=='Main applicant').map(p=>[p.name,'[family member]'])];
+    substitutions.filter(([v])=>v&&v.length>1).sort((a,b)=>b[0].length-a[0].length).forEach(([v,replacement])=>{html=html.split(esc(v)).join(replacement).split(v).join(replacement);});
+    const {d,close}=dialog81('Save reusable wording',`<p>Review the reusable text below. Keep general wording and placeholders; remove any remaining client-specific names, facts or assessment.</p><label>Library title<input id="ib81-wording-title" value="${esc(b.title)}"></label><label id="ib81-wording-label">Reusable wording</label>${toolbar()}<div id="ib81-wording-text" contenteditable="true" role="textbox" aria-labelledby="ib81-wording-label" aria-multiline="true">${safeHtml(html.replaceAll('{{preparedFor}}','[Client name]').replaceAll('{{firstName}}','[First name]').replaceAll('{{agreedPathway}}','[Agreed pathway]'))}</div><p class="ib72-help">Client names and the agreed pathway fill from the draft when reused. Case details fill from the applied plan. Check and tailor any remaining [placeholders].</p>${canShareWording81?'<label class="ib81-choice"><input type="checkbox" id="ib81-wording-share">Share with the team through the CRM library</label>':'<p class="ib72-help">Saved for reuse in this browser. Administrators can also save team wording.</p>'}<label class="ib81-choice"><input type="checkbox" id="ib81-wording-reviewed">I have removed client-specific information from this reusable text.</label><button type="button" class="button button-primary" id="ib81-wording-save" disabled>Save wording</button>`);
+    const editor=d.querySelector('#ib81-wording-text');
+    editor.addEventListener('paste',e=>{e.preventDefault();const value=e.clipboardData.getData('text/html');document.execCommand('insertHTML',false,value?safeHtml(value):esc(e.clipboardData.getData('text/plain')).replace(/\n/g,'<br>'));});
+    d.querySelectorAll('[data-ib-format]').forEach(button=>{button.onmousedown=e=>e.preventDefault();button.onclick=()=>{editor.focus();const cmd=button.dataset.ibFormat;if(cmd==='heading')document.execCommand('formatBlock',false,'h3');else if(cmd==='table')document.execCommand('insertHTML',false,'<table><tr><th>Item</th><th>Details</th></tr><tr><td>Document</td><td>Guidance</td></tr></table><p><br></p>');else if(cmd==='callout')document.execCommand('insertHTML',false,'<div class="callout"><p>Important guidance.</p></div><p><br></p>');else document.execCommand(cmd);};});
+    d.querySelector('#ib81-wording-reviewed').onchange=e=>{d.querySelector('#ib81-wording-save').disabled=!e.target.checked;};
+    d.querySelector('#ib81-wording-save').onclick=()=>{
+      const title=d.querySelector('#ib81-wording-title').value.trim(),text=d.querySelector('#ib81-wording-text').innerHTML.trim();if(!title||!text){showToast('Add a title and wording first.');return;}
+      let generic=text.replaceAll('[Client name]','{{preparedFor}}').replaceAll('[First name]','{{firstName}}').replaceAll('[Agreed pathway]','{{agreedPathway}}');for(const key of ['employer','role','qualification','institution','course','provider','funding','supporter','funds','investment','purpose','host'])generic=generic.replaceAll(`[${key}]`,`{{case81_${key}}}`);const record={id:`wording-${uid()}`,title,html:safeHtml(generic),packId:activePackId};
+      if(canShareWording81&&d.querySelector('#ib81-wording-share')?.checked){
+        if((templateLibraryV13.reusableWording81||[]).length>=40){showToast('Remove an unused team wording item before adding another.');return;}
+        templateLibraryV13.reusableWording81=[...(templateLibraryV13.reusableWording81||[]),record].slice(-40);
+        if(window.parent!==window)window.parent.postMessage({source:'this-instructions-studio',type:'THIS_STUDIO_TEMPLATE_LIBRARY',reason:'save',library:structuredClone(templateLibraryV13)},location.origin);
+        else{showToast('Team saving needs the CRM. Save personal wording here instead.');return;}
+        showToast('Team wording sent to the CRM library.');
+      }else{if(personalWording81().length>=40){showToast('Remove an unused personal wording item before adding another.');return;}try{THIS_LOCAL_STORAGE.setItem(personalWordingKey81,JSON.stringify([...personalWording81(),record].slice(-40)));showToast('Personal wording saved in this browser.');}catch{showToast('Browser storage is unavailable. Copy your wording before closing.');return;}}
+      close();
+    };
+  }
+
   function freshStarter(packId, client = {}, familyModel = null) {
     const next = createPackState(packId);
     refreshUnchangedStandard80(next,packId);
@@ -126,6 +235,7 @@
     return next;
   }
   function finishContext(payload) {
+    canShareWording81=Boolean(payload.canManageTemplates)&&window.parent!==window;
     const key = String(payload.instructionSet?.id || payload.client?.id || 'standalone');
     if (contextKey === key && !payload.force) { pendingInit=false; renderBuilder(); return; }
     contextKey = key;
@@ -135,6 +245,7 @@
       const family = people() ? structuredClone(people()) : null;
       state = freshStarter(activePackId, facts, family); workspaceDrafts[activePackId] = state;
     }
+    seedFacts81(payload);
     pendingInit = false; meta();
     renderAll(); setView(defaultView());
   }
@@ -184,7 +295,7 @@
     if (state.selectedDoc !== 'documents' || b.familyBlock72) return '';
     const list = people()?.requirements?.[`documents:${b.id}`] || [];
     const active = b.builder72NoEvidence ? [] : list.filter(r=>r.enabled);
-    return `<details class="ib72-evidence" ${b.builder72Evidence?'open':''}><summary>Documents requested & who needs them <span>${active.length}</span></summary><p class="ib72-help">Choose the actual items needed. Each request can apply to different people.</p><div class="ib72-requests">${active.map(r=>`<article class="ib72-request" data-ib-request="${esc(r.id)}"><label>Document name<input data-ib-request-title value="${esc(r.title)}"></label><fieldset><legend>Required for</legend><div class="ib72-person-choices">${peopleChoices(r.personIds || [],'data-ib-request-person')}</div></fieldset><label>Instructions for this document<textarea rows="2" data-ib-request-note>${esc(r.note)}</textarea></label><button type="button" class="ib72-text-danger" data-ib-request-remove>Remove request</button></article>`).join('')}</div><button type="button" class="button button-secondary" id="ib72-add-request">+ Add document request</button><p class="ib72-help">Need to name a partner or child? <button type="button" class="ib72-link" id="ib72-request-family">Add / edit family</button></p></details>`;
+    return `<details class="ib72-evidence" ${b.builder72Evidence?'open':''}><summary>Documents requested & who needs them <span>${active.length}</span></summary><p class="ib72-help">Choose the actual items needed. Each request can apply to different people.</p><div class="ib72-requests">${active.map(r=>`<article class="ib72-request" data-ib-request="${esc(r.id)}"><label>Document name<input data-ib-request-title value="${esc(r.title)}"></label><fieldset><legend>Required for</legend><div class="ib72-person-choices">${peopleChoices(r.personIds || [],'data-ib-request-person')}</div></fieldset><label>Instructions for this document<textarea rows="2" data-ib-request-note>${esc(r.note)}</textarea></label><button type="button" class="ib72-text-danger" data-ib-request-remove>Remove request</button></article>`).join('')}</div><button type="button" class="button button-secondary" id="ib81-common-request">+ Common document request</button><button type="button" class="button button-secondary" id="ib72-add-request">+ Custom document request</button><p class="ib72-help">Need to name a partner or child? <button type="button" class="ib72-link" id="ib72-request-family">Add / edit family</button></p></details>`;
   }
   function withoutCountryInstructions(html) {
     const t=document.createElement('template');t.innerHTML=String(html || '').replaceAll('{{policeInstructions}}','');
@@ -218,7 +329,7 @@
     const b = block(), intro = selection()==='intro';
     if (!intro && (!b || !b.enabled)) { setSelection('intro'); outline(); sectionEditor(); return; }
     const body = intro ? introSource() : b.familyBlock72 ? b.familyNote72 || '<p>Add any family-specific guidance here.</p>' : sourceHtml(b);
-    host.innerHTML = `<div class="ib72-editor-head"><div><span class="ib72-eyebrow">${intro?'Opening section':'Edit block'}</span><h2>${intro?'Header & introduction':esc(b.title)}</h2></div>${intro?'':`<div class="ib72-block-actions"><button type="button" class="button button-secondary" data-ib-block-action="up" aria-label="Move block up">↑</button><button type="button" class="button button-secondary" data-ib-block-action="down" aria-label="Move block down">↓</button><button type="button" class="button button-secondary" data-ib-block-action="duplicate">Duplicate</button><button type="button" class="button button-secondary" data-ib-block-action="remove">Remove</button></div>`}</div>${intro?`<div class="ib72-two-fields"><label>Document heading<input id="ib72-cover-title" value="${esc(doc().coverTitle)}"></label><label>Visa category on cover<input id="ib72-cover-subtitle" value="${esc(fillTemplate(doc().coverSubtitle || '{{applicationType}}'))}"></label></div><label>Agreed pathway<input id="ib80-agreed-pathway" value="${esc(state.client.agreedPathway || state.client.applicationType || PACK_LABELS[activePackId])}" placeholder="e.g. Green List — Straight to Residence (Tier 1)"></label><p class="ib72-help">Name the pathway agreed with the client. It populates the new standard wording. Keep only the steps included in the plan, and record any remaining conditions clearly.</p>`:`<label>Section heading<input id="ib72-block-title" value="${esc(b.title)}"></label>`}${b?.familyBlock72?familyEditor(b):''}<label class="ib72-wording-label" id="ib72-wording-label">${intro?'Introduction wording':b?.familyBlock72?'Additional family guidance':'Client wording'}</label>${toolbar()}<div id="ib72-wording" class="ib72-wording" contenteditable="true" role="textbox" aria-labelledby="ib72-wording-label" aria-multiline="true" spellcheck="true">${safeHtml(body)}</div><div class="ib72-wording-footer"><span>Edits apply to this client draft.</span>${standardWording80()?'<button type="button" class="ib72-link" data-ib-updated-wording>Use updated standard wording</button>':''}${intro?'':`<button type="button" class="ib72-link" data-ib-block-action="restore">Restore starting wording</button>`}</div>${intro?'':evidenceEditor(b)}`;
+    host.innerHTML = `<div class="ib72-editor-head"><div><span class="ib72-eyebrow">${intro?'Opening section':'Edit block'}</span><h2>${intro?'Header & introduction':esc(b.title)}</h2></div>${intro?'':`<div class="ib72-block-actions"><button type="button" class="button button-secondary" data-ib-block-action="up" aria-label="Move block up">↑</button><button type="button" class="button button-secondary" data-ib-block-action="down" aria-label="Move block down">↓</button><button type="button" class="button button-secondary" data-ib-block-action="duplicate">Duplicate</button><button type="button" class="button button-secondary" data-ib-block-action="remove">Remove</button></div>`}</div>${intro?`<div class="ib72-two-fields"><label>Document heading<input id="ib72-cover-title" value="${esc(doc().coverTitle)}"></label><label>Visa category on cover<input id="ib72-cover-subtitle" value="${esc(fillTemplate(doc().coverSubtitle || '{{applicationType}}'))}"></label></div><label>Agreed pathway<input id="ib80-agreed-pathway" value="${esc(state.client.agreedPathway || state.client.applicationType || PACK_LABELS[activePackId])}" placeholder="e.g. Green List — Straight to Residence (Tier 1)"></label><p class="ib72-help">Name the pathway agreed with the client. It populates the new standard wording. Keep only the steps included in the plan, and record any remaining conditions clearly.</p>`:`<label>Section heading<input id="ib72-block-title" value="${esc(b.title)}"></label>`}${b?.familyBlock72?familyEditor(b):''}<label class="ib72-wording-label" id="ib72-wording-label">${intro?'Introduction wording':b?.familyBlock72?'Additional family guidance':'Client wording'}</label>${toolbar()}<div id="ib72-wording" class="ib72-wording" contenteditable="true" role="textbox" aria-labelledby="ib72-wording-label" aria-multiline="true" spellcheck="true">${safeHtml(body)}</div><div class="ib72-wording-footer"><span>Edits apply to this client draft.</span>${b&&!b.familyBlock72?'<button type="button" class="ib72-link" data-save-wording81>Save reusable wording</button>':''}${standardWording80()?'<button type="button" class="ib72-link" data-ib-updated-wording>Use updated standard wording</button>':''}${intro?'':`<button type="button" class="ib72-link" data-ib-block-action="restore">Restore starting wording</button>`}</div>${intro?'':evidenceEditor(b)}`;
     const editor = node('ib72-wording');
     editor.addEventListener('input',()=>{
       if (intro) { doc().intro = safeHtml(editor.innerHTML); doc().builder72RichIntro=true; doc().directEdits ||= {}; doc().directEdits.intro = {}; markDirty(); }
@@ -235,7 +346,8 @@
       });
     });
     node('ib72-block-title')?.addEventListener('input',e=>{remember(b);b.title=e.target.value;host.querySelector('h2').textContent=b.title;outline();markDirty();});
-    node('ib80-agreed-pathway')?.addEventListener('input',e=>{const previous=state.client.agreedPathway||state.client.applicationType||PACK_LABELS[activePackId];state.client.agreedPathway=e.target.value;Object.values(state.docs).forEach(d=>{if(d.coverSubtitle===previous||d.coverSubtitle===PACK_LABELS[activePackId])d.coverSubtitle=e.target.value||state.client.applicationType;});node('ib72-cover-subtitle').value=doc().coverSubtitle;if(!doc().builder72RichIntro)node('ib72-wording').innerHTML=introSource();markDirty();});
+    node('ib80-agreed-pathway')?.addEventListener('input',e=>{const previous=state.client.agreedPathway||state.client.applicationType||PACK_LABELS[activePackId];state.client.agreedPathway=e.target.value;if(state.casePlan81){state.casePlan81.facts.pathway=e.target.value;if(state.casePlan81.applied)state.casePlan81.applied.facts.pathway=e.target.value;const badge=node('ib81-case-panel')?.querySelector('summary>span:last-child');if(badge)badge.textContent=caseStatus81(state.casePlan81);const input=node('ib81-case-panel')?.querySelector('[data-case-fact="pathway"]');if(input)input.value=e.target.value;}Object.values(state.docs).forEach(d=>{if(d.coverSubtitle===previous||d.coverSubtitle===PACK_LABELS[activePackId])d.coverSubtitle=e.target.value||state.client.applicationType;});node('ib72-cover-subtitle').value=doc().coverSubtitle;if(!doc().builder72RichIntro)node('ib72-wording').innerHTML=introSource();markDirty();});
+    host.querySelector('[data-save-wording81]')?.addEventListener('click',saveWording81);
     host.querySelector('[data-ib-updated-wording]')?.addEventListener('click',useStandardWording80);
     node('ib72-cover-title')?.addEventListener('input',e=>{doc().coverTitle=e.target.value;markDirty();});
     node('ib72-cover-subtitle')?.addEventListener('input',e=>{doc().coverSubtitle=e.target.value;markDirty();});
@@ -344,6 +456,7 @@
       item.querySelectorAll('[data-ib-request-person]').forEach(input=>input.addEventListener('change',()=>{r.personIds=(r.personIds||[]).filter(id=>id!==input.dataset.ibRequestPerson);if(input.checked)r.personIds.push(input.dataset.ibRequestPerson);m.enabled=true;markDirty();}));
       item.querySelector('[data-ib-request-remove]').addEventListener('click',()=>{r.enabled=false;markDirty();sectionEditor();});
     });
+    node('ib81-common-request')?.addEventListener('click',()=>addCommonRequest81(b));
     node('ib72-add-request')?.addEventListener('click',()=>{
       if(b.builder72NoEvidence){list.forEach(r=>r.enabled=false);b.builder72NoEvidence=false;}
       list.push({id:`requirement-${uid()}`,title:'Additional document',note:'',enabled:true,personIds:m.people.filter(p=>p.role==='Main applicant').map(p=>p.id)});
@@ -386,12 +499,13 @@
     const master=createPackState(activePackId).docs[state.selectedDoc];
     for(const b of master?.blocks || [])if(!standard.some(x=>x.existing.id===b.id))standard.push({key:`master:${b.id}`,title:b.title,note:b.note||'Starting section for this visa category.',category:'documents',master:b});
     const guidance=(window.THIS_INSTRUCTION_BLOCK_LIBRARY?.() || []).map(b=>({...b,key:`library:${b.id}`,category:'guidance',note:b.note || b.category}));
-    return [...standard,...guidance];
+    return [...standard,...guidance,...savedWording81()];
   }
   function libraryList() {
     const q=librarySearch.trim().toLowerCase();
     const items=libraryItems.filter(x=>(libraryFilter==='all'||x.category===libraryFilter)&&(!q||`${x.title} ${x.note}`.toLowerCase().includes(q)));
-    node('ib72-library-list').innerHTML=items.length?items.map(x=>{const added=x.existing?.enabled || (x.key.startsWith('library:')&&doc().blocks.some(b=>b.enabled&&b.sourceModuleIdV01743===x.id));return `<article class="ib72-library-item"><div><span class="ib72-eyebrow">${x.category==='documents'?'Category starting block':'Guidance library'}</span><h3>${esc(x.title)}</h3><p>${esc(x.note)}</p></div><button type="button" class="button ${added?'button-secondary':'button-primary'}" data-ib-library-add="${esc(x.key)}" ${added?'disabled':''}>${added?'Included':'Add block'}</button></article>`;}).join(''):'<p class="ib72-empty">No matching blocks. Try another search or add a custom block.</p>';
+    node('ib72-library-list').innerHTML=items.length?items.map(x=>{const added=x.existing?.enabled || (x.key.startsWith('library:')&&doc().blocks.some(b=>b.enabled&&b.sourceModuleIdV01743===x.id));return `<article class="ib72-library-item"><div><span class="ib72-eyebrow">${x.category==='documents'?'Category starting block':x.category==='saved'?'Saved wording':'Guidance library'}</span><h3>${esc(x.title)}</h3><p>${esc(x.note)}</p></div><button type="button" class="button ${added?'button-secondary':'button-primary'}" data-ib-library-add="${esc(x.key)}" ${added?'disabled':''}>${added?'Included':'Add block'}</button>${x.category==='saved'&&(x.scope==='personal'||canShareWording81)?`<button type="button" class="ib72-text-danger" data-remove-wording81="${esc(x.key)}">Remove saved wording</button>`:''}</article>`;}).join(''):'<p class="ib72-empty">No matching blocks. Try another search or add a custom block.</p>';
+    node('ib72-library-list').querySelectorAll('[data-remove-wording81]').forEach(button=>button.onclick=()=>removeWording81(button.dataset.removeWording81));
     node('ib72-library-list').querySelectorAll('[data-ib-library-add]').forEach(button=>button.addEventListener('click',()=>{
       const item=libraryItems.find(x=>x.key===button.dataset.ibLibraryAdd);
       if(item.existing){item.existing.enabled=true;setSelection(item.existing.id);markDirty(false);renderAll();}
@@ -411,6 +525,7 @@
         if(list.some(r=>r.enabled&&(!r.title.trim()||!r.personIds.length)))issues.push(`Choose people and a document name in ${b.title}.`);
       }
     }
+    for(const d of Object.values(state.docs).filter(d=>d.enabled))for(const b of d.blocks.filter(b=>b.enabled&&String(b.sourceModuleIdV01743||'').startsWith('wording-')))if(/\[[^\]]{1,80}\]/.test(fillTemplate(b.templateHtml||b.html||'')))issues.push(`Complete the saved wording placeholders in ${b.title}.`);
     if(!Object.values(state.docs).some(d=>d.enabled))issues.push('Include at least one guide in the output.');
     node('ib72-review').textContent=issues.join(' ');node('ib72-review').hidden=!issues.length;return issues;
   }
@@ -424,7 +539,7 @@
       const id=e.target.value;if(id===activePackId)return;
       if(!(await window.THIS_DIALOG.confirm({message:'Change the visa category and load its starting blocks? This replaces the current draft content. Save the current draft first if you need to keep it.'}))){e.target.value=activePackId;return;}
       const client={firstName:state.client.firstName,lastName:state.client.lastName,preparedFor:state.client.preparedFor,adviser:state.client.adviser,adviserLicence:state.client.adviserLicence,requiredFor:state.client.requiredFor};
-      const m=people();activePackId=id;state=freshStarter(id,client,m);workspaceDrafts[id]=state;renderAll();flush();
+      const m=people(),facts=structuredClone(state.casePlan81?.facts||{});activePackId=id;state=freshStarter(id,client,m);state.casePlan81={version:1,seeded:true,facts:{...facts,pathway:PACK_LABELS[id],assessment:''},options:{}};workspaceDrafts[id]=state;renderAll();flush();
     });
     node('ib72-document').addEventListener('change',e=>chooseDoc(e.target.value));
     node('ib72-include').addEventListener('change',e=>{d.enabled=e.target.checked;markDirty();renderOutputSummary();});
@@ -432,7 +547,7 @@
     node('ib72-add-custom').addEventListener('click',()=>{insertBlock({title:'Client-specific guidance',html:'<p>Write the guidance for this client here.</p>',builder72NoEvidence:true});node('ib72-block-title').focus();});
     node('ib72-settings-open').addEventListener('click',openSettings);
     node('ib72-outline-list').before(root.querySelector('.ib72-add-actions'));
-    outline();sectionEditor();updateReview();
+    casePanel81();outline();sectionEditor();updateReview();
   }
   function openSettings() {
     const h=node('ib72-settings-body');
@@ -445,7 +560,6 @@
   // panels for saved older drafts, whose output must remain unchanged.
   const previousPreparePrint77 = preparePrint;
   preparePrint = function(){
-    if(window.parent === window)return previousPreparePrint77();
     const target=window.open('about:blank','_blank','width=1100,height=900,scrollbars=yes,resizable=yes');
     if(!target){showToast('Allow the print window to open, then choose Print / save PDF again.');return;}
     const root=node('print-root'),ids=Object.keys(state.docs).filter(id=>state.docs[id]?.enabled);
@@ -485,7 +599,7 @@
   function mount() {
     document.body.classList.add('ib72-studio');mounted=true;
     const workspace=document.querySelector('.workspace');const root=document.createElement('main');root.id='ib72';root.className='ib72';workspace.prepend(root);
-    document.body.insertAdjacentHTML('beforeend',`<dialog id="ib72-library" class="ib72-dialog" aria-labelledby="ib72-library-title"><div class="ib72-dialog-heading"><div><span class="ib72-eyebrow">Building blocks</span><h2 id="ib72-library-title">Add a block</h2><p>Insert a starting section, then tailor it for this client.</p></div><button type="button" class="button button-secondary" data-ib-close="ib72-library" aria-label="Close block library">×</button></div><div class="ib72-library-tools"><label>Search blocks<input type="search" id="ib72-library-search" placeholder="Identity, partnership, financial…"></label><label>Show<select id="ib72-library-filter"><option value="all">All blocks</option><option value="documents">Category starting blocks</option><option value="guidance">Guidance library</option></select></label></div><div id="ib72-library-list"></div></dialog><dialog id="ib72-settings" class="ib72-dialog ib72-settings" aria-labelledby="ib72-settings-title"><div class="ib72-dialog-heading"><h2 id="ib72-settings-title">Output settings</h2><button type="button" class="button button-secondary" data-ib-close="ib72-settings" aria-label="Close output settings">×</button></div><div id="ib72-settings-body"></div><button type="button" class="button button-primary" data-ib-close="ib72-settings">Done</button></dialog>`);
+    document.body.insertAdjacentHTML('beforeend',`<dialog id="ib72-library" class="ib72-dialog" aria-labelledby="ib72-library-title"><div class="ib72-dialog-heading"><div><span class="ib72-eyebrow">Building blocks</span><h2 id="ib72-library-title">Add a block</h2><p>Insert a starting section, then tailor it for this client.</p></div><button type="button" class="button button-secondary" data-ib-close="ib72-library" aria-label="Close block library">×</button></div><div class="ib72-library-tools"><label>Search blocks<input type="search" id="ib72-library-search" placeholder="Identity, partnership, financial…"></label><label>Show<select id="ib72-library-filter"><option value="all">All blocks</option><option value="documents">Category starting blocks</option><option value="guidance">Guidance library</option><option value="saved">Saved wording</option></select></label></div><div id="ib72-library-list"></div></dialog><dialog id="ib72-settings" class="ib72-dialog ib72-settings" aria-labelledby="ib72-settings-title"><div class="ib72-dialog-heading"><h2 id="ib72-settings-title">Output settings</h2><button type="button" class="button button-secondary" data-ib-close="ib72-settings" aria-label="Close output settings">×</button></div><div id="ib72-settings-body"></div><button type="button" class="button button-primary" data-ib-close="ib72-settings">Done</button></dialog>`);
     document.querySelectorAll('[data-ib-close]').forEach(b=>b.addEventListener('click',()=>node(b.dataset.ibClose).close()));
     node('ib72-library-search').addEventListener('input',e=>{librarySearch=e.target.value;libraryList();});node('ib72-library-filter').addEventListener('change',e=>{libraryFilter=e.target.value;libraryList();});
     const toolbar=document.querySelector('.calm-studio-toolbar');if(toolbar){toolbar.hidden=true;const nav=document.createElement('div');nav.className='ib72-viewbar';nav.innerHTML='<div role="group" aria-label="Instructions workspace view"><button type="button" data-ib-view="edit">Edit document</button><button type="button" data-ib-view="split">Edit & preview</button><button type="button" data-ib-view="preview">Preview</button></div>';toolbar.after(nav);nav.querySelectorAll('[data-ib-view]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.ibView)));}
@@ -500,8 +614,10 @@
       if(e.target.closest('#print-pack,#publish-pack,#confirm-publish')&&(updateReview()||[]).length){e.preventDefault();e.stopImmediatePropagation();setView('edit');node('ib72-review').scrollIntoView({block:'center'});showToast('Check the highlighted details before preparing the document.');return;}
       // Existing save reads these controls and the CRM bridge snapshots the same state.
       node('issue-name').value=state.issueName;node('prepared-date').value=state.preparedDate;flush();
-      if(e.target.closest('#print-pack')&&window.parent!==window){e.preventDefault();e.stopImmediatePropagation();preparePrint();}
+      if(e.target.closest('#print-pack')){e.preventDefault();e.stopImmediatePropagation();preparePrint();}
     },true);
+    window.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='p'){e.preventDefault();flush();if((updateReview()||[]).length){showToast('Check the highlighted details before printing.');return;}preparePrint();}});
+    window.addEventListener('beforeprint',()=>{if(!node('print-root'))return;const ids=Object.keys(state.docs).filter(id=>state.docs[id]?.enabled);node('print-root').innerHTML=ids.map(id=>`<div class="print-document" data-doc-id="${id}">${renderDocHtml(id)}</div>`).join('');node('print-root').querySelectorAll('.print-document').forEach(el=>applyInlineEdits(el,el.dataset.docId,false));});
     renderAll();setView(defaultView());document.title='THiS Instructions Studio — Client document builder';
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(mount,0));else setTimeout(mount,0);

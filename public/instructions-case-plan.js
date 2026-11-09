@@ -1,0 +1,60 @@
+/* Reviewed case details build a coordinated starting draft; they never determine eligibility. */
+(() => {
+ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const p=(...ss)=>ss.filter(Boolean).map(s=>`<p>${s}</p>`).join('');
+ const steps=items=>`<div class="timeline">${items.map(([title,text,time],i)=>`<div class="timeline-item"><span class="timeline-step">Step ${i+1}</span><div><h3>${title}</h3><p>${text}</p><span class="time-pill">${time||'At this stage'}</span></div></div>`).join('')}</div>`;
+ const cards=items=>`<div class="strategy-grid">${items.map(([title,text],i)=>`<div class="strategy-card"><span class="card-number">${i+1}</span><h3>${title}</h3><p>${text}</p></div>`).join('')}</div>`;
+ const fields=pack=>[
+  ...(['smc','aewv'].includes(pack)?[['employer','Employer'],['role','Role / occupation'],['qualification','Qualification'],['institution','Institution']]:[]),
+  ...(pack==='student'?[['course','Course'],['provider','Education provider'],['funding','Funding arrangements']]:[]),
+  ...(pack==='investor'?[['funds','Nominated funds / assets'],['investment','Investment category / arrangements']]:[]),
+  ...(['parent','family','pwv','aewv-family'].includes(pack)?[['supporter',pack==='parent'?'Sponsor':'Supporting partner / principal visa holder']]:[]),
+  ...(pack==='visitor'?[['purpose','Purpose of visit'],['host','Host / accommodation']]:[])
+ ];
+ function generate(pack,model,client,people,standard){
+  const f=model.facts||{},o=model.options||{},path=esc(f.pathway||client.agreedPathway||client.applicationType||'the pathway we discussed');
+  const family=(people?.people||[]).filter(x=>x.name?.trim()),familyText=family.some(p=>['Partner','Child'].includes(p.role))?'you and your family':'you';
+  const out={intro:`Thank you for asking us to help with your plans. Following our consultation, we have agreed to proceed with ${path}. This Road Map explains how we will work through the application with ${familyText}, what we need from you and what happens next.\n\nStart with the documents requested in the accompanying Documentation Guide. Send us what you have, and let us know if anything is unclear or difficult to obtain. We will review the evidence, work through any gaps with you and keep you informed as the application progresses.`,documentsIntro:`This guide sets out the documents we need for ${path}. Each request shows who needs to provide it and what to send.\n\nPlease send complete, readable colour PDF scans unless an item asks for a different format. Start with the documents you already have and let us know about anything that is missing, inconsistent or likely to take time. We will guide you on the timing of medical examinations, police certificates and other time-sensitive evidence.`,roadmap:{},documents:{},steps:[]};
+  const catalogue=standard?.sections||[];
+  for(const b of catalogue)out.roadmap[b.id]=b.html;
+  const assessment=String(f.assessment||'').trim();
+  let focus='';
+  if(f.employer)focus=`Your ${o.employment==='pending'?'planned employment':'employment'} with ${esc(f.employer)}${f.role?` in the ${esc(f.role)} position`:''} is central to this application. We will review the employment agreement and job description carefully, because these documents need to support the pathway we have discussed.`;
+  if(pack==='student'&&(f.course||f.provider))focus=`We will prepare the application around ${f.course?`your ${esc(f.course)} course`:'your chosen course'}${f.provider?` with ${esc(f.provider)}`:''}.${f.funding?` The funding arrangements we will document are ${esc(f.funding)}.`:''}`;
+  if(pack==='investor'&&(f.funds||f.investment))focus=`We will prepare the investment evidence around ${esc(f.funds||'the nominated funds')}${f.investment?`, using the ${esc(f.investment)} arrangements discussed with you`:''}. We will work through the ownership and source records with you before progressing the agreed application stages.`;
+  if(f.supporter)focus=`${esc(f.supporter)} is the ${pack==='parent'?'sponsor':'supporting person'} recorded for this plan. We will work with you to assemble the supporting information and the family evidence requested in the Documentation Guide.`;
+  if(pack==='visitor'&&(f.purpose||f.host))focus=`We will prepare the application for ${esc(f.purpose||'the visit discussed with you')}${f.host?`, with ${esc(f.host)} as the recorded host or accommodation arrangement`:''}. The evidence requests below support that travel plan.`;
+  const main=pack==='smc'||pack==='aewv';
+  if(main){
+   out.steps.push(['Prepare the documents','Gather the documents requested in your Documentation Guide. We will check them and work through any missing information with you.','Start here']);
+   if(o.iqa)out.steps.push(['Qualification assessment','We will help prepare the qualification assessment included in your plan and review the result before it is relied on for the application.','Before the application stage']);
+   if(o.registration)out.steps.push(['Professional registration','Complete the registration work included in your plan. We will review the resulting registration evidence with you.','Before the stage that relies on registration']);
+   if(o.employment!=='none')out.steps.push([o.employment==='pending'?'Confirm the New Zealand role':'Review the employment',f.employer?`Send us the employment agreement and job description${o.employment==='pending'?' once the arrangements are confirmed':''} with ${esc(f.employer)}. We will check the role carefully before it is relied on for the application.`:'Send us the employment agreement and job description for review before relying on the role for this application.','At the employment stage']);
+   if(o.temporary)out.steps.push(['Temporary visa application','We will prepare the temporary visa step included in this plan, send you the draft to check and submit it with your approval.','Before the planned travel or work stage']);
+   out.steps.push([pack==='smc'?'Residence application':'Work visa application','Once we have the key documents, we will draft the application and send it to you to check. We will submit it with your approval and manage it through the processing stage.','Once the documents are ready']);
+   out.steps.push(['After the decision','If the visa is approved, we will explain its conditions and the next immigration steps relevant to your plans.','Following the decision']);
+   out.roadmap.strategy=p(`Following our consultation, we have agreed to proceed with <strong>${path}</strong>. The steps below explain how we will work through the application with you.`,focus)+cards([['Prepare the evidence', 'You will gather the selected documents. We will review them and work through '+(o.iqa||o.registration?'the assessment or registration steps included in your plan.':'any gaps with you.')],['Prepare your application','Once we have the key documents and the selected preparation stages are complete, we will draft your application and send it to you to check.'],['Submit and manage the application','We will submit the application with your approval and continue to manage it through the processing stage.'],['After the decision','If the visa is approved, we will explain its conditions and the next steps relevant to your plans.']]);
+   out.roadmap.timeline=steps(out.steps);
+   out.roadmap.category=p(`We will prepare the application on the <strong>${path}</strong> basis discussed with you. The stages selected below and the requests in your Documentation Guide make up our plan for getting the application ready.`,assessment&&o.employment==='none'?esc(assessment).replace(/\n/g,'<br>'):'We will check that the completed evidence supports this basis and discuss any issue with you before the application proceeds.');
+   out.roadmap.employment=p(focus||'We will review the employment agreement and job description identified for this application.',assessment?esc(assessment).replace(/\n/g,'<br>'):'','Please tell us promptly about changes to the employer, role, location, hours, duties or pay so that we can check their effect on the application.');
+   out.omitEmployment=o.employment==='none';
+  }else{
+   const id=catalogue.some(b=>b.id==='strategy')?'strategy':catalogue[0]?.id;
+   if(id)out.roadmap[id]=p(`Following our consultation, we have agreed to proceed with <strong>${path}</strong>. We will work through the stages set out below and keep you informed as the application progresses.`,focus,assessment?esc(assessment).replace(/\n/g,'<br>'):'')+(catalogue.find(b=>b.id===id)?.html||'').replace(/^<p>[\s\S]*?<\/p>/,'');
+  }
+  out.roadmap.next=p('Your first step is to work through the requested documents. Send us what you have and tell us early if a document is likely to take time.','We will review the information, explain any gaps and prepare the application for you to check. Please contact us whenever you have a question or your circumstances change. We look forward to working through the process with you.');
+  if(f.qualification){const possessive='{{firstName}}';out.documents.qualifications=p(`Please send us a copy of ${possessive}’s ${esc(f.qualification)}${f.institution?` from ${esc(f.institution)}`:''}, together with the complete academic transcript.`,'Include every page showing the subjects, results and study period. Tell us if the name on the records differs from the name used in the application.');}
+  if(f.employer)out.documents.employment=p(`Please send us the employment agreement and job description for ${esc(f.employer)}${f.role?`, for the ${esc(f.role)} role`:''}.`,'We will review these carefully and let you know if anything needs clarification or further supporting evidence.');
+  return out;
+ }
+ const requests=[
+ {id:'passport',block:'identity',title:'Passport personal-details page',note:'Please send a clear colour copy of the photo/details page of the current passport. Make sure the whole page is visible and the text is easy to read.',for:'all'},
+ {id:'birth',block:'identity',title:'Full birth certificate',note:'Please provide the official full birth record showing the applicant’s name, date of birth and details of their parents. Tell us if the names differ from the passport.',for:'all'},
+ {id:'photo',block:'identity',title:'Recent passport photo',note:'Please send a recent colour passport-style photo as a JPEG, following the photo instructions for this application.',for:'all'},
+ {id:'qualification',block:'qualifications',title:'Qualification certificate',note:'Please provide the final award certificate for the qualification we are relying on.',for:'main'},
+ {id:'transcript',block:'qualifications',title:'Complete academic transcript',note:'Please send the complete transcript showing subjects, results and study period, including any explanatory pages.',for:'main'},
+ {id:'employment',block:'employment',title:'Employment agreement and job description',note:'Please send the complete employment agreement and job description for the role discussed with us, including any updated terms.',for:'main'},
+ {id:'references',block:'work',title:'Employment references',note:'Please provide references covering the work we are relying on, with dates, hours, job title and duties, together with the supporting records requested.',for:'main'}
+ ];
+ window.THIS_CASE_PLAN81={fields,generate,requests};
+})();
