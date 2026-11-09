@@ -2302,7 +2302,8 @@ export default function App() {
     return body;
   }
 
-  async function saveInstructionTemplateLibrary(library, versionEvent = null) {
+  async function saveInstructionTemplateLibrary(library, versionEvent = null, blockRequest = null) {
+    if (blockRequest) return callApi('studioBlockLibrary', { ...blockRequest, studio: 'instructions' }, { skipDataUpdate: true });
     const body = await callApi('saveInstructionTemplateLibrary', { library, versionEvent });
     showCrmToast(versionEvent ? `Template ${versionEvent.versionLabel} published.` : 'Template library saved.');
     return body;
@@ -2364,7 +2365,8 @@ export default function App() {
     return body;
   }
 
-  async function saveAgreementTemplateLibrary(library, versionEvent = null) {
+  async function saveAgreementTemplateLibrary(library, versionEvent = null, blockRequest = null) {
+    if (blockRequest) return callApi('studioBlockLibrary', { ...blockRequest, studio: 'agreement' }, { skipDataUpdate: true });
     const body = await callApi('saveAgreementTemplateLibrary', { library, versionEvent });
     showCrmToast(versionEvent ? `Agreement template ${versionEvent.versionLabel} published.` : 'Agreement template saved.');
     return body;
@@ -14543,6 +14545,15 @@ function InstructionsWorkspace({
       if (event.origin !== window.location.origin || event.source !== iframeRef.current?.contentWindow) return;
       const message = event.data || {};
       if (message.source !== 'this-instructions-studio') return;
+      if (message.type === 'THIS_BLOCK_LIBRARY_REQUEST') {
+        if (!studioSessionRef.current.active) return;
+        const replyWindow = event.source;
+        Promise.resolve(saveInstructionTemplateLibrary(null, null, message.request)).then(result => {
+          replyWindow?.postMessage({type:'THIS_BLOCK_LIBRARY_RESULT', requestId:message.requestId, result}, window.location.origin);
+        }).catch(error => replyWindow?.postMessage({type:'THIS_BLOCK_LIBRARY_RESULT', requestId:message.requestId, error:error?.message || 'Library request failed'}, window.location.origin));
+        return;
+      }
+
       if (message.type === 'THIS_STUDIO_READY') {
         if (!studioSessionRef.current.active) return;
         setIframeReady(true);
@@ -14825,7 +14836,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.82" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.83" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -14945,6 +14956,15 @@ function AgreementsWorkspace({
       if (event.origin !== window.location.origin || event.source !== iframeRef.current?.contentWindow) return;
       const message = event.data || {};
       if (message.source !== 'this-agreement-studio') return;
+      if (message.type === 'THIS_BLOCK_LIBRARY_REQUEST') {
+        if (!studioSessionRef.current.active) return;
+        const replyWindow = event.source;
+        Promise.resolve(saveAgreementTemplateLibrary(null, null, message.request)).then(result => {
+          replyWindow?.postMessage({type:'THIS_BLOCK_LIBRARY_RESULT', requestId:message.requestId, result}, window.location.origin);
+        }).catch(error => replyWindow?.postMessage({type:'THIS_BLOCK_LIBRARY_RESULT', requestId:message.requestId, error:error?.message || 'Library request failed'}, window.location.origin));
+        return;
+      }
+
       if (message.type === 'THIS_AGREEMENT_READY') {
         if (!studioSessionRef.current.active) return;
         setIframeReady(true);
@@ -15417,7 +15437,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.82" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.83" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}

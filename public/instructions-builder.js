@@ -185,7 +185,7 @@
     }
     libraryItems=getLibrary();libraryList();
   }
-  function saveWording81(){
+  function legacySaveWording81(){
     const b=block();if(!b)return;let html=sourceHtml(b);
     const facts=model81().facts;const substitutions=[[name(),'{{preparedFor}}'],[state.client.firstName,'{{firstName}}'],[state.client.agreedPathway,'{{agreedPathway}}'],...Object.entries(facts).filter(([k])=>k!=='assessment').map(([k,v])=>[v,k==='pathway'?'{{agreedPathway}}':`[${k}]`]),...(people()?.people||[]).filter(p=>p.role!=='Main applicant').map(p=>[p.name,'[family member]'])];
     substitutions.filter(([v])=>v&&v.length>1).sort((a,b)=>b[0].length-a[0].length).forEach(([v,replacement])=>{html=html.split(esc(v)).join(replacement).split(v).join(replacement);});
@@ -207,6 +207,8 @@
       close();
     };
   }
+
+  function saveWording81(){window.THIS_STUDIO_LIBRARY83?.capture();}
 
   function freshStarter(packId, client = {}, familyModel = null) {
     const next = createPackState(packId);
@@ -237,6 +239,7 @@
       next.instructionPeopleV51.requirements[`documents:${item.id}`]=item.requests.map(r=>({id:`requirement-${uid()}`,title:r.title,note:r.note,enabled:true,personIds:next.instructionPeopleV51.people.filter(p=>r.for==='couple'?['Main applicant','Partner'].includes(p.role):p.role==='Child').map(p=>p.id)}));
     }
     next.selectedDoc = next.docs.roadmap ? 'roadmap' : Object.keys(next.docs)[0];
+    putMaster83(next,window.THIS_STUDIO_LIBRARY83?.published(packId));
     return next;
   }
   function finishContext(payload) {
@@ -253,6 +256,7 @@
     seedFacts81(payload);
     pendingInit = false; meta();
     renderAll(); setView(defaultView());
+    window.THIS_STUDIO_LIBRARY83?.init(payload);
   }
   function sourceHtml(b, docId = state.selectedDoc) {
     let html;
@@ -334,7 +338,7 @@
     const b = block(), intro = selection()==='intro';
     if (!intro && (!b || !b.enabled)) { setSelection('intro'); outline(); sectionEditor(); return; }
     const body = intro ? introSource() : b.familyBlock72 ? b.familyNote72 || '<p>Add any family-specific guidance here.</p>' : sourceHtml(b);
-    host.innerHTML = `<div class="ib72-editor-head"><div><span class="ib72-eyebrow">${intro?'Opening section':'Edit block'}</span><h2>${intro?'Header & introduction':esc(b.title)}</h2></div>${intro?'':`<div class="ib72-block-actions"><button type="button" class="button button-secondary" data-ib-block-action="up" aria-label="Move block up">↑</button><button type="button" class="button button-secondary" data-ib-block-action="down" aria-label="Move block down">↓</button><button type="button" class="button button-secondary" data-ib-block-action="duplicate">Duplicate</button><button type="button" class="button button-secondary" data-ib-block-action="remove">Remove</button></div>`}</div>${intro?`<div class="ib72-two-fields"><label>Document heading<input id="ib72-cover-title" value="${esc(doc().coverTitle)}"></label><label>Visa category on cover<input id="ib72-cover-subtitle" value="${esc(fillTemplate(doc().coverSubtitle || '{{applicationType}}'))}"></label></div><label>Agreed pathway<input id="ib80-agreed-pathway" value="${esc(state.client.agreedPathway || state.client.applicationType || PACK_LABELS[activePackId])}" placeholder="e.g. Green List — Straight to Residence (Tier 1)"></label><p class="ib72-help">Name the pathway agreed with the client. It populates the new standard wording. Keep only the steps included in the plan, and record any remaining conditions clearly.</p>`:`<label>Section heading<input id="ib72-block-title" value="${esc(b.title)}"></label>`}${b?.familyBlock72?familyEditor(b):''}<label class="ib72-wording-label" id="ib72-wording-label">${intro?'Introduction wording':b?.familyBlock72?'Additional family guidance':'Client wording'}</label>${toolbar()}<div id="ib72-wording" class="ib72-wording" contenteditable="true" role="textbox" aria-labelledby="ib72-wording-label" aria-multiline="true" spellcheck="true">${safeHtml(body)}</div><div class="ib72-wording-footer"><span>Edits apply to this client draft.</span>${b&&!b.familyBlock72?'<button type="button" class="ib72-link" data-save-wording81>Save reusable wording</button>':''}${standardWording80()?'<button type="button" class="ib72-link" data-ib-updated-wording>Use updated standard wording</button>':''}${intro?'':`<button type="button" class="ib72-link" data-ib-block-action="restore">Restore starting wording</button>`}</div>${intro?'':evidenceEditor(b)}`;
+    host.innerHTML = `<div class="ib72-editor-head"><div><span class="ib72-eyebrow">${intro?'Opening section':'Edit block'}</span><h2>${intro?'Header & introduction':esc(b.title)}</h2></div>${intro?'':`<div class="ib72-block-actions"><button type="button" class="button button-secondary" data-ib-block-action="up" aria-label="Move block up">↑</button><button type="button" class="button button-secondary" data-ib-block-action="down" aria-label="Move block down">↓</button><button type="button" class="button button-secondary" data-ib-block-action="duplicate">Duplicate</button><button type="button" class="button button-secondary" data-ib-block-action="remove">Remove</button></div>`}</div>${intro?`<div class="ib72-two-fields"><label>Document heading<input id="ib72-cover-title" value="${esc(doc().coverTitle)}"></label><label>Visa category on cover<input id="ib72-cover-subtitle" value="${esc(fillTemplate(doc().coverSubtitle || '{{applicationType}}'))}"></label></div><label>Agreed pathway<input id="ib80-agreed-pathway" value="${esc(state.client.agreedPathway || state.client.applicationType || PACK_LABELS[activePackId])}" placeholder="e.g. Green List — Straight to Residence (Tier 1)"></label><p class="ib72-help">Name the pathway agreed with the client. It populates the new standard wording. Keep only the steps included in the plan, and record any remaining conditions clearly.</p>`:`<label>Section heading<input id="ib72-block-title" value="${esc(b.title)}"></label>`}${b?.familyBlock72?familyEditor(b):''}<label class="ib72-wording-label" id="ib72-wording-label">${intro?'Introduction wording':b?.familyBlock72?'Additional family guidance':'Client wording'}</label>${toolbar()}<div id="ib72-wording" class="ib72-wording" contenteditable="true" role="textbox" aria-labelledby="ib72-wording-label" aria-multiline="true" spellcheck="true">${safeHtml(body)}</div><div class="ib72-wording-footer"><span>Edits apply to this client draft.</span>${b&&!b.familyBlock72?'<button type="button" class="ib72-link" data-save-wording81>Save reusable block</button>':''}${standardWording80()?'<button type="button" class="ib72-link" data-ib-updated-wording>Use updated standard wording</button>':''}${intro?'':`<button type="button" class="ib72-link" data-ib-block-action="restore">Restore starting wording</button>`}</div>${intro?'':evidenceEditor(b)}`;
     const editor = node('ib72-wording');
     editor.addEventListener('input',()=>{
       if (intro) { doc().intro = safeHtml(editor.innerHTML); doc().builder72RichIntro=true; doc().directEdits ||= {}; doc().directEdits.intro = {}; markDirty(); }
@@ -516,16 +520,17 @@
       standard.push({...item,key:`document-option82:${item.id}`,category:'documents',existing,documentOption82:true});
     }
     const guidance=(window.THIS_INSTRUCTION_BLOCK_LIBRARY?.() || []).filter(b=>state.selectedDoc!=='documents'||b.id!=='relationship-evidence').map(b=>({...b,key:`library:${b.id}`,category:'guidance',note:b.note || b.category}));
-    return [...standard,...guidance,...savedWording81()];
+    return [...standard,...guidance,...(window.THIS_STUDIO_LIBRARY83?.items()||[]).map(x=>({...x,key:`saved83:${x.scope}:${x.id}`,category:'saved',saved83:true,note:x.note||'Reusable block — CRM library'})),...savedWording81()];
   }
   function libraryList() {
     const q=librarySearch.trim().toLowerCase();
     const items=libraryItems.filter(x=>(libraryFilter==='all'||x.category===libraryFilter)&&(!q||`${x.title} ${x.note}`.toLowerCase().includes(q)));
-    node('ib72-library-list').innerHTML=items.length?items.map(x=>{const added=x.existing?.enabled || (x.key.startsWith('library:')&&doc().blocks.some(b=>b.enabled&&b.sourceModuleIdV01743===x.id));return `<article class="ib72-library-item"><div><span class="ib72-eyebrow">${x.category==='documents'?'Category starting block':x.category==='saved'?'Saved wording':'Guidance library'}</span><h3>${esc(x.title)}</h3><p>${esc(x.note)}</p></div><button type="button" class="button ${added?'button-secondary':'button-primary'}" data-ib-library-add="${esc(x.key)}" ${added?'disabled':''}>${added?'Included':'Add block'}</button>${x.category==='saved'&&(x.scope==='personal'||canShareWording81)?`<button type="button" class="ib72-text-danger" data-remove-wording81="${esc(x.key)}">Remove saved wording</button>`:''}</article>`;}).join(''):'<p class="ib72-empty">No matching blocks. Try another search or add a custom block.</p>';
+    node('ib72-library-list').innerHTML=items.length?items.map(x=>{const added=x.existing?.enabled || (x.key.startsWith('library:')&&doc().blocks.some(b=>b.enabled&&b.sourceModuleIdV01743===x.id));return `<article class="ib72-library-item"><div><span class="ib72-eyebrow">${x.category==='documents'?'Category starting block':x.category==='saved'?'Saved wording':'Guidance library'}</span><h3>${esc(x.title)}</h3><p>${esc(x.note)}</p></div><button type="button" class="button ${added?'button-secondary':'button-primary'}" data-ib-library-add="${esc(x.key)}" ${added?'disabled':''}>${added?'Included':'Add block'}</button>${x.category==='saved'&&!x.saved83&&(x.scope==='personal'||canShareWording81)?`<button type="button" class="ib72-text-danger" data-remove-wording81="${esc(x.key)}">Remove saved wording</button>`:''}</article>`;}).join(''):'<p class="ib72-empty">No matching blocks. Try another search or add a custom block.</p>';
     node('ib72-library-list').querySelectorAll('[data-remove-wording81]').forEach(button=>button.onclick=()=>removeWording81(button.dataset.removeWording81));
-    node('ib72-library-list').querySelectorAll('[data-ib-library-add]').forEach(button=>button.addEventListener('click',()=>{
+    node('ib72-library-list').querySelectorAll('[data-ib-library-add]').forEach(button=>button.addEventListener('click',async()=>{
       const item=libraryItems.find(x=>x.key===button.dataset.ibLibraryAdd);
-      if(item.documentOption82&&!item.existing){
+      if(item.saved83){await window.THIS_STUDIO_BLOCK_ADAPTER83.insert(item);}
+      else if(item.documentOption82&&!item.existing){
         const added=insertBlock({id:item.id,title:item.title,html:item.html,builder72NoEvidence:false});
         const m=people();if(m){m.requirements ||= {};m.requirements[`documents:${added.id}`]=item.requests.map(r=>({id:`requirement-${uid()}`,title:r.title,note:r.note,enabled:true,personIds:m.people.filter(p=>p.name?.trim()&&(r.for==='couple'?['Main applicant','Partner'].includes(p.role):p.role==='Child')).map(p=>p.id)}));m.enabled=true;added.builder72Evidence=true;}renderAll();
       }else if(item.existing){
@@ -632,6 +637,70 @@
     if(event.source!==window.parent||event.origin!==location.origin||event.data?.type!=='THIS_STUDIO_INIT')return;
     pendingInit=true;clearTimeout(initTimer);const payload=event.data.payload || {};initTimer=setTimeout(()=>finishContext(payload),45);
   },true);
+
+  function genericBlock83(b, docId=state.selectedDoc) {
+    if(b?.familyBlock72)throw new Error('The people roster is generated from this client. Save its guidance as a normal custom block instead.');
+    let html=b?sourceHtml(b,docId):introSource();
+    const names=[[name(),'{{preparedFor}}'],[state.client.firstName,'{{firstName}}'],[state.client.agreedPathway||state.client.applicationType,'{{agreedPathway}}'],...Object.entries(model81().facts).filter(([k])=>k!=='assessment').map(([k,v])=>[v,`{{case81_${k}}}`]),...(people()?.people||[]).map(p=>[p.name,p.role==='Main applicant'?'{{preparedFor}}':'[Family member]'])];
+    names.filter(([v])=>typeof v==='string'&&v.length>1).sort((a,b)=>b[0].length-a[0].length).forEach(([v,replacement])=>{html=html.split(esc(v)).join(replacement).split(v).join(replacement);});
+    const reqs=b?(people()?.requirements?.[`${docId}:${b.id}`]||[]):[];
+    return {title:b?.title||'Header & introduction',html:safeHtml(html),kind:b?'section':'introduction',category:activePackId,note:b?.note||'',requests:reqs.filter(r=>r.enabled!==false).map(r=>({title:r.title,note:r.note||'',roles:[...new Set((r.personIds||[]).map(id=>people().people.find(p=>p.id===id)?.role).filter(Boolean))]}))};
+  }
+  function putMaster83(target,master) {
+    if(!master?.docs)return target;
+    if(master.signoff)target.builder76Signoff={...(target.builder76Signoff||{}),...master.signoff};
+    for(const [id,m] of Object.entries(master.docs)){
+      const d=target.docs[id];if(!d)continue;
+      const custom=d.blocks.filter(b=>b.customSectionV01743||b.familyBlock72);
+      d.coverTitle=m.coverTitle||d.coverTitle;d.coverSubtitle=m.coverSubtitle||d.coverSubtitle;
+      d.intro=safeHtml(m.intro||'');d.builder72RichIntro=true;d.directEdits ||= {};d.directEdits.intro={};
+      d.blocks=(m.blocks||[]).filter(b=>!b.familyBlock72).map(b=>({...structuredClone(b),html:safeHtml(b.html??b.templateHtml??''),templateHtml:safeHtml(b.html??b.templateHtml??''),directEdits:{},clientTailoredV01743:true}));
+      for(const b of custom)if(!d.blocks.some(x=>x.id===b.id))d.blocks.push(b);
+      const pm=target.instructionPeopleV51;
+      if(pm){pm.requirements ||= {};for(const b of d.blocks){const key=`${id}:${b.id}`;if(!pm.requirements[key]&&b.requests?.length)pm.requirements[key]=b.requests.map(r=>({id:`requirement-${uid()}`,title:r.title,note:r.note||'',enabled:true,personIds:pm.people.filter(p=>(r.roles||[]).includes(p.role)).map(p=>p.id)}));}}
+    }
+    return target;
+  }
+  function defaultMaster83(category) {
+    const priorState=state,priorPack=activePackId;
+    try{
+      state=freshStarter(category);activePackId=category;
+      // Generate missing legacy sections against merge fields, never a client.
+      for(const key of Object.keys(state.client))state.client[key]='';
+      Object.assign(state.client,{preparedFor:'{{preparedFor}}',firstName:'{{firstName}}',agreedPathway:'{{agreedPathway}}',applicationType:'{{agreedPathway}}',requiredFor:'{{preparedFor}}'});
+      state.inlineEdits={};
+      for(const item of window.THIS_CASE_PLAN81.documentBlocks||[]){
+        const d=state.docs.documents;if(!d)continue;let b=d.blocks.find(b=>b.id===item.id);
+        if(!b){b={id:item.id,title:item.title,html:item.html,templateHtml:item.html,enabled:false};d.blocks.push(b);}
+        b.requests=item.requests.map(r=>({title:r.title,note:r.note,roles:r.for==='couple'?['Main applicant','Partner']:['Child']}));
+      }
+      const docs={};for(const [id,d] of Object.entries(state.docs)){
+        state.selectedDoc=id;
+        docs[id]={label:d.label,coverTitle:d.coverTitle,coverSubtitle:d.coverSubtitle,intro:d.builder72RichIntro?d.intro:String(d.intro||'').split(/\n\s*\n/).map(t=>`<p>${safeHtml(t)}</p>`).join(''),blocks:d.blocks.map(b=>({...compactBlockV13(b),html:sourceHtml(b,id),templateHtml:sourceHtml(b,id),requests:b.requests||[]}))};
+      }
+      return {title:PACK_LABELS[category],docs,signoff:{closing:'Kind regards,',role:'Licensed Immigration Adviser',organisation:'Turner Hopkins Immigration Specialists',style:'simple'}};
+    }finally{state=priorState;activePackId=priorPack;}
+  }
+  window.THIS_STUDIO_BLOCK_ADAPTER83={
+    studio:'instructions',kinds:['section','introduction','sign-off'],category:()=>activePackId,
+    categories:()=>PACK_ORDER.map(id=>({id,title:PACK_LABELS[id]})),toolbar:()=>document.querySelector('.topbar-actions')||node('save-status')?.parentElement,
+    fingerprint:()=>JSON.stringify(state),isNew:payload=>!payload.instructionSet?.studioState?.packState&&!payload.instructionSet?.studioState?.workspaceDrafts,
+    notify:showToast,master:defaultMaster83,applyMessage:'Replace standard sections, headings and introductions with the published template? Custom blocks, client details, named people and existing document assignments are retained. Review the resulting draft before saving.',
+    applyPublished:(masters,newOnly)=>{const entry=masters?.[activePackId],m=entry?.published;if(!m)return;putMaster83(state,m);state.studioMaster83={category:activePackId,version:entry.versions.at(-1)?.label||'',publishedAt:entry.publishedAt};markDirty(false);renderAll();flush();},
+    supportsSignoff:true,
+    capture:()=>selection()==='signoff'?{title:'Adviser sign-off',kind:'sign-off',category:activePackId,html:'<p>Adviser sign-off</p>',signoff:{closing:'Kind regards,',role:'Licensed Immigration Adviser',organisation:'Turner Hopkins Immigration Specialists',style:'simple',...Object.fromEntries(Object.entries(state.builder76Signoff||{}).filter(([k])=>['closing','role','organisation','style'].includes(k)))}}:genericBlock83(block()),
+    legacy:()=>savedWording81().map(x=>({...x,html:x.html,category:x.packId||''})),
+    insert:async item=>{
+      if(item.kind==='sign-off'){state.builder76Signoff={...(state.builder76Signoff||{}),...(item.signoff||{}),enabled:true};setSelection('signoff');markDirty(false);renderAll();flush();return;}
+      if(item.kind==='introduction'){
+        if(!(await window.THIS_DIALOG.confirm({message:'Replace this guide’s introduction with the selected reusable block?'})))return false;
+        doc().intro=safeHtml(item.html);doc().builder72RichIntro=true;doc().directEdits ||= {};doc().directEdits.intro={};setSelection('intro');markDirty(false);renderAll();flush();return;
+      }
+      const b=insertBlock({title:item.title,note:item.note||'',html:safeHtml(item.html),builder72NoEvidence:!item.requests?.length});
+      if(item.requests?.length&&people()){const pm=people();pm.requirements ||= {};pm.requirements[`${state.selectedDoc}:${b.id}`]=item.requests.map(r=>({id:`requirement-${uid()}`,title:r.title,note:r.note||'',enabled:true,personIds:pm.people.filter(p=>(r.roles||[]).includes(p.role)).map(p=>p.id)}));pm.enabled=true;b.builder72Evidence=true;renderAll();flush();}
+    }
+  };
+
   function mount() {
     document.body.classList.add('ib72-studio');mounted=true;
     const workspace=document.querySelector('.workspace');const root=document.createElement('main');root.id='ib72';root.className='ib72';workspace.prepend(root);

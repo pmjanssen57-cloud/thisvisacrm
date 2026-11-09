@@ -1,3 +1,4 @@
+import { studioLibrary } from './_studio-library.mjs';
 import { readEmployerQueue, processEmployerQuestionnaire, downloadEmployerUpload, saveEmployerQuestionnaireReview } from './_employer-questionnaires.mjs';
 import { getDatabase } from '@netlify/database';
 import { getStore } from '@netlify/blobs';
@@ -678,6 +679,10 @@ async function handleCrmEvent(event) {
     if (action === 'deleteInstructionSet') {
       await deleteInstructionSet(body.instructionSetId);
       return json({ deletedInstructionSetId: body.instructionSetId });
+    }
+
+    if (action === 'studioBlockLibrary') {
+      return json(await studioLibrary(db(), accessContext, body, auth.user?.email || auth.user?.name || 'CRM adviser'));
     }
 
     if (action === 'saveInstructionTemplateLibrary') {

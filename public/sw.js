@@ -1,6 +1,7 @@
-const CACHE_NAME = 'this-crm-shell-v0.17.82';
+const CACHE_NAME = 'this-crm-shell-v0.17.83';
 const OFFLINE_URL = '/offline.html';
 const PRECACHE_URLS = [
+  '/agreement-library.js', '/studio-library.js', '/studio-library.css',
   '/instructions-case-plan.js',
   '/instructions-wording.js',
   '/agreement-services.js',

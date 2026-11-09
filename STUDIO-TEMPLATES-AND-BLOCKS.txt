@@ -1,0 +1,24 @@
+THiS CRM - Templates & blocks
+
+Open either Studio, then choose Templates & blocks in the toolbar.
+
+MASTER TEMPLATES (administrators)
+Choose the application type and guide. Edit the introduction, headings, sections and document requests. Duplicate, move or remove sections as needed. Instructions sign-off defaults and Agreement charge/rate defaults appear below the editor.
+Save master draft keeps the published version unchanged. Review the content, add a change note and Publish version when ready. History > Restore into draft allows an older version to be edited and republished. Up to 20 published versions are retained.
+New drafts use the published version. For an existing draft, use Apply published template and review the confirmation carefully. Agreement fees are cleared when the published scope/payment schedule is applied.
+
+TEAM BLOCKS / MY BLOCKS
+Create a block, or use Save reusable block while editing a client document. Choose a title, type, category and destination. Review all text and requests to remove client-specific information, then save. My blocks follows your logged-in adviser account across devices; Team blocks is shared and maintained by administrators.
+Use Preview / edit to refine a library item, Duplicate to start a variation, or Add to document to insert an independent copy. A shared block can be made into a personal copy. Later library changes do not alter inserted client copies.
+
+DOCUMENT REQUESTS
+Use Add document request, enter its name and guidance, and tick the roles to suggest. When inserted, these map to the people already named in the client draft. Review the actual person selections for every case.
+
+SERVICES AND PAYMENTS
+Agreement service/payment rows have their own Save block button. Reused payment amounts start blank. Review amounts, triggers and service links before issuing the agreement.
+
+EARLIER WORDING
+Expand Earlier saved wording to import existing personal browser wording or earlier team wording. Review it before saving to the account/team library. Browser-only wording is not uploaded automatically.
+
+IF A SAVE FAILS
+Your editor stays open. If another person changed the library, copy any text you want to keep, reload the library, then reapply your changes. A login must be linked to an adviser for My blocks; otherwise ask an administrator to link the account, or maintain Team blocks using an administrator login.
