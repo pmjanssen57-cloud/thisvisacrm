@@ -69,8 +69,38 @@
     if(selection()==='intro'&&!doc().builder72RichIntro&&node('ib72-wording'))node('ib72-wording').innerHTML=introSource();
     refreshFamily(); updateHeaderSummary(); updateReview(); markDirty();
   }
+  function standardWording80(d=doc(),b=block()) {
+    const plan=window.THIS_INSTRUCTION_PLAN_WORDING, master=window.THIS_INSTRUCTION_STANDARD_WORDING?.roadmaps?.[activePackId];
+    if(!plan)return '';
+    if(selection()==='intro')return state.selectedDoc==='roadmap'?plan.introduction:state.selectedDoc==='documents'?plan.documents:'';
+    if(state.selectedDoc!=='roadmap'||b?.customSectionV01743||b?.familyBlock72)return '';
+    return master?.sections.find(item=>item.id===b?.id)?.html || '';
+  }
+  function refreshUnchangedStandard80(next,packId) {
+    const catalog=window.THIS_INSTRUCTION_STANDARD_WORDING;
+    const old=catalog?.previousRoadmaps?.[packId],updated=catalog?.roadmaps?.[packId];if(!old||!updated)return;
+    const normal=value=>String(value||'').replace(/\s+/g,' ').trim();
+    for(const b of next.docs.roadmap?.blocks||[]){
+      const before=old.sections.find(item=>item.id===b.id),after=updated.sections.find(item=>item.id===b.id);
+      if(!before||!after||b.customSectionV01743||b.clientTailoredV01743||Object.keys(b.directEdits||{}).length)continue;
+      if(normal(b.templateHtml??b.html)!==normal(before.html))continue;
+      b.html=after.html;if(b.templateHtml!==undefined)b.templateHtml=after.html;
+      if(normal(b.baseHtmlV01743)===normal(before.html))b.baseHtmlV01743=after.html;
+    }
+  }
+  async function useStandardWording80() {
+    const text=standardWording80();if(!text)return;
+    if(!(await window.THIS_DIALOG.confirm({message:'Use the revised standard wording for this selected section? This replaces its current wording and any step/card layout within it. Other sections, people and document requests stay as they are. Check the agreed pathway name and tailor the section before issue.'})))return;
+    if(selection()==='intro'){
+      doc().intro=text;doc().builder72RichIntro=false;doc().directEdits ||= {};doc().directEdits.intro={};
+    }else{
+      const b=block();remember(b);writeBlock(text);
+    }
+    markDirty(false);renderAll();flush();
+  }
   function freshStarter(packId, client = {}, familyModel = null) {
     const next = createPackState(packId);
+    refreshUnchangedStandard80(next,packId);
     Object.keys(next.client || {}).forEach(key => next.client[key] = '');
     Object.assign(next.client, client, {applicationType:PACK_LABELS[packId]});
     next.policeClearances = [];
@@ -83,8 +113,8 @@
       d.enabled = ['roadmap','documents'].includes(id);
       d.coverSubtitle = PACK_LABELS[packId]; d.caseNote = '';
       d.intro = id === 'roadmap'
-        ? 'These instructions have been prepared for {{preparedFor}} in relation to {{applicationType}}. They explain the approach, the information we need and the next steps. Please read the sections that apply to you and contact us if anything is unclear.'
-        : 'This guide has been prepared for {{preparedFor}} in relation to {{applicationType}}. It sets out the documents and information requested for your application. Please contact us if an item is unavailable or you need help with a request.';
+        ? window.THIS_INSTRUCTION_PLAN_WORDING.introduction
+        : window.THIS_INSTRUCTION_PLAN_WORDING.documents;
       if (id === 'documents') d.blocks.forEach(b => {
         const familyCategory = ['family','pwv','parent','aewv-family'].includes(packId);
         b.enabled = !/custody|relationship/.test(b.id) || familyCategory;
@@ -188,7 +218,7 @@
     const b = block(), intro = selection()==='intro';
     if (!intro && (!b || !b.enabled)) { setSelection('intro'); outline(); sectionEditor(); return; }
     const body = intro ? introSource() : b.familyBlock72 ? b.familyNote72 || '<p>Add any family-specific guidance here.</p>' : sourceHtml(b);
-    host.innerHTML = `<div class="ib72-editor-head"><div><span class="ib72-eyebrow">${intro?'Opening section':'Edit block'}</span><h2>${intro?'Header & introduction':esc(b.title)}</h2></div>${intro?'':`<div class="ib72-block-actions"><button type="button" class="button button-secondary" data-ib-block-action="up" aria-label="Move block up">↑</button><button type="button" class="button button-secondary" data-ib-block-action="down" aria-label="Move block down">↓</button><button type="button" class="button button-secondary" data-ib-block-action="duplicate">Duplicate</button><button type="button" class="button button-secondary" data-ib-block-action="remove">Remove</button></div>`}</div>${intro?`<div class="ib72-two-fields"><label>Document heading<input id="ib72-cover-title" value="${esc(doc().coverTitle)}"></label><label>Visa category on cover<input id="ib72-cover-subtitle" value="${esc(fillTemplate(doc().coverSubtitle || '{{applicationType}}'))}"></label></div><p class="ib72-help">The client name and visa category above populate the header and starting introduction. You can tailor the wording below.</p>`:`<label>Section heading<input id="ib72-block-title" value="${esc(b.title)}"></label>`}${b?.familyBlock72?familyEditor(b):''}<label class="ib72-wording-label" id="ib72-wording-label">${intro?'Introduction wording':b?.familyBlock72?'Additional family guidance':'Client wording'}</label>${toolbar()}<div id="ib72-wording" class="ib72-wording" contenteditable="true" role="textbox" aria-labelledby="ib72-wording-label" aria-multiline="true" spellcheck="true">${safeHtml(body)}</div><div class="ib72-wording-footer"><span>Edits apply to this client draft.</span>${intro?'':`<button type="button" class="ib72-link" data-ib-block-action="restore">Restore starting wording</button>`}</div>${intro?'':evidenceEditor(b)}`;
+    host.innerHTML = `<div class="ib72-editor-head"><div><span class="ib72-eyebrow">${intro?'Opening section':'Edit block'}</span><h2>${intro?'Header & introduction':esc(b.title)}</h2></div>${intro?'':`<div class="ib72-block-actions"><button type="button" class="button button-secondary" data-ib-block-action="up" aria-label="Move block up">↑</button><button type="button" class="button button-secondary" data-ib-block-action="down" aria-label="Move block down">↓</button><button type="button" class="button button-secondary" data-ib-block-action="duplicate">Duplicate</button><button type="button" class="button button-secondary" data-ib-block-action="remove">Remove</button></div>`}</div>${intro?`<div class="ib72-two-fields"><label>Document heading<input id="ib72-cover-title" value="${esc(doc().coverTitle)}"></label><label>Visa category on cover<input id="ib72-cover-subtitle" value="${esc(fillTemplate(doc().coverSubtitle || '{{applicationType}}'))}"></label></div><label>Agreed pathway<input id="ib80-agreed-pathway" value="${esc(state.client.agreedPathway || state.client.applicationType || PACK_LABELS[activePackId])}" placeholder="e.g. Green List — Straight to Residence (Tier 1)"></label><p class="ib72-help">Name the pathway agreed with the client. It populates the new standard wording. Keep only the steps included in the plan, and record any remaining conditions clearly.</p>`:`<label>Section heading<input id="ib72-block-title" value="${esc(b.title)}"></label>`}${b?.familyBlock72?familyEditor(b):''}<label class="ib72-wording-label" id="ib72-wording-label">${intro?'Introduction wording':b?.familyBlock72?'Additional family guidance':'Client wording'}</label>${toolbar()}<div id="ib72-wording" class="ib72-wording" contenteditable="true" role="textbox" aria-labelledby="ib72-wording-label" aria-multiline="true" spellcheck="true">${safeHtml(body)}</div><div class="ib72-wording-footer"><span>Edits apply to this client draft.</span>${standardWording80()?'<button type="button" class="ib72-link" data-ib-updated-wording>Use updated standard wording</button>':''}${intro?'':`<button type="button" class="ib72-link" data-ib-block-action="restore">Restore starting wording</button>`}</div>${intro?'':evidenceEditor(b)}`;
     const editor = node('ib72-wording');
     editor.addEventListener('input',()=>{
       if (intro) { doc().intro = safeHtml(editor.innerHTML); doc().builder72RichIntro=true; doc().directEdits ||= {}; doc().directEdits.intro = {}; markDirty(); }
@@ -205,6 +235,8 @@
       });
     });
     node('ib72-block-title')?.addEventListener('input',e=>{remember(b);b.title=e.target.value;host.querySelector('h2').textContent=b.title;outline();markDirty();});
+    node('ib80-agreed-pathway')?.addEventListener('input',e=>{const previous=state.client.agreedPathway||state.client.applicationType||PACK_LABELS[activePackId];state.client.agreedPathway=e.target.value;Object.values(state.docs).forEach(d=>{if(d.coverSubtitle===previous||d.coverSubtitle===PACK_LABELS[activePackId])d.coverSubtitle=e.target.value||state.client.applicationType;});node('ib72-cover-subtitle').value=doc().coverSubtitle;if(!doc().builder72RichIntro)node('ib72-wording').innerHTML=introSource();markDirty();});
+    host.querySelector('[data-ib-updated-wording]')?.addEventListener('click',useStandardWording80);
     node('ib72-cover-title')?.addEventListener('input',e=>{doc().coverTitle=e.target.value;markDirty();});
     node('ib72-cover-subtitle')?.addEventListener('input',e=>{doc().coverSubtitle=e.target.value;markDirty();});
     host.querySelectorAll('[data-ib-block-action]').forEach(button=>button.addEventListener('click',()=>blockAction(button.dataset.ibBlockAction)));
