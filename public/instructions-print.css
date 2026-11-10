@@ -95,3 +95,17 @@
  body.ib72-studio #print-root .print-document:last-child .pdf-page:last-child{break-after:auto!important;page-break-after:auto!important}
 }
 @media print{body.ib72-studio #print-root *{text-shadow:none!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+
+/* Calm editorial keeps the same bounded A4 canvas for every printing route. */
+.ib72-studio :is(#preview-root,#print-root) .pdf-page.pdf-cover.cover84{
+ display:flex!important;flex-direction:column!important;grid-template-rows:none!important;
+ height:296mm!important;min-height:296mm!important;max-height:296mm!important;
+ background:#fff;color:#003f3d;overflow:hidden!important;
+}
+.ib72-studio :is(#preview-root,#print-root) .cover84 .cover-title{
+ font-size:62px;line-height:1.08;letter-spacing:-.045em;text-transform:none;margin:18px 0 27px;color:#003f3d;
+}
+.ib72-studio :is(#preview-root,#print-root) .cover84 .cover-title span{color:#187b63}
+.ib72-studio :is(#preview-root,#print-root) .cover84 .cover-title.cover85-title-medium{font-size:48px}
+.ib72-studio :is(#preview-root,#print-root) .cover84 .cover-title.cover85-title-long{font-size:38px}
+.ib72-studio :is(#preview-root,#print-root) .cover84 .cover-subtitle{font-size:22px;line-height:1.5;margin:0;overflow-wrap:anywhere;color:#003f3d}
