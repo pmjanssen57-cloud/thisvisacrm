@@ -1,3 +1,4 @@
+import { seminarOperations, dispatchReminders } from './_seminar-reminders.mjs';
 import { studioLibrary } from './_studio-library.mjs';
 import { readEmployerQueue, processEmployerQuestionnaire, downloadEmployerUpload, saveEmployerQuestionnaireReview } from './_employer-questionnaires.mjs';
 import { getDatabase } from '@netlify/database';
@@ -73,7 +74,7 @@ const INTAKE_STATUSES = ['New', 'Contacted', 'Converted', 'Spam / Duplicate'];
 const INTAKE_ARCHIVE_STATUS = 'Archived';
 const MAX_BULK_INTAKE_ARCHIVE = 50;
 const SEMINAR_STATUSES = ['Active', 'Closed'];
-const SEMINAR_REGISTRATION_STATUSES = ['New', 'Approved', 'Declined', 'Spam / Duplicate'];
+const SEMINAR_REGISTRATION_STATUSES = ['New', 'Approved', 'Declined', 'Spam / Duplicate', 'Archived'];
 const PORTAL_RESOURCE_KEYS = ['jobSearchCv', 'lifeInNz', 'usefulLinks', 'relocationResources'];
 const PORTAL_DOCUMENT_STORE = 'client-portal-documents';
 const INTAKE_UPLOAD_STORE = 'intake-uploads';
@@ -814,6 +815,12 @@ async function handleCrmEvent(event) {
     if (action === 'sendContactUnableToAssistEmail') {
       const emailLog = await sendContactUnableToAssistEmail(body.contact || {}, auth.user);
       return json({ emailLog, emailConfig: getEmailConfigStatus() });
+    }
+
+    if (action === 'seminarBulk') {
+      const result = await seminarOperations(db(), body, auth.user?.email || auth.user?.name || 'CRM adviser');
+      if (result.job?.id && (body.operation === 'retryFailed' || body.operation === 'create' && body.mode === 'now')) result.dispatched = await dispatchReminders(result.job.id);
+      return json({ ...result, ...(result.seminar ? {seminar: mapSeminarFromDb(result.seminar), seminarRegistrations: result.registrations.map(mapSeminarRegistrationFromDb)} : {}) });
     }
 
     if (action === 'saveSeminar') {
@@ -5434,6 +5441,7 @@ async function sendSeminarRegistrationEmail(registrationId, outcome = 'approve',
   const row = rows[0];
   if (!row) throw new Error('Seminar registration not found.');
   const registration = mapSeminarRegistrationFromDb(row);
+  if (registration.status === 'Archived') throw new Error('Restore this archived registration before emailing it.');
   registration.seminar = {
     id: row.seminar_id,
     title: row.title || 'Turner Hopkins immigration seminar',

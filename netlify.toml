@@ -83,3 +83,7 @@
 # The function gates on NZ local time; repeat ticks recover failed dispatches.
 [functions."overdue-digest"]
   schedule = "*/10 2,3 * * *"
+
+# Reminder due_at timestamps are UTC, derived from the seminar reference timezone.
+[functions."seminar-reminders"]
+  schedule = "*/5 * * * *"

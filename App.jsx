@@ -1,3 +1,4 @@
+import SeminarBulkTools from './src/ui/SeminarBulkTools.jsx';
 import { enquiryAttentionCounts } from './src/inquiry-attention.mjs';
 import { modernWorkspaceHelp } from './src/ui/help.js';
 import { useWorkspaceState, useWorkspaceScroll } from './src/ui/workspace-state.js';
@@ -476,7 +477,7 @@ const PORTAL_UPDATE_TEMPLATES = [
   { key: 'approved', label: 'Application approved', stageHint: 'Approved', current: 'Your application has been approved.', next: 'We will send you the approval information and explain any final steps that apply to your matter.' },
 ];
 const SEMINAR_STATUSES = ['Active', 'Closed'];
-const SEMINAR_REGISTRATION_STATUSES = ['New', 'Approved', 'Declined', 'Spam / Duplicate'];
+const SEMINAR_REGISTRATION_STATUSES = ['New', 'Approved', 'Declined', 'Spam / Duplicate', 'Archived'];
 const SEMINAR_ENGLISH_OPTIONS = ['Fluent', 'Medium', 'None'];
 const SEMINAR_TIMEZONE_OPTIONS = [
   { value: 'Pacific/Auckland', label: 'New Zealand - Pacific/Auckland' },
@@ -1838,8 +1839,7 @@ export default function App() {
   }, [loading, authRequired, identityUser?.id, identityUser?.email, accessCode]);
 
   async function callApi(action, payload = {}, options = {}) {
-    setSaving(true);
-    setError('');
+    if (!options.background) { setSaving(true); setError(''); }
     try {
       const response = await fetch('/.netlify/functions/crm', {
         method: 'POST',
@@ -1864,10 +1864,10 @@ export default function App() {
       }
       return body;
     } catch (err) {
-      setError(err.message || String(err));
+      if (!options.background) setError(err.message || String(err));
       throw err;
     } finally {
-      setSaving(false);
+      if (!options.background) setSaving(false);
     }
   }
 
@@ -2895,6 +2895,17 @@ export default function App() {
     return await callApi('cancelConsultationBooking', { bookingId: booking.id });
   }
 
+  async function seminarBulk(request) {
+    const body = await callApi('seminarBulk', request, { skipDataUpdate: true, background: request.operation === 'jobs' });
+    if (body.seminar || body.seminarRegistrations) setData(current => {
+      const next = {...current};
+      if (body.seminar) next.seminars = upsertCrmItem(current.seminars || [], normaliseSeminar(body.seminar));
+      if (body.seminarRegistrations) next.seminarRegistrations = body.seminarRegistrations.reduce((rows,item) => upsertCrmItem(rows,normaliseSeminarRegistration(item)),current.seminarRegistrations || []);
+      dataRef.current = next; return next;
+    });
+    return body;
+  }
+
   async function sendSeminarRegistrationEmail(registrationId, outcome) {
     const body = await callApi('sendSeminarRegistrationEmail', { registrationId, outcome }, { skipDataUpdate: true });
     if (body.emailLog) {
@@ -3426,7 +3437,7 @@ export default function App() {
             )}
 
             {tab === 'intake' && (
-              <IntakeWorkspace saveEmployerReview={(payload) => callApi('saveEmployerQuestionnaireReview', payload)} employerQuestionnaires={data.employerQuestionnaires || []} employerQuestionnaireDrafts={data.employerQuestionnaireDrafts || []} commercialClients={data.commercialClients || []} processEmployerQuestionnaire={(payload) => callApi('processEmployerQuestionnaire', payload)} downloadEmployerUpload={async (questionnaireId, fileId) => { const body = await callApi('downloadEmployerUpload', { questionnaireId, fileId }, { skipDataUpdate: true }); if (body.upload?.dataBase64) downloadBase64File(body.upload); }} openCommercialClient={async (id) => { setDashboardAdviserFilter('all'); (await openMatterRecord('commercial:' + id)); }} enquiries={data.intakeEnquiries || []} intakeDrafts={data.intakeDrafts || []} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} identityUser={identityUser} canExportContacts={canExportContacts} statuses={data.intakeStatuses || INTAKE_STATUSES} seminars={data.seminars || []} seminarRegistrations={data.seminarRegistrations || []} feedbackSubmissions={data.feedbackSubmissions || []} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} archiveIntakeEnquiries={archiveIntakeEnquiries} restoreIntakeEnquiry={restoreIntakeEnquiry} permanentlyDeleteIntakeEnquiry={permanentlyDeleteIntakeEnquiry} isAdmin={isAdmin} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendIntakeCvRequestEmail={sendIntakeCvRequestEmail} sendIntakeResultsToAdviser={sendIntakeResultsToAdviser} sendIntakeDraftResumeEmail={sendIntakeDraftResumeEmail} sendIntakeDraftReminderEmail={sendIntakeDraftReminderEmail} deleteIntakeDraft={deleteIntakeDraft} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} sendContactUnableToAssistEmail={sendContactUnableToAssistEmail} downloadIntakeUpload={downloadIntakeUpload} saveSeminar={saveSeminar} deleteSeminar={deleteSeminar} saveSeminarRegistration={saveSeminarRegistration} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail} saveFeedbackSubmission={saveFeedbackSubmission} deleteFeedbackSubmission={deleteFeedbackSubmission} saving={saving} openClientRecord={openClientRecord} confirmAction={askCrmConfirm} refreshIntakeData={refreshIntakeData} intakeRefreshing={intakeRefreshing} lastIntakeRefreshAt={lastIntakeRefreshAt} />
+              <IntakeWorkspace saveEmployerReview={(payload) => callApi('saveEmployerQuestionnaireReview', payload)} employerQuestionnaires={data.employerQuestionnaires || []} employerQuestionnaireDrafts={data.employerQuestionnaireDrafts || []} commercialClients={data.commercialClients || []} processEmployerQuestionnaire={(payload) => callApi('processEmployerQuestionnaire', payload)} downloadEmployerUpload={async (questionnaireId, fileId) => { const body = await callApi('downloadEmployerUpload', { questionnaireId, fileId }, { skipDataUpdate: true }); if (body.upload?.dataBase64) downloadBase64File(body.upload); }} openCommercialClient={async (id) => { setDashboardAdviserFilter('all'); (await openMatterRecord('commercial:' + id)); }} enquiries={data.intakeEnquiries || []} intakeDrafts={data.intakeDrafts || []} advisers={data.advisers} dashboardAdviserFilter={dashboardAdviserFilter} identityUser={identityUser} canExportContacts={canExportContacts} statuses={data.intakeStatuses || INTAKE_STATUSES} seminars={data.seminars || []} seminarRegistrations={data.seminarRegistrations || []} feedbackSubmissions={data.feedbackSubmissions || []} saveIntakeEnquiry={saveIntakeEnquiry} deleteIntakeEnquiry={deleteIntakeEnquiry} archiveIntakeEnquiries={archiveIntakeEnquiries} restoreIntakeEnquiry={restoreIntakeEnquiry} permanentlyDeleteIntakeEnquiry={permanentlyDeleteIntakeEnquiry} isAdmin={isAdmin} convertIntakeToClient={convertIntakeToClient} sendIntakeOutcomeEmail={sendIntakeOutcomeEmail} sendIntakeCvRequestEmail={sendIntakeCvRequestEmail} sendIntakeResultsToAdviser={sendIntakeResultsToAdviser} sendIntakeDraftResumeEmail={sendIntakeDraftResumeEmail} sendIntakeDraftReminderEmail={sendIntakeDraftReminderEmail} deleteIntakeDraft={deleteIntakeDraft} sendContactIntakeInviteEmail={sendContactIntakeInviteEmail} sendContactUnableToAssistEmail={sendContactUnableToAssistEmail} downloadIntakeUpload={downloadIntakeUpload} saveSeminar={saveSeminar} deleteSeminar={deleteSeminar} saveSeminarRegistration={saveSeminarRegistration} seminarBulk={seminarBulk} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail} saveFeedbackSubmission={saveFeedbackSubmission} deleteFeedbackSubmission={deleteFeedbackSubmission} saving={saving} openClientRecord={openClientRecord} confirmAction={askCrmConfirm} refreshIntakeData={refreshIntakeData} intakeRefreshing={intakeRefreshing} lastIntakeRefreshAt={lastIntakeRefreshAt} />
             )}
 
             {tab === 'bookings' && (
@@ -8178,7 +8189,7 @@ function RelatedEnquiryPanel({ matches = [] }) {
 }
 
 
-function IntakeWorkspace({ saveEmployerReview, employerQuestionnaires = [], employerQuestionnaireDrafts = [], commercialClients = [], processEmployerQuestionnaire, downloadEmployerUpload, openCommercialClient, enquiries, intakeDrafts = [], advisers, dashboardAdviserFilter = 'all', identityUser = null, canExportContacts = false, statuses, seminars = [], seminarRegistrations = [], feedbackSubmissions = [], saveIntakeEnquiry, deleteIntakeEnquiry, archiveIntakeEnquiries, restoreIntakeEnquiry, permanentlyDeleteIntakeEnquiry, isAdmin = false, convertIntakeToClient, sendIntakeOutcomeEmail, sendIntakeCvRequestEmail, sendIntakeResultsToAdviser, sendIntakeDraftResumeEmail, sendIntakeDraftReminderEmail, deleteIntakeDraft, sendContactIntakeInviteEmail, sendContactUnableToAssistEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saveFeedbackSubmission, deleteFeedbackSubmission, saving, openClientRecord, confirmAction, refreshIntakeData, intakeRefreshing = false, lastIntakeRefreshAt = '' }) {
+function IntakeWorkspace({ saveEmployerReview, employerQuestionnaires = [], employerQuestionnaireDrafts = [], commercialClients = [], processEmployerQuestionnaire, downloadEmployerUpload, openCommercialClient, enquiries, intakeDrafts = [], advisers, dashboardAdviserFilter = 'all', identityUser = null, canExportContacts = false, statuses, seminars = [], seminarRegistrations = [], feedbackSubmissions = [], saveIntakeEnquiry, deleteIntakeEnquiry, archiveIntakeEnquiries, restoreIntakeEnquiry, permanentlyDeleteIntakeEnquiry, isAdmin = false, convertIntakeToClient, sendIntakeOutcomeEmail, sendIntakeCvRequestEmail, sendIntakeResultsToAdviser, sendIntakeDraftResumeEmail, sendIntakeDraftReminderEmail, deleteIntakeDraft, sendContactIntakeInviteEmail, sendContactUnableToAssistEmail, downloadIntakeUpload, saveSeminar, deleteSeminar, saveSeminarRegistration, seminarBulk, sendSeminarRegistrationEmail, saveFeedbackSubmission, deleteFeedbackSubmission, saving, openClientRecord, confirmAction, refreshIntakeData, intakeRefreshing = false, lastIntakeRefreshAt = '' }) {
   const askConfirm = confirmAction || (options => window.THIS_DIALOG.confirm(options));
   const simplifiedStatuses = (statuses || INTAKE_STATUSES).filter((status) => INTAKE_STATUSES.includes(status));
   const [workspaceTab, setWorkspaceTab] = useWorkspaceState('enquiries:section','contact');
@@ -8744,7 +8755,8 @@ function IntakeWorkspace({ saveEmployerReview, employerQuestionnaires = [], empl
             saveSeminar={saveSeminar}
             deleteSeminar={deleteSeminar}
             saveSeminarRegistration={saveSeminarRegistration}
-            sendSeminarRegistrationEmail={sendSeminarRegistrationEmail}
+            seminarBulk={seminarBulk} sendSeminarRegistrationEmail={sendSeminarRegistrationEmail}
+            confirmAction={confirmAction}
             saving={saving}
           />
         ) : workspaceTab === 'drafts' ? (
@@ -9100,7 +9112,7 @@ function makeBlankSeminar() {
   };
 }
 
-function SeminarManagementPanel({ seminars = [], registrations = [], relatedSources = [], saveSeminar, deleteSeminar, saveSeminarRegistration, sendSeminarRegistrationEmail, saving, confirmAction }) {
+function SeminarManagementPanel({ seminars = [], registrations = [], relatedSources = [], saveSeminar, deleteSeminar, saveSeminarRegistration, seminarBulk, sendSeminarRegistrationEmail, saving, confirmAction }) {
   const askConfirm = confirmAction || (options => window.THIS_DIALOG.confirm(options));
   const sortedSeminars = [...seminars].map(normaliseSeminar).sort((a, b) => String(b.seminarDate || '').localeCompare(String(a.seminarDate || '')) || String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
   const activeSeminar = sortedSeminars.find((item) => item.status === 'Active') || sortedSeminars[0] || null;
@@ -9211,9 +9223,10 @@ function SeminarManagementPanel({ seminars = [], registrations = [], relatedSour
     .filter((item) => registrationSeminarFilter === 'all' || item.seminarId === registrationSeminarFilter)
     .sort((a, b) => Date.parse(b.createdAt || '') - Date.parse(a.createdAt || ''));
   const visibleRegistrations = registrationFilter === 'All'
-    ? selectedRegistrations
+    ? selectedRegistrations.filter(item => item.status !== 'Archived')
     : selectedRegistrations.filter((item) => item.status === registrationFilter);
   const approvedRegistrations = selectedRegistrations.filter((item) => item.status === 'Approved');
+  const bulkSeminar = registrationSeminarFilter === 'all' ? null : sortedSeminars.find(item => item.id === registrationSeminarFilter);
 
   function downloadApprovedRegistrations() {
     if (!approvedRegistrations.length) {
@@ -9315,11 +9328,13 @@ function SeminarManagementPanel({ seminars = [], registrations = [], relatedSour
         <div className="enquiries-status-pills" aria-label="Seminar registration status filter">
           {[...SEMINAR_REGISTRATION_STATUSES, 'All'].map((status) => (
             <button key={status} type="button" className={registrationFilter === status ? 'active' : ''} onClick={() => setRegistrationFilter(status)}>
-              {status}<span>{status === 'All' ? selectedRegistrations.length : selectedRegistrations.filter((item) => item.status === status).length}</span>
+              {status}<span>{status === 'All' ? selectedRegistrations.filter(item=>item.status!=='Archived').length : selectedRegistrations.filter((item) => item.status === status).length}</span>
             </button>
           ))}
         </div>
       </div>
+
+      <SeminarBulkTools seminar={bulkSeminar} approvedCount={approvedRegistrations.length} onAction={seminarBulk} confirmAction={askConfirm} onArchived={() => setRegistrationFilter('Archived')} />
 
       <div className="seminar-registration-list enquiry-queue-list">
         {visibleRegistrations.map((registration) => {
@@ -9340,12 +9355,14 @@ function SeminarManagementPanel({ seminars = [], registrations = [], relatedSour
                   <div className="enquiry-queue-cell enquiry-queue-date"><span>Submitted</span><strong>{registration.createdAt ? formatPortalDateTime(registration.createdAt) : 'No date'}</strong><ChevronDown size={17} className="enquiry-queue-chevron" /></div>
                 </button>
                 <div className="enquiry-queue-controls seminar-queue-controls">
-                  <button className="btn dark queue-primary-action" type="button" onClick={() => sendRegistrationEmail(registration, 'approve')} disabled={saving || sendingId === registration.id || !registration.email}><Mail size={16} />{sendingId === registration.id ? 'Sending...' : 'Approve'}</button>
+                  {registration.status === 'Archived' ? <button className="btn" type="button" onClick={() => markRegistration(registration, 'Approved')} disabled={saving}>Restore to approved</button> : <>
+<button className="btn dark queue-primary-action" type="button" onClick={() => sendRegistrationEmail(registration, 'approve')} disabled={saving || sendingId === registration.id || !registration.email}><Mail size={16} />{sendingId === registration.id ? 'Sending...' : 'Approve'}</button>
                   <button className="btn danger ghost" type="button" onClick={() => sendRegistrationEmail(registration, 'decline')} disabled={saving || sendingId === registration.id || !registration.email}>Decline</button>
+                  </>}
                   <button className="btn queue-details-button" type="button" onClick={() => setExpandedRegistrationId(isExpanded ? '' : registration.id)}>{isExpanded ? 'Hide' : 'Details'}</button>
-                  <QueueMoreMenu label={`More actions for ${registration.fullName || 'registrant'}`}>
+                  {registration.status !== 'Archived' && <QueueMoreMenu label={`More actions for ${registration.fullName || 'registrant'}`}>
                       {registration.status !== 'Spam / Duplicate' ? <button type="button" onClick={() => markRegistration(registration, 'Spam / Duplicate')} disabled={saving}>Mark spam / duplicate</button> : <button type="button" onClick={() => markRegistration(registration, 'New')} disabled={saving}>Restore to New</button>}
-                  </QueueMoreMenu>
+                  </QueueMoreMenu>}
                 </div>
               </div>
               {isExpanded && (
@@ -14836,7 +14853,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.85" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.86" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -15437,7 +15454,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.85" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.86" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}
