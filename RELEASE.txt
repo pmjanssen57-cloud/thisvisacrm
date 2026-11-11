@@ -1,19 +1,10 @@
-THiS CRM v0.17.90 — 12 November 2026
+THiS CRM v0.17.91 — Seminar close/archive fix
 
-FIXES
-Website chat now updates the conversation list while the window remains open. Attention/count polling no longer advances the separate conversation-list revision cursor before that list has been received. Initial loading, new arrivals and switching from Team to Website were tested.
+The archive query now explicitly casts the archivedBy JSON value to text. The separately bound parameter otherwise has no type context inside PostgreSQL jsonb_build_object. Closing the seminar, cancelling pending reminders and archiving approved registrations remain a single atomic statement. Existing archive metadata and unrelated registrations are preserved.
+Archive failures now return a readable message instead of SQL and parameter contents. Retry buttons cannot shrink into vertical letters.
 
-Instructions Studio waits for the builder to finish loading before marking a saved document ready. Embedded CRM sessions use the selected saved record rather than unrelated browser workspace caches. Saved tailored text and custom guides are preserved, including supported older snapshot formats. Initialization retries and a clear Reload action replace a blank editor when loading fails. Save, print, publish and close-time snapshot saving are blocked until initialization succeeds, protecting the original draft from an empty failed load. Mobile loading/reload controls fit smaller screens.
+No new migration or schema change. All 52 prior migrations are byte-identical. All v0.17.90 chat and draft-loading fixes are retained. No production deployment or data change performed.
 
-MIGRATION / SCHEMA
-No new migration, schema, dependency, environment or backend change from v0.17.89. All 52 existing migrations and 33 Netlify modules are byte-identical. Existing Team chat, seminar invitations/reminders, employer workflow and agreement signing safeguards are retained. Document wording, cover and print rendering remain unchanged by this fix.
+Validation: production build and changed Netlify module syntax passed. Existing seminar backend test doubles passed timezone, recipient, reminder retry, archive scope and preservation checks. These tests do not execute a live PostgreSQL server; production confirmation remains required after deployment. Screenshot omitted the underlying database error code, so the untyped parameter is the identified query defect rather than a confirmed production error code. Existing bundle-size advisory remains. ZIP CRC and file hashes verified; rollback is exact.
 
-VALIDATION
-Production build passed. Checked 14 application sources, 20 public scripts, 18 CSS files, 17 inline scripts, 29 inline styles and PWA/cache versioning. Local built Edge tests passed for website chat polling; saved Visitor draft open/save with tailored text; failed-load close without a save; blocked-script reload recovery; and desktop/tablet/mobile loading controls (1440, 768, 390, 320px). Existing CRM editing/intake/employer/Studio, Team chat, seminar follow-up and agreement review/signing regressions passed. Instructions cover and long-title PDF regression checks passed. ZIP CRC, safe unique paths and every packaged file hash verified. Rollback is byte-exact.
-
-DEPLOYMENT / ROLLBACK
-Deploy THiS-CRM-v0.17.90.zip through the existing Netlify source build (yarn build; publish dist). Dependencies and generated dist are excluded. No Squarespace embed update is required. Reopen the affected draft after installing the update.
-THiS-CRM-v0.17.89-ROLLBACK.zip is an exact copy of the delivered v0.17.89 ZIP. No database rollback is required. If upgrading from a version before v0.17.89, retain the existing additive migrations included in this release and follow their prior release instructions.
-
-VERIFICATION LIMITS
-Tests used local headless Edge, emulated widths and synthetic saved records/API responses. The actual Marina record was not retrieved or restored; these checks do not establish whether any production record was previously deleted. No production deployment, live database change, live chat or email send was performed. No physical mobile/Safari/Firefox checks. Existing bundle-size advisory remains; local Node 24, configured Netlify Node 20.19.
+Deploy this source ZIP using the existing Netlify build. Refresh the CRM and retry Archive approved. Check the seminar status and approved/archived counts after completion. No embed changes required. Rollback is the exact v0.17.90 ZIP, with no database rollback needed.

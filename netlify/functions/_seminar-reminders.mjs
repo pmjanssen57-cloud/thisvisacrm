@@ -159,7 +159,7 @@ export async function seminarOperations(database,input,actor='',now=new Date()) 
         WHERE seminar_id IN(SELECT id FROM closed) AND status IN ('Scheduled','Queued','Sending','Needs review') RETURNING id),
       stopped AS (UPDATE seminar_reminder_deliveries SET status='Skipped',error_message='Seminar closed' WHERE job_id IN(SELECT id FROM cancelled) AND status='Pending'),
       archived AS (UPDATE seminar_registrations SET status='Archived',reviewed_by=${actor},updated_at=NOW(),
-        raw_payload=COALESCE(raw_payload,'{}'::jsonb)||jsonb_build_object('seminarArchive',jsonb_build_object('previousStatus','Approved','archivedAt',NOW(),'archivedBy',${actor}))
+        raw_payload=COALESCE(raw_payload,'{}'::jsonb)||jsonb_build_object('seminarArchive',jsonb_build_object('previousStatus','Approved','archivedAt',NOW(),'archivedBy',${actor}::text))
         WHERE seminar_id IN(SELECT id FROM closed) AND status='Approved' RETURNING *)
       SELECT (SELECT row_to_json(c) FROM closed c) AS seminar, COALESCE((SELECT json_agg(a) FROM archived a),'[]'::json) AS registrations`;
     return {seminar:rows[0]?.seminar,registrations:rows[0]?.registrations||[],jobs:await reminderJobs(database,id)};

@@ -20861,3 +20861,7 @@ body.intake-embed-mode .website-form-refresh.public-form-shell{background:transp
 .instruction-studio-overlay[aria-label="Instructions Studio editor"] .instruction-studio-topbar small{max-width:520px;overflow-wrap:anywhere}
 .instruction-studio-overlay[aria-label="Instructions Studio editor"] .instruction-studio-frame{flex:1;min-height:0;height:auto}
 @media(max-width:600px){.instruction-studio-overlay[aria-label="Instructions Studio editor"] .instruction-studio-topbar{padding:8px}.instruction-studio-overlay[aria-label="Instructions Studio editor"] .instruction-studio-topbar>div:last-child{max-width:66%;gap:5px}.instruction-studio-overlay[aria-label="Instructions Studio editor"] .instruction-studio-topbar .btn{font-size:12px;padding:8px;min-height:44px}.instruction-studio-overlay[aria-label="Instructions Studio editor"] .instruction-studio-topbar strong{overflow-wrap:anywhere}}
+
+/* Keep failure details readable without squeezing the retry action. */
+.error-banner > span{min-width:0;flex:1;overflow-wrap:anywhere}
+.error-banner > .btn{flex-shrink:0;white-space:nowrap}

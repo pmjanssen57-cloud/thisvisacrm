@@ -820,7 +820,15 @@ async function handleCrmEvent(event) {
 
     if (action === 'seminarBulk') {
       const handler=String(body.operation||'').startsWith('followup')?followupOperations:seminarOperations;
-      const result = await handler(db(), body, auth.user?.email || auth.user?.name || accessContext.adviserName || 'CRM adviser');
+      let result;
+      try { result = await handler(db(), body, auth.user?.email || auth.user?.name || accessContext.adviserName || 'CRM adviser'); }
+      catch (error) {
+        if (body.operation === 'archive') {
+          console.error('Seminar close/archive failed', error);
+          return json({error:'The seminar could not finish closing and archiving. Refresh the seminar list to check its current status, then try again. If this continues, contact your administrator.'},500);
+        }
+        throw error;
+      }
       if (result.job?.id && (['followupQueue','followupRetry','retryFailed'].includes(body.operation) || body.operation === 'create' && body.mode === 'now')) result.dispatched = await dispatchReminders(result.job.id);
       return json({ ...result, ...(result.seminar ? {seminar: mapSeminarFromDb(result.seminar), seminarRegistrations: result.registrations.map(mapSeminarRegistrationFromDb)} : {}) });
     }
