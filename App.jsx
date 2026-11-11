@@ -1994,7 +1994,6 @@ export default function App() {
           ...current,
           counts: { ...current.counts, ...body.counts },
           availability: body.availability ? { ...(current.availability || {}), ...body.availability } : current.availability,
-          revision: body.revision || current.revision || '',
           refreshedAt: body.refreshedAt || current.refreshedAt,
         };
         chatSnapshotRef.current = next;
@@ -14546,6 +14545,8 @@ function InstructionsWorkspace({
   const [createDraft, setCreateDraft] = useState({ clientId: '', standaloneLabel: '', packId: 'smc', title: '' });
   const [editorInstruction, setEditorInstruction] = useState(null);
   const [iframeReady, setIframeReady] = useState(false);
+  const [studioLoadError,setStudioLoadError]=useState('');
+  const [studioLoadTick,setStudioLoadTick]=useState(0);
   const [studioMessage, setStudioMessage] = useState('');
   const savedClients = useMemo(() => clients.filter((client) => !String(client.id || '').startsWith('temp-')), [clients]);
   const instructionPreferences = normaliseAdviserPreferences(preferences);
@@ -14623,13 +14624,22 @@ function InstructionsWorkspace({
         return;
       }
       if (message.type === 'THIS_STUDIO_INITIALISED') {
-        if (!studioSessionRef.current.active) return;
+        if (!studioSessionRef.current.active || !message.builderReady || String(message.instructionSetId||'')!==String(editorInstructionRef.current?.id||'')) return;
+        studioSessionRef.current.initialised=true;
+        setStudioLoadError('');
         setStudioMessage('Studio ready');
         return;
       }
+      if(message.type==='THIS_STUDIO_LOAD_FAILED'){
+        if(!studioSessionRef.current.active)return;
+        studioSessionRef.current.initialised=false;studioSessionRef.current.failed=true;
+        setStudioLoadError(message.message||'Studio could not load. Your saved draft has not been replaced.');
+        setStudioMessage('Instructions could not be opened');return;
+      }
+      if(message.type==='THIS_STUDIO_RELOAD_REQUEST'){retryStudioLoad();return;}
       if (message.type === 'THIS_STUDIO_SNAPSHOT') {
         const current = editorInstructionRef.current;
-        if (!current || !message.snapshot) return;
+        if (!current || !message.snapshot || !studioSessionRef.current.initialised) return;
         if (current.id && deletedInstructionIdsRef.current.has(current.id)) return;
         const sessionId = studioSessionRef.current.id;
         const next = {
@@ -14653,6 +14663,7 @@ function InstructionsWorkspace({
         return;
       }
       if (message.type === 'THIS_STUDIO_TEMPLATE_LIBRARY') {
+        if(!studioSessionRef.current.initialised)return;
         if (!canManageTemplates || !message.library) return;
         setStudioMessage(message.versionEvent ? 'Publishing template version...' : 'Saving template library...');
         Promise.resolve(saveInstructionTemplateLibrary?.(message.library, message.versionEvent || null)).then(() => {
@@ -14665,23 +14676,21 @@ function InstructionsWorkspace({
   }, [canManageTemplates, saveInstructionSet, saveInstructionTemplateLibrary]);
 
   useEffect(() => {
-    if (!editorInstruction || !iframeReady || !iframeRef.current?.contentWindow || !studioSessionRef.current.active) return;
-    const studioWindow = iframeRef.current.contentWindow;
-    const initId = String(editorInstruction.id || 'new');
-    if (studioInitRef.current.id === initId && studioInitRef.current.win === studioWindow) return;
-    studioInitRef.current = { id: initId, win: studioWindow };
-    const client = editorInstruction.clientId ? clients.find((item) => item.id === editorInstruction.clientId) || null : null;
-    const payload = { instructionSet: editorInstruction, client, advisers, templateLibrary, canManageTemplates };
-    try {
-      if (typeof studioWindow.__THIS_STUDIO_INIT__ === 'function') {
-        studioWindow.__THIS_STUDIO_INIT__(payload);
-        return;
-      }
-    } catch (error) {
-      console.warn('Direct Instructions Studio initialisation failed; using postMessage fallback.', error);
-    }
-    studioWindow.postMessage({ type: 'THIS_STUDIO_INIT', payload }, window.location.origin);
-  }, [editorInstruction, iframeReady, clients, advisers, templateLibrary, canManageTemplates]);
+    if(!editorInstruction||!iframeReady||!iframeRef.current?.contentWindow||!studioSessionRef.current.active)return;
+    const sessionId=studioSessionRef.current.id,studioWindow=iframeRef.current.contentWindow;
+    let tries=0,timer;
+    const initialise=()=>{
+      if(studioSessionRef.current.id!==sessionId||!studioSessionRef.current.active||studioSessionRef.current.initialised||studioSessionRef.current.failed){clearInterval(timer);return;}
+      if(tries++>=20){clearInterval(timer);setStudioLoadError('Studio did not finish loading. Reload Studio to retry; the saved draft has not been replaced.');return;}
+      const client=editorInstruction.clientId?clients.find(c=>c.id===editorInstruction.clientId)||null:null;
+      const payload={instructionSet:editorInstruction,client,advisers,templateLibrary,canManageTemplates};
+      try{
+        if(typeof studioWindow.__THIS_STUDIO_INIT__==='function'){studioWindow.__THIS_STUDIO_INIT__(payload);return;}
+      }catch(error){console.warn('Instructions initialisation failed.',error);}
+      studioWindow.postMessage({type:'THIS_STUDIO_INIT',payload},window.location.origin);
+    };
+    initialise();timer=setInterval(initialise,750);return()=>clearInterval(timer);
+  },[editorInstruction,iframeReady,studioLoadTick,clients,advisers,templateLibrary,canManageTemplates]);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -14792,7 +14801,7 @@ function InstructionsWorkspace({
     const closingSessionId = studioSessionRef.current.id;
     studioSessionRef.current = { ...studioSessionRef.current, active: false, closing: true };
     const currentId = editorInstructionRef.current?.id || '';
-    if (!currentId || !deletedInstructionIdsRef.current.has(currentId)) {
+    if (studioSessionRef.current.initialised && (!currentId || !deletedInstructionIdsRef.current.has(currentId))) {
       iframeRef.current?.contentWindow?.postMessage({ type: 'THIS_STUDIO_REQUEST_SNAPSHOT', reason: 'close' }, window.location.origin);
     }
     window.setTimeout(() => {
@@ -14804,9 +14813,15 @@ function InstructionsWorkspace({
     }, 180);
   }
 
+  function retryStudioLoad(){
+    const current=editorInstructionRef.current;if(!current||!studioSessionRef.current.active)return;
+    beginEditorSession(current.id||'');setIframeReady(false);setStudioMessage('Reloading saved instructions...');setStudioLoadTick(n=>n+1);
+  }
+
   function beginEditorSession(recordId = '') {
     const nextId = Number(studioSessionRef.current.id || 0) + 1;
-    studioSessionRef.current = { id: nextId, active: true, closing: false, recordId: String(recordId || '') };
+    studioSessionRef.current = { id: nextId, active: true, closing: false, initialised:false, failed:false, recordId: String(recordId || '') };
+    setStudioLoadError('');
     studioInitRef.current = { id: '', win: null };
     return nextId;
   }
@@ -14897,9 +14912,9 @@ function InstructionsWorkspace({
         <div className="instruction-studio-overlay" role="dialog" aria-modal="true" aria-label="Instructions Studio editor">
           <div className="instruction-studio-topbar">
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
-            <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
+            <div>{studioLoadError&&<button className="btn" type="button" aria-label="Reload Studio" onClick={retryStudioLoad}><RefreshCw size={16}/>Reload</button>}<small>{studioLoadError || studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.89" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.90" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active || studioSessionRef.current.initialised) return; setIframeReady(true); setStudioLoadTick(n=>n+1); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -15500,7 +15515,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.89" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.90" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}

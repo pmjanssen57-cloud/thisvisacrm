@@ -247,6 +247,7 @@ let zoomMode = 'fit';
 
 function cloneDefault() { return structuredClone(defaultState); }
 function loadState() {
+  if(window.parent!==window)return cloneDefault();
   try {
     let saved = THIS_LOCAL_STORAGE.getItem(STORAGE_KEY);
     let legacyUsed = false;
@@ -269,8 +270,19 @@ function mergeDefaults(base, saved) {
   Object.keys(base.docs).forEach(id => {
     merged.docs[id] = { ...base.docs[id], ...(saved.docs?.[id] || {}) };
     const defaultsById = new Map((base.docs[id].blocks || []).map(block => [block.id, block]));
-    merged.docs[id].blocks = (saved.docs?.[id]?.blocks || base.docs[id].blocks).map(block => ({ ...(defaultsById.get(block.id) || {}), ...block }));
+    const incoming=saved.docs?.[id]?.blocks??base.docs[id].blocks;
+    const blocks=Array.isArray(incoming)?incoming:incoming&&typeof incoming==='object'?Object.values(incoming):null;
+    if(!blocks||blocks.some(b=>!b||typeof b!=='object'||!b.id))throw Error('A saved guide contains an unreadable block. The original draft has not been replaced.');
+    merged.docs[id].blocks = blocks.map(block => ({ ...(defaultsById.get(block.id) || {}), ...block }));
   });
+  for(const [id,doc] of Object.entries(saved.docs||{})){
+    if(merged.docs[id])continue;
+    if(!doc||typeof doc!=='object')throw Error('A saved custom guide cannot be read. The original draft has not been replaced.');
+    if(doc.blocks!=null&&typeof doc.blocks!=='object')throw Error('A saved custom guide contains unreadable blocks.');
+    const blocks=Array.isArray(doc.blocks)?doc.blocks:doc.blocks&&typeof doc.blocks==='object'?Object.values(doc.blocks):[];
+    if(blocks.some(b=>!b||typeof b!=='object'||!b.id))throw Error('A custom guide contains an unreadable block.');
+    merged.docs[id]={label:id,description:'',coverTitle:doc.label||id,coverSubtitle:'',intro:'',caseNote:'',enabled:true,...doc,blocks:structuredClone(blocks)};
+  }
   return merged;
 }
 
@@ -947,7 +959,7 @@ function createPackState(packId) {
 }
 function loadPackWorkspace() {
   try {
-    const saved = JSON.parse(THIS_LOCAL_STORAGE.getItem(WORKSPACE_STORAGE_KEY)||'null');
+    const saved = window.parent!==window?null:JSON.parse(THIS_LOCAL_STORAGE.getItem(WORKSPACE_STORAGE_KEY)||'null');
     activePackId = saved?.activePackId && PACK_ORDER.includes(saved.activePackId) ? saved.activePackId : 'smc';
     workspaceDrafts = saved?.drafts || {};
   } catch (error) { workspaceDrafts={}; activePackId='smc'; }
@@ -1677,7 +1689,7 @@ function initialTemplateEntryV13(packId) {
 }
 function loadTemplateLibraryV13() {
   let loaded = null;
-  try { loaded = JSON.parse(THIS_LOCAL_STORAGE.getItem(TEMPLATE_LIBRARY_STORAGE_KEY_V13) || 'null'); } catch (error) { console.warn('Unable to load template library', error); }
+  try { loaded = window.parent!==window?null:JSON.parse(THIS_LOCAL_STORAGE.getItem(TEMPLATE_LIBRARY_STORAGE_KEY_V13) || 'null'); } catch (error) { console.warn('Unable to load template library', error); }
   const library = loaded || { packs:{} };
   library.packs = library.packs || {};
   PACK_ORDER.forEach(packId => { if (!library.packs[packId]) library.packs[packId] = initialTemplateEntryV13(packId); });
@@ -2850,6 +2862,7 @@ bindEvents();
     };
   }
   function emitSnapshot(reason='save'){
+    if(!window.THIS_INSTRUCTIONS_LOAD?.isReady())return;
     post('THIS_STUDIO_SNAPSHOT',{reason,instructionSetId:crmContext.instructionSetId,snapshot:currentSnapshot()});
   }
   function emitTemplateLibrary(reason='save'){

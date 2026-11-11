@@ -20854,3 +20854,10 @@ body.intake-embed-mode .website-form-refresh.public-form-shell{background:transp
 .website-form-refresh.public-form-shell .intake-section{animation:none!important;opacity:1!important;transform:none!important}
 @media(max-width:720px){.website-form-refresh.public-form-shell .intake-grid.two{grid-template-columns:minmax(0,1fr)!important}}
 .website-form-refresh.public-form-shell .intake-thanks-card .portal-lock{color:#2e7657!important}
+/* v0.17.90: keep failed-load recovery controls within the Instructions frame. */
+.instruction-studio-overlay[aria-label="Instructions Studio editor"] .instruction-studio-topbar{height:auto;min-height:58px;flex:0 0 auto;padding-top:9px;padding-bottom:9px}
+.instruction-studio-overlay[aria-label="Instructions Studio editor"] .instruction-studio-topbar>div:first-child{min-width:0;flex:1}
+.instruction-studio-overlay[aria-label="Instructions Studio editor"] .instruction-studio-topbar>div:last-child{max-width:65%;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+.instruction-studio-overlay[aria-label="Instructions Studio editor"] .instruction-studio-topbar small{max-width:520px;overflow-wrap:anywhere}
+.instruction-studio-overlay[aria-label="Instructions Studio editor"] .instruction-studio-frame{flex:1;min-height:0;height:auto}
+@media(max-width:600px){.instruction-studio-overlay[aria-label="Instructions Studio editor"] .instruction-studio-topbar{padding:8px}.instruction-studio-overlay[aria-label="Instructions Studio editor"] .instruction-studio-topbar>div:last-child{max-width:66%;gap:5px}.instruction-studio-overlay[aria-label="Instructions Studio editor"] .instruction-studio-topbar .btn{font-size:12px;padding:8px;min-height:44px}.instruction-studio-overlay[aria-label="Instructions Studio editor"] .instruction-studio-topbar strong{overflow-wrap:anywhere}}

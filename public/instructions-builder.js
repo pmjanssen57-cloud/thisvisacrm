@@ -562,7 +562,7 @@
     node('ib72-review').textContent=issues.join(' ');node('ib72-review').hidden=!issues.length;return issues;
   }
   function renderBuilder() {
-    if(!mounted || pendingInit)return;
+    if(!mounted || pendingInit || document.documentElement.classList.contains('instructions-load-failed'))return;
     meta();const d=doc();if(!d)return;
     const root=node('ib72');
     root.innerHTML=`<header class="ib72-setup"><div class="ib72-setup-title"><span class="ib72-eyebrow">Instructions Studio</span><h1>Build this client’s instructions</h1><p>Start with the usual blocks. Keep, add and tailor what helps this client.</p></div><div class="ib72-two-fields"><label>Client name<input id="ib72-client-name" value="${esc(name())}" placeholder="Enter the client’s full name" autocomplete="off"></label><label>Visa category<select id="ib72-category">${PACK_ORDER.map(id=>`<option value="${id}" ${activePackId===id?'selected':''}>${esc(PACK_LABELS[id])}</option>`).join('')}</select></label></div></header><div class="ib72-document-bar"><label class="ib72-document-picker">Working on<select id="ib72-document">${Object.entries(state.docs).map(([id,d])=>`<option value="${id}" ${state.selectedDoc===id?'selected':''}>${esc(d.label)}</option>`).join('')}</select></label><label class="ib72-include"><input type="checkbox" id="ib72-include" ${d.enabled?'checked':''}> Include this guide in output</label><button type="button" class="button button-secondary" id="ib72-settings-open">Output settings</button></div><div id="ib72-review" class="ib72-review" role="status" hidden></div><div class="ib72-composer"><details id="ib72-outline" class="ib72-outline" open><summary>Document sections <span id="ib72-section-count"></span></summary><div id="ib72-outline-list"></div><div class="ib72-add-actions"><button type="button" class="button button-primary" id="ib72-add-block">+ Add block</button><button type="button" class="button button-secondary" id="ib72-add-family">+ Family / people</button><button type="button" class="ib72-link" id="ib72-add-custom">+ Write a custom block</button></div></details><section id="ib72-section-editor" class="ib72-section-editor"></section></div>`;
@@ -580,6 +580,7 @@
     node('ib72-settings-open').addEventListener('click',openSettings);
     node('ib72-outline-list').before(root.querySelector('.ib72-add-actions'));
     casePanel81();outline();sectionEditor();updateReview();
+    window.THIS_INSTRUCTIONS_LOAD?.ready();
   }
   function openSettings() {
     const h=node('ib72-settings-body');
@@ -632,10 +633,26 @@
   const previousRender = renderAll;
   renderAll = function(){Object.values(state.docs || {}).forEach(d=>{if(d.builder72CoverImage)d.hero=d.builder72CoverImage;});previousRender();renderBuilder();};
   const previousInit = window.__THIS_STUDIO_INIT__;
-  if(previousInit)window.__THIS_STUDIO_INIT__=payload=>{pendingInit=true;const result=previousInit(payload);finishContext(payload);return result;};
+  function loadContext90(payload){
+    if(window.THIS_INSTRUCTIONS_LOAD?.isReady()&&contextKey===String(payload.instructionSet?.id||payload.client?.id||'standalone')&&!payload.force)return;
+    window.THIS_INSTRUCTIONS_LOAD?.begin(payload);pendingInit=true;
+    try{
+      const state=payload.instructionSet?.studioState;
+      if(typeof state==='string')payload={...payload,instructionSet:{...payload.instructionSet,studioState:JSON.parse(state)}};
+      const saved=payload.instructionSet?.studioState;
+      if(saved&&(typeof saved!=='object'||Array.isArray(saved)))throw Error('Saved instructions are not readable.');
+      if(saved&&Object.keys(saved).length&&!saved.packState&&!saved.workspaceDrafts){
+        const pack=saved.docs?saved:saved.state?.docs?saved.state:null;
+        if(!pack)throw Error('Saved instructions use an unsupported format.');
+        payload={...payload,instructionSet:{...payload.instructionSet,studioState:{activePackId:saved.activePackId||pack.packId||payload.instructionSet.packId,packState:pack}}};
+      }
+      const result=previousInit(payload);finishContext(payload);return result;
+    }catch(error){pendingInit=false;window.THIS_INSTRUCTIONS_LOAD?.fail('The saved document could not be opened. Reload Studio to retry. Your saved draft has not been replaced.');return false;}
+  }
+  if(previousInit)window.__THIS_STUDIO_INIT__=loadContext90;
   window.addEventListener('message',event=>{
     if(event.source!==window.parent||event.origin!==location.origin||event.data?.type!=='THIS_STUDIO_INIT')return;
-    pendingInit=true;clearTimeout(initTimer);const payload=event.data.payload || {};initTimer=setTimeout(()=>finishContext(payload),45);
+    event.stopImmediatePropagation();clearTimeout(initTimer);loadContext90(event.data.payload||{});
   },true);
 
   function genericBlock83(b, docId=state.selectedDoc) {
