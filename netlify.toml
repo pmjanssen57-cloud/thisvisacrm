@@ -87,3 +87,34 @@
 # Reminder due_at timestamps are UTC, derived from the seminar reference timezone.
 [functions."seminar-reminders"]
   schedule = "*/5 * * * *"
+
+
+[[headers]]
+  for = "/agreement.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    Referrer-Policy = "no-referrer"
+
+[[headers]]
+  for = "/agreement-studio.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    Referrer-Policy = "no-referrer"
+
+[[headers]]
+  for = "/agreement-studio.js"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    Referrer-Policy = "no-referrer"
+
+[[headers]]
+  for = "/agreement-entry.js"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    Referrer-Policy = "no-referrer"
+
+[[headers]]
+  for = "/agreement-review-shell.js"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    Referrer-Policy = "no-referrer"

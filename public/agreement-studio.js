@@ -1,3 +1,4 @@
+const THIS_AGREEMENT_CLIENT_PAGE=document.documentElement.classList.contains('agreement-client-page');
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const APP_TYPES={
  smc:{title:'Skilled Migrant Category (SMC)',short:'SMC',scope:['International Qualifications Assessment with NZQA','Professional or occupational registration, where included in the agreed strategy','Temporary visa application required to support the agreed migration pathway','Temporary visas for accompanying family members included in the engagement','Residence application under the Skilled Migrant Category'],gov:[['NZQA','Qualifications Assessment (IQA)','1','NZD$445.00','Confirm current'],['Immigration New Zealand','Visitor Visa','1','NZD$441.00','Per applicant'],['Immigration New Zealand','Work Visa','1','NZD$1,355.00 to NZD$1,670.00','Per applicant'],['Immigration New Zealand','Student Visa','1','NZD$750.00','Per applicant'],['Immigration New Zealand','Resident Visa','1 family','NZD$6,450.00','Confirm filing location']]},
@@ -133,7 +134,7 @@ const legacyDefaultState=()=>({status:'Draft',selectedSection:'introduction',com
 const defaultState=()=>applyServiceSuggestions(legacyDefaultState(),'smc');
 const THIS_LOCAL_STORAGE=(()=>{try{const storage=window['local'+'Storage'];const probe='__this_agreement_storage_probe__';storage.getItem(probe);return storage;}catch(error){console.warn('Browser storage is unavailable; CRM persistence will be used instead.',error);return{getItem(){return null},setItem(){},removeItem(){},clear(){}}}})();
 const THIS_SESSION_STORAGE=(()=>{try{return window['session'+'Storage'];}catch(error){return{getItem(){return null},setItem(){},removeItem(){},clear(){}}}})();
-let state=(()=>{try{return JSON.parse(THIS_LOCAL_STORAGE.getItem('this-agreement-studio-v1')||'null')||defaultState();}catch(error){console.warn('Unable to load the browser agreement draft; starting from the CRM payload.',error);return defaultState();}})();let editMode=false,zoom='fit',sigDrawn=false,editingProfessionalFeeId='',editingGovernmentFeeId='';
+let state=(()=>{try{return THIS_AGREEMENT_CLIENT_PAGE?defaultState():JSON.parse(THIS_LOCAL_STORAGE.getItem('this-agreement-studio-v1')||'null')||defaultState();}catch(error){console.warn('Unable to load the browser agreement draft; starting from the CRM payload.',error);return defaultState();}})();let editMode=false,zoom='fit',sigDrawn=false,editingProfessionalFeeId='',editingGovernmentFeeId='';
 function esc(v=''){return String(v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function save(){THIS_LOCAL_STORAGE.setItem('this-agreement-studio-v1',JSON.stringify(materialiseAgreement83(state)));const crmMode=document.body.classList.contains('crm-embedded-agreement');$('#saveStatus').textContent=crmMode?'Saving to CRM…':'Saved '+new Date().toLocaleTimeString('en-NZ',{hour:'2-digit',minute:'2-digit'});toast(crmMode?'Saving draft to CRM…':'Draft saved in this browser')}
 function currentType(){return APP_TYPES[state.appType]||APP_TYPES.other}function fullClient(){return state.client.clientName||'Client'}
@@ -594,7 +595,7 @@ if(window.parent!==window){
   state.client={...state.client,clientName:'',partnerName:'',clientEmail:'',matterRef:'',adviserId:'',adviserName:'',adviserEmail:'',adviserLicence:'',matterNote:'',conflictDisclosure:DEFAULT_CONFLICT_DISCLOSURE,likelyDisbursements:DEFAULT_DISBURSEMENTS};
   state.signatories=[];
 }
-bind();renderAll();
+if(!THIS_AGREEMENT_CLIENT_PAGE){bind();renderAll();}
 
 
 
@@ -794,6 +795,7 @@ If anything needs correcting, or you would like to discuss any part of the agree
     document.title='Agreement | Turner Hopkins Immigration Specialists';
   }
   function initFromCrm(payload={}){
+    if(THIS_AGREEMENT_CLIENT_PAGE)return;
     crmAdvisers=Array.isArray(payload.advisers)?payload.advisers.slice():[];
     const incomingId=String(payload.agreementSet?.id||'');
     if(crmInitialised&&incomingId&&crmContext.agreementSetId===incomingId&&!payload.force){
@@ -816,16 +818,18 @@ If anything needs correcting, or you would like to discuss any part of the agree
     const response=await fetch(`/api/agreement?token=${encodeURIComponent(token)}`,{headers:{accept:'application/json'}});
     const payload=await response.json().catch(()=>({}));
     if(!response.ok||!payload.agreement){
-      document.body.innerHTML=`<main class="public-error"><h1>Agreement unavailable</h1><p>${esc(payload.error||'This agreement link is invalid or has expired.')}</p></main>`;
+      window.THIS_AGREEMENT_REVIEW?.fail(payload.error||'This agreement link is invalid or has expired. Please contact Turner Hopkins.');
       return;
     }
-    state=clone(payload.agreement.studioState||defaultState());
+    const issued=payload.agreement.studioState;
+    if(!issued||!issued.client||!issued.template||!Array.isArray(issued.sections)||!issued.sections.length)throw Error('This agreement could not be opened. Please contact Turner Hopkins for a new link.');
+    state=clone(issued);
     state.status=payload.agreement.status||state.status;
     state.acceptedAt=payload.agreement.acceptedAt||state.acceptedAt||'';
     state.acceptedBy=payload.agreement.acceptedBy||state.acceptedBy||'';
     publicSignatory=payload.signatory||null;
     state.signatories=mergeAcceptanceDetails(state.signatories||[],publicSignatory?[publicSignatory]:[]);
-    renderAll();
+    if(THIS_AGREEMENT_CLIENT_PAGE)renderPages();else renderAll();
     setPublicPresentation();
     const actions=document.querySelector('.actions');
     if(actions){
@@ -833,7 +837,8 @@ If anything needs correcting, or you would like to discuss any part of the agree
       const status=document.createElement('span'); status.className='statusline'; status.textContent=publicSignatory?.status==='Accepted'?'Accepted agreement':'Secure agreement review'; actions.appendChild(status);
       if(publicSignatory?.status!=='Accepted'){
         const button=document.createElement('button'); button.className='btn primary'; button.id='publicAcceptBtn'; button.textContent='Accept agreement'; button.onclick=()=>openSigning(); actions.appendChild(button);
-      }else{
+      }
+      {
         const print=document.createElement('button'); print.className='btn secondary'; print.textContent='Print / save PDF'; print.onclick=printAgreementDocument; actions.appendChild(print);
       }
     }
@@ -842,7 +847,14 @@ If anything needs correcting, or you would like to discuss any part of the agree
     document.querySelector('#exportBtn')?.remove();
     document.querySelector('#issueBtn')?.remove();
     document.querySelector('#editTextBtn')?.remove();
-    const acceptButton=document.querySelector('#acceptAgreement'); if(acceptButton) acceptButton.onclick=acceptPublicAgreement;
+    const acceptButton=document.querySelector('#acceptAgreement'); if(acceptButton) acceptButton.onclick=()=>acceptPublicAgreement().catch(()=>toast('Your acceptance could not be confirmed. Please try again, or contact Turner Hopkins.'));
+    if(THIS_AGREEMENT_CLIENT_PAGE){
+      document.querySelectorAll('.closeSign').forEach(button=>button.onclick=()=>document.querySelector('#signModal').classList.add('hidden'));
+      document.querySelector('#clearSig').onclick=clearSignature;
+      const scale=()=>document.documentElement.style.setProperty('--agreement-review-scale',String(Math.min(1,Math.max(.25,(innerWidth-16)/794))));
+      scale();addEventListener('resize',scale,{passive:true});
+      window.THIS_AGREEMENT_REVIEW?.ready();
+    }
   }
   async function acceptPublicAgreement(){
     const modern=state.complianceVersion===IAA_COMPLIANCE_VERSION; if(!document.querySelector('#checkRead')?.checked||!document.querySelector('#checkFees')?.checked||!document.querySelector('#checkDocs')?.checked||(modern&&(!document.querySelector('#checkComplaints')?.checked||!document.querySelector('#checkSignificant')?.checked))||!document.querySelector('#typedName')?.value.trim()||!sigDrawn){ toast('Complete all acceptance confirmations and the signature'); return; }
@@ -857,7 +869,7 @@ If anything needs correcting, or you would like to discuss any part of the agree
   }
   window.__THIS_AGREEMENT_INIT__=initFromCrm;
   window.addEventListener('message',event=>{
-    if(event.origin!==CRM_ORIGIN||event.source!==window.parent) return;
+    if(THIS_AGREEMENT_CLIENT_PAGE||event.origin!==CRM_ORIGIN||event.source!==window.parent) return;
     const message=event.data||{};
     if(message.type==='THIS_AGREEMENT_INIT') initFromCrm(message.payload||{});
     if(message.type==='THIS_AGREEMENT_REQUEST_SNAPSHOT') emitSnapshot(message.reason||'request');
@@ -882,7 +894,11 @@ If anything needs correcting, or you would like to discuss any part of the agree
   });
   window.addEventListener('load',()=>{
     const token=new URLSearchParams(location.search).get('token');
-    if(token){ loadPublicReview(token).catch(error=>{document.body.innerHTML=`<main class="public-error"><h1>Agreement unavailable</h1><p>${esc(error.message||String(error))}</p></main>`}); return; }
+    if(THIS_AGREEMENT_CLIENT_PAGE){
+      if(!token){window.THIS_AGREEMENT_REVIEW?.fail('This agreement link is incomplete. Please use the full link in your email or contact Turner Hopkins.');return;}
+      loadPublicReview(token).catch(error=>window.THIS_AGREEMENT_REVIEW?.fail(error.message||'The agreement could not be loaded. Please contact Turner Hopkins.'));return;
+    }
+    if(new URLSearchParams(location.search).has('token'))return;
     setCrmPresentation();
     if(window.parent!==window){
       const saveButton=document.querySelector('#saveBtn'); if(saveButton) saveButton.onclick=()=>{ save(); setTimeout(()=>emitSnapshot('save'),20); };

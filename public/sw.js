@@ -1,4 +1,4 @@
-const CACHE_NAME = 'this-crm-shell-v0.17.86';
+const CACHE_NAME = 'this-crm-shell-v0.17.89';
 const OFFLINE_URL = '/offline.html';
 const PRECACHE_URLS = [
   '/instructions-cover.js',
@@ -26,6 +26,7 @@ const PRECACHE_URLS = [
   '/instructions-print-window.js',
   '/instructions-builder.css',
   '/instructions-print.css',
+  '/agreement.html', '/agreement-review-shell.js', '/agreement-entry.js',
   '/agreement-studio.html',
   '/agreement-studio.js',
   '/agreement-cover-city.jpg',

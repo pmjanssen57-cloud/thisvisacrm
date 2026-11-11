@@ -1,3 +1,4 @@
+import { ensureFollowupSchema, followupOperations } from './_seminar-followup.mjs';
 import { seminarOperations, dispatchReminders } from './_seminar-reminders.mjs';
 import { studioLibrary } from './_studio-library.mjs';
 import { readEmployerQueue, processEmployerQuestionnaire, downloadEmployerUpload, saveEmployerQuestionnaireReview } from './_employer-questionnaires.mjs';
@@ -818,8 +819,9 @@ async function handleCrmEvent(event) {
     }
 
     if (action === 'seminarBulk') {
-      const result = await seminarOperations(db(), body, auth.user?.email || auth.user?.name || 'CRM adviser');
-      if (result.job?.id && (body.operation === 'retryFailed' || body.operation === 'create' && body.mode === 'now')) result.dispatched = await dispatchReminders(result.job.id);
+      const handler=String(body.operation||'').startsWith('followup')?followupOperations:seminarOperations;
+      const result = await handler(db(), body, auth.user?.email || auth.user?.name || accessContext.adviserName || 'CRM adviser');
+      if (result.job?.id && (['followupQueue','followupRetry','retryFailed'].includes(body.operation) || body.operation === 'create' && body.mode === 'now')) result.dispatched = await dispatchReminders(result.job.id);
       return json({ ...result, ...(result.seminar ? {seminar: mapSeminarFromDb(result.seminar), seminarRegistrations: result.registrations.map(mapSeminarRegistrationFromDb)} : {}) });
     }
 
@@ -1618,6 +1620,7 @@ async function ensureSchema() {
   await ensureCommercialSchema(database);
   await ensureConsultationBookingSchema(database);
   await ensureEmailTemplateSchema(database);
+  await ensureFollowupSchema(database);
 }
 
 
@@ -2960,7 +2963,7 @@ async function issueAgreementSet(input = {}, issue = {}, user = null) {
   for (const signatory of usable) {
     const rawToken = crypto.randomBytes(24).toString('hex');
     const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-    const link = `${baseUrl}/agreement-studio.html?token=${rawToken}`;
+    const link = `${baseUrl}/agreement.html?token=${rawToken}`;
     const name = String(signatory.name || '').trim();
     const email = String(signatory.email || '').trim();
     const role = String(signatory.role || 'Client').trim();
@@ -3158,7 +3161,7 @@ async function readCrmData() {
     database.sql`SELECT id, client_id, title, category, description, file_name, file_type, file_size, blob_key, visible_to_client, uploaded_by, uploaded_at FROM client_portal_documents ORDER BY uploaded_at DESC`,
     database.sql`SELECT id, status, assigned_adviser_id, applicant_first_name, applicant_last_name, email, phone, current_location, citizenship, date_of_birth, current_visa_type, current_visa_expiry, target_pathway, urgency, flags, raw_payload, adviser_assessment_notes, recommended_pathway, consultation_outcome, converted_client_id, created_at, updated_at FROM intake_enquiries ORDER BY created_at DESC`,
     database.sql`SELECT id, status, applicant_first_name, applicant_last_name, email, current_step, progress_percent, raw_payload, uploaded_files, expires_at, resume_email_sent_at, reminder_email_sent_at, reminder_email_sent_by, submitted_intake_id, created_at, updated_at FROM intake_drafts WHERE status = 'Draft' AND expires_at > NOW() ORDER BY updated_at DESC LIMIT 250`,
-    database.sql`SELECT id, title, seminar_date, seminar_time, timezone, presenter_name, zoom_link, zoom_password, status, registration_open, internal_notes, created_at, updated_at FROM seminars ORDER BY seminar_date DESC NULLS LAST, created_at DESC`,
+    database.sql`SELECT id, title, seminar_date, seminar_time, timezone, presenter_name, presenter_email, presenter_booking_url, zoom_link, zoom_password, status, registration_open, internal_notes, created_at, updated_at FROM seminars ORDER BY seminar_date DESC NULLS LAST, created_at DESC`,
     database.sql`SELECT id, seminar_id, status, full_name, date_of_birth, citizenship_country, residence_country, timezone, email, partnership_status, highest_qualification, current_occupation, work_history, health_character_issues, english_ability, raw_payload, reviewed_by, approved_at, declined_at, created_at, updated_at FROM seminar_registrations ORDER BY created_at DESC`,
     database.sql`SELECT id, status, first_name, last_name, email, phone, adviser_name, application_type, overall_rating, recommendation_rating, service_strengths, improvement_suggestions, permission_to_contact, permission_to_use_feedback, raw_payload, reviewed_by, created_at, updated_at FROM feedback_submissions ORDER BY created_at DESC`,
     database.sql`SELECT id, template_key, from_email, from_name, to_email, cc, bcc, subject, body_text, body_html, status, sent_by, sent_at, failed_at, failure_message, created_at FROM email_notifications WHERE created_at >= NOW() - INTERVAL '60 days' ORDER BY created_at DESC LIMIT 200`,
@@ -3885,6 +3888,8 @@ function mapSeminarFromDb(row = {}) {
     seminarTime: row.seminar_time || '',
     timezone: row.timezone || 'Pacific/Auckland',
     presenterName: row.presenter_name || '',
+    presenterEmail: row.presenter_email || '',
+    presenterBookingUrl: row.presenter_booking_url || '',
     zoomLink: row.zoom_link || '',
     zoomPassword: row.zoom_password || '',
     status: SEMINAR_STATUSES.includes(row.status) ? row.status : 'Active',
@@ -4915,15 +4920,15 @@ async function saveSeminar(input = {}) {
   if (isUuid(seminar.id)) {
     const rows = await database.sql`
       UPDATE seminars
-         SET title = ${seminar.title}, seminar_date = ${nullableDate(seminar.seminarDate)}, seminar_time = ${seminar.seminarTime}, timezone = ${seminar.timezone}, presenter_name = ${seminar.presenterName}, zoom_link = ${seminar.zoomLink}, zoom_password = ${seminar.zoomPassword}, status = ${seminar.status}, registration_open = ${seminar.registrationOpen}, internal_notes = ${seminar.internalNotes}, updated_at = NOW()
+         SET title = ${seminar.title}, seminar_date = ${nullableDate(seminar.seminarDate)}, seminar_time = ${seminar.seminarTime}, timezone = ${seminar.timezone}, presenter_name = ${seminar.presenterName}, presenter_email=COALESCE(${seminar.presenterEmail??null},presenter_email), presenter_booking_url=COALESCE(${seminar.presenterBookingUrl??null},presenter_booking_url), zoom_link = ${seminar.zoomLink}, zoom_password = ${seminar.zoomPassword}, status = ${seminar.status}, registration_open = ${seminar.registrationOpen}, internal_notes = ${seminar.internalNotes}, updated_at = NOW()
        WHERE id = ${seminar.id}
-       RETURNING id, title, seminar_date, seminar_time, timezone, presenter_name, zoom_link, zoom_password, status, registration_open, internal_notes, created_at, updated_at`;
+       RETURNING id, title, seminar_date, seminar_time, timezone, presenter_name, presenter_email, presenter_booking_url, zoom_link, zoom_password, status, registration_open, internal_notes, created_at, updated_at`;
     return mapSeminarFromDb(rows[0]);
   }
   const rows = await database.sql`
-    INSERT INTO seminars (title, seminar_date, seminar_time, timezone, presenter_name, zoom_link, zoom_password, status, registration_open, internal_notes)
-    VALUES (${seminar.title}, ${nullableDate(seminar.seminarDate)}, ${seminar.seminarTime}, ${seminar.timezone}, ${seminar.presenterName}, ${seminar.zoomLink}, ${seminar.zoomPassword}, ${seminar.status}, ${seminar.registrationOpen}, ${seminar.internalNotes})
-    RETURNING id, title, seminar_date, seminar_time, timezone, presenter_name, zoom_link, zoom_password, status, registration_open, internal_notes, created_at, updated_at`;
+    INSERT INTO seminars (title, seminar_date, seminar_time, timezone, presenter_name, presenter_email, presenter_booking_url, zoom_link, zoom_password, status, registration_open, internal_notes)
+    VALUES (${seminar.title}, ${nullableDate(seminar.seminarDate)}, ${seminar.seminarTime}, ${seminar.timezone}, ${seminar.presenterName}, ${seminar.presenterEmail??''}, ${seminar.presenterBookingUrl??''}, ${seminar.zoomLink}, ${seminar.zoomPassword}, ${seminar.status}, ${seminar.registrationOpen}, ${seminar.internalNotes})
+    RETURNING id, title, seminar_date, seminar_time, timezone, presenter_name, presenter_email, presenter_booking_url, zoom_link, zoom_password, status, registration_open, internal_notes, created_at, updated_at`;
   return mapSeminarFromDb(rows[0]);
 }
 
@@ -4997,6 +5002,8 @@ function normaliseSeminarInput(input = {}) {
     seminarTime: normaliseSeminarTimeInput(input.seminarTime || input.seminar_time),
     timezone: cleanIntakeText(input.timezone || 'Pacific/Auckland', 80),
     presenterName: cleanIntakeText(input.presenterName || input.presenter_name, 400),
+    presenterEmail: input.presenterEmail===undefined&&input.presenter_email===undefined?undefined:cleanIntakeText(input.presenterEmail??input.presenter_email,320),
+    presenterBookingUrl: input.presenterBookingUrl===undefined&&input.presenter_booking_url===undefined?undefined:cleanIntakeText(input.presenterBookingUrl??input.presenter_booking_url,2000),
     zoomLink: cleanIntakeText(input.zoomLink || input.zoom_link, 2000),
     zoomPassword: cleanIntakeText(input.zoomPassword || input.zoom_password, 400),
     status,
@@ -5433,7 +5440,7 @@ async function sendSeminarRegistrationEmail(registrationId, outcome = 'approve',
   const database = db();
   const rows = await database.sql`
     SELECT r.id, r.seminar_id, r.status, r.full_name, r.date_of_birth, r.citizenship_country, r.residence_country, r.timezone, r.email, r.partnership_status, r.highest_qualification, r.current_occupation, r.work_history, r.health_character_issues, r.english_ability, r.raw_payload, r.reviewed_by, r.approved_at, r.declined_at, r.created_at, r.updated_at,
-           s.title, s.seminar_date, s.seminar_time, s.timezone AS seminar_timezone, s.presenter_name, s.zoom_link, s.zoom_password
+           s.title, s.seminar_date, s.seminar_time, s.timezone AS seminar_timezone, s.presenter_name, s.presenter_email, s.presenter_booking_url, s.zoom_link, s.zoom_password
       FROM seminar_registrations r
       JOIN seminars s ON s.id = r.seminar_id
      WHERE r.id = ${registrationId}
@@ -5449,6 +5456,8 @@ async function sendSeminarRegistrationEmail(registrationId, outcome = 'approve',
     seminarTime: row.seminar_time || '',
     timezone: row.seminar_timezone || 'Pacific/Auckland',
     presenterName: row.presenter_name || '',
+    presenterEmail: row.presenter_email || '',
+    presenterBookingUrl: row.presenter_booking_url || '',
     zoomLink: row.zoom_link || '',
     zoomPassword: row.zoom_password || '',
   };

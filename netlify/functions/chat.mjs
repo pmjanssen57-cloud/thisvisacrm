@@ -1,6 +1,7 @@
 import { getDatabase } from '@netlify/database';
 import { getUser } from '@netlify/identity';
 import crypto from 'node:crypto';
+import { teamChat } from './_team-chat.mjs';
 import { CHAT_RUNTIME_STORE, CRM_REFERENCE_STORE, readCacheJson, writeCacheJson, deleteCacheKey } from './_runtime-cache.mjs';
 
 const DEFAULT_WEEKLY_HOURS = {
@@ -96,6 +97,11 @@ async function handleChatEvent(event) {
     if (!auth.ok) return json({ error: 'Unauthorised.' }, 401, origin);
     const actor = await resolveStaffActor(auth, event.headers || {});
     if (!actor?.id) return json({ error: 'A CRM adviser profile is required for live chat.' }, 403, origin);
+    if(action.startsWith('team')) {
+      if(method!=='POST')return json({error:'Use a signed-in staff request.'},405,origin);
+      if(auth.mode==='token-fallback')return json({error:'Please sign in with your individual staff account to use Team chat.'},403,origin);
+      return json(await teamChat(db(),body,actor),200,origin);
+    }
 
     // These read-only staff checks can also remain entirely in Blob storage while no
     // conversation has changed. Database access is reserved for actual state changes.

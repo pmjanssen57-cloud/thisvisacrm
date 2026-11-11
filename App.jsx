@@ -1,3 +1,5 @@
+import SeminarFollowupTools from './src/ui/SeminarFollowupTools.jsx';
+import { TeamChatProvider, TeamChatPanel, TeamFileNotes } from './src/ui/TeamChat.jsx';
 import SeminarBulkTools from './src/ui/SeminarBulkTools.jsx';
 import { enquiryAttentionCounts } from './src/inquiry-attention.mjs';
 import { modernWorkspaceHelp } from './src/ui/help.js';
@@ -1393,6 +1395,8 @@ export default function App() {
   const [toolsOpen, setToolsOpen] = useState(false);
   const [personalisationOpen, setPersonalisationOpen] = useState(false);
   const [chatDrawerOpen, setChatDrawerOpen] = useState(false);
+  const [chatChannel,setChatChannel]=useState('team');
+  const [teamUnreadCount,setTeamUnreadCount]=useState(0);
   const [chatSelectedId, setChatSelectedId] = useState('');
   const [chatSnapshot, setChatSnapshot] = useState({ conversations: [], selectedConversation: null, messages: [], events: [], counts: { waiting: 0, mine: 0, active: 0, unread: 0 }, settings: null, availability: null, actor: null, emailConfigured: false, refreshedAt: '' });
   const [chatPollingWakeKey, setChatPollingWakeKey] = useState(0);
@@ -2002,6 +2006,14 @@ export default function App() {
     }
   }
 
+  async function callTeamApi(action,payload={}) {
+    const response=await fetch('/.netlify/functions/chat',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json',...authHeaders('',identityUser)},body:JSON.stringify({action,...payload})});
+    const result=await readJsonResponse(response);
+    if(response.status===401)throw Error('Please sign in to the CRM again to use Team chat.');
+    if(!response.ok)throw Error(result.error||'Team chat request failed. Please try again.');
+    return result;
+  }
+
   async function callChatApi(action, payload = {}, options = {}) {
     setChatBusy(true);
     setChatError('');
@@ -2033,8 +2045,9 @@ export default function App() {
     setToolsOpen(false);
     setNewMenuOpen(false);
     setChatDrawerOpen(true);
-    if (conversationId) setChatSelectedId(conversationId);
-    loadChatSnapshot({ silent: true, conversationId: conversationId || chatSelectedId, forceList: true });
+    if (conversationId) { setChatSelectedId(conversationId);setChatChannel('website'); }
+    if(conversationId||chatChannel==='website')loadChatSnapshot({ silent: true, conversationId: conversationId || chatSelectedId, forceList: true });
+    else loadChatAttention();
   }
 
   async function sendIntakeQuestionnaireFromChat(conversationId) {
@@ -2896,7 +2909,7 @@ export default function App() {
   }
 
   async function seminarBulk(request) {
-    const body = await callApi('seminarBulk', request, { skipDataUpdate: true, background: request.operation === 'jobs' });
+    const body = await callApi('seminarBulk', request, { skipDataUpdate: true, background: ['jobs','followupJobs','followupPreview'].includes(request.operation) });
     if (body.seminar || body.seminarRegistrations) setData(current => {
       const next = {...current};
       if (body.seminar) next.seminars = upsertCrmItem(current.seminars || [], normaliseSeminar(body.seminar));
@@ -3113,7 +3126,7 @@ export default function App() {
       if (!visible) return;
       let delay = delayOverride;
       if (delay === null) {
-        if (chatDrawerOpen) {
+        if (chatDrawerOpen && chatChannel==='website') {
           delay = 3000;
         } else if (attentionPolicy.shouldPoll === false) {
           const nextCheckAt = Date.parse(attentionPolicy.nextCheckAt || '');
@@ -3131,7 +3144,7 @@ export default function App() {
       if (stopped || running) return;
       running = true;
       try {
-        if (chatDrawerOpen) {
+        if (chatDrawerOpen && chatChannel==='website') {
           await loadChatSnapshot({ silent: true, conversationId: chatSelectedId });
         } else {
           const result = await loadChatAttention();
@@ -3168,7 +3181,7 @@ export default function App() {
     // Visible tabs use Blob-backed attention markers. Hidden tabs and logged-out sessions do not poll.
     // Outside hours with no open work, checking sleeps until the next opening time and wakes on focus or reconnection.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, authRequired, identityUser?.id, identityUser?.email, accessCode, chatDrawerOpen, chatSelectedId, chatPollingWakeKey, data.advisers.length]);
+  }, [loading, authRequired, identityUser?.id, identityUser?.email, accessCode, chatDrawerOpen, chatChannel, chatSelectedId, chatPollingWakeKey, data.advisers.length]);
 
   useEffect(() => {
     if (loading || authRequired || chatDeepLinkHandledRef.current) return;
@@ -3180,6 +3193,7 @@ export default function App() {
     }
     chatDeepLinkHandledRef.current = true;
     setChatSelectedId(conversationId);
+    setChatChannel('website');
     setChatDrawerOpen(true);
     loadChatSnapshot({ silent: true, conversationId, forceList: true });
     url.searchParams.delete('chat');
@@ -3293,6 +3307,7 @@ export default function App() {
   }
 
   return (
+    <TeamChatProvider key={identityUser?.id||identityUser?.email||data.accessContext?.adviserId||'staff-access'} request={callTeamApi} enabled={!loading&&!authRequired&&Boolean(identityUser||accessCode)&&Boolean(data.advisers?.length)} onUnread={setTeamUnreadCount}>
     <div className={`app-shell matter-workspace-v17 calm-ui ${festiveActive ? 'festive-mode' : ''} ${adviserPreferences.density === 'compact' ? 'density-compact' : 'density-standard'}`}>
       <MatterWorkspaceSidebar
         tab={tab}
@@ -3325,7 +3340,7 @@ export default function App() {
 
 
 
-          <button className={`btn ghost compact-action live-chat-header-button ${liveChatAttentionCount > 0 ? 'has-waiting' : ''}`} type="button" onClick={() => openChatDrawer()}><MessageSquare size={16} />Chat{liveChatAttentionCount > 0 && <span key={liveChatAttentionCount} className="live-chat-header-badge" aria-live="polite">{liveChatAttentionCount}</span>}</button>
+          <button className={`btn ghost compact-action live-chat-header-button ${liveChatAttentionCount+teamUnreadCount > 0 ? 'has-waiting' : ''}`} type="button" onClick={() => openChatDrawer()}><MessageSquare size={16} />Chat{liveChatAttentionCount+teamUnreadCount > 0 && <span key={liveChatAttentionCount+teamUnreadCount} className="live-chat-header-badge" aria-live="polite">{liveChatAttentionCount+teamUnreadCount}</span>}</button>
           <button className="btn ghost compact-action" onClick={() => { setSupportOpen(false); setToolsOpen(true); setNewMenuOpen(false); }}><Wrench size={16} />Tools</button>
           <div className="dropdown-shell new-action-shell">
             <button className="btn dark" type="button" onClick={() => setNewMenuOpen((open) => !open)}><Plus size={16} />New <ChevronDown size={15} /></button>
@@ -3343,7 +3358,7 @@ export default function App() {
         </div>
         <div className="mobile-header-actions mobile-only">
           <button className="mobile-app-icon-button" type="button" onClick={async () => (await switchTab('clients'))} aria-label="Search clients"><Search size={19} /></button>
-          <button className={`mobile-app-icon-button live-chat-mobile-button ${liveChatAttentionCount > 0 ? 'has-waiting' : ''}`} type="button" onClick={() => openChatDrawer()} aria-label="Open live chat"><MessageSquare size={19} />{liveChatAttentionCount > 0 && <span key={liveChatAttentionCount} className="live-chat-header-badge" aria-live="polite">{liveChatAttentionCount}</span>}</button>
+          <button className={`mobile-app-icon-button live-chat-mobile-button ${liveChatAttentionCount+teamUnreadCount > 0 ? 'has-waiting' : ''}`} type="button" onClick={() => openChatDrawer()} aria-label="Open team and website chat"><MessageSquare size={19} />{liveChatAttentionCount+teamUnreadCount > 0 && <span key={liveChatAttentionCount+teamUnreadCount} className="live-chat-header-badge" aria-live="polite">{liveChatAttentionCount+teamUnreadCount}</span>}</button>
           <button className="mobile-profile-button" type="button" onClick={() => setPersonalisationOpen(true)} aria-label="Open my CRM view settings"><AdviserAvatar adviser={identityAdviser || headerSnapshotAdviser || {}} size="sm" /></button>
         </div>
       </header>
@@ -3590,6 +3605,8 @@ export default function App() {
       />
       <SupportDrawer open={supportOpen} onOpen={() => { setToolsOpen(false); setSupportOpen(true); }} onClose={() => setSupportOpen(false)} tab={tab} />
       <LiveChatWorkspace
+        channel={chatChannel} onChannelChange={setChatChannel} teamUnread={teamUnreadCount}
+        teamPanel={<TeamChatPanel active={chatDrawerOpen&&chatChannel==='team'} clients={data.clients||[]} commercialClients={data.commercialClients||[]} onFileSaved={refreshData}/>}
         open={chatDrawerOpen}
         onClose={() => setChatDrawerOpen(false)}
         snapshot={chatSnapshot}
@@ -3692,6 +3709,7 @@ export default function App() {
       )}
       {crmConfirm && <CrmConfirmDialog dialog={crmConfirm} onResolve={resolveCrmConfirm} />}
     </div>
+    </TeamChatProvider>
   );
 
 }
@@ -4844,7 +4862,7 @@ function CommercialPortalUserEditor({ user, saving, onClose, onSave }) {
 }
 
 function CommercialAuditTrail({ client }) {
-  return <section className="panel commercial-register-panel"><div className="commercial-panel-head"><div><span>Audit history</span><h3>Recent activity</h3><p>Changes made by Turner Hopkins and employer portal users.</p></div></div><div className="commercial-audit-list">{(client.auditLog || []).map((item) => <article key={item.id}><span className="commercial-audit-icon"><Clock size={15} /></span><div><strong>{item.summary || `${item.action} ${item.recordType}`}</strong><span>{item.changedByType}{item.changedBy ? ` · ${item.changedBy}` : ''}</span></div><time>{formatDateTime(item.createdAt)}</time></article>)}{!(client.auditLog || []).length && <div className="commercial-empty-mini">No activity has been recorded yet.</div>}</div></section>;
+  return <section className="panel commercial-register-panel"><div className="commercial-panel-head"><div><span>Audit history</span><h3>Recent activity</h3><p>Changes made by Turner Hopkins and employer portal users.</p></div></div><TeamFileNotes targetKind="commercial" targetId={client.id}/><div className="commercial-audit-list">{(client.auditLog || []).map((item) => <article key={item.id}><span className="commercial-audit-icon"><Clock size={15} /></span><div><strong>{item.summary || `${item.action} ${item.recordType}`}</strong><span>{item.changedByType}{item.changedBy ? ` · ${item.changedBy}` : ''}</span></div><time>{formatDateTime(item.createdAt)}</time></article>)}{!(client.auditLog || []).length && <div className="commercial-empty-mini">No activity has been recorded yet.</div>}</div></section>;
 }
 
 function CommercialEditorModal({title,eyebrow,onClose,children,saving=false}) {
@@ -9104,6 +9122,7 @@ function makeBlankSeminar() {
     seminarTime: '',
     timezone: 'Pacific/Auckland',
     presenterName: '',
+    presenterEmail:'',presenterBookingUrl:'',
     zoomLink: '',
     zoomPassword: '',
     status: 'Active',
@@ -9113,6 +9132,7 @@ function makeBlankSeminar() {
 }
 
 function SeminarManagementPanel({ seminars = [], registrations = [], relatedSources = [], saveSeminar, deleteSeminar, saveSeminarRegistration, seminarBulk, sendSeminarRegistrationEmail, saving, confirmAction }) {
+  const [followupRequest,setFollowupRequest]=useState(null);
   const askConfirm = confirmAction || (options => window.THIS_DIALOG.confirm(options));
   const sortedSeminars = [...seminars].map(normaliseSeminar).sort((a, b) => String(b.seminarDate || '').localeCompare(String(a.seminarDate || '')) || String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
   const activeSeminar = sortedSeminars.find((item) => item.status === 'Active') || sortedSeminars[0] || null;
@@ -9335,6 +9355,7 @@ function SeminarManagementPanel({ seminars = [], registrations = [], relatedSour
       </div>
 
       <SeminarBulkTools seminar={bulkSeminar} approvedCount={approvedRegistrations.length} onAction={seminarBulk} confirmAction={askConfirm} onArchived={() => setRegistrationFilter('Archived')} />
+      <SeminarFollowupTools seminar={bulkSeminar} seminars={seminars} registrations={registrations} request={followupRequest} onAction={seminarBulk} confirmAction={confirmAction|| (options=>window.THIS_DIALOG.confirm(options))}/>
 
       <div className="seminar-registration-list enquiry-queue-list">
         {visibleRegistrations.map((registration) => {
@@ -9359,6 +9380,7 @@ function SeminarManagementPanel({ seminars = [], registrations = [], relatedSour
 <button className="btn dark queue-primary-action" type="button" onClick={() => sendRegistrationEmail(registration, 'approve')} disabled={saving || sendingId === registration.id || !registration.email}><Mail size={16} />{sendingId === registration.id ? 'Sending...' : 'Approve'}</button>
                   <button className="btn danger ghost" type="button" onClick={() => sendRegistrationEmail(registration, 'decline')} disabled={saving || sendingId === registration.id || !registration.email}>Decline</button>
                   </>}
+                  {(registration.status==='Approved'||registration.status==='Archived'&&registration.rawPayload?.seminarArchive?.previousStatus==='Approved')&&<button className="btn" type="button" disabled={saving||!registration.email} onClick={()=>setFollowupRequest({seminarId:registration.seminarId,registrationId:registration.id,key:Date.now()})}><Mail size={15}/>Booking invitation</button>}
                   <button className="btn queue-details-button" type="button" onClick={() => setExpandedRegistrationId(isExpanded ? '' : registration.id)}>{isExpanded ? 'Hide' : 'Details'}</button>
                   {registration.status !== 'Archived' && <QueueMoreMenu label={`More actions for ${registration.fullName || 'registrant'}`}>
                       {registration.status !== 'Spam / Duplicate' ? <button type="button" onClick={() => markRegistration(registration, 'Spam / Duplicate')} disabled={saving}>Mark spam / duplicate</button> : <button type="button" onClick={() => markRegistration(registration, 'New')} disabled={saving}>Restore to New</button>}
@@ -9415,6 +9437,8 @@ function SeminarManagementPanel({ seminars = [], registrations = [], relatedSour
               <SelectField label="Status" value={seminarDraft.status} onChange={(v) => setSeminarField('status', v)} options={SEMINAR_STATUSES} />
               <Field label="Seminar title" value={seminarDraft.title} onChange={(v) => setSeminarField('title', v)} />
               <Field label="Presenter name" value={seminarDraft.presenterName} onChange={(v) => setSeminarField('presenterName', v)} />
+              <Field label="Presenter email" value={seminarDraft.presenterEmail} onChange={(v)=>setSeminarField('presenterEmail',v)}/>
+              <Field label="Presenter booking link (optional)" value={seminarDraft.presenterBookingUrl} onChange={(v)=>setSeminarField('presenterBookingUrl',v)}/>
               <DateField label="Seminar date (NZ time)" value={seminarDraft.seminarDate} onChange={(v) => setSeminarField('seminarDate', v)} />
               <TimeField label="Seminar time" value={seminarDraft.seminarTime} onChange={(v) => setSeminarField('seminarTime', v)} />
               <SelectField label="Reference timezone" value={seminarDraft.timezone || 'Pacific/Auckland'} onChange={(v) => setSeminarField('timezone', v)} options={SEMINAR_TIMEZONE_OPTIONS} />
@@ -11429,7 +11453,25 @@ const TOOL_TIMEZONES = [
 ];
 
 
-function LiveChatWorkspace({ open, onClose, snapshot = {}, selectedId = '', onSelect, onRefresh, onClaim, onRelease, onSend, onAddNote, onCloseConversation, onReopen, onDeleteClosed, onSendIntake, busy = false, error = '' }) {
+function LiveChatWorkspace({ channel='website',onChannelChange,teamUnread=0,teamPanel,open, onClose, snapshot = {}, selectedId = '', onSelect, onRefresh, onClaim, onRelease, onSend, onAddNote, onCloseConversation, onReopen, onDeleteClosed, onSendIntake, busy = false, error = '' }) {
+  const workspaceRef=useRef(null),closeRef=useRef(onClose);closeRef.current=onClose;
+  useEffect(()=>{
+    if(!open)return;
+    const previous=document.activeElement,node=workspaceRef.current;
+    node?.querySelector('[aria-label="Close chat"]')?.focus({preventScroll:true});
+    const key=event=>{
+      if(document.querySelector('dialog[open]'))return;
+      if(event.key==='Escape'){event.preventDefault();closeRef.current?.();return;}
+      if(event.key!=='Tab')return;
+      const items=[...node.querySelectorAll('button,input,select,textarea,a[href],[tabindex]')].filter(e=>!e.disabled&&e.tabIndex>=0&&e.getClientRects().length);
+      if(!items.length){event.preventDefault();node.focus();return;}
+      const first=items[0],last=items.at(-1);
+      if(event.shiftKey&&(document.activeElement===first||!node.contains(document.activeElement))){event.preventDefault();last.focus();}
+      else if(!event.shiftKey&&(document.activeElement===last||!node.contains(document.activeElement))){event.preventDefault();first.focus();}
+    };
+    document.addEventListener('keydown',key);
+    return()=>{document.removeEventListener('keydown',key);if(previous?.isConnected)previous.focus({preventScroll:true});};
+  },[open]);
   const [view, setView] = useState('waiting');
   const [composerMode, setComposerMode] = useState('reply');
   const [draft, setDraft] = useState('');
@@ -11478,22 +11520,25 @@ function LiveChatWorkspace({ open, onClose, snapshot = {}, selectedId = '', onSe
     window.requestAnimationFrame(() => composerRef.current?.focus());
   }
 
-  if (!open) return null;
+
   return (
     <>
-      <div className="live-chat-crm-overlay open" onClick={onClose} />
-      <aside className="live-chat-crm-drawer open" aria-label="Website live chat workspace">
+      <div hidden={!open} className="live-chat-crm-overlay open" onClick={onClose} />
+      <aside ref={workspaceRef} tabIndex={-1} hidden={!open} className="live-chat-crm-drawer open" role="dialog" aria-modal="true" aria-label="Team and website chat workspace">
         <header className="live-chat-crm-head">
           <div>
-            <span>Website enquiries</span>
-            <h2>Live chat</h2>
-            <small>{snapshot.availability?.isOpen ? 'Widget open now' : snapshot.availability?.nextOpenLabel ? `Message mode · next opens ${snapshot.availability.nextOpenLabel}` : 'Message mode'}</small>
+            <span>{channel==='team'?'Internal staff messaging':'Website enquiries'}</span>
+            <h2>Chat</h2>
+            <small>{channel==='team'?'Direct messages and team conversations':snapshot.availability?.isOpen ? 'Widget open now' : snapshot.availability?.nextOpenLabel ? `Message mode · next opens ${snapshot.availability.nextOpenLabel}` : 'Message mode'}</small>
           </div>
           <div className="live-chat-crm-head-actions">
-            <button className="icon-btn" type="button" onClick={onRefresh} aria-label="Refresh live chat"><RefreshCw size={17} /></button>
-            <button className="icon-btn" type="button" onClick={onClose} aria-label="Close live chat"><X size={18} /></button>
+            {channel==='website'&&<button className="icon-btn" type="button" onClick={onRefresh} aria-label="Refresh website chat"><RefreshCw size={17} /></button>}
+            <button className="icon-btn" type="button" onClick={onClose} aria-label="Close chat"><X size={18} /></button>
           </div>
         </header>
+        <nav className="team-chat-channel-tabs" aria-label="Chat channels"><button type="button" className={channel==='team'?'active':''} aria-pressed={channel==='team'} onClick={()=>onChannelChange?.('team')}>Team{teamUnread>0&&<b>{teamUnread}</b>}</button><button type="button" className={channel==='website'?'active':''} aria-pressed={channel==='website'} onClick={()=>onChannelChange?.('website')}>Website{Number(snapshot.counts?.waiting||0)+Number(snapshot.counts?.unread||0)>0&&<b>{Number(snapshot.counts?.waiting||0)+Number(snapshot.counts?.unread||0)}</b>}</button></nav>
+        {teamPanel}
+        {channel==='website'&&<>
         {error && <div className="live-chat-crm-error"><AlertTriangle size={16} />{error}</div>}
         <div className="live-chat-crm-tabs" role="tablist">
           <button type="button" className={view === 'waiting' ? 'active' : ''} onClick={() => setView('waiting')}>Waiting <span>{Number(snapshot.counts?.waiting || 0)}</span></button>
@@ -11587,6 +11632,7 @@ function LiveChatWorkspace({ open, onClose, snapshot = {}, selectedId = '', onSe
             )}
           </section>
         </div>
+        </>}
       </aside>
     </>
   );
@@ -12296,7 +12342,7 @@ function buildEmailTemplateSampleData(templateKey = '', placeholders = []) {
     signatoryName: 'Sarah Patel',
     agreementTitle: 'Skilled Migrant Category engagement agreement',
     matter: 'your Skilled Migrant Category residence pathway',
-    agreementLink: 'https://thisvisacrm.netlify.app/agreement-studio.html?token=sample-preview',
+    agreementLink: 'https://thisvisacrm.netlify.app/agreement.html?token=sample-preview',
     expiryDate: '31 August 2026',
   };
   const values = { ...common };
@@ -14853,7 +14899,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div><small>{studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.86" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.89" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -15454,7 +15500,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.86" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.89" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}
@@ -16018,6 +16064,7 @@ The portal is a secure, read-only space where you can check application updates,
         {activeClientSection === 'history' && (
           <div className="client-workspace-section-stack">
             <ClientWorkspaceIntro title="Actions and timeline" description="Manage the current next action, review previous scheduled actions and open the full timeline." />
+            <TeamFileNotes targetKind="individual" targetId={client.id}/>
             <section className="sub-panel workspace-panel">
               <div className="sub-panel-head compact"><div><h2>Current bring-up</h2><p className="muted">Changing this action and saving will preserve the previous scheduled action in the action log.</p></div><div className="button-row"><button className="btn" type="button" onClick={() => setShowActionLog(true)}><Clock size={16} />Action log</button><button className="btn" type="button" onClick={() => setShowTimeline(true)}><CalendarDays size={16} />Timeline</button></div></div>
               <div className="form-grid two summary-action-grid">
@@ -18348,7 +18395,7 @@ function MatterActionHistoryPopup({ client, onClose }) {
   const ref=useRef(null);
   const entries=buildMatterTimeline(client);
   useEffect(()=>{const previous=document.activeElement,dialog=ref.current;dialog.showModal();return()=>{dialog.close();if(previous?.isConnected)previous.focus({preventScroll:true});};},[]);
-  return createPortal(<dialog ref={ref} role="dialog" aria-label="Action history" className="matter-action-history-popup" onCancel={event=>{event.preventDefault();onClose();}}><header><div><span>Client action history</span><h2>Action history</h2><p>{clientName(client)}</p></div><button type="button" className="btn" aria-label="Close action history" onClick={onClose}><X size={18}/></button></header><div className="matter-action-history-body"><section className="matter-history-current"><span>Current next action</span><strong>{client.nextAction||'No next action set'}</strong><small>{matterWorkDate(client)?formatRecordDate(matterWorkDate(client)):'No date set'}</small></section><p className="calm-field-help">Previous scheduled actions and recorded matter updates, newest first.</p><ol>{entries.map(item=><li key={item.id}><div><strong>{item.title}</strong><time>{item.createdAt?formatPortalDateTime(item.createdAt):'Date not recorded'}</time></div>{item.detail&&<p>{item.detail}</p>}{item.createdBy&&<small>{item.createdBy}</small>}</li>)}</ol>{!entries.length&&<p className="muted">No historical actions have been recorded yet.</p>}</div><footer><button type="button" className="btn" onClick={onClose}>Close history</button></footer></dialog>,document.body);
+  return createPortal(<dialog ref={ref} role="dialog" aria-label="Action history" className="matter-action-history-popup" onCancel={event=>{event.preventDefault();onClose();}}><header><div><span>Client action history</span><h2>Action history</h2><p>{clientName(client)}</p></div><button type="button" className="btn" aria-label="Close action history" onClick={onClose}><X size={18}/></button></header><div className="matter-action-history-body"><section className="matter-history-current"><span>Current next action</span><strong>{client.nextAction||'No next action set'}</strong><small>{matterWorkDate(client)?formatRecordDate(matterWorkDate(client)):'No date set'}</small></section><TeamFileNotes targetKind={isCommercialMatterRecord(client)?'commercial':'individual'} targetId={commercialMatterSourceId(client)}/><p className="calm-field-help">Previous scheduled actions and recorded matter updates, newest first.</p><ol>{entries.map(item=><li key={item.id}><div><strong>{item.title}</strong><time>{item.createdAt?formatPortalDateTime(item.createdAt):'Date not recorded'}</time></div>{item.detail&&<p>{item.detail}</p>}{item.createdBy&&<small>{item.createdBy}</small>}</li>)}</ol>{!entries.length&&<p className="muted">No historical actions have been recorded yet.</p>}</div><footer><button type="button" className="btn" onClick={onClose}>Close history</button></footer></dialog>,document.body);
 }
 
 function NextActionLogModal({ client, onClose }) {
@@ -19840,6 +19887,8 @@ function normaliseSeminar(input = {}) {
     seminarTime: normaliseTimeValue(input.seminarTime || input.seminar_time || ''),
     timezone: input.timezone || 'Pacific/Auckland',
     presenterName: input.presenterName || input.presenter_name || '',
+    presenterEmail: input.presenterEmail || input.presenter_email || '',
+    presenterBookingUrl: input.presenterBookingUrl || input.presenter_booking_url || '',
     zoomLink: input.zoomLink || input.zoom_link || '',
     zoomPassword: input.zoomPassword || input.zoom_password || '',
     status: SEMINAR_STATUSES.includes(input.status) ? input.status : 'Active',
