@@ -14935,7 +14935,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div>{studioLoadError&&<button className="btn" type="button" aria-label="Reload Studio" onClick={retryStudioLoad}><RefreshCw size={16}/>Reload</button>}<small>{studioLoadError || studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.92" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active || studioSessionRef.current.initialised) return; setIframeReady(true); setStudioLoadTick(n=>n+1); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.93" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active || studioSessionRef.current.initialised) return; setIframeReady(true); setStudioLoadTick(n=>n+1); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -15536,7 +15536,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.92" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.93" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}
@@ -15574,6 +15574,7 @@ function ClientEditor({ client, advisers, caseTypes, deadlineTypes, calendarEntr
   const [editingSection,setEditingSection]=useState('');
   const sectionEditable=true;
   const [showActionLog, setShowActionLog] = useState(false);
+  const [showActivityHistory,setShowActivityHistory] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
   const [clientActionsOpen, setClientActionsOpen] = useState(false);
   const [customStageLabel, setCustomStageLabel] = useState('');
@@ -16043,7 +16044,7 @@ The portal is a secure, read-only space where you can check application updates,
   const workspaceSections = [
     { id:'file', label:'Stages & documents', icon:ListChecks },
     { id:'details', label:'Client details', icon:UserRound },
-    { id:'history', label:'History', icon:Clock },
+    { id:'history', label:'Notes & history', icon:Clock },
   ];
   function focusFile(section) { setActiveClientSection('file');requestAnimationFrame(()=>document.getElementById('manage-'+section)?.scrollIntoView({block:'start',behavior:'smooth'})); }
   function chooseSection(section) { setActiveClientSection(sectionFor(section)); setStatusMessage(''); }
@@ -16057,6 +16058,7 @@ The portal is a secure, read-only space where you can check application updates,
       {draft.clientStatus === 'Closed' && <div className="client-closed-banner"><CheckCircle2 size={17} /><div><strong>Closed client record</strong><span>Saved dates and linked work remain on file but are excluded from dashboard and task queues until this client is reopened.</span></div></div>}
 
       {showActionLog && <NextActionLogModal client={draft} onClose={() => setShowActionLog(false)} />}
+      {showActivityHistory && <MatterActionHistoryPopup client={draft} onClose={() => setShowActivityHistory(false)}/>}
       {showTimeline && <ClientTimelineModal client={draft} calendarEntries={calendarEntries} advisers={advisers} onClose={() => setShowTimeline(false)} />}
       {quickClientUpdateOpen && (
         <QuickClientUpdateDrawer
@@ -16099,10 +16101,10 @@ The portal is a secure, read-only space where you can check application updates,
         {activeClientSection === 'details' && <UnifiedClientDetailsEditor embedded draft={draft} snapshot={client} setField={setField} advisers={advisers} caseTypes={caseTypes} addFamilyMember={addFamilyMember} updateFamilyMember={updateFamilyMember} removeFamilyMember={removeFamilyMember} initialSection="personal" saving={saving} />}
         {activeClientSection === 'history' && (
           <div className="client-workspace-section-stack">
-            <ClientWorkspaceIntro title="Actions and timeline" description="Manage the current next action, review previous scheduled actions and open the full timeline." />
-            <TeamFileNotes targetKind="individual" targetId={client.id}/>
+            <ClientWorkspaceIntro title="Action log & activity history" description="File commentary and saved chats are in Action log. Previous scheduled actions and changes are in Activity history." />
+            <button className="btn dark" type="button" onClick={() => setShowActionLog(true)}><MessageSquare size={16}/>Open action log — file notes & chats</button>
             <section className="sub-panel workspace-panel">
-              <div className="sub-panel-head compact"><div><h2>Current bring-up</h2><p className="muted">Changing this action and saving will preserve the previous scheduled action in the action log.</p></div><div className="button-row"><button className="btn" type="button" onClick={() => setShowActionLog(true)}><Clock size={16} />Action log</button><button className="btn" type="button" onClick={() => setShowTimeline(true)}><CalendarDays size={16} />Timeline</button></div></div>
+              <div className="sub-panel-head compact"><div><h2>Current bring-up</h2><p className="muted">Changing this action and saving will preserve the previous scheduled action in Activity history.</p></div><div className="button-row"><button className="btn" type="button" onClick={() => setShowActionLog(true)}><MessageSquare size={16} />Action log</button><button className="btn" type="button" onClick={() => setShowActivityHistory(true)}><Clock size={16}/>Activity history</button><button className="btn" type="button" onClick={() => setShowTimeline(true)}><CalendarDays size={16} />Timeline</button></div></div>
               <div className="form-grid two summary-action-grid">
                 <TextArea label="Next action" value={draft.nextAction} onChange={(v) => setField('nextAction', v)} rows={5} />
                 <DateField label="Next action date" value={draft.nextActionDue} onChange={(v) => setField('nextActionDue', v)} />
@@ -17709,7 +17711,7 @@ function ClientSummaryPanel({ draft, advisers = [], onOpenQuickEditor, onOpenFul
       <div className="client-profile-summary-list">
         {sections.map((section) => { const Icon=section.icon; return <article className="client-profile-summary-row" key={section.id}><span className={`inline-client-record-icon tone-${section.id}`}><Icon size={17}/></span><div><span>{section.title}</span><strong>{section.summary}</strong>{section.detail&&<small>{section.detail}</small>}</div><button className="btn ghost mini" type="button" onClick={() => onOpenQuickEditor?.(section.id)}><Pencil size={13}/>Edit</button></article>; })}
       </div>
-      <div className="client-file-tools"><span>File tools</span><div><button className="btn ghost mini" type="button" onClick={onOpenActionLog}><Clock size={15} />Action log <b>{normaliseNextActionLog(draft.nextActionLog).length}</b></button><button className="btn ghost mini" type="button" onClick={onOpenTimeline}><CalendarDays size={15} />Timeline <b>{linkedCalendarCount}</b></button><button className="btn ghost mini" type="button" onClick={onPrintProfile}><FileText size={15} />Print profile</button>{link&&<button className="btn ghost mini" type="button" onClick={openLink}><ExternalLink size={15}/>SharePoint</button>}</div></div>
+      <div className="client-file-tools"><span>File tools</span><div><button className="btn ghost mini" type="button" onClick={onOpenActionLog}><Clock size={15} />Action log</button><button className="btn ghost mini" type="button" onClick={onOpenTimeline}><CalendarDays size={15} />Timeline <b>{linkedCalendarCount}</b></button><button className="btn ghost mini" type="button" onClick={onPrintProfile}><FileText size={15} />Print profile</button>{link&&<button className="btn ghost mini" type="button" onClick={openLink}><ExternalLink size={15}/>SharePoint</button>}</div></div>
     </section>
   );
 }
@@ -18349,7 +18351,7 @@ function buildClientProfilePrintHtml(client = {}, calendarEntries = [], advisers
     ${printSection('Current next action', `<p class="preline">${escapeHtml(client.nextAction || 'No current next action recorded.')}</p><p class="muted">Due: ${escapeHtml(profileDate(client.nextActionDue))}</p>`)}
     ${printSection('Case strategy / key issues', `<p class="preline">${escapeHtml(client.caseStrategy || 'No case strategy recorded.')}</p>`)}
     ${printSection('Current progress', renderStageTable(stages))}
-    ${printSection('Full action log', renderActionLogTable(nextActionLog))}
+    ${printSection('Previous scheduled actions', renderActionLogTable(nextActionLog))}
     ${printSection('Client timeline', renderTimelineItems(timelineItems))}
     ${printSection('Calendar appointments', renderCalendarTable(linkedCalendarEntries, advisers))}
     ${printSection('Client deadlines', renderDeadlineTable(client.deadlines || []))}
@@ -18427,56 +18429,24 @@ function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 }
 
-function MatterActionHistoryPopup({ client, onClose }) {
-  const ref=useRef(null);
-  const entries=buildMatterTimeline(client);
+function MatterActionHistoryPopup({ client, onClose, mode = 'history' }) {
+  const ref=useRef(null), isLog=mode==='log';
+  const title=isLog?'Action log':'Activity history';
+  const entries=isLog
+    ? normaliseMatterActivity(client.matterActivity).filter(item=>item.detail && (item.type==='note' || item.type==='workflow' && item.detail!==item.title)).sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')))
+    : buildMatterTimeline(client).filter(item=>!['team-chat-note','note'].includes(item.type)).map(item=>item.type==='workflow'?{...item,detail:''}:item);
   useEffect(()=>{const previous=document.activeElement,dialog=ref.current;dialog.showModal();return()=>{dialog.close();if(previous?.isConnected)previous.focus({preventScroll:true});};},[]);
-  return createPortal(<dialog ref={ref} role="dialog" aria-label="Action history" className="matter-action-history-popup" onCancel={event=>{event.preventDefault();onClose();}}><header><div><span>Client action history</span><h2>Action history</h2><p>{clientName(client)}</p></div><button type="button" className="btn" aria-label="Close action history" onClick={onClose}><X size={18}/></button></header><div className="matter-action-history-body"><section className="matter-history-current"><span>Current next action</span><strong>{client.nextAction||'No next action set'}</strong><small>{matterWorkDate(client)?formatRecordDate(matterWorkDate(client)):'No date set'}</small></section><TeamFileNotes targetKind={isCommercialMatterRecord(client)?'commercial':'individual'} targetId={commercialMatterSourceId(client)}/><p className="calm-field-help">Previous scheduled actions and recorded matter updates, newest first.</p><ol>{entries.map(item=><li key={item.id}><div><strong>{item.title}</strong><time>{item.createdAt?formatPortalDateTime(item.createdAt):'Date not recorded'}</time></div>{item.detail&&<p>{item.detail}</p>}{item.createdBy&&<small>{item.createdBy}</small>}</li>)}</ol>{!entries.length&&<p className="muted">No historical actions have been recorded yet.</p>}</div><footer><button type="button" className="btn" onClick={onClose}>Close history</button></footer></dialog>,document.body);
+  return createPortal(<dialog ref={ref} role="dialog" aria-label={title} className="matter-action-history-popup" onCancel={event=>{event.preventDefault();onClose();}}><header><div><span>{isLog?'File notes & saved chats':'Actions, dates & status changes'}</span><h2>{title}</h2><p>{clientName(client)}</p></div><button type="button" className="btn" aria-label={'Close '+title.toLowerCase()} onClick={onClose}><X size={18}/></button></header><div className="matter-action-history-body">
+    <p className="calm-field-help">{isLog?'Day-to-day commentary and team conversations saved to this file. Add commentary using Internal note in Update matter.':'Previous scheduled actions and recorded changes to the matter, newest first. File commentary and saved chats are in Action log.'}</p>
+    {!isLog&&<section className="matter-history-current"><span>Current next action</span><strong>{client.nextAction||'No next action set'}</strong><small>{matterWorkDate(client)?formatRecordDate(matterWorkDate(client)):'No date set'}</small></section>}
+    {isLog&&<TeamFileNotes targetKind={isCommercialMatterRecord(client)?'commercial':'individual'} targetId={commercialMatterSourceId(client)}/>}
+    {isLog&&<h3>File commentary</h3>}
+    <ol>{entries.map(item=><li key={item.id}><div><strong>{item.title}</strong><time>{item.createdAt?formatPortalDateTime(item.createdAt):'Date not recorded'}</time></div>{item.detail&&<p>{item.detail}</p>}{item.createdBy&&<small>{item.createdBy}</small>}</li>)}</ol>{!entries.length&&<p className="muted">{isLog?'No file commentary recorded yet.':'No activity recorded yet.'}</p>}
+    </div><footer><button type="button" className="btn" onClick={onClose}>Close {isLog?'action log':'history'}</button></footer></dialog>,document.body);
 }
 
 function NextActionLogModal({ client, onClose }) {
-  const log = normaliseNextActionLog(client.nextActionLog)
-    .sort((a, b) => String(b.completedAt || b.completedDate || '').localeCompare(String(a.completedAt || a.completedDate || '')));
-
-  return (
-    <div className="modal-layer" role="dialog" aria-modal="true" aria-label="Next action log">
-      <div className="modal-backdrop" onClick={onClose} />
-      <section className="modal-card action-log-modal">
-        <div className="modal-head">
-          <div>
-            <span>Client action history</span>
-            <h2>Next action log</h2>
-            <p className="muted">Stored record of previous scheduled next actions for {client.firstName || 'this'} {client.lastName || 'client'}.</p>
-          </div>
-          <button className="icon-btn" type="button" onClick={onClose} aria-label="Close next action log"><X size={18} /></button>
-        </div>
-
-        <div className="current-action-card">
-          <span>Current next action</span>
-          <strong>{client.nextAction || 'No current next action recorded.'}</strong>
-          <small>{client.nextActionDue ? `Due ${client.nextActionDue}` : 'No current due date.'}</small>
-        </div>
-
-        <div className="action-log-list">
-          {log.map((item) => (
-            <div className="action-log-row" key={item.id}>
-              <div className="action-log-date">
-                <strong>{item.completedDate || 'No completion date'}</strong>
-                <small>{item.dueDate ? `Was due ${item.dueDate}` : 'No due date'}</small>
-              </div>
-              <div>
-                <p>{item.action || 'No action text recorded.'}</p>
-                {(item.replacedByAction || item.replacedByDueDate) && (
-                  <small>Next scheduled: {item.replacedByAction || 'No action text'}{item.replacedByDueDate ? `, due ${item.replacedByDueDate}` : ''}</small>
-                )}
-              </div>
-            </div>
-          ))}
-          {!log.length && <p className="muted center">No previous next actions have been logged yet. The current next action will be added here after it is changed and the client record is saved.</p>}
-        </div>
-      </section>
-    </div>
-  );
+  return <MatterActionHistoryPopup client={client} mode="log" onClose={onClose}/>;
 }
 
 
@@ -20704,7 +20674,7 @@ function buildClientTimelineItems(client = {}, calendarEntries = [], advisers = 
     items.push({
       id: `${clientId}-action-log-${item.id}`,
       date: item.completedDate || item.dueDate || '',
-      category: 'Next action log',
+      category: 'Previous scheduled actions',
       title: item.action || 'Previous next action',
       detail: item.replacedByAction ? `Replaced by: ${item.replacedByAction}` : 'Previous scheduled action was replaced or completed.',
       meta: [item.dueDate ? `Was due ${item.dueDate}` : '', item.replacedByDueDate ? `New due date ${item.replacedByDueDate}` : ''].filter(Boolean).join(' · '),
@@ -21102,6 +21072,7 @@ function CalmMatterUpdate({ client, adviser, advisers = [], onClose, onOpenFullC
   const [busy,setBusy]=useState(false);
   const [changed,setChanged]=useState(false);
   const [historyOpen,setHistoryOpen]=useState(false);
+  const [actionLogOpen,setActionLogOpen]=useState(false);
   const pinned=latestPinnedMatterNote(client);
   const [pinText,setPinText]=useState(pinned?.detail||'');
   const [pinEditing,setPinEditing]=useState(false);
@@ -21160,7 +21131,8 @@ function CalmMatterUpdate({ client, adviser, advisers = [], onClose, onOpenFullC
       <div><dt>Main adviser</dt><dd>{advisers.find(a=>a.id===client.primaryAdviserId)?.name||'Unassigned'}</dd></div>
       {client.backupAdviserId&&<div><dt>Backup adviser</dt><dd>{advisers.find(a=>a.id===client.backupAdviserId)?.name||'Not available'}</dd></div>}
       {keyDate&&<div className="snapshot-wide"><dt>Key date · {keyDate.type||'Matter deadline'}</dt><dd>{formatRecordDate(keyDate.date)}{keyDate.note&&<small>{keyDate.note}</small>}</dd></div>}
-    </dl><div className="matter-snapshot-actions"><button type="button" className="btn snapshot-open-client" disabled={busy||saving} onClick={()=>manageSection()}><ListChecks size={16}/>Stages & documents</button><button type="button" className="btn" disabled={busy||saving} onClick={()=>setHistoryOpen(true)}><Clock size={16}/>Action history</button>{!commercial&&<button type="button" className="btn" disabled={busy||saving} onClick={()=>manageSection('details')}><Pencil size={16}/>Client details</button>}</div>{!commercial&&normaliseDocumentChecklist(client.documentChecklist).some(item=>item.expiryDate&&!['historical','completed'].includes(normaliseDeadlineActionStatus(item.actionStatus)))&&<button className="btn work-expiry-bulk" type="button" disabled={busy||saving} onClick={silenceDocumentExpiries}>Silence document expiry reminders</button>}</section>}
+    </dl><div className="matter-snapshot-actions"><button type="button" className="btn snapshot-action-log" disabled={busy||saving} onClick={()=>setActionLogOpen(true)}><MessageSquare size={16}/><span>Action log<small>File notes & chats</small></span></button><button type="button" className="btn snapshot-open-client" disabled={busy||saving} onClick={()=>manageSection()}><ListChecks size={16}/>Stages & documents</button><button type="button" className="btn" disabled={busy||saving} onClick={()=>setHistoryOpen(true)}><Clock size={16}/><span>Activity history<small>Actions & changes</small></span></button>{!commercial&&<button type="button" className="btn" disabled={busy||saving} onClick={()=>manageSection('details')}><Pencil size={16}/>Client details</button>}</div>{!commercial&&normaliseDocumentChecklist(client.documentChecklist).some(item=>item.expiryDate&&!['historical','completed'].includes(normaliseDeadlineActionStatus(item.actionStatus)))&&<button className="btn work-expiry-bulk" type="button" disabled={busy||saving} onClick={silenceDocumentExpiries}>Silence document expiry reminders</button>}</section>}
+    {actionLogOpen&&<MatterActionHistoryPopup client={client} mode="log" onClose={()=>setActionLogOpen(false)}/>}
     {historyOpen&&<MatterActionHistoryPopup client={client} onClose={()=>setHistoryOpen(false)}/>}
     <div className="calm-current-status"><span>Current status</span><strong>{client.matterStatus || 'No current action'}</strong></div>
     <div className="calm-form-stack">
@@ -21172,7 +21144,7 @@ function CalmMatterUpdate({ client, adviser, advisers = [], onClose, onOpenFullC
       {waiting&&<p className="calm-field-help">The matter returns to My Work on its review date.</p>}
       {!commercial&&<details><summary>Matter stage</summary><label className="field"><span>Stage</span><select value={stageId} onChange={e=>update(setStageId,e.target.value)}><option value="">Keep current stage</option>{stages.map(s=><option value={s.id} key={s.id}>{s.label}</option>)}</select></label></details>}
       {!commercial&&client.portalEnabled&&<><label className="calm-check"><input type="checkbox" checked={publish} onChange={e=>update(setPublish,e.target.checked)}/>Publish an update to the client portal</label>{publish&&<><label className="field"><span>Client update</span><textarea rows="3" value={portalCurrent} onChange={e=>update(setPortalCurrent,e.target.value)}/></label><label className="field"><span>Next step for the client</span><textarea rows="3" value={portalNext} onChange={e=>update(setPortalNext,e.target.value)}/></label></>}</>}
-      {error&&<p className="inline-error" role="alert">{error}</p>}<p className="calm-field-help">Adds an entry to the matter activity.</p>
+      {error&&<p className="inline-error" role="alert">{error}</p>}<p className="calm-field-help">Saves your commentary to Action log and records the action change in Activity history.</p>
     </div>
   </SidePanel>;
 }
