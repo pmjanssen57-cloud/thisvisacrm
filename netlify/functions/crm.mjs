@@ -1,3 +1,4 @@
+import { validateApprovalEdit } from './_intake-pathways.mjs';
 import { ensureFollowupSchema, followupOperations } from './_seminar-followup.mjs';
 import { seminarOperations, dispatchReminders } from './_seminar-reminders.mjs';
 import { studioLibrary } from './_studio-library.mjs';
@@ -778,7 +779,7 @@ async function handleCrmEvent(event) {
     }
 
     if (action === 'sendIntakeOutcomeEmail') {
-      const emailLog = await sendIntakeOutcomeEmail(body.intake || {}, body.outcome || 'approve', auth.user);
+      const emailLog = await sendIntakeOutcomeEmail(body.intake || {}, body.outcome || 'approve', auth.user, body.approvalEmail);
       return json({ emailLog, emailConfig: getEmailConfigStatus() });
     }
 
@@ -6040,7 +6041,8 @@ async function sendIntakeResultsToAdviser(input = {}, summaryInput = {}, authUse
   }
 }
 
-async function sendIntakeOutcomeEmail(input = {}, outcome = 'approve', authUser = null) {
+async function sendIntakeOutcomeEmail(input = {}, outcome = 'approve', authUser = null, approvalEmail = null) {
+  const editedApproval = outcome === 'approve' && approvalEmail ? validateApprovalEdit(approvalEmail) : null;
   const intake = normaliseIntakeInput(input);
   if (!isValidEmailAddress(intake.email)) throw new Error('This intake record does not have a valid applicant email address.');
 
@@ -6048,6 +6050,11 @@ async function sendIntakeOutcomeEmail(input = {}, outcome = 'approve', authUser 
   const adviser = advisers.find((item) => String(item.id || '') === String(intake.assignedAdviserId || '')) || null;
   const adviserEmail = String(adviser?.email || '').trim();
   const database = db();
+  if (editedApproval) {
+    if (!isUuid(intake.id) || !isUuid(adviser?.id) || !isValidEmailAddress(adviserEmail) || !intake.recommendedPathway) throw Error('Choose a saved assessment, recommended pathway and assigned adviser with an email address.');
+    const updated = await database.sql`UPDATE intake_enquiries SET recommended_pathway=${intake.recommendedPathway}, assigned_adviser_id=${adviser.id}, updated_at=NOW() WHERE id=${intake.id} RETURNING id`;
+    if (!updated.length) throw Error('Assessment no longer exists. Refresh before sending.');
+  }
   const bookingLink = outcome === 'decline' ? null : await createBookingLinkForIntakeEmail(intake, adviser, database);
   const bookingLinkUrl = bookingLink?.bookingUrl || '';
   const fallbackDraft = buildIntakeOutcomeEmailContent(intake, adviser, outcome, bookingLinkUrl);
@@ -6063,7 +6070,8 @@ async function sendIntakeOutcomeEmail(input = {}, outcome = 'approve', authUser 
     bookingLink: bookingLinkUrl || '[Booking link]',
     adviserEmail: isValidEmailAddress(adviserEmail) ? adviserEmail : '',
   }, fallbackDraft);
-  const finalEmailContent = outcome === 'decline' ? emailContent : ensureBookingLinkInEmailContent(emailContent, bookingLinkUrl, adviserEmail);
+  const reviewedContent = editedApproval ? { ...editedApproval, bodyHtml: editableTemplateEmailHtml(editedApproval.bodyText) } : emailContent;
+  const finalEmailContent = outcome === 'decline' ? reviewedContent : ensureBookingLinkInEmailContent(reviewedContent, bookingLinkUrl, adviserEmail);
   const emailDraft = { to: fallbackDraft.to, ...finalEmailContent };
 
   const [created] = await database.sql`

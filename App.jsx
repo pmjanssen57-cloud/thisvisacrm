@@ -1,3 +1,4 @@
+import { INTAKE_PATHWAYS, intakeApprovalDraft } from './netlify/functions/_intake-pathways.mjs';
 import SeminarFollowupTools from './src/ui/SeminarFollowupTools.jsx';
 import { TeamChatProvider, TeamChatPanel, TeamFileNotes } from './src/ui/TeamChat.jsx';
 import SeminarBulkTools from './src/ui/SeminarBulkTools.jsx';
@@ -2664,8 +2665,8 @@ export default function App() {
     return body;
   }
 
-  async function sendIntakeOutcomeEmail(intake, outcome) {
-    const body = await callApi('sendIntakeOutcomeEmail', { intake, outcome }, { skipDataUpdate: true });
+  async function sendIntakeOutcomeEmail(intake, outcome, approvalEmail) {
+    const body = await callApi('sendIntakeOutcomeEmail', { intake, outcome, approvalEmail }, { skipDataUpdate: true });
     if (body.emailLog) {
       setData((current) => ({
         ...current,
@@ -9805,6 +9806,10 @@ function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, 
   const canRequestCv = Boolean(draft.email && assignedAdviser?.email && missingCvCount);
   const [outcomeSending, setOutcomeSending] = useState('');
   const [outcomeMessage, setOutcomeMessage] = useState('');
+  const [approvalPreview, setApprovalPreview] = useState(null);
+  const approvalPreviewRef = useRef(null);
+  useEffect(() => { if (approvalPreview) approvalPreviewRef.current?.scrollIntoView({block: 'start'}); }, [Boolean(approvalPreview)]);
+  useEffect(() => { setApprovalPreview(null); }, [draft.id, draft.email, draft.assignedAdviserId, draft.recommendedPathway]);
 
   async function downloadCv(kind, label) {
     setOutcomeMessage('');
@@ -9815,7 +9820,13 @@ function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, 
     }
   }
 
-  async function sendOutcomeEmail(outcome) {
+  async function sendOutcomeEmail(outcome, reviewed = false) {
+    if (outcome === 'approve' && !reviewed) {
+      if (!draft.recommendedPathway) { setOutcomeMessage('Choose a recommended pathway below before preparing the approval email.'); return; }
+      if (!assignedAdviser?.email) { setOutcomeMessage('Assign an adviser with an email address before preparing the booking invitation.'); return; }
+      setApprovalPreview(intakeApprovalDraft(draft, assignedAdviser));
+      setOutcomeMessage(''); return;
+    }
     if (!draft.email) return;
     const label = outcome === 'decline' ? 'decline' : 'approval';
     const confirmed = await askConfirm({
@@ -9829,10 +9840,11 @@ function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, 
     setOutcomeSending(outcome);
     setOutcomeMessage('');
     try {
-      const body = await sendIntakeOutcomeEmail?.(draft, outcome);
+      const body = await sendIntakeOutcomeEmail?.(draft, outcome, outcome === 'approve' ? approvalPreview : undefined);
       if (body?.emailLog?.status === 'Failed') {
         setOutcomeMessage(`${outcome === 'decline' ? 'Decline' : 'Approval'} email failed: ${body.emailLog.failureMessage || 'Microsoft did not accept the send request.'}`);
       } else {
+        setApprovalPreview(null);
         setOutcomeMessage(outcome === 'decline' ? `Decline email sent to ${draft.email}.` : `Approval email sent to ${draft.email}. A booking link was included where an adviser is assigned.`);
       }
     } catch (err) {
@@ -9898,6 +9910,15 @@ function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, 
 
   return (
     <div className="intake-popout-editor">
+      {approvalPreview && <section ref={approvalPreviewRef} className="intake-approval-preview" aria-label="Approval email preview">
+        <h3>Review approval email</h3>
+        <p>To: {draft.email} · Adviser copied: {assignedAdviser?.email}</p>
+        <p>Pathway: {draft.recommendedPathway}. Your secure booking button and adviser contact details will be added when sent.</p>
+        <Field label="Email subject" value={approvalPreview.subject} onChange={value => setApprovalPreview({...approvalPreview, subject:value})} />
+        <TextArea label="Email message" rows={15} value={approvalPreview.bodyText} onChange={value => setApprovalPreview({...approvalPreview, bodyText:value})} />
+        <div className="intake-approval-actions"><button className="btn" type="button" disabled={Boolean(outcomeSending)} onClick={() => setApprovalPreview(null)}>Cancel</button><button className="btn dark" type="button" disabled={Boolean(outcomeSending) || saving || !approvalPreview.subject.trim() || !approvalPreview.bodyText.trim()} onClick={() => sendOutcomeEmail('approve',true)}>{outcomeSending ? 'Sending…' : 'Send approval email'}</button></div>
+      </section>}
+
       <div className="intake-popout-actionbar">
         <div>
           <span className="eyebrow">{isContactIntake(draft) ? 'Contact form enquiry' : 'Assessment questionnaire'}</span>
@@ -9943,7 +9964,7 @@ function IntakePopoutEditor({ draft, advisers, statuses, saving, setDraftField, 
         <div className="form-grid intake-review-grid">
           <SelectField label="Status" value={draft.status} onChange={(value) => setDraftField('status', value)} options={statuses} />
           <SelectField label="Assigned adviser" value={draft.assignedAdviserId} onChange={(value) => setDraftField('assignedAdviserId', value)} options={advisers.map((adviser) => ({ value: adviser.id, label: adviser.name }))} placeholder="Unassigned" />
-          <Field label="Recommended pathway" value={draft.recommendedPathway} onChange={(value) => setDraftField('recommendedPathway', value)} />
+          <SelectField label="Recommended pathway" value={draft.recommendedPathway} onChange={(value) => { setDraftField('recommendedPathway', value); setApprovalPreview(null); }} options={[...INTAKE_PATHWAYS, ...(draft.recommendedPathway && !INTAKE_PATHWAYS.includes(draft.recommendedPathway) ? [draft.recommendedPathway] : [])]} placeholder="Choose a pathway" />
           <Field label="Consultation / outcome" value={draft.consultationOutcome} onChange={(value) => setDraftField('consultationOutcome', value)} />
         </div>
         <TextArea label="Adviser assessment notes" value={draft.adviserAssessmentNotes} onChange={(value) => setDraftField('adviserAssessmentNotes', value)} rows={5} />
@@ -14914,7 +14935,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div>{studioLoadError&&<button className="btn" type="button" aria-label="Reload Studio" onClick={retryStudioLoad}><RefreshCw size={16}/>Reload</button>}<small>{studioLoadError || studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.91" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active || studioSessionRef.current.initialised) return; setIframeReady(true); setStudioLoadTick(n=>n+1); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.92" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active || studioSessionRef.current.initialised) return; setIframeReady(true); setStudioLoadTick(n=>n+1); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -15515,7 +15536,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.91" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.92" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}
