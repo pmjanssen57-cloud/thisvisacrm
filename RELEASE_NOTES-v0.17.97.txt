@@ -1,0 +1,18 @@
+THiS CRM v0.17.97 - Instructions Studio Editing and Document Overview
+12 November 2026
+
+Changes:
+- Selected Cards and Steps now have separate Title and Guidance inputs above the editor. The structured items are protected from accidental rich-text editing.
+- Cards and Steps retain existing sequential numbering, append, move, drag-mode, and remove actions.
+- Master template preview shows a cover and all sections of the current guide, highlighting the edited section and updating as changes are made.
+- Print-like page styling helps review hierarchy, typography, and layout in context.
+
+Important preview limitation:
+- The library preview is a document-wide layout approximation, NOT the production PDF pagination engine. Actual page breaks, resolved client merge fields, cover assets and final A4 output must still be verified in the client Instructions Studio's Live A4 preview before issue.
+
+Files changed: public/studio-library.js, public/studio-library.css, public/instructions-studio.html, public/agreement-studio.html (asset cache version only), package.json.
+No database migration. Existing saved template HTML structure is preserved.
+
+Validation: node --check public/studio-library.js; ZIP integrity verification.
+Browser end-to-end validation and production bundle build have not been completed.
+Rollback: THiS-CRM-v0.17.96.zip.
