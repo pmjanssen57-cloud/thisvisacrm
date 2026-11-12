@@ -1,6 +1,8 @@
 /* Shared Instructions / Agreement library. Client documents are independent copies. */
 (() => {
   'use strict';
+  const managementOnly = new URLSearchParams(location.search).get('library') === '1';
+  if(managementOnly)document.body.classList.add('sl94-management');
   const clone = value => structuredClone(value);
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function clean(value) {
@@ -39,7 +41,7 @@
 
   });
   async function load() {
-    if (!context) throw new Error('Open a document through the CRM first.');
+    if (!context) throw new Error('Open the library through the CRM first.');
     if (!loading) loading = rpc({operation:'read'}).then(value => { if(!Array.isArray(value?.team?.items)||!Array.isArray(value?.personal?.items)||!value.team.masters||!value.personal.masters)throw new Error('Library could not be loaded. Refresh the CRM and try again.');data = value; return value; }).finally(() => { loading = null; });
     return loading;
   }
@@ -51,7 +53,7 @@
     const fingerprint = adapter().fingerprint();
     try {
       await load();
-      if (adapter().isNew(payload) && fingerprint === adapter().fingerprint()) adapter().applyPublished(data.team.masters, true);
+      if (!managementOnly && adapter().isNew(payload) && fingerprint === adapter().fingerprint()) adapter().applyPublished(data.team.masters, true);
     } catch (error) { status = error.message; }
   }
   async function persist(scope, next) {
@@ -71,6 +73,7 @@
     if (busy) return;
     if (editDirty && !(await confirm('Discard the unsaved library edits? The client document is unchanged.'))) return;
     editDirty = false; dialog?.close();
+    if(managementOnly)window.parent.postMessage({type:'THIS_LIBRARY_MANAGER_CLOSED'},location.origin);
   }
   function shell(body) {
     dialog.innerHTML = `<header><div><span class="sl83-eyebrow">${adapter().studio === 'instructions' ? 'Instructions' : 'Agreement'} Studio</span><h2 id="sl83-title">Templates & blocks</h2><p>Maintain the starting point. Tailor a separate copy for each client.</p></div><button type="button" data-close aria-label="Close templates and blocks">Close</button></header><nav aria-label="Library areas">${[['masters','Master templates'],['team','Team blocks'],['personal','My blocks']].map(([id,label])=>`<button type="button" data-tab="${id}" aria-current="${tab===id?'page':'false'}">${label}</button>`).join('')}</nav><div class="sl83-body">${body}</div><footer><span data-status role="status">${esc(status)}</span><button type="button" data-reload>Reload library</button></footer>`;
@@ -195,19 +198,22 @@
     });
     dialog.querySelector('[data-save-master]')?.addEventListener('click',()=>saveMaster(false));dialog.querySelector('[data-publish]')?.addEventListener('click',()=>saveMaster(true));
     dialog.querySelector('[data-apply]').onclick=async()=>{
+      if(managementOnly)return;
       if(adapter().category()!==masterCategory){say('Select the same application type as this client draft before applying a template.',true);return;}
       if(await confirm(adapter().applyMessage)){try{adapter().applyPublished(data.team.masters,false);say('Published template applied to this client draft. Review and save the document.');}catch(e){say(e.message,true);}}
     };
     dialog.querySelectorAll('[data-restore]').forEach(el=>el.onclick=async()=>{if(await confirm('Restore this published version into the editable master draft? Publish again to use it for future documents.')){master=clone(entry.versions.find(v=>v.id===el.dataset.restore).snapshot);docId=Object.keys(master.docs)[0];blockId='intro';editDirty=true;masterForm();}});
   }
   async function capture() {
+    if(managementOnly)return;
     if(adapter().locked?.()){adapter().notify('Issued agreements are preserved. Create a new draft first.');return;}
     await open('personal');if(!data)return;
     try {const value=adapter().capture();if(!value)throw new Error('Select an editable block first.');editBlock({...value,id:uid()},'personal');}catch(e){say(e.message,true);}
   }
-  window.THIS_STUDIO_LIBRARY83 = {open, capture, init, clean, items:()=>data?[...data.personal.items.map(x=>({...x,scope:'personal'})),...data.team.items.map(x=>({...x,scope:'shared'}))]:[], published:category=>data?.team?.masters?.[category]?.published, available:()=>Boolean(data), captureToTeam:async()=>{await open('team');if(data?.canManageTeam){const value=adapter().capture();if(value)editBlock({...value,id:uid()},'team');}}};
+  window.THIS_STUDIO_LIBRARY83 = {open, close, capture, init, clean, items:()=>data?[...data.personal.items.map(x=>({...x,scope:'personal'})),...data.team.items.map(x=>({...x,scope:'shared'}))]:[], published:category=>data?.team?.masters?.[category]?.published, available:()=>Boolean(data), captureToTeam:async()=>{await open('team');if(data?.canManageTeam){const value=adapter().capture();if(value)editBlock({...value,id:uid()},'team');}}};
   function mount() {
     if(new URLSearchParams(location.search).has('token')||!adapter())return;
+    if(managementOnly)return;
     const host=adapter().toolbar();if(!host)return;
     const button=document.createElement('button');button.type='button';button.className='sl83-launch';button.textContent='Templates & blocks';button.onclick=()=>open('personal');host.append(button);
     const save=document.createElement('button');save.type='button';save.className='sl83-launch';save.textContent='Save reusable block';save.onclick=capture;host.append(save);

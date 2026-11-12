@@ -1,3 +1,4 @@
+import StudioTemplateManager from './src/ui/StudioTemplateManager.jsx';
 import { INTAKE_PATHWAYS, intakeApprovalDraft } from './netlify/functions/_intake-pathways.mjs';
 import SeminarFollowupTools from './src/ui/SeminarFollowupTools.jsx';
 import { TeamChatProvider, TeamChatPanel, TeamFileNotes } from './src/ui/TeamChat.jsx';
@@ -14463,6 +14464,7 @@ function StudioWorkspace({
           </section>
         </div>
 
+        <section className="studio-template-entry"><div><h2>Templates &amp; blocks</h2><p>Maintain the content used for new agreements and instructions before opening a client document.</p></div><button className="btn dark" type="button" onClick={() => onSectionChange?.('templates')}><BookOpen size={17}/>Manage templates &amp; blocks</button></section>
         <div className="studio-home-note"><ShieldCheck size={18} /><div><strong>Controlled Studio sessions</strong><span>Editors load only after an explicit action. Closing a Studio ends that editor session before you return to the CRM.</span></div></div>
       </div>
     );
@@ -14474,10 +14476,11 @@ function StudioWorkspace({
         <button className="btn ghost" type="button" onClick={() => onSectionChange?.('home')}><ChevronRight className="studio-back-icon" size={16} />Overview</button>
         <div className="segmented-filter studio-section-switcher">
           <button type="button" className={section === 'agreements' ? 'active' : ''} onClick={() => onSectionChange?.('agreements')}><FileCheck2 size={15} />Agreements</button>
-          <button type="button" className={section === 'instructions' ? 'active' : ''} onClick={() => onSectionChange?.('instructions')}><BookOpen size={15} />Instructions</button>
+          <button type="button" className={section === 'instructions' ? 'active' : ''} onClick={() => onSectionChange?.('instructions')}><BookOpen size={15} />Instructions</button><button type="button" className={section === 'templates' ? 'active' : ''} onClick={() => onSectionChange?.('templates')}><BookOpen size={15}/>Templates &amp; blocks</button>
         </div>
       </div>
 
+      {section === 'templates' && <StudioTemplateManager instructionTemplateLibrary={instructionTemplateLibrary} agreementTemplateLibrary={agreementTemplateLibrary} canManageTemplates={canManageTemplates} saveInstructionTemplateLibrary={saveInstructionTemplateLibrary} saveAgreementTemplateLibrary={saveAgreementTemplateLibrary}/>}
       {section === 'instructions' && (
         <InstructionsWorkspace
           instructionSets={instructionSets}
@@ -14935,7 +14938,7 @@ function InstructionsWorkspace({
             <div><span>{editorInstruction.clientId ? 'Client-linked instructions' : 'Standalone instructions'}</span><strong>{editorInstruction.title}</strong></div>
             <div>{studioLoadError&&<button className="btn" type="button" aria-label="Reload Studio" onClick={retryStudioLoad}><RefreshCw size={16}/>Reload</button>}<small>{studioLoadError || studioMessage || (saving ? 'Saving...' : 'Changes are saved from the Studio')}</small><button className="btn ghost" type="button" onClick={closeEditor}><X size={16} />Close Studio</button></div>
           </div>
-          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.93" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active || studioSessionRef.current.initialised) return; setIframeReady(true); setStudioLoadTick(n=>n+1); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
+          <iframe key={`instructions-studio-${editorInstruction?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/instructions-studio.html?v=0.17.94" title="THiS Instructions Studio" onLoad={() => { if (!studioSessionRef.current.active || studioSessionRef.current.initialised) return; setIframeReady(true); setStudioLoadTick(n=>n+1); setStudioMessage(editorInstruction.clientId ? 'Loading client data...' : 'Loading Instructions Studio...'); }} />
 
         </div>
       )}
@@ -15536,7 +15539,7 @@ function AgreementsWorkspace({
               {lastSigningLinks.map((link) => <a key={`${link.email}-${link.link}`} href={link.link} target="_blank" rel="noreferrer">{link.name || link.email}</a>)}
             </div>
           )}
-          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.93" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
+          <iframe key={`agreement-studio-${editorAgreement?.id || "new"}-${studioSessionRef.current.id}`} ref={iframeRef} className="instruction-studio-frame" src="/agreement-studio.html?v=0.17.94" title="THiS Agreement Studio" onLoad={() => { if (!studioSessionRef.current.active) return; studioInitRef.current = { id: '', win: null }; setIframeReady(true); setStudioMessage(editorAgreement.clientId ? 'Loading client data...' : editorAgreement.intakeId ? 'Loading intake data...' : 'Loading Agreement Studio...'); }} />
 
         </div>
       )}

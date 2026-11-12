@@ -7,3 +7,13 @@
 @media print{.sl83,.sl83-launch{display:none!important}}
 
 .sl83 [hidden]{display:none!important}.sl83 .sl83-requests{margin-top:20px;padding-top:14px;border-top:1px solid #d4e3dc}.sl83 .sl83-request{display:block;padding:14px;margin:10px 0;background:#f7fbf9}.sl83 .sl83-request .sl83-fields{margin-bottom:8px}.sl83 .sl83-role-choices{display:flex;gap:8px 16px;flex-wrap:wrap}.sl83 .sl83-role-choices .sl83-check{margin:8px 0}.sl83 fieldset{border:1px solid #d4e3dc;border-radius:8px;padding:12px 14px;margin:12px 0}.sl83 legend{font-size:12px;font-weight:600;padding:0 5px}.sl83 .sl83-request>button{margin-top:10px;font-size:12px}
+
+/* Dedicated pre-client template management surface. */
+body.sl94-management{margin:0!important;background:#f4f8f6!important;overflow:hidden!important}
+body.sl94-management > :not(dialog){display:none!important}
+.sl94-management .sl83{width:100vw!important;max-width:none!important;height:100dvh!important;max-height:none!important;margin:0!important;border:0!important;border-radius:0!important;box-shadow:none!important}
+.sl94-management .sl83 [data-add],.sl94-management .sl83 [data-apply]{display:none!important}
+.sl94-management .sl83::backdrop{background:#f4f8f6}
+@media(max-width:600px){.sl94-management .sl83 header{padding:16px}.sl94-management .sl83 nav{padding:10px 16px;flex-wrap:wrap}.sl94-management .sl83 .sl83-body{padding:16px}.sl94-management .sl83 header h2{font-size:21px}}
+
+.sl94-management .sl83 > header{display:none!important}
