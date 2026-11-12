@@ -1,0 +1,30 @@
+THiS CRM v0.17.96 - Instructions Studio Structured Card & Step Editing
+12 November 2026
+
+Changes
+- Cards toolbar now adds one new numbered card after the cards already in the current template, instead of inserting an unrelated two-card block.
+- Steps toolbar adds one new step after existing steps, using the same timeline markup as existing template steps.
+- Cards and steps are renumbered from 1 after adding, removing or reordering.
+- Cards now consistently display the existing round numbered badges in both editor and live preview, including previously unnumbered cards.
+- Step label widths and two-column alignment are corrected in the editor and preview.
+- Select a card or step to move it earlier/later, remove it, remove its group, or drag it within the group to reorder.
+- Drag attributes and selection outlines are editor-only and excluded from saved HTML; no database migration or client document rendering changes.
+
+How to use
+- Select an existing card, then click Cards to append a new priority; repeat as necessary.
+- Select an existing step, then click Steps to append a new step; repeat as necessary.
+- Click a card/step to display the action bar. Drag within its group or use Move earlier / Move later.
+- Save the master draft and publish explicitly to use it for future client documents.
+
+Deployment
+- Complete Netlify source build; use the existing pipeline and environment variables.
+- Changes to template HTML must be reviewed and published by an administrator; existing client drafts remain unchanged.
+- Template and library JS/CSS use updated 0.17.96 URLs to invalidate browser cache.
+
+Verification
+- JavaScript syntax check passed.
+- Archive integrity checked.
+- End-to-end browser interaction, Netlify production build and PDF pagination require verification in a Netlify deploy preview.
+
+Rollback
+- Re-deploy THiS-CRM-v0.17.95.zip. Templates stored in the database are not automatically reverted by code rollback.

@@ -36,3 +36,25 @@ body.sl94-management > :not(dialog){display:none!important}
 .sl83.sl95-instructions .sl83-editor .sl95-selected{outline:2px solid #24b58d;outline-offset:2px}
 @media(max-width:850px){.sl83.sl95-instructions .sl83-editor .strategy-grid,.sl83.sl95-instructions .sl83-preview .strategy-grid{grid-template-columns:1fr}}
 .sl83.sl95-instructions .sl95-layout-controls[hidden]{display:none!important}
+
+/* v0.17.96: consistent numbered cards, stable timeline and editor-only ordering. */
+.sl83.sl95-instructions :is(.sl83-editor,.sl83-preview) .strategy-card .card-number{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;min-width:32px;border-radius:50%;background:#41d3a4;color:white;font-weight:700;font-size:14px;line-height:1;margin:0 0 12px}
+.sl83.sl95-instructions :is(.sl83-editor,.sl83-preview) .timeline-item{display:grid!important;grid-template-columns:72px minmax(0,1fr)!important;gap:14px!important;align-items:start!important}
+.sl83.sl95-instructions :is(.sl83-editor,.sl83-preview) .timeline-item>.timeline-step{display:flex!important;flex:0 0 72px!important;width:72px!important;min-width:72px!important;max-width:72px!important;padding:9px 4px!important;white-space:nowrap!important;word-break:keep-all!important;overflow-wrap:normal!important;line-height:1.3!important;font-size:12px!important;font-weight:700;text-align:center;box-sizing:border-box!important}
+.sl83.sl95-instructions :is(.sl83-editor,.sl83-preview) .timeline-item>div{min-width:0}
+.sl83.sl95-instructions .sl83-editor .strategy-card,.sl83.sl95-instructions .sl83-editor .timeline-item{cursor:grab}
+.sl83.sl95-instructions .sl83-editor .strategy-card:active,.sl83.sl95-instructions .sl83-editor .timeline-item:active{cursor:grabbing}
+.sl83.sl95-instructions .sl83-editor .sl96-dragging{opacity:.4}
+.sl83.sl95-instructions .sl83-editor .sl96-drop-target{outline:2px dashed #149979;outline-offset:3px}
+.sl83.sl95-instructions .sl96-drag-hint{font-size:11px;color:#52736b;flex-basis:100%}
+@media(max-width:650px){.sl83.sl95-instructions .sl95-layout-controls{position:sticky;top:0;z-index:3}.sl83.sl95-instructions :is(.sl83-editor,.sl83-preview) .timeline-item{grid-template-columns:66px minmax(0,1fr)!important;gap:9px!important}.sl83.sl95-instructions :is(.sl83-editor,.sl83-preview) .timeline-item>.timeline-step{width:66px!important;min-width:66px!important;max-width:66px!important}}
+
+/* v0.17.96 — numbered card previews and aligned step labels. */
+.sl83.sl95-instructions :is(.sl83-editor,.sl83-preview) .strategy-card .card-number{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:30px;border-radius:50%;background:#4bd4a6;color:#fff;font-weight:700;font-size:13px;line-height:1;margin-bottom:10px}
+.sl83.sl95-instructions :is(.sl83-editor,.sl83-preview) .timeline-item{grid-template-columns:88px minmax(0,1fr);gap:14px;align-items:start}
+.sl83.sl95-instructions :is(.sl83-editor,.sl83-preview) .timeline-step{width:88px;min-width:88px;min-height:48px;white-space:nowrap;word-break:keep-all;overflow-wrap:normal;font-size:12px;line-height:1.25;font-weight:700}
+.sl83.sl95-instructions .sl83-editor.sl96-reordering :is(.strategy-card,.timeline-item){cursor:grab;user-select:none}
+.sl83.sl95-instructions .sl83-editor.sl96-reordering :is(.strategy-card,.timeline-item):active{cursor:grabbing}
+.sl83.sl95-instructions .sl83-editor .sl96-drop-target{outline:2px dashed #008a72;outline-offset:3px}
+.sl83.sl95-instructions .sl83-editor .sl96-dragging{opacity:.55}
+@media(max-width:650px){.sl83.sl95-instructions :is(.sl83-editor,.sl83-preview) .timeline-item{grid-template-columns:80px minmax(0,1fr);gap:10px}.sl83.sl95-instructions :is(.sl83-editor,.sl83-preview) .timeline-step{width:80px;min-width:80px}}

@@ -17,8 +17,11 @@
         if (['TD','TH'].includes(el.tagName) && ['colspan','rowspan'].includes(a.name) && /^\d{1,2}$/.test(a.value)) return;
         el.removeAttribute(a.name);
       });
-    }); return t.innerHTML;
+    });
+    t.content.querySelectorAll('.sl95-selected,.sl96-dragging,.sl96-drop-target').forEach(el=>el.classList.remove('sl95-selected','sl96-dragging','sl96-drop-target'));
+    return t.innerHTML;
   }
+  function cleanEditor96(editor){const copy=editor.cloneNode(true);copy.querySelectorAll('.sl95-selected,.sl96-dragging,.sl96-drop-target').forEach(el=>el.classList.remove('sl95-selected','sl96-dragging','sl96-drop-target'));return clean(copy.innerHTML);}
   const dateLabel = value => value?new Intl.DateTimeFormat('en-NZ',{timeZone:'Pacific/Auckland',day:'numeric',month:'short',year:'numeric'}).format(new Date(value)):'';
   const uid = () => `block-${crypto.randomUUID()}`;
   const pending = new Map(); let context = null, data = null, loading = null, tab = 'personal', dialog = null, status = '', editDirty = false, busy = false;
@@ -114,49 +117,146 @@
     try { await fn(); } catch(e) {say(e.message,true);} finally {busy=false;dialog.querySelectorAll('button').forEach(b=>b.disabled=b.dataset.readonly==='true');}
   }
   const toolbar = () => `<div class="sl83-format" role="toolbar" aria-label="Block formatting">${[['bold','Bold'],['italic','Italic'],['insertUnorderedList','Bullets'],['insertOrderedList','Numbered list'],['heading','Heading'],['table','Table'],['callout','Callout'],['cards','Cards'],['steps','Steps']].map(([id,label])=>`<button type="button" data-format="${id}">${label}</button>`).join('')}</div>`;
-  // Controls live outside contenteditable, so they never enter saved master HTML or client PDFs.
-  function bindLayoutControls95(editor, changed) {
-    if (!editor || editor.contentEditable !== 'true' || adapter().studio !== 'instructions') return;
-    const bar=document.createElement('div');
-    bar.className='sl95-layout-controls';bar.hidden=true;
-    bar.innerHTML='<span data-sl95-label></span><button type="button" data-sl95-remove-item>Remove selected card / step</button><button type="button" data-sl95-remove-group>Remove entire Cards / Steps block</button>';
-    editor.before(bar);
-    let item=null,group=null;
-    const refresh=()=>{
-      const match=item&&editor.contains(item)&&group&&editor.contains(group);
-      bar.hidden=!match;
-      if(match)bar.querySelector('[data-sl95-label]').textContent=item.matches('.strategy-card')?'Selected card':'Selected step';
-    };
-    editor.addEventListener('click',event=>{
-      const target=event.target instanceof Element?event.target:event.target.parentElement;
-      const selected=target?.closest('.strategy-card,.timeline-item');
-      editor.querySelectorAll('.sl95-selected').forEach(el=>el.classList.remove('sl95-selected'));
-      item=selected&&editor.contains(selected)?selected:null;
-      group=item?.closest('.strategy-grid,.timeline')||null;
-      refresh();
+  // The builder controls are transient: clean() strips editor-only attributes and buttons.
+  function normalizeLayout96(editor) {
+    if(!editor)return;
+    editor.querySelectorAll('.strategy-grid').forEach(group=>{
+      [...group.children].filter(el=>el.classList.contains('strategy-card')).forEach((card,index)=>{
+        let badge=card.querySelector(':scope > .card-number');
+        if(!badge){badge=document.createElement('span');badge.className='card-number';card.prepend(badge);}
+        badge.textContent=String(index+1);
+      });
     });
-    const remove=whole=>{
-      if(!item||!group||!editor.contains(group))return;
-      editor.querySelectorAll('.sl95-selected').forEach(el=>el.classList.remove('sl95-selected'));
-      (whole?group:item).remove();
-      item=null;group=null;bar.hidden=true;
-      editor.dispatchEvent(new Event('input',{bubbles:true}));
-      editor.focus();
-    };
-    bar.querySelector('[data-sl95-remove-item]').addEventListener('click',()=>remove(false));
-    bar.querySelector('[data-sl95-remove-group]').addEventListener('click',()=>remove(true));
-    // The green edit outline is presentation-only, never persisted.
-    editor.addEventListener('input',()=>{editor.querySelectorAll('.sl95-selected').forEach(el=>el.classList.remove('sl95-selected'));item=null;group=null;bar.hidden=true;});
+    editor.querySelectorAll('.timeline').forEach(group=>{
+      [...group.children].filter(el=>el.classList.contains('timeline-item')).forEach((step,index)=>{
+        let label=step.querySelector(':scope > .timeline-step');
+        if(!label){label=document.createElement('span');label.className='timeline-step';step.prepend(label);}
+        label.textContent=`Step ${index+1}`;
+      });
+    });
   }
-  function bindEditor(editor, onChange) {
-    editor.oninput=()=>{editDirty=true;onChange(clean(editor.innerHTML));};
+  function appendLayout96(editor,kind,preferredGroup) {
+    const cls=kind==='cards'?'strategy-grid':'timeline';
+    const groups=[...editor.querySelectorAll(`.${cls}`)];
+    let group=preferredGroup?.classList.contains(cls)&&editor.contains(preferredGroup)?preferredGroup:null;
+    if(!group)group=groups.at(-1);
+    if(!group){
+      group=document.createElement('div');group.className=cls;
+      // Insert the first group where the caret was left, or at the end of the section.
+      editor.append(group);
+    }
+    const last=[...group.children].filter(el=>el.matches('.strategy-card,.timeline-item')).at(-1);
+    const item=last?last.cloneNode(true):document.createElement('div');
+    item.classList.remove('sl95-selected','sl96-dragging','sl96-drop-target');
+    item.removeAttribute('draggable');
+    if(kind==='cards'){
+      item.className='strategy-card';
+      if(!last)item.innerHTML='<span class="card-number"></span><h3>New priority</h3><p>Add guidance.</p>';
+      item.querySelector('h3')?.replaceChildren(document.createTextNode('New priority'));
+      item.querySelector('p')?.replaceChildren(document.createTextNode('Add guidance.'));
+    }else{
+      item.className='timeline-item';
+      // Match the structure used by the existing instructions, without an extra nested grid.
+      if(!last)item.innerHTML='<span class="timeline-step"></span><div><h3>New step</h3><p>Add guidance.</p></div>';
+      item.querySelector('h3')?.replaceChildren(document.createTextNode('New step'));
+      item.querySelector('p')?.replaceChildren(document.createTextNode('Add guidance.'));
+    }
+    group.append(item);
+    normalizeLayout96(editor);
+    editor.dispatchEvent(new Event('input',{bubbles:true}));
+    return item;
+  }
+  function bindLayoutControls96(editor) {
+    if(!editor || editor.contentEditable!=='true' || adapter().studio!=='instructions') return;
+    const bar=document.createElement('div');bar.className='sl95-layout-controls';bar.hidden=true;
+    bar.innerHTML='<span data-sl95-label></span><button type="button" data-sl96-up aria-label="Move selected item earlier">↑ Move earlier</button><button type="button" data-sl96-down aria-label="Move selected item later">↓ Move later</button><button type="button" data-sl96-mode>Enable drag</button><button type="button" data-sl96-remove-item>Remove item</button><button type="button" data-sl96-remove-group>Remove group</button>';
+    editor.before(bar);
+    let selected=null,dragged=null,dragMode=false;
+    const groupOf=item=>item?.closest('.strategy-grid,.timeline');
+    const members=group=>group?[...group.children].filter(child=>child.matches('.strategy-card,.timeline-item')):[];
+    const emit=()=>{normalizeLayout96(editor);editor.dispatchEvent(new Event('input',{bubbles:true}));};
+    const select=item=>{
+      editor.querySelectorAll('.sl95-selected').forEach(el=>el.classList.remove('sl95-selected'));
+      selected=item&&editor.contains(item)?item:null;
+      selected?.classList.add('sl95-selected');
+      bar.hidden=!selected;
+      const group=groupOf(selected),items=members(group),index=items.indexOf(selected);
+      if(selected){
+        bar.querySelector('[data-sl95-label]').textContent=selected.classList.contains('strategy-card')?`Card ${index+1} of ${items.length}`:`Step ${index+1} of ${items.length}`;
+        bar.querySelector('[data-sl96-up]').disabled=index===0;
+        bar.querySelector('[data-sl96-down]').disabled=index===items.length-1;
+      }
+    };
+    const itemFrom=target=>target instanceof Element?target.closest('.strategy-card,.timeline-item'):null;
+    editor.addEventListener('click',e=>select(itemFrom(e.target)));
+    // Draggable is an editor-only DOM state; the saved markup is sanitised.
+    const arm=()=>editor.querySelectorAll('.strategy-card,.timeline-item').forEach(item=>{if(dragMode)item.setAttribute('draggable','true');else item.removeAttribute('draggable');});
+    bar.querySelector('[data-sl96-mode]').onclick=()=>{dragMode=!dragMode;editor.classList.toggle('sl96-reordering',dragMode);bar.querySelector('[data-sl96-mode]').textContent=dragMode?'Finish dragging':'Enable drag';arm();};
+    const move=delta=>{
+      if(!selected)return;
+      const group=groupOf(selected),items=members(group),index=items.indexOf(selected),other=items[index+delta];
+      if(!other)return;
+      if(delta<0)group.insertBefore(selected,other);else group.insertBefore(selected,other.nextSibling);
+      emit();select(selected);
+    };
+    bar.querySelector('[data-sl96-up]').onclick=()=>move(-1);
+    bar.querySelector('[data-sl96-down]').onclick=()=>move(1);
+    bar.querySelector('[data-sl96-remove-item]').onclick=()=>{
+      if(!selected)return;
+      const group=groupOf(selected);selected.remove();
+      if(!members(group).length)group.remove();
+      select(null);emit();
+    };
+    bar.querySelector('[data-sl96-remove-group]').onclick=()=>{
+      if(!selected)return;
+      groupOf(selected)?.remove();select(null);emit();
+    };
+    editor.addEventListener('dragstart',e=>{
+      const item=itemFrom(e.target);if(!dragMode||!item||!editor.contains(item))return;
+      dragged=item;select(item);
+      e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain','studio-layout-item');
+      item.classList.add('sl96-dragging');
+    });
+    editor.addEventListener('dragover',e=>{
+      const target=itemFrom(e.target);
+      if(!dragged||!target||dragged===target||groupOf(dragged)!==groupOf(target))return;
+      e.preventDefault();e.dataTransfer.dropEffect='move';
+      editor.querySelectorAll('.sl96-drop-target').forEach(el=>el.classList.remove('sl96-drop-target'));
+      target.classList.add('sl96-drop-target');
+    });
+    editor.addEventListener('drop',e=>{
+      const target=itemFrom(e.target);
+      if(!dragged||!target||dragged===target||groupOf(dragged)!==groupOf(target))return;
+      e.preventDefault();
+      const bounds=target.getBoundingClientRect();
+      const after=dragged.classList.contains('strategy-card')?e.clientX>bounds.left+bounds.width/2:e.clientY>bounds.top+bounds.height/2;
+      const group=groupOf(target);group.insertBefore(dragged,after?target.nextSibling:target);
+      const moved=dragged;dragged=null;clearDrag();emit();select(moved);
+    });
+    const clearDrag=()=>editor.querySelectorAll('.sl96-dragging,.sl96-drop-target').forEach(el=>el.classList.remove('sl96-dragging','sl96-drop-target'));
+    editor.addEventListener('dragend',()=>{dragged=null;clearDrag();});
+    editor.addEventListener('input',()=>{arm();});
+    // Called after a new block is inserted, so its selection and drag state are ready.
+    editor.sl96Select=select;
+    editor.sl96Group=()=>groupOf(selected);
+  }
+  function bindEditor(editor,onChange) {
+    const sync=()=>{normalizeLayout96(editor);editDirty=true;const copy=editor.cloneNode(true);copy.querySelectorAll('.sl95-selected,.sl96-dragging,.sl96-drop-target').forEach(node=>node.classList.remove('sl95-selected','sl96-dragging','sl96-drop-target'));copy.querySelectorAll('[draggable]').forEach(node=>node.removeAttribute('draggable'));onChange(clean(copy.innerHTML));};
+    editor.oninput=sync;
     editor.onpaste=e=>{e.preventDefault();document.execCommand('insertHTML',false,clean(e.clipboardData.getData('text/html')||esc(e.clipboardData.getData('text/plain')).replace(/\n/g,'<br>')));};
-    bindLayoutControls95(editor,onChange);
+    if(adapter().studio==='instructions')normalizeLayout96(editor);
+    bindLayoutControls96(editor);
     dialog.querySelectorAll('[data-format]').forEach(b=>{
       b.onmousedown=e=>e.preventDefault();b.onclick=()=>{
-        editor.focus(); const cmd=b.dataset.format;
-        const snippets={table:'<table><tr><th>Item</th><th>Details</th></tr><tr><td>Document</td><td>Guidance</td></tr></table><p><br></p>',callout:'<div class="callout"><p>Important guidance.</p></div><p><br></p>',cards:'<div class="strategy-grid"><div class="strategy-card"><h3>First priority</h3><p>Add guidance.</p></div><div class="strategy-card"><h3>Next priority</h3><p>Add guidance.</p></div></div><p><br></p>',steps:'<div class="timeline"><div class="timeline-item"><span class="timeline-step">Step 1</span><div class="timeline-body"><h3>First step</h3><p>Add guidance.</p></div></div><div class="timeline-item"><span class="timeline-step">Step 2</span><div class="timeline-body"><h3>Next step</h3><p>Add guidance.</p></div></div></div><p><br></p>'};
-        if(snippets[cmd])document.execCommand('insertHTML',false,snippets[cmd]);else if(cmd==='heading')document.execCommand('formatBlock',false,'h3');else document.execCommand(cmd);editDirty=true;onChange(clean(editor.innerHTML));
+        const cmd=b.dataset.format;
+        if((cmd==='cards'||cmd==='steps')&&adapter().studio==='instructions'){
+          const item=appendLayout96(editor,cmd,editor.sl96Group?.());
+          editor.sl96Select?.(item);return;
+        }
+        editor.focus();
+        const snippets={table:'<table><tr><th>Item</th><th>Details</th></tr><tr><td>Document</td><td>Guidance</td></tr></table><p><br></p>',callout:'<div class="callout"><p>Important guidance.</p></div><p><br></p>',cards:'<div class="strategy-grid"><div class="strategy-card"><span class="card-number">1</span><h3>First priority</h3><p>Add guidance.</p></div></div><p><br></p>',steps:'<div class="timeline"><div class="timeline-item"><span class="timeline-step">Step 1</span><div><h3>First step</h3><p>Add guidance.</p></div></div></div><p><br></p>'};
+        if(snippets[cmd])document.execCommand('insertHTML',false,snippets[cmd]);else if(cmd==='heading')document.execCommand('formatBlock',false,'h3');else document.execCommand(cmd);
+        sync();
       };
     });
   }
@@ -185,14 +285,16 @@
   function editBlock(item, scope, readOnly=false) {
     shell(`<div class="sl83-tools"><h3>${readOnly?'Preview block':'Edit reusable block'}</h3><button type="button" data-back>Back to library</button></div><div class="sl83-fields">${data.canManageTeam?`<label>Save in<select data-destination><option value="personal" ${scope==='personal'?'selected':''}>My blocks</option><option value="team" ${scope==='team'?'selected':''}>Team blocks</option></select></label>`:''}<label>Block title<input data-title value="${esc(item.title)}" maxlength="160"></label><label>Type<select data-kind>${adapter().kinds.map(k=>`<option value="${k}" ${item.kind===k?'selected':''}>${esc(k)}</option>`).join('')}</select></label><label>Visa category<select data-category><option value="">All categories</option>${adapter().categories().map(c=>`<option value="${esc(c.id)}" ${item.category===c.id?'selected':''}>${esc(c.title)}</option>`).join('')}</select></label><label>Library description<input data-note value="${esc(item.note||'')}"></label></div><p class="sl83-help">Use {{preparedFor}}, {{firstName}} and {{agreedPathway}} for client details. Review names, evidence and case-specific advice before saving.</p><div class="sl83-split"><section>${toolbar()}<div class="sl83-editor" data-editor contenteditable="${!readOnly}" role="textbox" aria-label="Reusable block content" aria-multiline="true">${clean(item.html)}</div>${adapter().studio==='instructions'?requestsEditor(item.requests):''}${adapter().supportsSignoff?signoffFields(item.signoff):''}</section><section><h3>Live block preview</h3><div class="sl83-preview" data-preview-body>${clean(item.html)}</div></section></div>${readOnly?(data.canSavePersonal?'<button type="button" data-personal-copy>Make a personal copy</button>':''):`<label class="sl83-check"><input type="checkbox" data-reviewed> I have removed client-specific information and reviewed the reusable content.</label><div class="sl83-actions"><button type="button" class="primary" data-save>Save to ${scope==='team'?'Team blocks':'My blocks'}</button></div>`}`);
     dialog.querySelector('[data-back]').onclick=async()=>{if(!editDirty||await confirm('Discard these unsaved block edits?')){editDirty=false;render();}};
-    bindEditor(dialog.querySelector('[data-editor]'),html=>dialog.querySelector('[data-preview-body]').innerHTML=html);bindRequests83();
+    bindEditor(dialog.querySelector('[data-editor]'),html=>dialog.querySelector('[data-preview-body]').innerHTML=html);
+    if(adapter().studio==='instructions')dialog.querySelector('[data-preview-body]').innerHTML=cleanEditor96(dialog.querySelector('[data-editor]'));
+    bindRequests83();
     dialog.querySelectorAll('input,select,textarea').forEach(el=>el.addEventListener('input',()=>{editDirty=true;}));
     dialog.querySelector('[data-personal-copy]')?.addEventListener('click',()=>editBlock({...clone(item),id:uid(),title:item.title+' (copy)'},'personal'));
     const signoff=dialog.querySelector('.sl83-signoff'),split=dialog.querySelector('.sl83-split');if(signoff)split.before(signoff);const toggle=()=>{const kind=dialog.querySelector('[data-kind]').value;if(signoff)signoff.hidden=kind!=='sign-off';split.hidden=kind==='sign-off';const requests=dialog.querySelector('[data-request-editor]');if(requests)requests.hidden=kind!=='section';};toggle();dialog.querySelector('[data-kind]').addEventListener('change',toggle);
     if(readOnly){dialog.querySelectorAll('input,select,textarea,[data-format],[data-add-request],[data-remove-request]').forEach(el=>{el.disabled=true;el.dataset.readonly='true';});return;}
     dialog.querySelector('[data-save]').onclick=()=>run(async()=>{
       if(!dialog.querySelector('[data-reviewed]').checked)throw new Error('Review the reusable content and tick the confirmation before saving.');
-      const value={...item,title:dialog.querySelector('[data-title]').value.trim(),kind:dialog.querySelector('[data-kind]').value,category:dialog.querySelector('[data-category]').value,note:dialog.querySelector('[data-note]').value.trim(),html:clean(dialog.querySelector('[data-editor]').innerHTML),requests:dialog.querySelector('[data-kind]').value==='section'?readRequests83():[],...(dialog.querySelector('[data-kind]').value==='sign-off'?{signoff:readSignoff()}:{})};
+      const value={...item,title:dialog.querySelector('[data-title]').value.trim(),kind:dialog.querySelector('[data-kind]').value,category:dialog.querySelector('[data-category]').value,note:dialog.querySelector('[data-note]').value.trim(),html:cleanEditor96(dialog.querySelector('[data-editor]')),requests:dialog.querySelector('[data-kind]').value==='section'?readRequests83():[],...(dialog.querySelector('[data-kind]').value==='sign-off'?{signoff:readSignoff()}:{})};
       if(!value.title||!value.html.trim())throw new Error('Add a title and content.');if(value.requests.some(r=>!r.title))throw new Error('Add a document name for each request, or remove the empty request.');
       const destination=dialog.querySelector('[data-destination]')?.value||scope;if(!permitted(destination))throw new Error('You cannot save to that library.');
       const next=clone(data[destination]);const index=next.items.findIndex(x=>x.id===value.id);if(index<0)next.items.push(value);else next.items[index]=value;
@@ -210,8 +312,10 @@
     const contentOnly=adapter().masterContentOnly?.includes(docId);if(contentOnly&&blockId==='intro'&&d.blocks.length)blockId=d.blocks[0].id;
     const b=d.blocks.find(x=>x.id===blockId), html=blockId==='intro'?d.intro||'':b?.html||b?.templateHtml||'';
     shell(`<div class="sl83-tools"><label>Application type<select data-master-category>${adapter().categories().map(c=>`<option value="${esc(c.id)}" ${c.id===masterCategory?'selected':''}>${esc(c.title)}</option>`).join('')}</select></label><span class="sl83-badge">${entry?.published?'Published '+esc(dateLabel(entry.publishedAt)):'Built-in starting template'}</span></div><p class="sl83-help">${canEdit?'Edit a separate master draft, preview it, then publish for future documents.':'Published starting templates are maintained by administrators.'} Existing client documents keep their wording. Up to 20 published versions are retained.</p><div class="sl83-master-layout"><aside><label>Guide<select data-guide>${Object.entries(master.docs).map(([id,x])=>`<option value="${esc(id)}" ${id===docId?'selected':''}>${esc(x.label||id)}</option>`).join('')}</select></label>${contentOnly?'':`<button type="button" data-section="intro" class="${blockId==='intro'?'active':''}">Header & introduction</button>`}${d.blocks.map(x=>`<button type="button" data-section="${esc(x.id)}" class="${blockId===x.id?'active':''}">${esc(x.title)}</button>`).join('')}${canEdit?'<button type="button" data-new-section>+ Add section</button>':''}</aside><section><div class="sl83-fields"><label>${b?'Section heading':'Cover heading'}<input data-master-title value="${esc(b?b.title:d.coverTitle||d.label)}"></label>${!b?`<label>Cover subtitle<input data-subtitle value="${esc(d.coverSubtitle||'')}"></label>`:`<label class="sl83-check"><input type="checkbox" data-enabled ${b.enabled!==false?'checked':''}> Include by default</label>`}</div>${b&&canEdit?'<div class="sl83-actions"><button type="button" data-up>↑ Up</button><button type="button" data-down>↓ Down</button><button type="button" data-duplicate>Duplicate</button><button type="button" data-remove>Remove section</button></div>':''}${docId==='payments'&&b?`<fieldset><legend>Services covered by this payment</legend>${(master.docs.services?.blocks||[]).map(service=>`<label class="sl83-check"><input type="checkbox" data-service-link="${esc(service.id)}" ${(b.serviceIds||[]).includes(service.id)?'checked':''} ${!canEdit?'disabled':''}>${esc(service.title)}</label>`).join('')}</fieldset>`:''}<div class="sl83-split"><section>${toolbar()}<div class="sl83-editor" data-editor contenteditable="${canEdit}" role="textbox" aria-label="Master wording" aria-multiline="true">${clean(html)}</div>${b&&adapter().studio==='instructions'?requestsEditor(b.requests):''}</section><section><h3>Live section preview</h3><div class="sl83-preview" data-preview-body>${clean(html)}</div><p class="sl83-help">Merge fields fill from the client draft. Full-document pagination is checked in Studio.</p></section></div></section></div><div class="sl83-publish">${adapter().settings?`<fieldset><legend>Agreement defaults</legend><div class="sl83-fields">${adapter().settings.map(([key,label])=>`<label>${esc(label)}<input data-setting="${esc(key)}" value="${esc(master.settings?.[key]||'')}"></label>`).join('')}</div></fieldset>`:''}${adapter().supportsSignoff?signoffFields(master.signoff):''}${canEdit?'<label>Change note<input data-change-note placeholder="Describe this template update"></label><label class="sl83-check"><input type="checkbox" data-master-reviewed> I have reviewed this master and removed client-specific information.</label><div class="sl83-actions"><button type="button" data-save-master>Save master draft</button><button type="button" class="primary" data-publish>Publish version</button></div>':''}<button type="button" data-apply ${!entry?.published?'disabled data-readonly="true"':''}>Apply published template to this draft…</button><details><summary>Published version history</summary>${(entry?.versions||[]).slice().reverse().map(v=>`<article><div><strong>${esc(v.label||'Version')} · ${esc(dateLabel(v.at))}</strong><p>${esc(v.note)}</p></div>${canEdit?`<button type="button" data-restore="${esc(v.id)}">Restore into draft</button>`:''}</article>`).join('')||'<p>No published changes yet.</p>'}</details></div>`);
-    const sync=()=>{if(adapter().settings)master.settings=Object.fromEntries([...dialog.querySelectorAll('[data-setting]')].map(el=>[el.dataset.setting,el.value]));if(adapter().supportsSignoff)master.signoff=readSignoff();if(b){b.title=dialog.querySelector('[data-master-title]').value;b.enabled=dialog.querySelector('[data-enabled]').checked;b.html=clean(dialog.querySelector('[data-editor]').innerHTML);b.templateHtml=b.html;b.requests=readRequests83();if(docId==='payments')b.serviceIds=[...dialog.querySelectorAll('[data-service-link]:checked')].map(el=>el.dataset.serviceLink);}else{d.coverTitle=dialog.querySelector('[data-master-title]').value;d.coverSubtitle=dialog.querySelector('[data-subtitle]').value;d.intro=clean(dialog.querySelector('[data-editor]').innerHTML);}};
-    bindEditor(dialog.querySelector('[data-editor]'),html=>{dialog.querySelector('[data-preview-body]').innerHTML=html;sync();});bindRequests83(sync);
+    const sync=()=>{if(adapter().settings)master.settings=Object.fromEntries([...dialog.querySelectorAll('[data-setting]')].map(el=>[el.dataset.setting,el.value]));if(adapter().supportsSignoff)master.signoff=readSignoff();if(b){b.title=dialog.querySelector('[data-master-title]').value;b.enabled=dialog.querySelector('[data-enabled]').checked;b.html=cleanEditor96(dialog.querySelector('[data-editor]'));b.templateHtml=b.html;b.requests=readRequests83();if(docId==='payments')b.serviceIds=[...dialog.querySelectorAll('[data-service-link]:checked')].map(el=>el.dataset.serviceLink);}else{d.coverTitle=dialog.querySelector('[data-master-title]').value;d.coverSubtitle=dialog.querySelector('[data-subtitle]').value;d.intro=cleanEditor96(dialog.querySelector('[data-editor]'));}};
+    bindEditor(dialog.querySelector('[data-editor]'),html=>{dialog.querySelector('[data-preview-body]').innerHTML=html;sync();});
+    if(adapter().studio==='instructions')dialog.querySelector('[data-preview-body]').innerHTML=cleanEditor96(dialog.querySelector('[data-editor]'));
+    bindRequests83(sync);
     dialog.querySelectorAll('.sl83-master-layout input,.sl83-master-layout textarea,[data-signoff],[data-setting]').forEach(el=>el.oninput=()=>{editDirty=true;sync();});
     dialog.querySelector('[data-master-category]').onchange=async e=>{if(editDirty&&!(await confirm('Discard unsaved master edits and change application type?'))){e.target.value=masterCategory;return;}editDirty=false;masterCategory=e.target.value;masters();};
     dialog.querySelector('[data-guide]').onchange=e=>{sync();docId=e.target.value;blockId='intro';masterForm();};
