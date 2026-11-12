@@ -85,3 +85,38 @@ body.sl94-management > :not(dialog){display:none!important}
 .sl83.sl95-instructions .sl97-doc-content .strategy-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
 .sl83.sl95-instructions .sl97-doc-content .timeline-step{min-width:70px;white-space:nowrap}
 @media(max-width:750px){.sl83.sl95-instructions .sl95-layout-controls{grid-template-columns:repeat(2,minmax(0,1fr))}.sl83.sl95-instructions .sl97-paper{padding:20px;min-height:400px}.sl83.sl95-instructions .sl97-cover-title{font-size:28px;margin-top:80px}}
+
+/* v0.17.98: The inherited `.sl83 article` flex-row rule is for list cards,
+   not the A4 preview pages. Without this override each document section
+   becomes a narrow flex item and all text wraps into vertical letters. */
+.sl83.sl95-instructions article.sl97-paper.sl97-body-page{
+  display:block;
+  flex-direction:initial;
+  align-items:initial;
+  justify-content:initial;
+  flex-shrink:0;
+  width:100%;
+  max-width:595px;
+  min-width:0;
+  margin:0 auto;
+  box-sizing:border-box;
+}
+.sl83.sl95-instructions .sl97-paper .sl97-doc-section,
+.sl83.sl95-instructions .sl97-paper .sl97-doc-content{
+  display:block;
+  width:100%;
+  max-width:100%;
+  min-width:0;
+}
+.sl83.sl95-instructions .sl97-paper .sl97-doc-section h2{
+  overflow-wrap:normal;
+  word-break:normal;
+}
+.sl83.sl95-instructions .sl97-paper .timeline-body{
+  min-width:0;
+  overflow-wrap:break-word;
+}
+.sl83.sl95-instructions .sl97-document-pages{
+  width:100%;
+  min-width:0;
+}

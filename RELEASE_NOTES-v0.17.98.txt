@@ -1,0 +1,16 @@
+THiS CRM v0.17.98 - Instructions Studio A4 Preview Layout Fix
+12 November 2026
+
+Fixes:
+- Restores full-width vertical document flow in the template library A4 preview.
+- Prevents section headings and Steps guidance from collapsing into narrow columns and wrapping a letter at a time.
+- Keeps Cards/Steps styling and editing controls unchanged.
+- Uses a preview-specific override; the generic CRM article/list styling and production document renderer are not changed.
+- Updated static asset cache versions so browsers load the corrected stylesheet.
+
+Root cause: Global `.sl83 article` applied `display:flex` and horizontal alignment to the new A4 `<article class=sl97-paper>` preview elements, forcing multiple document sections to compress into side-by-side flex children.
+
+Limitations: The library preview remains an approximation of the final paginated PDF. Verify production pagination in the client Studio Live A4 view before issue. No database migrations.
+
+Files changed: public/studio-library.css; public/instructions-studio.html and public/agreement-studio.html (cache version); package.json; release notes.
+Rollback: THiS-CRM-v0.17.97.zip.
