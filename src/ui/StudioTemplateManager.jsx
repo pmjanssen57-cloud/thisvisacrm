@@ -50,7 +50,7 @@ export default function StudioTemplateManager({ instructionTemplateLibrary, agre
     {kind&&<div className="studio-template-overlay" role="dialog" aria-modal="true" aria-label="Template library manager"><header><div><strong>{kind==='instructions'?'Instructions':'Agreement'} templates &amp; blocks</strong><small>Library management · no client document open</small></div><button className="btn" onClick={close}><X size={17}/>Close library</button></header>
       {!ready&&!error&&<p role="status">Opening template library…</p>}
       {error&&<div role="alert" className="error-banner"><span>{error}</span><button className="btn" onClick={()=>{started.current=null;setReady(false);setError('');setAttempt(x=>x+1);}}>Reload editor</button></div>}
-      <iframe key={kind+attempt} ref={frame} title={kind==='instructions'?'Instructions template library':'Agreement template library'} src={'/'+(kind==='instructions'?'instructions-studio.html':'agreement-studio.html')+'?library=1&v=0.17.94'} onLoad={initialise} style={{visibility:ready?'visible':'hidden'}} />
+      <iframe key={kind+attempt} ref={frame} title={kind==='instructions'?'Instructions template library':'Agreement template library'} src={'/'+(kind==='instructions'?'instructions-studio.html':'agreement-studio.html')+'?library=1&v=0.17.95'} onLoad={initialise} style={{visibility:ready?'visible':'hidden'}} />
     </div>}
   </section>;
 }

@@ -64,7 +64,7 @@
   function say(message, error = false) { status = message; const el = dialog?.querySelector('[data-status]'); if (el) { el.textContent = message; el.classList.toggle('error', error); } }
   function frame() {
     if (dialog) return;
-    dialog = document.createElement('dialog'); dialog.className = 'sl83'; dialog.setAttribute('aria-labelledby','sl83-title');
+    dialog = document.createElement('dialog'); dialog.className = 'sl83' + (adapter().studio === 'instructions' ? ' sl95-instructions' : ''); dialog.setAttribute('aria-labelledby','sl83-title');
     document.body.append(dialog);
     dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
   }
@@ -114,9 +114,44 @@
     try { await fn(); } catch(e) {say(e.message,true);} finally {busy=false;dialog.querySelectorAll('button').forEach(b=>b.disabled=b.dataset.readonly==='true');}
   }
   const toolbar = () => `<div class="sl83-format" role="toolbar" aria-label="Block formatting">${[['bold','Bold'],['italic','Italic'],['insertUnorderedList','Bullets'],['insertOrderedList','Numbered list'],['heading','Heading'],['table','Table'],['callout','Callout'],['cards','Cards'],['steps','Steps']].map(([id,label])=>`<button type="button" data-format="${id}">${label}</button>`).join('')}</div>`;
+  // Controls live outside contenteditable, so they never enter saved master HTML or client PDFs.
+  function bindLayoutControls95(editor, changed) {
+    if (!editor || editor.contentEditable !== 'true' || adapter().studio !== 'instructions') return;
+    const bar=document.createElement('div');
+    bar.className='sl95-layout-controls';bar.hidden=true;
+    bar.innerHTML='<span data-sl95-label></span><button type="button" data-sl95-remove-item>Remove selected card / step</button><button type="button" data-sl95-remove-group>Remove entire Cards / Steps block</button>';
+    editor.before(bar);
+    let item=null,group=null;
+    const refresh=()=>{
+      const match=item&&editor.contains(item)&&group&&editor.contains(group);
+      bar.hidden=!match;
+      if(match)bar.querySelector('[data-sl95-label]').textContent=item.matches('.strategy-card')?'Selected card':'Selected step';
+    };
+    editor.addEventListener('click',event=>{
+      const target=event.target instanceof Element?event.target:event.target.parentElement;
+      const selected=target?.closest('.strategy-card,.timeline-item');
+      editor.querySelectorAll('.sl95-selected').forEach(el=>el.classList.remove('sl95-selected'));
+      item=selected&&editor.contains(selected)?selected:null;
+      group=item?.closest('.strategy-grid,.timeline')||null;
+      refresh();
+    });
+    const remove=whole=>{
+      if(!item||!group||!editor.contains(group))return;
+      editor.querySelectorAll('.sl95-selected').forEach(el=>el.classList.remove('sl95-selected'));
+      (whole?group:item).remove();
+      item=null;group=null;bar.hidden=true;
+      editor.dispatchEvent(new Event('input',{bubbles:true}));
+      editor.focus();
+    };
+    bar.querySelector('[data-sl95-remove-item]').addEventListener('click',()=>remove(false));
+    bar.querySelector('[data-sl95-remove-group]').addEventListener('click',()=>remove(true));
+    // The green edit outline is presentation-only, never persisted.
+    editor.addEventListener('input',()=>{editor.querySelectorAll('.sl95-selected').forEach(el=>el.classList.remove('sl95-selected'));item=null;group=null;bar.hidden=true;});
+  }
   function bindEditor(editor, onChange) {
     editor.oninput=()=>{editDirty=true;onChange(clean(editor.innerHTML));};
     editor.onpaste=e=>{e.preventDefault();document.execCommand('insertHTML',false,clean(e.clipboardData.getData('text/html')||esc(e.clipboardData.getData('text/plain')).replace(/\n/g,'<br>')));};
+    bindLayoutControls95(editor,onChange);
     dialog.querySelectorAll('[data-format]').forEach(b=>{
       b.onmousedown=e=>e.preventDefault();b.onclick=()=>{
         editor.focus(); const cmd=b.dataset.format;

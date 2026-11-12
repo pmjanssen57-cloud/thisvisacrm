@@ -17,3 +17,22 @@ body.sl94-management > :not(dialog){display:none!important}
 @media(max-width:600px){.sl94-management .sl83 header{padding:16px}.sl94-management .sl83 nav{padding:10px 16px;flex-wrap:wrap}.sl94-management .sl83 .sl83-body{padding:16px}.sl94-management .sl83 header h2{font-size:21px}}
 
 .sl94-management .sl83 > header{display:none!important}
+
+/* v0.17.95: Instructions Studio structured content editing and responsive preview. */
+.sl83.sl95-instructions .sl83-editor .strategy-grid,.sl83.sl95-instructions .sl83-preview .strategy-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:100%;align-items:stretch}
+.sl83.sl95-instructions .sl83-editor .strategy-card,.sl83.sl95-instructions .sl83-preview .strategy-card{min-width:0;overflow-wrap:anywhere;padding:14px;border:1px solid #c9ded7;border-radius:9px;background:#f4faf7;box-sizing:border-box}
+.sl83.sl95-instructions .sl83-editor .strategy-card h3,.sl83.sl95-instructions .sl83-preview .strategy-card h3{margin:0 0 8px;font-size:16px;line-height:1.35}
+.sl83.sl95-instructions .sl83-editor .strategy-card p,.sl83.sl95-instructions .sl83-preview .strategy-card p{margin:0;line-height:1.5}
+.sl83.sl95-instructions .sl83-editor .timeline,.sl83.sl95-instructions .sl83-preview .timeline{display:flex;flex-direction:column;gap:0;max-width:100%;min-width:0}
+.sl83.sl95-instructions .sl83-editor .timeline-item,.sl83.sl95-instructions .sl83-preview .timeline-item{display:grid;grid-template-columns:58px minmax(0,1fr);align-items:start;gap:14px;padding:12px 0;border-bottom:1px solid #d6e5df;min-width:0}
+.sl83.sl95-instructions .sl83-editor .timeline-step,.sl83.sl95-instructions .sl83-preview .timeline-step{display:flex;align-items:center;justify-content:center;min-height:40px;width:58px;box-sizing:border-box;padding:7px 5px;border:1px solid #c9ded7;border-radius:8px;background:#f4faf7;white-space:nowrap;word-break:normal;overflow-wrap:normal;font-size:12px;line-height:1.2;text-align:center}
+.sl83.sl95-instructions .sl83-editor .timeline-body,.sl83.sl95-instructions .sl83-preview .timeline-body{min-width:0}
+.sl83.sl95-instructions .sl83-editor .timeline-item h3,.sl83.sl95-instructions .sl83-preview .timeline-item h3{margin:0 0 7px;line-height:1.3}
+.sl83.sl95-instructions .sl83-editor .timeline-item p,.sl83.sl95-instructions .sl83-preview .timeline-item p{margin:0;line-height:1.5}
+.sl83.sl95-instructions .sl95-layout-controls{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:9px 10px;margin:7px 0;border:1px solid #c9ded7;border-radius:8px;background:#f4faf7;font-size:12px}
+.sl83.sl95-instructions .sl95-layout-controls button{padding:6px 10px;border:1px solid #bdd8d0;border-radius:6px;background:white;color:#174d46;cursor:pointer}
+.sl83.sl95-instructions .sl95-layout-controls button:disabled{opacity:.5;cursor:default}
+.sl83.sl95-instructions .sl95-layout-controls [data-sl95-label]{font-weight:700;margin-right:auto}
+.sl83.sl95-instructions .sl83-editor .sl95-selected{outline:2px solid #24b58d;outline-offset:2px}
+@media(max-width:850px){.sl83.sl95-instructions .sl83-editor .strategy-grid,.sl83.sl95-instructions .sl83-preview .strategy-grid{grid-template-columns:1fr}}
+.sl83.sl95-instructions .sl95-layout-controls[hidden]{display:none!important}
