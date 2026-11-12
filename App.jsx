@@ -21028,6 +21028,40 @@ function CalmWorkDashboard({ clients = [], advisers = [], scopeAdviserId = 'all'
   const [range,setRange] = useWorkspaceState('work:range','today');
   const [selectedId,setSelectedId] = useState('');
   const [newTask,setNewTask] = useState(null);
+  const [quickDateId,setQuickDateId] = useState('');
+  const [quickDate,setQuickDate] = useState('');
+  const [quickDateError,setQuickDateError] = useState('');
+  const [quickDateSaving,setQuickDateSaving] = useState(false);
+  const [quickDateSuccess,setQuickDateSuccess] = useState('');
+  function startQuickDate(client) {
+    setQuickDateId(client.id);
+    setQuickDate(matterWorkDate(client) || '');
+    setQuickDateError('');
+    setQuickDateSuccess('');
+  }
+  async function saveQuickDate(client) {
+    if (quickDateSaving || saving) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(quickDate) || Number.isNaN(new Date(`${quickDate}T12:00:00`).getTime())) {
+      setQuickDateError('Choose a valid date.');
+      return;
+    }
+    const status = normaliseMatterStatus(client.matterStatus,client.clientStatus,client.nextAction);
+    const waiting = status.startsWith('Waiting') || status === 'Client action required';
+    const oldDate = matterWorkDate(client);
+    if (oldDate === quickDate) { setQuickDateId(''); return; }
+    const activity = [...normaliseMatterActivity(client.matterActivity),makeMatterActivity('reschedule','Next review rescheduled',`${client.nextAction || matterWaitingLabel(status)} · ${oldDate ? formatRecordDate(oldDate) : 'No previous date'} → ${formatRecordDate(quickDate)}`,actorAdviser?.name || 'Adviser')];
+    setQuickDateSaving(true);
+    setQuickDateError('');
+    try {
+      await saveClient({ ...client, nextActionDue: waiting ? '' : quickDate, matterReviewDate: waiting ? quickDate : '', matterActivity: activity }, { resetNewClientForm: false });
+      setQuickDateId('');
+      setQuickDateSuccess(client.id);
+    } catch (err) {
+      setQuickDateError(err?.message || 'Could not save the new date. Please try again.');
+    } finally {
+      setQuickDateSaving(false);
+    }
+  }
   const extras=buildMyWorkExtras(buildMyWorkGroups(clients,scopeAdviserId,ownership).rows,personalTasks,scopeAdviserId);
   const taskNow=extras.tasks.filter(t=>t.status==='Open'&&t.dueDate&&dateDiff(t.dueDate)<=0);
   const reminderNow=extras.reminders.filter(isDashboardActionableDeadlineRow);
@@ -21037,13 +21071,25 @@ function CalmWorkDashboard({ clients = [], advisers = [], scopeAdviserId = 'all'
   const needsDate = c => !matterWorkDate(c) || !String(c.nextAction || '').trim();
   const attention = (range === 'all' ? rows : range === 'unscheduled' ? unscheduled : range === 'week' ? rows.filter(c => matterWorkDate(c) && dateDiff(matterWorkDate(c)) !== null && dateDiff(matterWorkDate(c)) <= 7) : due).slice().sort((a,b)=>(matterWorkDate(a)||'9999-12-31').localeCompare(matterWorkDate(b)||'9999-12-31')||clientName(a).localeCompare(clientName(b)));
   const appointments=calendarEntries.filter(e=>e.status!=='Completed'&&e.status!=='Cancelled'&&e.appointmentDate===todayIso()).sort((a,b)=>(a.startTime||a.appointmentTime||'').localeCompare(b.startTime||b.appointmentTime||''));
+  const myWorkDisplayName=c=>isCommercialMatterRecord(c)?clientName(c):[c.lastName,c.firstName].filter(Boolean).map(normaliseClientNamePart).join(', ');
   const initials=c=>clientName(c).split(/\s+/).filter(Boolean).slice(0,2).map(s=>s[0]).join('').toUpperCase();
-  const renderRow=(c)=>{const due=matterWorkDate(c),days=dateDiff(due);return <button type="button" className={`calm-work-row ${selectedId===c.id?'selected':''}`} key={c.id} aria-label={`Update ${clientName(c)}`} onClick={()=>setSelectedId(c.id)}>
-    <span className="calm-work-identity"><span className="precision-avatar" aria-hidden="true">{initials(c)}</span><span className="precision-identity-copy"><strong>{clientName(c)}</strong><small>{c.caseType || 'Matter'}</small></span></span>
-    <span className="calm-work-next"><span>{c.nextAction || 'Set the next action'}</span>{waiting(c)&&<small>Review · {matterWaitingLabel(c.matterStatus)}</small>}</span>
-    <span className={`calm-due ${due&&days<0?'overdue':due&&days===0?'today':''}`}><strong>{!due ? (needsDate(c)?'Needs a date':'Unscheduled') : days<0?`${Math.abs(days)}d overdue`:days===0?'Today':days===1?'Tomorrow':formatShortDate(due)}</strong>{range==='week'&&due&&<small>{new Date(due+'T12:00:00').toLocaleDateString('en-NZ',{weekday:'short',day:'numeric',month:'short'})}</small>}</span>
-    <span className="calm-icon-button" aria-hidden="true"><ChevronRight size={17}/></span>
-  </button>;};
+  const renderRow=(c)=>{const due=matterWorkDate(c),days=dateDiff(due),editing=quickDateId===c.id;return <div className={`calm-work-row ${selectedId===c.id?'selected':''}`} key={c.id}>
+    <button type="button" className="calm-work-row-main" aria-label={`Update ${myWorkDisplayName(c)}`} onClick={()=>setSelectedId(c.id)}>
+      <span className="calm-work-identity"><span className="precision-avatar" aria-hidden="true">{initials(c)}</span><span className="precision-identity-copy"><strong>{myWorkDisplayName(c)}</strong><small>{c.caseType || 'Matter'}</small></span></span>
+      <span className="calm-work-next"><span>{c.nextAction || 'Set the next action'}</span>{waiting(c)&&<small>Review · {matterWaitingLabel(c.matterStatus)}</small>}</span>
+      <span className={`calm-due ${due&&days<0?'overdue':due&&days===0?'today':''}`}><strong>{!due ? (needsDate(c)?'Needs a date':'Unscheduled') : days<0?`${Math.abs(days)}d overdue`:days===0?'Today':days===1?'Tomorrow':formatShortDate(due)}</strong>{range==='week'&&due&&<small>{new Date(due+'T12:00:00').toLocaleDateString('en-NZ',{weekday:'short',day:'numeric',month:'short'})}</small>}</span>
+    </button>
+    <div className="calm-quick-date-shell">
+      <button type="button" className="calm-quick-date-trigger" aria-label={`Reschedule ${myWorkDisplayName(c)}`} title="Change next action / review date" aria-expanded={editing} disabled={quickDateSaving||saving} onClick={()=>editing?setQuickDateId(''):startQuickDate(c)}><CalendarDays size={17}/></button>
+      {editing&&<form className="calm-quick-date-popover" onSubmit={event=>{event.preventDefault();saveQuickDate(c);}}>
+        <strong>Reschedule {myWorkDisplayName(c)}</strong>
+        <label><span>{waiting(c)?'Review date':'Next action date'}</span><input type="date" aria-label={`New date for ${myWorkDisplayName(c)}`} value={quickDate} disabled={quickDateSaving||saving} onChange={event=>{setQuickDate(event.target.value);setQuickDateError('');}} required autoFocus/></label>
+        {quickDateError&&<small className="calm-quick-date-error" role="alert">{quickDateError}</small>}
+        <div className="calm-quick-date-buttons"><button type="button" className="btn" disabled={quickDateSaving} onClick={()=>{setQuickDateId('');setQuickDateError('');}}>Cancel</button><button type="submit" className="btn dark" disabled={quickDateSaving||saving||!quickDate}>{quickDateSaving?'Saving…':'Save date'}</button></div>
+      </form>}
+    </div>
+    {quickDateSuccess===c.id&&<span className="calm-quick-date-status" role="status">Date updated</span>}
+  </div>;};
   return <section className="calm-work-page precision-work-page">
     <div className="calm-page-heading"><div><h1>My Work</h1><p>{new Date().toLocaleDateString('en-NZ',{weekday:'long',day:'numeric',month:'long',timeZone:'Pacific/Auckland'})} · A clear view of what needs you.</p></div>{savePersonalTask&&<button type="button" className="btn dark precision-add-task" onClick={()=>{const draft=makeBlankPersonalTask(scopeAdviserId==='all'?(actorAdviser?.id||''):scopeAdviserId);setNewTask(draft);}}><Plus size={16}/>Add task</button>}</div>
     <div className="calm-work-summary"><span><strong>{due.length}</strong> Client actions</span><span><strong>{taskNow.length}</strong> Personal tasks</span><span><strong>{reminderNow.length}</strong> Date reminders</span></div>

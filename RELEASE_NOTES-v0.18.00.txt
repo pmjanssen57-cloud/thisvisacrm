@@ -1,0 +1,17 @@
+THiS CRM v0.18.00 - My Work name display and quick date changes
+Baseline: THiS CRM v0.17.98 (the latest complete deployment ZIP available in this conversation).
+
+Changes:
+1. The Client actions rows in the My Work dashboard now show individual client names as "Surname, Firstname". This is display-only; stored names and commercial organisation names are unchanged.
+2. Each client-action row has an independent calendar button. Open the compact date editor, select a date, and save without opening the matter.
+3. Waiting / client-action-required matters update matterReviewDate; other matters update nextActionDue, following the existing rescheduling workflow. The opposite date field is cleared as in the existing rescheduling flow.
+4. Rescheduling appends a matter activity entry, and errors are shown without discarding the selected date. The row's main area still opens the normal matter panel.
+5. Responsive and keyboard-accessible quick date controls.
+
+Scope: App.jsx, src/ui/modern-ui.css, package.json. No Netlify Functions, database migrations, or other feature changes.
+
+Verification: JSX syntax parsed with the installed TypeScript parser (zero parse errors). Archive-integrity checks passed. Dependency installation timed out, so npm run build and interactive browser tests were NOT completed. Test on a Netlify deploy preview before publishing.
+
+IMPORTANT BRANCH NOTE: v0.17.99 Seminar Email Reliability Fix was handed to a separate Work conversation and is not included here. If that release has subsequently been deployed, merge this patch with the actual current production source before deploying. Do not overwrite v0.17.99 changes with the v0.17.98-based ZIP.
+
+Rollback: THiS-CRM-v0.17.98.zip.
