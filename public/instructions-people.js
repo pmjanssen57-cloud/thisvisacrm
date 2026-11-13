@@ -176,12 +176,79 @@
       detail.querySelector('[data-add-requirement]').addEventListener('click',()=>{list.push({id:`requirement-${crypto.randomUUID()}`,title:'Additional document',note:'',enabled:true,personIds:[]});block.enabled=true;dirty(false);renderEditor();renderDocumentLists();renderPreview();const next=document.querySelector(`[data-s51-block="${block.id}"]`);next?.setAttribute('open','');next?.querySelector('.s51-requirement:last-child [data-requirement-title]')?.focus();});
     });
   }
+  // v0.18.01: One adviser-reviewed summary of the selected evidence requests.
+  // All checklist settings live in the instruction-set draft, not the master pack.
+  function checklistSettings() {
+    const m=ensureModel();
+    if(!m.documentChecklistV181)m.documentChecklistV181={enabled:true,order:[],overrides:{},excluded:[],custom:[]};
+    return m.documentChecklistV181;
+  }
+  function checklistKey(title){return String(title||'').trim().replace(/\s+/g,' ').toLocaleLowerCase();}
+  function checklistRows(){
+    const cfg=checklistSettings(),found=new Map(),doc=state.docs.documents;
+    (doc?.blocks||[]).filter(b=>b.enabled&&!b.builder72NoEvidence).forEach(block=>{
+      requirements('documents',block).filter(r=>r.enabled&&r.title.trim()).forEach(r=>{
+        const key='req:'+checklistKey(r.title);
+        if(!found.has(key))found.set(key,{key,title:r.title.trim(),personIds:[],custom:false});
+        const item=found.get(key);
+        (r.personIds||[]).forEach(id=>{if(!item.personIds.includes(id))item.personIds.push(id);});
+      });
+    });
+    (cfg.custom||[]).forEach(r=>found.set(r.key,{...r,custom:true}));
+    const rows=[...found.values()].map(r=>{
+      const edit=cfg.overrides?.[r.key]||{};
+      return {...r,title:edit.title??r.title,requiredFor:edit.requiredFor??(r.custom?'':names(r.personIds)),excluded:(cfg.excluded||[]).includes(r.key)};
+    });
+    const positions=new Map((cfg.order||[]).map((key,index)=>[key,index]));
+    return rows.sort((a,b)=>(positions.get(a.key)??99999)-(positions.get(b.key)??99999));
+  }
+  function checklistReorder(rows,key,delta){
+    const cfg=checklistSettings(),keys=rows.map(r=>r.key),i=keys.indexOf(key),j=i+delta;
+    if(i<0||j<0||j>=keys.length)return;
+    [keys[i],keys[j]]=[keys[j],keys[i]];cfg.order=keys;
+    dirty(false);renderEditor();renderPreview();
+  }
+  function renderChecklistEditor(){
+    document.querySelector('#s181-checklist-editor')?.remove();
+    if(state.selectedDoc!=='documents'||!model()?.enabled)return;
+    const target=document.querySelector('#tab-content .selected-document-header');if(!target)return;
+    const cfg=checklistSettings(),rows=checklistRows();
+    const section=document.createElement('section');section.id='s181-checklist-editor';section.className='s181-checklist-editor';
+    section.innerHTML=`<div class="s181-checklist-head"><div><h3>Document checklist</h3><p>Client-facing summary generated from the selected documents and assigned people. Check each row before issuing the guide.</p></div><label><input type="checkbox" id="s181-checklist-enabled" ${cfg.enabled?'checked':''}> Include checklist</label></div><div class="s181-checklist-list">${rows.map((r,i)=>`<div class="s181-checklist-row" data-s181-key="${esc(r.key)}"><label class="s181-checklist-include"><input type="checkbox" data-s181-include ${!r.excluded?'checked':''} aria-label="Include ${esc(r.title)}"></label><label>Document type<input data-s181-title value="${esc(r.title)}"></label><label>Required for<input data-s181-for value="${esc(r.requiredFor)}" placeholder="Confirm applicant(s)"></label><div class="s181-checklist-actions"><button type="button" data-s181-move="-1" ${i===0?'disabled':''} aria-label="Move row up">↑</button><button type="button" data-s181-move="1" ${i===rows.length-1?'disabled':''} aria-label="Move row down">↓</button>${r.custom?'<button type="button" data-s181-delete aria-label="Remove custom row">×</button>':''}</div></div>`).join('')}</div><button class="button button-secondary" type="button" id="s181-add-checklist-row">+ Add checklist item</button><p class="s181-checklist-note">Changes to this summary do not alter the detailed evidence requests. Unassigned applicants must be confirmed by the adviser.</p>`;
+    target.insertAdjacentElement('afterend',section);
+    section.querySelector('#s181-checklist-enabled').addEventListener('change',e=>{cfg.enabled=e.target.checked;dirty();});
+    section.querySelectorAll('.s181-checklist-row').forEach(row=>{
+      const key=row.dataset.s181Key;
+      row.querySelector('[data-s181-include]').addEventListener('change',e=>{cfg.excluded=cfg.excluded.filter(k=>k!==key);if(!e.target.checked)cfg.excluded.push(key);dirty();});
+      const update=(field,value)=>{cfg.overrides[key]={...(cfg.overrides[key]||{}),[field]:value};dirty();};
+      row.querySelector('[data-s181-title]').addEventListener('input',e=>update('title',e.target.value));
+      row.querySelector('[data-s181-for]').addEventListener('input',e=>update('requiredFor',e.target.value));
+      row.querySelectorAll('[data-s181-move]').forEach(b=>b.addEventListener('click',()=>checklistReorder(rows,key,Number(b.dataset.s181Move))));
+      row.querySelector('[data-s181-delete]')?.addEventListener('click',()=>{cfg.custom=cfg.custom.filter(r=>r.key!==key);delete cfg.overrides[key];dirty(false);renderEditor();renderPreview();});
+    });
+    section.querySelector('#s181-add-checklist-row').addEventListener('click',()=>{const key='custom:'+crypto.randomUUID();cfg.custom.push({key,title:'Additional document',requiredFor:'',personIds:[]});cfg.order=checklistRows().map(r=>r.key);dirty(false);renderEditor();renderPreview();document.querySelector(`[data-s181-key="${key}"] [data-s181-title]`)?.focus();});
+  }
+  function withChecklist(html){
+    const cfg=checklistSettings();if(!cfg.enabled)return html;
+    const rows=checklistRows().filter(r=>!r.excluded&&r.title.trim());if(!rows.length)return html;
+    const dom=document.createElement('template');dom.innerHTML=html;
+    const first=[...dom.content.querySelectorAll('.pdf-page')].find(p=>!p.matches('.pdf-cover,.application-glance-page'));
+    if(!first)return html;
+    const inner=first.querySelector('.pdf-page-inner');if(!inner)return html;
+    const chunkSize=11;
+    for(let i=rows.length;i>0;i-=chunkSize){
+      const chunk=rows.slice(Math.max(0,i-chunkSize),i);
+      const table=`<div class="s181-checklist-print"><h2>${i<=chunkSize?'Your document checklist':'Your document checklist (continued)'}</h2>${i<=chunkSize?'<p>Tick each item as it is ready to provide. The detailed instructions later in this guide explain what is needed.</p>':''}<table><thead><tr><th>Document type</th><th>Required for?</th><th>Complete?</th></tr></thead><tbody>${chunk.map(r=>`<tr><td>${esc(r.title)}</td><td>${esc(r.requiredFor||'Confirm with adviser')}</td><td><span class="s181-empty-check" aria-label="Not completed"></span></td></tr>`).join('')}</tbody></table></div>`;
+      inner.insertAdjacentHTML('afterbegin',flowSection(table));
+    }
+    return dom.innerHTML;
+  }
   const oldRenderAll=renderAll;
   renderAll=function(){ensureModel();syncClientNames();oldRenderAll();renderSteps();};
   const oldClientForm=renderClientForm;
   renderClientForm=function(){oldClientForm();renderPeople();};
   const oldEditor=renderEditor;
-  renderEditor=function(){const expanded=[...document.querySelectorAll('.s51-requirements[open]')].map(node=>node.dataset.s51Block);oldEditor();document.querySelectorAll('.s51-requirements,.s51-section-scope,.s51-output-mode').forEach(node=>node.remove());renderIntroControls();renderRequirements();document.querySelectorAll('.s51-requirements').forEach(node=>{if(expanded.includes(node.dataset.s51Block))node.open=true;});if(!model()?.enabled){const notice=document.createElement('div');notice.className='s51-output-mode s51-legacy';notice.innerHTML='<strong>This guide keeps its existing output.</strong><p>Enable the people-based layout to include the selections below in the introduction and documentation guide.</p><button type="button" class="button button-secondary">Use people-based guide</button>';document.querySelector('#tab-content .selected-document-header')?.after(notice);notice.querySelector('button').addEventListener('click',()=>{model().enabled=true;syncClientNames();dirty(false);renderAll();});}renderSteps();};
+  renderEditor=function(){const expanded=[...document.querySelectorAll('.s51-requirements[open]')].map(node=>node.dataset.s51Block);oldEditor();document.querySelectorAll('.s51-requirements,.s51-section-scope,.s51-output-mode').forEach(node=>node.remove());renderIntroControls();renderRequirements();renderChecklistEditor();document.querySelectorAll('.s51-requirements').forEach(node=>{if(expanded.includes(node.dataset.s51Block))node.open=true;});if(!model()?.enabled){const notice=document.createElement('div');notice.className='s51-output-mode s51-legacy';notice.innerHTML='<strong>This guide keeps its existing output.</strong><p>Enable the people-based layout to include the selections below in the introduction and documentation guide.</p><button type="button" class="button button-secondary">Use people-based guide</button>';document.querySelector('#tab-content .selected-document-header')?.after(notice);notice.querySelector('button').addEventListener('click',()=>{model().enabled=true;syncClientNames();dirty(false);renderAll();});}renderSteps();};
   const oldIntro=editedIntroParagraphsV14;
   editedIntroParagraphsV14=function(doc){const original=oldIntro(doc);if(state.builder72?.simpleIntro)return original;if(!model()?.enabled||window.__THIS_TEMPLATE_PREVIEW_V156__||!['roadmap','documents'].includes(renderingDoc))return original;const m=model();return `<div class="s51-generated s51-introduction"><strong>${m.introIds.length>1?'Your instruction guide — people included':'Your instruction guide'}</strong><div>This guide covers ${esc(names(m.introIds)||'the applicants to be confirmed')}.</div>${m.introductionNote?`<div class="s51-intro-person-note">${esc(m.introductionNote).replace(/\n/g,'<br>')}</div>`:''}</div>`+original;};
   function noteParts(note) {
@@ -231,7 +298,7 @@
         const source=block.templateHtml??block.html??'';
         return {...block,templateHtml:source+`<div class="s51-generated s51-applies-to">Applies to: <strong>${esc(names(selected)||'Adviser to confirm')}</strong></div>`};
       });
-      const html=oldRenderDoc(id);return ['roadmap','documents'].includes(id)?paginateEvidence(html,doc):html;
+      const html=oldRenderDoc(id);const withSummary=id==='documents'?withChecklist(html):html;return ['roadmap','documents'].includes(id)?paginateEvidence(withSummary,doc):withSummary;
     } finally {doc.blocks=originalBlocks;renderingDoc=previous;}
   };
   window.THIS_INSTRUCTION_GREETING=()=>model()?.enabled?(model().recipientText?.trim()||names(model().recipientIds)||'Client'):'';

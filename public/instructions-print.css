@@ -109,3 +109,14 @@
 .ib72-studio :is(#preview-root,#print-root) .cover84 .cover-title.cover85-title-medium{font-size:48px}
 .ib72-studio :is(#preview-root,#print-root) .cover84 .cover-title.cover85-title-long{font-size:38px}
 .ib72-studio :is(#preview-root,#print-root) .cover84 .cover-subtitle{font-size:22px;line-height:1.5;margin:0;overflow-wrap:anywhere;color:#003f3d}
+/* v0.18.01 – printable adviser-reviewed document checklist */
+.s181-checklist-print{width:100%;min-width:0;color:#23413f;margin:0 0 18px}
+.s181-checklist-print h2{font-size:22px;line-height:1.3;margin:0 0 8px;color:#064e48}
+.s181-checklist-print p{font-size:13px;line-height:1.5;margin:0 0 16px}
+.s181-checklist-print table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:12px}
+.s181-checklist-print th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.03em;border-bottom:2px solid #d6e7e2;padding:8px 7px}
+.s181-checklist-print td{padding:9px 7px;border-bottom:1px solid #e4e9e7;vertical-align:middle;overflow-wrap:anywhere}
+.s181-checklist-print th:nth-child(1){width:47%}.s181-checklist-print th:nth-child(2){width:38%}.s181-checklist-print th:nth-child(3){width:15%;text-align:center}
+.s181-checklist-print td:last-child{text-align:center}
+.s181-empty-check{display:inline-block;width:15px;height:15px;border:2px solid #43c99d;box-sizing:border-box;vertical-align:middle}
+.s181-checklist-print tr{break-inside:avoid;page-break-inside:avoid}

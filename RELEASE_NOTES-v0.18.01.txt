@@ -1,0 +1,26 @@
+THiS CRM v0.18.01 - Instructions Studio Document Checklist
+
+Source baseline: v0.18.00 (includes My Work quick rescheduling).
+
+CHANGES
+- Adds an optional client-facing document checklist at the front of each people-based documentation guide.
+- Draws automatically from enabled document requests and their applicant assignments in the specific instruction set. No visa requirements are inferred independently.
+- Deduplicates document names and combines selected applicants for repeated requests.
+- Advisers can include/exclude rows, adjust display wording, specify Required For, reorder rows with arrow buttons, and add/remove custom rows.
+- Printed document and on-screen guide preview use the same checklist output with blank green checkboxes.
+- Long checklists are split into table sections for pagination.
+- Settings are stored in each instruction-set draft, not the master template.
+
+IMPORTANT
+- The feature is available when the instruction set uses the people-based guide. Legacy saved guides retain their existing output until the people-based option is enabled.
+- The default checklist summarizes adviser-selected documents; it is not an independent immigration policy rules engine. Review all requirements and applicant assignments before issue.
+- Existing PDF generation code, document requirements, and other CRM modules are otherwise unchanged.
+- Parallel v0.17.99 seminar email changes are NOT merged (not available in the v0.18.00 baseline).
+
+VALIDATION
+- instructions-people.js passed Node JavaScript syntax check.
+- Package file integrity verified.
+- Full Vite production build and live browser/PDF tests NOT completed: this source package has no installed dependencies and no package lockfile. Test on Netlify deploy preview first.
+
+ROLLBACK
+- THiS-CRM-v0.18.00-ROLLBACK.zip
