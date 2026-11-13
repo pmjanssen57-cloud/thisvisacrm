@@ -673,6 +673,26 @@
       d.intro=safeHtml(m.intro||'');d.builder72RichIntro=true;d.directEdits ||= {};d.directEdits.intro={};
       d.blocks=(m.blocks||[]).filter(b=>!b.familyBlock72).map(b=>({...structuredClone(b),html:safeHtml(b.html??b.templateHtml??''),templateHtml:safeHtml(b.html??b.templateHtml??''),directEdits:{},clientTailoredV01743:true}));
       for(const b of custom)if(!d.blocks.some(x=>x.id===b.id))d.blocks.push(b);
+      // v0.18.02: Published category defaults seed a new client checklist, but
+      // never replace an adviser-tailored checklist already saved in that matter.
+      if(id==='documents'&&m.checklistDefaultsV182){
+        const cm=target.instructionPeopleV51;
+        if(!cm)target.studioChecklistDefaultsV182=structuredClone(m.checklistDefaultsV182);
+        if(cm&&!cm.documentChecklistV181){
+          const defaults=m.checklistDefaultsV182;
+          const overrides={},excluded=[],order=[],custom=[];
+          (defaults.rows||[]).forEach(r=>{
+            if(!r.key||!r.title?.trim())return;
+            order.push(r.key);
+            if(r.custom){custom.push({key:r.key,title:r.title,requiredFor:r.requiredFor||'',personIds:[]});}
+            const roleNames=String(r.requiredFor||'').split(',').map(x=>x.trim()).filter(Boolean);
+            const actualNames=roleNames.flatMap(role=>cm.people.filter(p=>p.role===role).map(p=>p.name).filter(Boolean));
+            overrides[r.key]={title:r.title,requiredFor:actualNames.length?actualNames.join(', '):(r.requiredFor||'')};
+            if(r.included===false)excluded.push(r.key);
+          });
+          cm.documentChecklistV181={enabled:defaults.enabled!==false,order,overrides,excluded,custom};
+        }
+      }
       const pm=target.instructionPeopleV51;
       if(pm){pm.requirements ||= {};for(const b of d.blocks){const key=`${id}:${b.id}`;if(!pm.requirements[key]&&b.requests?.length)pm.requirements[key]=b.requests.map(r=>({id:`requirement-${uid()}`,title:r.title,note:r.note||'',enabled:true,personIds:pm.people.filter(p=>(r.roles||[]).includes(p.role)).map(p=>p.id)}));}}
     }

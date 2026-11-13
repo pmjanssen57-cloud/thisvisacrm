@@ -309,6 +309,19 @@
     const savedPack=saved?.packState||saved?.workspaceDrafts?.[activePackId];
     if(!savedPack?.instructionPeopleV51)state.instructionPeopleV51=newModel(payload.client||state.client,!savedPack);
     else state.instructionPeopleV51=structuredClone(savedPack.instructionPeopleV51);
+    // Apply category-level defaults that arrived before the people model was initialised.
+    if(state.studioChecklistDefaultsV182&&!state.instructionPeopleV51.documentChecklistV181){
+      const cfg=state.studioChecklistDefaultsV182,overrides={},order=[],excluded=[],custom=[];
+      (cfg.rows||[]).forEach(r=>{if(!r.key||!r.title?.trim())return;order.push(r.key);
+        const roleNames=String(r.requiredFor||'').split(',').map(x=>x.trim()).filter(Boolean);
+        const actualNames=roleNames.flatMap(role=>state.instructionPeopleV51.people.filter(p=>p.role===role).map(p=>p.name).filter(Boolean));
+        overrides[r.key]={title:r.title,requiredFor:actualNames.length?actualNames.join(', '):(r.requiredFor||'')};
+        if(r.included===false)excluded.push(r.key);
+        if(r.custom)custom.push({key:r.key,title:r.title,requiredFor:r.requiredFor||'',personIds:[]});
+      });
+      state.instructionPeopleV51.documentChecklistV181={enabled:cfg.enabled!==false,order,overrides,excluded,custom};
+    }
+    delete state.studioChecklistDefaultsV182;
     importing=false;syncClientNames();renderAll();
     if(!savedPack)go('people');
     initialisedKey=String(payload.instructionSet?.id||payload.client?.id||'standalone');

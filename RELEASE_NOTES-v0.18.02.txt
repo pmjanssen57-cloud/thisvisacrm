@@ -1,0 +1,11 @@
+THiS CRM v0.18.02 – Master Document Checklist Defaults
+
+- Adds Document checklist in Master templates > Documentation Guide, immediately after Header & introduction.
+- The checklist can be enabled/disabled, populated from existing master document requests, edited, reordered and previewed before saving/publishing.
+- Publishing saves category-level defaults for future client instruction sets without changing existing client guides.
+- When a published master is applied to a new client guide, checklist rows seed the existing v0.18.01 client checklist editor; advisers may continue adjusting specific requirements. Existing customised client checklist settings are retained.
+- Uses existing master-template version and publishing workflow. No database migration.
+- The preview is illustrative; final page breaks are determined in the client Instructions Studio.
+- Base: v0.18.01. Does not incorporate any changes from the separate seminar email development branch.
+
+Testing: source syntax tests and ZIP integrity checks. Full browser/PDF regression and complete production build should be checked in Netlify deploy preview.
