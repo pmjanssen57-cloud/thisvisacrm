@@ -97,7 +97,17 @@ async function getAgreementForReview(tokenHash, request) {
        WHERE id = ${row.signatory_id}`;
     await refreshAgreementStatus(row.agreement_id, database);
   }
+  const allSignatories = await database.sql`
+    SELECT id, name, email, role, required, status, viewed_at, accepted_at, typed_name, signature_data
+      FROM agreement_signatories
+     WHERE agreement_id = ${row.agreement_id} AND status <> 'Superseded'
+     ORDER BY created_at ASC`;
   return {
+    signatories: allSignatories.map(item => ({
+      id: item.id, name: item.name || '', email: item.email || '', role: item.role || 'Client',
+      required: item.required !== false, status: item.status || 'Sent', viewedAt: item.viewed_at || '',
+      acceptedAt: item.accepted_at || '', typedName: item.typed_name || '', signatureData: item.signature_data || '',
+    })),
     agreement: {
       id: row.agreement_id,
       title: row.title || 'Engagement agreement',
@@ -145,6 +155,7 @@ async function acceptAgreement(tokenHash, body, request) {
   if (row.expires_at && new Date(row.expires_at).getTime() < Date.now()) throw new Error('This agreement link has expired.');
   const modernCompliance = row.studio_state?.compliance && typeof row.studio_state.compliance === 'object';
   if (modernCompliance && (!declarations.professionalStandards || !declarations.complaintsProcedure || !declarations.significantMattersExplained)) throw new Error('Confirm receipt of the Professional Standards and internal complaints procedure, and that the significant agreement matters were explained, before accepting.');
+  if (row.status === 'Superseded') throw new Error('This signing link has been replaced. Please use the latest link supplied by Turner Hopkins.');
   if (row.status === 'Accepted') return { ok: true, agreementStatus: await refreshAgreementStatus(row.agreement_id, database) };
   const ipAddress = clean(request.headers.get('x-forwarded-for') || request.headers.get('client-ip') || '', 500);
   const userAgent = clean(request.headers.get('user-agent') || '', 1000);
@@ -152,7 +163,7 @@ async function acceptAgreement(tokenHash, body, request) {
     UPDATE agreement_signatories
        SET status = 'Accepted', accepted_at = NOW(), typed_name = ${typedName}, signature_data = ${signatureData},
            declarations = ${JSON.stringify(declarations)}::jsonb, ip_address = ${ipAddress}, user_agent = ${userAgent}, updated_at = NOW()
-     WHERE id = ${row.signatory_id}`;
+     WHERE id = ${row.signatory_id} AND status <> 'Accepted'`;
   const agreementStatus = await refreshAgreementStatus(row.agreement_id, database);
   await recordAcceptanceEmail({ database, agreementId: row.agreement_id, agreementTitle: row.title, signatoryEmail: row.signatory_email, typedName, studioState: row.studio_state || {} });
   return { ok: true, agreementStatus };
@@ -164,7 +175,7 @@ async function refreshAgreementStatus(agreementId, database = db()) {
            COUNT(*) FILTER (WHERE required = TRUE AND status = 'Accepted')::int AS accepted_count,
            COUNT(*) FILTER (WHERE status = 'Viewed')::int AS viewed_count
       FROM agreement_signatories
-     WHERE agreement_id = ${agreementId}`;
+     WHERE agreement_id = ${agreementId} AND status <> 'Superseded'`;
   const requiredCount = Number(counts[0]?.required_count || 0);
   const acceptedCount = Number(counts[0]?.accepted_count || 0);
   let status = 'Sent';

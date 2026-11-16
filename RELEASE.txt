@@ -1,1 +1,1 @@
-THiS CRM v0.17.98 - Instructions Studio A4 preview layout fix. See RELEASE_NOTES-v0.17.98.txt.
+THiS CRM v0.18.04 - Employer Compliance & Settlement Guide. See RELEASE_NOTES-v0.18.04.txt.

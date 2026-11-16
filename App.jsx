@@ -18880,6 +18880,7 @@ function FamilyDetails({ members, addFamilyMember, updateFamilyMember, removeFam
               <option>Child</option>
             </select>
             <input data-family-name-input value={member.name || ''} onChange={(event) => updateFamilyMember(member.id, { name: event.target.value })} placeholder="Full name" />
+            {member.relationship === 'Spouse/Partner' && <input type="email" aria-label="Partner email address" value={member.email || ''} onChange={(event) => updateFamilyMember(member.id, { email: event.target.value })} placeholder="Partner email address" />}
             <input value={member.nationality || ''} list="family-citizenship-options" onChange={(event) => updateFamilyMember(member.id, { nationality: event.target.value })} placeholder="Citizenship" />
             <input type="date" value={member.dateOfBirth || ''} onChange={(event) => updateFamilyMember(member.id, { dateOfBirth: event.target.value })} />
             <strong className="age-pill">{calculateAge(member.dateOfBirth) === null ? 'Age -' : `${calculateAge(member.dateOfBirth)} yrs`}</strong>

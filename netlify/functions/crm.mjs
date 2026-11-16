@@ -2936,9 +2936,25 @@ If anything needs correcting, is unclear, or has not yet been explained to you, 
 
 async function issueAgreementSet(input = {}, issue = {}, user = null) {
   const database = db();
+  // Inspect the existing immutable signing record before saving an issue draft.
+  // Otherwise a refused reissue can accidentally reset Partially signed to Ready.
+  if (isUuid(input.id)) {
+    const existingAccepted = await database.sql`
+      SELECT COUNT(*)::int AS total FROM agreement_signatories
+       WHERE agreement_id = ${input.id} AND status = 'Accepted'`;
+    if (Number(existingAccepted[0]?.total || 0) > 0) {
+      throw new Error('At least one person has already signed this agreement. Do not reissue it. Create a new agreement or variation if changes are required.');
+    }
+  }
   let agreement = await saveAgreementSet({ ...input, status: input.status === 'Accepted' ? 'Accepted' : 'Ready' }, user);
   if (!isUuid(agreement.id)) throw new Error('Save the agreement before issuing it.');
   if (agreement.status === 'Accepted') throw new Error('An accepted agreement cannot be reissued. Create a new agreement or variation.');
+  // Reissuing a partially signed agreement would create duplicate required slots
+  // and could make an existing acceptance appear to be replaced or incomplete.
+  const priorAcceptances = await database.sql`
+    SELECT COUNT(*)::int AS total FROM agreement_signatories
+     WHERE agreement_id = ${agreement.id} AND status = 'Accepted'`;
+  if (Number(priorAcceptances[0]?.total || 0) > 0) throw new Error('This agreement already has a recorded signature. Do not reissue it; prepare a new agreement or variation if details need changing.');
   const studioState = normaliseJsonObject(agreement.studioState);
   const complianceProblems = agreementComplianceProblems(studioState);
   if (complianceProblems.length) throw new Error(`Agreement compliance check: ${complianceProblems[0]}`);
@@ -2952,6 +2968,12 @@ async function issueAgreementSet(input = {}, issue = {}, user = null) {
   const partnerName = normaliseSignatoryName(studioState?.client?.partnerName);
   if (principalName && !signatories.some(item => normaliseSignatoryName(item.name) === principalName)) throw new Error('The principal client must remain a required signatory.');
   if (partnerName && !signatories.some(item => normaliseSignatoryName(item.name) === partnerName)) throw new Error('The partner / secondary applicant is recorded as a client in Client & matter. Current IAA guidance requires all clients, including secondary applicants, to accept the written agreement. Keep them as a required signatory, or remove them from Client & matter only if they are not a client to this engagement.');
+  const seenNames = new Set();
+  for (const item of signatories) {
+    const key = normaliseSignatoryName(item.name);
+    if (seenNames.has(key)) throw new Error('Each signatory must be a different named person. Review the signatory details.');
+    seenNames.add(key);
+  }
   const usable = signatories;
   const configStatus = getEmailConfigStatus();
   const config = configStatus.configured ? requireMicrosoftEmailConfig() : null;
@@ -6928,9 +6950,10 @@ function normaliseFamilyMembers(inputMembers = []) {
       relationship: member.relationship === 'Spouse/Partner' ? 'Spouse/Partner' : 'Child',
       name: String(member.name || '').trim(),
       nationality: String(member.nationality || '').trim(),
+      email: String(member.email || '').trim(),
       dateOfBirth: nullableDate(member.dateOfBirth) || '',
     }))
-    .filter((member) => member.name || member.nationality || member.dateOfBirth);
+    .filter((member) => member.name || member.email || member.nationality || member.dateOfBirth);
 }
 
 function parseFamilyMembers(value) {

@@ -1,0 +1,31 @@
+THiS CRM v0.18.03 - Independent Agreement Signing & Partner Email
+13 November 2026
+
+BASELINE: v0.18.02 (Instructions Studio master checklist retained).
+
+- Client record > Family details > Spouse/partner now has a persistent partner email field.
+  It is saved within the existing family_members JSONB, so no SQL migration is needed.
+- Agreement Studio seeds the partner's email from the client record, preserving deliberate adviser overrides.
+- Partner and principal signatories retain separate recipient identities and signing URLs even when the same email inbox is used.
+- Fixes agreement preview signature matching: person name/role takes priority over shared email addresses.
+- Secure public agreement view retrieves the current non-superseded signature status and captured image for each person; the final display can show both signatures rather than just the signer opening the link.
+- Signing confirmation now identifies the intended person and role.
+- Agreement editor labels signatory fields and warns advisers when both people share an inbox.
+- Prevents accidental reissue when any signature has already been accepted, without resetting the recorded agreement status.
+- Superseded links can no longer be used for new acceptances.
+- Email/signatory status and other CRM records retain their previous data model.
+
+VERIFICATION:
+- node --check passed for edited server functions and public agreement-studio.js.
+- Signature matching regression checks passed for both signing orders with a shared inbox and partner-only signing.
+- ZIP integrity and package contents checked.
+- Complete npm/Vite build and live Netlify/Graph/database and browser end-to-end tests NOT completed here.
+
+DEPLOYMENT:
+- Deploy to a Netlify preview first. Test single signatory and two distinct client names/addresses, and repeat with a shared address.
+- Verify signing second does not alter first's captured signature and that the printed agreement shows both.
+- Verify partner email survives saving/reopening client Family details and automatically prefills new agreements.
+- Do not rely on this build as a remediation for already corrupted historical signatures without inspecting original DB acceptance rows.
+- This version is based on v0.18.02; changes from any separate parallel v0.17.99 work are not included.
+
+ROLLBACK: THiS-CRM-v0.18.02.zip

@@ -265,8 +265,15 @@ function mergeAcceptanceDetails(base=[],records=[]){
  incoming.forEach(record=>{
   const email=String(record.email||'').trim().toLowerCase();
   const name=String(record.name||record.typedName||'').trim().toLowerCase();
-  let target=source.find(item=>email&&String(item.email||'').trim().toLowerCase()===email);
-  if(!target&&name)target=source.find(item=>String(item.name||'').trim().toLowerCase()===name);
+  // A shared inbox is not a signatory identity.  Match the named person first;
+  // fall back to email only where it identifies exactly one template signatory.
+  const role=String(record.role||'').trim().toLowerCase();
+  let target=name?source.find(item=>String(item.name||'').trim().toLowerCase()===name):null;
+  if(!target&&role)target=source.find(item=>String(item.role||'').trim().toLowerCase()===role);
+  if(!target&&email){
+   const matches=source.filter(item=>String(item.email||'').trim().toLowerCase()===email);
+   if(matches.length===1)target=matches[0];
+  }
   if(!target){target={id:record.id||`sg-${Date.now()}-${source.length}`,name:record.name||record.typedName||'',email:record.email||'',role:record.role||'Client',required:record.required!==false};source.push(target)}
   Object.assign(target,{
    status:record.status||target.status||'Sent',viewedAt:record.viewedAt||record.viewed_at||target.viewedAt||'',acceptedAt:record.acceptedAt||record.accepted_at||target.acceptedAt||'',
@@ -421,8 +428,14 @@ function renderSigning(){
   const lockedClient=principalClient||partnerClient;
   if(lockedClient) r.required=true;
   const ruleNote=principalClient?'Principal client - acceptance required':partnerClient?'Partner / secondary applicant client - acceptance required under current IAA guidance':'';
-  return `<div class="repeatrow" data-sign-row="${i}"><div class="inlinegrid"><input class="input" data-sf="name" value="${esc(r.name)}" ${accepted||lockedClient?'readonly':''}><input class="input" data-sf="email" value="${esc(r.email)}" ${accepted?'readonly':''}><input class="input" data-sf="role" value="${esc(r.role)}" ${accepted||lockedClient?'readonly':''}></div><label class="checkrow"><input type="checkbox" data-sf-required ${r.required?'checked':''} ${accepted||lockedClient?'disabled':''}>Required signature</label>${ruleNote?`<div class="help" style="margin:-2px 0 8px">${esc(ruleNote)}</div>`:''}<div class="signatory-audit ${accepted?'accepted':viewed?'viewed':'sent'}"><strong>${accepted?'Accepted':viewed?'Viewed':'Awaiting signature'}</strong>${accepted&&r.typedName?`<span>Signed by ${esc(r.typedName)}</span>`:''}${accepted&&r.acceptedAt?`<span>${esc(formatAcceptedDate(r.acceptedAt))}</span>`:''}${accepted&&r.signatureData?'<span>Electronic signature recorded</span>':''}</div><div class="rowactions">${accepted||lockedClient?'':`<button class="btn danger small" data-sign-remove>Remove</button>`}</div></div>`
+  return `<div class="repeatrow" data-sign-row="${i}"><strong>${esc(r.role||`Signatory ${i+1}`)}</strong><div class="inlinegrid"><input aria-label="Signatory full legal name" class="input" data-sf="name" value="${esc(r.name)}" ${accepted||lockedClient?'readonly':''}><input type="email" aria-label="Signatory email address" class="input" data-sf="email" value="${esc(r.email)}" ${accepted?'readonly':''}><input aria-label="Signatory role" class="input" data-sf="role" value="${esc(r.role)}" ${accepted||lockedClient?'readonly':''}></div><label class="checkrow"><input type="checkbox" data-sf-required ${r.required?'checked':''} ${accepted||lockedClient?'disabled':''}>Required signature</label>${ruleNote?`<div class="help" style="margin:-2px 0 8px">${esc(ruleNote)}</div>`:''}<div class="signatory-audit ${accepted?'accepted':viewed?'viewed':'sent'}"><strong>${accepted?'Accepted':viewed?'Viewed':'Awaiting signature'}</strong>${accepted&&r.typedName?`<span>Signed by ${esc(r.typedName)}</span>`:''}${accepted&&r.acceptedAt?`<span>${esc(formatAcceptedDate(r.acceptedAt))}</span>`:''}${accepted&&r.signatureData?'<span>Electronic signature recorded</span>':''}</div><div class="rowactions">${accepted||lockedClient?'':`<button class="btn danger small" data-sign-remove>Remove</button>`}</div></div>`
  }).join('');
+ const addresses=(state.signatories||[]).filter(s=>s.required!==false&&isUsableEmail(s.email)).map(s=>String(s.email).trim().toLowerCase());
+ const shared=addresses.some((value,index)=>addresses.indexOf(value)!==index);
+ const note=document.querySelector('#agreement-shared-inbox-note')||document.createElement('p');
+ note.id='agreement-shared-inbox-note';note.className='help';
+ note.textContent=shared?'Two signatories have the same email address. They will receive separate, person-specific signing links in that inbox. Make sure each person opens their own link.':'Each required person receives their own signing link and signature record. The partner email can be saved in the client Family details.';
+ $('#signatoryRows').after(note);
  $('#acceptanceText').value=state.acceptanceText;$('#emailSubject').value=state.emailSubject;$('#emailBody').value=state.emailBody;renderComplianceSummary();bindRepeats()
 }
 function renderTemplate(){ $$('.template').forEach(el=>el.value=state.template[el.dataset.key]||'');$('#versionHistory').innerHTML=state.templateHistory.slice().reverse().map(h=>`<div class="historyitem"><div><strong>Version ${esc(h.version)}</strong><small>${esc(h.date)} - ${esc(h.note)}</small></div><button class="btn secondary small" disabled>Published</button></div>`).join('')}
@@ -558,7 +571,7 @@ function configureAcceptanceChecks(){
  const significant=$('#checkSignificantRow'); if(significant) significant.style.display=modern?'flex':'none';
  return modern;
 }
-function openSigning(){ $('#signHeading').textContent='Review and accept your agreement';$('#signAgreement').textContent=currentType().title;$('#signClient').textContent=fullClient();$('#signVersion').textContent=state.template.version;$('#typedName').value='';['checkRead','checkFees','checkDocs','checkComplaints','checkSignificant'].forEach(id=>$('#'+id).checked=false);configureAcceptanceChecks();clearSignature();$('#signModal').classList.remove('hidden');setTimeout(initCanvas,50)}
+function openSigning(){ $('#signHeading').textContent='Review and accept your agreement';$('#signAgreement').textContent=currentType().title;$('#signClient').textContent=window.__THIS_CURRENT_SIGNATORY__ ? `${window.__THIS_CURRENT_SIGNATORY__.name || 'Signatory'} (${window.__THIS_CURRENT_SIGNATORY__.role || 'Client'})` : fullClient();$('#signVersion').textContent=state.template.version;$('#typedName').value='';['checkRead','checkFees','checkDocs','checkComplaints','checkSignificant'].forEach(id=>$('#'+id).checked=false);configureAcceptanceChecks();clearSignature();$('#signModal').classList.remove('hidden');setTimeout(initCanvas,50)}
 function initCanvas(){const c=$('#sigCanvas'),ctx=c.getContext('2d');let drawing=false,last=null;function pos(e){const r=c.getBoundingClientRect(),p=e.touches?e.touches[0]:e;return{x:(p.clientX-r.left)*(c.width/r.width),y:(p.clientY-r.top)*(c.height/r.height)}}function start(e){drawing=true;last=pos(e);e.preventDefault()}function move(e){if(!drawing)return;const p=pos(e);ctx.strokeStyle='#063b39';ctx.lineWidth=2.2;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(p.x,p.y);ctx.stroke();last=p;sigDrawn=true;e.preventDefault()}function end(){drawing=false;last=null}c.onmousedown=start;c.onmousemove=move;c.onmouseup=end;c.onmouseleave=end;c.ontouchstart=start;c.ontouchmove=move;c.ontouchend=end}
 function clearSignature(){const c=$('#sigCanvas');if(c){c.getContext('2d').clearRect(0,0,c.width,c.height)}sigDrawn=false}
 function acceptAgreement(){const modern=state.complianceVersion===IAA_COMPLIANCE_VERSION;if(!$('#checkRead').checked||!$('#checkFees').checked||!$('#checkDocs').checked||(modern&&(!$('#checkComplaints').checked||!$('#checkSignificant').checked))||!$('#typedName').value.trim()||!sigDrawn){toast('Complete all acceptance confirmations and the signature');return}state.status='Accepted';state.acceptedAt=new Date().toISOString();state.acceptedBy=$('#typedName').value.trim();save();$('#signModal').classList.add('hidden');renderAll();toast('Agreement accepted')}
@@ -635,6 +648,7 @@ if(!THIS_AGREEMENT_CLIENT_PAGE){bind();renderAll();}
     return {
       clientName:principal,
       partnerName,
+      partnerEmail:partner?.email||'',
       clientEmail:client.email||'',
       matterRef:client.oneLawClientNumber||client.matterName||client.id||'',
       adviserId:primary.id||client.primaryAdviserId||'',
@@ -669,6 +683,7 @@ if(!THIS_AGREEMENT_CLIENT_PAGE){bind();renderAll();}
       ...existing,
       clientName:existing.clientName||mapped.clientName||'',
       partnerName:existing.partnerName||mapped.partnerName||'',
+      partnerEmail:existing.partnerEmail||mapped.partnerEmail||'',
       clientEmail:existing.clientEmail||mapped.clientEmail||'',
       matterRef:existing.matterRef||mapped.matterRef||'',
       adviserName:existing.adviserName||mapped.adviserName||'',
@@ -694,6 +709,7 @@ if(!THIS_AGREEMENT_CLIENT_PAGE){bind();renderAll();}
         signatories.push(partner);
       }
       partner.name=partner.name||next.client.partnerName;
+      partner.email=partner.email||next.client.partnerEmail||'';
     }
     next.signatories=signatories;
     return next;
@@ -735,7 +751,7 @@ if(!THIS_AGREEMENT_CLIENT_PAGE){bind();renderAll();}
     }
     const signatories=[];
     if(next.client.clientName) signatories.push({id:'sg-'+Date.now(),name:next.client.clientName,email:next.client.clientEmail||'',role:'Principal client',required:true});
-    if(next.client.partnerName) signatories.push({id:'sg-'+(Date.now()+1),name:next.client.partnerName,email:'',role:'Partner / second client',required:true});
+    if(next.client.partnerName) signatories.push({id:'sg-'+(Date.now()+1),name:next.client.partnerName,email:next.client.partnerEmail||'',role:'Partner / second client',required:true});
     next.signatories=signatories.length?signatories:next.signatories;
     next.emailBody=`We have prepared your engagement agreement for ${APP_TYPES[next.appType]?.title||'your immigration matter'}. It sets out the services we will provide, the professional and government fees, the payment stages, and the terms on which we will act for you.
 
@@ -828,13 +844,14 @@ If anything needs correcting, or you would like to discuss any part of the agree
     state.acceptedAt=payload.agreement.acceptedAt||state.acceptedAt||'';
     state.acceptedBy=payload.agreement.acceptedBy||state.acceptedBy||'';
     publicSignatory=payload.signatory||null;
-    state.signatories=mergeAcceptanceDetails(state.signatories||[],publicSignatory?[publicSignatory]:[]);
+    window.__THIS_CURRENT_SIGNATORY__=publicSignatory;
+    state.signatories=mergeAcceptanceDetails(state.signatories||[],Array.isArray(payload.signatories)?payload.signatories:(publicSignatory?[publicSignatory]:[]));
     if(THIS_AGREEMENT_CLIENT_PAGE)renderPages();else renderAll();
     setPublicPresentation();
     const actions=document.querySelector('.actions');
     if(actions){
       actions.innerHTML='';
-      const status=document.createElement('span'); status.className='statusline'; status.textContent=publicSignatory?.status==='Accepted'?'Accepted agreement':'Secure agreement review'; actions.appendChild(status);
+      const status=document.createElement('span'); status.className='statusline'; status.textContent=publicSignatory?.status==='Accepted'?`Signed: ${publicSignatory.name || 'Client'}`:`Signing as: ${publicSignatory?.name || 'Client'}`; actions.appendChild(status);
       if(publicSignatory?.status!=='Accepted'){
         const button=document.createElement('button'); button.className='btn primary'; button.id='publicAcceptBtn'; button.textContent='Accept agreement'; button.onclick=()=>openSigning(); actions.appendChild(button);
       }
