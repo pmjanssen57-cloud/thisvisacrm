@@ -192,3 +192,16 @@
 .ib82-signoff-logo{display:block!important;flex:none!important;align-self:flex-start;width:144px!important;height:64px!important;max-width:100%!important;object-fit:contain;object-position:left center;margin:13px 0 0!important}
 :is(#preview-root,#print-root,.s51-measure) .flow-section+.flow-section{margin-top:27px!important;padding-top:28px!important}
 :is(#preview-root,#print-root,.s51-measure) .number-heading{margin-bottom:18px!important}
+
+/* v0.18.05 - Per-client document checklist editing in the block-based studio. */
+.ib72 .ib185-switch{display:flex;align-items:center;gap:12px;padding:15px 17px;margin:16px 0;border:1px solid #c9ddd2;border-radius:9px;background:#f3faf6;font-weight:650}
+.ib185-count{color:#526f61;font-size:12px;font-weight:650;margin:12px 0}
+.ib185-rows{display:grid;gap:12px;margin:14px 0 20px}
+.ib185-row{border:1px solid #d2e2d9;border-radius:10px;background:white;padding:15px;display:grid;gap:11px}
+.ib185-row-head{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:11px;font-weight:700;color:#517362}
+.ib185-row-head button{background:none;color:#a13e32;border:0;text-decoration:underline;font-size:12px;font-weight:650;min-height:36px}
+.ib185-row-actions{display:flex;flex-wrap:wrap;gap:7px}
+.ib185-row-actions button{border:1px solid #cbddd1;border-radius:6px;background:#f8fbf9;color:#295548;padding:7px 10px;font-size:12px;min-height:36px}
+.ib185-row.ib185-excluded{background:#f3f6f4;opacity:.75;border-style:dashed}
+.ib185-row.ib185-excluded .ib185-row-head button{color:#086758}
+.ib185-row.ib185-excluded label{opacity:.55}

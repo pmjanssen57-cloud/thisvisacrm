@@ -188,6 +188,11 @@
     const cfg=checklistSettings(),found=new Map(),doc=state.docs.documents;
     (doc?.blocks||[]).filter(b=>b.enabled&&!b.builder72NoEvidence).forEach(block=>{
       requirements('documents',block).filter(r=>r.enabled&&r.title.trim()).forEach(r=>{
+        // A section introduction is not itself a document request. In older drafts
+        // the fallback requirement was named after the section heading.
+        const heading=checklistKey(r.title),blockHeading=checklistKey(block.title);
+        const isNonDocumentHeading=heading===blockHeading&&/^(notes on documentation|helpful hints and final steps|people included in these instructions|header & introduction|introduction|remember|next steps)$/.test(heading);
+        if(isNonDocumentHeading&&!cfg.overrides?.['req:'+heading]?.title&&!cfg.order?.includes('req:'+heading))return;
         const key='req:'+checklistKey(r.title);
         if(!found.has(key))found.set(key,{key,title:r.title.trim(),personIds:[],custom:false});
         const item=found.get(key);

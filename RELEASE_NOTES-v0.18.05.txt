@@ -1,0 +1,17 @@
+THiS CRM v0.18.05 – Editable Client Document Checklists
+17 November 2026
+
+Baseline: v0.18.04 (Employer Compliance & Settlement Guide).
+
+- Fixed a source of irrelevant entries in client-facing Document checklists. Section headings such as "Notes on documentation" are no longer automatically treated as document requests in ordinary drafts. Existing manually tailored rows are preserved.
+- Added "Document checklist" directly to the client Instructions Studio > Documentation Guide > Document sections navigation.
+- Advisers can edit the document name and Required for text independently for every client draft.
+- Advisers can remove or restore individual checklist items, reorder rows, add custom rows and delete custom rows.
+- Entire checklist can be included/excluded without altering the rest of the documentation guide.
+- Client-specific checklist preferences persist in the pre-existing documentChecklistV181 draft model; they do not alter detailed evidence requirements or the published Master Template.
+- Cache versions updated for the client editor, checklist module and CSS.
+
+Verification: edited JavaScript syntax checks passed; ZIP integrity and source-level regression checks passed. Complete Vite/Netlify production build and browser end-to-end tests were not run.
+
+Rollback: THiS-CRM-v0.18.04.zip.
+NOTE: Deploy first to a Netlify preview and verify save/reopen and PDF generation before production.

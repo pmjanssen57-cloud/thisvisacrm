@@ -286,9 +286,64 @@
     state.selectedDoc = id; renderAll();
     if (innerWidth < 760) node('ib72-outline')?.removeAttribute('open');
   }
+  // v0.18.05: A client-draft checklist editor available from the normal block outline.
+  // Keep this separate from the evidence requests. Only the checklist summary changes.
+  function checklistDraft185() {
+    const m=people();if(!m)return null;
+    if(!m.documentChecklistV181)m.documentChecklistV181={enabled:true,order:[],overrides:{},excluded:[],custom:[]};
+    const cfg=m.documentChecklistV181;
+    cfg.overrides ||= {};cfg.order ||= [];cfg.excluded ||= [];cfg.custom ||= [];
+    return cfg;
+  }
+  function checklistKey185(value){return 'req:'+String(value||'').trim().replace(/\s+/g,' ').toLocaleLowerCase();}
+  function checklistNames185(ids){return (ids||[]).map(id=>people()?.people?.find(p=>p.id===id)?.name?.trim()).filter(Boolean).join(', ');}
+  function checklistRows185(){
+    const cfg=checklistDraft185();if(!cfg)return [];
+    const found=new Map();
+    for(const b of (doc().blocks||[])){
+      if(!b.enabled||b.builder72NoEvidence)continue;
+      const list=people()?.requirements?.[`documents:${b.id}`]||[];
+      for(const r of list){
+        if(r.enabled===false||!String(r.title||'').trim())continue;
+        const key=checklistKey185(r.title);
+        const heading=String(r.title||'').trim().replace(/\s+/g,' ').toLocaleLowerCase();
+        const blockHeading=String(b.title||'').trim().replace(/\s+/g,' ').toLocaleLowerCase();
+        const notADocument=heading===blockHeading&&/^(notes on documentation|helpful hints and final steps|people included in these instructions|header & introduction|introduction|remember|next steps)$/.test(heading);
+        if(notADocument&&!cfg.overrides[key]?.title&&!cfg.order.includes(key))continue;
+        if(!found.has(key))found.set(key,{key,title:r.title.trim(),personIds:[],custom:false});
+        const target=found.get(key);
+        for(const id of (r.personIds||[]))if(!target.personIds.includes(id))target.personIds.push(id);
+      }
+    }
+    for(const r of cfg.custom)if(r.key)found.set(r.key,{...r,custom:true});
+    const order=new Map(cfg.order.map((key,i)=>[key,i]));
+    return [...found.values()].map(r=>({
+      ...r,
+      title:cfg.overrides[r.key]?.title??r.title,
+      requiredFor:cfg.overrides[r.key]?.requiredFor??(r.custom?r.requiredFor||'':checklistNames185(r.personIds)),
+      excluded:cfg.excluded.includes(r.key)
+    })).sort((a,b)=>(order.get(a.key)??999999)-(order.get(b.key)??999999));
+  }
+  function checklistEditor185(host){
+    const cfg=checklistDraft185();if(!cfg){host.innerHTML='<p>Set up the people for this draft before editing the checklist.</p>';return;}
+    const rows=checklistRows185();
+    const count=rows.filter(r=>!r.excluded&&r.title.trim()).length;
+    host.innerHTML=`<div class="ib72-editor-head"><div><span class="ib72-eyebrow">Client-specific document summary</span><h2>Document checklist</h2></div></div><p class="ib72-help">Only affects this client's draft. Remove any row that does not represent a document. The detailed evidence requests below the checklist remain unchanged.</p><label class="ib185-switch"><input type="checkbox" data-ib185-enabled ${cfg.enabled!==false?'checked':''}> Include document checklist in this guide</label><p class="ib185-count">${count} checklist items included</p><div class="ib185-rows">${rows.map((r,i)=>`<div class="ib185-row ${r.excluded?'ib185-excluded':''}" data-ib185-key="${esc(r.key)}"><div class="ib185-row-head"><span>Item ${i+1}</span><button type="button" data-ib185-remove>${r.excluded?'Restore item':'Remove item'}</button></div><label>Document type<input type="text" data-ib185-title value="${esc(r.title)}" ${r.excluded?'disabled':''}></label><label>Required for<input type="text" data-ib185-for value="${esc(r.requiredFor)}" placeholder="Confirm with adviser" ${r.excluded?'disabled':''}></label><div class="ib185-row-actions"><button type="button" data-ib185-move="-1" ${i===0?'disabled':''}>Move up</button><button type="button" data-ib185-move="1" ${i===rows.length-1?'disabled':''}>Move down</button>${r.custom?'<button type="button" data-ib185-delete>Delete custom item</button>':''}</div></div>`).join('')}</div><button type="button" class="button button-secondary" data-ib185-add>+ Add checklist item</button><p class="ib72-help">Rows removed here can be restored. Changes are saved with this instruction draft, not in the master template.</p>`;
+    const refresh=()=>{markDirty(false);checklistEditor185(host);outline();flush();};
+    host.querySelector('[data-ib185-enabled]').onchange=e=>{cfg.enabled=e.target.checked;markDirty();};
+    host.querySelectorAll('[data-ib185-key]').forEach(el=>{
+      const key=el.dataset.ib185Key;
+      el.querySelector('[data-ib185-title]')?.addEventListener('input',e=>{cfg.overrides[key]={...(cfg.overrides[key]||{}),title:e.target.value};markDirty();});
+      el.querySelector('[data-ib185-for]')?.addEventListener('input',e=>{cfg.overrides[key]={...(cfg.overrides[key]||{}),requiredFor:e.target.value};markDirty();});
+      el.querySelector('[data-ib185-remove]').onclick=()=>{cfg.excluded=cfg.excluded.filter(k=>k!==key);if(!rows.find(r=>r.key===key)?.excluded)cfg.excluded.push(key);refresh();};
+      el.querySelectorAll('[data-ib185-move]').forEach(btn=>btn.onclick=()=>{const keys=rows.map(r=>r.key),i=keys.indexOf(key),j=i+Number(btn.dataset.ib185Move);if(j<0||j>=keys.length)return;[keys[i],keys[j]]=[keys[j],keys[i]];cfg.order=keys;refresh();});
+      el.querySelector('[data-ib185-delete]')?.addEventListener('click',()=>{cfg.custom=cfg.custom.filter(r=>r.key!==key);cfg.excluded=cfg.excluded.filter(k=>k!==key);delete cfg.overrides[key];refresh();});
+    });
+    host.querySelector('[data-ib185-add]').onclick=()=>{const key='custom:'+uid();cfg.custom.push({key,title:'Additional document',requiredFor:'',personIds:[]});cfg.order=[...rows.map(r=>r.key),key];refresh();host.querySelector(`[data-ib185-key="${key}"] [data-ib185-title]`)?.focus();};
+  }
   function outline() {
     const host = node('ib72-outline-list'); if (!host) return;
-    host.innerHTML = `<button type="button" class="ib72-section ${selection()==='intro'?'selected':''}" data-ib-select="intro"><span class="ib72-section-number">01</span><span><strong>Header & introduction</strong><small>Client name, heading and opening wording</small></span></button>` + doc().blocks.filter(b=>b.enabled).map((b,i)=>`<button type="button" class="ib72-section ${selection()===b.id?'selected':''}" data-ib-select="${esc(b.id)}"><span class="ib72-section-number">${String(i+2).padStart(2,'0')}</span><span><strong>${esc(b.title)}</strong><small>${b.familyBlock72?'People included':b.clientTailoredV01743?'Tailored for this client':b.customSectionV01743?'Custom block':'Starting block'}</small></span></button>`).join('');
+    host.innerHTML = `<button type="button" class="ib72-section ${selection()==='intro'?'selected':''}" data-ib-select="intro"><span class="ib72-section-number">01</span><span><strong>Header & introduction</strong><small>Client name, heading and opening wording</small></span></button>${state.selectedDoc==='documents'?`<button type="button" class="ib72-section ${selection()==='checklist'?'selected':''}" data-ib-select="checklist"><span class="ib72-section-number">02</span><span><strong>Document checklist</strong><small>Edit, remove, add and reorder checklist items</small></span></button>`:''}` + doc().blocks.filter(b=>b.enabled).map((b,i)=>`<button type="button" class="ib72-section ${selection()===b.id?'selected':''}" data-ib-select="${esc(b.id)}"><span class="ib72-section-number">${String(i+2).padStart(2,'0')}</span><span><strong>${esc(b.title)}</strong><small>${b.familyBlock72?'People included':b.clientTailoredV01743?'Tailored for this client':b.customSectionV01743?'Custom block':'Starting block'}</small></span></button>`).join('');
     host.insertAdjacentHTML('beforeend',`<button type="button" class="ib72-section ${selection()==='signoff'?'selected':''}" data-ib-select="signoff"><span class="ib72-section-number">✓</span><span><strong>Adviser sign-off</strong><small>Name, closing and presentation</small></span></button>`);
     host.querySelectorAll('[data-ib-select]').forEach(b=>b.addEventListener('click',()=>{setSelection(b.dataset.ibSelect);outline();sectionEditor();if(innerWidth<760)node('ib72-outline').open=false;}));
     const count = node('ib72-section-count'); if (count) count.textContent = `${doc().blocks.filter(b=>b.enabled).length + 1} sections`;
@@ -335,6 +390,7 @@
   function sectionEditor() {
     const host = node('ib72-section-editor'); if (!host) return;
     if(selection()==='signoff'){signoffEditor76(host);requestAnimationFrame(syncPreviewSelection);return;}
+    if(selection()==='checklist'&&state.selectedDoc==='documents'){checklistEditor185(host);requestAnimationFrame(syncPreviewSelection);return;}
     const b = block(), intro = selection()==='intro';
     if (!intro && (!b || !b.enabled)) { setSelection('intro'); outline(); sectionEditor(); return; }
     const body = intro ? introSource() : b.familyBlock72 ? b.familyNote72 || '<p>Add any family-specific guidance here.</p>' : sourceHtml(b);

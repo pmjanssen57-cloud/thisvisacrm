@@ -1,1 +1,1 @@
-THiS CRM v0.18.04 - Employer Compliance & Settlement Guide. See RELEASE_NOTES-v0.18.04.txt.
+THiS CRM v0.18.05 – Editable Client Document Checklists. See RELEASE_NOTES-v0.18.05.txt.
