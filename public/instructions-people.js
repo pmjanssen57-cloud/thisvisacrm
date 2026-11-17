@@ -233,9 +233,6 @@
     });
     section.querySelector('#s181-add-checklist-row').addEventListener('click',()=>{const key='custom:'+crypto.randomUUID();cfg.custom.push({key,title:'Additional document',requiredFor:'',personIds:[]});cfg.order=checklistRows().map(r=>r.key);dirty(false);renderEditor();renderPreview();document.querySelector(`[data-s181-key="${key}"] [data-s181-title]`)?.focus();});
   }
-  // v0.18.06: Insert the client checklist as section 02 after the introduction.
-  // Keep its document order aligned with the editor outline rather than prepending
-  // to the first page (which previously placed the checklist above Introduction).
   function withChecklist(html){
     const cfg=checklistSettings();if(!cfg.enabled)return html;
     const rows=checklistRows().filter(r=>!r.excluded&&r.title.trim());if(!rows.length)return html;
@@ -243,29 +240,31 @@
     const first=[...dom.content.querySelectorAll('.pdf-page')].find(p=>!p.matches('.pdf-cover,.application-glance-page'));
     if(!first)return html;
     const inner=first.querySelector('.pdf-page-inner');if(!inner)return html;
-    const intro=[...inner.children].find(node=>node.classList.contains('flow-section'));
+    // Keep the document structure identical to the editor outline: introduction,
+    // checklist, then the requested evidence sections. Inserting at the beginning
+    // of the first content page previously put the checklist before Introduction.
+    const introSection=inner.querySelector(':scope > .flow-section');
+    if(!introSection)return html;
+    // The output renderer numbers the other sections before the optional checklist
+    // is added. Shift ordinary automatic numeric headings to make room for #02.
+    // Do not alter custom alphanumeric labels, arrow headings, or the Introduction.
+    dom.content.querySelectorAll('.pdf-content-page .number-heading .num').forEach(span=>{
+      const label=span.textContent.trim();
+      if(!/^\d+$/.test(label)||Number(label)<2)return;
+      const next=String(Number(label)+1);
+      span.textContent=next.padStart(label.length,'0');
+    });
     const chunkSize=11;
-    const chunks=[];
+    let insertionPoint=introSection;
     for(let i=0;i<rows.length;i+=chunkSize){
-      const chunk=rows.slice(i,i+chunkSize),isFirst=i===0;
-      const heading=isFirst?'<div class="number-heading"><span class="num">02</span><h2>Your document checklist</h2></div>':'<h2>Your document checklist (continued)</h2>';
-      const table=`<div class="s181-checklist-print">${heading}${isFirst?'<p>Tick each item as it is ready to provide. The detailed instructions later in this guide explain what is needed.</p>':''}<table><thead><tr><th>Document type</th><th>Required for?</th><th>Complete?</th></tr></thead><tbody>${chunk.map(r=>`<tr><td>${esc(r.title)}</td><td>${esc(r.requiredFor||'Confirm with adviser')}</td><td><span class="s181-empty-check" aria-label="Not completed"></span></td></tr>`).join('')}</tbody></table></div>`;
-      const holder=document.createElement('template');holder.innerHTML=flowSection(table);
-      chunks.push(holder.content.firstElementChild);
-    }
-    // Insert directly after Introduction, preserving checklist chunk order.
-    if(intro){let anchor=intro;for(const chunk of chunks){anchor.after(chunk);anchor=chunk;}}
-    else {inner.prepend(...chunks);}
-    // The new section occupies sequence 02. Move subsequent automatically
-    // numbered sections forward one place without changing manual/non-numeric labels.
-    let seenIntro=false;
-    for(const heading of dom.content.querySelectorAll('.number-heading')){
-      const num=heading.querySelector(':scope > .num');if(!num)continue;
-      if(heading.closest('.s181-checklist-print'))continue;
-      const value=String(num.textContent||'').trim();
-      if(!/^\d+$/.test(value))continue;
-      if(!seenIntro){seenIntro=true;continue;}
-      num.textContent=String(Number(value)+1).padStart(2,'0');
+      const chunk=rows.slice(i,i+chunkSize);
+      const firstChunk=i===0;
+      const heading=firstChunk
+        ? numberedHeading(2,'Your document checklist')
+        : '<h3 class="s181-checklist-continued">Your document checklist (continued)</h3>';
+      const table=`<div class="s181-checklist-print">${heading}${firstChunk?'<p>Tick each item as it is ready to provide. The detailed instructions later in this guide explain what is needed.</p>':''}<table><thead><tr><th>Document type</th><th>Required for?</th><th>Complete?</th></tr></thead><tbody>${chunk.map(r=>`<tr><td>${esc(r.title)}</td><td>${esc(r.requiredFor||'Confirm with adviser')}</td><td><span class="s181-empty-check" aria-label="Not completed"></span></td></tr>`).join('')}</tbody></table></div>`;
+      insertionPoint.insertAdjacentHTML('afterend',flowSection(table));
+      insertionPoint=insertionPoint.nextElementSibling;
     }
     return dom.innerHTML;
   }
@@ -284,15 +283,33 @@
   }
   const oldBlock=genericBlockHtmlV13;
   genericBlockHtmlV13=function(block,plan,doc){
-    if(block.builder72NoEvidence)return oldBlock(block,plan,doc);
-    if(!model()?.enabled||renderingDoc!=='documents'||window.__THIS_TEMPLATE_PREVIEW_V156__)return oldBlock(block,plan,doc);
+    const showRequiredFor = typeof block.builderShowRequiredForV187 === 'boolean'
+      ? block.builderShowRequiredForV187
+      : !/(helpful hints|final steps|remember|notes on documentation|questions|next steps)/i.test(String(block.title || ''));
+    // Keep other guides and master-template previews unchanged. In legacy client drafts,
+    // still honour an explicit per-section choice to hide the line.
+    if(renderingDoc!=='documents'||window.__THIS_TEMPLATE_PREVIEW_V156__)return oldBlock(block,plan,doc);
+    if(!model()?.enabled){
+      const html=oldBlock(block,plan,doc);
+      if(showRequiredFor)return html;
+      const parsed=document.createElement('template');parsed.innerHTML=html;
+      parsed.content.querySelectorAll('.required-for,.confirmed-requirement,.s51-required-for').forEach(e=>e.remove());
+      return parsed.innerHTML;
+    }
+    if(block.builder72NoEvidence){
+      const html=oldBlock(block,plan,doc);
+      if(showRequiredFor)return html;
+      const parsed=document.createElement('template');parsed.innerHTML=html;
+      parsed.content.querySelectorAll('.required-for,.confirmed-requirement,.s51-required-for').forEach(e=>e.remove());
+      return parsed.innerHTML;
+    }
     const selected=requirements(renderingDoc,block).filter(r=>r.enabled);
     const bodyTemplate=document.createElement('template');bodyTemplate.innerHTML=oldBlock(block,plan,doc);
     bodyTemplate.content.querySelectorAll('.required-for,.confirmed-requirement').forEach(node=>node.remove());
     const heading=bodyTemplate.content.querySelector('.number-heading')?.outerHTML||headingMarkupV13(plan.setting,plan.number,block.title,plan.defaultMode);
     // Identity has item-level requirements; the old blanket list would contradict them.
     const source=block.id==='identity'&&!block.clientTailoredV01743&&!block.customSectionV01743&&!block.sourceModuleIdV01743?`${heading}<div class="s51-generated">Provide the identity records selected below, for the people named against each item.</div>`:bodyTemplate.content.firstElementChild?.innerHTML||bodyTemplate.innerHTML;
-    const items=selected.flatMap(r=>noteParts(r.note).map((part,index)=>`<div class="s51-generated s51-evidence-item"><strong>${esc(r.title||'Document')}${index?' — continued':''}</strong><div class="s51-required-for">Required for: <b>${esc(names(r.personIds)||'Adviser to confirm')}</b></div>${part?`<div>${esc(part).replace(/\n/g,'<br>')}</div>`:''}</div>`)).join('');
+    const items=selected.flatMap(r=>noteParts(r.note).map((part,index)=>`<div class="s51-generated s51-evidence-item"><strong>${esc(r.title||'Document')}${index?' — continued':''}</strong>${showRequiredFor?`<div class="s51-required-for">Required for: <b>${esc(names(r.personIds)||'Adviser to confirm')}</b></div>`:''}${part?`<div>${esc(part).replace(/\n/g,'<br>')}</div>`:''}</div>`)).join('');
     return flowSection(source+items+(!selected.length?'<div class="s51-generated s51-assignment-warning">Document selections need adviser review.</div>':''));
   };
   const oldRenderDoc=renderDocHtml;

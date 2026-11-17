@@ -120,3 +120,8 @@
 .s181-checklist-print td:last-child{text-align:center}
 .s181-empty-check{display:inline-block;width:15px;height:15px;border:2px solid #43c99d;box-sizing:border-box;vertical-align:middle}
 .s181-checklist-print tr{break-inside:avoid;page-break-inside:avoid}
+
+/* v0.18.06: checklist heading uses the same numbered style as all guide sections. */
+.s181-checklist-print > .number-heading { margin-bottom:13px; }
+.s181-checklist-print > .number-heading h2 { margin:0; text-transform:uppercase; }
+.s181-checklist-print > .s181-checklist-continued { font-size:17px; color:#064e48; margin:12px 0; }

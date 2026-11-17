@@ -1,1 +1,1 @@
-THiS CRM v0.18.06 – Document Checklist Ordering and Numbering. See RELEASE_NOTES-v0.18.06.txt.
+THiS CRM v0.18.07 - Per-section Required for visibility. See RELEASE_NOTES-v0.18.07.txt.
