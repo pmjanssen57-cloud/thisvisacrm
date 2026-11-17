@@ -1,0 +1,14 @@
+THiS CRM v0.18.06 – Document Checklist Ordering and Numbering
+17 November 2026
+
+Baseline: v0.18.05
+
+- Document checklist now renders immediately after Introduction, matching the order shown in the Instructions Studio editor.
+- Checklist has a numbered section heading (02) using the same style as the rest of the guide.
+- Subsequent automatically numbered sections move forward by one to avoid duplicate numbering.
+- In the left editing outline, documentation blocks now begin at 03 rather than duplicating 02, and the section count includes the checklist.
+- Outline number column aligned consistently and set to tabular numerals.
+- Reuses the v0.18.05 per-client checklist editing controls.
+
+Verification: JavaScript syntax checks and ZIP integrity checked. Full browser / Netlify build and PDF output were not run.
+Rollback: THiS-CRM-v0.18.05.zip

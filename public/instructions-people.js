@@ -233,6 +233,9 @@
     });
     section.querySelector('#s181-add-checklist-row').addEventListener('click',()=>{const key='custom:'+crypto.randomUUID();cfg.custom.push({key,title:'Additional document',requiredFor:'',personIds:[]});cfg.order=checklistRows().map(r=>r.key);dirty(false);renderEditor();renderPreview();document.querySelector(`[data-s181-key="${key}"] [data-s181-title]`)?.focus();});
   }
+  // v0.18.06: Insert the client checklist as section 02 after the introduction.
+  // Keep its document order aligned with the editor outline rather than prepending
+  // to the first page (which previously placed the checklist above Introduction).
   function withChecklist(html){
     const cfg=checklistSettings();if(!cfg.enabled)return html;
     const rows=checklistRows().filter(r=>!r.excluded&&r.title.trim());if(!rows.length)return html;
@@ -240,11 +243,29 @@
     const first=[...dom.content.querySelectorAll('.pdf-page')].find(p=>!p.matches('.pdf-cover,.application-glance-page'));
     if(!first)return html;
     const inner=first.querySelector('.pdf-page-inner');if(!inner)return html;
+    const intro=[...inner.children].find(node=>node.classList.contains('flow-section'));
     const chunkSize=11;
-    for(let i=rows.length;i>0;i-=chunkSize){
-      const chunk=rows.slice(Math.max(0,i-chunkSize),i);
-      const table=`<div class="s181-checklist-print"><h2>${i<=chunkSize?'Your document checklist':'Your document checklist (continued)'}</h2>${i<=chunkSize?'<p>Tick each item as it is ready to provide. The detailed instructions later in this guide explain what is needed.</p>':''}<table><thead><tr><th>Document type</th><th>Required for?</th><th>Complete?</th></tr></thead><tbody>${chunk.map(r=>`<tr><td>${esc(r.title)}</td><td>${esc(r.requiredFor||'Confirm with adviser')}</td><td><span class="s181-empty-check" aria-label="Not completed"></span></td></tr>`).join('')}</tbody></table></div>`;
-      inner.insertAdjacentHTML('afterbegin',flowSection(table));
+    const chunks=[];
+    for(let i=0;i<rows.length;i+=chunkSize){
+      const chunk=rows.slice(i,i+chunkSize),isFirst=i===0;
+      const heading=isFirst?'<div class="number-heading"><span class="num">02</span><h2>Your document checklist</h2></div>':'<h2>Your document checklist (continued)</h2>';
+      const table=`<div class="s181-checklist-print">${heading}${isFirst?'<p>Tick each item as it is ready to provide. The detailed instructions later in this guide explain what is needed.</p>':''}<table><thead><tr><th>Document type</th><th>Required for?</th><th>Complete?</th></tr></thead><tbody>${chunk.map(r=>`<tr><td>${esc(r.title)}</td><td>${esc(r.requiredFor||'Confirm with adviser')}</td><td><span class="s181-empty-check" aria-label="Not completed"></span></td></tr>`).join('')}</tbody></table></div>`;
+      const holder=document.createElement('template');holder.innerHTML=flowSection(table);
+      chunks.push(holder.content.firstElementChild);
+    }
+    // Insert directly after Introduction, preserving checklist chunk order.
+    if(intro){let anchor=intro;for(const chunk of chunks){anchor.after(chunk);anchor=chunk;}}
+    else {inner.prepend(...chunks);}
+    // The new section occupies sequence 02. Move subsequent automatically
+    // numbered sections forward one place without changing manual/non-numeric labels.
+    let seenIntro=false;
+    for(const heading of dom.content.querySelectorAll('.number-heading')){
+      const num=heading.querySelector(':scope > .num');if(!num)continue;
+      if(heading.closest('.s181-checklist-print'))continue;
+      const value=String(num.textContent||'').trim();
+      if(!/^\d+$/.test(value))continue;
+      if(!seenIntro){seenIntro=true;continue;}
+      num.textContent=String(Number(value)+1).padStart(2,'0');
     }
     return dom.innerHTML;
   }
