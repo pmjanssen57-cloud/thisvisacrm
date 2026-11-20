@@ -1,1 +1,1 @@
-THiS CRM v0.18.07 - Per-section Required for visibility. See RELEASE_NOTES-v0.18.07.txt.
+THiS CRM v0.18.09 - Delegated client tasks. See RELEASE_NOTES-v0.18.09.txt.

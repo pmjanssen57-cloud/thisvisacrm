@@ -20884,3 +20884,13 @@ body.intake-embed-mode .website-form-refresh.public-form-shell{background:transp
 @media (max-width: 620px) {
   .client-details-accordion-body .editable-row.family-row:has(input[type="email"]) { grid-template-columns:1fr; }
 }
+
+/* v0.18.08: original intake access for converted client records */
+.original-intake-client-action-v1808 {display:flex;justify-content:flex-end;margin:8px 0 12px;}
+.original-intake-v1808 {padding:10px 2px 24px;}
+.original-intake-v1808 > .muted {margin:0 0 16px;line-height:1.5;}
+.original-intake-v1808 .button-row {display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 18px;}
+.original-intake-v1808 .intake-questionnaire-review {max-width:100%;}
+.original-intake-v1808 .intake-section {margin-bottom:12px;}
+.matter-tools-card > .btn.full {margin-top:10px;}
+@media(max-width:650px){.original-intake-client-action-v1808 {justify-content:stretch;}.original-intake-client-action-v1808 >button {width:100%;}}

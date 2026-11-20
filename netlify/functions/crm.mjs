@@ -600,12 +600,12 @@ async function handleCrmEvent(event) {
     }
 
     if (action === 'savePersonalTask') {
-      const personalTask = await savePersonalTask(body.task);
-      return json({ personalTask });
+      const { personalTask, notification } = await savePersonalTask(body.task, accessContext, auth.user);
+      return json({ personalTask, taskNotification: notification });
     }
 
     if (action === 'deletePersonalTask') {
-      await deletePersonalTask(body.taskId);
+      await deletePersonalTask(body.taskId, accessContext);
       return json({ deletedPersonalTaskId: body.taskId });
     }
 
@@ -1304,6 +1304,10 @@ async function ensureSchema() {
   await database.sql`CREATE INDEX IF NOT EXISTS idx_client_deadlines_action_status ON client_deadlines(action_status)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_client_deadlines_review_date ON client_deadlines(review_date)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_billing_milestones_due_date ON billing_milestones(due_date)`;
+  // v0.18.09: additive, idempotent columns; all pre-existing personal reminders remain unchanged.
+  await database.sql`ALTER TABLE personal_tasks ADD COLUMN IF NOT EXISTS delegated BOOLEAN NOT NULL DEFAULT FALSE`;
+  await database.sql`ALTER TABLE personal_tasks ADD COLUMN IF NOT EXISTS assigned_by_id UUID REFERENCES advisers(id) ON DELETE SET NULL`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_personal_tasks_assigned_by ON personal_tasks(assigned_by_id)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_personal_tasks_due_date ON personal_tasks(due_date)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_personal_tasks_adviser ON personal_tasks(adviser_id)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_calendar_entries_date ON calendar_entries(appointment_date)`;
@@ -3185,7 +3189,7 @@ async function readCrmData() {
     database.sql`SELECT id, client_id, stage_key, stage_label, mandatory, applied, completed, completed_date, sort_order FROM client_stages ORDER BY sort_order ASC`,
     database.sql`SELECT id, client_id, deadline_type, deadline_date, note, action_status, review_date FROM client_deadlines ORDER BY deadline_date ASC NULLS LAST`,
     database.sql`SELECT id, client_id, milestone, due_date, amount, status, invoice_no, billing_trigger_type, billing_stage_key FROM billing_milestones ORDER BY due_date ASC NULLS LAST`,
-    database.sql`SELECT id, adviser_id, client_id, title, due_date, status, note FROM personal_tasks ORDER BY due_date ASC NULLS LAST, created_at DESC`,
+    database.sql`SELECT id, adviser_id, assigned_by_id, delegated, client_id, title, due_date, status, note FROM personal_tasks ORDER BY due_date ASC NULLS LAST, created_at DESC`,
     database.sql`SELECT id, client_id, adviser_id, title, appointment_type, appointment_date, start_time, end_time, location, notes, status FROM calendar_entries ORDER BY appointment_date ASC, start_time ASC NULLS LAST, created_at DESC`,
     database.sql`SELECT id, entry_type, reference_code, title, category, status, official_url, version_label, acceptable_until, related_case_types, related_document_items, internal_summary, adviser_notes, last_reviewed, next_review_due, reviewed_by FROM library_entries ORDER BY entry_type ASC, title ASC`,
     database.sql`SELECT id, client_id, portal_email, message_type, title, message, status, created_at FROM client_portal_messages ORDER BY created_at DESC`,
@@ -3667,6 +3671,8 @@ function mapPersonalTaskFromDb(row) {
   return {
     id: row.id,
     adviserId: row.adviser_id || '',
+    assignedById: row.assigned_by_id || '',
+    delegated: Boolean(row.delegated),
     clientId: row.client_id || '',
     title: row.title || '',
     dueDate: toDateOnly(row.due_date),
@@ -4910,37 +4916,121 @@ async function deleteCalendarEntry(entryId) {
   await db().sql`DELETE FROM calendar_entries WHERE id = ${entryId}`;
 }
 
-async function savePersonalTask(input = {}) {
+async function savePersonalTask(input = {}, accessContext = {}, authUser = null) {
   const database = db();
-  const task = normalisePersonalTaskInput(input);
-  const id = isUuid(task.id) ? task.id : null;
-
+  const incoming = normalisePersonalTaskInput(input);
+  const id = isUuid(incoming.id) ? incoming.id : null;
+  const actorId = accessContext.adviserId || '';
+  let original = null;
+  let task = incoming;
   if (id) {
-    const rows = await database.sql`
-      UPDATE personal_tasks
-      SET adviser_id = ${nullableUuid(task.adviserId)},
-          client_id = ${nullableUuid(task.clientId)},
-          title = ${task.title || 'Untitled task'},
-          due_date = ${nullableDate(task.dueDate)},
-          status = ${normalisePersonalTaskStatus(task.status)},
-          note = ${task.note || ''},
-          updated_at = NOW()
-      WHERE id = ${id}
-      RETURNING id, adviser_id, client_id, title, due_date, status, note
-    `;
-    return mapPersonalTaskFromDb(rows[0]);
+    const existing = await database.sql`SELECT id, adviser_id, assigned_by_id, delegated, client_id, title, due_date, status, note FROM personal_tasks WHERE id = ${id}`;
+    if (!existing.length) throw Object.assign(new Error('Task not found. Refresh before making changes.'), { statusCode: 404 });
+    original = mapPersonalTaskFromDb(existing[0]);
+    if (original.delegated) {
+      if (!actorId || (accessContext.role !== 'Admin' && actorId !== original.assignedById && actorId !== original.adviserId)) {
+        throw Object.assign(new Error('Only the assigning adviser or assigned colleague can update this task.'), { statusCode: 403 });
+      }
+      // Assignees can update progress and notes, but cannot silently reassign or rewrite instructions.
+      if (actorId === original.adviserId && actorId !== original.assignedById && accessContext.role !== 'Admin') {
+        task = { ...original, status: incoming.status, note: incoming.note };
+      } else {
+        task = { ...incoming, assignedById: original.assignedById, delegated: true };
+      }
+    } else if (incoming.delegated) {
+      if (!actorId) throw Object.assign(new Error('A linked adviser login is needed to delegate tasks.'), { statusCode: 400 });
+      task = { ...incoming, assignedById: actorId };
+    } else task = { ...incoming, assignedById: '' };
+  } else if (incoming.delegated) {
+    if (!actorId) throw Object.assign(new Error('A linked adviser login is needed to delegate tasks.'), { statusCode: 400 });
+    task = { ...incoming, assignedById: actorId, status: 'Assigned' };
   }
-
-  const rows = await database.sql`
-    INSERT INTO personal_tasks (adviser_id, client_id, title, due_date, status, note)
-    VALUES (${nullableUuid(task.adviserId)}, ${nullableUuid(task.clientId)}, ${task.title || 'Untitled task'}, ${nullableDate(task.dueDate)}, ${normalisePersonalTaskStatus(task.status)}, ${task.note || ''})
-    RETURNING id, adviser_id, client_id, title, due_date, status, note
-  `;
-  return mapPersonalTaskFromDb(rows[0]);
+  if (task.delegated && !['Assigned','In Progress','Completed'].includes(task.status)) task.status = 'Assigned';
+  if (task.delegated && (!isUuid(task.clientId) || !isUuid(task.adviserId) || task.adviserId === task.assignedById)) {
+    throw Object.assign(new Error('Delegated work needs a linked client and a different assigned team member.'), { statusCode: 400 });
+  }
+  let rows;
+  if (id) {
+    rows = await database.sql`
+      UPDATE personal_tasks
+      SET adviser_id = ${nullableUuid(task.adviserId)}, assigned_by_id = ${nullableUuid(task.assignedById)},
+          delegated = ${Boolean(task.delegated)}, client_id = ${nullableUuid(task.clientId)},
+          title = ${task.title || 'Untitled task'}, due_date = ${nullableDate(task.dueDate)},
+          status = ${normalisePersonalTaskStatus(task.status)}, note = ${task.note || ''}, updated_at = NOW()
+      WHERE id = ${id}
+      RETURNING id, adviser_id, assigned_by_id, delegated, client_id, title, due_date, status, note`;
+  } else {
+    rows = await database.sql`
+      INSERT INTO personal_tasks (adviser_id, assigned_by_id, delegated, client_id, title, due_date, status, note)
+      VALUES (${nullableUuid(task.adviserId)}, ${nullableUuid(task.assignedById)}, ${Boolean(task.delegated)}, ${nullableUuid(task.clientId)}, ${task.title || 'Untitled task'}, ${nullableDate(task.dueDate)}, ${normalisePersonalTaskStatus(task.status)}, ${task.note || ''})
+      RETURNING id, adviser_id, assigned_by_id, delegated, client_id, title, due_date, status, note`;
+  }
+  const personalTask = mapPersonalTaskFromDb(rows[0]);
+  let notification = null;
+  if (personalTask.delegated) {
+    const newAssignment = !original?.delegated || original.adviserId !== personalTask.adviserId;
+    const changedStatus = Boolean(original?.delegated && original.status !== personalTask.status);
+    if (newAssignment || changedStatus) {
+      try {
+        notification = await sendDelegatedTaskNotification(personalTask, newAssignment ? 'assigned' : 'progress', accessContext, authUser);
+      } catch (error) {
+        // Never roll back a successfully saved task because Microsoft Graph is unavailable.
+        console.error('Delegated task notification failed', { taskId: personalTask.id, message: String(error?.message || error) });
+        notification = { status: 'Failed', message: 'Task saved, but the email notification could not be sent.' };
+      }
+    }
+  }
+  return { personalTask, notification };
 }
 
-async function deletePersonalTask(taskId) {
+async function sendDelegatedTaskNotification(task, kind, accessContext, authUser) {
+  const database = db();
+  const recipientId = kind === 'assigned' ? task.adviserId : (accessContext.adviserId === task.assignedById ? task.adviserId : task.assignedById);
+  const [recipient] = await database.sql`SELECT id, name, email, login_email FROM advisers WHERE id = ${recipientId} AND active = TRUE`;
+  if (!recipient) return { status: 'Skipped', message: 'Recipient not found or inactive.' };
+  const recipientEmail = String(recipient.email || recipient.login_email || '').trim();
+  if (!recipientEmail) return { status: 'Skipped', message: 'Recipient has no email configured.' };
+  const [assigner] = await database.sql`SELECT name FROM advisers WHERE id = ${task.assignedById}`;
+  const [assignee] = await database.sql`SELECT name FROM advisers WHERE id = ${task.adviserId}`;
+  const [client] = await database.sql`SELECT first_name, last_name, case_type FROM clients WHERE id = ${task.clientId}`;
+  const clientName = [client?.last_name, client?.first_name].filter(Boolean).join(', ') || 'Client matter';
+  const subject = kind === 'assigned' ? `New task assigned: ${task.title}` : `Task updated (${task.status}): ${task.title}`;
+  const bodyText = [
+    `Hi ${recipient.name || 'colleague'},`, '',
+    kind === 'assigned' ? `${assigner?.name || 'A colleague'} has assigned you a client task.` : `A colleague has updated progress on a shared client task.`,
+    '', `Client / matter: ${clientName}`, `Task: ${task.title}`,
+    `Assigned by: ${assigner?.name || 'Adviser'}`, `Assigned to: ${assignee?.name || 'Adviser'}`,
+    `Status: ${task.status}`, `Due: ${task.dueDate || 'No due date'}`,
+    task.note ? `Notes: ${task.note}` : '', '',
+    'Open THiS CRM > My Work to review or update this task.', '', 'Turner Hopkins Immigration Specialists'
+  ].filter(value => value !== null && value !== undefined).join('\n');
+  // Record one notification event for troubleshooting and avoid sending again on an unchanged save.
+  await ensureEmailNotificationSchema(database);
+  const configStatus = getEmailConfigStatus();
+  const sentBy = authUser?.email || accessContext.adviserId || 'CRM';
+  const [log] = await database.sql`
+    INSERT INTO email_notifications (related_record_type, related_record_id, client_id, template_key, from_email, from_name, to_email, subject, body_text, status, sent_by)
+    VALUES ('delegated_task', ${task.id}, ${task.clientId}, 'delegated_task_notice', ${configStatus.fromEmail}, ${configStatus.fromName}, ${recipientEmail}, ${subject}, ${bodyText}, 'Sending', ${sentBy})
+    RETURNING id`;
+  try {
+    const config = requireMicrosoftEmailConfig();
+    const token = await getMicrosoftGraphAccessToken(config);
+    const result = await sendMicrosoftGraphEmail({ config, token, toEmail: recipientEmail, subject, bodyText, bodyHtml: textToHtml(bodyText) });
+    await database.sql`UPDATE email_notifications SET status = 'Sent', sent_at = NOW(), provider_request_id = ${result.requestId || ''}, updated_at = NOW() WHERE id = ${log.id}`;
+    return { status: 'Sent' };
+  } catch (error) {
+    const message = String(error?.message || error).slice(0, 1000);
+    await database.sql`UPDATE email_notifications SET status = 'Failed', failed_at = NOW(), failure_message = ${message}, updated_at = NOW() WHERE id = ${log.id}`;
+    return { status: 'Failed', message: 'Task saved, but Microsoft 365 could not send the notification.' };
+  }
+}
+
+async function deletePersonalTask(taskId, accessContext = {}) {
   if (!isUuid(taskId)) return;
+  const [task] = await db().sql`SELECT delegated, assigned_by_id FROM personal_tasks WHERE id = ${taskId}`;
+  if (task?.delegated && accessContext.role !== 'Admin' && (!accessContext.adviserId || task.assigned_by_id !== accessContext.adviserId)) {
+    throw Object.assign(new Error('Only the assigning adviser may delete delegated work.'), { statusCode: 403 });
+  }
   await db().sql`DELETE FROM personal_tasks WHERE id = ${taskId}`;
 }
 
@@ -6562,13 +6652,15 @@ function normaliseBillingTriggerType(value) {
 }
 
 function normalisePersonalTaskStatus(value) {
-  const status=String(value||'').trim();return ['Open','Completed','Silenced'].includes(status)?status:'Open';
+  const status=String(value||'').trim();return ['Open','Assigned','In Progress','Completed','Silenced'].includes(status)?status:'Open';
 }
 
 function normalisePersonalTaskInput(input = {}) {
   return {
     id: input.id,
     adviserId: input.adviserId || '',
+    assignedById: input.assignedById || '',
+    delegated: Boolean(input.delegated),
     clientId: input.clientId || '',
     title: String(input.title || '').trim(),
     dueDate: nullableDate(input.dueDate) || '',
