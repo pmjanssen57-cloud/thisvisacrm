@@ -3990,7 +3990,9 @@ bindEvents();
     PACK_ORDER.forEach(packId => {
       const entry = templateLibraryV13.packs[packId];
       const holder = packHolderV156(packId);
-      if (!entry || !holder) return;
+      // Blank/custom guides have no Road Map. The legacy Road Map synchroniser
+      // must not try to compact a missing document during Studio startup.
+      if (!entry || !holder?.docs?.roadmap) return;
       ['draft', 'published'].forEach(key => {
         const target = entry[key];
         if (!target) return;

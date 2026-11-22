@@ -1,1 +1,1 @@
-THiS CRM v0.18.10 - Blank Instructions Builder. See RELEASE_NOTES-v0.18.10.txt.
+THiS CRM v0.18.11 - Instructions Studio startup hotfix. See RELEASE_NOTES-v0.18.11.txt.
