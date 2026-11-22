@@ -226,3 +226,30 @@
 .ib110-dialog .ib110-reviewed input{width:auto;margin-top:3px}
 .ib110-dialog .ib110-dialog-actions{display:flex;justify-content:flex-end}
 @media(max-width:700px){.ib110-controls{display:grid;grid-template-columns:1fr 1fr}.ib110-controls .button{white-space:normal}}
+
+/* v0.18.13 - simplified adviser workflow (presentation only, safe for existing drafts) */
+.this-start-and-mode-v01813{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;align-items:end;padding:15px 0 18px;border-bottom:1px solid #dfebe4;margin:0 0 16px}
+.this-start-v01813,.this-mode-v01813{display:grid;gap:8px;min-width:0}
+.this-overline-v01813{color:#617b70;font-size:10px;font-weight:750;text-transform:uppercase;letter-spacing:.06em}
+.this-start-buttons-v01813{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.ib72 .this-start-buttons-v01813 button{display:grid;gap:3px;min-height:68px;text-align:left;padding:12px;border:1px solid #c7dbd0;border-radius:10px;background:#fff;color:#164d42}
+.ib72 .this-start-buttons-v01813 button:hover{background:#eff9f3;border-color:#6baf92}
+.ib72 .this-start-buttons-v01813 strong{font-size:12px;font-weight:750;line-height:1.3}
+.ib72 .this-start-buttons-v01813 small{font-size:10px;line-height:1.35;color:#698076}
+.this-mode-v01813{align-self:start}
+.this-mode-buttons-v01813{display:flex;gap:3px;border:1px solid #ccddd3;padding:4px;border-radius:10px;background:#eef4f0}
+.ib72 .this-mode-buttons-v01813 button{min-height:39px;padding:7px 12px;background:transparent;color:#51695f;border:0;border-radius:7px;font-size:12px;font-weight:700}
+.ib72 .this-mode-buttons-v01813 button.selected{background:#fff;color:#07584f;box-shadow:0 1px 5px #173d2b16}
+.this-mode-v01813>small{font-size:10px;color:#6a8076;max-width:180px;line-height:1.4}
+.ib72 .this-review-pulse-v01813{animation:this-review-pulse-v01813 850ms ease-out 1}
+@keyframes this-review-pulse-v01813{0%{box-shadow:0 0 0 0 #dcaf4f8a}100%{box-shadow:0 0 0 12px #dcaf4f00}}
+/* Basic retains the client name, category, section editor, and applicant/document controls. */
+body.this-basic-v01813.ib72-studio .ib110-controls{display:none!important}
+body.this-basic-v01813.ib72-studio #ib72-settings-open{display:none!important}
+body.this-basic-v01813.ib72-studio .ib72-setup-title{margin-bottom:11px}
+body.this-basic-v01813.ib72-studio .ib72-setup{padding-top:17px;padding-bottom:17px}
+body.this-basic-v01813.ib72-studio .ib72-document-bar{padding-top:12px;padding-bottom:12px}
+body.this-basic-v01813.ib72-studio .ib72-evidence:not([open]){background:#fbfdfb}
+body.this-basic-v01813.ib72-studio .ib72-section-editor{padding-top:18px}
+@media(max-width:940px){.this-start-and-mode-v01813{grid-template-columns:1fr}.this-mode-v01813{display:flex;flex-wrap:wrap;align-items:center}.this-mode-v01813>small{max-width:none}}
+@media(max-width:650px){.this-start-buttons-v01813{grid-template-columns:1fr!important}.ib72 .this-start-buttons-v01813 button{min-height:56px}.ib72 .this-start-and-mode-v01813{gap:12px}}

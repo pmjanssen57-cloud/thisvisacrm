@@ -1,1 +1,1 @@
-THiS CRM v0.18.12 - Required for warning consistency.
+THiS CRM v0.18.13 - Simplified Instructions Studio. See RELEASE_NOTES-v0.18.13.txt.
