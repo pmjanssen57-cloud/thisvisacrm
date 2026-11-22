@@ -938,6 +938,21 @@ const WORKSPACE_STORAGE_KEY = 'this-instructions-studio-source-first-v12';
 const SMC_DEFAULT_STATE = structuredClone(defaultState);
 const PACK_ORDER = ['smc','investor','parent','family','pwv','accreditation','aewv-family','aewv','citizenship','permanent','student','visitor'];
 const PACK_LABELS = {smc:'Skilled Migrant Category',investor:'Active Investor Plus Category',parent:'Parent Residence Category',family:'Family Category - Partnership',pwv:'Partnership Work Visa Only',accreditation:'Employer Accreditation','aewv-family':'Family of AEWV Holder',aewv:'Accredited Employer Work Visa',citizenship:'New Zealand Citizenship',permanent:'Permanent Residence',student:'International Student Visa',visitor:'General Visitor Visa'};
+// v0.18.10: independent, genuinely blank instructions category.
+PACK_ORDER.push('blank');
+PACK_LABELS.blank = 'Blank instructions';
+PACK_DEFINITIONS.blank = {
+  title:'Blank Instructions',version:'November 2026',sourcePack:'Blank Instructions',
+  issueName:'Custom client instructions',initialLabel:'Custom guide',milestoneLabel:'Additional guides',
+  client:{firstName:'',lastName:'',preparedFor:'',partnerName:'',children:'',adviser:'',adviserLicence:'',applicationType:'',agreedPathway:'',requiredFor:''},
+  clientFields:[{key:'preparedFor',label:'Prepared for',wide:true},{key:'adviser',label:'Adviser'},{key:'adviserLicence',label:'Licence number'}],
+  policeClearances:[],
+  docs:{guide:{label:'Custom Instructions',shortLabel:'Instructions',icon:'01',enabled:true,stage:'initial',
+    description:'Start with a blank branded guide; add and arrange your own sections.',
+    coverTitle:'Client Instructions',coverSubtitle:'Custom instructions',
+    hero:PACK_DEFINITIONS.accreditation.docs.guide.hero,
+    intro:'<p>Add your own introduction here.</p>',caseNote:'',blocks:[],renderType:'structured'}}
+};
 let workspaceDrafts = {};
 let activePackId = 'smc';
 

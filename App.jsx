@@ -252,6 +252,7 @@ const DEFAULT_CASE_TYPES = [
 
 
 const INSTRUCTION_PACK_OPTIONS = [
+  { value: 'blank', label: 'Blank instructions - create your own' },
   { value: 'smc', label: 'Skilled Migrant Category' },
   { value: 'investor', label: 'Active Investor Plus Category' },
   { value: 'parent', label: 'Parent Residence Category' },

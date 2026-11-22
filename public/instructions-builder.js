@@ -222,11 +222,13 @@
     if (familyModel) { next.instructionPeopleV51 = structuredClone(familyModel);next.instructionPeopleV51.enabled=true;next.instructionPeopleV51.requirements={};next.instructionPeopleV51.sectionPeople={}; }
     else { const id=`person-${uid()}`;next.instructionPeopleV51={version:1,enabled:true,people:[{id,role:'Main applicant',name:client.preparedFor || [client.firstName,client.lastName].filter(Boolean).join(' '),dateOfBirth:''}],recipientIds:[id],introIds:[id],introductionNote:'',sectionPeople:{},requirements:{}}; }
     Object.entries(next.docs).forEach(([id,d]) => {
-      d.enabled = ['roadmap','documents'].includes(id);
+      d.enabled = packId==='blank' || ['roadmap','documents'].includes(id);
+      if(packId!=='blank'){
       d.coverSubtitle = PACK_LABELS[packId]; d.caseNote = '';
       d.intro = id === 'roadmap'
         ? window.THIS_INSTRUCTION_PLAN_WORDING.introduction
         : window.THIS_INSTRUCTION_PLAN_WORDING.documents;
+      }
       if (id === 'documents') d.blocks.forEach(b => {
         const familyCategory = ['family','pwv','parent','aewv-family'].includes(packId);
         b.enabled = !/custody|relationship/.test(b.id) || familyCategory;
@@ -239,7 +241,7 @@
       next.instructionPeopleV51.requirements[`documents:${item.id}`]=item.requests.map(r=>({id:`requirement-${uid()}`,title:r.title,note:r.note,enabled:true,personIds:next.instructionPeopleV51.people.filter(p=>r.for==='couple'?['Main applicant','Partner'].includes(p.role):p.role==='Child').map(p=>p.id)}));
     }
     next.selectedDoc = next.docs.roadmap ? 'roadmap' : Object.keys(next.docs)[0];
-    putMaster83(next,window.THIS_STUDIO_LIBRARY83?.published(packId));
+    if(packId!=='blank')putMaster83(next,window.THIS_STUDIO_LIBRARY83?.published(packId));
     return next;
   }
   function finishContext(payload) {
@@ -632,11 +634,93 @@
     if(!Object.values(state.docs).some(d=>d.enabled))issues.push('Include at least one guide in the output.');
     node('ib72-review').textContent=issues.join(' ');node('ib72-review').hidden=!issues.length;return issues;
   }
+  // v0.18.10 - source-first blank guide workflow. The CRM saves each client draft
+  // through its ordinary instructionSet.studioState; reusable masters are team records.
+  function blankModal110(title,markup,submit){
+    const modal=document.createElement('dialog');modal.className='ib72-dialog ib110-dialog';
+    modal.setAttribute('aria-label',title);
+    modal.innerHTML=`<div class="ib72-dialog-heading"><h2>${esc(title)}</h2><button type="button" class="button button-secondary" data-cancel>Close</button></div><form method="dialog" class="ib110-dialog-body">${markup}<div class="ib110-dialog-actions"><button type="submit" value="confirm" class="button button-primary">Continue</button></div></form>`;
+    document.body.append(modal);
+    const close=()=>{if(modal.open)modal.close();modal.remove();};
+    modal.querySelector('[data-cancel]').onclick=close;
+    modal.querySelector('form').addEventListener('submit',async e=>{e.preventDefault();
+      const button=modal.querySelector('[type=submit]');button.disabled=true;
+      try{const result=await submit(modal);if(result!==false)close();}catch(err){showToast(err.message||'Could not complete this action.');}finally{button.disabled=false;}
+    });
+    modal.addEventListener('close',()=>modal.remove());modal.showModal();return modal;
+  }
+  function blankClient110(){return {firstName:state.client.firstName,lastName:state.client.lastName,preparedFor:state.client.preparedFor,adviser:state.client.adviser,adviserLicence:state.client.adviserLicence,requiredFor:state.client.requiredFor};}
+  function useBlank110(incoming,id=''){
+    const client=blankClient110(),model=people()?structuredClone(people()):null;
+    const next=freshStarter('blank',client,model);
+    if(incoming){
+      const source=incoming.docs?.guide||incoming;
+      if(!source||!Array.isArray(source.blocks))throw new Error('This reusable guide has an invalid document structure.');
+      next.docs.guide={...next.docs.guide,...structuredClone(source),label:'Custom Instructions',shortLabel:'Instructions',stage:'initial',enabled:true,renderType:'structured',blocks:structuredClone(source.blocks)};
+    }
+    if(incoming && incoming.hero && incoming.hero!==PACK_DEFINITIONS.blank.docs.guide.hero)next.docs.guide.builder72CoverImage=incoming.hero;
+    if(incoming?.docs?.guide?.hero && incoming.docs.guide.hero!==PACK_DEFINITIONS.blank.docs.guide.hero)next.docs.guide.builder72CoverImage=incoming.docs.guide.hero;
+    next.blankMasterIdV01810=id||'';
+    next.selectedDoc='guide';next.client.applicationType=next.docs.guide.coverSubtitle||'Custom instructions';
+    next.issueName=`${client.preparedFor||'Client'} — ${next.docs.guide.coverTitle||'Custom instructions'}`;
+    activePackId='blank';workspaceDrafts.blank=next;state=next;
+    renderAll();markDirty(false);flush();
+  }
+  async function blankControls110(){
+    node('ib110-new').onclick=async()=>{if(await window.THIS_DIALOG.confirm({message:'Start a new blank guide? Save this client draft first if you want to keep its current content.'}))useBlank110();};
+    node('ib110-duplicate').onclick=()=>{
+      const categories=PACK_ORDER.filter(id=>id!=='blank');
+      blankModal110('Duplicate an existing starting guide',`<p>Choose the starting category and guide. An independent copy will be created for this client.</p><label>Existing category<select data-blank-category>${categories.map(id=>`<option value="${esc(id)}">${esc(PACK_LABELS[id])}</option>`).join('')}</select></label><label>Guide<select data-blank-document></select></label>`,async m=>{
+        const id=m.querySelector('[data-blank-category]').value,docId=m.querySelector('[data-blank-document]').value;
+        const starter=freshStarter(id,blankClient110());const source=starter.docs[docId];
+        if(!source)throw Error('Choose a starting guide.');
+        useBlank110({...structuredClone(source),blocks:structuredClone(source.blocks||[])},'');
+        showToast('Copied guide is independent. Review and save the client draft.');
+      });
+      const m=document.querySelector('dialog.ib110-dialog');if(!m)return;
+      const category=m.querySelector('[data-blank-category]'),docs=m.querySelector('[data-blank-document]');
+      const draw=()=>{const pack=createPackState(category.value);docs.innerHTML=Object.entries(pack.docs).map(([key,d])=>`<option value="${esc(key)}">${esc(d.label)}</option>`).join('');};
+      category.addEventListener('change',draw);draw();
+    };
+    node('ib110-load').onclick=async()=>{
+      const api=window.THIS_STUDIO_LIBRARY83;if(!api?.blankMasters){showToast('Open this guide through the CRM to load shared templates.');return;}
+      try{
+        const options=await api.blankMasters();if(!options.length){showToast('No blank-guide masters have been published yet.');return;}
+        blankModal110('Use a reusable instruction master',`<p>A separate client copy will be created. The published master is not changed.</p><label>Reusable master<select data-blank-master>${options.map(m=>`<option value="${esc(m.id)}">${esc(m.title)}${m.updated?' · '+esc(m.updated):''}</option>`).join('')}</select></label>`,async m=>{
+          const id=m.querySelector('[data-blank-master]').value;
+          const master=await api.getBlankMaster(id);
+          if(!master)throw Error('This master is no longer available.');
+          useBlank110(master,id);showToast('Master loaded as a separate client draft.');
+        });
+      }catch(err){showToast(err.message||'Could not load the master list.');}
+    };
+    node('ib110-publish').onclick=()=>{
+      const api=window.THIS_STUDIO_LIBRARY83;
+      if(!api?.saveBlankMaster){showToast('Shared master publishing requires the CRM team library.');return;}
+      blankModal110('Publish a reusable instructions master',`<p>Save this guide as a reusable team master. Only administrators can publish. Existing client drafts are not changed.</p><label>Master name<input required data-master-name maxlength="160" value="${esc(doc().coverTitle||'Custom Instructions')}"></label><label>Change note<input required data-master-note maxlength="240" placeholder="Describe this version"></label><label class="ib110-reviewed"><input type="checkbox" required data-master-reviewed> I have removed all client-specific and confidential information from this reusable template.</label>`,async m=>{
+        const title=m.querySelector('[data-master-name]').value.trim(),note=m.querySelector('[data-master-note]').value.trim();
+        if(!title||!note||!m.querySelector('[data-master-reviewed]').checked)throw Error('Complete the title, change note and review confirmation.');
+        const source=structuredClone(doc());
+        // Inherited cover artwork is supplied by the normal THiS cover template.
+        // Omitting that large repeated data URI keeps the team library compact.
+        if(source.hero===PACK_DEFINITIONS.blank.docs.guide.hero)delete source.hero;
+        if(source.builder72CoverImage===PACK_DEFINITIONS.blank.docs.guide.hero)delete source.builder72CoverImage;
+        // Client display and checklist assignments are not part of the master.
+        const saved=await api.saveBlankMaster({id:state.blankMasterIdV01810||'',title,note,doc:source});
+        state.blankMasterIdV01810=saved.id;markDirty(false);flush();
+        showToast('Reusable master published to the team library.');
+      });
+    };
+  }
   function renderBuilder() {
     if(!mounted || pendingInit || document.documentElement.classList.contains('instructions-load-failed'))return;
     meta();const d=doc();if(!d)return;
     const root=node('ib72');
     root.innerHTML=`<header class="ib72-setup"><div class="ib72-setup-title"><span class="ib72-eyebrow">Instructions Studio</span><h1>Build this client’s instructions</h1><p>Start with the usual blocks. Keep, add and tailor what helps this client.</p></div><div class="ib72-two-fields"><label>Client name<input id="ib72-client-name" value="${esc(name())}" placeholder="Enter the client’s full name" autocomplete="off"></label><label>Visa category<select id="ib72-category">${PACK_ORDER.map(id=>`<option value="${id}" ${activePackId===id?'selected':''}>${esc(PACK_LABELS[id])}</option>`).join('')}</select></label></div></header><div class="ib72-document-bar"><label class="ib72-document-picker">Working on<select id="ib72-document">${Object.entries(state.docs).map(([id,d])=>`<option value="${id}" ${state.selectedDoc===id?'selected':''}>${esc(d.label)}</option>`).join('')}</select></label><label class="ib72-include"><input type="checkbox" id="ib72-include" ${d.enabled?'checked':''}> Include this guide in output</label><button type="button" class="button button-secondary" id="ib72-settings-open">Output settings</button></div><div id="ib72-review" class="ib72-review" role="status" hidden></div><div class="ib72-composer"><details id="ib72-outline" class="ib72-outline" open><summary>Document sections <span id="ib72-section-count"></span></summary><div id="ib72-outline-list"></div><div class="ib72-add-actions"><button type="button" class="button button-primary" id="ib72-add-block">+ Add block</button><button type="button" class="button button-secondary" id="ib72-add-family">+ Family / people</button><button type="button" class="ib72-link" id="ib72-add-custom">+ Write a custom block</button></div></details><section id="ib72-section-editor" class="ib72-section-editor"></section></div>`;
+    if(activePackId==='blank'){
+      root.querySelector('.ib72-setup').insertAdjacentHTML('beforeend',`<div class="ib110-controls" role="group" aria-label="Custom instructions actions"><button type="button" class="button button-secondary" id="ib110-new">New blank guide</button><button type="button" class="button button-secondary" id="ib110-duplicate">Duplicate existing guide</button><button type="button" class="button button-secondary" id="ib110-load">Use saved master</button><button type="button" class="button button-primary" id="ib110-publish">Save / publish master</button></div>`);
+      blankControls110();
+    }
     node('ib72-client-name').addEventListener('input',e=>updateName(e.target.value));
     node('ib72-category').addEventListener('change',async e=>{
       const id=e.target.value;if(id===activePackId)return;
@@ -650,14 +734,18 @@
     node('ib72-add-custom').addEventListener('click',()=>{insertBlock({title:'Client-specific guidance',html:'<p>Write the guidance for this client here.</p>',builder72NoEvidence:true});node('ib72-block-title').focus();});
     node('ib72-settings-open').addEventListener('click',openSettings);
     node('ib72-outline-list').before(root.querySelector('.ib72-add-actions'));
-    casePanel81();outline();sectionEditor();updateReview();
+    if(activePackId!=='blank')casePanel81();outline();sectionEditor();updateReview();
     window.THIS_INSTRUCTIONS_LOAD?.ready();
   }
   function openSettings() {
     const h=node('ib72-settings-body');
     h.innerHTML=`<label>Issue title<input id="ib72-issue" value="${esc(state.issueName)}"></label><label>Prepared date<input type="date" id="ib72-date" value="${esc(state.preparedDate)}"></label><label>PDF arrangement<select id="ib72-output">${[['combined','One combined pack'],['separate','Separate guides'],['balanced','Road map, documents and specialist guides']].map(([v,l])=>`<option value="${v}" ${state.outputMode===v?'selected':''}>${l}</option>`).join('')}</select></label><label>Adviser<input id="ib72-adviser" value="${esc(state.client.adviser)}"></label><label>Adviser licence<input id="ib72-licence" value="${esc(state.client.adviserLicence)}"></label><label>Greeting <small>(optional)</small><input id="ib72-greeting" value="${esc(people()?.recipientText || '')}" placeholder="Uses the main applicant’s name"></label><label class="ib72-cover-upload-label">Cover image for this guide<input type="file" id="ib72-cover-image" accept="image/*"></label><p class="ib72-help">Standard wording is a starting point. Review the client facts and requirements before marking ready.</p>`;
+    if(activePackId==='blank'){
+      h.insertAdjacentHTML('afterbegin',`<label>Cover heading<input id="ib110-cover-heading" value="${esc(doc().coverTitle||'')}"></label><label>Category / cover subtitle<input id="ib110-cover-category" value="${esc(doc().coverSubtitle||'')}"></label><p class="ib72-help">The name in Prepared for comes from the client field. You may change the cover image below.</p>`);
+      [['ib110-cover-heading','coverTitle'],['ib110-cover-category','coverSubtitle']].forEach(([id,key])=>node(id).addEventListener('input',e=>{doc()[key]=e.target.value;markDirty();renderPreview();renderDocumentLists();}));
+    }
     [['ib72-issue',v=>{state.issueName=v;meta().autoIssue=false;node('issue-name').value=v;}],['ib72-date',v=>{state.preparedDate=v;node('prepared-date').value=v;}],['ib72-output',v=>state.outputMode=v],['ib72-adviser',v=>state.client.adviser=v],['ib72-licence',v=>state.client.adviserLicence=v],['ib72-greeting',v=>{if(people()){people().recipientText=v;people().enabled=true;}}]].forEach(([id,set])=>node(id).addEventListener('input',e=>{set(e.target.value);markDirty();}));
-    node('ib72-cover-image').addEventListener('change',e=>{const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{doc().hero=reader.result;doc().builder72CoverImage=reader.result;markDirty();};reader.readAsDataURL(file);});
+    node('ib72-cover-image').addEventListener('change',e=>{const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{doc().hero=reader.result;doc().builder72CoverImage=reader.result;markDirty();renderPreview();};reader.readAsDataURL(file);});
     node('ib72-settings').showModal();
   }
   // New drafts print the blocks the adviser can see and edit. Keep implicit legacy

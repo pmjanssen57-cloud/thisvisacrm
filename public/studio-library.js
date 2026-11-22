@@ -426,7 +426,25 @@
     await open('personal');if(!data)return;
     try {const value=adapter().capture();if(!value)throw new Error('Select an editable block first.');editBlock({...value,id:uid()},'personal');}catch(e){say(e.message,true);}
   }
-  window.THIS_STUDIO_LIBRARY83 = {open, close, capture, init, clean, items:()=>data?[...data.personal.items.map(x=>({...x,scope:'personal'})),...data.team.items.map(x=>({...x,scope:'shared'}))]:[], published:category=>data?.team?.masters?.[category]?.published, available:()=>Boolean(data), captureToTeam:async()=>{await open('team');if(data?.canManageTeam){const value=adapter().capture();if(value)editBlock({...value,id:uid()},'team');}}};
+  // v0.18.10 - additional named master guides use the existing versioned team library.
+  async function blankMasters110(){
+    await load();return Object.entries(data.team.masters||{}).filter(([id,x])=>id.startsWith('blank-')&&x.published)
+      .map(([id,x])=>({id,title:x.published.title||'Custom Instructions',updated:dateLabel(x.publishedAt)}))
+      .sort((a,b)=>a.title.localeCompare(b.title));
+  }
+  async function getBlankMaster110(id){await load();if(!/^blank-[\w-]{1,70}$/.test(id))throw Error('Invalid master identifier.');return clone(data.team.masters[id]?.published||null);}
+  async function saveBlankMaster110({id='',title,note,doc}){
+    await load();if(!data.canManageTeam)throw Error('Only administrators can publish team instruction masters.');
+    if(!title||title.length>160||!note||!doc||!Array.isArray(doc.blocks))throw Error('Check the master name, change note and document.');
+    const key=id&&/^blank-[\w-]{1,70}$/.test(id)?id:'blank-'+crypto.randomUUID();
+    const prior=data.team.masters[key]||{versions:[]};const at=new Date().toISOString();
+    const snapshot={title,docs:{guide:clone(doc)},signoff:{closing:'Kind regards,',role:'Licensed Immigration Adviser',organisation:'Turner Hopkins Immigration Specialists',style:'simple'}};
+    const sequence=(prior.sequence||0)+1;
+    const versions=[...(prior.versions||[]),{id:uid(),label:'v'+sequence,at,note,snapshot:clone(snapshot)}].slice(-10);
+    const next=clone(data.team);next.masters={...(next.masters||{}),[key]:{...prior,draft:clone(snapshot),published:clone(snapshot),publishedAt:at,sequence,versions}};
+    await persist('team',next);return {id:key,title};
+  }
+  window.THIS_STUDIO_LIBRARY83 = {blankMasters:blankMasters110,getBlankMaster:getBlankMaster110,saveBlankMaster:saveBlankMaster110,open, close, capture, init, clean, items:()=>data?[...data.personal.items.map(x=>({...x,scope:'personal'})),...data.team.items.map(x=>({...x,scope:'shared'}))]:[], published:category=>data?.team?.masters?.[category]?.published, available:()=>Boolean(data), captureToTeam:async()=>{await open('team');if(data?.canManageTeam){const value=adapter().capture();if(value)editBlock({...value,id:uid()},'team');}}};
   function mount() {
     if(new URLSearchParams(location.search).has('token')||!adapter())return;
     if(managementOnly)return;
