@@ -46,7 +46,12 @@
     Object.entries(state.docs||{}).filter(([docId,doc])=>docId==='documents'&&doc.enabled).forEach(([docId,doc])=>{
       (doc.blocks||[]).filter(block=>block.enabled&&!block.builder72NoEvidence).forEach(block=>{
         const selected=requirements(docId,block).filter(r=>r.enabled);
-        if(!selected.length||selected.some(r=>!r.title.trim()||!r.personIds.length))issues.push(`Check documents and people for ${block.title}.`);
+        const requiredForEnabled=typeof block.builderShowRequiredForV187==='boolean'
+          ? block.builderShowRequiredForV187
+          : !/(helpful hints|final steps|remember|notes on documentation|questions|next steps)/i.test(String(block.title||''));
+        // General guidance without applicant assignment is valid. Only validate the
+        // applicant selection for sections where 'Required for' is shown.
+        if(requiredForEnabled&&(!selected.length||selected.some(r=>!r.title.trim()||!r.personIds.length)))issues.push(`Check documents and people for ${block.title}.`);
       });
     });
     return issues;
@@ -310,7 +315,7 @@
     // Identity has item-level requirements; the old blanket list would contradict them.
     const source=block.id==='identity'&&!block.clientTailoredV01743&&!block.customSectionV01743&&!block.sourceModuleIdV01743?`${heading}<div class="s51-generated">Provide the identity records selected below, for the people named against each item.</div>`:bodyTemplate.content.firstElementChild?.innerHTML||bodyTemplate.innerHTML;
     const items=selected.flatMap(r=>noteParts(r.note).map((part,index)=>`<div class="s51-generated s51-evidence-item"><strong>${esc(r.title||'Document')}${index?' — continued':''}</strong>${showRequiredFor?`<div class="s51-required-for">Required for: <b>${esc(names(r.personIds)||'Adviser to confirm')}</b></div>`:''}${part?`<div>${esc(part).replace(/\n/g,'<br>')}</div>`:''}</div>`)).join('');
-    return flowSection(source+items+(!selected.length?'<div class="s51-generated s51-assignment-warning">Document selections need adviser review.</div>':''));
+    return flowSection(source+items+(showRequiredFor&&!selected.length?'<div class="s51-generated s51-assignment-warning">Document selections need adviser review.</div>':''));
   };
   const oldRenderDoc=renderDocHtml;
   function paginateEvidence(html,doc) {
