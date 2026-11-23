@@ -20908,3 +20908,6 @@ body.intake-embed-mode .website-form-refresh.public-form-shell{background:transp
 .client-file-group > h3 {font-size:12px;letter-spacing:.01em;color:#37564d;margin:14px 4px 7px;font-weight:700;}
 .client-file-group > h3 small {font-weight:500;color:#718680;margin-left:4px;}
 .client-file-group + .client-file-group {border-top:1px solid #e1eae6;margin-top:14px;padding-top:7px;}
+
+/* v0.18.17: searchable client selection when creating instructions */
+.instruction-client-search-v01817{display:grid;gap:9px}.instruction-client-search-v01817>label{font-weight:700;font-size:13px;color:#174d46}.instruction-client-search-v01817>.search-box{width:100%;min-width:0}.instruction-client-search-v01817>.search-box input{width:100%;min-width:0}.instruction-client-search-v01817>small{color:#59716b;font-size:12px}

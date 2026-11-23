@@ -806,7 +806,27 @@
         payload={...payload,instructionSet:{...payload.instructionSet,studioState:{activePackId:saved.activePackId||pack.packId||payload.instructionSet.packId,packState:pack}}};
       }
       const result=previousInit(payload);finishContext(payload);return result;
-    }catch(error){pendingInit=false;window.THIS_INSTRUCTIONS_LOAD?.fail('The saved document could not be opened. Reload Studio to retry. Your saved draft has not been replaced.');return false;}
+    }catch(error){
+      // A partially incompatible shared master library must not prevent client
+      // instructions from opening. Retry with the document's actual saved
+      // state intact, using only built-in published defaults for this session.
+      console.error('Instructions Studio initialisation failed:',error);
+      if(!payload.__thisSafeLibraryRetry){
+        try{
+          const recovery={...payload,force:true,__thisSafeLibraryRetry:true,templateLibrary:{packs:{}}};
+          const result=previousInit(recovery);
+          finishContext(recovery);
+          console.warn('Instructions Studio recovered using built-in template defaults. Saved client instructions were retained.');
+          pendingInit=false;
+          return result;
+        }catch(recoveryError){
+          console.error('Instructions Studio recovery failed:',recoveryError);
+        }
+      }
+      pendingInit=false;
+      window.THIS_INSTRUCTIONS_LOAD?.fail('The saved document could not be opened. Reload Studio to retry. Your saved draft has not been replaced. Check the browser console for the loading error.');
+      return false;
+    }
   }
   if(previousInit)window.__THIS_STUDIO_INIT__=loadContext90;
   window.addEventListener('message',event=>{

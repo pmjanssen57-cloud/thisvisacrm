@@ -14614,12 +14614,26 @@ function InstructionsWorkspace({
   const [createOpen, setCreateOpen] = useState(false);
   const [createMode, setCreateMode] = useState('client');
   const [createDraft, setCreateDraft] = useState({ clientId: '', standaloneLabel: '', packId: 'smc', title: '' });
+  const [createClientSearch, setCreateClientSearch] = useState('');
   const [editorInstruction, setEditorInstruction] = useState(null);
   const [iframeReady, setIframeReady] = useState(false);
   const [studioLoadError,setStudioLoadError]=useState('');
   const [studioLoadTick,setStudioLoadTick]=useState(0);
   const [studioMessage, setStudioMessage] = useState('');
   const savedClients = useMemo(() => clients.filter((client) => !String(client.id || '').startsWith('temp-')), [clients]);
+  const searchableCreateClients = useMemo(() => {
+    const needle = createClientSearch.trim().toLocaleLowerCase();
+    const matching = savedClients.filter((client) => {
+      const fullName = [client.firstName, client.lastName].filter(Boolean).join(' ');
+      const reversedName = [client.lastName, client.firstName].filter(Boolean).join(', ');
+      return !needle || [fullName, reversedName, client.caseType, client.email].some(value => String(value || '').toLocaleLowerCase().includes(needle));
+    }).sort((a, b) => [a.lastName, a.firstName].join(' ').localeCompare([b.lastName, b.firstName].join(' ')));
+    // Never hide the currently selected client when a search is entered.
+    const selected = savedClients.find(client => client.id === createDraft.clientId);
+    const visible = matching.slice(0, 100);
+    if (selected && !visible.some(client => client.id === selected.id)) visible.unshift(selected);
+    return { matchingCount: matching.length, visible };
+  }, [savedClients, createClientSearch, createDraft.clientId]);
   const instructionPreferences = normaliseAdviserPreferences(preferences);
   const instructionColumns = instructionPreferences.listColumns.instructions;
   const instructionSavedViews = instructionPreferences.savedViews.instructions || [];
@@ -14779,6 +14793,7 @@ function InstructionsWorkspace({
   }, [instructionSets, clients, query, scope, filingView, filingYear]);
 
   function openCreate(mode) {
+    setCreateClientSearch('');
     setCreateMode(mode);
     if (mode === 'standalone') setCreateDraft({ clientId: '', standaloneLabel: '', packId: 'smc', title: '' });
     else setCreateDraft({ clientId: savedClients[0]?.id || '', standaloneLabel: '', packId: instructionPackFromCaseType(savedClients[0]?.caseType || ''), title: '' });
@@ -15011,7 +15026,12 @@ function InstructionsWorkspace({
       {createOpen && <SidePanel title="New instructions" subtitle={createMode==='client'?'From a client record':createMode==='intake'?'From an intake form':'Standalone document'} onClose={()=>setCreateOpen(false)} busy={saving}>
 <div className="instruction-create-body">
               {createMode === 'client' ? (
-                <SelectField label="Client" value={createDraft.clientId} onChange={updateCreateClient} options={savedClients.map((client) => ({ value: client.id, label: `${[client.firstName, client.lastName].filter(Boolean).join(' ')} - ${client.caseType || 'No case type'}` }))} />
+                <div className="instruction-client-search-v01817">
+                  <label htmlFor="instruction-client-search-v01817">Find a client</label>
+                  <div className="search-box"><Search size={16}/><input id="instruction-client-search-v01817" type="search" value={createClientSearch} onChange={event => setCreateClientSearch(event.target.value)} placeholder="Type a client name, surname or visa category" autoComplete="off" /></div>
+                  <small>{searchableCreateClients.matchingCount} matching client{searchableCreateClients.matchingCount === 1 ? '' : 's'}{searchableCreateClients.matchingCount > 100 ? ' (first 100 shown; refine your search)' : ''}</small>
+                  <SelectField label="Client" value={createDraft.clientId} onChange={updateCreateClient} options={searchableCreateClients.visible.map(client => ({ value: client.id, label: `${[client.lastName, client.firstName].filter(Boolean).join(', ')} - ${client.caseType || 'No case type'}` }))} />
+                </div>
               ) : (
                 <Field label="Prepared for / reference" value={createDraft.standaloneLabel} onChange={(value) => setCreateDraft((current) => ({ ...current, standaloneLabel: value, title: current.title || `${value} - ${instructionPackLabel(current.packId)}` }))} placeholder="e.g. Seminar attendees or prospective client" />
               )}

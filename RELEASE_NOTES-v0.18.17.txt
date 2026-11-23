@@ -1,0 +1,9 @@
+THiS CRM v0.18.17 - Residence Guide Loading and Client Search
+Baseline: v0.18.16
+
+- Instructions Studio now logs the original initialisation exception for diagnosis and attempts a safe recovery if incompatible shared master-library data prevents an instruction set opening. Recovery uses built-in template defaults for that editing session while retaining the actual saved client instruction state; it does not replace or delete the saved draft. If recovery also fails, loading remains blocked safely.
+- New from client: searchable client field; matches first/last/reversed name, case type and email; alphabetised results, count, limit 100 for performance, never hides selected client.
+- Existing templates, electronic agreements, issued instructions and CRM server functions are preserved. No migration.
+
+Testing: JavaScript syntax and browser-based mocked editor startup checks (new residence and existing pack) conducted. Full production Vite build and live CRM saved-state regression testing still required in Netlify deploy preview.
+Rollback: v0.18.16, or v0.18.15 if reverting the residence guide feature.
