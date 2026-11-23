@@ -1,2 +1,0 @@
-THiS CRM v0.18.15 - Administrative Agreement Status
-Rollback to v0.18.14.
