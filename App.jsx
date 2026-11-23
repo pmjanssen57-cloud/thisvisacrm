@@ -286,6 +286,30 @@ function instructionPackFromCaseType(caseType = '') {
   return 'smc';
 }
 
+// v0.18.14: Document Library groups existing records without moving or deleting them.
+function studioDocumentComplete(kind, record = {}) {
+  const status = String(record.status || 'Draft').toLowerCase();
+  return kind === 'agreement'
+    ? ['accepted', 'completed externally', 'archived', 'superseded', 'cancelled', 'declined'].includes(status)
+    : ['issued', 'archived'].includes(status);
+}
+function studioDocumentDate(kind, record = {}) {
+  return (kind === 'agreement' ? (record.manualStatus?.recordedAt || record.acceptedAt) : record.issuedAt) || record.updatedAt || record.createdAt || '';
+}
+function studioDocumentMonth(kind, record = {}) {
+  const parsed = new Date(studioDocumentDate(kind, record));
+  return Number.isNaN(parsed.getTime()) ? 'Undated' : new Intl.DateTimeFormat('en-NZ', { month: 'long', year: 'numeric' }).format(parsed);
+}
+function studioDocumentYear(kind, record = {}) {
+  const parsed = new Date(studioDocumentDate(kind, record));
+  return Number.isNaN(parsed.getTime()) ? 'Undated' : String(parsed.getFullYear());
+}
+function studioDocumentOrder(kind, left, right) {
+  const leftDate = new Date(studioDocumentDate(kind, left)).getTime() || 0;
+  const rightDate = new Date(studioDocumentDate(kind, right)).getTime() || 0;
+  return rightDate - leftDate;
+}
+
 function formatInstructionDate(value = '') {
   if (!value) return 'not yet saved';
   const date = new Date(value);
@@ -2372,6 +2396,12 @@ export default function App() {
     }
   }
 
+  async function changeAgreementStatus(change) {
+    const body = await callApi('changeAgreementStatus', { change });
+    showCrmToast('Agreement administrative status updated.');
+    return body;
+  }
+
   async function deleteAgreementSet(agreementSetId) {
     const confirmed = await askCrmConfirm({ title: 'Delete agreement?', message: 'This removes the saved agreement draft and any unused signing links. Accepted agreements should normally be retained.', confirmLabel: 'Delete', tone: 'danger' });
     if (!confirmed) return null;
@@ -3418,6 +3448,7 @@ export default function App() {
                 getAgreementSet={getAgreementSet}
                 refreshAgreementData={refreshAgreementData}
                 deleteAgreementSet={deleteAgreementSet}
+                changeAgreementStatus={changeAgreementStatus}
                 saveAgreementTemplateLibrary={saveAgreementTemplateLibrary}
                 issueAgreementSet={issueAgreementSet}
                 saving={saving}
@@ -14406,6 +14437,7 @@ function StudioWorkspace({
   getAgreementSet,
   refreshAgreementData,
   deleteAgreementSet,
+  changeAgreementStatus,
   saveAgreementTemplateLibrary,
   issueAgreementSet,
   saving = false,
@@ -14525,6 +14557,7 @@ function StudioWorkspace({
           getAgreementSet={getAgreementSet}
           refreshAgreementData={refreshAgreementData}
           deleteAgreementSet={deleteAgreementSet}
+          changeAgreementStatus={changeAgreementStatus}
           saveAgreementTemplateLibrary={saveAgreementTemplateLibrary}
           issueAgreementSet={issueAgreementSet}
           saving={saving}
@@ -14567,6 +14600,8 @@ function InstructionsWorkspace({
   const deletedInstructionIdsRef = useRef(new Set());
   const [query, setQuery] = useWorkspaceState('InstructionsWorkspace:query','');
   const [scope, setScope] = useWorkspaceState('InstructionsWorkspace:scope','all');
+  const [filingView, setFilingView] = useWorkspaceState('InstructionsWorkspace:filingView','active');
+  const [filingYear, setFilingYear] = useWorkspaceState('InstructionsWorkspace:filingYear','all');
   const [createOpen, setCreateOpen] = useState(false);
   const [createMode, setCreateMode] = useState('client');
   const [createDraft, setCreateDraft] = useState({ clientId: '', standaloneLabel: '', packId: 'smc', title: '' });
@@ -14585,7 +14620,7 @@ function InstructionsWorkspace({
   if (instructionColumns.adviser !== false) instructionOpenColumnParts.push('minmax(130px,.9fr)');
   if (instructionColumns.updated !== false) instructionOpenColumnParts.push('145px');
   const instructionOpenColumns = instructionOpenColumnParts.join(' ');
-  const instructionRowColumns = `${instructionOpenColumns} 92px`;
+  const instructionRowColumns = `${instructionOpenColumns} 145px`;
 
   useEffect(() => { editorInstructionRef.current = editorInstruction; }, [editorInstruction]);
 
@@ -14719,6 +14754,7 @@ function InstructionsWorkspace({
     initialise();timer=setInterval(initialise,750);return()=>clearInterval(timer);
   },[editorInstruction,iframeReady,studioLoadTick,clients,advisers,templateLibrary,canManageTemplates]);
 
+  const instructionArchiveYears = useMemo(() => [...new Set(instructionSets.filter(item => studioDocumentComplete('instruction', item)).map(item => studioDocumentYear('instruction', item)))].sort((a,b)=>b.localeCompare(a)), [instructionSets]);
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return instructionSets.filter((item) => {
@@ -14726,9 +14762,12 @@ function InstructionsWorkspace({
       const clientName = client ? [client.firstName, client.lastName].filter(Boolean).join(' ') : item.standaloneLabel;
       const matchesScope = scope === 'all' || (scope === 'client' ? Boolean(item.clientId) : !item.clientId);
       const matchesText = !needle || [item.title, clientName, instructionPackLabel(item.packId), item.status].some((value) => String(value || '').toLowerCase().includes(needle));
-      return matchesScope && matchesText;
-    });
-  }, [instructionSets, clients, query, scope]);
+      const completed = studioDocumentComplete('instruction', item);
+      const matchesFiling = filingView === 'all' || (filingView === 'completed' ? completed : !completed);
+      const matchesYear = filingView !== 'completed' || filingYear === 'all' || studioDocumentYear('instruction',item) === filingYear;
+      return matchesScope && matchesText && matchesFiling && matchesYear;
+    }).sort((a,b)=>studioDocumentOrder('instruction',a,b));
+  }, [instructionSets, clients, query, scope, filingView, filingYear]);
 
   function openCreate(mode) {
     setCreateMode(mode);
@@ -14776,6 +14815,31 @@ function InstructionsWorkspace({
     setIframeReady(false);
     setStudioMessage('Opening studio...');
     setEditorInstruction(saved);
+  }
+
+  async function fileInstructionAsIssued(item, event) {
+    event?.preventDefault?.(); event?.stopPropagation?.();
+    if (!item?.id || item.status !== 'Ready') return;
+    if (!window.confirm('File this instruction set as issued? The current saved draft will become a completed record. Duplicate it for future changes.')) return;
+    try {
+      await saveInstructionSet?.({ ...item, status: 'Issued', issuedAt: new Date().toISOString() });
+    } catch (error) { window.alert(error?.message || 'Could not file these instructions.'); }
+  }
+  async function duplicateInstruction(item, event) {
+    event?.preventDefault?.(); event?.stopPropagation?.();
+    if (!item?.id) return;
+    try {
+      const copy = { ...item, id: '', status: 'Draft', issuedAt: '', title: `${item.title || 'Instructions'} - revised copy` };
+      const result = await saveInstructionSet?.(copy);
+      const saved = result?.instructionSet;
+      if (saved?.id) {
+        setFilingView('active');
+        beginEditorSession(saved.id);
+        setIframeReady(false);
+        setStudioMessage('Opening revised instructions...');
+        setEditorInstruction(normaliseInstructionSet(saved));
+      }
+    } catch (error) { window.alert(error?.message || 'Could not duplicate these instructions.'); }
   }
 
   async function handleDeleteInstruction(item, event) {
@@ -14877,6 +14941,13 @@ function InstructionsWorkspace({
         <div><span>Published template versions</span><strong>{templateVersions.length}</strong></div>
       </section>
 
+      <div className="studio-filing-controls" aria-label="Document filing views">
+        <div className="segmented-filter studio-filing-tabs">
+          {[['active','Active'],['completed','Completed / filed'],['all','All records']].map(([value,label]) => <button key={value} type="button" aria-pressed={filingView === value} className={filingView === value ? 'active' : ''} onClick={() => setFilingView(value)}>{label}{value === 'active' ? ` (${instructionSets.filter(item => !studioDocumentComplete('instruction',item)).length})` : value === 'completed' ? ` (${instructionSets.filter(item => studioDocumentComplete('instruction',item)).length})` : ''}</button>)}
+        </div>
+        {filingView === 'completed' && <label className="studio-filing-year">Year <select aria-label="Filter filed documents by year" value={filingYear} onChange={event => setFilingYear(event.target.value)}><option value="all">All years</option>{instructionArchiveYears.map(year => <option key={year} value={year}>{year}</option>)}</select></label>}
+        <span className="studio-filing-caption">{filingView === 'active' ? 'Current work only. Completed records are filed automatically.' : filingView === 'completed' ? 'Completed records, grouped by month. No records are deleted.' : 'All active and historical records.'}</span>
+      </div>
       <div className="instructions-list-toolbar">
         <div className="search-box"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search instruction sets" /></div>
         <div className="segmented-filter">
@@ -14895,14 +14966,18 @@ function InstructionsWorkspace({
           {instructionColumns.updated !== false && <span>Updated</span>}
           <span>Actions</span>
         </div>
-        {filtered.map((item) => {
+        {filtered.map((item, index) => {
           const client = clients.find((entry) => entry.id === item.clientId);
           const subject = client ? [client.firstName, client.lastName].filter(Boolean).join(' ') : item.standaloneLabel || 'Standalone';
           const adviserId = item.adviserId || client?.primaryAdviserId || '';
           const adviserName = advisers.find((entry) => entry.id === adviserId)?.name || '—';
           const updated = formatStudioUpdatedDate(item.updatedAt);
+          const month = studioDocumentMonth('instruction', item);
+          const showMonth = filingView === 'completed' && (index === 0 || studioDocumentMonth('instruction', filtered[index - 1]) !== month);
           return (
-            <article className="studio-record-row" key={item.id}>
+            <React.Fragment key={item.id}>
+            {showMonth && <div className="studio-file-month-heading"><Archive size={15}/>{month}</div>}
+            <article className="studio-record-row">
               <button className="studio-record-open studio-record-trigger" type="button" onClick={(event) => openInstruction(item, event)}>
                 <span className="studio-record-primary" data-label="Recipient / reference"><span className="studio-record-icon"><BookOpen size={18} /></span><span><strong>{subject}</strong><small>{item.title}</small></span></span>
                 <span className="studio-record-cell" data-label="Instruction pack">{instructionPackLabel(item.packId)}</span>
@@ -14912,10 +14987,13 @@ function InstructionsWorkspace({
                 {instructionColumns.updated !== false && <span className="studio-record-cell studio-record-updated" data-label="Updated" title={updated.full}><strong>{updated.date}</strong>{updated.time && <small>{updated.time}</small>}</span>}
               </button>
               <div className="studio-record-actions">
+                {item.status === 'Ready' && <button className="icon-btn" type="button" onClick={event => fileInstructionAsIssued(item,event)} aria-label="File instructions as issued" title="File as issued"><Archive size={15}/></button>}
+                {studioDocumentComplete('instruction', item) && <button className="icon-btn" type="button" onClick={event => duplicateInstruction(item,event)} aria-label="Duplicate instruction set as editable draft" title="Duplicate as draft"><Copy size={15}/></button>}
                 <button className="icon-btn studio-record-trigger" type="button" onClick={(event) => openInstruction(item, event)} aria-label={`Open ${item.title}`} title="Open"><ChevronRight size={16} /></button>
-                <button className="icon-btn danger" type="button" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); }} onPointerUp={(event) => event.stopPropagation()} onClick={(event) => handleDeleteInstruction(item, event)} aria-label="Delete instruction set"><Trash2 size={15} /></button>
+                <button className="icon-btn danger" type="button" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); }} onPointerUp={(event) => event.stopPropagation()} onClick={(event) => handleDeleteInstruction(item, event)} aria-label="Delete instruction set" disabled={studioDocumentComplete('instruction',item)} title={studioDocumentComplete('instruction',item) ? 'Filed instructions are retained' : 'Delete draft'}><Trash2 size={15} /></button>
               </div>
             </article>
+            </React.Fragment>
           );
         })}
         {!filtered.length && <div className="empty-state compact-empty studio-record-empty"><BookOpen size={32} /><h2>No instruction sets found</h2><p>Create a client-linked or standalone set to begin.</p></div>}
@@ -14967,6 +15045,7 @@ function AgreementsWorkspace({
   getAgreementSet,
   refreshAgreementData,
   deleteAgreementSet,
+  changeAgreementStatus,
   saveAgreementTemplateLibrary,
   issueAgreementSet,
   saving = false,
@@ -14984,7 +15063,13 @@ function AgreementsWorkspace({
   const deletedAgreementIdsRef = useRef(new Set());
   const [query, setQuery] = useWorkspaceState('AgreementsWorkspace:query','');
   const [scope, setScope] = useWorkspaceState('AgreementsWorkspace:scope','all');
+  const [filingView, setFilingView] = useWorkspaceState('AgreementsWorkspace:filingView','active');
+  const [filingYear, setFilingYear] = useWorkspaceState('AgreementsWorkspace:filingYear','all');
   const [createOpen, setCreateOpen] = useState(false);
+  const [statusItem, setStatusItem] = useState(null);
+  const [statusDraft, setStatusDraft] = useState({status:'', note:'', signerName:'', signedDate:''});
+  const [statusSaving, setStatusSaving] = useState(false);
+  const [statusError, setStatusError] = useState('');
   const [createMode, setCreateMode] = useState('client');
   const [createDraft, setCreateDraft] = useState({ clientId: '', intakeId: '', adviserId: '', standaloneLabel: '', recipientEmail: '', appType: 'smc', title: '' });
   const [intakeQuery, setIntakeQuery] = useState('');
@@ -15203,6 +15288,7 @@ function AgreementsWorkspace({
     });
   }, [eligibleIntakes, intakeQuery]);
 
+  const agreementArchiveYears = useMemo(() => [...new Set(agreementSets.filter(item => studioDocumentComplete('agreement', item)).map(item => studioDocumentYear('agreement', item)))].sort((a,b)=>b.localeCompare(a)), [agreementSets]);
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return agreementSets.filter((item) => {
@@ -15218,9 +15304,12 @@ function AgreementsWorkspace({
         || (scope === 'intake' ? Boolean(item.intakeId) && !item.clientId : false)
         || (scope === 'standalone' ? !item.clientId && !item.intakeId : false);
       const matchesText = !needle || [item.title, clientName, agreementTypeLabel(item.appType), item.status, item.recipientEmail].some((value) => String(value || '').toLowerCase().includes(needle));
-      return matchesScope && matchesText;
-    });
-  }, [agreementSets, clients, intakeEnquiries, query, scope]);
+      const completed = studioDocumentComplete('agreement', item);
+      const matchesFiling = filingView === 'all' || (filingView === 'completed' ? completed : !completed);
+      const matchesYear = filingView !== 'completed' || filingYear === 'all' || studioDocumentYear('agreement',item) === filingYear;
+      return matchesScope && matchesText && matchesFiling && matchesYear;
+    }).sort((a,b)=>studioDocumentOrder('agreement',a,b));
+  }, [agreementSets, clients, intakeEnquiries, query, scope, filingView, filingYear]);
 
   function createDraftFromIntake(intake) {
     if (!intake) return { clientId: '', intakeId: '', adviserId: '', standaloneLabel: '', recipientEmail: '', appType: 'other', title: '' };
@@ -15316,6 +15405,24 @@ function AgreementsWorkspace({
     setLastSigningLinks([]);
     setStudioMessage('Opening Agreement Studio...');
     setEditorAgreement(saved);
+  }
+
+  function openStatusEditor(item, event) {
+    event?.preventDefault?.(); event?.stopPropagation?.();
+    studioLaunchGuardRef.current = Date.now() + 1200;
+    setStatusItem(item);
+    setStatusError('');
+    setStatusDraft({ status: ['Completed externally','Cancelled','Superseded'].includes(item.status) ? item.status : 'Partially signed', note: item.manualStatus?.note || '', signerName: item.manualStatus?.signerName || '', signedDate: item.manualStatus?.signedDate || '' });
+  }
+  async function applyManualStatus() {
+    if (!statusItem || statusSaving) return;
+    setStatusSaving(true); setStatusError('');
+    try {
+      await changeAgreementStatus({ agreementSetId:statusItem.id, ...statusDraft });
+      setStatusItem(null);
+      await refreshAgreementData?.();
+    } catch(error) { setStatusError(String(error?.message || 'Unable to update agreement status.')); }
+    finally { setStatusSaving(false); }
   }
 
   async function handleDeleteAgreement(item, event) {
@@ -15433,6 +15540,13 @@ function AgreementsWorkspace({
         <div><span>Template versions</span><strong>{templateVersions.length}</strong></div>
       </section>
 
+      <div className="studio-filing-controls" aria-label="Document filing views">
+        <div className="segmented-filter studio-filing-tabs">
+          {[['active','Active'],['completed','Completed / filed'],['all','All records']].map(([value,label]) => <button key={value} type="button" aria-pressed={filingView === value} className={filingView === value ? 'active' : ''} onClick={() => setFilingView(value)}>{label}{value === 'active' ? ` (${agreementSets.filter(item => !studioDocumentComplete('agreement',item)).length})` : value === 'completed' ? ` (${agreementSets.filter(item => studioDocumentComplete('agreement',item)).length})` : ''}</button>)}
+        </div>
+        {filingView === 'completed' && <label className="studio-filing-year">Year <select aria-label="Filter filed documents by year" value={filingYear} onChange={event => setFilingYear(event.target.value)}><option value="all">All years</option>{agreementArchiveYears.map(year => <option key={year} value={year}>{year}</option>)}</select></label>}
+        <span className="studio-filing-caption">{filingView === 'active' ? 'Current work only. Completed records are filed automatically.' : filingView === 'completed' ? 'Completed records, grouped by month. No records are deleted.' : 'All active and historical records.'}</span>
+      </div>
       <div className="instructions-list-toolbar">
         <div className="search-box"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search agreements" /></div>
         <div className="segmented-filter">
@@ -15451,7 +15565,7 @@ function AgreementsWorkspace({
           {agreementColumns.updated !== false && <span>Updated</span>}
           <span>Actions</span>
         </div>
-        {filtered.map((item) => {
+        {filtered.map((item, index) => {
           const client = clients.find((entry) => entry.id === item.clientId);
           const intake = intakeEnquiries.find((entry) => entry.id === item.intakeId);
           const subject = client
@@ -15465,8 +15579,12 @@ function AgreementsWorkspace({
           const sourceTone = item.clientId ? 'client' : item.intakeId ? 'intake' : 'standalone';
           const updated = formatStudioUpdatedDate(item.updatedAt);
           const secondary = item.recipientEmail || item.title;
+          const month = studioDocumentMonth('agreement', item);
+          const showMonth = filingView === 'completed' && (index === 0 || studioDocumentMonth('agreement', filtered[index - 1]) !== month);
           return (
-            <article className="studio-record-row" key={item.id}>
+            <React.Fragment key={item.id}>
+            {showMonth && <div className="studio-file-month-heading"><Archive size={15}/>{month}</div>}
+            <article className="studio-record-row">
               <button className="studio-record-open studio-record-trigger" type="button" onClick={(event) => openAgreement(item, event)}>
                 <span className="studio-record-primary" data-label="Recipient / organisation"><span className="studio-record-icon agreement"><FileCheck2 size={18} /></span><span><strong>{subject}</strong>{secondary && <small>{secondary}</small>}</span></span>
                 <span className="studio-record-cell" data-label="Agreement type">{agreementTypeLabel(item.appType)}</span>
@@ -15476,14 +15594,29 @@ function AgreementsWorkspace({
                 {agreementColumns.updated !== false && <span className="studio-record-cell studio-record-updated" data-label="Updated" title={updated.full}><strong>{updated.date}</strong>{updated.time && <small>{updated.time}</small>}</span>}
               </button>
               <div className="studio-record-actions">
+                {item.status !== 'Accepted' && <button className="icon-btn" type="button" onClick={(event) => openStatusEditor(item, event)} aria-label="Change agreement status" title="Change status"><FileCheck2 size={15}/></button>}
                 <button className="icon-btn studio-record-trigger" type="button" onClick={(event) => openAgreement(item, event)} aria-label={`Open ${item.title}`} title="Open"><ChevronRight size={16} /></button>
-                <button className="icon-btn danger" type="button" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); }} onPointerUp={(event) => event.stopPropagation()} onClick={(event) => handleDeleteAgreement(item, event)} aria-label="Delete agreement" disabled={item.status === 'Accepted'} title={item.status === 'Accepted' ? 'Accepted agreements are locked' : 'Delete agreement'}><Trash2 size={15} /></button>
+                <button className="icon-btn danger" type="button" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); }} onPointerUp={(event) => event.stopPropagation()} onClick={(event) => handleDeleteAgreement(item, event)} aria-label="Delete agreement" disabled={studioDocumentComplete('agreement',item) || Boolean(item.manualStatus)} title={studioDocumentComplete('agreement',item) || item.manualStatus ? 'Agreements with a filing history cannot be deleted' : 'Delete agreement'}><Trash2 size={15} /></button>
               </div>
             </article>
+            </React.Fragment>
           );
         })}
         {!filtered.length && <div className="empty-state compact-empty studio-record-empty"><FileCheck2 size={32} /><h2>No agreements found</h2><p>Create an agreement from a client, an intake form, or as a standalone matter.</p></div>}
       </div>
+
+      {statusItem && <SidePanel title="Change agreement status" subtitle={statusItem.title} onClose={() => { if(!statusSaving) setStatusItem(null); }} busy={statusSaving}>
+        <div className="instruction-create-body">
+          <div className="notice-card"><strong>Administrative status only</strong><p>This records an adviser-confirmed signing or filing outcome. It does not create an electronic signature or change the original signatory evidence. Electronically accepted agreements remain protected.</p></div>
+          <SelectField label="New status" value={statusDraft.status} onChange={(value)=>setStatusDraft(current=>({...current,status:value}))} options={[{value:'Draft',label:'Draft / re-open'},{value:'Ready',label:'Ready'},{value:'Partially signed',label:'Partially signed (including one manual signature)'},{value:'Completed externally',label:'Completed externally / manually signed'},{value:'Cancelled',label:'Cancelled'},{value:'Superseded',label:'Superseded'}]}/>
+          <Field label="Name of manual signer (if applicable)" value={statusDraft.signerName} onChange={(value)=>setStatusDraft(current=>({...current,signerName:value}))} placeholder="Name of person who signed"/>
+          <Field label="Manual signing date (if applicable)" type="date" value={statusDraft.signedDate} onChange={(value)=>setStatusDraft(current=>({...current,signedDate:value}))}/>
+          <label className="field"><span>Reason / evidence reference</span><textarea className="input" rows={3} value={statusDraft.note} onChange={(event)=>setStatusDraft(current=>({...current,note:event.target.value}))} placeholder="e.g. Client signed paper copy on file; second signature not required"/></label>
+          {statusError && <p role="alert" className="error-text">{statusError}</p>}
+          <p className="muted">The change and the staff member making it are recorded in an audit history. Keep any paper-signed PDF with the client documents.</p>
+        </div>
+        <div className="modal-actions"><button type="button" className="btn ghost" onClick={()=>setStatusItem(null)} disabled={statusSaving}>Cancel</button><button type="button" className="btn dark" onClick={applyManualStatus} disabled={statusSaving || (['Partially signed','Completed externally','Cancelled','Superseded'].includes(statusDraft.status) && !statusDraft.note.trim())}>{statusSaving?'Saving...':'Save status'}</button></div>
+      </SidePanel>}
 
       {createOpen && <SidePanel title="New agreement" subtitle={createMode==='client'?'From a client record':createMode==='intake'?'From an intake form':'Standalone document'} onClose={()=>setCreateOpen(false)} busy={saving}>
 <div className="instruction-create-body">
@@ -16286,13 +16419,17 @@ The portal is a secure, read-only space where you can check application updates,
                 <button className="btn dark" type="button" onClick={async () => (await openInstructionsForClient?.(draft.id))} disabled={String(draft.id || '').startsWith('temp-')}><Plus size={16} />Create instructions</button>
               </div>
               <div className="client-instruction-list">
-                {instructionSets.filter((item) => item.clientId === draft.id).map((item) => (
-                  <button key={item.id} type="button" className="client-instruction-row" onClick={async () => (await openInstructionsForClient?.(draft.id, item.id))}>
-                    <span><strong>{item.title}</strong><small>{instructionPackLabel(item.packId)} · Updated {formatInstructionDate(item.updatedAt)}</small></span>
-                    <b className={`instruction-status ${String(item.status || 'Draft').toLowerCase()}`}>{item.status || 'Draft'}</b>
-                    <ChevronRight size={16} />
-                  </button>
-                ))}
+                {['active','completed'].map(group => {
+                  const records = instructionSets.filter(item => item.clientId === draft.id && (group === 'completed' ? studioDocumentComplete('instruction',item) : !studioDocumentComplete('instruction',item))).sort((a,b)=>studioDocumentOrder('instruction',a,b));
+                  if (!records.length) return null;
+                  return <section className="client-file-group" key={group}>
+                    <h3>{group === 'active' ? 'Active instructions' : 'Completed / filed instructions'} <small>({records.length})</small></h3>
+                    {records.map(item => <button key={item.id} type="button" className="client-instruction-row" onClick={async () => (await openInstructionsForClient?.(draft.id, item.id))}>
+                      <span><strong>{item.title}</strong><small>{instructionPackLabel(item.packId)} · {group === 'completed' ? `Filed ${formatInstructionDate(studioDocumentDate('instruction',item))}` : `Updated ${formatInstructionDate(item.updatedAt)}`}</small></span>
+                      <b className={`instruction-status ${String(item.status || 'Draft').toLowerCase()}`}>{item.status || 'Draft'}</b><ChevronRight size={16}/>
+                    </button>)}
+                  </section>;
+                })}
                 {!instructionSets.some((item) => item.clientId === draft.id) && <p className="muted center">No instruction sets have been created for this client.</p>}
               </div>
             </section>
@@ -16308,13 +16445,17 @@ The portal is a secure, read-only space where you can check application updates,
                 <button className="btn dark" type="button" onClick={async () => (await openAgreementsForClient?.(draft.id))} disabled={String(draft.id || '').startsWith('temp-')}><Plus size={16} />Create agreement</button>
               </div>
               <div className="client-instruction-list">
-                {agreementSets.filter((item) => item.clientId === draft.id).map((item) => (
-                  <button key={item.id} type="button" className="client-instruction-row" onClick={async () => (await openAgreementsForClient?.(draft.id, item.id))}>
-                    <span><strong>{item.title}</strong><small>{agreementTypeLabel(item.appType)} · Updated {formatInstructionDate(item.updatedAt)}</small></span>
-                    <b className={`instruction-status ${String(item.status || 'Draft').toLowerCase().replace(/\s+/g, '-')}`}>{item.status || 'Draft'}</b>
-                    <ChevronRight size={16} />
-                  </button>
-                ))}
+                {['active','completed'].map(group => {
+                  const records = agreementSets.filter(item => item.clientId === draft.id && (group === 'completed' ? studioDocumentComplete('agreement',item) : !studioDocumentComplete('agreement',item))).sort((a,b)=>studioDocumentOrder('agreement',a,b));
+                  if (!records.length) return null;
+                  return <section className="client-file-group" key={group}>
+                    <h3>{group === 'active' ? 'Active agreements' : 'Completed / filed agreements'} <small>({records.length})</small></h3>
+                    {records.map(item => <button key={item.id} type="button" className="client-instruction-row" onClick={async () => (await openAgreementsForClient?.(draft.id, item.id))}>
+                      <span><strong>{item.title}</strong><small>{agreementTypeLabel(item.appType)} · {group === 'completed' ? `Filed ${formatInstructionDate(studioDocumentDate('agreement',item))}` : `Updated ${formatInstructionDate(item.updatedAt)}`}</small></span>
+                      <b className={`instruction-status ${String(item.status || 'Draft').toLowerCase().replace(/\s+/g, '-')}`}>{item.status || 'Draft'}</b><ChevronRight size={16}/>
+                    </button>)}
+                  </section>;
+                })}
                 {!agreementSets.some((item) => item.clientId === draft.id) && <p className="muted center">No agreements have been created for this client.</p>}
               </div>
             </section>
@@ -19876,6 +20017,7 @@ function normaliseAgreementSet(input = {}) {
     issuedAt: input.issuedAt || input.issued_at || '',
     acceptedAt: input.acceptedAt || input.accepted_at || '',
     acceptedBy: input.acceptedBy || input.accepted_by || '',
+    manualStatus: input.manualStatus || input.manual_status || null,
     signatories: Array.isArray(input.signatories) ? input.signatories.map((item) => ({
       id: item.id || '',
       agreementId: item.agreementId || item.agreement_id || '',

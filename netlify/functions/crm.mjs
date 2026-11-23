@@ -552,7 +552,7 @@ async function handleCrmEvent(event) {
       const database = db();
       // Workspace refresh only needs list metadata. Large Studio snapshots are fetched
       // on demand when a specific agreement is opened.
-      const rows = await database.sql`SELECT id, client_id, intake_id, adviser_id, title, app_type, status, standalone_label, recipient_email, created_by, updated_by, created_at, updated_at, issued_at, accepted_at, accepted_by FROM agreement_sets ORDER BY updated_at DESC`;
+      const rows = await database.sql`SELECT id, client_id, intake_id, adviser_id, title, app_type, status, standalone_label, recipient_email, created_by, updated_by, created_at, updated_at, issued_at, accepted_at, accepted_by, manual_status FROM agreement_sets ORDER BY updated_at DESC`;
       return json({ agreementSets: rows.map(mapAgreementSetFromDb), refreshedAt: new Date().toISOString() });
     }
 
@@ -706,6 +706,11 @@ async function handleCrmEvent(event) {
 
     if (action === 'saveAgreementSet') {
       const agreementSet = await saveAgreementSet(body.agreementSet || {}, auth.user);
+      return json({ agreementSet });
+    }
+
+    if (action === 'changeAgreementStatus') {
+      const agreementSet = await changeAgreementStatus(body.change || {}, auth.user);
       return json({ agreementSet });
     }
 
@@ -1590,6 +1595,9 @@ async function ensureSchema() {
   await database.sql`CREATE INDEX IF NOT EXISTS idx_agreement_sets_client_id ON agreement_sets(client_id)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_agreement_sets_intake_id ON agreement_sets(intake_id)`;
   await database.sql`CREATE INDEX IF NOT EXISTS idx_agreement_sets_updated_at ON agreement_sets(updated_at DESC)`;
+  await database.sql`ALTER TABLE agreement_sets ADD COLUMN IF NOT EXISTS manual_status JSONB`;
+  await database.sql`CREATE TABLE IF NOT EXISTS agreement_status_audit (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), agreement_id UUID NOT NULL REFERENCES agreement_sets(id) ON DELETE RESTRICT, previous_status TEXT NOT NULL, next_status TEXT NOT NULL, detail JSONB NOT NULL DEFAULT '{}'::jsonb, changed_by TEXT NOT NULL, changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
+  await database.sql`CREATE INDEX IF NOT EXISTS idx_agreement_status_audit_agreement ON agreement_status_audit(agreement_id, changed_at DESC)`;
   await database.sql`
     CREATE TABLE IF NOT EXISTS agreement_template_library (
       id TEXT PRIMARY KEY DEFAULT 'master',
@@ -2698,6 +2706,13 @@ async function readIntakeEnquiryUpdates(since, database = db()) {
 async function saveInstructionSet(input = {}, user = null) {
   const database = db();
   const id = isUuid(input.id) ? input.id : null;
+  // Issued instructions are filed records: require a new draft for any revision.
+  if (id) {
+    const existingRows = await database.sql`SELECT status FROM instruction_sets WHERE id = ${id} LIMIT 1`;
+    if (['Issued', 'Archived'].includes(existingRows[0]?.status)) {
+      throw new Error('This instruction set is filed and cannot be overwritten. Duplicate it to create a revised draft.');
+    }
+  }
   const clientId = isUuid(input.clientId || input.client_id) ? (input.clientId || input.client_id) : null;
   const title = String(input.title || 'Untitled instruction set').trim() || 'Untitled instruction set';
   const packId = String(input.packId || input.pack_id || 'smc').trim() || 'smc';
@@ -2731,6 +2746,8 @@ async function saveInstructionSet(input = {}, user = null) {
 async function deleteInstructionSet(instructionSetId) {
   if (!isUuid(instructionSetId)) throw new Error('A valid instruction set is required.');
   const database = db();
+  const rows = await database.sql`SELECT status FROM instruction_sets WHERE id = ${instructionSetId} LIMIT 1`;
+  if (['Issued', 'Archived'].includes(rows[0]?.status)) throw new Error('Filed instructions are retained. Create a revised draft rather than deleting the issued record.');
   await database.sql`DELETE FROM instruction_sets WHERE id = ${instructionSetId}`;
 }
 
@@ -2786,8 +2803,8 @@ async function saveAgreementSet(input = {}, user = null) {
   const database = db();
   const id = isUuid(input.id) ? input.id : null;
   if (id) {
-    const existingRows = await database.sql`SELECT status FROM agreement_sets WHERE id = ${id} LIMIT 1`;
-    if (existingRows[0]?.status === 'Accepted') {
+    const existingRows = await database.sql`SELECT status, manual_status FROM agreement_sets WHERE id = ${id} LIMIT 1`;
+    if (['Accepted', 'Completed externally', 'Cancelled', 'Superseded'].includes(existingRows[0]?.status) || (existingRows[0]?.status === 'Partially signed' && existingRows[0]?.manual_status)) {
       const acceptedAgreement = await readAgreementSetWithSignatories(id, database);
       if (!acceptedAgreement) throw new Error('Agreement not found.');
       return acceptedAgreement;
@@ -2799,7 +2816,8 @@ async function saveAgreementSet(input = {}, user = null) {
   const title = String(input.title || 'Untitled engagement agreement').trim() || 'Untitled engagement agreement';
   const appType = String(input.appType || input.app_type || 'other').trim() || 'other';
   const allowedStatuses = ['Draft', 'Ready', 'Sent', 'Viewed', 'Partially signed', 'Accepted', 'Declined', 'Superseded', 'Cancelled', 'Archived'];
-  const status = allowedStatuses.includes(String(input.status || 'Draft')) ? String(input.status || 'Draft') : 'Draft';
+  const requestedStatus = String(input.status || 'Draft');
+  const status = allowedStatuses.includes(requestedStatus) && !['Accepted','Superseded','Cancelled'].includes(requestedStatus) ? requestedStatus : 'Draft';
   const standaloneLabel = String(input.standaloneLabel || input.standalone_label || '').trim();
   const recipientEmail = String(input.recipientEmail || input.recipient_email || '').trim();
   const studioState = normaliseJsonObject(input.studioState || input.studio_state);
@@ -2815,24 +2833,49 @@ async function saveAgreementSet(input = {}, user = null) {
              updated_by = ${actor}, updated_at = NOW()
        WHERE id = ${id}
        RETURNING id, client_id, intake_id, adviser_id, title, app_type, status, standalone_label, recipient_email, studio_state, template_version,
-                 created_by, updated_by, created_at, updated_at, issued_at, accepted_at, accepted_by`;
+                 created_by, updated_by, created_at, updated_at, issued_at, accepted_at, accepted_by, manual_status`;
   } else {
     rows = await database.sql`
       INSERT INTO agreement_sets (client_id, intake_id, adviser_id, title, app_type, status, standalone_label, recipient_email, studio_state, template_version, created_by, updated_by)
       VALUES (${clientId}, ${intakeId}, ${adviserId}, ${title}, ${appType}, ${status}, ${standaloneLabel || null}, ${recipientEmail || null},
               ${JSON.stringify(studioState)}::jsonb, ${JSON.stringify(templateVersion)}::jsonb, ${actor}, ${actor})
       RETURNING id, client_id, intake_id, adviser_id, title, app_type, status, standalone_label, recipient_email, studio_state, template_version,
-                created_by, updated_by, created_at, updated_at, issued_at, accepted_at, accepted_by`;
+                created_by, updated_by, created_at, updated_at, issued_at, accepted_at, accepted_by, manual_status`;
   }
   if (!rows[0]) throw new Error('Agreement could not be saved.');
+  return mapAgreementSetFromDb(rows[0]);
+}
+
+// Administrative completion never fabricates an electronic acceptance.
+async function changeAgreementStatus(input = {}, user = null) {
+  const id = String(input.agreementSetId || '');
+  if (!isUuid(id)) throw new Error('Choose an agreement.');
+  const allowed = ['Draft', 'Ready', 'Partially signed', 'Completed externally', 'Cancelled', 'Superseded'];
+  const status = String(input.status || '');
+  if (!allowed.includes(status)) throw new Error('Choose a permitted administrative status.');
+  const note = String(input.note || '').trim().slice(0, 2000);
+  const signerName = String(input.signerName || '').trim().slice(0, 200);
+  const signedDate = String(input.signedDate || '').trim();
+  if (signedDate && !/^\d{4}-\d{2}-\d{2}$/.test(signedDate)) throw new Error('Invalid signing date.');
+  if (['Partially signed','Completed externally','Cancelled','Superseded'].includes(status) && !note) throw new Error('Record an explanatory note for this status.');
+  const database = db();
+  const priorRows = await database.sql`SELECT id, status FROM agreement_sets WHERE id = ${id} LIMIT 1`;
+  const prior = priorRows[0];
+  if (!prior) throw new Error('Agreement not found.');
+  if (prior.status === 'Accepted') throw new Error('Electronically accepted agreements are immutable. Record subsequent changes through a replacement agreement.');
+  const actor = String(user?.email || user?.name || 'CRM staff');
+  const detail = { status, note, signerName, signedDate, method: 'administrative', recordedBy: actor, recordedAt: new Date().toISOString() };
+  const rows = await database.sql`UPDATE agreement_sets SET status = ${status}, manual_status = ${JSON.stringify(detail)}::jsonb, updated_by = ${actor}, updated_at = NOW() WHERE id = ${id} AND status <> 'Accepted' RETURNING id, client_id, intake_id, adviser_id, title, app_type, status, standalone_label, recipient_email, studio_state, template_version, created_by, updated_by, created_at, updated_at, issued_at, accepted_at, accepted_by, manual_status`;
+  if (!rows[0]) throw new Error('Agreement was changed concurrently. Refresh and try again.');
+  await database.sql`INSERT INTO agreement_status_audit (agreement_id, previous_status, next_status, detail, changed_by) VALUES (${id}, ${String(prior.status)}, ${status}, ${JSON.stringify(detail)}::jsonb, ${actor})`;
   return mapAgreementSetFromDb(rows[0]);
 }
 
 async function deleteAgreementSet(agreementSetId) {
   if (!isUuid(agreementSetId)) throw new Error('A valid agreement is required.');
   const database = db();
-  const rows = await database.sql`SELECT status FROM agreement_sets WHERE id = ${agreementSetId} LIMIT 1`;
-  if (rows[0]?.status === 'Accepted') throw new Error('Accepted agreements are locked and cannot be deleted.');
+  const rows = await database.sql`SELECT status, manual_status FROM agreement_sets WHERE id = ${agreementSetId} LIMIT 1`;
+  if (['Accepted','Completed externally','Cancelled','Superseded'].includes(rows[0]?.status) || rows[0]?.manual_status) throw new Error('Agreements with a manual status history are retained. Archive or reclassify the agreement instead.');
   await database.sql`DELETE FROM agreement_sets WHERE id = ${agreementSetId}`;
 }
 
@@ -2952,7 +2995,7 @@ async function issueAgreementSet(input = {}, issue = {}, user = null) {
   }
   let agreement = await saveAgreementSet({ ...input, status: input.status === 'Accepted' ? 'Accepted' : 'Ready' }, user);
   if (!isUuid(agreement.id)) throw new Error('Save the agreement before issuing it.');
-  if (agreement.status === 'Accepted') throw new Error('An accepted agreement cannot be reissued. Create a new agreement or variation.');
+  if (['Accepted','Completed externally','Cancelled','Superseded'].includes(agreement.status)) throw new Error('A completed or closed agreement cannot be reissued. Create a new agreement or variation.');
   // Reissuing a partially signed agreement would create duplicate required slots
   // and could make an existing acceptance appear to be replaced or incomplete.
   const priorAcceptances = await database.sql`
@@ -3072,7 +3115,7 @@ async function issueAgreementSet(input = {}, issue = {}, user = null) {
        SET status = 'Sent', issued_at = NOW(), updated_at = NOW(), updated_by = ${actor}
      WHERE id = ${agreement.id}
      RETURNING id, client_id, intake_id, adviser_id, title, app_type, status, standalone_label, recipient_email, studio_state, template_version,
-               created_by, updated_by, created_at, updated_at, issued_at, accepted_at, accepted_by`;
+               created_by, updated_by, created_at, updated_at, issued_at, accepted_at, accepted_by, manual_status`;
   agreement = mapAgreementSetFromDb(rows[0]);
   return { agreementSet: agreement, signingLinks, emailConfigured: configStatus.configured };
 }
@@ -3082,7 +3125,7 @@ function mapAgreementSetFromDb(row = {}) {
     id: row.id || '', clientId: row.client_id || '', intakeId: row.intake_id || '', adviserId: row.adviser_id || '', title: row.title || '', appType: row.app_type || 'other',
     status: row.status || 'Draft', standaloneLabel: row.standalone_label || '', recipientEmail: row.recipient_email || '',
     studioState: row.studio_state || {}, templateVersion: row.template_version || {}, createdBy: row.created_by || '', updatedBy: row.updated_by || '',
-    createdAt: row.created_at || '', updatedAt: row.updated_at || '', issuedAt: row.issued_at || '', acceptedAt: row.accepted_at || '', acceptedBy: row.accepted_by || '',
+    createdAt: row.created_at || '', updatedAt: row.updated_at || '', issuedAt: row.issued_at || '', acceptedAt: row.accepted_at || '', acceptedBy: row.accepted_by || '', manualStatus: row.manual_status || null,
   };
 }
 
@@ -3112,7 +3155,7 @@ async function readAgreementSetWithSignatories(agreementSetId, database = db()) 
   if (!isUuid(agreementSetId)) throw new Error('A valid agreement is required.');
   const rows = await database.sql`
     SELECT id, client_id, intake_id, adviser_id, title, app_type, status, standalone_label, recipient_email, studio_state, template_version,
-           created_by, updated_by, created_at, updated_at, issued_at, accepted_at, accepted_by
+           created_by, updated_by, created_at, updated_at, issued_at, accepted_at, accepted_by, manual_status
       FROM agreement_sets
      WHERE id = ${agreementSetId}
      LIMIT 1`;
@@ -3206,7 +3249,7 @@ async function readCrmData() {
     database.sql`SELECT id, booking_link_id, intake_id, adviser_id, consultation_type_id, booking_date, start_time, end_time, applicant_name, applicant_email, applicant_phone, notes, status, payment_status, created_at, updated_at FROM consultation_bookings ORDER BY booking_date DESC, start_time DESC`,
     database.sql`SELECT id, client_id, title, pack_id, status, standalone_label, studio_state, template_version, created_by, updated_by, created_at, updated_at, issued_at FROM instruction_sets ORDER BY updated_at DESC`,
     database.sql`SELECT id, pack_id, version_label, change_note, snapshot, created_by, created_at FROM instruction_template_versions ORDER BY created_at DESC LIMIT 200`,
-    database.sql`SELECT id, client_id, intake_id, adviser_id, title, app_type, status, standalone_label, recipient_email, studio_state, template_version, created_by, updated_by, created_at, updated_at, issued_at, accepted_at, accepted_by FROM agreement_sets ORDER BY updated_at DESC`,
+    database.sql`SELECT id, client_id, intake_id, adviser_id, title, app_type, status, standalone_label, recipient_email, studio_state, template_version, created_by, updated_by, created_at, updated_at, issued_at, accepted_at, accepted_by, manual_status FROM agreement_sets ORDER BY updated_at DESC`,
     database.sql`SELECT id, version_label, change_note, snapshot, created_by, created_at FROM agreement_template_versions ORDER BY created_at DESC LIMIT 200`,
     readNotificationRecipientSettings(database),
   ]);

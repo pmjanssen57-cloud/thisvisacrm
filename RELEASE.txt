@@ -1,1 +1,2 @@
-THiS CRM v0.18.13 - Simplified Instructions Studio. See RELEASE_NOTES-v0.18.13.txt.
+THiS CRM v0.18.15 - Administrative Agreement Status
+Rollback to v0.18.14.

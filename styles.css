@@ -20894,3 +20894,17 @@ body.intake-embed-mode .website-form-refresh.public-form-shell{background:transp
 .original-intake-v1808 .intake-section {margin-bottom:12px;}
 .matter-tools-card > .btn.full {margin-top:10px;}
 @media(max-width:650px){.original-intake-client-action-v1808 {justify-content:stretch;}.original-intake-client-action-v1808 >button {width:100%;}}
+
+/* v0.18.14 - completed document filing views */
+.studio-filing-controls {display:flex; flex-wrap:wrap; align-items:center; gap:10px 16px; margin:16px 0 4px;}
+.studio-filing-tabs {display:inline-flex; flex-wrap:wrap;}
+.studio-filing-caption {font-size:12px;color:#61716c;flex-basis:100%;}
+.studio-filing-year {display:inline-flex;align-items:center;gap:8px;font-size:12px;color:#344d48;}
+.studio-filing-year select {border:1px solid #d0ded8;background:#fff;color:#153f37;border-radius:7px;padding:6px 9px;font:inherit;}
+.studio-file-month-heading {grid-column:1/-1;display:flex;align-items:center;gap:9px;font-size:13px;font-weight:700;color:#08483f;padding:13px 19px;background:#f1f7f4;border-top:1px solid #dce9e3;}
+.studio-filing-tabs button[aria-pressed="true"] {font-weight:700;}
+@media(max-width:700px){.studio-filing-controls{align-items:flex-start;flex-direction:column}.studio-filing-tabs{max-width:100%;}.studio-filing-caption{flex-basis:auto}.studio-file-month-heading{padding:12px;}}
+
+.client-file-group > h3 {font-size:12px;letter-spacing:.01em;color:#37564d;margin:14px 4px 7px;font-weight:700;}
+.client-file-group > h3 small {font-weight:500;color:#718680;margin-left:4px;}
+.client-file-group + .client-file-group {border-top:1px solid #e1eae6;margin-top:14px;padding-top:7px;}

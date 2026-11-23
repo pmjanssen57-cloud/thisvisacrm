@@ -89,6 +89,7 @@ async function getAgreementForReview(tokenHash, request) {
      LIMIT 1`;
   const row = rows[0];
   if (!row) throw new Error('This agreement link was not found.');
+  if (['Completed externally','Cancelled','Superseded'].includes(row.agreement_status)) throw new Error('This agreement has been closed. Please contact Turner Hopkins.');
   if (row.expires_at && new Date(row.expires_at).getTime() < Date.now()) throw new Error('This agreement link has expired. Please contact Turner Hopkins for a new link.');
   if (!row.viewed_at) {
     await database.sql`
@@ -145,7 +146,7 @@ async function acceptAgreement(tokenHash, body, request) {
   const database = db();
   const rows = await database.sql`
     SELECT s.id AS signatory_id, s.agreement_id, s.email AS signatory_email, s.name AS signatory_name, s.status,
-           s.expires_at, a.title, a.studio_state
+           s.expires_at, a.title, a.studio_state, a.status AS agreement_status
       FROM agreement_signatories s
       JOIN agreement_sets a ON a.id = s.agreement_id
      WHERE s.token_hash = ${tokenHash}
@@ -155,6 +156,7 @@ async function acceptAgreement(tokenHash, body, request) {
   if (row.expires_at && new Date(row.expires_at).getTime() < Date.now()) throw new Error('This agreement link has expired.');
   const modernCompliance = row.studio_state?.compliance && typeof row.studio_state.compliance === 'object';
   if (modernCompliance && (!declarations.professionalStandards || !declarations.complaintsProcedure || !declarations.significantMattersExplained)) throw new Error('Confirm receipt of the Professional Standards and internal complaints procedure, and that the significant agreement matters were explained, before accepting.');
+  if (['Completed externally','Cancelled','Superseded'].includes(row.agreement_status)) throw new Error('This agreement has been closed. Please contact Turner Hopkins.');
   if (row.status === 'Superseded') throw new Error('This signing link has been replaced. Please use the latest link supplied by Turner Hopkins.');
   if (row.status === 'Accepted') return { ok: true, agreementStatus: await refreshAgreementStatus(row.agreement_id, database) };
   const ipAddress = clean(request.headers.get('x-forwarded-for') || request.headers.get('client-ip') || '', 500);
@@ -191,7 +193,7 @@ async function refreshAgreementStatus(agreementId, database = db()) {
     UPDATE agreement_sets
        SET status = ${status}, accepted_at = ${status === 'Accepted' ? new Date().toISOString() : null},
            accepted_by = ${acceptedBy || null}, updated_at = NOW()
-     WHERE id = ${agreementId}`;
+     WHERE id = ${agreementId} AND status NOT IN ('Completed externally','Cancelled','Superseded')`;
   return status;
 }
 

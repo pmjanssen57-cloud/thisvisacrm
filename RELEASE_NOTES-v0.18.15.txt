@@ -1,0 +1,11 @@
+THiS CRM v0.18.15 - Administrative Agreement Status
+
+- Agreement lists now provide Change status for non-electronically accepted agreements.
+- Record partially signed, completed externally, cancelled, superseded and re-opened administrative statuses.
+- Optional signer name and signing date; explanatory note required for closure and partial signing.
+- Audit table tracks actor, timestamp, before and after statuses and notes.
+- Electronically accepted agreements remain immutable; manual statuses do not fabricate electronic signatures.
+- Public links are blocked once a record is closed administratively.
+- Filed agreements are protected from deletion; no data removed.
+- Additive database schema on boot: agreement_sets.manual_status and agreement_status_audit.
+- Rollback: v0.18.14. Data fields are additive and retained after rollback.
