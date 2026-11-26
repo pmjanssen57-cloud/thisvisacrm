@@ -1,15 +1,20 @@
-THiS CRM v0.13.30 — Lean Adviser Dashboard
+THiS CRM v0.18.18 — deployment checklist
 
-1. Upload the complete package to the existing GitHub repository.
-2. Preserve the netlify/ and public/ folders.
-3. No database migration is required for this release.
-4. Allow Netlify to build using Node 20.19.0.
-5. Confirm the dashboard opens for an administrator and an adviser-scoped user.
-6. Confirm tasks more than 30 days away do not appear in the dashboard action queue but remain in Tasks.
-7. Test the Overdue, Today and Next 30 days queue tabs.
-8. Open several client records, return to Dashboard, and confirm Recently viewed appears vertically in the sidebar.
-9. Use Adjust action on a workload row, change the wording/date, save, and confirm the row updates.
-10. Open the client record and confirm the replaced action was preserved in the next-action log.
-11. Test the workload search and collapsed filters.
-12. Check desktop, tablet and mobile dashboard layouts.
-13. Regression-test intake, CV upload, adviser notification, approval/decline, consultation booking, duplicate detection, client portal, Mailchimp and Backup Centre workflows.
+1. Confirm GitHub has not advanced beyond the recorded v0.18.17 baseline.
+   Merge into newer source first if necessary.
+2. Upload the complete package to the existing thisvisacrm GitHub repository,
+   preserving netlify/, public/ and existing Netlify settings.
+3. Build with Node 20.19.0, yarn build, publish directory dist.
+4. Refresh the CRM. Website should appear for administrators only.
+5. Open Website. Its four tables initialize on first use. Connect the private
+   mirror as its owner; confirm Website connected back in the CRM.
+6. Import existing news. Repeating the import must preserve saved edits.
+7. Save and preview a draft. Publish reviewed content and confirm Accepted.
+   Verify that a later draft does not alter the published page.
+8. Inspect the news index and homepage feed. Unpublish any temporary test article.
+   Keep the Site owner-private.
+9. Read the guide before handling interrupted publication or restoring backups.
+10. Check existing navigation and routine CRM workflows after deployment.
+
+The package does not pair or publish production content automatically. Changes to
+Squarespace, the public domain, enquiries and email delivery are outside this release.

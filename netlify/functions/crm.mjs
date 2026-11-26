@@ -2,6 +2,7 @@ import { validateApprovalEdit } from './_intake-pathways.mjs';
 import { ensureFollowupSchema, followupOperations } from './_seminar-followup.mjs';
 import { seminarOperations, dispatchReminders } from './_seminar-reminders.mjs';
 import { studioLibrary } from './_studio-library.mjs';
+import { websiteStudio } from './_website-studio.mjs';
 import { readEmployerQueue, processEmployerQuestionnaire, downloadEmployerUpload, saveEmployerQuestionnaireReview } from './_employer-questionnaires.mjs';
 import { getDatabase } from '@netlify/database';
 import { getStore } from '@netlify/blobs';
@@ -547,6 +548,7 @@ async function handleCrmEvent(event) {
 
     const body = requestBody;
     const action = requestAction;
+    if (action === 'websiteStudio') return json(await websiteStudio(db(), accessContext, body, auth.user?.email || accessContext.adviserName || 'CRM administrator'));
 
     if (action === 'getAgreementUpdates') {
       const database = db();

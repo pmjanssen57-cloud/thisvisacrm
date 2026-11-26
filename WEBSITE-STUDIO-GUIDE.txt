@@ -1,0 +1,59 @@
+THiS CRM — Website Studio
+
+FIRST USE
+1. Open Website in the CRM's Practice navigation (or More on mobile). This
+   workspace is available to administrators. Its separate tables are created
+   on first administrator use, following the CRM's existing setup pattern.
+2. Select Connect website. Sign in to the private website as its owner, approve
+   the CRM connection in that window, then return to confirm Website connected.
+   Keep both windows open until that confirmation. No publishing key needs to
+   be copied or pasted. Allow the connection window if your browser blocks it.
+3. Select Import existing news to create editable copies of 192 news articles.
+   This is repeatable and never replaces existing edits. Two other historic
+   /news/ addresses redirect to service pages and remain in the website mirror.
+4. Open an imported article, or choose New article. Review wording, links,
+   featured image and alternative text before republishing imported material.
+
+WRITING AND PUBLISHING
+Save draft does not change the website. Preview includes unsaved changes.
+Use blank lines between paragraphs, ## for headings, **bold**, - for lists,
+> for quotations, and [link text](https://example.com) for links. HTML is treated
+as text. The featured image can use an HTTPS URL or an existing mirrored asset.
+This first version does not include image uploads or a full rich-text editor.
+
+URL names are fixed after the first save. Publication date is a display date,
+not a schedule: Publish takes effect immediately. Publish sends the saved
+revision only. It updates the website article and searchable news index. The
+homepage's news carousel reads the published feed. The website remains private.
+
+Unpublish removes the article from the website but retains its draft and
+history. An unpublished imported article no longer falls back to its static
+mirror. Restoring earlier wording creates a new saved draft; it does not replace
+the current publication. The latest 30 saved revisions and 20 delivery events
+are displayed; older records are retained in the database.
+
+IF A PUBLICATION IS NOT CONFIRMED
+Pending/Sending means a request has not completed. Accepted means the website
+confirmed the specific saved publication. Failed means a definitive rejection.
+Unknown means the response or result storage was not confirmed.
+Use Check publication to query the original event before a retry. Retries reuse
+the same event and frozen content. Newer edits are not silently included. Wait
+90 seconds before rechecking an interrupted Sending attempt. An unresolved
+Pending/Sending/Unknown event prevents starting another publication for that
+article. The site rejects stale and conflicting revisions.
+
+CONNECTION AND RECOVERY
+The connection approves a public signing key. The CRM's private key and private
+Site transport credential are kept in a server-only Netlify Blobs store named
+website-studio-connections. They are never returned by article/list APIs or
+included in client bundles. Approval data crosses the browser only in an
+encrypted envelope for the initiating CRM. Disconnect revokes that signing key.
+
+The CRM database backup captures the website tables. The existing backup store
+list does not include the new connection secret store. If that store is lost
+when restoring to another environment, connect the website again. The website's
+published snapshot is independent and stays available during a CRM outage.
+
+The source website, domain, forms, live chat and Squarespace presentation
+dependencies are unchanged by this release. Public launch and domain migration
+remain separate stages. No client records are included in website publications.

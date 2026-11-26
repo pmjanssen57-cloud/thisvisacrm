@@ -1,0 +1,59 @@
+THiS CRM v0.18.18 — Website Studio
+Prepared 27 November 2026 (Pacific/Auckland)
+Baseline: live GitHub source v0.18.17, commit
+4cb25bfb016a0d6bb823af615b47410b5a2cd9a8 (24 November 2026).
+
+Adds administrator-only Website Studio with article drafts, safe previews,
+revision history, existing-news import, publish/unpublish, publication status,
+reconciliation and retry. Desktop Practice navigation and mobile More include
+Website. Unsaved changes are guarded when leaving, selecting another article,
+opening a client or closing the browser. The shell cache is bumped to v0.18.18.
+
+The CRM maintains drafts and immutable delivery events in separate website
+tables. Saves compare revisions atomically; history is committed in the same
+PostgreSQL statement. One publication per article can be in flight. A lost
+response does not imply failure or trigger an automatic new publication.
+
+The private Sites mirror gains a D1-backed receiver and published article
+snapshot, server-rendered article pages, search/pagination and a homepage feed.
+Signed, timestamped requests are scoped to an owner-approved connection. The
+receiver enforces event idempotency, monotonic revisions and URL identity.
+Public fields are allowlisted; rich text is rendered from escaped text and
+approved link/image URLs. Client/case data are outside the publishing model.
+
+Setup uses an owner-approved browser pairing. Only a public key is sent in the
+connection request. The transport credential is encrypted for the CRM before
+crossing the browser. Private keys and transport credentials remain in the
+server-only connection store. No new Netlify environment variable is required.
+
+An additive SQL migration is included. The CRM initializes these new tables on
+first administrator use. No existing client, adviser, agreement, intake, chat,
+seminar, booking or email table is changed. The website's D1 schema is migrated
+through Sites deployment; its data is separate from the CRM database.
+
+Read WEBSITE-STUDIO-GUIDE.txt for setup, content format, imports, status meanings,
+backup boundaries and recovery. The website stays private. The main domain and
+Squarespace site are unchanged. Live forms still open their original website
+pages. Remaining Squarespace presentation dependencies are retained.
+
+VALIDATION
+25 CRM tests pass on Node 20.19.0 using an embedded PostgreSQL engine; 18 receiver
+tests pass against SQLite with the actual D1 migration and Web Crypto signatures.
+Coverage includes permission checks, first-use schema, concurrent saves, import
+idempotency, unsafe markup/protocols, encrypted pairing, signature tampering,
+expiry, duplicate/stale/conflicting deliveries, lost responses, failed result
+storage, unpublishing, history restore, revocation and missing-secret recovery.
+The CRM production build, complete server bundle and PWA checks are required.
+Browser checks use isolated test databases: new draft, preview, publish, later
+draft edits remaining separate from the publication, and mobile layout.
+
+No test writes, emails or enquiries were sent to the live CRM. A real production
+pairing/publication still requires the deployed CRM and website owner's approval.
+
+ROLLBACK
+The rollback ZIP is a source snapshot of the exact GitHub baseline commit. It is
+not a previously supplied release ZIP. Redeploy it through the normal Netlify
+source build to roll back CRM code. New website tables and publication history
+can remain in place; the earlier CRM ignores them. The Site has independent
+saved versions and data. Do not restore a CRM database simply to roll back code.
+

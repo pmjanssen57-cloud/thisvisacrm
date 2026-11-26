@@ -1,4 +1,5 @@
 import StudioTemplateManager from './src/ui/StudioTemplateManager.jsx';
+import WebsiteStudio from './src/ui/WebsiteStudio.jsx';
 import { INTAKE_PATHWAYS, intakeApprovalDraft } from './netlify/functions/_intake-pathways.mjs';
 import SeminarFollowupTools from './src/ui/SeminarFollowupTools.jsx';
 import { TeamChatProvider, TeamChatPanel, TeamFileNotes } from './src/ui/TeamChat.jsx';
@@ -1397,6 +1398,7 @@ export default function App() {
   if (window.location.pathname.startsWith('/portal')) return <ClientPortalApp />;
   const [data, setData] = useState(emptyData);
   const [tab, setTab] = useState('work');
+  const [websiteEditorDirty, setWebsiteEditorDirty] = useState(false);
   const [myDayOpen, setMyDayOpen] = useState(false);
   const [studioSection, setStudioSection] = useWorkspaceState('studio:section','agreements');
   const [studioCreateRequest, setStudioCreateRequest] = useState(null);
@@ -1506,7 +1508,7 @@ export default function App() {
   }
 
   async function confirmDiscardPendingEdits() {
-    return (await confirmDiscardClientEdits()) && (await confirmDiscardCalendarEdits());
+    return (await confirmDiscardClientEdits()) && (await confirmDiscardCalendarEdits()) && (!websiteEditorDirty || await window.THIS_DIALOG.confirm({title:'Unsaved article',message:'Discard unsaved article changes and leave Website Studio?',confirmText:'Discard changes'}));
   }
 
   function openMyDay() {
@@ -1575,6 +1577,7 @@ export default function App() {
   }
 
   async function openClientRecord(clientId) {
+    if (tab === 'website' && !(await confirmDiscardPendingEdits())) return false;
     if (tab === 'calendar' && !(await confirmDiscardCalendarEdits())) return false;
     if (!(await selectClient(clientId))) return false;
     setCalendarEditorDirty(false);
@@ -1585,6 +1588,7 @@ export default function App() {
 
   async function openMatterRecord(recordId) {
     if (isCommercialMatterRecord(recordId)) {
+      if (tab === 'website' && !(await confirmDiscardPendingEdits())) return false;
       if (tab === 'calendar' && !(await confirmDiscardCalendarEdits())) return false;
       const commercialClientId = commercialMatterSourceId(recordId);
       if (!commercialClientId) return false;
@@ -3139,7 +3143,7 @@ export default function App() {
   }, [loading, authRequired, identityAdviser, adviserPreferences.defaultLandingPage]);
 
   useEffect(() => {
-    if (!isAdmin && ['advisers', 'backups'].includes(tab)) setTab('work');
+    if (!isAdmin && ['advisers', 'backups', 'website'].includes(tab)) setTab('work');
   }, [isAdmin, tab]);
 
   useEffect(() => {
@@ -3425,6 +3429,7 @@ export default function App() {
 
         {(data.clients.length > 0 || (data.commercialClients || []).length > 0 || data.advisers.length > 0 || data.libraryEntries.length > 0 || data.intakeEnquiries.length > 0 || data.employerQuestionnaires.length > 0 || data.employerQuestionnaireDrafts.length > 0 || data.seminars.length > 0 || data.seminarRegistrations.length > 0 || data.feedbackSubmissions.length > 0 || data.consultationBookings.length > 0 || data.bookingLinks.length > 0 || data.instructionSets.length > 0 || data.agreementSets.length > 0) && (
           <>
+            {tab === 'website' && isAdmin && <WebsiteStudio api={(payload) => callApi('websiteStudio', payload, {background:true,skipDataUpdate:true})} onDirtyChange={setWebsiteEditorDirty} confirmAction={askCrmConfirm} />}
             {tab === 'studio' && (
               <StudioWorkspace
                 section={studioSection}
@@ -3852,7 +3857,7 @@ function MatterWorkspaceSidebar({ tab='work', onNavigate, adviser=null, isAdmin=
    const item=(key,Icon,title,count=0)=><button type="button" key={key} className={active===key?'active':''} onClick={()=>onNavigate(key)}><Icon size={18}/><span>{title}</span>{count>0&&<b>{count}</b>}</button>;
    return <aside className="matter-workspace-sidebar calm-sidebar"><div className="matter-sidebar-brand"><img className="precision-logo" src={LOGO_SRC} alt="THiS — Turner Hopkins Immigration Specialists" /></div>
      <div className="matter-sidebar-divider precision-workspace-label"><span>Workspace</span></div><nav className="matter-sidebar-nav" aria-label="Main navigation">{item('work',LayoutDashboard,'My Work',actionCount)}{item('clients',UsersRound,'Clients')}{item('intake',ClipboardList,'Enquiries',newEnquiryCount)}{item('calendar',CalendarDays,'Calendar')}</nav>
-     <div className="matter-sidebar-divider"><span>Practice</span></div><nav className="matter-sidebar-nav secondary" aria-label="Practice navigation">{item('studio',FileText,'Studio')}{item('billing',CreditCard,'Billing')}{item('dashboard',ArrowUpDown,'Reports')}</nav>
+     <div className="matter-sidebar-divider"><span>Practice</span></div><nav className="matter-sidebar-nav secondary" aria-label="Practice navigation">{item('studio',FileText,'Studio')}{isAdmin&&item('website',Globe2,'Website')}{item('billing',CreditCard,'Billing')}{item('dashboard',ArrowUpDown,'Reports')}</nav>
      <div className="precision-tools"><div className="matter-sidebar-divider"><span>Tools</span></div><nav className="matter-sidebar-nav secondary" aria-label="More workspaces">{item('tasks',ListChecks,'Personal tasks')}{item('bookings',Clock,'Bookings')}{item('library',BookOpen,'Resources')}{item('home',CloudSun,'Day overview')}{isAdmin&&item('advisers',UserRound,'Advisers')}{isAdmin&&item('backups',ShieldCheck,'Admin & backup')}</nav></div>
      <div className="calm-sidebar-footer"><button className="calm-settings-button" onClick={onSettings}><SlidersHorizontal size={18}/>Settings & preferences</button><button className="matter-sidebar-profile" onClick={onSettings}><div className="matter-sidebar-avatar">{matterAdviserInitials(adviser)}</div><div><strong>{adviser?.name||'THiS adviser'}</strong><small>{adviser?.role||'Adviser workspace'}</small></div></button>{authControl}</div>
    </aside>;
@@ -11482,6 +11487,7 @@ function MobileMoreSheet({ open, onClose, onNavigate, activeTab, onOpenHelp, onO
             <button type="button" className={activeTab === 'bookings' ? 'active' : ''} onClick={() => go('bookings')}><CalendarDays size={18} /><span>Bookings</span><ChevronRight size={16} /></button>
             <button type="button" className={activeTab === 'library' ? 'active' : ''} onClick={() => go('library')}><BookOpen size={18} /><span>Library</span><ChevronRight size={16} /></button>
             {canManageAdvisers && <button type="button" className={activeTab === 'advisers' ? 'active' : ''} onClick={() => go('advisers')}><UserRound size={18} /><span>Advisers</span><ChevronRight size={16} /></button>}
+            {canManageBackups && <button type="button" className={activeTab === 'website' ? 'active' : ''} onClick={() => go('website')}><Globe2 size={18} /><span>Website Studio</span><ChevronRight size={16} /></button>}
             {canManageBackups && <button type="button" className={activeTab === 'backups' ? 'active' : ''} onClick={() => go('backups')}><ShieldCheck size={18} /><span>Admin / Backup</span><ChevronRight size={16} /></button>}
           </div>
         </div>

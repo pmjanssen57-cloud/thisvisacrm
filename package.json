@@ -1,6 +1,6 @@
 {
   "name": "turner-hopkins-crm-netlify-db",
-  "version": "0.18.17",
+  "version": "0.18.18",
   "private": true,
   "engines": {
     "node": ">=20.19.0 <21"
@@ -11,7 +11,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "backup:decrypt": "node scripts/decrypt-this-backup.mjs",
-    "validate:pwa": "node scripts/validate-pwa.mjs"
+    "validate:pwa": "node scripts/validate-pwa.mjs",
+    "test:website": "node --test scripts/website-studio.test.mjs"
   },
   "dependencies": {
     "@netlify/blobs": "10.7.9",
@@ -23,5 +24,8 @@
     "react-dom": "18.3.1",
     "vite": "5.4.21"
   },
-  "packageManager": "yarn@1.22.22"
+  "packageManager": "yarn@1.22.22",
+  "devDependencies": {
+    "@electric-sql/pglite": "0.2.17"
+  }
 }

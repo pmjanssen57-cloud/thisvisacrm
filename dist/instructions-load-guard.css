@@ -1,0 +1,10 @@
+html:not(.instructions-load-ready) body.ib72-studio #ib72{display:none!important}
+html:not(.instructions-load-ready) body.ib72-studio .preview-panel,html:not(.instructions-load-ready) body.ib72-studio .ib72-viewbar{display:none!important}
+html:not(.instructions-load-ready) body.ib72-studio .workspace{display:block!important}
+html:not(.instructions-load-ready) :is(#save-draft,#publish-pack,#confirm-publish,#print-pack){opacity:.5;cursor:not-allowed}
+html.instructions-load-ready #instructions-load-status{display:none!important}
+#instructions-load-status{margin:24px auto;padding:28px;max-width:740px;background:#fff;border:1px solid #cbded4;border-radius:10px;color:#173b39;line-height:1.65;font:15px Arial,sans-serif}
+#instructions-load-status h2{font-size:21px;margin:0 0 12px}#instructions-load-status p{line-height:1.65}#instructions-load-status button{font:inherit;min-height:44px;padding:10px 16px;border:1px solid #07594e;background:#07594e;border-radius:7px;color:#fff;cursor:pointer}
+@media(max-width:600px){#instructions-load-status{margin:16px 10px;padding:20px}}
+@media print{#instructions-load-status{display:none!important}html:not(.instructions-load-ready) #print-root{display:none!important}}
+html:not(.instructions-load-ready) body.ib72-studio .workspace > :not(#instructions-load-status){display:none!important}

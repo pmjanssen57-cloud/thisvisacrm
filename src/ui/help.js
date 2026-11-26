@@ -1,4 +1,10 @@
 const help = {
+  website: {
+    title:'Website Studio help',summary:'Prepare and publish website news articles from the CRM.',
+    sections:[{heading:'Start an article',text:'Create a new article or import the existing website news. URL names stay fixed after the first save. Imported wording and images should be checked before republishing.'},{heading:'Draft and preview',text:'Save draft keeps the current website publication in place. Preview includes your unsaved changes. History restores earlier wording into a new draft.'},{heading:'Connect and publish',text:'An administrator connects the website, then approves the connection in the website window as its owner. Publish sends the saved revision. Unpublish removes the website article while retaining its draft and history.'},{heading:'Check a publication',text:'If a response is unconfirmed, use Check publication. This checks the original publication and retries that same request only when needed. A recent in-progress attempt cannot be checked again for 90 seconds.'}],
+    tips:['Website Studio is available to CRM administrators.','The website mirror stays private. Existing public forms continue to open the current website.','The latest 30 wording revisions and 20 publication events are displayed.'],
+  },
+
   work: {
     title:'My Work help', summary:'Your next actions, together in one workspace.',
     sections:[{heading:'Choose your view',text:'Use Today & overdue, Next 7 days or All work. The adviser selector scopes the workspace; Responsibility separates main and backup matters. List is the default, with Board available as an alternative.'},{heading:'Update without leaving the list',text:'Select the arrow or next action to open Update matter. Record what happened, who acts next and the due or review date. Save changes returns to the same work list.'},{heading:'Waiting matters',text:'Client, third-party and INZ matters appear under Waiting for others even when their review date is in the future. A waiting matter needs a review date so it returns to your attention.'}],

@@ -1,0 +1,127 @@
+/* One bounded A4 canvas in preview and print. Fixed grid tracks prevent the
+   cover footer from becoming a separately fragmented flex item. */
+.ib72-studio #preview-root .pdf-page {
+  width:210mm !important;
+  min-height:296mm !important;
+}
+.ib72-studio :is(#preview-root,#print-root) .pdf-cover {
+  box-sizing:border-box !important;
+  display:grid !important;
+  grid-template-rows:43% 31% 26%;
+  height:296mm !important;
+  min-height:296mm !important;
+  max-height:296mm !important;
+  break-inside:avoid !important;
+  page-break-inside:avoid !important;
+}
+.ib72-studio :is(#preview-root,#print-root) .pdf-cover > * {
+  box-sizing:border-box;
+  min-height:0 !important;
+  min-width:0;
+}
+.ib72-studio :is(#preview-root,#print-root) .cover-top {
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  padding:44px 54px 26px;
+}
+.ib72-studio :is(#preview-root,#print-root) .cover-logo {
+  width:285px;
+  max-width:58%;
+  max-height:132px;
+  object-fit:contain;
+  object-position:left top;
+  flex:0 1 auto;
+  margin-bottom:22px;
+}
+.ib72-studio :is(#preview-root,#print-root) .cover-title {
+  font-size:40px;
+  line-height:1.04;
+  overflow-wrap:anywhere;
+}
+.ib72-studio :is(#preview-root,#print-root) .cover-subtitle {
+  font-size:23px;
+  line-height:1.15;
+  overflow-wrap:anywhere;
+}
+.ib72-studio :is(#preview-root,#print-root) .cover-image {
+  height:auto;
+  flex:none;
+}
+.ib72-studio :is(#preview-root,#print-root) .cover-footer {
+  height:100%;
+  flex:none;
+  padding:28px 54px 24px;
+  overflow-wrap:anywhere;
+}
+.ib72-studio :is(#preview-root,#print-root) .cover-footer em {
+  display:block;
+  flex:0 0 auto;
+  break-inside:avoid;
+}
+@media print {
+  @page { size:A4; margin:0; }
+  .ib72-studio #print-root,
+  .ib72-studio #print-root .print-document {
+    display:block !important;
+    width:210mm !important;
+    margin:0 !important;
+    padding:0 !important;
+    zoom:1 !important;
+    transform:none !important;
+  }
+  .ib72-studio #print-root .pdf-page {
+    box-sizing:border-box !important;
+    width:210mm !important;
+    min-height:296mm !important;
+    height:296mm !important;
+    max-height:296mm !important;
+    margin:0 !important;
+    break-inside:avoid !important;
+    page-break-inside:avoid !important;
+  }
+}
+
+/* v0.17.81: direct/browser-menu printing gets the same footer geometry as the print window. */
+@media print {
+ html:has(body.ib72-studio),body.ib72-studio{display:block!important;width:210mm!important;margin:0!important;padding:0!important;min-height:0!important;height:auto!important;max-height:none!important;overflow:visible!important;zoom:1!important;transform:none!important}
+ body.ib72-studio #print-root,body.ib72-studio #print-root .print-document{display:block!important;position:static!important;width:210mm!important;max-width:210mm!important;height:auto!important;min-height:0!important;margin:0!important;padding:0!important;transform:none!important;zoom:1!important}
+ body.ib72-studio #print-root .pdf-page{display:block!important;position:relative!important;box-sizing:border-box!important;width:210mm!important;min-width:210mm!important;max-width:210mm!important;height:296mm!important;min-height:296mm!important;max-height:296mm!important;overflow:hidden!important;margin:0!important;padding:0!important;transform:none!important;zoom:1!important;break-inside:avoid!important;page-break-inside:avoid!important;break-after:page!important;page-break-after:always!important}
+ body.ib72-studio #print-root .pdf-page:not(.pdf-cover) .pdf-page-inner{position:absolute!important;top:0!important;left:0!important;right:0!important;bottom:48px!important;box-sizing:border-box!important;min-height:0!important;transform:none!important}
+ body.ib72-studio #print-root .pdf-cover{display:grid!important;grid-template-rows:43% 31% 26%!important}
+ body.ib72-studio #print-root .cover-footer{position:relative!important;height:100%!important;min-height:0!important}
+ body.ib72-studio #print-root .cover-footer em{position:absolute!important;left:54px!important;right:54px!important;bottom:20px!important;margin:0!important}
+ body.ib72-studio #print-root .page-footer{display:flex!important;position:absolute!important;left:58px!important;right:58px!important;bottom:23px!important;top:auto!important;height:auto!important;transform:none!important;break-inside:avoid!important}
+ body.ib72-studio #print-root .print-document:last-child .pdf-page:last-child{break-after:auto!important;page-break-after:auto!important}
+}
+@media print{body.ib72-studio #print-root *{text-shadow:none!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+
+/* Calm editorial keeps the same bounded A4 canvas for every printing route. */
+.ib72-studio :is(#preview-root,#print-root) .pdf-page.pdf-cover.cover84{
+ display:flex!important;flex-direction:column!important;grid-template-rows:none!important;
+ height:296mm!important;min-height:296mm!important;max-height:296mm!important;
+ background:#fff;color:#003f3d;overflow:hidden!important;
+}
+.ib72-studio :is(#preview-root,#print-root) .cover84 .cover-title{
+ font-size:62px;line-height:1.08;letter-spacing:-.045em;text-transform:none;margin:18px 0 27px;color:#003f3d;
+}
+.ib72-studio :is(#preview-root,#print-root) .cover84 .cover-title span{color:#187b63}
+.ib72-studio :is(#preview-root,#print-root) .cover84 .cover-title.cover85-title-medium{font-size:48px}
+.ib72-studio :is(#preview-root,#print-root) .cover84 .cover-title.cover85-title-long{font-size:38px}
+.ib72-studio :is(#preview-root,#print-root) .cover84 .cover-subtitle{font-size:22px;line-height:1.5;margin:0;overflow-wrap:anywhere;color:#003f3d}
+/* v0.18.01 – printable adviser-reviewed document checklist */
+.s181-checklist-print{width:100%;min-width:0;color:#23413f;margin:0 0 18px}
+.s181-checklist-print h2{font-size:22px;line-height:1.3;margin:0 0 8px;color:#064e48}
+.s181-checklist-print p{font-size:13px;line-height:1.5;margin:0 0 16px}
+.s181-checklist-print table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:12px}
+.s181-checklist-print th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.03em;border-bottom:2px solid #d6e7e2;padding:8px 7px}
+.s181-checklist-print td{padding:9px 7px;border-bottom:1px solid #e4e9e7;vertical-align:middle;overflow-wrap:anywhere}
+.s181-checklist-print th:nth-child(1){width:47%}.s181-checklist-print th:nth-child(2){width:38%}.s181-checklist-print th:nth-child(3){width:15%;text-align:center}
+.s181-checklist-print td:last-child{text-align:center}
+.s181-empty-check{display:inline-block;width:15px;height:15px;border:2px solid #43c99d;box-sizing:border-box;vertical-align:middle}
+.s181-checklist-print tr{break-inside:avoid;page-break-inside:avoid}
+
+/* v0.18.06: checklist heading uses the same numbered style as all guide sections. */
+.s181-checklist-print > .number-heading { margin-bottom:13px; }
+.s181-checklist-print > .number-heading h2 { margin:0; text-transform:uppercase; }
+.s181-checklist-print > .s181-checklist-continued { font-size:17px; color:#064e48; margin:12px 0; }

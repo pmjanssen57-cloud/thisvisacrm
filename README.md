@@ -1,17 +1,11 @@
-THiS CRM v0.17.94 — Studio template management before opening a client document
+# THiS CRM v0.18.18
 
-HOW TO USE
-Open Studio > Templates & blocks (also available from Studio Overview). Choose Manage agreement templates or Manage instructions templates. No client, intake or existing client document needs to be selected.
-Master templates: choose the application type and section/guide, edit the content with the existing formatting and live preview, then Save draft or Publish. Save draft retains work for review without changing the published starting point. Publish uses the updated master for future documents of that application type. Existing client drafts and issued documents keep their own content. The existing version history and restoration controls remain available.
-Agreement masters include introduction/sections, scope of services and professional payment-stage wording. Instructions masters include introductions, guidance/documentation blocks, document requests and sign-off defaults. Team blocks and My blocks support creating, editing, duplicating and saving reusable content. Blocks are available for advisers to add as needed; publishing a master controls its default included sections.
-Administrators maintain and publish shared masters/team blocks. Other staff can view shared content and manage personal blocks when linked to an adviser account. Existing server-side permission and revision-conflict checks are reused. Closing with unsaved library edits asks for confirmation. The management view hides document-insertion/application actions and never handles document save, issue or portal-publish events.
+Website Studio adds administrator-managed news drafts, previews, revision history and publishing to the private Turner Hopkins website mirror.
 
-IMPLEMENTATION / PRESERVATION
-The new entry point uses the same persisted template/block libraries and editors already used inside client documents. It does not create or save a client-specific document. No new backend operation, database table, migration, dependency or environment setting. All 52 migrations and 34 Netlify modules are byte-identical to v0.17.93. Existing Action log/Activity history, intake approval pathways and seminar fixes retained. No Squarespace embed update needed.
+Based on GitHub v0.18.17, commit 4cb25bfb016a0d6bb823af615b47410b5a2cd9a8. Existing business workflows are retained. See RELEASE_NOTES-v0.18.18.txt for scope and WEBSITE-STUDIO-GUIDE.txt for setup and recovery.
 
-VALIDATION
-Production build, 15 application sources, 34 Netlify modules, 20 public scripts, 18 CSS files, 17 inline scripts, 29 inline styles and PWA/cache checks passed. Built Edge tests opened both libraries without a client, edited/published masters, created and saved reusable team blocks, checked shared read-only permissions and personal block availability, cancelled/discarded unsaved changes, and verified no document save/issue requests. Widths 1440/768/390/320 checked; screenshots inspected. Separate embedded-editor tests confirmed newly created agreements/instructions use the published wording and reopened existing documents retain tailored text. ZIP CRC, safe unique paths, all packaged file hashes and exact rollback verified.
+Deploy through the existing Netlify source build: Node 20.19.0, yarn build, publish directory dist. Preserve netlify/, public/ and existing deployment settings. Four separate website tables initialize on first administrator use; an equivalent additive migration is included. No new Netlify environment variable is required.
 
-DEPLOYMENT / LIMITS
-Deploy THiS-CRM-v0.17.94.zip through the existing Netlify source build (yarn build; publish dist), then refresh the CRM. No production deployment, live template edits or client record writes performed. Tests used local Edge, emulated widths and synthetic API/library data; no live PostgreSQL or physical mobile/Safari/Firefox checks. Existing bundle-size advisory remains. Local Node 24, configured Netlify Node 20.19.
-THiS-CRM-v0.17.93-ROLLBACK.zip is a byte-exact copy of the previous release. Library changes saved after deployment remain available through the earlier in-document library editor after rollback; no data rollback is required.
+Checks: yarn test:website, yarn validate:pwa and yarn build. Tests use isolated embedded PostgreSQL and do not access production records. The private Site has its own source, database and deployment.
+
+After deployment, an administrator opens Website, connects the private mirror as its owner, then imports existing news. Saving drafts never publishes them. Public launch and domain migration are separate work.
