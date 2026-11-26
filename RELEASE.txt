@@ -1,17 +1,10 @@
-THiS CRM v0.18.18 — Website Studio
-Prepared 27 November 2026 (Pacific/Auckland).
+THiS CRM v0.18.19 — Netlify dependency installation fix
 
-Based on GitHub v0.18.17, commit 4cb25bfb016a0d6bb823af615b47410b5a2cd9a8.
-Adds administrator-only drafts, previews, version history, news import,
-owner-approved website connection, publish/unpublish and delivery reconciliation.
-Drafts remain separate from published website content.
+Includes a compatible image-size resolution, generated yarn.lock, frozen
+Netlify installation and shell-cache version bump. Retains Node 20.19.0,
+Yarn 1.22.22 and existing CRM/Website Studio behavior.
 
-Deploy using the existing Netlify source build: Node 20.19.0, yarn build, dist.
-Four additive website tables initialize on first administrator use.
-No new Netlify environment variable is required.
-
-Read RELEASE_NOTES-v0.18.18.txt, WEBSITE-STUDIO-GUIDE.txt, VALIDATION.txt and
-UPLOAD-CHECKLIST.txt. This package alone does not deploy or pair the live CRM.
-The Site remains private. Squarespace and the public domain are unchanged.
-Rollback source is the exact preceding GitHub commit, rather than an earlier
-release ZIP. Code rollback does not require data rollback.
+Read NETLIFY-BUILD-FIX-v0.18.19.txt for deployment instructions and validation.
+Upload the complete extracted release contents to the existing repository.
+package.json, yarn.lock and netlify.toml must be at the repository root.
+This package has been tested locally; it does not deploy itself to Netlify.

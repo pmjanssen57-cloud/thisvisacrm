@@ -1,20 +1,13 @@
-THiS CRM v0.18.18 — deployment checklist
+THiS CRM v0.18.19 — upload checklist
 
-1. Confirm GitHub has not advanced beyond the recorded v0.18.17 baseline.
-   Merge into newer source first if necessary.
-2. Upload the complete package to the existing thisvisacrm GitHub repository,
-   preserving netlify/, public/ and existing Netlify settings.
-3. Build with Node 20.19.0, yarn build, publish directory dist.
-4. Refresh the CRM. Website should appear for administrators only.
-5. Open Website. Its four tables initialize on first use. Connect the private
-   mirror as its owner; confirm Website connected back in the CRM.
-6. Import existing news. Repeating the import must preserve saved edits.
-7. Save and preview a draft. Publish reviewed content and confirm Accepted.
-   Verify that a later draft does not alter the published page.
-8. Inspect the news index and homepage feed. Unpublish any temporary test article.
-   Keep the Site owner-private.
-9. Read the guide before handling interrupted publication or restoring backups.
-10. Check existing navigation and routine CRM workflows after deployment.
+1. Extract THiS-CRM-v0.18.19.zip.
+2. Upload all extracted contents to the existing thisvisacrm GitHub repository,
+   replacing matching files. Preserve folders and existing deployment settings.
+3. Confirm package.json, yarn.lock and netlify.toml are together at the root.
+   Do not upload just dist, the ZIP itself, or an enclosing release folder.
+4. Let Netlify deploy using its existing yarn build and dist settings.
+5. Confirm dependency installation passes and the deployment is Published.
+6. Refresh the CRM. Website Studio setup remains as described in its guide.
 
-The package does not pair or publish production content automatically. Changes to
-Squarespace, the public domain, enquiries and email delivery are outside this release.
+No Node version change, ignored engine checks, new environment secret, database
+reset or rollback of client data is needed for this dependency installation fix.

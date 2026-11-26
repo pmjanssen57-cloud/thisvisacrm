@@ -5,7 +5,7 @@
 
 [build.environment]
   NODE_VERSION = "20.19.0"
-  YARN_FLAGS = "--no-ignore-optional --non-interactive --no-progress"
+  YARN_FLAGS = "--frozen-lockfile --no-ignore-optional --non-interactive --no-progress"
 
 [dev]
   command = "yarn dev:vite"

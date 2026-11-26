@@ -1,0 +1,37 @@
+THiS CRM v0.18.19 — Netlify dependency installation fix
+
+The v0.18.18 build failed before compilation because Yarn resolved image-size
+2.2.0 through @netlify/blobs > @netlify/dev-utils. That new release requires
+Node 22, while this CRM is configured for Node 20.19.0.
+
+This release pins image-size to 2.1.0 using Yarn resolutions, includes a generated
+yarn.lock with resolved versions and integrity hashes, and adds --frozen-lockfile
+to the existing Netlify install flags. Node engine validation remains enabled.
+Node 20.19.0 and Yarn 1.22.22 are retained. The shell cache advances to v0.18.19.
+No application workflow, server function or database migration is changed.
+
+INSTALL
+Extract the complete THiS-CRM-v0.18.19.zip and upload its contents to the existing
+GitHub repository, replacing matching files. Ensure package.json, yarn.lock and
+netlify.toml are together at the repository root. Do not upload only dist or put
+the extracted release inside another folder. Let Netlify run its existing build.
+
+The log should show Yarn 1.22.22, Node 20.19.0, a successful dependency install,
+then yarn build. If a deployment failed, the previous successful production
+release normally stays active; this package does not roll back live data.
+
+VERIFICATION
+A first empty installation generated the lockfile on Node 20.19.0/Yarn 1.22.22.
+A separate empty installation with --frozen-lockfile and a new cache passed;
+its lockfile hash stayed identical. Production build, all 25 publishing tests,
+PWA checks and imports of all three Netlify SDKs passed on that clean install.
+The locked platform dependencies include Linux x64 packages used by Netlify.
+Local checks ran on Windows, not Netlify's Linux build image. Final deployment
+success must still be confirmed in Netlify after uploading this replacement.
+
+Prepared from GitHub v0.18.18, commit
+b14e8bd2cf260732cd61ff5c38175a621d57a674. The current failed source is preserved
+as a rollback source ZIP, not as a known successful production release.
+
+Reference: https://classic.yarnpkg.com/en/docs/selective-version-resolutions/
+Reference: https://classic.yarnpkg.com/en/docs/cli/install/

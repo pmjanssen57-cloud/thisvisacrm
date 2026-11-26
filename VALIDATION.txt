@@ -1,25 +1,24 @@
-THiS CRM v0.18.18 — validation
+THiS CRM v0.18.19 — validation
 
-25 CRM tests passed on Node 20.19.0 using isolated PGlite PostgreSQL. Tests cover
-administrator permissions, first-use schema, concurrent revision saves, atomic
-history, safe public fields, strict dates and URLs, repeatable imports, encrypted
-pairing, saved snapshots, interrupted deliveries, reconciliation, retry identity,
-unpublish, restore, disconnect and missing-secret recovery.
+Exact toolchain: Node 20.19.0 and Yarn 1.22.22, matching the Netlify failure log.
+A fresh installation generated yarn.lock with image-size 2.1.0.
+A second empty installation with a new cache, --frozen-lockfile and the existing
+Netlify optional/non-interactive flags passed with engine validation enabled.
+The lockfile was unchanged: SHA256
+50f3606e90e3bd7f961041c769bb5f1c93d68d3cc79a8711c8ac4bfb74e8258f.
 
-18 Site tests passed using SQLite with the real D1 migration and Web Crypto.
-They cover signatures and timestamps, rendering, duplicate/stale/conflicting
-events, tombstones, the feed and search index, owner pairing, CSRF, single-use
-approval and revoked connections.
+On the second clean install:
+- Production Vite build passed (existing large-bundle advisory remains).
+- All 25 Website Studio tests passed using isolated embedded PostgreSQL.
+- PWA and offline-cache validation passed.
+- @netlify/blobs, @netlify/database and @netlify/identity imported successfully.
 
-The CRM production build, complete server bundle and PWA/cache checks passed.
-The existing large-bundle advisory remains. Isolated browser checks covered new
-drafts, preview, publication, saving a later draft without changing the published
-page, and desktop/mobile layouts.
+Application code, server functions, schema migrations and all other business
+files are checked byte-for-byte against the uploaded v0.18.18 GitHub source.
+Only package metadata, Netlify install flags, shell-cache version and release
+documentation change; yarn.lock and the fix notes are new files.
 
-Package verification checks baseline preservation, ZIP integrity and safe paths.
-SHA256SUMS.txt and verification-report.json accompany the release.
-
-Limits: no production CRM publication, live client writes, physical mobile device
-checks or cross-browser suite. Real owner pairing requires the deployed CRM.
-Existing Squarespace presentation dependencies remain in the mirror.
-
+Package checks cover safe unique ZIP paths, CRC, content hashes and preservation
+of the current source. No live client records, publications or emails were used.
+Checks ran on Windows, not the Netlify Linux image; a successful production
+deployment remains to be verified after the user uploads this replacement.
