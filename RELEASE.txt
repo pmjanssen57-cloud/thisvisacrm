@@ -1,10 +1,9 @@
-THiS CRM v0.18.19 — Netlify dependency installation fix
+THiS CRM v0.18.20 — Selective website imports
 
-Includes a compatible image-size resolution, generated yarn.lock, frozen
-Netlify installation and shell-cache version bump. Retains Node 20.19.0,
-Yarn 1.22.22 and existing CRM/Website Studio behavior.
+Import existing news opens a searchable article picker. Select individual
+articles or matching results, then Import selected. Existing articles and
+saved edits are retained. No article is selected automatically.
 
-Read NETLIFY-BUILD-FIX-v0.18.19.txt for deployment instructions and validation.
-Upload the complete extracted release contents to the existing repository.
-package.json, yarn.lock and netlify.toml must be at the repository root.
-This package has been tested locally; it does not deploy itself to Netlify.
+Read RELEASE_NOTES-v0.18.20.txt and WEBSITE-STUDIO-GUIDE.txt.
+Upload the complete extracted package through the existing GitHub/Netlify flow.
+Refresh the CRM after deployment. The existing website connection is retained.

@@ -8,9 +8,12 @@ FIRST USE
    the CRM connection in that window, then return to confirm Website connected.
    Keep both windows open until that confirmation. No publishing key needs to
    be copied or pasted. Allow the connection window if your browser blocks it.
-3. Select Import existing news to create editable copies of 192 news articles.
-   This is repeatable and never replaces existing edits. Two other historic
-   /news/ addresses redirect to service pages and remain in the website mirror.
+3. Select Import existing news to open the article picker. Search by title,
+   author or category, tick individual articles, or select all shown results.
+   Nothing starts selected. Choose Import selected to copy only those articles.
+   Already imported articles are marked and cannot be selected again. Come back
+   later to import more of the 192 available snapshot articles. Existing edits
+   are retained. Two historic /news/ addresses are service-page redirects.
 4. Open an imported article, or choose New article. Review wording, links,
    featured image and alternative text before republishing imported material.
 

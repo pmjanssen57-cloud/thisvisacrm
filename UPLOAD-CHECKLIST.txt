@@ -1,13 +1,14 @@
-THiS CRM v0.18.19 — upload checklist
+THiS CRM v0.18.20 — Upload checklist
 
-1. Extract THiS-CRM-v0.18.19.zip.
-2. Upload all extracted contents to the existing thisvisacrm GitHub repository,
-   replacing matching files. Preserve folders and existing deployment settings.
-3. Confirm package.json, yarn.lock and netlify.toml are together at the root.
-   Do not upload just dist, the ZIP itself, or an enclosing release folder.
-4. Let Netlify deploy using its existing yarn build and dist settings.
-5. Confirm dependency installation passes and the deployment is Published.
-6. Refresh the CRM. Website Studio setup remains as described in its guide.
+1. Extract THiS-CRM-v0.18.20.zip and upload its complete contents to the existing
+   thisvisacrm GitHub repository, replacing matching files.
+2. Keep package.json, yarn.lock and netlify.toml at the repository root.
+3. Allow the existing Netlify build to finish successfully, then refresh the CRM.
+4. Open Website > Import existing news. Nothing should start selected.
+5. Search for an article, tick it, and choose Import selected.
+6. Confirm only the chosen article appears in Website Studio. Reopen the picker;
+   it should be marked Already in Website Studio and unavailable for reimport.
+7. Your current website connection should still show Website connected.
 
-No Node version change, ignored engine checks, new environment secret, database
-reset or rollback of client data is needed for this dependency installation fix.
+No migration, environment change or reconnection is needed. Older cached CRM
+screens must refresh to use the explicit-selection import operation.

@@ -1,0 +1,39 @@
+THiS CRM v0.18.20 — Choose existing website articles to import
+
+Import existing news now opens a searchable picker. Tick individual articles,
+select matching search results, clear selections, or cancel. Nothing starts
+selected. Selected articles stay ticked across searches. View article opens the
+existing website page so wording can be checked before importing.
+
+Only selected IDs are accepted by the server. Missing, empty, invalid or unknown
+selections are rejected before any import writes. Content always comes from the
+trusted website snapshot, rather than from submitted browser text. A duplicate
+ID or an existing article URL cannot create another copy or replace saved edits.
+Already-present articles are marked and disabled. The available count reflects
+articles not yet in Website Studio, rather than always displaying 192.
+
+Imports do not publish, unpublish or remove content from the website. Existing
+website connection, drafts, revisions and publishing behavior remain in place.
+No database migration, new environment setting or reconnection is required.
+The v0.18.19 dependency fix and exact yarn.lock are retained. The offline shell
+cache advances to v0.18.20.
+
+DEPLOY
+Upload the complete extracted THiS-CRM-v0.18.20.zip to the existing GitHub repo,
+replacing matching files. Keep package.json, yarn.lock and netlify.toml at the
+root. Allow Netlify to deploy, then refresh the CRM before opening Website.
+Older cached screens cannot import all articles through the new backend;
+refreshing loads the new selection controls.
+
+VALIDATION
+Frozen dependency installation with Node 20.19.0 and Yarn 1.22.22 passed.
+All 31 tests passed using isolated PostgreSQL, including the existing publishing
+suite and new selection, metadata, validation, duplicate and URL collision cases.
+The production build, complete CRM server bundle and PWA checks passed.
+Local browser checks covered individual selections across searches, cancelling,
+selecting filtered results, importing exactly two articles, already-present
+markers and a narrow mobile layout. No live records or publications were used.
+
+Baseline: current GitHub v0.18.19, commit
+24e115c507e1ded6d9fe2cd3a551abc23c42a8b5.
+This package is prepared for upload; it has not been deployed by this session.

@@ -43,7 +43,12 @@ export async function websiteStudio(database,access,body,actor,{store,fetcher=fe
  const isConnected=async()=>{const c=await readConnection();return Boolean(c?.transportToken&&c.privateKey);};
  const connection=async()=>{const c=await readConnection();if(!c?.transportToken||!c.privateKey)throw contentError('Connect the website before publishing.',409);return c;};
  const read=async id=>(await database.sql`SELECT * FROM website_articles WHERE id=${id}`)[0];
- const list=async()=>({articles:await database.sql`SELECT id, revision, draft_json->>'title' AS title, draft_json->>'slug' AS slug, draft_json->>'author' AS author, draft_json->>'publicationDate' AS publication_date, status, published_revision, published_draft_revision, updated_at FROM website_articles ORDER BY updated_at DESC`,connected:await isConnected(),websiteUrl:WEBSITE_URL,importAvailable:seed.length});
+ const missingSeed=rows=>{const ids=new Set(rows.map(x=>x.id)),slugs=new Set(rows.map(x=>x.slug));return seed.filter(x=>!ids.has(x.id)&&!slugs.has(x.article.slug));};
+ const list=async()=>{const articles=await database.sql`SELECT id, revision, draft_json->>'title' AS title, draft_json->>'slug' AS slug, draft_json->>'author' AS author, draft_json->>'publicationDate' AS publication_date, status, published_revision, published_draft_revision, updated_at FROM website_articles ORDER BY updated_at DESC`;return {articles,connected:await isConnected(),websiteUrl:WEBSITE_URL,importAvailable:missingSeed(articles).length};};
+ if(operation==='importOptions'){
+  const existing=await database.sql`SELECT id,slug FROM website_articles`,available=new Set(missingSeed(existing).map(x=>x.id));
+  return {articles:seed.map(({id,article:a})=>({id,title:a.title,slug:a.slug,author:a.author,publicationDate:a.publicationDate,categories:a.categories,alreadyImported:!available.has(id)})).sort((a,b)=>b.publicationDate.localeCompare(a.publicationDate)||a.title.localeCompare(b.title))};
+ }
  if(operation==='list')return list();
  if(operation==='connectStart') {
   if(await isConnected())throw contentError('Disconnect the current website connection before creating another.',409);
@@ -71,7 +76,10 @@ export async function websiteStudio(database,access,body,actor,{store,fetcher=fe
   return {connected:false,websiteUrl:WEBSITE_URL};
  }
  if(operation==='import') {
-  const data=seed.map(x=>({id:x.id,draft_json:normaliseArticle(x.article)}));
+  if(!Array.isArray(body.articleIds)||!body.articleIds.length||body.articleIds.length>seed.length)throw contentError('Select the articles you want to import.');
+  const ids=new Set(body.articleIds.map(idValue)),selected=seed.filter(x=>ids.has(x.id));
+  if(selected.length!==ids.size)throw contentError('One or more selected articles are not available to import. Refresh the article picker.');
+  const data=selected.map(x=>({id:x.id,draft_json:normaliseArticle(x.article)}));
   const imported=await database.sql`WITH added AS (
     INSERT INTO website_articles (id,slug,draft_json,published_json,published_draft_revision,status,updated_by) SELECT x.id::uuid,x.draft_json->>'slug',x.draft_json,x.draft_json,1,'Imported',${actor} FROM jsonb_to_recordset(${JSON.stringify(data)}::jsonb) AS x(id text,draft_json jsonb)
     ON CONFLICT DO NOTHING RETURNING id,revision,draft_json
